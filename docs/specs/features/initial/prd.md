@@ -72,6 +72,8 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Tool execution progress shall appear while the tool runs.
 - The user shall be able to stop the active agent run.
 - Glyph shall provide `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions.
+- Built-in tools shall execute without confirmation from the Glyph core.
+- Extensions shall be able to intercept a tool call before execution and allow it, reject it, or change its input.
 - Glyph shall retain exclusive control of terminal input and rendering.
 - Extensions shall add terminal UI elements only through Glyph extension contracts.
 - Every keyboard shortcut shall be user-remappable.
@@ -81,6 +83,9 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall provide an OpenAI Codex model provider with interactive OAuth authentication.
 - Glyph shall persist OpenAI Codex OAuth credentials in a local credential file accessible only to the user running Glyph.
 - Glyph shall provide an OpenAI-compatible model provider configured with a base URL, an optional API key, and an explicit model list.
+- The OpenAI-compatible model provider shall support OpenAI Chat Completions and OpenAI Responses.
+- Provider configuration shall select the OpenAI wire API through an explicit `api` field.
+- A model configuration shall be able to override the provider's `api` value.
 - The OpenAI-compatible API key shall come from an environment variable or the local credential file.
 - Provider configuration shall not contain secret values.
 - `/model` and `Ctrl+L` shall open model selection.
@@ -97,6 +102,7 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall remain usable after an extension runtime failure.
 - The operation using the failed extension shall end with an error.
 - A failed extension shall remain unavailable until Glyph restarts.
+- Glyph shall not require a security policy for trusted extensions.
 - Glyph shall map every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` to at least one Glyph extension contract without requiring an agent core change.
 
 ### Environment Reload
@@ -111,6 +117,13 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - When the new environment fails to load, Glyph shall preserve the session, report the error, and require an application restart.
 - Glyph shall not restore the previous environment after a reload failure.
 
+### Context Management
+
+- Glyph shall compact context automatically when the remaining model context cannot accommodate the next response budget.
+- `/compact` shall trigger context compaction manually and accept user instructions for the summary.
+- Context compaction shall replace earlier model context with a summary while retaining recent context.
+- Extensions shall be able to replace the default compaction behavior.
+
 ### Sessions
 
 - Glyph shall automatically save sessions and allow them to be resumed after restarting the application.
@@ -119,26 +132,28 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - `/new` shall start a new session.
 - `/resume` shall select and continue a saved session.
 - `/tree` shall navigate the complete session tree and continue from the selected position.
+- `/tree` shall offer an optional summary of the branch being left.
+- Session tree entries shall support user-defined labels.
 - `/fork` shall create a separate session from an earlier user message.
 - `/clone` shall create a separate session from the active branch.
 - `/name` shall set a human-readable session name.
 - `/session` shall show information about the active session.
+- `/export` shall export a session as HTML or JSONL.
+- `/share` shall publish the session as a private GitHub gist with a shareable HTML view.
 
 ## Open Questions
 
-- Which OpenAI wire API shall the OpenAI-compatible provider support?
-- How shall extensions be packaged, discovered, installed, and authenticated as trusted code?
-- Shall built-in tools execute immediately, or shall any tool category require user confirmation?
-- What default context compaction behavior shall Glyph provide while specialized compaction remains an extension capability?
-- Does the adopted Pi session behavior include branch summaries, labels, `/compact`, `/export`, and `/share`?
+- Which Pi extension capabilities beyond the scenarios implemented by `pi-agent-suite` shall Glyph expose through public extension contracts?
 
 ## Acceptance Criteria
 
 - On macOS and Linux, a user can authenticate or configure a supported provider, select a model, complete the standard coding-agent scenario, observe streamed model and tool progress, and stop an active run.
-- The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions.
+- The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions and executes them without core confirmation.
+- An extension can intercept a built-in tool call and allow it, reject it, or change its input.
 - A compatible extension can be installed and activated without rebuilding Glyph, and `/reload` applies environment changes while preserving the session.
 - Every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` maps to a public Glyph extension contract without requiring an agent core change.
 - A user can resume a saved tree session, navigate to an earlier position, create another branch, and retain the original branch.
+- A user can summarize and label session branches, compact context, export a session, and share it through a private GitHub gist.
 - Model selection fails without credentials and does not change the active model.
 - Reload and extension-runtime failures follow the requirements above without losing the session.
 - All default keyboard shortcuts can be remapped.
