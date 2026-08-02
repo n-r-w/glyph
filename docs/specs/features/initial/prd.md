@@ -74,6 +74,9 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall provide `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions.
 - Built-in tools shall execute without confirmation from the Glyph core.
 - Extensions shall be able to intercept a tool call before execution and allow it, reject it, or change its input.
+- Extensions shall be able to change a tool result before it is returned to the model.
+- An extension shall be able to replace a built-in or extension tool by registering the same tool name.
+- Extensions shall be able to observe, transform, or fully handle user text and images before agent processing.
 - Glyph shall retain exclusive control of terminal input and rendering.
 - Extensions shall add terminal UI elements only through Glyph extension contracts.
 - Every keyboard shortcut shall be user-remappable.
@@ -98,6 +101,8 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 - A compatible extension shall be installable, enableable, disableable, and updateable without rebuilding Glyph.
 - Glyph extension contracts shall support tools, commands, keyboard shortcuts, lifecycle events, system prompt changes, context transformations, terminal UI elements, sessions, and model access.
+- An extension shall be able to register and unregister a model provider, including its authentication, model catalogue, and streaming behavior.
+- An extension shall be able to contribute reusable instruction resources, prompt templates, and themes during startup and `/reload`.
 - Installed extensions shall be trusted and shall run with the operating-system permissions of the Glyph process.
 - Glyph shall remain usable after an extension runtime failure.
 - The operation using the failed extension shall end with an error.
@@ -149,7 +154,9 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 - On macOS and Linux, a user can authenticate or configure a supported provider, select a model, complete the standard coding-agent scenario, observe streamed model and tool progress, and stop an active run.
 - The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions and executes them without core confirmation.
-- An extension can intercept a built-in tool call and allow it, reject it, or change its input.
+- An extension can intercept a tool call, change its result, and replace its implementation without an agent core change.
+- An extension can handle user input without starting an agent run.
+- An extension can add a model provider and contribute reusable instruction resources, prompt templates, and themes without an agent core change.
 - A compatible extension can be installed and activated without rebuilding Glyph, and `/reload` applies environment changes while preserving the session.
 - Every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` maps to a public Glyph extension contract without requiring an agent core change.
 - A user can resume a saved tree session, navigate to an earlier position, create another branch, and retain the original branch.
