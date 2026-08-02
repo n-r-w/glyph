@@ -14,7 +14,7 @@
 2. `github.com/stretchr/testify` for tests
 3. `github.com/caarlos0/env/v11` for loading configuration from environment variables
 4. `log/slog` for logging (must use structured logging with context). Use global logger with context, instead of passing logger instances around. E.g. `slog.DebugContext`.
-5. `github.com/cenkalti/backoff/v7` for backoff strategies
+5. `github.com/cenkalti/backoff/v7` for retry strategies
 
 ## Coding rules
 1. Run `task lint`, `task test` to check code before completing changes.
