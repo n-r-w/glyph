@@ -138,7 +138,7 @@ linters:
         path: _test\.go
       - linters:
           - gochecknoglobals
-        path: ^cmd/team-mcp/main\.go$
+        path: ^cmd/glyph/main\.go$
         text: "^(version|commit|date|builtBy) is a global variable"
 
 issues:
@@ -155,7 +155,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/n-r-w/team-mcp
+        - github.com/n-r-w/glyph
   exclusions:
     generated: lax
     paths:
