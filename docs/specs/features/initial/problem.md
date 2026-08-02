@@ -37,10 +37,6 @@ The intended audience for an independent platform also includes:
 
 No quantitative estimate of time or resource impact is available. Such measurements are not required to establish this ownership and technology constraint.
 
-## Reproduction Steps
-
-Not applicable. This is a product ownership and technology constraint, not a discrete runtime defect.
-
 ## Current State
 
 `pi-agent-suite` provides additional behavior on top of Pi. Pi defines the agent core, base agent loop, model integrations, session behavior, and extension boundaries.
@@ -84,17 +80,3 @@ This document does not define:
 
 - The platform is implemented in Go.
 - Pi is a conceptual reference only.
-
-## Assumptions
-
-The capabilities of `pi-agent-suite` are assumed to provide sufficient reference scenarios for evaluating Glyph extensibility.
-
-The Light PRD will verify this assumption by deriving extension use cases from all 20 entry points in `pi-agent-suite` and mapping each use case to a required Glyph extension mechanism.
-
-## Open Questions
-
-None.
-
-## Decision / Next Step
-
-After approval of this problem statement, define the Light PRD for the first Glyph version.
