@@ -25,11 +25,13 @@
 ## Executive Summary
 
 - FND-01: Pi exposes 33 named extension events, 23 non-event methods on its primary extension API, and 27 methods on its terminal UI context.
-- FND-02: Production `pi-agent-suite` sources use 14 of the 33 events, 16 of the 23 primary API methods, and 7 of the 27 terminal UI methods.
+- FND-02: Production `pi-agent-suite` sources use 14 of the 33 events, 15 of the 23 non-event primary API methods, the separate `pi.events` property, and 8 of the 27 terminal UI methods.
 - FND-03: `pi-agent-suite` demonstrates substantial extensibility but does not cover Pi's complete extension surface.
 - FND-04: Pi's extension model is ordered middleware combined with dynamic registration, persistence, rendering, and runtime control. It is not only an event-notification system.
 - FND-05: The most material capabilities absent or only partially exercised by `pi-agent-suite` are provider registration, resource contribution, raw input handling, complete tool middleware, session orchestration, detailed streaming lifecycle observation, editor integration, branch-aware persistence, inter-extension communication, and run control.
 - FND-06: Pi-specific helpers and every unused API do not automatically represent requirements for another platform.
+- FND-07: Pi's generic agent runtime has no terminal UI dependency, but its higher-level coding-agent extension contracts mix interface-neutral operations with terminal-specific types.
+- FND-08: Pi's print and RPC modes avoid terminal construction but retain static terminal UI dependencies; this is evidence for separating Glyph host, core, and TUI ownership.
 
 ## Public Surface Inventory
 
@@ -87,6 +89,14 @@
 - OBS-35: Reload emits shutdown, reloads settings and resources, creates a new runtime, emits a new session start, and rediscover resources while preserving the session. [REF-01] [REF-04]
 - OBS-36: Pi documentation states that old extension contexts become stale after reload. The locally installed compiled reload path replaces future dispatch but does not invalidate the previous runner, so documentation and implementation disagree about mechanical rejection of old calls. [REF-01] [REF-04]
 
+## Runtime and Interface Ownership
+
+- OWN-01: `@earendil-works/pi-agent-core` owns the generic model-and-tool loop and depends on `@earendil-works/pi-ai`, not `@earendil-works/pi-tui`. [REF-07]
+- OWN-02: Pi's interactive, print, and RPC modes use the same coding-agent session runtime. Print and RPC modes do not construct terminal input or rendering objects. [REF-08] [REF-09]
+- OWN-03: The higher-level coding-agent package still depends statically on `@earendil-works/pi-tui` because extension UI declarations, tool renderers, themes, and mode imports mix terminal-specific types with agent and session behavior. [REF-02] [REF-08]
+- OWN-04: Pi RPC transports interaction requests and notifications as data, while terminal composition, editor integration, themes, component renderers, and raw terminal input are unavailable or degraded. [REF-05] [REF-09]
+- OWN-05: Pi therefore provides evidence for a TUI-free agent core and interface-neutral host interactions, but its mixed extension UI contract is not a boundary Glyph should copy.
+
 ## Capability Coverage by `pi-agent-suite`
 
 | ID | Capability category | Coverage | Material uncovered behavior |
@@ -127,6 +137,12 @@
 - REC-02: `pi-agent-suite` is a useful scenario suite but an incomplete definition of a general agent extension boundary.
 - REC-03: The highest-impact capability categories are provider registration, resource contribution, input middleware, complete tool middleware, session orchestration, lifecycle transformations, terminal composition, branch-aware persistence, inter-extension communication, and run control.
 - REC-04: Incidental Pi helpers and unused convenience APIs should remain excluded until supported by an independent product need.
+- REC-05: Glyph should separate host-managed extension lifecycle and interface-neutral interaction from agent-core behavior and standard-TUI composition.
+- REC-06: Interface-specific renderers should remain owned by their interface; one renderer need not work across TUI and future graphical interfaces.
+
+## Open Questions
+
+None.
 
 ## References
 
@@ -135,4 +151,9 @@
 - REF-03: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/models.d.ts` — provider model refresh and provider-scoped storage.
 - REF-04: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/runner.js` and `loader.js` — ordered dispatch, chaining, registration, and failure behavior.
 - REF-05: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/rpc.md` — non-TUI extension UI behavior.
-- REF-06: `https://github.com/n-r-w/pi-agent-suite/package.json` and production source under `pi-package/extensions` and `pi-package/shared` — `pi-agent-suite` coverage evidence.
+- REF-06: `https://github.com/n-r-w/pi-agent-suite` — `pi-package/package.json` and production source under `pi-package/extensions` and `pi-package/shared` provide `pi-agent-suite` coverage evidence.
+- REF-07: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core/package.json` and `dist/agent-loop.js` — generic agent runtime dependencies and loop behavior.
+- REF-08: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js`, `dist/core/sdk.js`, and `dist/core/extensions/types.d.ts` — shared runtime construction and static terminal-type coupling.
+- REF-09: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/interactive-mode.js`, `dist/modes/print-mode.js`, and `dist/modes/rpc/rpc-mode.js` — interactive and headless mode behavior.
+- REF-10: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/sdk.md` and `docs/tui.md` — reusable runtime and terminal component concepts.
+- REF-11: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/keybindings.md` — configurable actions and concrete key defaults.

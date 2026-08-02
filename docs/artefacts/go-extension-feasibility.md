@@ -83,7 +83,12 @@
 - REC-04: Keep the product contract independent of the selected transport library.
 - REC-05: Do not use the standard Go `plugin` package or other native shared-library modes as the primary extension mechanism.
 - REC-06: Keep WebAssembly as an option for bounded extension categories rather than the universal extension mechanism.
-- REC-07: Do not promise hot replacement, automatic recovery, unrestricted terminal ownership, native-Go-equivalent WebAssembly or interpreted performance, or Windows support without dedicated validation.
+- REC-07: This research does not validate replacing one running extension in place. A full environment reload may stop the previous extension runtime and start a new runtime while preserving the session.
+- REC-08: Do not promise automatic recovery, unrestricted terminal ownership, native-Go-equivalent WebAssembly or interpreted performance, or Windows support without dedicated validation.
+
+## Open Questions
+
+None.
 
 ## References
 

@@ -23,7 +23,7 @@ The intended audience for an independent platform also includes:
 ## Evidence
 
 - In `pi-agent-suite`, `pi-package/package.json` defines a Pi package with 20 extension entry points.
-- The same manifest declares peer dependencies on `pi-agent-core`, `pi-ai`, `pi-coding-agent`, and `pi-tui`.
+- The same manifest declares peer dependencies on `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, and `@earendil-works/pi-tui`.
 - The root `package.json` uses TypeScript and Bun for development and validation.
 - The `main-agent-selection`, `run-subagent`, `workflow`, and `custom-compaction` extensions use Pi events, state, sessions, model access, and terminal user interface contracts.
 - During product interviews on August 2, 2026, the project owner stated a preference for direct platform ownership and Go instead of TypeScript.
@@ -54,7 +54,7 @@ The platform can serve as a shared foundation for a coding agent and other agent
 The problem is solved when:
 1. The Glyph repository contains the source required to build and release the agent core and extension contracts without Pi.
 2. Glyph production code is implemented in Go.
-3. The Light PRD maps the extension use cases derived from all 20 entry points in `pi-agent-suite` to Glyph extension contracts without requiring agent core changes.
+3. The Light PRD maps each of the 20 `pi-agent-suite` extension entry points to at least one Glyph extension contract without requiring an agent core change or suite-specific core behavior.
 
 ## Scope
 
