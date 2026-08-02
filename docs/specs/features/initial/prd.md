@@ -61,6 +61,7 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall support macOS and Linux.
 - Glyph shall use platform-independent Go facilities instead of operating-system-specific facilities when they provide equivalent behavior.
 - Glyph shall include an agent platform and a standard terminal coding agent.
+- Glyph shall provide a programmatically controlled headless agent mode in addition to the interactive terminal mode.
 - The standard coding agent shall use the same public contracts available to other agents and extensions.
 - The agent core shall remain minimal and shall not define a specific agent workflow.
 - Subagents, workflows, MCP integration, and specialized context compaction shall be implemented through extensions.
@@ -137,6 +138,14 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall not require a security policy for trusted extensions.
 - Glyph shall map every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` to at least one Glyph extension contract without requiring an agent core change.
 
+### Programmatic Agent Control
+
+- Each programmatic command shall carry a correlation identifier.
+- Glyph shall respond that a programmatic command was accepted or rejected independently from its later execution outcome.
+- Glyph shall report execution progress and outcomes through asynchronous events associated with the controlled operation.
+- Parent and child agents shall be able to send correlated requests to each other through the same logical control contract.
+- The programmatic control contract shall not depend on a terminal user interface.
+
 ### Extension Run Control
 
 - An extension shall be able to stop the active agent run.
@@ -189,11 +198,13 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 ## Open Questions
 
-- Which execution modes and parent-child interaction contract shall Glyph support for subprocess agents?
+- Which operations shall the programmatic agent-control contract expose?
+- Which parent operations shall a child agent be allowed to invoke?
 
 ## Acceptance Criteria
 
 - On macOS and Linux, a user can authenticate or configure a supported provider, select a model, complete the standard coding-agent scenario, observe streamed model and tool progress, and stop an active run.
+- A headless parent and child agent can exchange correlated commands and asynchronous operation events in both directions without a terminal user interface.
 - The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions and executes them without core confirmation.
 - An extension can intercept a tool call, change its result, and replace its implementation without an agent core change.
 - An extension can handle user input without starting an agent run.
