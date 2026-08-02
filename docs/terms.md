@@ -13,8 +13,21 @@
 - `tool`: A typed operation that an agent exposes to a model by name.
 - `extension`: A component that adds or changes platform behavior through extension contracts without modifying the agent core source code.
 - `extension contract`: A documented interface, data type, event, or registration point through which an extension interacts with the platform.
+- `extension point`: A boundary where an extension can perform a declared operation such as observe, block, modify, replace, register, persist, render, or control.
+- `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `context`: The information sent to a model to produce its next response or tool request.
+- `context compaction`: Replacement of earlier model context with a summary while retaining recent context.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
+- `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
+- `active leaf`: The session-tree entry from which subsequent entries continue.
+- `headless agent`: An ordinary agent instance controlled programmatically without a terminal user interface.
+- `parent agent`: An agent that starts and configures a child agent.
+- `child agent`: A headless agent that uses standard Glyph configuration unless its parent supplies explicit overrides and that executes its available tools itself.
+- `programmatic control contract`: A transport-independent contract for correlated commands, acceptance responses, asynchronous execution events, and parent-child requests.
+- `steer`: A message delivered before the next model request after the current tools finish.
+- `followUp`: A message delivered after the current agent run finishes.
+- `nextTurn`: A message delivered with the next user turn.
+- `terminate`: A tool-result signal that suppresses the next automatic model request when every completed result in the current tool batch contains the signal.
 - `model provider`: A local or remote system through which an agent accesses a language model.
 - `terminal user interface`: An interactive agent interface presented inside a terminal.
 - `reference scenario`: Behavior from an existing system that is used to evaluate Glyph requirements or extension contracts without requiring source compatibility with that system.

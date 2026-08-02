@@ -145,6 +145,11 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Glyph shall report execution progress and outcomes through asynchronous events associated with the controlled operation.
 - Parent and child agents shall be able to send correlated requests to each other through the same logical control contract.
 - The programmatic control contract shall not depend on a terminal user interface.
+- The programmatic control contract shall support user requests, `steer`, `followUp`, abort, state and message queries, model selection, reasoning-level selection, queue modes, compaction, retry control, programmatic shell execution, session statistics, session export, session creation, session switching, forking, cloning, tree navigation, session entries, session naming, command discovery, execution events, and interface requests.
+- A child agent shall be an ordinary Glyph agent running without a terminal user interface.
+- Without explicit overrides, a child agent shall use the standard Glyph configuration.
+- A parent shall be able to provide a child agent with model, reasoning-level, session, active-tool, and agent configuration overrides.
+- A child agent shall execute its available tools itself.
 
 ### Extension Run Control
 
@@ -198,13 +203,14 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 ## Open Questions
 
-- Which operations shall the programmatic agent-control contract expose?
-- Which parent operations shall a child agent be allowed to invoke?
+None.
 
 ## Acceptance Criteria
 
 - On macOS and Linux, a user can authenticate or configure a supported provider, select a model, complete the standard coding-agent scenario, observe streamed model and tool progress, and stop an active run.
 - A headless parent and child agent can exchange correlated commands and asynchronous operation events in both directions without a terminal user interface.
+- The programmatic control contract exposes the approved Pi-equivalent operation categories without selecting a transport technology.
+- A child agent starts with the standard Glyph configuration, applies explicit parent overrides, and executes its available tools itself.
 - The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions and executes them without core confirmation.
 - An extension can intercept a tool call, change its result, and replace its implementation without an agent core change.
 - An extension can handle user input without starting an agent run.
