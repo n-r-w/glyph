@@ -48,6 +48,8 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Built-in subagents, workflows, MCP support, or specialized context compaction behavior. Glyph exposes extension contracts for these capabilities.
 - Windows support.
 - Sandboxing of trusted extensions.
+- Direct user shell commands outside the `bash` tool.
+- Extension-defined startup arguments and command argument completion.
 - Technical architecture and implementation planning.
 
 ## Requirements
@@ -81,6 +83,18 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - Extensions shall add terminal UI elements only through Glyph extension contracts.
 - Every keyboard shortcut shall be user-remappable.
 
+### Extension Terminal UI
+
+- Extensions shall be able to show list selection, confirmation, single-line input, multi-line editing, notifications, and host-rendered custom or overlay components.
+- Extensions shall be able to provide statuses, working indicators, widgets, headers, footers, the terminal title, and the label for hidden reasoning content.
+- Extensions shall be able to register renderers for tool calls, tool results, custom messages, and custom session entries.
+- Extensions shall be able to inspect and change whether tool results are expanded.
+- Extensions shall be able to receive raw terminal input forwarded by Glyph.
+- Extensions shall be able to read, replace, and insert text in the active editor.
+- Extensions shall be able to contribute editor autocomplete and replace the editor component.
+- Extensions shall be able to enumerate and switch themes.
+- Glyph shall retain ownership of terminal input dispatch and rendering while extensions use these capabilities.
+
 ### Models and Credentials
 
 - Glyph shall provide an OpenAI Codex model provider with interactive OAuth authentication.
@@ -101,14 +115,39 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 - A compatible extension shall be installable, enableable, disableable, and updateable without rebuilding Glyph.
 - Glyph extension contracts shall support tools, commands, keyboard shortcuts, lifecycle events, system prompt changes, context transformations, terminal UI elements, sessions, and model access.
+- Each extension point shall declare whether handlers can observe, block, modify, or replace the affected operation.
+- Multiple transformations of the same operation shall run sequentially, with each handler receiving the valid result of the preceding handler.
+- An extension shall be able to initiate and cancel session creation, resumption, forking, cloning, and tree navigation.
+- After session replacement, the extension shall receive a context bound to the replacement session.
+- An extension shall be able to persist model-hidden session data, add model-visible session messages, and associate persisted data with the active session branch.
+- Extensions shall be able to exchange non-persistent events within the Glyph process.
 - An extension shall be able to register and unregister a model provider, including its authentication, model catalogue, and streaming behavior.
+- An extension shall be able to change provider request headers, replace the serialized provider request, and observe the provider response status and headers.
 - An extension shall be able to contribute reusable instruction resources, prompt templates, and themes during startup and `/reload`.
 - Installed extensions shall be trusted and shall run with the operating-system permissions of the Glyph process.
+- Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool execution start, tool execution update, tool execution end, model selection, and reasoning-level selection.
+- An extension shall be able to replace a finalized message without changing its role.
+- Multiple finalized-message replacements shall run sequentially.
 - Glyph shall remain usable after an extension runtime failure.
 - The operation using the failed extension shall end with an error.
 - A failed extension shall remain unavailable until Glyph restarts.
+- An ordinary extension handler error shall be reported while later handlers and the base operation continue and the extension remains active.
+- An error in a pre-execution tool handler shall block that tool.
+- An extension tool execution error shall become a model-visible error result, after which the agent shall continue.
 - Glyph shall not require a security policy for trusted extensions.
 - Glyph shall map every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` to at least one Glyph extension contract without requiring an agent core change.
+
+### Extension Run Control
+
+- An extension shall be able to stop the active agent run.
+- An extension shall be able to request context compaction.
+- An extension shall be able to send a message as `steer`, `followUp`, or `nextTurn`.
+- A `steer` message shall be delivered before the next model request after the current tools finish.
+- A `followUp` message shall be delivered after the current agent run finishes.
+- A `nextTurn` message shall be delivered with the next user turn.
+- An extension tool shall be able to return `terminate`.
+- Glyph shall skip the next automatic model request only when every completed result in the current tool batch contains `terminate`.
+- `terminate` shall not interrupt another tool already running in the same batch.
 
 ### Environment Reload
 
@@ -121,6 +160,8 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - `/reload` shall preserve extension state already stored in the session or files.
 - When the new environment fails to load, Glyph shall preserve the session, report the error, and require an application restart.
 - Glyph shall not restore the previous environment after a reload failure.
+- After `/reload` or session replacement, the previous extension context shall become invalid and calls through it shall fail.
+- Events and commands after `/reload` or session replacement shall receive a context bound to the active runtime and session.
 
 ### Context Management
 
@@ -148,7 +189,7 @@ Glyph provides an independently owned Go platform whose agent core and extension
 
 ## Open Questions
 
-- Which Pi extension capabilities beyond the scenarios implemented by `pi-agent-suite` shall Glyph expose through public extension contracts?
+- Which execution modes and parent-child interaction contract shall Glyph support for subprocess agents?
 
 ## Acceptance Criteria
 
@@ -156,13 +197,18 @@ Glyph provides an independently owned Go platform whose agent core and extension
 - The standard agent exposes `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` without extensions and executes them without core confirmation.
 - An extension can intercept a tool call, change its result, and replace its implementation without an agent core change.
 - An extension can handle user input without starting an agent run.
-- An extension can add a model provider and contribute reusable instruction resources, prompt templates, and themes without an agent core change.
+- An extension can provide the approved dialogs, persistent terminal regions, transcript renderers, editor integration, raw-input handling, and theme control without taking terminal ownership.
+- An extension can add a model provider, modify provider requests, observe provider responses, and contribute reusable instruction resources, prompt templates, and themes without an agent core change.
+- An extension can observe the approved execution lifecycle and replace a finalized message without changing its role.
+- Extension handler, pre-tool, tool-execution, and extension-runtime failures follow their approved distinct behaviors.
+- An extension can control session transitions, chain transformations, persist branch-aware state, exchange process-local events, and use the approved run controls without an agent core change.
 - A compatible extension can be installed and activated without rebuilding Glyph, and `/reload` applies environment changes while preserving the session.
 - Every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` maps to a public Glyph extension contract without requiring an agent core change.
 - A user can resume a saved tree session, navigate to an earlier position, create another branch, and retain the original branch.
 - A user can summarize and label session branches, compact context, export a session, and share it through a private GitHub gist.
 - Model selection fails without credentials and does not change the active model.
 - Reload and extension-runtime failures follow the requirements above without losing the session.
+- Calls through an extension context from before `/reload` or session replacement fail, while later events and commands use the active context.
 - All default keyboard shortcuts can be remapped.
 
 ## Technical Supplement
