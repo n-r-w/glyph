@@ -64,7 +64,8 @@ glyph
 #### Protobuf Contract
 
 - DEC-08: Store the source contract at `api/extension/v1/tool.proto` and generated Go code at `pkg/extension/v1`.
-- DEC-09: Generate and lint protobuf with Easyp. Use local `protoc-gen-go` and `protoc-gen-go-grpc`, commit generated Go files, and exclude Easyp package management, remote plugins, and breaking checks from the prototype workflow.
+- DEC-09: Pin Easyp, `protoc-gen-go`, and `protoc-gen-go-grpc` in `tools.mod` and `tools.sum`. Invoke them through `go tool -modfile=tools.mod`, commit generated Go files, and exclude Easyp package management, remote plugins, and breaking checks from the prototype workflow. Keep `mockgen` in the main `go.mod` for package-local `go:generate` directives.
+- DEC-09.1: Override Easyp's retracted transitive `github.com/klauspost/compress v1.18.1` with `v1.19.1` in `tools.mod`.
 - DEC-10: Expose one unary `ListTools` RPC and one server-streaming `Execute` RPC.
 - DEC-11: `ListTools` returns each tool's name, description, and JSON Schema. The host calls it once after extension startup, validates the complete catalog, and caches it until the process stops.
 - DEC-12: Reject the complete catalog, stop the extension process, and mark the extension unavailable when a descriptor has an empty or duplicate name, an empty description, or syntactically invalid JSON Schema. Do not partially register tools.
@@ -192,3 +193,4 @@ glyph
 - REF-06: `https://github.com/easyp-tech/easyp` — selected protobuf generation and lint tool.
 - REF-07: `https://github.com/openai/openai-go` — candidate Responses API client.
 - REF-08: `https://github.com/charmbracelet/bubbletea` — recommended TUI framework candidate.
+- REF-09: `tools.mod` — isolated protobuf tooling module.
