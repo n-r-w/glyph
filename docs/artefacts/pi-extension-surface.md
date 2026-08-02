@@ -6,7 +6,7 @@
 
 - ISP-01: Public extension contracts documented or declared by the locally installed Pi package.
 - ISP-02: Product-visible lifecycle, interception, replacement, registration, persistence, rendering, and runtime-control behavior.
-- ISP-03: Production extension usage under `/Users/rvnikulenk/dev/nrw/pi-harness/pi-package`, excluding test files.
+- ISP-03: Production extension usage under `https://github.com/n-r-w/pi-agent-suite`, excluding test files.
 - OSP-01: Private Pi implementation details that do not define public extension behavior.
 - OSP-02: Glyph architecture, API shapes, transports, and implementation choices.
 - LIM-01: Coverage of `pi-agent-suite` is based on production-source usage. Indirect calls hidden behind aliases can reduce the accuracy of negative findings.
@@ -135,4 +135,4 @@
 - REF-03: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/models.d.ts` — provider model refresh and provider-scoped storage.
 - REF-04: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/runner.js` and `loader.js` — ordered dispatch, chaining, registration, and failure behavior.
 - REF-05: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/rpc.md` — non-TUI extension UI behavior.
-- REF-06: `/Users/rvnikulenk/dev/nrw/pi-harness/pi-package/package.json` and production source under `pi-package/extensions` and `pi-package/shared` — `pi-agent-suite` coverage evidence.
+- REF-06: `https://github.com/n-r-w/pi-agent-suite/package.json` and production source under `pi-package/extensions` and `pi-package/shared` — `pi-agent-suite` coverage evidence.
