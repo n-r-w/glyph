@@ -40,9 +40,9 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
 
 - The author starts Glyph without headless mode, the Glyph host selects and starts the standard TUI from the UI catalog, and the author completes OpenAI Codex OAuth when required, submits a coding task, observes streamed model and tool output, and continues the conversation after the agent becomes idle.
 - The agent reads and changes a file, runs a project command, and reports the result.
-- The author starts a headless agent with one text request and no UI plugin. It uses the same model configuration, credentials, extension, and agent-tool loop as the standard TUI.
+- The author starts a headless agent with one text request and no UI plugin. It uses the same model configuration, credentials, extensions, and agent-tool loop as the standard TUI.
 - The author stops an active model request or tool and can continue using the standard TUI.
-- An incompatible or failed extension becomes unavailable without terminating the Glyph host.
+- An incompatible or failed extension becomes unavailable without terminating the Glyph host or another extension.
 - When the active UI plugin exits, Glyph cancels the active agent run and terminates.
 
 ## Scope and Non-Scope
@@ -51,7 +51,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
 
 - A Go Glyph host, UI-free agent core, UI catalog with the standard TUI, and one-shot headless operation.
 - OpenAI Codex with interactive OAuth, one configured provider/model pair, and an optional startup reasoning level.
-- One runtime-loaded Go extension that provides `read`, `edit`, and `bash`.
+- One or more runtime-loaded Go extensions; the source repository includes the standard tools extension that provides `read`, `edit`, and `bash`.
 - One in-memory linear session and one active agent run.
 - macOS on arm64.
 - Source-based build and execution.
@@ -85,8 +85,12 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
   - **Main PRD:** `Matches` — Platform Requirements contain the same dependency constraint.
 - The Glyph host shall run in headless mode without loading a UI plugin, and no UI plugin implementation shall own agent-core behavior.
   - **Main PRD:** `Matches` — Platform Requirements contain the same headless and ownership constraints.
-- The prototype shall be buildable and runnable from its source repository through documented commands, with the Glyph host application, standard TUI executable, and extension executable built separately.
+- The prototype shall be buildable and runnable from its source repository through documented commands, with the Glyph host application, standard TUI executable, and standard tools extension executable built separately.
   - **Main PRD:** `No direct match` — the target PRD requires open-source distribution and separate UI plugin behavior but does not define prototype build commands or build outputs.
+- The author shall be able to override the extension catalog directory and UI catalog directory independently for one Glyph invocation. Each override shall replace the corresponding default directory for that invocation without changing persisted settings.
+  - **Main PRD:** `No direct match` — the target PRD defines separate catalogs but does not define per-invocation directory overrides.
+- At every startup, Glyph shall present an informational summary through the active UI plugin or headless output. The summary shall identify the selected UI plugin or headless mode, every successfully loaded extension, and the tools registered by each extension. No loaded extensions or tools shall be reported as a normal state without a warning or error; extension load failures shall be reported separately.
+  - **Main PRD:** `No direct match` — the target PRD does not define a startup summary.
 
 ### UI Plugin Startup
 
@@ -130,15 +134,19 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
 
 ### Extension Runtime and Tools
 
-- The author shall be able to place one separately built extension executable in the extension directory, after which the Glyph host shall discover it at the next application start without rebuilding Glyph.
-  - **Main PRD:** `Differs` — Extensions and Glyph Clients require installation, enablement, disablement, and updates without rebuilding Glyph; the prototype uses manual file placement and startup discovery for one extension.
-- The Glyph host shall start the discovered extension with the application and stop it when the application exits.
-  - **Main PRD:** `Differs` — the target extension lifecycle also covers enablement, disablement, updates, environment reload, and post-failure unavailability; the prototype supports only application startup and shutdown.
+- The author shall be able to place separately built extension executables in the extension directory, after which the Glyph host shall discover them at the next application start without rebuilding Glyph.
+  - **Main PRD:** `Differs` — Extensions and Glyph Clients require installation, enablement, disablement, and updates without rebuilding Glyph; the prototype uses manual file placement and startup discovery for one or more extensions.
+- An empty extension catalog shall be valid and shall produce an empty tool catalog without a warning or startup error.
+  - **Main PRD:** `No direct match` — the target PRD does not define behavior when no extensions are available.
+- The Glyph host shall independently attempt to start every discovered extension with the application and shall stop every started extension when the application exits.
+  - **Main PRD:** `Differs` — the target extension lifecycle also covers enablement, disablement, updates, environment reload, and post-failure unavailability; the prototype supports independent extension startup and application shutdown only.
 - The extension contract shall support registration and execution of `read`, `edit`, and `bash`, final results, streamed progress, and cancellation.
-  - **Main PRD:** `Differs` — Bundled Standard Tools require seven tools and the ordinary extension lifecycle; the prototype includes three tools while retaining the Agent and Tool Runtime requirements for registration, progress, results, and cancellation.
-- An incompatible extension, extension startup failure, or extension crash shall leave the Glyph host usable, mark the extension unavailable, and report which condition occurred; an active tool call shall fail, and the host shall not restart the extension automatically.
-  - **Main PRD:** `Differs` — Environment Reload defines host survival and extension unavailability until Glyph restarts after a runtime crash; the prototype applies the same outcome to incompatibility and startup failure.
-- The extension shall be trusted, run with the operating-system permissions of Glyph, and execute tools without sandboxing, project-trust checks, or confirmation.
+  - **Main PRD:** `Differs` — Bundled Standard Tools require seven tools and the ordinary extension lifecycle; the prototype includes three standard tools while retaining the Agent and Tool Runtime requirements for registration, progress, results, and cancellation.
+- An incompatible extension, extension startup failure, or extension crash shall leave the Glyph host and every other extension usable, mark only the failed extension unavailable, and report which condition occurred; an active tool call owned by that extension shall fail, and the host shall not restart the extension automatically.
+  - **Main PRD:** `Differs` — Environment Reload defines host survival and extension unavailability until Glyph restarts after a runtime crash; the prototype adds independent failure isolation for every discovered extension and applies the same outcome to incompatibility and startup failure.
+- Tool names across successfully started extensions shall be globally unique. When two or more extensions register the same tool name, the Glyph host shall mark every extension registering that name unavailable, register no tools from those extensions, report the conflicting tool name and plugin IDs, and keep every non-conflicting extension available.
+  - **Main PRD:** `No direct match` — the target PRD does not define tool-name collisions across extensions.
+- Every extension shall be trusted, run with the operating-system permissions of Glyph, and execute tools without sandboxing, project-trust checks, or confirmation.
   - **Main PRD:** `Matches` — Extensions and Glyph Clients trust installed extensions, Non-Scope excludes sandbox and project-trust policy, and Bundled Standard Tools execute without agent-core confirmation.
 - The directory from which Glyph starts shall be the working project, and relative tool paths shall resolve from it.
   - **Main PRD:** `No direct match` — the target PRD does not define project selection or relative-path resolution.
