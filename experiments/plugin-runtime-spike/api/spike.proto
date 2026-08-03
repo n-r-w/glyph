@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package glyph.experiments.plugin_runtime.v1;
+
+option go_package = "github.com/n-r-w/glyph/experiments/plugin-runtime-spike/protocol/v1;protocolv1";
+
+// ExtensionService exposes a fixed startup catalog and streamed tool execution.
+service ExtensionService {
+  // ListTools returns the complete catalog owned by one extension process.
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+  // Execute returns ordered progress followed by one terminal result.
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+}
+
+// UIService carries Host events and UI commands on one persistent stream.
+service UIService {
+  // Describe returns startup capabilities without opening the UI lifecycle stream.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  // Open opens the UI lifecycle stream. Stream completion terminates the UI lifecycle.
+  rpc Open(stream OpenRequest) returns (stream OpenResponse);
+}
+
+// ListToolsRequest has no fields because catalogs are fixed at startup.
+message ListToolsRequest {}
+
+// ListToolsResponse contains the complete tool catalog for one extension.
+message ListToolsResponse {
+  repeated Tool tools = 1;
+}
+
+// Tool identifies one extension-owned tool.
+message Tool {
+  string name = 1;
+}
+
+// ExecuteRequest starts one tool call.
+message ExecuteRequest {
+  string tool_name = 1;
+  string input = 2;
+}
+
+// ExecuteResponse contains progress or the terminal result.
+message ExecuteResponse {
+  oneof content {
+    string progress = 1;
+    ToolResult result = 2;
+  }
+}
+
+// ToolResult is the terminal outcome of one tool call.
+message ToolResult {
+  string content = 1;
+  bool is_error = 2;
+}
+
+// DescribeRequest has no fields because capabilities are fixed at startup.
+message DescribeRequest {}
+
+// DescribeResponse declares whether the UI plugin controls a terminal.
+message DescribeResponse {
+  bool uses_terminal = 1;
+}
+
+// OpenRequest carries one Host command to the UI plugin.
+message OpenRequest {
+  UICommand command = 1;
+}
+
+// UICommand selects one observable UI action.
+enum UICommand {
+  UI_COMMAND_UNSPECIFIED = 0;
+  UI_COMMAND_ECHO = 1;
+  UI_COMMAND_QUIT = 2;
+  UI_COMMAND_CRASH = 3;
+}
+
+// OpenResponse carries one UI lifecycle event or client command.
+message OpenResponse {
+  UIEvent event = 1;
+  string text = 2;
+}
+
+// UIEvent identifies observable UI stream behavior.
+enum UIEvent {
+  UI_EVENT_UNSPECIFIED = 0;
+  UI_EVENT_READY = 1;
+  UI_EVENT_ECHOED = 2;
+  UI_EVENT_EXITED = 3;
+  UI_EVENT_RESIZED = 4;
+}
