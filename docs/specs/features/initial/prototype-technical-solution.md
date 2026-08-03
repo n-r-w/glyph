@@ -60,6 +60,10 @@ glyph
 - DEC-35: Use `golang.org/x/oauth2` for PKCE generation, authorization URL construction, and authorization-code exchange. Keep the loopback callback server, `state` validation, Codex JSON refresh request, and provider-owned credential mapping inside the Codex provider.
 - DEC-36: Support browser OAuth only when Glyph and the browser run on the same computer. Attempt registered callback address `127.0.0.1:1455` first and `127.0.0.1:1457` second. Always display the authorization URL in the TUI and treat automatic browser launch as best-effort.
 - DEC-37: Refresh an OAuth access token before a model request when no more than five minutes remain before expiry and persist the rotated credential through DEC-29. When the backend returns `401`, fail the run with a sign-in-required error; do not refresh and replay the model request.
+- DEC-42: Serialize every ChatGPT Codex request input as an ordered list of Responses input items, including the first user message. Do not use the SDK string-input shorthand.
+- DEC-43: Preserve provider output items in their original order. Treat a reasoning item as opaque provider context consisting of its `id`, `encrypted_content`, and `summary`, and replay it immediately before the output item it produced. Do not log or interpret encrypted reasoning.
+- DEC-44: When a reasoning item was returned without `encrypted_content`, fail stateless continuation instead of dropping that item. When the provider returned no reasoning item, continue without synthesizing one.
+- DEC-45: Wrap the SDK HTTP client with a Codex-owned error transport that reads only bounded `4xx` and `5xx` response bodies, restores the body for the SDK, and extracts `detail` or `error.message`. Do not retain request or response headers, and limit the user-visible provider detail to 4000 characters.
 
 #### Extension Process and Transport
 
@@ -112,7 +116,7 @@ glyph
 
 - STP-01: `glyph` loads configuration and persisted OAuth credentials, discovers `glyph-tools`, negotiates extension protocol version `1`, and caches the validated tool catalog.
 - STP-02: The selected interface submits one user message to Agent Core. Agent Core appends it to the in-memory history and requests a streamed model response.
-- STP-03: The Codex provider translates the history and cached tool descriptors into a Responses API request and converts provider stream items into Agent Core model events.
+- STP-03: The Codex provider translates history and cached tool descriptors into an ordered Responses input-item list, converts provider stream items into Agent Core model events, and preserves opaque reasoning items in provider output order for stateless continuation.
 - STP-04: Agent Core forwards text deltas to the active interface. When the model finishes a tool call, Agent Core invokes the extension-backed tool contract.
 - STP-05: The internal extension adapter sends `Execute`, maps progress events to Agent Core tool-progress events, and returns the terminal result to the history and the next model request.
 - STP-06: Agent Core repeats model and tool work sequentially until the model emits a final response without tool calls or the run context is cancelled.
@@ -144,15 +148,10 @@ glyph
 
 ## Open Questions
 
-### QST-06: OpenAI Codex live compatibility
-- **Impact:** Static source inspection cannot prove that the selected OAuth and SSE implementations remain accepted by the live ChatGPT Codex backend.
-- **Evidence checked:** Pi and the official Codex client establish the OAuth parameters, registered callback ports, token fields, request headers, and Responses behavior used by DEC-33 through DEC-37. Docker Agent and Dagger demonstrate `openai-go` against the same backend. These sources do not replace an end-to-end request using Glyph's selected combination.
-- **Resolution:** Validate one live browser login, forced token refresh, streamed response, encrypted reasoning replay, and tool call before closing QST-06.
-
 ### QST-07: Agent Core model, history, and event contracts
 - **Impact:** These contracts determine whether TUI, headless mode, and future providers remain independent from one another.
-- **Recommended answer:** Define provider and tool interfaces in the Agent Core consumer package; use provider-neutral message, tool-call, tool-result, and run-event types; expose streaming through a pull-based `Recv` contract tied to context cancellation.
-- **Evidence checked:** Approved ownership places the loop in Agent Core, while provider and extension implementations remain outside it. Consumer-owned interfaces are required by the Go project rules.
+- **Recommended answer:** Define provider and tool interfaces in the Agent Core consumer package; use provider-neutral message, tool-call, tool-result, and run-event types; preserve ordered opaque provider context without exposing SDK types; expose streaming through a pull-based `Recv` contract tied to context cancellation.
+- **Evidence checked:** Approved ownership places the loop in Agent Core, while provider and extension implementations remain outside it. Consumer-owned interfaces are required by the Go project rules. The live Codex spike requires ordered reasoning replay across tool continuation.
 - **Resolution:** Conduct a separate Q&A session covering the target directory structure, package ownership, domain types, and event variants.
 
 ### QST-08: Go package layout and composition root
@@ -181,3 +180,4 @@ glyph
 - REF-16: `https://github.com/santhosh-tekuri/jsonschema/tree/v6.0.2` — selected Draft 2020-12 schema compiler and validator.
 - REF-17: `https://developers.openai.com/api/docs/guides/function-calling` — OpenAI function-tool and strict-schema requirements.
 - REF-18: `https://github.com/anthropics/anthropic-sdk-go/blob/0303a8539676836e0cb351f3489fc2d347bbacde/message.go` — Anthropic Draft 2020-12 tool schema and strict-tool contract.
+- REF-19: `experiments/codex-oauth-spike` — persisted `gpt-5.6-luna` live verification for PKCE, credential refresh, SSE, strict tool calling, error details, and encrypted reasoning replay.

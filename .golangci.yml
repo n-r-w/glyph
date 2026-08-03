@@ -117,6 +117,8 @@ linters:
 
   exclusions:
     generated: lax
+    paths:
+      - ^experiments/
     rules:
       - linters:
           - perfsprint
