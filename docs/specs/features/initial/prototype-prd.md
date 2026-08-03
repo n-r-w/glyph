@@ -13,6 +13,7 @@
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `headless agent`: A Glyph agent instance controlled programmatically without a terminal user interface.
 - `model provider`: A local or remote system through which an agent accesses a language model.
+- `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
 - `standard TUI`: The terminal interface distributed with Glyph; it depends on the Glyph host and agent core and owns terminal-specific rendering, input, and extension capabilities.
 
@@ -39,7 +40,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 ### Scope
 
 - A Go Glyph host, TUI-free agent core, basic standard TUI, and one-shot headless operation.
-- OpenAI Codex with interactive OAuth and one configured model.
+- OpenAI Codex with interactive OAuth, one configured provider/model pair, and an optional startup reasoning level.
 - One runtime-loaded Go extension that provides `read`, `edit`, and `bash`.
 - One in-memory linear session and one active agent run.
 - macOS on arm64.
@@ -48,7 +49,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 ### Non-Scope
 
 - Persistent or tree-structured sessions and context compaction.
-- OpenAI-compatible providers, model selection, model cycling, and reasoning-level configuration.
+- OpenAI-compatible providers, model selection, model cycling, and runtime reasoning-level switching.
 - A stable programmatic control protocol, structured headless output, message queues, concurrent agent runs, and automatic retries.
 - Extension installation commands, enablement, disablement, updates, environment reload, lifecycle events, resource contributions, and TUI-specific extension capabilities.
 - The bundled resource extension, skills, prompt templates, and context files.
@@ -87,10 +88,10 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
   - **Main PRD:** `No direct match` — the target PRD requires interactive Codex OAuth but does not define this automatic TUI startup transition.
 - A headless start without stored credentials that the provider can use or refresh shall fail explicitly instead of starting OAuth.
   - **Main PRD:** `Differs` — the target PRD permits provider interaction through any attached interface; the prototype restricts initial OAuth to the standard TUI.
-- One model identifier shall be configurable and shared by standard-TUI and headless operation; model selection and model switching shall be unavailable.
-  - **Main PRD:** `Differs` — Model Runtime and Standard TUI Requirements require model changes and user-facing model selection; the prototype uses one configured model.
-- The prototype shall use the configured model's default reasoning level without exposing reasoning configuration or switching.
-  - **Main PRD:** `Differs` — Programmatic Control covers reasoning selection; the prototype provides no reasoning control.
+- The settings file shall require `defaultProvider` and `defaultModel`; `defaultProvider` shall be `openai-codex`. Standard-TUI and headless operation shall use the same configured values, and runtime model selection or switching shall be unavailable.
+  - **Main PRD:** `Differs` — Model Runtime and Standard TUI Requirements support provider/model changes and user-facing model selection; the prototype reads one provider/model pair at startup and does not change it at runtime.
+- The settings file may contain `defaultThinkingLevel`. When present, the prototype shall use that value; when absent, it shall use the configured model's default reasoning level. Runtime reasoning-level switching shall be unavailable.
+  - **Main PRD:** `Differs` — Programmatic Control supports reasoning selection at runtime; the prototype supports only one optional startup value.
 - Persisted OAuth tokens shall exist only in the user-only credential file and shall not appear in configuration, terminal output, logs, model context, or tool parameters.
   - **Main PRD:** `Differs` — Model Providers and Authentication prohibit secret values in provider configuration and restrict credential-file access; the prototype additionally prohibits token exposure through terminal output, logs, model context, and tool parameters.
 
