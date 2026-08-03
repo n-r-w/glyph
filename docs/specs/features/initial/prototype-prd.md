@@ -3,43 +3,53 @@
 ## Definitions
 
 - `Glyph`: The project name for the independent Go agent platform being defined.
-- `Glyph host`: The platform layer that manages extension runtimes and connects them to the agent core and attached interfaces without owning interface-specific behavior.
+- `Glyph host`: The platform layer that manages extension runtimes and connects them to the agent core and Glyph clients without owning client-specific behavior.
 - `agent core`: The required part of an agent platform that provides runtime behavior shared by its agents.
 - `agent loop`: The repeated sequence of requesting a model response, executing model-requested actions, and returning their results to the model until the run completes or is stopped.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
 - `coding agent`: An agent intended to work with source code and related software development tasks.
 - `tool`: A typed operation that an agent exposes to a model by name.
-- `extension`: A component that adds or changes platform behavior through extension contracts without modifying the agent core source code.
+- `Glyph plugin`: A separately delivered Glyph component. The defined Glyph plugin kinds are extension and UI plugin.
+- `extension`: A Glyph plugin that contributes platform or agent capabilities through extension contracts.
+- `UI plugin`: A Glyph plugin that presents Glyph to a person and communicates with Glyph as a Glyph client.
+- `extension catalog`: The collection of extensions available to a Glyph host.
+- `UI catalog`: The collection of discovered UI plugins considered by a Glyph host during UI selection.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
-- `headless agent`: A Glyph agent instance controlled programmatically without a terminal user interface.
+- `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
+- `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
+- `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `model provider`: A local or remote system through which an agent accesses a language model.
 - `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
-- `standard TUI`: The terminal interface distributed with Glyph; it depends on the Glyph host and agent core and owns terminal-specific rendering, input, and extension capabilities.
+- `UI`: A presentation and input surface through which a person interacts with Glyph.
+- `terminal UI`: A UI presented inside a terminal.
+- `standard TUI`: The terminal UI plugin distributed with Glyph; it owns terminal-specific rendering, input, and extension capabilities.
+- `Go interface`: A Go language type that defines a method set; this term does not refer to a UI plugin, Glyph client, or extension.
 
 ## Context and Problem
 
-The target product requirements in `docs/specs/features/initial/prd.md` cover the complete Glyph platform. Implementing that entire scope before running an end-to-end agent would delay validation of the product flow and the boundaries among the Glyph host, agent core, interfaces, providers, and extension runtimes.
+The target product requirements in `docs/specs/features/initial/prd.md` cover the complete Glyph platform. Implementing that entire scope before running an end-to-end agent would delay validation of the product flow and the boundaries among the Glyph host, agent core, Glyph clients, providers, and extension runtimes.
 
 The project author needs a runnable vertical slice that demonstrates a useful coding-agent task while preserving the target ownership and dependency boundaries. Internal APIs may evolve after the prototype.
 
 ## Goal
 
-Deliver a minimal Glyph prototype that runs the same agent core through a basic standard TUI and without a TUI, uses OpenAI Codex, and executes coding tools supplied by a runtime-loaded Go extension.
+Deliver a minimal Glyph prototype that runs the same agent core through the standard TUI or in headless mode, uses OpenAI Codex, and executes coding tools supplied by a runtime-loaded Go extension.
 
 ## Scenarios
 
-- The author starts the standard TUI, completes OpenAI Codex OAuth when required, submits a coding task, observes streamed model and tool output, and continues the conversation after the agent becomes idle.
+- The author starts Glyph without headless mode, the Glyph host selects and starts the standard TUI from the UI catalog, and the author completes OpenAI Codex OAuth when required, submits a coding task, observes streamed model and tool output, and continues the conversation after the agent becomes idle.
 - The agent reads and changes a file, runs a project command, and reports the result.
-- The author starts a headless agent with one text request. It uses the same model configuration, credentials, extension, and agent-tool loop as the standard TUI.
+- The author starts a headless agent with one text request and no UI plugin. It uses the same model configuration, credentials, extension, and agent-tool loop as the standard TUI.
 - The author stops an active model request or tool and can continue using the standard TUI.
 - An incompatible or failed extension becomes unavailable without terminating the Glyph host.
+- When the active UI plugin exits, Glyph cancels the active agent run and terminates.
 
 ## Scope and Non-Scope
 
 ### Scope
 
-- A Go Glyph host, TUI-free agent core, basic standard TUI, and one-shot headless operation.
+- A Go Glyph host, UI-free agent core, UI catalog with the standard TUI, and one-shot headless operation.
 - OpenAI Codex with interactive OAuth, one configured provider/model pair, and an optional startup reasoning level.
 - One runtime-loaded Go extension that provides `read`, `edit`, and `bash`.
 - One in-memory linear session and one active agent run.
@@ -52,6 +62,8 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 - OpenAI-compatible providers, model selection, model cycling, and runtime reasoning-level switching.
 - A stable programmatic control protocol, structured headless output, message queues, concurrent agent runs, and automatic retries.
 - Extension installation commands, enablement, disablement, updates, environment reload, lifecycle events, resource contributions, and TUI-specific extension capabilities.
+- UI plugin installation commands, enablement, disablement, updates, and environment reload.
+- Remote or independently started UI plugins, more than one active UI plugin, and UI plugin replacement without restarting Glyph.
 - The bundled resource extension, skills, prompt templates, and context files.
 - `write`, `grep`, `find`, and `ls`.
 - TUI themes, widgets, session-tree interaction, extension-provided content, user command discovery, and configurable key bindings.
@@ -69,12 +81,33 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
   - **Main PRD:** `Differs` — Platform Requirements require macOS and Linux support; the prototype validates only macOS on arm64.
 - The prototype shall use platform-independent Go facilities when they provide behavior equivalent to an operating-system-specific facility.
   - **Main PRD:** `Matches` — Platform Requirements contain the same portability requirement.
-- The agent core shall run without loading or depending on the standard TUI.
+- The agent core shall run without loading or depending on a UI plugin.
   - **Main PRD:** `Matches` — Platform Requirements contain the same dependency constraint.
-- The standard TUI shall depend on the Glyph host and agent core contracts; neither the Glyph host nor the agent core shall depend on the standard TUI.
-  - **Main PRD:** `Matches` — Platform Requirements define the same dependency direction.
-- The prototype shall be buildable and runnable from its source repository through documented commands, with the Glyph application and extension executable built separately.
-  - **Main PRD:** `No direct match` — the target PRD requires open-source distribution but does not define prototype build commands or separate build outputs.
+- The Glyph host shall run in headless mode without loading a UI plugin, and no UI plugin implementation shall own agent-core behavior.
+  - **Main PRD:** `Matches` — Platform Requirements contain the same headless and ownership constraints.
+- The prototype shall be buildable and runnable from its source repository through documented commands, with the Glyph host application, standard TUI executable, and extension executable built separately.
+  - **Main PRD:** `No direct match` — the target PRD requires open-source distribution and separate UI plugin behavior but does not define prototype build commands or build outputs.
+
+### UI Plugin Startup
+
+- Glyph startup shall either enable headless mode or select one UI plugin. Headless mode shall not start a UI plugin, and supplying a UI selection together with headless mode shall fail startup explicitly.
+  - **Main PRD:** `Matches` — UI Plugins defines the same startup-mode behavior.
+- The Glyph host shall discover locally available UI plugin executables in the UI catalog before selection, and the standard TUI shall be present in that catalog by default.
+  - **Main PRD:** `Matches` — UI Plugins defines the same catalog and standard-TUI behavior.
+- Before automatic UI selection, the Glyph host shall exclude each UI plugin it identifies as unavailable or incompatible with the running Glyph version and shall report a warning for each exclusion.
+  - **Main PRD:** `Matches` — UI Plugins defines the same automatic-exclusion behavior.
+- When headless mode is not enabled, the Glyph host shall select a UI plugin in this order: an explicit startup selection, the active UI setting, or the only UI plugin remaining after automatic exclusions.
+  - **Main PRD:** `Matches` — UI Plugins defines the same selection order.
+- An explicit startup selection or active UI setting that identifies a UI plugin that is unavailable or incompatible with the running Glyph version, or whose UI plugin cannot start, shall fail startup without fallback. Without either selection, having no UI plugin or more than one UI plugin remaining after automatic exclusions shall fail startup explicitly.
+  - **Main PRD:** `Matches` — UI Plugins defines the same failure behavior.
+- The Glyph host shall start the selected UI plugin and own its lifecycle until the UI plugin or the Glyph host exits.
+  - **Main PRD:** `Matches` — UI Plugins defines the same host ownership behavior.
+- One Glyph host process shall use at most one UI plugin for its entire lifetime; another UI plugin cannot attach or replace it.
+  - **Main PRD:** `Matches` — UI Plugins contains the same cardinality requirement.
+- The UI catalog and selected UI plugin shall remain unchanged for the lifetime of the Glyph host process. Changes to the UI catalog or active UI setting shall take effect at the next Glyph start.
+  - **Main PRD:** `Matches` — UI Plugins contains the same startup-only catalog and selection behavior.
+- When the active UI plugin exits for any reason, the Glyph host shall cancel the active agent run and terminate.
+  - **Main PRD:** `Matches` — UI Plugins contains the same termination behavior.
 
 ### Provider and Authentication
 
@@ -87,7 +120,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 - When the standard TUI starts without stored credentials that the provider can use or refresh, it shall start interactive OAuth and allow task input after authentication succeeds.
   - **Main PRD:** `No direct match` — the target PRD requires interactive Codex OAuth but does not define this automatic TUI startup transition.
 - A headless start without stored credentials that the provider can use or refresh shall fail explicitly instead of starting OAuth.
-  - **Main PRD:** `Differs` — the target PRD permits provider interaction through any attached interface; the prototype restricts initial OAuth to the standard TUI.
+  - **Main PRD:** `Differs` — the target PRD permits provider interaction through a Glyph client; the prototype restricts initial OAuth to the standard TUI.
 - The settings file shall require `defaultProvider` and `defaultModel`; `defaultProvider` shall be `openai-codex`. Standard-TUI and headless operation shall use the same configured values, and runtime model selection or switching shall be unavailable.
   - **Main PRD:** `Differs` — Model Runtime and Standard TUI Requirements support provider/model changes and user-facing model selection; the prototype reads one provider/model pair at startup and does not change it at runtime.
 - The settings file may contain `defaultThinkingLevel`. When present, the prototype shall use that value; when absent, it shall use the configured model's default reasoning level. Runtime reasoning-level switching shall be unavailable.
@@ -98,7 +131,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 ### Extension Runtime and Tools
 
 - The author shall be able to place one separately built extension executable in the extension directory, after which the Glyph host shall discover it at the next application start without rebuilding Glyph.
-  - **Main PRD:** `Differs` — Extensions and Interfaces require installation, enablement, disablement, and updates without rebuilding Glyph; the prototype uses manual file placement and startup discovery for one extension.
+  - **Main PRD:** `Differs` — Extensions and Glyph Clients require installation, enablement, disablement, and updates without rebuilding Glyph; the prototype uses manual file placement and startup discovery for one extension.
 - The Glyph host shall start the discovered extension with the application and stop it when the application exits.
   - **Main PRD:** `Differs` — the target extension lifecycle also covers enablement, disablement, updates, environment reload, and post-failure unavailability; the prototype supports only application startup and shutdown.
 - The extension contract shall support registration and execution of `read`, `edit`, and `bash`, final results, streamed progress, and cancellation.
@@ -106,7 +139,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 - An incompatible extension, extension startup failure, or extension crash shall leave the Glyph host usable, mark the extension unavailable, and report which condition occurred; an active tool call shall fail, and the host shall not restart the extension automatically.
   - **Main PRD:** `Differs` — Environment Reload defines host survival and extension unavailability until Glyph restarts after a runtime crash; the prototype applies the same outcome to incompatibility and startup failure.
 - The extension shall be trusted, run with the operating-system permissions of Glyph, and execute tools without sandboxing, project-trust checks, or confirmation.
-  - **Main PRD:** `Matches` — Extensions and Interfaces trust installed extensions, Non-Scope excludes sandbox and project-trust policy, and Bundled Standard Tools execute without agent-core confirmation.
+  - **Main PRD:** `Matches` — Extensions and Glyph Clients trust installed extensions, Non-Scope excludes sandbox and project-trust policy, and Bundled Standard Tools execute without agent-core confirmation.
 - The directory from which Glyph starts shall be the working project, and relative tool paths shall resolve from it.
   - **Main PRD:** `No direct match` — the target PRD does not define project selection or relative-path resolution.
 - `read` shall return the complete contents of a requested text file or an explicit error.
@@ -162,8 +195,8 @@ Deliver a minimal Glyph prototype that runs the same agent core through a basic 
 
 ### Headless Operation
 
-- Headless operation shall invoke the Glyph host and agent core through the contracts used by the standard TUI.
-  - **Main PRD:** `Matches` — Platform Requirements keep the agent core TUI-free, and Programmatic Control requires a headless agent in addition to the standard TUI.
+- Headless operation shall invoke the Glyph host and agent core without loading a UI plugin.
+  - **Main PRD:** `Matches` — Platform Requirements keep the agent core UI-free and require the Glyph host to run headlessly without a UI plugin.
 - Headless operation and the standard TUI shall use one model configuration, credential store, and installed extension set.
   - **Main PRD:** `No direct match` — the target PRD places both modes behind the Glyph host but does not explicitly require these three inputs to be shared.
 - A headless invocation shall accept one text request, run one agent loop, and emit a human-readable stream containing model output, tool start and completion, tool progress, and a final error when one occurs.

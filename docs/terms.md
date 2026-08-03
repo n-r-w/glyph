@@ -7,19 +7,23 @@
 - `agent`: A software system that uses a language model and available actions to fulfill a user request.
 - `agent platform`: A reusable software foundation for creating and running different agents.
 - `independent agent platform`: An agent platform that can be developed and released without using or changing the agent core of another platform.
-- `Glyph host`: The platform layer that manages extension runtimes and connects them to the agent core and attached interfaces without owning interface-specific behavior.
+- `Glyph host`: The platform layer that manages extension runtimes and connects them to the agent core and Glyph clients without owning client-specific behavior.
 - `agent core`: The required part of an agent platform that provides runtime behavior shared by its agents.
 - `agent loop`: The repeated sequence of requesting a model response, executing model-requested actions, and returning their results to the model until the run completes or is stopped.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
 - `coding agent`: An agent intended to work with source code and related software development tasks.
 - `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools extension and bundled resource extension and can run headlessly or through the standard TUI.
 - `tool`: A typed operation that an agent exposes to a model by name.
-- `extension`: A component that adds or changes platform behavior through extension contracts without modifying the agent core source code.
+- `Glyph plugin`: A separately delivered Glyph component. The defined Glyph plugin kinds are extension and UI plugin.
+- `extension`: A Glyph plugin that contributes platform or agent capabilities through extension contracts.
+- `UI plugin`: A Glyph plugin that presents Glyph to a person and communicates with Glyph as a Glyph client.
+- `extension catalog`: The collection of extensions available to a Glyph host.
+- `UI catalog`: The collection of discovered UI plugins considered by a Glyph host during UI selection.
 - `compatible extension`: An extension that conforms to the contracts exposed by the running Glyph version.
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
-- `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through attached interfaces.
-- `extension contract`: A documented interface, data type, event, or registration point through which an extension interacts with the platform.
+- `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
+- `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `extension context`: Host-provided access to one extension runtime and its active session.
@@ -33,12 +37,12 @@
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
 - `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
 - `active leaf`: The session-tree entry from which subsequent entries continue.
-- `headless agent`: A Glyph agent instance controlled programmatically without a terminal user interface.
-- `attached interface`: An interface connected to the Glyph host that handles interaction requests and notifications.
-- `programmatic controller`: An external process or application connected to the Glyph host that controls a headless agent, receives events and notifications, and can handle interaction requests.
+- `headless agent`: A Glyph agent instance controlled programmatically without a UI.
+- `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
+- `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
 - `programmatic control contract`: A transport-independent contract for correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications.
-- `interaction request`: A request from an extension through the Glyph host to an attached interface that expects a result.
-- `notification`: Information sent by an extension through the Glyph host to an attached interface without expecting a user response; the host reports delivery success or an error.
+- `interaction request`: A request from an extension through the Glyph host to a Glyph client that expects a result.
+- `notification`: Information sent by an extension through the Glyph host to a Glyph client without expecting a user response; the host reports delivery success or an error.
 - `queue mode`: A setting with values `all` and `one-at-a-time` that controls delivery of queued `steer` and `followUp` messages.
 - `steer`: A queued message intended to influence an active agent run.
 - `followUp`: A queued message intended for delivery after an active agent run.
@@ -47,6 +51,8 @@
 - `model provider`: A local or remote system through which an agent accesses a language model.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
 - `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
-- `terminal user interface`: An interactive agent interface presented inside a terminal.
-- `standard TUI`: The terminal interface distributed with Glyph; it depends on the Glyph host and agent core and owns terminal-specific rendering, input, and extension capabilities.
+- `UI`: A presentation and input surface through which a person interacts with Glyph.
+- `terminal UI`: A UI presented inside a terminal.
+- `standard TUI`: The terminal UI plugin distributed with Glyph; it owns terminal-specific rendering, input, and extension capabilities.
+- `Go interface`: A Go language type that defines a method set; this term does not refer to a UI plugin, Glyph client, or extension.
 - `reference scenario`: Behavior from an existing system that is used to evaluate Glyph requirements or extension contracts without requiring source compatibility with that system.
