@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
@@ -54,18 +55,47 @@ func NewSelector(catalog Catalog, factory RuntimeFactory) *Selector {
 
 // Select discovers candidates and applies explicit, active, or sole-compatible priority.
 func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Selection, error) {
+	explicitID := pluginid.Normalize(request.ExplicitUI)
+	activeID := pluginid.Normalize(request.ActiveUI)
+	slog.InfoContext(ctx, "loading UI plugins",
+		"directory", request.Directory.Path,
+		"explicit_ui", explicitID,
+		"active_ui", activeID,
+	)
 	discovery, err := s.catalog.Discover(ctx, request.Directory)
 	if err != nil {
+		slog.ErrorContext(ctx, "failed to load UI plugins",
+			"directory", request.Directory.Path,
+			"error", err,
+		)
 		return Selection{}, fmt.Errorf("discover UI plugins: %w", err)
 	}
-	selectedID := pluginid.Normalize(request.ExplicitUI)
+	selectedID := explicitID
 	if selectedID == "" {
-		selectedID = pluginid.Normalize(request.ActiveUI)
+		selectedID = activeID
 	}
+	var selection Selection
 	if selectedID != "" {
-		return s.startSelected(ctx, discovery.Candidates, selectedID)
+		selection, err = s.startSelected(ctx, discovery.Candidates, selectedID)
+	} else {
+		selection, err = s.selectCompatible(ctx, discovery.Candidates)
 	}
-	return s.selectCompatible(ctx, discovery.Candidates)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to load UI plugin",
+			"directory", request.Directory.Path,
+			"candidate_count", len(discovery.Candidates),
+			"error", err,
+		)
+		return selection, err
+	}
+	slog.InfoContext(ctx, "loaded UI plugin",
+		"plugin_id", selection.ID,
+		"directory", request.Directory.Path,
+		"controls_terminal", selection.Capabilities.ControlsTerminal,
+		"candidate_count", len(discovery.Candidates),
+		"issue_count", len(selection.Issues),
+	)
+	return selection, nil
 }
 
 // startSelected starts only the requested candidate and returns its reusable connection.

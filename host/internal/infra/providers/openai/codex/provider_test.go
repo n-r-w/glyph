@@ -124,7 +124,58 @@ func TestServiceGenerateSendsOrderedStrictRequestAndPreservesOutput(t *testing.T
 	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Items[2].ToolCall.Arguments)
 }
 
-// TestServiceGenerateStreamsRefusalDeltas verifies refusals use the provider-neutral text update path.
+// TestServiceGenerateUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty preserves terminal streamed output.
+func TestServiceGenerateUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	accountID := "account-finalized-text"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writeSSE(writer,
+			`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"final "}`,
+			`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"answer"}`,
+			`{"type":"response.output_item.done","output_index":0,"item":{"id":"r-final","type":"reasoning","encrypted_content":"enc-final","summary":[]}}`,
+			`{"type":"response.output_item.done","output_index":1,"item":{"id":"m-final","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"final answer","annotations":[],"logprobs":[]}]}}`,
+			`{"type":"response.output_item.done","output_index":2,"item":{"id":"fc-final","type":"function_call","call_id":"call-final","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}}`,
+			completedEvent(`[]`),
+		)
+	}))
+	t.Cleanup(server.Close)
+	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	updates := make([]run.ModelUpdate, 0, 2)
+
+	response, err := service.Generate(t.Context(), run.ModelRequest{
+		Instructions: "instructions",
+		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: agent.UserMessage{Text: "request"}}},
+		Tools:        nil,
+	}, func(update run.ModelUpdate) error {
+		updates = append(updates, update)
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []run.ModelUpdate{
+		{Position: 1, Delta: "final "},
+		{Position: 1, Delta: "answer"},
+	}, updates)
+	assert.Equal(t, agent.ModelOutcomeToolUse, response.Outcome)
+	require.Len(t, response.Items, 3)
+	assert.Equal(t, agent.ModelItemProviderContext, response.Items[0].Kind)
+	assert.Equal(t, agent.ModelItemText, response.Items[1].Kind)
+	assert.Equal(t, "final answer", response.Items[1].Text)
+	assert.Equal(t, agent.ModelItemToolCall, response.Items[2].Kind)
+	assert.Equal(t, "read", response.Items[2].ToolCall.Name)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Items[2].ToolCall.Arguments)
+}
+
+// TestServiceGenerateStreamsRefusalDeltas preserves incremental and finalized refusal text.
 func TestServiceGenerateStreamsRefusalDeltas(t *testing.T) {
 	t.Parallel()
 
@@ -141,10 +192,9 @@ func TestServiceGenerateStreamsRefusalDeltas(t *testing.T) {
 		writeSSE(writer,
 			`{"type":"response.refusal.delta","output_index":1,"content_index":0,"delta":"I can"}`,
 			`{"type":"response.refusal.delta","output_index":1,"content_index":0,"delta":"not help"}`,
-			completedEvent(`[
-				{"id":"r-refusal","type":"reasoning","encrypted_content":"enc-refusal","summary":[]},
-				{"id":"m-refusal","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"I cannot help"}]}
-			]`),
+			`{"type":"response.output_item.done","output_index":0,"item":{"id":"r-refusal","type":"reasoning","encrypted_content":"enc-refusal","summary":[]}}`,
+			`{"type":"response.output_item.done","output_index":1,"item":{"id":"m-refusal","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"I cannot help"}]}}`,
+			completedEvent(`[]`),
 		)
 	}))
 	t.Cleanup(server.Close)

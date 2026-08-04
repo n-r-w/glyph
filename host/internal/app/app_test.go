@@ -261,6 +261,12 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 	logPayload, err := os.ReadFile(paths.LogFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(logPayload), "starting UI Glyph application")
+	assert.Contains(t, string(logPayload), "loading UI plugins")
+	assert.Contains(t, string(logPayload), "loaded UI plugin")
+	assert.Contains(t, string(logPayload), `"plugin_id":"fake-ui"`)
+	assert.Contains(t, string(logPayload), `"controls_terminal":false`)
+	assert.Contains(t, string(logPayload), "loading extensions")
+	assert.Contains(t, string(logPayload), "loaded extensions")
 }
 
 // TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.

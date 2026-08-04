@@ -14,15 +14,16 @@ import (
 
 // Renderer writes headless model, tool, startup, and terminal output.
 type Renderer struct {
-	stdout io.Writer
-	stderr io.Writer
+	stdout        io.Writer
+	stderr        io.Writer
+	modelLineOpen bool
 }
 
 var _ startup.Reporter = (*Renderer)(nil)
 
 // NewRenderer creates the headless output recipient.
 func NewRenderer(stdout, stderr io.Writer) *Renderer {
-	return &Renderer{stdout: stdout, stderr: stderr}
+	return &Renderer{stdout: stdout, stderr: stderr, modelLineOpen: false}
 }
 
 // ReportRuntimeFailure renders one classified post-start extension failure.
@@ -38,7 +39,20 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeF
 func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	switch event.Type {
 	case run.EventMessageUpdate:
-		return writeText(r.stdout, event.Delta)
+		writeErr := writeText(r.stdout, event.Delta)
+		if writeErr == nil && event.Delta != "" {
+			r.modelLineOpen = true
+		}
+		return writeErr
+	case run.EventMessageEnd:
+		if !r.modelLineOpen {
+			return nil
+		}
+		if err := writeText(r.stdout, "\n"); err != nil {
+			return err
+		}
+		r.modelLineOpen = false
+		return nil
 	case run.EventToolExecutionStart:
 		return writePrefixed(r.stderr, "[tool:start] ", event.ToolCall.Name)
 	case run.EventToolExecutionUpdate:
@@ -52,7 +66,6 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	case run.EventAgentStart,
 		run.EventTurnStart,
 		run.EventMessageStart,
-		run.EventMessageEnd,
 		run.EventToolResult,
 		run.EventTurnEnd,
 		run.EventAgentEnd:

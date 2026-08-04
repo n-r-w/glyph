@@ -23,6 +23,48 @@ const (
 	requestCanceledMessage = "OpenAI Codex request was canceled."
 )
 
+// finalizedOutputItems preserves complete items emitted through response.output_item.done.
+// Codex may leave response.completed.output empty, while present completed items remain authoritative.
+type finalizedOutputItems map[int64]responses.ResponseOutputItemUnion
+
+// record stores one finalized output item at its provider position.
+func (items finalizedOutputItems) record(outputIndex int64, item responses.ResponseOutputItemUnion) bool {
+	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
+		return false
+	}
+	items[outputIndex] = item
+	return true
+}
+
+// merge preserves completed items and fills omitted output positions from response.output_item.done
+// while retaining provider output order.
+func (items finalizedOutputItems) merge(
+	completed []responses.ResponseOutputItemUnion,
+) ([]responses.ResponseOutputItemUnion, error) {
+	highestPosition := len(completed) - 1
+	for position := range items {
+		if int(position) > highestPosition {
+			highestPosition = int(position)
+		}
+	}
+	if highestPosition < 0 {
+		return nil, nil
+	}
+	merged := make([]responses.ResponseOutputItemUnion, 0, highestPosition+1)
+	for position := range highestPosition + 1 {
+		if position < len(completed) {
+			merged = append(merged, completed[position])
+			continue
+		}
+		item, ok := items[int64(position)]
+		if !ok {
+			return nil, fmt.Errorf("OpenAI Codex returned noncontiguous finalized output at position %d", position)
+		}
+		merged = append(merged, item)
+	}
+	return merged, nil
+}
+
 // Generate streams one provider response into Agent Core values.
 func (s *Service) Generate(
 	ctx context.Context,
@@ -67,6 +109,7 @@ func (s *Service) Generate(
 	defer func() {
 		_ = stream.Close()
 	}()
+	finalized := make(finalizedOutputItems)
 
 	for stream.Next() {
 		event := stream.Current()
@@ -80,24 +123,9 @@ func (s *Service) Generate(
 			}
 			continue
 		}
-		switch event.Type {
-		case "response.completed":
-			return modelResponse(event.AsResponseCompleted().Response, agent.ModelOutcomeStop)
-		case "response.incomplete":
-			incomplete := event.AsResponseIncomplete().Response
-			if incomplete.IncompleteDetails.Reason == "max_output_tokens" {
-				return modelResponse(incomplete, agent.ModelOutcomeLength)
-			}
-			message := providerFailureMessage(incomplete.Error.Message)
-			return failedResponseFromSDK(incomplete, message)
-		case "response.failed":
-			failed := event.AsResponseFailed().Response
-			message := providerFailureMessage(failed.Error.Message)
-			return failedResponseFromSDK(failed, message)
-		case "error":
-			providerEvent := event.AsError()
-			message := providerFailureMessage(providerEvent.Message)
-			return failedModelResponse(message), safeError(message)
+		response, terminal, terminalErr := handleTerminalStreamEvent(event, finalized)
+		if terminal {
+			return response, terminalErr
 		}
 	}
 	streamErr := stream.Err()
@@ -107,7 +135,6 @@ func (s *Service) Generate(
 	return failedModelResponse(requestFailedMessage), safeError(requestFailedMessage)
 }
 
-// requestParams builds one stateless Responses request from projected Agent Core values.
 // streamModelUpdate maps every official incremental text event to one provider-neutral fragment.
 func streamModelUpdate(event responses.ResponseStreamEventUnion) (position int64, delta string, ok bool) {
 	switch event.Type {
@@ -120,6 +147,42 @@ func streamModelUpdate(event responses.ResponseStreamEventUnion) (position int64
 	default:
 		return 0, "", false
 	}
+}
+
+// handleTerminalStreamEvent records finalized output items and converts terminal provider events.
+func handleTerminalStreamEvent(
+	event responses.ResponseStreamEventUnion,
+	finalized finalizedOutputItems,
+) (agent.ModelResponse, bool, error) {
+	switch event.Type {
+	case "response.output_item.done":
+		done := event.AsResponseOutputItemDone()
+		if !finalized.record(done.OutputIndex, done.Item) {
+			return failedModelResponse(requestFailedMessage), true, safeError(requestFailedMessage)
+		}
+	case "response.completed":
+		response, err := modelResponse(event.AsResponseCompleted().Response, agent.ModelOutcomeStop, finalized)
+		return response, true, err
+	case "response.incomplete":
+		incomplete := event.AsResponseIncomplete().Response
+		if incomplete.IncompleteDetails.Reason == "max_output_tokens" {
+			response, err := modelResponse(incomplete, agent.ModelOutcomeLength, finalized)
+			return response, true, err
+		}
+		message := providerFailureMessage(incomplete.Error.Message)
+		response, err := failedResponseFromSDK(incomplete, message, finalized)
+		return response, true, err
+	case "response.failed":
+		failed := event.AsResponseFailed().Response
+		message := providerFailureMessage(failed.Error.Message)
+		response, err := failedResponseFromSDK(failed, message, finalized)
+		return response, true, err
+	case "error":
+		providerEvent := event.AsError()
+		message := providerFailureMessage(providerEvent.Message)
+		return failedModelResponse(message), true, safeError(message)
+	}
+	return agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""}, false, nil
 }
 
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
@@ -159,7 +222,16 @@ func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNew
 }
 
 // modelResponse converts supported SDK output items while preserving their order.
-func modelResponse(response responses.Response, defaultOutcome agent.ModelOutcome) (agent.ModelResponse, error) {
+func modelResponse(
+	response responses.Response,
+	defaultOutcome agent.ModelOutcome,
+	finalized finalizedOutputItems,
+) (agent.ModelResponse, error) {
+	output, mergeErr := finalized.merge(response.Output)
+	if mergeErr != nil {
+		return failedModelResponse(requestFailedMessage), mergeErr
+	}
+	response.Output = output
 	items := make([]agent.ModelItem, 0, len(response.Output))
 	hasToolCall := false
 	for outputIndex := range response.Output {
@@ -226,8 +298,12 @@ func modelResponse(response responses.Response, defaultOutcome agent.ModelOutcom
 }
 
 // failedResponseFromSDK preserves finalized safe items while returning a failed outcome.
-func failedResponseFromSDK(response responses.Response, message string) (agent.ModelResponse, error) {
-	converted, err := modelResponse(response, agent.ModelOutcomeFailed)
+func failedResponseFromSDK(
+	response responses.Response,
+	message string,
+	finalized finalizedOutputItems,
+) (agent.ModelResponse, error) {
+	converted, err := modelResponse(response, agent.ModelOutcomeFailed, finalized)
 	if err != nil {
 		return failedModelResponse(message), errors.Join(safeError(message), err)
 	}

@@ -1,9 +1,12 @@
 package startup
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +16,26 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
+
+// synchronizedBuffer captures logger output safely while package tests run in parallel.
+type synchronizedBuffer struct {
+	mutex  sync.Mutex
+	buffer bytes.Buffer
+}
+
+// Write appends one log record under the buffer lock.
+func (buffer *synchronizedBuffer) Write(payload []byte) (int, error) {
+	buffer.mutex.Lock()
+	defer buffer.mutex.Unlock()
+	return buffer.buffer.Write(payload)
+}
+
+// String returns a stable snapshot of captured log records.
+func (buffer *synchronizedBuffer) String() string {
+	buffer.mutex.Lock()
+	defer buffer.mutex.Unlock()
+	return buffer.buffer.String()
+}
 
 // TestServiceStartUsesDefaultAndOverrideDirectories verifies invocation overrides replace the default catalog.
 func TestServiceStartUsesDefaultAndOverrideDirectories(t *testing.T) {
@@ -50,6 +73,46 @@ func TestServiceStartUsesDefaultAndOverrideDirectories(t *testing.T) {
 			assert.Equal(t, report, loaded)
 		})
 	}
+}
+
+// TestServiceLoadLogsExtensionCatalog records effective discovery and loaded plugin details.
+func TestServiceLoadLogsExtensionCatalog(t *testing.T) {
+	t.Parallel()
+
+	var output synchronizedBuffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+	report := toolservice.LoadReport{
+		Issues: []toolservice.Issue{{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("start failed")}},
+		Extensions: []toolservice.LoadedExtension{{
+			ID: "glyph-tools", Path: "/plugins/glyph-tools",
+			Tools: []tool.Descriptor{
+				{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)},
+				{Name: "bash", Description: "bash", InputSchemaJSON: []byte(`{}`)},
+			},
+		}},
+	}
+	service := New(func(_ context.Context, directory toolservice.Directory) (toolservice.LoadReport, error) {
+		assert.Equal(t, toolservice.Directory{Path: "/plugins", Explicit: true}, directory)
+		return report, nil
+	})
+
+	loaded, err := service.Load(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: "/plugins"})
+
+	require.NoError(t, err)
+	assert.Equal(t, report, loaded)
+	logPayload := output.String()
+	assert.Contains(t, logPayload, `"msg":"loading extensions"`)
+	assert.Contains(t, logPayload, `"directory":"/plugins"`)
+	assert.Contains(t, logPayload, `"explicit":true`)
+	assert.Contains(t, logPayload, `"msg":"loaded extensions"`)
+	assert.Contains(t, logPayload, `"extension_count":1`)
+	assert.Contains(t, logPayload, `"issue_count":1`)
+	assert.Contains(t, logPayload, `"msg":"loaded extension"`)
+	assert.Contains(t, logPayload, `"plugin_id":"glyph-tools"`)
+	assert.Contains(t, logPayload, `"path":"/plugins/glyph-tools"`)
+	assert.Contains(t, logPayload, `"tools":["read","bash"]`)
 }
 
 // TestServiceStartReportsFailuresBeforeOneSummary verifies isolated failures and loaded ownership.

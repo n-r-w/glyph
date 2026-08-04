@@ -50,7 +50,24 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
 	}
 
-	assert.Equal(t, "I cannot help", stdout.String())
+	assert.Equal(t, "I cannot help\n", stdout.String())
+}
+
+// TestRendererDoesNotWriteNewlineForToolOnlyMessage keeps stdout empty without streamed model text.
+func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	renderer := NewRenderer(&stdout, &bytes.Buffer{})
+	require.NoError(t, renderer.DeliverAgent(t.Context(), run.Event{
+		Type: run.EventMessageEnd, RunID: "run",
+		Message: agent.ModelResponse{Items: []agent.ModelItem{{
+			Kind:     agent.ModelItemToolCall,
+			ToolCall: agent.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}},
+		}}},
+	}))
+
+	assert.Empty(t, stdout.String())
 }
 
 // TestRendererSeparatesModelAndToolOutput verifies stdout remains model text only.
@@ -74,7 +91,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	}
 	require.NoError(t, renderer.DeliverSettled(t.Context(), "run"))
 
-	assert.Equal(t, "hello", stdout.String())
+	assert.Equal(t, "hello\n", stdout.String())
 	assert.Equal(t, "[tool:start] bash\n[tool:status] working\n[tool:stdout] output\n[tool:stderr] warning\n[tool:end] bash: ok\n", stderr.String())
 	assert.NotContains(t, stderr.String(), "encrypted-secret")
 }

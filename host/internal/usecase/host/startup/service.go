@@ -4,6 +4,7 @@ package startup
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -57,9 +58,35 @@ func (s *Service) Load(ctx context.Context, request Request) (toolservice.LoadRe
 	if request.ExtensionDirectory != "" {
 		directory = toolservice.Directory{Path: request.ExtensionDirectory, Explicit: true}
 	}
+	slog.InfoContext(ctx, "loading extensions",
+		"directory", directory.Path,
+		"explicit", directory.Explicit,
+	)
 	report, err := s.load(ctx, directory)
 	if err != nil {
+		slog.ErrorContext(ctx, "failed to load extensions",
+			"directory", directory.Path,
+			"explicit", directory.Explicit,
+			"error", err,
+		)
 		return toolservice.LoadReport{}, fmt.Errorf("load extensions: %w", err)
+	}
+	slog.InfoContext(ctx, "loaded extensions",
+		"directory", directory.Path,
+		"explicit", directory.Explicit,
+		"extension_count", len(report.Extensions),
+		"issue_count", len(report.Issues),
+	)
+	for _, extension := range report.Extensions {
+		toolNames := make([]string, len(extension.Tools))
+		for index, descriptor := range extension.Tools {
+			toolNames[index] = descriptor.Name
+		}
+		slog.InfoContext(ctx, "loaded extension",
+			"plugin_id", extension.ID,
+			"path", extension.Path,
+			"tools", toolNames,
+		)
 	}
 	return report, nil
 }
