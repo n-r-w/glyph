@@ -1,0 +1,65 @@
+// Package startup resolves headless extension startup and reports its results.
+package startup
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+)
+
+// Request identifies the Glyph data directory and optional invocation override.
+type Request struct {
+	DataDirectory      string
+	ExtensionDirectory string
+}
+
+// Service resolves and loads the effective extension catalog.
+type Service struct {
+	load func(context.Context, toolservice.Directory) (toolservice.LoadReport, error)
+}
+
+// New creates the Host extension startup service.
+func New(load func(context.Context, toolservice.Directory) (toolservice.LoadReport, error)) *Service {
+	return &Service{load: load}
+}
+
+// Start loads extensions and reports the complete headless startup state.
+func (s *Service) Start(
+	ctx context.Context,
+	request Request,
+	reporter Reporter,
+) (toolservice.LoadReport, error) {
+	report, err := s.Load(ctx, request)
+	if err != nil {
+		return toolservice.LoadReport{}, err
+	}
+	for _, issue := range report.Issues {
+		reportErr := reporter.ReportIssue(ctx, issue)
+		if reportErr != nil {
+			return toolservice.LoadReport{}, fmt.Errorf("report extension startup failure: %w", reportErr)
+		}
+	}
+	summaryErr := reporter.ReportSummary(ctx, report)
+	if summaryErr != nil {
+		return toolservice.LoadReport{}, fmt.Errorf("report headless startup summary: %w", summaryErr)
+	}
+	return report, nil
+}
+
+// Load resolves the effective directory and returns startup state without delivering it.
+func (s *Service) Load(ctx context.Context, request Request) (toolservice.LoadReport, error) {
+	directory := toolservice.Directory{
+		Path:     filepath.Join(request.DataDirectory, "plugins", "extension"),
+		Explicit: false,
+	}
+	if request.ExtensionDirectory != "" {
+		directory = toolservice.Directory{Path: request.ExtensionDirectory, Explicit: true}
+	}
+	report, err := s.load(ctx, directory)
+	if err != nil {
+		return toolservice.LoadReport{}, fmt.Errorf("load extensions: %w", err)
+	}
+	return report, nil
+}

@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package glyph.plugins.extension.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// ExtensionService exposes a fixed tool catalog and streamed tool execution.
+service ExtensionService {
+  // ListTools returns the complete tool catalog owned by the extension process.
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+  // Execute emits progress followed by exactly one terminal result.
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+}
+
+// ListToolsRequest has no fields because the tool catalog is fixed at startup.
+message ListToolsRequest {}
+
+// ListToolsResponse contains the complete tool catalog for one extension.
+message ListToolsResponse {
+  repeated ToolDescriptor tools = 1;
+}
+
+// ToolDescriptor describes one extension-owned tool.
+message ToolDescriptor {
+  string name = 1;
+  string description = 2;
+  bytes input_schema_json = 3;
+}
+
+// ExecuteRequest starts one tool call with JSON-encoded arguments.
+message ExecuteRequest {
+  string tool_name = 1;
+  bytes arguments_json = 2;
+}
+
+// ExecuteResponse carries progress or the terminal result.
+message ExecuteResponse {
+  oneof content {
+    ToolProgress progress = 1;
+    ToolResult result = 2;
+  }
+}
+
+// ToolProgress carries one ordered progress fragment.
+message ToolProgress {
+  ProgressChannel channel = 1;
+  string content = 2;
+}
+
+// ProgressChannel identifies the meaning of a progress fragment.
+enum ProgressChannel {
+  PROGRESS_CHANNEL_UNSPECIFIED = 0;
+  PROGRESS_CHANNEL_STATUS = 1;
+  PROGRESS_CHANNEL_STDOUT = 2;
+  PROGRESS_CHANNEL_STDERR = 3;
+}
+
+// ToolResult is the terminal outcome of one tool call.
+message ToolResult {
+  string content = 1;
+  bool is_error = 2;
+}

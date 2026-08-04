@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	protocolv1 "github.com/n-r-w/glyph/experiments/plugin-runtime-spike/protocol/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	protocolv1 "github.com/n-r-w/glyph/experiments/plugin-runtime-spike/protocol/v1"
 )
 
 const (

@@ -15,11 +15,12 @@ tasks:
   lint:
     desc: "Run code linters"
     cmds:
+      - go tool easyp lint
       - golangci-lint run --config ./.golangci.yml
       - ifaceguard --config ifaceguard.cfg
 
   test:
-    desc: "Run unit tests"
+    desc: "Run all tests"
     cmds:
       - go test -race ./...
 
@@ -42,12 +43,16 @@ tasks:
   generate:
     desc: Generate code
     cmds:
+      - go tool easyp generate
       - go generate ./...
 
   build:
-    desc: "Build the project"
+    desc: "Build the Host and standard plugins"
     cmds:
-      - go build -o bin/glyph ./cmd/glyph
+      - mkdir -p {{default "bin" .BUILD_ROOT}}/plugins/extension {{default "bin" .BUILD_ROOT}}/plugins/ui
+      - go build -o {{default "bin" .BUILD_ROOT}}/glyph ./host/cmd/glyph
+      - go build -o {{default "bin" .BUILD_ROOT}}/plugins/extension/glyph-tools ./plugins/extension/tools/cmd/glyph-tools
+      - go build -o {{default "bin" .BUILD_ROOT}}/plugins/ui/glyph-tui ./plugins/ui/tui/cmd/glyph-tui
 
   test-coverage:
     desc: Run tests with coverage

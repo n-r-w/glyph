@@ -129,14 +129,17 @@ host/
 └── internal/
     ├── domain/
     │   ├── agent/
-    │   └── tool/
+    │   ├── pluginid/
+    │   ├── tool/
+    │   └── ui/
     ├── usecase/
     │   ├── agent/run/
     │   └── host/
     │       ├── startup/
     │       ├── events/
     │       ├── interactions/
-    │       └── tools/
+    │       ├── tools/
+    │       └── ui/
     ├── controller/
     │   ├── cli/headless/
     │   └── ui/
@@ -152,7 +155,6 @@ host/
     │   ├── persistence/
     │   │   ├── credentials/
     │   │   └── settings/
-    │   ├── schemas/jsonschema/
     │   └── terminal/
     └── app/
 
@@ -198,7 +200,7 @@ plugins/ui/tui/
 - DEC-64: Publish handwritten SDK packages at `sdk/plugins/extension/v1` and `sdk/plugins/ui/v1`, separate from generated contracts under `pkg/plugins` and concrete projects under `plugins`.
 - DEC-65: Keep the prototype SDK thin: include handshake and protocol versioning, Host-side process startup and connection, plugin-side gRPC server startup, fixed UI capability retrieval, access to generated gRPC contracts, and contract-test helpers. Add no second public model layer over protobuf and no Host product policy.
 - DEC-66: Use `host`, `plugins/extension/tools`, and `plugins/ui/tui` as project roots. Each project owns its `cmd` entry point and nested `internal/app` composition root; nested `internal` visibility enforces project isolation.
-- DEC-67: Use the Host package tree in DGM-04, including `controller/cli/headless`, separate extension and UI `catalog` and `runtime` packages, `infra/schemas/jsonschema`, and `infra/terminal`.
+- DEC-67: Use the Host package tree in DGM-04, including `domain/pluginid`, `domain/ui`, `usecase/host/ui`, `controller/cli/headless`, separate extension and UI `catalog` and `runtime` packages, and `infra/terminal`. Extension runtime infrastructure owns prototype tool-catalog schema compilation and profile validation.
 - DEC-68: Use shared standard-tools project layers with separate `read`, `edit`, and `bash` use cases, one extension controller, and shared filesystem and process infrastructure adapters.
 - DEC-69: Give the standard TUI its own `domain/presentation` state, `usecase/presentation` behavior, plugin-contract controller, Bubble Tea controller, terminal adapter, and composition root.
 - DEC-70: Preserve grouping directories when approved target behavior provides plausible sibling responsibilities. Do not create empty Go packages or speculative Go interfaces solely to materialize the documented hierarchy.
@@ -245,7 +247,7 @@ plugins/ui/tui/
 - DEC-04: Use `go-plugin.VersionedPlugins` with exactly protocol version `1`. A version mismatch makes the extension unavailable. The prototype has no compatibility path for older protocol versions.
 - DEC-05: Use the Unix domain socket selected by `go-plugin` on macOS. Rely on owner access and the library-required `MagicCookie`; do not add TLS, `AutoMTLS`, checksum verification, or reattach support.
 - DEC-06: Keep Host catalog, selection, availability, and lifecycle policy inside Host infrastructure and use cases. Place shared `go-plugin` handshake, connection, and server bootstrap in the public plugin SDK defined by DEC-64 and DEC-65.
-- DEC-07: Start every extension process with the working directory and environment inherited from `glyph`. OAuth credentials remain in the credential file and are not injected into extension environments.
+- DEC-07: Start every extension process with the working directory and environment inherited from `glyph`. Glyph never injects, logs, renders, serializes, or passes OAuth credentials through configuration, model context, tool parameters, or extension environments. Extensions and tools are trusted, unsandboxed executables running as the same user as Glyph. When Agent Core executes a model-requested tool call, that executable may access any user-readable file, including the Glyph credential file; Glyph adds no path filters, command filters, or sandboxing.
 
 #### UI Plugin Process and Transport
 

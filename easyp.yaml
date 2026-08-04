@@ -1,0 +1,20 @@
+lint:
+  use:
+    - DEFAULT
+  ignore:
+    - experiments
+
+generate:
+  inputs:
+    - directory: api
+  plugins:
+    - command: ["go", "tool", "protoc-gen-go"]
+      out: .
+      opts:
+        paths: import
+        module: github.com/n-r-w/glyph
+    - command: ["go", "tool", "protoc-gen-go-grpc"]
+      out: .
+      opts:
+        paths: import
+        module: github.com/n-r-w/glyph

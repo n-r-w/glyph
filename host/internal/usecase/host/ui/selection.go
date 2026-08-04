@@ -1,0 +1,135 @@
+// Package ui owns Host UI selection and session lifecycle policy.
+package ui
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
+	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+)
+
+// SelectionRequest contains startup-only selection inputs.
+type SelectionRequest struct {
+	Directory  domainui.Directory
+	ExplicitUI string
+	ActiveUI   string
+}
+
+// SelectionIssue describes one automatically excluded UI candidate.
+type SelectionIssue struct {
+	Candidate domainui.Candidate
+	Err       error
+}
+
+// Warning preserves one excluded candidate as user-visible startup content.
+func (i SelectionIssue) Warning() domainui.StartupContent {
+	return domainui.StartupContent{
+		Severity: domainui.ContentSeverityWarning,
+		Text: fmt.Sprintf(
+			"excluded UI %s at %s: %v", i.Candidate.ID, i.Candidate.Path, i.Err,
+		),
+	}
+}
+
+// Selection contains the single selected connected runtime.
+type Selection struct {
+	ID           string
+	Capabilities domainui.Capabilities
+	Runtime      Runtime
+	Issues       []SelectionIssue
+}
+
+// Selector applies startup-only UI selection policy.
+type Selector struct {
+	catalog Catalog
+	factory RuntimeFactory
+}
+
+// NewSelector creates a UI selection service.
+func NewSelector(catalog Catalog, factory RuntimeFactory) *Selector {
+	return &Selector{catalog: catalog, factory: factory}
+}
+
+// Select discovers candidates and applies explicit, active, or sole-compatible priority.
+func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Selection, error) {
+	discovery, err := s.catalog.Discover(ctx, request.Directory)
+	if err != nil {
+		return Selection{}, fmt.Errorf("discover UI plugins: %w", err)
+	}
+	selectedID := pluginid.Normalize(request.ExplicitUI)
+	if selectedID == "" {
+		selectedID = pluginid.Normalize(request.ActiveUI)
+	}
+	if selectedID != "" {
+		return s.startSelected(ctx, discovery.Candidates, selectedID)
+	}
+	return s.selectCompatible(ctx, discovery.Candidates)
+}
+
+// startSelected starts only the requested candidate and returns its reusable connection.
+func (s *Selector) startSelected(
+	ctx context.Context,
+	candidates []domainui.Candidate,
+	selectedID string,
+) (Selection, error) {
+	for _, candidate := range candidates {
+		if candidate.ID != selectedID {
+			continue
+		}
+		runtime, err := s.factory.Start(ctx, candidate)
+		if err != nil {
+			return Selection{}, fmt.Errorf("start selected UI %q: %w", selectedID, err)
+		}
+		return Selection{
+			ID:           candidate.ID,
+			Capabilities: runtime.Capabilities(),
+			Runtime:      runtime,
+			Issues:       nil,
+		}, nil
+	}
+	return Selection{}, fmt.Errorf("selected UI %q is absent", selectedID)
+}
+
+// selectCompatible probes every candidate, stops every probe, and restarts the sole compatible candidate.
+func (s *Selector) selectCompatible(
+	ctx context.Context,
+	candidates []domainui.Candidate,
+) (Selection, error) {
+	compatible := make([]domainui.Candidate, 0, len(candidates))
+	issues := make([]SelectionIssue, 0)
+	for _, candidate := range candidates {
+		runtime, err := s.factory.Start(ctx, candidate)
+		if err != nil {
+			issues = append(issues, SelectionIssue{Candidate: candidate, Err: err})
+			continue
+		}
+		compatible = append(compatible, candidate)
+		runtime.Close()
+	}
+	if len(compatible) == 0 {
+		return Selection{
+			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
+		}, errors.New("no compatible UI plugin is available")
+	}
+	if len(compatible) > 1 {
+		return Selection{
+			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
+		}, errors.New("multiple compatible UI plugins are available")
+	}
+	candidate := compatible[0]
+	runtime, err := s.factory.Start(ctx, candidate)
+	if err != nil {
+		issues = append(issues, SelectionIssue{Candidate: candidate, Err: err})
+		return Selection{
+			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
+		}, fmt.Errorf("restart automatically selected UI %q: %w", candidate.ID, err)
+	}
+	return Selection{
+		ID:           candidate.ID,
+		Capabilities: runtime.Capabilities(),
+		Runtime:      runtime,
+		Issues:       issues,
+	}, nil
+}

@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package glyph.plugins.ui.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
+
+// UIService exposes fixed startup capabilities and one UI lifecycle stream.
+service UIService {
+  // GetCapabilities returns immutable capabilities without opening the UI stream.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  // Open carries ordered Host frames and UI commands for one application lifecycle.
+  rpc Open(stream OpenRequest) returns (stream OpenResponse);
+}
+
+// GetCapabilitiesRequest has no fields because capabilities are fixed at startup.
+message GetCapabilitiesRequest {}
+
+// GetCapabilitiesResponse declares immutable UI process capabilities.
+message GetCapabilitiesResponse {
+  bool controls_terminal = 1;
+}
+
+// OpenRequest carries exactly one Host-to-UI payload.
+message OpenRequest {
+  oneof content {
+    Initialization initialization = 1;
+    LifecycleEvent lifecycle = 2;
+    AuthorizationRequest authorization = 3;
+    Information information = 4;
+    Error error = 5;
+  }
+}
+
+// Initialization is the first frame and describes resolved startup state.
+message Initialization {
+  string selected_ui_id = 1;
+  repeated StartupContent startup_content = 2;
+  repeated ExtensionAvailability extensions = 3;
+  Availability availability = 4;
+}
+
+// StartupContent carries one informational, warning, or error startup item.
+message StartupContent {
+  ContentSeverity severity = 1;
+  string text = 2;
+}
+
+// ContentSeverity identifies startup content importance.
+enum ContentSeverity {
+  CONTENT_SEVERITY_UNSPECIFIED = 0;
+  CONTENT_SEVERITY_INFORMATION = 1;
+  CONTENT_SEVERITY_ERROR = 2;
+  CONTENT_SEVERITY_WARNING = 3;
+}
+
+// ExtensionAvailability describes one available extension, its executable path, and its tool names.
+message ExtensionAvailability {
+  string plugin_id = 1;
+  repeated string tools = 2;
+  string path = 3;
+}
+
+// Availability identifies whether the Host can accept a user request.
+enum Availability {
+  AVAILABILITY_UNSPECIFIED = 0;
+  AVAILABILITY_CHECKING_AUTHENTICATION = 1;
+  AVAILABILITY_AUTHENTICATING = 2;
+  AVAILABILITY_AUTHENTICATION_FAILED = 3;
+  AVAILABILITY_IDLE = 4;
+  AVAILABILITY_RUNNING = 5;
+}
+
+// LifecycleEvent carries one explicit provider-neutral lifecycle update.
+message LifecycleEvent {
+  LifecycleType type = 1;
+  string run_id = 2;
+  int32 position = 3;
+  string text = 4;
+  string tool_call_id = 5;
+  string tool_name = 6;
+  ProgressChannel progress_channel = 7;
+  bool is_error = 8;
+  string outcome = 9;
+  string error_message = 10;
+  Availability availability = 11;
+}
+
+// LifecycleType identifies the ordered Host or Agent lifecycle transition.
+enum LifecycleType {
+  LIFECYCLE_TYPE_UNSPECIFIED = 0;
+  LIFECYCLE_TYPE_AGENT_START = 1;
+  LIFECYCLE_TYPE_TURN_START = 2;
+  LIFECYCLE_TYPE_MESSAGE_START = 3;
+  LIFECYCLE_TYPE_MESSAGE_UPDATE = 4;
+  LIFECYCLE_TYPE_MESSAGE_END = 5;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_START = 6;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE = 7;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_END = 8;
+  LIFECYCLE_TYPE_TOOL_RESULT = 9;
+  LIFECYCLE_TYPE_TURN_END = 10;
+  LIFECYCLE_TYPE_AGENT_END = 11;
+  LIFECYCLE_TYPE_AGENT_SETTLED = 12;
+  LIFECYCLE_TYPE_AVAILABILITY_CHANGED = 13;
+}
+
+// ProgressChannel identifies the meaning of one tool progress fragment.
+enum ProgressChannel {
+  PROGRESS_CHANNEL_UNSPECIFIED = 0;
+  PROGRESS_CHANNEL_STATUS = 1;
+  PROGRESS_CHANNEL_STDOUT = 2;
+  PROGRESS_CHANNEL_STDERR = 3;
+}
+
+// AuthorizationRequest presents one browser OAuth URL.
+message AuthorizationRequest {
+  string url = 1;
+}
+
+// Information carries one user-visible Host notification.
+message Information {
+  string text = 1;
+}
+
+// Error carries one safe user-visible failure.
+message Error {
+  string text = 1;
+  bool retry_authentication = 2;
+}
+
+// OpenResponse carries exactly one UI-to-Host command.
+message OpenResponse {
+  oneof content {
+    SubmitCommand submit = 1;
+    StopCommand stop = 2;
+    RetryAuthenticationCommand retry_authentication = 3;
+    QuitCommand quit = 4;
+  }
+}
+
+// SubmitCommand requests one user turn.
+message SubmitCommand {
+  string text = 1;
+}
+
+// StopCommand cancels the active agent run.
+message StopCommand {}
+
+// RetryAuthenticationCommand starts OAuth after an authentication failure.
+message RetryAuthenticationCommand {}
+
+// QuitCommand terminates the UI session.
+message QuitCommand {}

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
+
 	protocolv1 "github.com/n-r-w/glyph/experiments/plugin-runtime-spike/protocol/v1"
 )
 

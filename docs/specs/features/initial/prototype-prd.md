@@ -129,8 +129,10 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
   - **Main PRD:** `Differs` — Model Runtime and Standard TUI Requirements support provider/model changes and user-facing model selection; the prototype reads one provider/model pair at startup and does not change it at runtime.
 - The settings file may contain `defaultThinkingLevel`. When present, the prototype shall use that value; when absent, it shall use the configured model's default reasoning level. Runtime reasoning-level switching shall be unavailable.
   - **Main PRD:** `Differs` — Programmatic Control supports reasoning selection at runtime; the prototype supports only one optional startup value.
-- Persisted OAuth tokens shall exist only in the user-only credential file and shall not appear in configuration, terminal output, logs, model context, or tool parameters.
-  - **Main PRD:** `Differs` — Model Providers and Authentication prohibit secret values in provider configuration and restrict credential-file access; the prototype additionally prohibits token exposure through terminal output, logs, model context, and tool parameters.
+- Persisted OAuth tokens shall exist only in the user-only credential file. Glyph shall not inject, log, render, serialize, or place OAuth credentials in configuration, model context, or tool parameters.
+  - **Main PRD:** `Differs` — Model Providers and Authentication prohibit secret values in provider configuration and restrict credential-file access; the prototype also prohibits Glyph-managed credential exposure through output and execution boundaries.
+- Extensions and tools are trusted, unsandboxed executables that run as the same user as Glyph. When Agent Core executes a model-requested tool call, that executable may access any file readable by the user, including the Glyph credential file; the prototype does not add path filters, command filters, or sandboxing.
+  - **Main PRD:** `No direct match` — the target PRD does not define a sandbox or filesystem isolation boundary for extension tools.
 
 ### Extension Runtime and Tools
 
