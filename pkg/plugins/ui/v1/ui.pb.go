@@ -7,12 +7,11 @@
 package uiv1
 
 import (
-	reflect "reflect"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	reflect "reflect"
+	unsafe "unsafe"
 )
 
 const (
@@ -26,10 +25,14 @@ const (
 type ContentSeverity int32
 
 const (
+	// No content severity was provided.
 	ContentSeverity_CONTENT_SEVERITY_UNSPECIFIED ContentSeverity = 0
+	// The content is informational.
 	ContentSeverity_CONTENT_SEVERITY_INFORMATION ContentSeverity = 1
-	ContentSeverity_CONTENT_SEVERITY_ERROR       ContentSeverity = 2
-	ContentSeverity_CONTENT_SEVERITY_WARNING     ContentSeverity = 3
+	// The content reports an error.
+	ContentSeverity_CONTENT_SEVERITY_ERROR ContentSeverity = 2
+	// The content reports a warning.
+	ContentSeverity_CONTENT_SEVERITY_WARNING ContentSeverity = 3
 )
 
 // Enum value maps for ContentSeverity.
@@ -74,12 +77,18 @@ func (x ContentSeverity) Number() protoreflect.EnumNumber {
 type Availability int32
 
 const (
-	Availability_AVAILABILITY_UNSPECIFIED             Availability = 0
+	// No Host availability was provided.
+	Availability_AVAILABILITY_UNSPECIFIED Availability = 0
+	// The Host is checking stored authentication.
 	Availability_AVAILABILITY_CHECKING_AUTHENTICATION Availability = 1
-	Availability_AVAILABILITY_AUTHENTICATING          Availability = 2
-	Availability_AVAILABILITY_AUTHENTICATION_FAILED   Availability = 3
-	Availability_AVAILABILITY_IDLE                    Availability = 4
-	Availability_AVAILABILITY_RUNNING                 Availability = 5
+	// The Host is waiting for authentication.
+	Availability_AVAILABILITY_AUTHENTICATING Availability = 2
+	// Authentication failed and can be retried.
+	Availability_AVAILABILITY_AUTHENTICATION_FAILED Availability = 3
+	// The Host can accept a user request.
+	Availability_AVAILABILITY_IDLE Availability = 4
+	// The Host is processing an agent run.
+	Availability_AVAILABILITY_RUNNING Availability = 5
 )
 
 // Enum value maps for Availability.
@@ -128,10 +137,14 @@ func (x Availability) Number() protoreflect.EnumNumber {
 type ModelContentKind int32
 
 const (
+	// No content kind was provided.
 	ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED ModelContentKind = 0
-	ModelContentKind_MODEL_CONTENT_KIND_TEXT        ModelContentKind = 1
-	ModelContentKind_MODEL_CONTENT_KIND_REASONING   ModelContentKind = 2
-	ModelContentKind_MODEL_CONTENT_KIND_REFUSAL     ModelContentKind = 3
+	// The content is public response text.
+	ModelContentKind_MODEL_CONTENT_KIND_TEXT ModelContentKind = 1
+	// The content is hidden model reasoning.
+	ModelContentKind_MODEL_CONTENT_KIND_REASONING ModelContentKind = 2
+	// The content is a model refusal.
+	ModelContentKind_MODEL_CONTENT_KIND_REFUSAL ModelContentKind = 3
 )
 
 // Enum value maps for ModelContentKind.
@@ -176,10 +189,14 @@ func (x ModelContentKind) Number() protoreflect.EnumNumber {
 type ModelContentType int32
 
 const (
+	// No model content transition was provided.
 	ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED ModelContentType = 0
-	ModelContentType_MODEL_CONTENT_TYPE_START       ModelContentType = 1
-	ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA  ModelContentType = 2
-	ModelContentType_MODEL_CONTENT_TYPE_END         ModelContentType = 3
+	// A model content block started.
+	ModelContentType_MODEL_CONTENT_TYPE_START ModelContentType = 1
+	// A text delta was appended to a content block.
+	ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA ModelContentType = 2
+	// A model content block ended.
+	ModelContentType_MODEL_CONTENT_TYPE_END ModelContentType = 3
 )
 
 // Enum value maps for ModelContentType.
@@ -224,25 +241,44 @@ func (x ModelContentType) Number() protoreflect.EnumNumber {
 type LifecycleType int32
 
 const (
-	LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED           LifecycleType = 0
-	LifecycleType_LIFECYCLE_TYPE_AGENT_START           LifecycleType = 1
-	LifecycleType_LIFECYCLE_TYPE_TURN_START            LifecycleType = 2
-	LifecycleType_LIFECYCLE_TYPE_MESSAGE_START         LifecycleType = 3
-	LifecycleType_LIFECYCLE_TYPE_MESSAGE_END           LifecycleType = 4
-	LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START  LifecycleType = 5
+	// No lifecycle transition was provided.
+	LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED LifecycleType = 0
+	// The agent run started.
+	LifecycleType_LIFECYCLE_TYPE_AGENT_START LifecycleType = 1
+	// An agent turn started.
+	LifecycleType_LIFECYCLE_TYPE_TURN_START LifecycleType = 2
+	// A model response message started.
+	LifecycleType_LIFECYCLE_TYPE_MESSAGE_START LifecycleType = 3
+	// A model response message ended.
+	LifecycleType_LIFECYCLE_TYPE_MESSAGE_END LifecycleType = 4
+	// Tool execution started.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START LifecycleType = 5
+	// Tool execution emitted progress.
 	LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE LifecycleType = 6
-	LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END    LifecycleType = 7
-	LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT           LifecycleType = 8
-	LifecycleType_LIFECYCLE_TYPE_TURN_END              LifecycleType = 9
-	LifecycleType_LIFECYCLE_TYPE_AGENT_END             LifecycleType = 10
-	LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED         LifecycleType = 11
-	LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED  LifecycleType = 12
-	LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START   LifecycleType = 13
-	LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA      LifecycleType = 14
-	LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END     LifecycleType = 15
-	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START       LifecycleType = 16
-	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA       LifecycleType = 17
-	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END         LifecycleType = 18
+	// Tool execution ended.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END LifecycleType = 7
+	// A terminal tool result became available.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT LifecycleType = 8
+	// The current agent turn ended.
+	LifecycleType_LIFECYCLE_TYPE_TURN_END LifecycleType = 9
+	// The agent run ended.
+	LifecycleType_LIFECYCLE_TYPE_AGENT_END LifecycleType = 10
+	// The agent completed all terminal processing.
+	LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED LifecycleType = 11
+	// Host availability changed.
+	LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED LifecycleType = 12
+	// A typed model content block started.
+	LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START LifecycleType = 13
+	// A typed model text delta arrived.
+	LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA LifecycleType = 14
+	// A typed model content block ended.
+	LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END LifecycleType = 15
+	// Incremental tool call generation started.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START LifecycleType = 16
+	// Incremental tool call state changed.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA LifecycleType = 17
+	// Tool call generation ended.
+	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END LifecycleType = 18
 )
 
 // Enum value maps for LifecycleType.
@@ -317,10 +353,14 @@ func (x LifecycleType) Number() protoreflect.EnumNumber {
 type ProgressChannel int32
 
 const (
+	// No progress channel was provided.
 	ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED ProgressChannel = 0
-	ProgressChannel_PROGRESS_CHANNEL_STATUS      ProgressChannel = 1
-	ProgressChannel_PROGRESS_CHANNEL_STDOUT      ProgressChannel = 2
-	ProgressChannel_PROGRESS_CHANNEL_STDERR      ProgressChannel = 3
+	// The fragment reports status information.
+	ProgressChannel_PROGRESS_CHANNEL_STATUS ProgressChannel = 1
+	// The fragment contains standard output.
+	ProgressChannel_PROGRESS_CHANNEL_STDOUT ProgressChannel = 2
+	// The fragment contains standard error.
+	ProgressChannel_PROGRESS_CHANNEL_STDERR ProgressChannel = 3
 )
 
 // Enum value maps for ProgressChannel.
@@ -467,6 +507,7 @@ func (x *GetCapabilitiesResponse) ClearControlsTerminal() {
 type GetCapabilitiesResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// Whether the UI process owns terminal input and output.
 	ControlsTerminal *bool
 }
 
@@ -710,6 +751,8 @@ func (x *OpenRequest) WhichContent() case_OpenRequest_Content {
 type OpenRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The Host frame payload.
+
 	// Fields of oneof xxx_hidden_Content:
 	Initialization *Initialization
 	Lifecycle      *LifecycleEvent
@@ -905,10 +948,14 @@ func (x *Initialization) ClearAvailability() {
 type Initialization_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	SelectedUiId   *string
+	// The configured identifier of the selected UI plugin.
+	SelectedUiId *string
+	// The ordered startup messages collected before UI initialization.
 	StartupContent []*StartupContent
-	Extensions     []*ExtensionAvailability
-	Availability   *Availability
+	// The extensions available to the Host.
+	Extensions []*ExtensionAvailability
+	// The Host availability at initialization time.
+	Availability *Availability
 }
 
 func (b0 Initialization_builder) Build() *Initialization {
@@ -1020,8 +1067,10 @@ func (x *StartupContent) ClearText() {
 type StartupContent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The severity used to present this startup item.
 	Severity *ContentSeverity
-	Text     *string
+	// The user-visible startup item text.
+	Text *string
 }
 
 func (b0 StartupContent_builder) Build() *StartupContent {
@@ -1144,9 +1193,12 @@ func (x *ExtensionAvailability) ClearPath() {
 type ExtensionAvailability_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The configured extension plugin identifier.
 	PluginId *string
-	Tools    []string
-	Path     *string
+	// The tool names exposed by the extension.
+	Tools []string
+	// The resolved extension executable path.
+	Path *string
 }
 
 func (b0 ExtensionAvailability_builder) Build() *ExtensionAvailability {
@@ -1568,20 +1620,34 @@ func (x *LifecycleEvent) ClearFinalToolCall() {
 type LifecycleEvent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Type            *LifecycleType
-	RunId           *string
-	Text            *string
-	ToolCallId      *string
-	ToolName        *string
+	// The lifecycle transition represented by this event.
+	Type *LifecycleType
+	// The identifier of the associated agent run.
+	RunId *string
+	// The user-visible text carried by the transition.
+	Text *string
+	// The provider-assigned tool call identifier.
+	ToolCallId *string
+	// The name of the associated tool.
+	ToolName *string
+	// The semantic channel of a tool progress update.
 	ProgressChannel *ProgressChannel
-	IsError         *bool
-	Outcome         *string
-	ErrorMessage    *string
-	Availability    *Availability
-	ModelContent    *ModelContent
-	ModelResponse   *ModelResponse
+	// Whether the associated operation failed.
+	IsError *bool
+	// The provider-neutral terminal outcome.
+	Outcome *string
+	// The safe user-visible error message.
+	ErrorMessage *string
+	// The Host availability after this transition.
+	Availability *Availability
+	// The typed incremental model content transition.
+	ModelContent *ModelContent
+	// The finalized model response.
+	ModelResponse *ModelResponse
+	// The transient tool call state assembled from deltas.
 	ToolCallPreview *ToolCallPreview
-	FinalToolCall   *FinalToolCall
+	// The finalized tool call and decoded arguments.
+	FinalToolCall *FinalToolCall
 }
 
 func (b0 LifecycleEvent_builder) Build() *LifecycleEvent {
@@ -1792,11 +1858,16 @@ func (x *ToolCallPreview) ClearProvisional() {
 type ToolCallPreview_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	CallId      *string
-	Name        *string
-	Position    *int32
+	// The provider-assigned tool call identifier.
+	CallId *string
+	// The current tool name.
+	Name *string
+	// The zero-based position in the model response.
+	Position *int32
+	// Whether the preview can still change.
 	Provisional *bool
-	Fields      []*ToolCallPreviewField
+	// The currently decoded argument fields.
+	Fields []*ToolCallPreviewField
 }
 
 func (b0 ToolCallPreview_builder) Build() *ToolCallPreview {
@@ -1976,7 +2047,10 @@ func (x *ToolCallPreviewField) WhichContent() case_ToolCallPreviewField_Content 
 type ToolCallPreviewField_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The argument field name.
 	Name *string
+	// The complete value or exact scalar prefix.
+
 	// Fields of oneof xxx_hidden_Content:
 	Value  *structpb.Value
 	Prefix *string
@@ -2167,9 +2241,13 @@ func (x *FinalToolCall) ClearArguments() {
 type FinalToolCall_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	CallId    *string
-	Name      *string
-	Position  *int32
+	// The provider-assigned tool call identifier.
+	CallId *string
+	// The finalized tool name.
+	Name *string
+	// The zero-based position in the model response.
+	Position *int32
+	// The decoded tool arguments.
 	Arguments *structpb.Struct
 }
 
@@ -2337,10 +2415,14 @@ func (x *ModelContent) ClearKind() {
 type ModelContent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Type     *ModelContentType
+	// The transition applied to this model content block.
+	Type *ModelContentType
+	// The zero-based content block position.
 	Position *int32
-	Text     *string
-	Kind     *ModelContentKind
+	// The text delta carried by this transition.
+	Text *string
+	// The semantic kind of the content block.
+	Kind *ModelContentKind
 }
 
 func (b0 ModelContent_builder) Build() *ModelContent {
@@ -2650,15 +2732,25 @@ func (x *ModelResponse) ClearResponseModel() {
 type ModelResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Text          *string
-	Outcome       *string
-	ErrorMessage  *string
-	Provider      *string
-	Model         *string
-	ResponseId    *string
-	Usage         *ModelUsage
-	Diagnostics   []*ModelDiagnostic
-	Content       []*ModelResponseContent
+	// The finalized public response text.
+	Text *string
+	// The provider-neutral response outcome.
+	Outcome *string
+	// The safe user-visible terminal error.
+	ErrorMessage *string
+	// The provider that produced the response.
+	Provider *string
+	// The configured model identifier.
+	Model *string
+	// The provider-assigned response identifier.
+	ResponseId *string
+	// The provider-reported token usage.
+	Usage *ModelUsage
+	// The safe diagnostics produced while processing the response.
+	Diagnostics []*ModelDiagnostic
+	// The ordered finalized response content blocks.
+	Content []*ModelResponseContent
+	// The model identifier reported by the provider response.
 	ResponseModel *string
 }
 
@@ -2792,7 +2884,9 @@ func (x *ModelResponseContent) ClearText() {
 type ModelResponseContent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The semantic kind of this finalized content block.
 	Kind *ModelContentKind
+	// The finalized content block text.
 	Text *string
 }
 
@@ -2998,12 +3092,18 @@ func (x *ModelUsage) ClearTotalTokens() {
 type ModelUsage_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	InputTokens       *int64
-	OutputTokens      *int64
+	// The number of input tokens processed.
+	InputTokens *int64
+	// The number of output tokens generated.
+	OutputTokens *int64
+	// The number of input tokens read from a cache.
 	CachedInputTokens *int64
-	CacheWriteTokens  *int64
-	ReasoningTokens   *int64
-	TotalTokens       *int64
+	// The number of input tokens written to a cache.
+	CacheWriteTokens *int64
+	// The number of output tokens used for reasoning.
+	ReasoningTokens *int64
+	// The total provider-reported token count.
+	TotalTokens *int64
 }
 
 func (b0 ModelUsage_builder) Build() *ModelUsage {
@@ -3130,7 +3230,9 @@ func (x *ModelDiagnostic) ClearMessage() {
 type ModelDiagnostic_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Code    *string
+	// The stable machine-readable diagnostic code.
+	Code *string
+	// The safe diagnostic message.
 	Message *string
 }
 
@@ -3214,6 +3316,7 @@ func (x *AuthorizationRequest) ClearUrl() {
 type AuthorizationRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The browser URL used to start authorization.
 	Url *string
 }
 
@@ -3293,6 +3396,7 @@ func (x *Information) ClearText() {
 type Information_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The user-visible informational text.
 	Text *string
 }
 
@@ -3397,7 +3501,9 @@ func (x *Error) ClearRetryAuthentication() {
 type Error_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Text                *string
+	// The safe user-visible error text.
+	Text *string
+	// Whether the UI should offer authentication retry.
 	RetryAuthentication *bool
 }
 
@@ -3611,6 +3717,8 @@ func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 type OpenResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The UI command payload.
+
 	// Fields of oneof xxx_hidden_Content:
 	Submit              *SubmitCommand
 	Stop                *StopCommand
@@ -3741,6 +3849,7 @@ func (x *SubmitCommand) ClearText() {
 type SubmitCommand_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The user request submitted to the Host.
 	Text *string
 }
 

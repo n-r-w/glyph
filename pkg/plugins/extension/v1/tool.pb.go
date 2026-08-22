@@ -7,11 +7,10 @@
 package extensionv1
 
 import (
-	reflect "reflect"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	unsafe "unsafe"
 )
 
 const (
@@ -25,9 +24,12 @@ const (
 type JsonSchemaStrictness int32
 
 const (
+	// No strictness policy was provided.
 	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED JsonSchemaStrictness = 0
-	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER      JsonSchemaStrictness = 1
-	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE     JsonSchemaStrictness = 2
+	// Prefer strict generation but permit provider fallback.
+	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER JsonSchemaStrictness = 1
+	// Require strict generation and reject provider fallback.
+	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE JsonSchemaStrictness = 2
 )
 
 // Enum value maps for JsonSchemaStrictness.
@@ -70,10 +72,14 @@ func (x JsonSchemaStrictness) Number() protoreflect.EnumNumber {
 type ProgressChannel int32
 
 const (
+	// No progress channel was provided.
 	ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED ProgressChannel = 0
-	ProgressChannel_PROGRESS_CHANNEL_STATUS      ProgressChannel = 1
-	ProgressChannel_PROGRESS_CHANNEL_STDOUT      ProgressChannel = 2
-	ProgressChannel_PROGRESS_CHANNEL_STDERR      ProgressChannel = 3
+	// The fragment reports status information.
+	ProgressChannel_PROGRESS_CHANNEL_STATUS ProgressChannel = 1
+	// The fragment contains standard output.
+	ProgressChannel_PROGRESS_CHANNEL_STDOUT ProgressChannel = 2
+	// The fragment contains standard error.
+	ProgressChannel_PROGRESS_CHANNEL_STDERR ProgressChannel = 3
 )
 
 // Enum value maps for ProgressChannel.
@@ -207,6 +213,7 @@ func (x *ListToolsResponse) SetTools(v []*ToolDescriptor) {
 type ListToolsResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The complete ordered tool catalog.
 	Tools []*ToolDescriptor
 }
 
@@ -362,9 +369,13 @@ func (x *ToolDescriptor) ClearConstrainedSampling() {
 type ToolDescriptor_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Name                *string
-	Description         *string
-	InputSchemaJson     []byte
+	// The unique tool name used in ExecuteRequest.
+	Name *string
+	// The model-visible description of the tool.
+	Description *string
+	// The JSON Schema that validates tool arguments.
+	InputSchemaJson []byte
+	// The optional provider-side input generation constraint.
 	ConstrainedSampling *ConstrainedSampling
 }
 
@@ -515,6 +526,8 @@ func (x *ConstrainedSampling) WhichConfig() case_ConstrainedSampling_Config {
 type ConstrainedSampling_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The selected constrained sampling strategy.
+
 	// Fields of oneof xxx_hidden_Config:
 	JsonSchema *JsonSchemaConstrainedSampling
 	Grammar    *GrammarConstrainedSampling
@@ -624,6 +637,7 @@ func (x *JsonSchemaConstrainedSampling) ClearStrictness() {
 type JsonSchemaConstrainedSampling_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The required behavior when strict JSON Schema generation is unavailable.
 	Strictness *JsonSchemaStrictness
 }
 
@@ -731,7 +745,9 @@ func (x *GrammarConstrainedSampling) ClearRegex() {
 type GrammarConstrainedSampling_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Lark  *string
+	// The optional Lark grammar accepted by the provider.
+	Lark *string
+	// The optional regular expression grammar accepted by the provider.
 	Regex *string
 }
 
@@ -843,7 +859,9 @@ func (x *ExecuteRequest) ClearArgumentsJson() {
 type ExecuteRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	ToolName      *string
+	// The name of the tool to execute.
+	ToolName *string
+	// The JSON-encoded arguments validated against the tool schema.
 	ArgumentsJson []byte
 }
 
@@ -989,6 +1007,8 @@ func (x *ExecuteResponse) WhichContent() case_ExecuteResponse_Content {
 type ExecuteResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The progress or terminal payload.
+
 	// Fields of oneof xxx_hidden_Content:
 	Progress *ToolProgress
 	Result   *ToolResult
@@ -1126,7 +1146,9 @@ func (x *ToolProgress) ClearContent() {
 type ToolProgress_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The semantic channel of this progress fragment.
 	Channel *ProgressChannel
+	// The ordered progress fragment content.
 	Content *string
 }
 
@@ -1235,7 +1257,9 @@ func (x *ToolResult) ClearIsError() {
 type ToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The terminal model-visible result content.
 	Content *string
+	// Whether the tool operation ended with an error.
 	IsError *bool
 }
 

@@ -19,11 +19,13 @@ message GetCapabilitiesRequest {}
 
 // GetCapabilitiesResponse declares immutable UI process capabilities.
 message GetCapabilitiesResponse {
+  // Whether the UI process owns terminal input and output.
   bool controls_terminal = 1;
 }
 
 // OpenRequest carries exactly one Host-to-UI payload.
 message OpenRequest {
+  // The Host frame payload.
   oneof content {
     Initialization initialization = 1;
     LifecycleEvent lifecycle = 2;
@@ -35,73 +37,113 @@ message OpenRequest {
 
 // Initialization is the first frame and describes resolved startup state.
 message Initialization {
+  // The configured identifier of the selected UI plugin.
   string selected_ui_id = 1;
+  // The ordered startup messages collected before UI initialization.
   repeated StartupContent startup_content = 2;
+  // The extensions available to the Host.
   repeated ExtensionAvailability extensions = 3;
+  // The Host availability at initialization time.
   Availability availability = 4;
 }
 
 // StartupContent carries one informational, warning, or error startup item.
 message StartupContent {
+  // The severity used to present this startup item.
   ContentSeverity severity = 1;
+  // The user-visible startup item text.
   string text = 2;
 }
 
 // ContentSeverity identifies startup content importance.
 enum ContentSeverity {
+  // No content severity was provided.
   CONTENT_SEVERITY_UNSPECIFIED = 0;
+  // The content is informational.
   CONTENT_SEVERITY_INFORMATION = 1;
+  // The content reports an error.
   CONTENT_SEVERITY_ERROR = 2;
+  // The content reports a warning.
   CONTENT_SEVERITY_WARNING = 3;
 }
 
 // ExtensionAvailability describes one available extension, its executable path, and its tool names.
 message ExtensionAvailability {
+  // The configured extension plugin identifier.
   string plugin_id = 1;
+  // The tool names exposed by the extension.
   repeated string tools = 2;
+  // The resolved extension executable path.
   string path = 3;
 }
 
 // Availability identifies whether the Host can accept a user request.
 enum Availability {
+  // No Host availability was provided.
   AVAILABILITY_UNSPECIFIED = 0;
+  // The Host is checking stored authentication.
   AVAILABILITY_CHECKING_AUTHENTICATION = 1;
+  // The Host is waiting for authentication.
   AVAILABILITY_AUTHENTICATING = 2;
+  // Authentication failed and can be retried.
   AVAILABILITY_AUTHENTICATION_FAILED = 3;
+  // The Host can accept a user request.
   AVAILABILITY_IDLE = 4;
+  // The Host is processing an agent run.
   AVAILABILITY_RUNNING = 5;
 }
 
 // LifecycleEvent carries one explicit provider-neutral lifecycle update.
 message LifecycleEvent {
+  // The lifecycle transition represented by this event.
   LifecycleType type = 1;
+  // The identifier of the associated agent run.
   string run_id = 2;
+  // The user-visible text carried by the transition.
   string text = 3;
+  // The provider-assigned tool call identifier.
   string tool_call_id = 4;
+  // The name of the associated tool.
   string tool_name = 5;
+  // The semantic channel of a tool progress update.
   ProgressChannel progress_channel = 6;
+  // Whether the associated operation failed.
   bool is_error = 7;
+  // The provider-neutral terminal outcome.
   string outcome = 8;
+  // The safe user-visible error message.
   string error_message = 9;
+  // The Host availability after this transition.
   Availability availability = 10;
+  // The typed incremental model content transition.
   ModelContent model_content = 11;
+  // The finalized model response.
   ModelResponse model_response = 12;
+  // The transient tool call state assembled from deltas.
   ToolCallPreview tool_call_preview = 13;
+  // The finalized tool call and decoded arguments.
   FinalToolCall final_tool_call = 14;
 }
 
 // ToolCallPreview carries transient provenance-aware function-call state.
 message ToolCallPreview {
+  // The provider-assigned tool call identifier.
   string call_id = 1;
+  // The current tool name.
   string name = 2;
+  // The zero-based position in the model response.
   int32 position = 3;
+  // Whether the preview can still change.
   bool provisional = 4;
+  // The currently decoded argument fields.
   repeated ToolCallPreviewField fields = 5;
 }
 
 // ToolCallPreviewField carries either one complete value or one exact scalar prefix.
 message ToolCallPreviewField {
+  // The argument field name.
   string name = 1;
+  // The complete value or exact scalar prefix.
   oneof content {
     google.protobuf.Value value = 2;
     string prefix = 3;
@@ -110,121 +152,185 @@ message ToolCallPreviewField {
 
 // FinalToolCall carries exact arguments decoded at function-call completion.
 message FinalToolCall {
+  // The provider-assigned tool call identifier.
   string call_id = 1;
+  // The finalized tool name.
   string name = 2;
+  // The zero-based position in the model response.
   int32 position = 3;
+  // The decoded tool arguments.
   google.protobuf.Struct arguments = 4;
 }
 
 // ModelContent carries one typed model content transition.
 message ModelContent {
+  // The transition applied to this model content block.
   ModelContentType type = 1;
+  // The zero-based content block position.
   int32 position = 2;
+  // The text delta carried by this transition.
   string text = 3;
+  // The semantic kind of the content block.
   ModelContentKind kind = 4;
 }
 
 // ModelContentKind identifies visible text, refusal, or hidden reasoning content.
 enum ModelContentKind {
+  // No content kind was provided.
   MODEL_CONTENT_KIND_UNSPECIFIED = 0;
+  // The content is public response text.
   MODEL_CONTENT_KIND_TEXT = 1;
+  // The content is hidden model reasoning.
   MODEL_CONTENT_KIND_REASONING = 2;
+  // The content is a model refusal.
   MODEL_CONTENT_KIND_REFUSAL = 3;
 }
 
 // ModelContentType identifies one content transition.
 enum ModelContentType {
+  // No model content transition was provided.
   MODEL_CONTENT_TYPE_UNSPECIFIED = 0;
+  // A model content block started.
   MODEL_CONTENT_TYPE_START = 1;
+  // A text delta was appended to a content block.
   MODEL_CONTENT_TYPE_TEXT_DELTA = 2;
+  // A model content block ended.
   MODEL_CONTENT_TYPE_END = 3;
 }
 
 // ModelResponse carries typed terminal data and public text.
 message ModelResponse {
+  // The finalized public response text.
   string text = 1;
+  // The provider-neutral response outcome.
   string outcome = 2;
+  // The safe user-visible terminal error.
   string error_message = 3;
+  // The provider that produced the response.
   string provider = 4;
+  // The configured model identifier.
   string model = 5;
+  // The provider-assigned response identifier.
   string response_id = 6;
+  // The provider-reported token usage.
   ModelUsage usage = 7;
+  // The safe diagnostics produced while processing the response.
   repeated ModelDiagnostic diagnostics = 8;
+  // The ordered finalized response content blocks.
   repeated ModelResponseContent content = 9;
+  // The model identifier reported by the provider response.
   string response_model = 10;
 }
 
 // ModelResponseContent carries one ordered finalized text, refusal, or reasoning block.
 message ModelResponseContent {
+  // The semantic kind of this finalized content block.
   ModelContentKind kind = 1;
+  // The finalized content block text.
   string text = 2;
 }
 
 // ModelUsage carries provider-reported token accounting.
 message ModelUsage {
+  // The number of input tokens processed.
   int64 input_tokens = 1;
+  // The number of output tokens generated.
   int64 output_tokens = 2;
+  // The number of input tokens read from a cache.
   int64 cached_input_tokens = 3;
+  // The number of input tokens written to a cache.
   int64 cache_write_tokens = 4;
+  // The number of output tokens used for reasoning.
   int64 reasoning_tokens = 5;
+  // The total provider-reported token count.
   int64 total_tokens = 6;
 }
 
 // ModelDiagnostic carries safe typed provider diagnostics.
 message ModelDiagnostic {
+  // The stable machine-readable diagnostic code.
   string code = 1;
+  // The safe diagnostic message.
   string message = 2;
 }
 
 // LifecycleType identifies the ordered Host or Agent lifecycle transition.
 enum LifecycleType {
+  // No lifecycle transition was provided.
   LIFECYCLE_TYPE_UNSPECIFIED = 0;
+  // The agent run started.
   LIFECYCLE_TYPE_AGENT_START = 1;
+  // An agent turn started.
   LIFECYCLE_TYPE_TURN_START = 2;
+  // A model response message started.
   LIFECYCLE_TYPE_MESSAGE_START = 3;
+  // A model response message ended.
   LIFECYCLE_TYPE_MESSAGE_END = 4;
+  // Tool execution started.
   LIFECYCLE_TYPE_TOOL_EXECUTION_START = 5;
+  // Tool execution emitted progress.
   LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE = 6;
+  // Tool execution ended.
   LIFECYCLE_TYPE_TOOL_EXECUTION_END = 7;
+  // A terminal tool result became available.
   LIFECYCLE_TYPE_TOOL_RESULT = 8;
+  // The current agent turn ended.
   LIFECYCLE_TYPE_TURN_END = 9;
+  // The agent run ended.
   LIFECYCLE_TYPE_AGENT_END = 10;
+  // The agent completed all terminal processing.
   LIFECYCLE_TYPE_AGENT_SETTLED = 11;
+  // Host availability changed.
   LIFECYCLE_TYPE_AVAILABILITY_CHANGED = 12;
+  // A typed model content block started.
   LIFECYCLE_TYPE_MODEL_CONTENT_START = 13;
+  // A typed model text delta arrived.
   LIFECYCLE_TYPE_MODEL_TEXT_DELTA = 14;
+  // A typed model content block ended.
   LIFECYCLE_TYPE_MODEL_CONTENT_END = 15;
+  // Incremental tool call generation started.
   LIFECYCLE_TYPE_TOOL_CALL_START = 16;
+  // Incremental tool call state changed.
   LIFECYCLE_TYPE_TOOL_CALL_DELTA = 17;
+  // Tool call generation ended.
   LIFECYCLE_TYPE_TOOL_CALL_END = 18;
 }
 
 // ProgressChannel identifies the meaning of one tool progress fragment.
 enum ProgressChannel {
+  // No progress channel was provided.
   PROGRESS_CHANNEL_UNSPECIFIED = 0;
+  // The fragment reports status information.
   PROGRESS_CHANNEL_STATUS = 1;
+  // The fragment contains standard output.
   PROGRESS_CHANNEL_STDOUT = 2;
+  // The fragment contains standard error.
   PROGRESS_CHANNEL_STDERR = 3;
 }
 
 // AuthorizationRequest presents one browser OAuth URL.
 message AuthorizationRequest {
+  // The browser URL used to start authorization.
   string url = 1;
 }
 
 // Information carries one user-visible Host notification.
 message Information {
+  // The user-visible informational text.
   string text = 1;
 }
 
 // Error carries one safe user-visible failure.
 message Error {
+  // The safe user-visible error text.
   string text = 1;
+  // Whether the UI should offer authentication retry.
   bool retry_authentication = 2;
 }
 
 // OpenResponse carries exactly one UI-to-Host command.
 message OpenResponse {
+  // The UI command payload.
   oneof content {
     SubmitCommand submit = 1;
     StopCommand stop = 2;
@@ -235,6 +341,7 @@ message OpenResponse {
 
 // SubmitCommand requests one user turn.
 message SubmitCommand {
+  // The user request submitted to the Host.
   string text = 1;
 }
 

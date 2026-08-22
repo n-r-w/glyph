@@ -1,6 +1,7 @@
 lint:
   use:
     - DEFAULT
+    - COMMENTS
   ignore:
     - experiments
 
