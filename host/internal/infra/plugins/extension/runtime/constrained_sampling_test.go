@@ -21,57 +21,51 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 		errorContains string
 	}{
 		"strict prefer": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_JsonSchema{JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{
-					Strictness: extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER,
-				}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
+					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER),
+				}.Build(),
+			}.Build()),
 			expected: tool.ConstrainedSampling{
 				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: tool.JSONSchemaStrictPrefer,
 				Grammar: tool.GrammarVariants{}, GrammarInputProperty: "",
 			},
 		},
 		"strict require": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_JsonSchema{JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{
-					Strictness: extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
-				}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
+					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
+				}.Build(),
+			}.Build()),
 			expected: tool.ConstrainedSampling{
 				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: tool.JSONSchemaStrictRequire,
 				Grammar: tool.GrammarVariants{}, GrammarInputProperty: "",
 			},
 		},
 		"strictness is required": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_JsonSchema{JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{},
+			}.Build()),
 			errorContains: "strictness is unspecified",
 		},
 		"strictness rejects unknown enum": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_JsonSchema{JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{
-					Strictness: extensionpb.JsonSchemaStrictness(99),
-				}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
+					Strictness: new(extensionpb.JsonSchemaStrictness(99)),
+				}.Build(),
+			}.Build()),
 			errorContains: "strictness is invalid",
 		},
 		"constraint config is required": {
 			descriptor:    constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{}),
 			errorContains: "config is missing",
 		},
-		"grammar config is required": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_Grammar{Grammar: nil},
-			}),
-			errorContains: "grammar config is missing",
-		},
 		"grammar retains input property": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_Grammar{Grammar: &extensionpb.GrammarConstrainedSampling{
-					Lark: "start: /[a-z]+/", Regex: "[a-z]+",
-				}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				Grammar: extensionpb.GrammarConstrainedSampling_builder{
+					Lark: new("start: /[a-z]+/"), Regex: new("[a-z]+"),
+				}.Build(),
+			}.Build()),
 			expected: tool.ConstrainedSampling{
 				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: 0,
 				Grammar:              tool.GrammarVariants{Lark: "start: /[a-z]+/", Regex: "[a-z]+"},
@@ -81,16 +75,14 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 		"grammar rejects multiple properties": {
 			descriptor: constrainedProtoDescriptor(
 				`{"type":"object","properties":{"path":{"type":"string","description":"Path."},"query":{"type":"string","description":"Query."}},"required":["path","query"],"additionalProperties":false}`,
-				&extensionpb.ConstrainedSampling{Config: &extensionpb.ConstrainedSampling_Grammar{
-					Grammar: &extensionpb.GrammarConstrainedSampling{Regex: ".+"},
-				}},
+				extensionpb.ConstrainedSampling_builder{Grammar: extensionpb.GrammarConstrainedSampling_builder{Regex: new(".+")}.Build()}.Build(),
 			),
 			errorContains: "exactly one required string property",
 		},
 		"grammar rejects empty variants": {
-			descriptor: constrainedProtoDescriptor(validSchemaJSON, &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_Grammar{Grammar: &extensionpb.GrammarConstrainedSampling{}},
-			}),
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				Grammar: &extensionpb.GrammarConstrainedSampling{},
+			}.Build()),
 			errorContains: "nonempty grammar variant",
 		},
 	}
@@ -98,7 +90,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			tools, _, err := validateCatalog(&extensionpb.ListToolsResponse{Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}})
+			tools, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}}.Build())
 			if testCase.errorContains != "" {
 				require.ErrorContains(t, err, testCase.errorContains)
 				return
@@ -111,7 +103,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 }
 
 func constrainedProtoDescriptor(schema string, constraint *extensionpb.ConstrainedSampling) *extensionpb.ToolDescriptor {
-	return &extensionpb.ToolDescriptor{
-		Name: "sample", Description: "Sample.", InputSchemaJson: []byte(schema), ConstrainedSampling: constraint,
-	}
+	return extensionpb.ToolDescriptor_builder{
+		Name: new("sample"), Description: new("Sample."), InputSchemaJson: []byte(schema), ConstrainedSampling: constraint,
+	}.Build()
 }

@@ -1,4 +1,6 @@
 // Package runtime adapts the public UI SDK to Host UI lifecycle contracts.
+//
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package runtime
 
 import (
@@ -9,6 +11,8 @@ import (
 	"sync"
 
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"google.golang.org/protobuf/proto"
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -105,25 +109,27 @@ func (c *channel) Receive() (domainui.Command, error) {
 func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 	switch frame.Kind {
 	case domainui.FrameInitialization:
-		return &uipb.OpenRequest{Content: &uipb.OpenRequest_Initialization{
-			Initialization: mapInitialization(frame.Initialization),
-		}}, nil
+		request := &uipb.OpenRequest{}
+		request.SetInitialization(mapInitialization(frame.Initialization))
+		return request, nil
 	case domainui.FrameLifecycle:
-		return &uipb.OpenRequest{Content: &uipb.OpenRequest_Lifecycle{
-			Lifecycle: mapLifecycle(frame.Lifecycle),
-		}}, nil
+		request := &uipb.OpenRequest{}
+		request.SetLifecycle(mapLifecycle(frame.Lifecycle))
+		return request, nil
 	case domainui.FrameAuthorization:
-		return &uipb.OpenRequest{Content: &uipb.OpenRequest_Authorization{
-			Authorization: &uipb.AuthorizationRequest{Url: frame.AuthorizationURL},
-		}}, nil
+		request := &uipb.OpenRequest{}
+		request.SetAuthorization(uipb.AuthorizationRequest_builder{Url: new(frame.AuthorizationURL)}.Build())
+		return request, nil
 	case domainui.FrameInformation:
-		return &uipb.OpenRequest{Content: &uipb.OpenRequest_Information{
-			Information: &uipb.Information{Text: frame.Text},
-		}}, nil
+		request := &uipb.OpenRequest{}
+		request.SetInformation(uipb.Information_builder{Text: new(frame.Text)}.Build())
+		return request, nil
 	case domainui.FrameError:
-		return &uipb.OpenRequest{Content: &uipb.OpenRequest_Error{
-			Error: &uipb.Error{Text: frame.Text, RetryAuthentication: frame.RetryAuthentication},
-		}}, nil
+		request := &uipb.OpenRequest{}
+		request.SetError(uipb.Error_builder{
+			Text: new(frame.Text), RetryAuthentication: new(frame.RetryAuthentication),
+		}.Build())
+		return request, nil
 	default:
 		return nil, errors.New("map UI frame: payload is required")
 	}
@@ -133,65 +139,65 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 func mapInitialization(initialization domainui.Initialization) *uipb.Initialization {
 	startup := make([]*uipb.StartupContent, 0, len(initialization.StartupContent))
 	for _, content := range initialization.StartupContent {
-		startup = append(startup, &uipb.StartupContent{
-			Severity: mapSeverity(content.Severity),
-			Text:     content.Text,
-		})
+		startup = append(startup, uipb.StartupContent_builder{
+			Severity: new(mapSeverity(content.Severity)),
+			Text:     new(content.Text),
+		}.Build())
 	}
 	extensions := make([]*uipb.ExtensionAvailability, 0, len(initialization.Extensions))
 	for _, extension := range initialization.Extensions {
-		extensions = append(extensions, &uipb.ExtensionAvailability{
-			PluginId: extension.PluginID,
+		extensions = append(extensions, uipb.ExtensionAvailability_builder{
+			PluginId: new(extension.PluginID),
 			Tools:    append([]string(nil), extension.Tools...),
-			Path:     extension.Path,
-		})
+			Path:     new(extension.Path),
+		}.Build())
 	}
-	return &uipb.Initialization{
-		SelectedUiId:   initialization.SelectedUIID,
+	return uipb.Initialization_builder{
+		SelectedUiId:   new(initialization.SelectedUIID),
 		StartupContent: startup,
 		Extensions:     extensions,
-		Availability:   mapAvailability(initialization.Availability),
-	}
+		Availability:   new(mapAvailability(initialization.Availability)),
+	}.Build()
 }
 
 // mapLifecycle converts one explicit lifecycle payload.
 func mapLifecycle(event domainui.Lifecycle) *uipb.LifecycleEvent {
-	mapped := &uipb.LifecycleEvent{
-		Type:            mapLifecycleType(event.Type),
-		RunId:           event.RunID,
-		Text:            event.Text,
-		ToolCallId:      event.ToolCallID,
-		ToolName:        event.ToolName,
-		ProgressChannel: mapProgressChannel(event.ProgressChannel),
-		IsError:         event.IsError,
-		Outcome:         event.Outcome,
-		ErrorMessage:    event.ErrorMessage,
-		Availability:    mapAvailability(event.Availability),
+	mapped := uipb.LifecycleEvent_builder{
+		Type:            new(mapLifecycleType(event.Type)),
+		RunId:           new(event.RunID),
+		Text:            new(event.Text),
+		ToolCallId:      new(event.ToolCallID),
+		ToolName:        new(event.ToolName),
+		ProgressChannel: new(mapProgressChannel(event.ProgressChannel)),
+		IsError:         new(event.IsError),
+		Outcome:         new(event.Outcome),
+		ErrorMessage:    new(event.ErrorMessage),
+		Availability:    new(mapAvailability(event.Availability)),
 		ModelContent:    nil,
 		ModelResponse:   nil,
 		ToolCallPreview: nil,
 		FinalToolCall:   nil,
-	}
+	}.Build()
 	if event.ModelContent.Type != 0 {
-		mapped.ModelContent = &uipb.ModelContent{
-			Type:     mapModelContentType(event.ModelContent.Type),
-			Position: int32(event.ModelContent.Position), //nolint:gosec // Model positions remain bounded by response size.
-			Text:     event.ModelContent.Text, Kind: mapModelContentKind(event.ModelContent.Kind),
-		}
+		mapped.SetModelContent(uipb.ModelContent_builder{
+			Type:     new(mapModelContentType(event.ModelContent.Type)),
+			Position: new(int32(event.ModelContent.Position)), //nolint:gosec // Model positions remain bounded by response size.
+			Text:     new(event.ModelContent.Text), Kind: new(mapModelContentKind(event.ModelContent.Kind)),
+		}.Build())
 	}
 	if event.Type == domainui.LifecycleMessageEnd {
-		mapped.ModelResponse = mapModelResponse(event.ModelResponse)
+		mapped.SetModelResponse(mapModelResponse(event.ModelResponse))
 	}
 	if event.Type == domainui.LifecycleToolCallStart || event.Type == domainui.LifecycleToolCallDelta {
-		mapped.ToolCallPreview = mapToolCallPreview(event.ToolCallPreview)
+		mapped.SetToolCallPreview(mapToolCallPreview(event.ToolCallPreview))
 	}
 	if event.Type == domainui.LifecycleToolCallEnd {
 		arguments, _ := structpb.NewStruct(event.FinalToolCall.Arguments)
-		mapped.FinalToolCall = &uipb.FinalToolCall{
-			CallId: event.FinalToolCall.CallID, Name: event.FinalToolCall.Name,
-			Position:  int32(event.FinalToolCall.Position), //nolint:gosec // Positions are bounded by response size.
+		mapped.SetFinalToolCall(uipb.FinalToolCall_builder{
+			CallId: new(event.FinalToolCall.CallID), Name: new(event.FinalToolCall.Name),
+			Position:  new(int32(event.FinalToolCall.Position)), //nolint:gosec // Positions are bounded by response size.
 			Arguments: arguments,
-		}
+		}.Build())
 	}
 	return mapped
 }
@@ -280,42 +286,46 @@ func mapLifecycleType(value domainui.LifecycleType) uipb.LifecycleType {
 func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview {
 	fields := make([]*uipb.ToolCallPreviewField, len(preview.Fields))
 	for index, field := range preview.Fields {
-		mapped := &uipb.ToolCallPreviewField{Name: field.Name, Content: nil}
+		mapped := uipb.ToolCallPreviewField_builder{Name: new(field.Name)}.Build()
 		if field.Complete {
 			value, _ := structpb.NewValue(field.Value)
-			mapped.Content = &uipb.ToolCallPreviewField_Value{Value: value}
+			mapped.SetValue(proto.ValueOrDefault(value))
 		} else {
-			mapped.Content = &uipb.ToolCallPreviewField_Prefix{Prefix: field.Prefix}
+			mapped.SetPrefix(field.Prefix)
 		}
 		fields[index] = mapped
 	}
-	return &uipb.ToolCallPreview{
-		CallId: preview.CallID, Name: preview.Name,
-		Position:    int32(preview.Position), //nolint:gosec // Positions are bounded by response size.
-		Provisional: preview.Provisional, Fields: fields,
-	}
+	return uipb.ToolCallPreview_builder{
+		CallId: new(preview.CallID), Name: new(preview.Name),
+		Position:    new(int32(preview.Position)), //nolint:gosec // Positions are bounded by response size.
+		Provisional: new(preview.Provisional), Fields: fields,
+	}.Build()
 }
 
 func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
 	content := make([]*uipb.ModelResponseContent, len(response.Content))
 	for index, item := range response.Content {
-		content[index] = &uipb.ModelResponseContent{Kind: mapModelContentKind(item.Kind), Text: item.Text}
+		content[index] = uipb.ModelResponseContent_builder{
+			Kind: new(mapModelContentKind(item.Kind)), Text: new(item.Text),
+		}.Build()
 	}
 	diagnostics := make([]*uipb.ModelDiagnostic, len(response.Diagnostics))
 	for index, diagnostic := range response.Diagnostics {
-		diagnostics[index] = &uipb.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
+		diagnostics[index] = uipb.ModelDiagnostic_builder{
+			Code: new(diagnostic.Code), Message: new(diagnostic.Message),
+		}.Build()
 	}
-	return &uipb.ModelResponse{
-		Text: response.Text, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
-		Provider: response.Provider, Model: response.Model, ResponseModel: response.ResponseModel,
-		ResponseId: response.ResponseID,
-		Usage: &uipb.ModelUsage{
-			InputTokens: response.Usage.InputTokens, OutputTokens: response.Usage.OutputTokens,
-			CachedInputTokens: response.Usage.CachedInputTokens, CacheWriteTokens: response.Usage.CacheWriteTokens,
-			ReasoningTokens: response.Usage.ReasoningTokens, TotalTokens: response.Usage.TotalTokens,
-		},
+	return uipb.ModelResponse_builder{
+		Text: new(response.Text), Outcome: new(response.Outcome), ErrorMessage: new(response.ErrorMessage),
+		Provider: new(response.Provider), Model: new(response.Model), ResponseModel: response.ResponseModel,
+		ResponseId: new(response.ResponseID),
+		Usage: uipb.ModelUsage_builder{
+			InputTokens: new(response.Usage.InputTokens), OutputTokens: new(response.Usage.OutputTokens),
+			CachedInputTokens: new(response.Usage.CachedInputTokens), CacheWriteTokens: new(response.Usage.CacheWriteTokens),
+			ReasoningTokens: new(response.Usage.ReasoningTokens), TotalTokens: new(response.Usage.TotalTokens),
+		}.Build(),
 		Diagnostics: diagnostics, Content: content,
-	}
+	}.Build()
 }
 
 func mapModelContentKind(value domainui.ModelContentKind) uipb.ModelContentKind {

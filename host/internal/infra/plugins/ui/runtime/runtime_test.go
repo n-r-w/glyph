@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package runtime
 
 import (
@@ -8,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+
+	"google.golang.org/protobuf/proto"
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -106,7 +109,7 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	require.NotNil(t, mapped)
 	assert.Equal(t, "openai-codex", mapped.GetProvider())
 	assert.Equal(t, "gpt-test", mapped.GetModel())
-	require.NotNil(t, mapped.ResponseModel)
+	require.NotNil(t, proto.ValueOrNil(mapped.HasResponseModel(), mapped.GetResponseModel))
 	assert.Equal(t, "gpt-actual", mapped.GetResponseModel())
 	assert.Equal(t, "resp-1", mapped.GetResponseId())
 	assert.Equal(t, int64(17), mapped.GetUsage().GetTotalTokens())
@@ -125,7 +128,7 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 		AuthorizationURL: "", Text: "", RetryAuthentication: false,
 	})
 	require.Error(t, err)
-	_, err = mapCommand(&uipb.OpenResponse{Content: nil})
+	_, err = mapCommand(&uipb.OpenResponse{})
 	require.Error(t, err)
 }
 
@@ -134,7 +137,7 @@ func (*runtimeContractService) GetCapabilities(
 	_ context.Context,
 	_ *uipb.GetCapabilitiesRequest,
 ) (*uipb.GetCapabilitiesResponse, error) {
-	return &uipb.GetCapabilitiesResponse{ControlsTerminal: false}, nil
+	return uipb.GetCapabilitiesResponse_builder{ControlsTerminal: new(false)}.Build(), nil
 }
 
 // Open receives every Host frame before returning the complete command set.
@@ -149,12 +152,10 @@ func (s *runtimeContractService) Open(
 		s.received <- request
 	}
 	for _, response := range []*uipb.OpenResponse{
-		{Content: &uipb.OpenResponse_Submit{Submit: &uipb.SubmitCommand{Text: "request"}}},
-		{Content: &uipb.OpenResponse_Stop{Stop: &uipb.StopCommand{}}},
-		{Content: &uipb.OpenResponse_RetryAuthentication{
-			RetryAuthentication: &uipb.RetryAuthenticationCommand{},
-		}},
-		{Content: &uipb.OpenResponse_Quit{Quit: &uipb.QuitCommand{}}},
+		uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("request")}.Build()}.Build(),
+		uipb.OpenResponse_builder{Stop: &uipb.StopCommand{}}.Build(),
+		uipb.OpenResponse_builder{RetryAuthentication: &uipb.RetryAuthenticationCommand{}}.Build(),
+		uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build(),
 	} {
 		if err := stream.Send(response); err != nil {
 			return err

@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package app
 
 import (
@@ -59,7 +60,7 @@ func (*appUIService) GetCapabilities(
 	if os.Getenv(appUIBehaviorEnvironment) == "snapshot" {
 		_ = os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(strconv.Itoa(os.Getpid())), 0o600)
 	}
-	return &uipb.GetCapabilitiesResponse{ControlsTerminal: controlsTerminal}, nil
+	return uipb.GetCapabilitiesResponse_builder{ControlsTerminal: new(controlsTerminal)}.Build(), nil
 }
 
 // Open records the first frame and sends the authoritative quit command.
@@ -98,7 +99,7 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	if os.Getenv(appUIBehaviorEnvironment) == "crash" {
 		os.Exit(23)
 	}
-	return stream.Send(&uipb.OpenResponse{Content: &uipb.OpenResponse_Quit{Quit: &uipb.QuitCommand{}}})
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
 // TestRunWithPathsIgnoresActiveUIAndFailsWithoutCredentials verifies headless-only concrete composition.

@@ -13,6 +13,7 @@ generate:
       opts:
         paths: import
         module: github.com/n-r-w/glyph
+        default_api_level: API_OPAQUE
     - command: ["go", "tool", "protoc-gen-go-grpc"]
       out: .
       opts:

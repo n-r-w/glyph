@@ -7,11 +7,11 @@
 package extensionv1
 
 import (
+	reflect "reflect"
+	unsafe "unsafe"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -66,11 +66,6 @@ func (x JsonSchemaStrictness) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use JsonSchemaStrictness.Descriptor instead.
-func (JsonSchemaStrictness) EnumDescriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{0}
-}
-
 // ProgressChannel identifies the meaning of a progress fragment.
 type ProgressChannel int32
 
@@ -119,14 +114,9 @@ func (x ProgressChannel) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ProgressChannel.Descriptor instead.
-func (ProgressChannel) EnumDescriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{1}
-}
-
 // ListToolsRequest has no fields because the tool catalog is fixed at startup.
 type ListToolsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -156,17 +146,24 @@ func (x *ListToolsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListToolsRequest.ProtoReflect.Descriptor instead.
-func (*ListToolsRequest) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{0}
+type ListToolsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 ListToolsRequest_builder) Build() *ListToolsRequest {
+	m0 := &ListToolsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
 }
 
 // ListToolsResponse contains the complete tool catalog for one extension.
 type ListToolsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tools         []*ToolDescriptor      `protobuf:"bytes,1,rep,name=tools,proto3" json:"tools,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Tools *[]*ToolDescriptor     `protobuf:"bytes,1,rep,name=tools"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListToolsResponse) Reset() {
@@ -194,27 +191,44 @@ func (x *ListToolsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListToolsResponse.ProtoReflect.Descriptor instead.
-func (*ListToolsResponse) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{1}
-}
-
 func (x *ListToolsResponse) GetTools() []*ToolDescriptor {
 	if x != nil {
-		return x.Tools
+		if x.xxx_hidden_Tools != nil {
+			return *x.xxx_hidden_Tools
+		}
 	}
 	return nil
 }
 
+func (x *ListToolsResponse) SetTools(v []*ToolDescriptor) {
+	x.xxx_hidden_Tools = &v
+}
+
+type ListToolsResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Tools []*ToolDescriptor
+}
+
+func (b0 ListToolsResponse_builder) Build() *ListToolsResponse {
+	m0 := &ListToolsResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Tools = &b.Tools
+	return m0
+}
+
 // ToolDescriptor describes one extension-owned tool.
 type ToolDescriptor struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Name                string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description         string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	InputSchemaJson     []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson,proto3" json:"input_schema_json,omitempty"`
-	ConstrainedSampling *ConstrainedSampling   `protobuf:"bytes,4,opt,name=constrained_sampling,json=constrainedSampling,proto3" json:"constrained_sampling,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state                          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name                *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Description         *string                `protobuf:"bytes,2,opt,name=description"`
+	xxx_hidden_InputSchemaJson     []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson"`
+	xxx_hidden_ConstrainedSampling *ConstrainedSampling   `protobuf:"bytes,4,opt,name=constrained_sampling,json=constrainedSampling"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *ToolDescriptor) Reset() {
@@ -242,49 +256,144 @@ func (x *ToolDescriptor) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ToolDescriptor.ProtoReflect.Descriptor instead.
-func (*ToolDescriptor) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{2}
-}
-
 func (x *ToolDescriptor) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ToolDescriptor) GetDescription() string {
 	if x != nil {
-		return x.Description
+		if x.xxx_hidden_Description != nil {
+			return *x.xxx_hidden_Description
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ToolDescriptor) GetInputSchemaJson() []byte {
 	if x != nil {
-		return x.InputSchemaJson
+		return x.xxx_hidden_InputSchemaJson
 	}
 	return nil
 }
 
 func (x *ToolDescriptor) GetConstrainedSampling() *ConstrainedSampling {
 	if x != nil {
-		return x.ConstrainedSampling
+		return x.xxx_hidden_ConstrainedSampling
 	}
 	return nil
 }
 
+func (x *ToolDescriptor) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *ToolDescriptor) SetDescription(v string) {
+	x.xxx_hidden_Description = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *ToolDescriptor) SetInputSchemaJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_InputSchemaJson = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *ToolDescriptor) SetConstrainedSampling(v *ConstrainedSampling) {
+	x.xxx_hidden_ConstrainedSampling = v
+}
+
+func (x *ToolDescriptor) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ToolDescriptor) HasDescription() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ToolDescriptor) HasInputSchemaJson() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ToolDescriptor) HasConstrainedSampling() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ConstrainedSampling != nil
+}
+
+func (x *ToolDescriptor) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *ToolDescriptor) ClearDescription() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Description = nil
+}
+
+func (x *ToolDescriptor) ClearInputSchemaJson() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_InputSchemaJson = nil
+}
+
+func (x *ToolDescriptor) ClearConstrainedSampling() {
+	x.xxx_hidden_ConstrainedSampling = nil
+}
+
+type ToolDescriptor_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Name                *string
+	Description         *string
+	InputSchemaJson     []byte
+	ConstrainedSampling *ConstrainedSampling
+}
+
+func (b0 ToolDescriptor_builder) Build() *ToolDescriptor {
+	m0 := &ToolDescriptor{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Description != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_Description = b.Description
+	}
+	if b.InputSchemaJson != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_InputSchemaJson = b.InputSchemaJson
+	}
+	x.xxx_hidden_ConstrainedSampling = b.ConstrainedSampling
+	return m0
+}
+
 // ConstrainedSampling requests provider-side constrained tool input generation.
 type ConstrainedSampling struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Config:
-	//
-	//	*ConstrainedSampling_JsonSchema
-	//	*ConstrainedSampling_Grammar
-	Config        isConstrainedSampling_Config `protobuf_oneof:"config"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Config isConstrainedSampling_Config `protobuf_oneof:"config"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ConstrainedSampling) Reset() {
@@ -312,21 +421,9 @@ func (x *ConstrainedSampling) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ConstrainedSampling.ProtoReflect.Descriptor instead.
-func (*ConstrainedSampling) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *ConstrainedSampling) GetConfig() isConstrainedSampling_Config {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
 func (x *ConstrainedSampling) GetJsonSchema() *JsonSchemaConstrainedSampling {
 	if x != nil {
-		if x, ok := x.Config.(*ConstrainedSampling_JsonSchema); ok {
+		if x, ok := x.xxx_hidden_Config.(*constrainedSampling_JsonSchema); ok {
 			return x.JsonSchema
 		}
 	}
@@ -335,35 +432,142 @@ func (x *ConstrainedSampling) GetJsonSchema() *JsonSchemaConstrainedSampling {
 
 func (x *ConstrainedSampling) GetGrammar() *GrammarConstrainedSampling {
 	if x != nil {
-		if x, ok := x.Config.(*ConstrainedSampling_Grammar); ok {
+		if x, ok := x.xxx_hidden_Config.(*constrainedSampling_Grammar); ok {
 			return x.Grammar
 		}
 	}
 	return nil
 }
 
+func (x *ConstrainedSampling) SetJsonSchema(v *JsonSchemaConstrainedSampling) {
+	if v == nil {
+		x.xxx_hidden_Config = nil
+		return
+	}
+	x.xxx_hidden_Config = &constrainedSampling_JsonSchema{v}
+}
+
+func (x *ConstrainedSampling) SetGrammar(v *GrammarConstrainedSampling) {
+	if v == nil {
+		x.xxx_hidden_Config = nil
+		return
+	}
+	x.xxx_hidden_Config = &constrainedSampling_Grammar{v}
+}
+
+func (x *ConstrainedSampling) HasConfig() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Config != nil
+}
+
+func (x *ConstrainedSampling) HasJsonSchema() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Config.(*constrainedSampling_JsonSchema)
+	return ok
+}
+
+func (x *ConstrainedSampling) HasGrammar() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Config.(*constrainedSampling_Grammar)
+	return ok
+}
+
+func (x *ConstrainedSampling) ClearConfig() {
+	x.xxx_hidden_Config = nil
+}
+
+func (x *ConstrainedSampling) ClearJsonSchema() {
+	if _, ok := x.xxx_hidden_Config.(*constrainedSampling_JsonSchema); ok {
+		x.xxx_hidden_Config = nil
+	}
+}
+
+func (x *ConstrainedSampling) ClearGrammar() {
+	if _, ok := x.xxx_hidden_Config.(*constrainedSampling_Grammar); ok {
+		x.xxx_hidden_Config = nil
+	}
+}
+
+const ConstrainedSampling_Config_not_set_case case_ConstrainedSampling_Config = 0
+const ConstrainedSampling_JsonSchema_case case_ConstrainedSampling_Config = 1
+const ConstrainedSampling_Grammar_case case_ConstrainedSampling_Config = 2
+
+func (x *ConstrainedSampling) WhichConfig() case_ConstrainedSampling_Config {
+	if x == nil {
+		return ConstrainedSampling_Config_not_set_case
+	}
+	switch x.xxx_hidden_Config.(type) {
+	case *constrainedSampling_JsonSchema:
+		return ConstrainedSampling_JsonSchema_case
+	case *constrainedSampling_Grammar:
+		return ConstrainedSampling_Grammar_case
+	default:
+		return ConstrainedSampling_Config_not_set_case
+	}
+}
+
+type ConstrainedSampling_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Config:
+	JsonSchema *JsonSchemaConstrainedSampling
+	Grammar    *GrammarConstrainedSampling
+	// -- end of xxx_hidden_Config
+}
+
+func (b0 ConstrainedSampling_builder) Build() *ConstrainedSampling {
+	m0 := &ConstrainedSampling{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.JsonSchema != nil {
+		x.xxx_hidden_Config = &constrainedSampling_JsonSchema{b.JsonSchema}
+	}
+	if b.Grammar != nil {
+		x.xxx_hidden_Config = &constrainedSampling_Grammar{b.Grammar}
+	}
+	return m0
+}
+
+type case_ConstrainedSampling_Config protoreflect.FieldNumber
+
+func (x case_ConstrainedSampling_Config) String() string {
+	md := file_api_plugins_extension_v1_tool_proto_msgTypes[3].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
 type isConstrainedSampling_Config interface {
 	isConstrainedSampling_Config()
 }
 
-type ConstrainedSampling_JsonSchema struct {
-	JsonSchema *JsonSchemaConstrainedSampling `protobuf:"bytes,1,opt,name=json_schema,json=jsonSchema,proto3,oneof"`
+type constrainedSampling_JsonSchema struct {
+	JsonSchema *JsonSchemaConstrainedSampling `protobuf:"bytes,1,opt,name=json_schema,json=jsonSchema,oneof"`
 }
 
-type ConstrainedSampling_Grammar struct {
-	Grammar *GrammarConstrainedSampling `protobuf:"bytes,2,opt,name=grammar,proto3,oneof"`
+type constrainedSampling_Grammar struct {
+	Grammar *GrammarConstrainedSampling `protobuf:"bytes,2,opt,name=grammar,oneof"`
 }
 
-func (*ConstrainedSampling_JsonSchema) isConstrainedSampling_Config() {}
+func (*constrainedSampling_JsonSchema) isConstrainedSampling_Config() {}
 
-func (*ConstrainedSampling_Grammar) isConstrainedSampling_Config() {}
+func (*constrainedSampling_Grammar) isConstrainedSampling_Config() {}
 
 // JsonSchemaConstrainedSampling requests JSON Schema constrained generation.
 type JsonSchemaConstrainedSampling struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Strictness    JsonSchemaStrictness   `protobuf:"varint,1,opt,name=strictness,proto3,enum=glyph.plugins.extension.v1.JsonSchemaStrictness" json:"strictness,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Strictness  JsonSchemaStrictness   `protobuf:"varint,1,opt,name=strictness,enum=glyph.plugins.extension.v1.JsonSchemaStrictness"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *JsonSchemaConstrainedSampling) Reset() {
@@ -391,25 +595,58 @@ func (x *JsonSchemaConstrainedSampling) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JsonSchemaConstrainedSampling.ProtoReflect.Descriptor instead.
-func (*JsonSchemaConstrainedSampling) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{4}
-}
-
 func (x *JsonSchemaConstrainedSampling) GetStrictness() JsonSchemaStrictness {
 	if x != nil {
-		return x.Strictness
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Strictness
+		}
 	}
 	return JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED
 }
 
+func (x *JsonSchemaConstrainedSampling) SetStrictness(v JsonSchemaStrictness) {
+	x.xxx_hidden_Strictness = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *JsonSchemaConstrainedSampling) HasStrictness() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *JsonSchemaConstrainedSampling) ClearStrictness() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Strictness = JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED
+}
+
+type JsonSchemaConstrainedSampling_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Strictness *JsonSchemaStrictness
+}
+
+func (b0 JsonSchemaConstrainedSampling_builder) Build() *JsonSchemaConstrainedSampling {
+	m0 := &JsonSchemaConstrainedSampling{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Strictness != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Strictness = *b.Strictness
+	}
+	return m0
+}
+
 // GrammarConstrainedSampling provides equivalent supported grammar formats.
 type GrammarConstrainedSampling struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lark          string                 `protobuf:"bytes,1,opt,name=lark,proto3" json:"lark,omitempty"`
-	Regex         string                 `protobuf:"bytes,2,opt,name=regex,proto3" json:"regex,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Lark        *string                `protobuf:"bytes,1,opt,name=lark"`
+	xxx_hidden_Regex       *string                `protobuf:"bytes,2,opt,name=regex"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *GrammarConstrainedSampling) Reset() {
@@ -437,32 +674,91 @@ func (x *GrammarConstrainedSampling) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GrammarConstrainedSampling.ProtoReflect.Descriptor instead.
-func (*GrammarConstrainedSampling) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{5}
-}
-
 func (x *GrammarConstrainedSampling) GetLark() string {
 	if x != nil {
-		return x.Lark
+		if x.xxx_hidden_Lark != nil {
+			return *x.xxx_hidden_Lark
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *GrammarConstrainedSampling) GetRegex() string {
 	if x != nil {
-		return x.Regex
+		if x.xxx_hidden_Regex != nil {
+			return *x.xxx_hidden_Regex
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *GrammarConstrainedSampling) SetLark(v string) {
+	x.xxx_hidden_Lark = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *GrammarConstrainedSampling) SetRegex(v string) {
+	x.xxx_hidden_Regex = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *GrammarConstrainedSampling) HasLark() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *GrammarConstrainedSampling) HasRegex() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *GrammarConstrainedSampling) ClearLark() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Lark = nil
+}
+
+func (x *GrammarConstrainedSampling) ClearRegex() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Regex = nil
+}
+
+type GrammarConstrainedSampling_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Lark  *string
+	Regex *string
+}
+
+func (b0 GrammarConstrainedSampling_builder) Build() *GrammarConstrainedSampling {
+	m0 := &GrammarConstrainedSampling{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Lark != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Lark = b.Lark
+	}
+	if b.Regex != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Regex = b.Regex
+	}
+	return m0
+}
+
 // ExecuteRequest starts one tool call with JSON-encoded arguments.
 type ExecuteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	ArgumentsJson []byte                 `protobuf:"bytes,2,opt,name=arguments_json,json=argumentsJson,proto3" json:"arguments_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ToolName      *string                `protobuf:"bytes,1,opt,name=tool_name,json=toolName"`
+	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,2,opt,name=arguments_json,json=argumentsJson"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ExecuteRequest) Reset() {
@@ -490,35 +786,88 @@ func (x *ExecuteRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExecuteRequest.ProtoReflect.Descriptor instead.
-func (*ExecuteRequest) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{6}
-}
-
 func (x *ExecuteRequest) GetToolName() string {
 	if x != nil {
-		return x.ToolName
+		if x.xxx_hidden_ToolName != nil {
+			return *x.xxx_hidden_ToolName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ExecuteRequest) GetArgumentsJson() []byte {
 	if x != nil {
-		return x.ArgumentsJson
+		return x.xxx_hidden_ArgumentsJson
 	}
 	return nil
 }
 
+func (x *ExecuteRequest) SetToolName(v string) {
+	x.xxx_hidden_ToolName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ExecuteRequest) SetArgumentsJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_ArgumentsJson = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ExecuteRequest) HasToolName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ExecuteRequest) HasArgumentsJson() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ExecuteRequest) ClearToolName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ToolName = nil
+}
+
+func (x *ExecuteRequest) ClearArgumentsJson() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ArgumentsJson = nil
+}
+
+type ExecuteRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	ToolName      *string
+	ArgumentsJson []byte
+}
+
+func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
+	m0 := &ExecuteRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ToolName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_ToolName = b.ToolName
+	}
+	if b.ArgumentsJson != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
+	}
+	return m0
+}
+
 // ExecuteResponse carries progress or the terminal result.
 type ExecuteResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Content:
-	//
-	//	*ExecuteResponse_Progress
-	//	*ExecuteResponse_Result
-	Content       isExecuteResponse_Content `protobuf_oneof:"content"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Content isExecuteResponse_Content `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ExecuteResponse) Reset() {
@@ -546,21 +895,9 @@ func (x *ExecuteResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExecuteResponse.ProtoReflect.Descriptor instead.
-func (*ExecuteResponse) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *ExecuteResponse) GetContent() isExecuteResponse_Content {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
 func (x *ExecuteResponse) GetProgress() *ToolProgress {
 	if x != nil {
-		if x, ok := x.Content.(*ExecuteResponse_Progress); ok {
+		if x, ok := x.xxx_hidden_Content.(*executeResponse_Progress); ok {
 			return x.Progress
 		}
 	}
@@ -569,36 +906,143 @@ func (x *ExecuteResponse) GetProgress() *ToolProgress {
 
 func (x *ExecuteResponse) GetResult() *ToolResult {
 	if x != nil {
-		if x, ok := x.Content.(*ExecuteResponse_Result); ok {
+		if x, ok := x.xxx_hidden_Content.(*executeResponse_Result); ok {
 			return x.Result
 		}
 	}
 	return nil
 }
 
+func (x *ExecuteResponse) SetProgress(v *ToolProgress) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &executeResponse_Progress{v}
+}
+
+func (x *ExecuteResponse) SetResult(v *ToolResult) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &executeResponse_Result{v}
+}
+
+func (x *ExecuteResponse) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ExecuteResponse) HasProgress() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*executeResponse_Progress)
+	return ok
+}
+
+func (x *ExecuteResponse) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*executeResponse_Result)
+	return ok
+}
+
+func (x *ExecuteResponse) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ExecuteResponse) ClearProgress() {
+	if _, ok := x.xxx_hidden_Content.(*executeResponse_Progress); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ExecuteResponse) ClearResult() {
+	if _, ok := x.xxx_hidden_Content.(*executeResponse_Result); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const ExecuteResponse_Content_not_set_case case_ExecuteResponse_Content = 0
+const ExecuteResponse_Progress_case case_ExecuteResponse_Content = 1
+const ExecuteResponse_Result_case case_ExecuteResponse_Content = 2
+
+func (x *ExecuteResponse) WhichContent() case_ExecuteResponse_Content {
+	if x == nil {
+		return ExecuteResponse_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *executeResponse_Progress:
+		return ExecuteResponse_Progress_case
+	case *executeResponse_Result:
+		return ExecuteResponse_Result_case
+	default:
+		return ExecuteResponse_Content_not_set_case
+	}
+}
+
+type ExecuteResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Content:
+	Progress *ToolProgress
+	Result   *ToolResult
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 ExecuteResponse_builder) Build() *ExecuteResponse {
+	m0 := &ExecuteResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Progress != nil {
+		x.xxx_hidden_Content = &executeResponse_Progress{b.Progress}
+	}
+	if b.Result != nil {
+		x.xxx_hidden_Content = &executeResponse_Result{b.Result}
+	}
+	return m0
+}
+
+type case_ExecuteResponse_Content protoreflect.FieldNumber
+
+func (x case_ExecuteResponse_Content) String() string {
+	md := file_api_plugins_extension_v1_tool_proto_msgTypes[7].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
 type isExecuteResponse_Content interface {
 	isExecuteResponse_Content()
 }
 
-type ExecuteResponse_Progress struct {
-	Progress *ToolProgress `protobuf:"bytes,1,opt,name=progress,proto3,oneof"`
+type executeResponse_Progress struct {
+	Progress *ToolProgress `protobuf:"bytes,1,opt,name=progress,oneof"`
 }
 
-type ExecuteResponse_Result struct {
-	Result *ToolResult `protobuf:"bytes,2,opt,name=result,proto3,oneof"`
+type executeResponse_Result struct {
+	Result *ToolResult `protobuf:"bytes,2,opt,name=result,oneof"`
 }
 
-func (*ExecuteResponse_Progress) isExecuteResponse_Content() {}
+func (*executeResponse_Progress) isExecuteResponse_Content() {}
 
-func (*ExecuteResponse_Result) isExecuteResponse_Content() {}
+func (*executeResponse_Result) isExecuteResponse_Content() {}
 
 // ToolProgress carries one ordered progress fragment.
 type ToolProgress struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Channel       ProgressChannel        `protobuf:"varint,1,opt,name=channel,proto3,enum=glyph.plugins.extension.v1.ProgressChannel" json:"channel,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Channel     ProgressChannel        `protobuf:"varint,1,opt,name=channel,enum=glyph.plugins.extension.v1.ProgressChannel"`
+	xxx_hidden_Content     *string                `protobuf:"bytes,2,opt,name=content"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ToolProgress) Reset() {
@@ -626,32 +1070,90 @@ func (x *ToolProgress) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ToolProgress.ProtoReflect.Descriptor instead.
-func (*ToolProgress) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{8}
-}
-
 func (x *ToolProgress) GetChannel() ProgressChannel {
 	if x != nil {
-		return x.Channel
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Channel
+		}
 	}
 	return ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED
 }
 
 func (x *ToolProgress) GetContent() string {
 	if x != nil {
-		return x.Content
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *ToolProgress) SetChannel(v ProgressChannel) {
+	x.xxx_hidden_Channel = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ToolProgress) SetContent(v string) {
+	x.xxx_hidden_Content = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ToolProgress) HasChannel() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ToolProgress) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ToolProgress) ClearChannel() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Channel = ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED
+}
+
+func (x *ToolProgress) ClearContent() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Content = nil
+}
+
+type ToolProgress_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Channel *ProgressChannel
+	Content *string
+}
+
+func (b0 ToolProgress_builder) Build() *ToolProgress {
+	m0 := &ToolProgress{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Channel != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Channel = *b.Channel
+	}
+	if b.Content != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Content = b.Content
+	}
+	return m0
+}
+
 // ToolResult is the terminal outcome of one tool call.
 type ToolResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
-	IsError       bool                   `protobuf:"varint,2,opt,name=is_error,json=isError,proto3" json:"is_error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Content     *string                `protobuf:"bytes,1,opt,name=content"`
+	xxx_hidden_IsError     bool                   `protobuf:"varint,2,opt,name=is_error,json=isError"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ToolResult) Reset() {
@@ -679,23 +1181,77 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
-func (*ToolResult) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{9}
-}
-
 func (x *ToolResult) GetContent() string {
 	if x != nil {
-		return x.Content
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ToolResult) GetIsError() bool {
 	if x != nil {
-		return x.IsError
+		return x.xxx_hidden_IsError
 	}
 	return false
+}
+
+func (x *ToolResult) SetContent(v string) {
+	x.xxx_hidden_Content = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ToolResult) SetIsError(v bool) {
+	x.xxx_hidden_IsError = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ToolResult) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ToolResult) HasIsError() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ToolResult) ClearContent() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ToolResult) ClearIsError() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_IsError = false
+}
+
+type ToolResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Content *string
+	IsError *bool
+}
+
+func (b0 ToolResult_builder) Build() *ToolResult {
+	m0 := &ToolResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Content != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Content = b.Content
+	}
+	if b.IsError != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_IsError = *b.IsError
+	}
+	return m0
 }
 
 var File_api_plugins_extension_v1_tool_proto protoreflect.FileDescriptor
@@ -748,19 +1304,7 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\x17PROGRESS_CHANNEL_STDERR\x10\x032\xe2\x01\n" +
 	"\x10ExtensionService\x12h\n" +
 	"\tListTools\x12,.glyph.plugins.extension.v1.ListToolsRequest\x1a-.glyph.plugins.extension.v1.ListToolsResponse\x12d\n" +
-	"\aExecute\x12*.glyph.plugins.extension.v1.ExecuteRequest\x1a+.glyph.plugins.extension.v1.ExecuteResponse0\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\x06proto3"
-
-var (
-	file_api_plugins_extension_v1_tool_proto_rawDescOnce sync.Once
-	file_api_plugins_extension_v1_tool_proto_rawDescData []byte
-)
-
-func file_api_plugins_extension_v1_tool_proto_rawDescGZIP() []byte {
-	file_api_plugins_extension_v1_tool_proto_rawDescOnce.Do(func() {
-		file_api_plugins_extension_v1_tool_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_tool_proto_rawDesc), len(file_api_plugins_extension_v1_tool_proto_rawDesc)))
-	})
-	return file_api_plugins_extension_v1_tool_proto_rawDescData
-}
+	"\aExecute\x12*.glyph.plugins.extension.v1.ExecuteRequest\x1a+.glyph.plugins.extension.v1.ExecuteResponse0\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_api_plugins_extension_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
@@ -804,12 +1348,12 @@ func file_api_plugins_extension_v1_tool_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_tool_proto_msgTypes[3].OneofWrappers = []any{
-		(*ConstrainedSampling_JsonSchema)(nil),
-		(*ConstrainedSampling_Grammar)(nil),
+		(*constrainedSampling_JsonSchema)(nil),
+		(*constrainedSampling_Grammar)(nil),
 	}
 	file_api_plugins_extension_v1_tool_proto_msgTypes[7].OneofWrappers = []any{
-		(*ExecuteResponse_Progress)(nil),
-		(*ExecuteResponse_Result)(nil),
+		(*executeResponse_Progress)(nil),
+		(*executeResponse_Result)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

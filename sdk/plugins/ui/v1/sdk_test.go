@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package uiv1
 
 import (
@@ -67,18 +68,14 @@ func TestConnectAndServe(t *testing.T) {
 
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(&uipb.OpenRequest{Content: &uipb.OpenRequest_Initialization{
-		Initialization: &uipb.Initialization{
-			SelectedUiId: "contract", StartupContent: nil, Extensions: nil,
-			Availability: uipb.Availability_AVAILABILITY_UNSPECIFIED,
-		},
-	}}))
+	require.NoError(t, stream.Send(uipb.OpenRequest_builder{Initialization: uipb.Initialization_builder{
+		SelectedUiId: new("contract"), StartupContent: nil, Extensions: nil,
+		Availability: new(uipb.Availability_AVAILABILITY_UNSPECIFIED),
+	}.Build()}.Build()))
 	commandFrame, err := stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "first request", commandFrame.GetSubmit().GetText())
-	require.NoError(t, stream.Send(&uipb.OpenRequest{Content: &uipb.OpenRequest_Information{
-		Information: &uipb.Information{Text: "received"},
-	}}))
+	require.NoError(t, stream.Send(uipb.OpenRequest_builder{Information: uipb.Information_builder{Text: new("received")}.Build()}.Build()))
 	commandFrame, err = stream.Recv()
 	require.NoError(t, err)
 	assert.NotNil(t, commandFrame.GetQuit())
@@ -159,7 +156,7 @@ func (*contractService) GetCapabilities(
 	_ context.Context,
 	_ *uipb.GetCapabilitiesRequest,
 ) (*uipb.GetCapabilitiesResponse, error) {
-	return &uipb.GetCapabilitiesResponse{ControlsTerminal: true}, nil
+	return uipb.GetCapabilitiesResponse_builder{ControlsTerminal: new(true)}.Build(), nil
 }
 
 // Open validates Host frame order and returns one submit followed by quit.
@@ -171,13 +168,11 @@ func (*contractService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, u
 	if initialization.GetInitialization().GetSelectedUiId() != "contract" {
 		return nil
 	}
-	if err := stream.Send(&uipb.OpenResponse{Content: &uipb.OpenResponse_Submit{
-		Submit: &uipb.SubmitCommand{Text: "first request"},
-	}}); err != nil {
+	if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("first request")}.Build()}.Build()); err != nil {
 		return err
 	}
 	if _, err := stream.Recv(); err != nil {
 		return err
 	}
-	return stream.Send(&uipb.OpenResponse{Content: &uipb.OpenResponse_Quit{Quit: &uipb.QuitCommand{}}})
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }

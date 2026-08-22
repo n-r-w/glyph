@@ -56,10 +56,10 @@ func TestServiceExecuteRead(t *testing.T) {
 	client := newTestClient(t, readTool)
 
 	// Act: execute read through the generated server-streaming contract.
-	events, err := receiveExecution(t, client, &extensionv1.ExecuteRequest{
-		ToolName:      "read",
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName:      new("read"),
 		ArgumentsJson: []byte(`{"path":"notes.txt"}`),
-	})
+	}.Build())
 
 	// Assert: emit exactly one terminal result and preserve the complete file text.
 	require.NoError(t, err)
@@ -80,10 +80,10 @@ func TestServiceExecuteReadError(t *testing.T) {
 	client := newTestClient(t, readTool)
 
 	// Act: execute read for the missing file.
-	events, err := receiveExecution(t, client, &extensionv1.ExecuteRequest{
-		ToolName:      "read",
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName:      new("read"),
 		ArgumentsJson: []byte(`{"path":"missing.txt"}`),
-	})
+	}.Build())
 
 	// Assert: keep the transport successful and return one terminal error result.
 	require.NoError(t, err)
@@ -113,10 +113,10 @@ func TestServiceExecuteRejectsInvalidArguments(t *testing.T) {
 			client := newTestClient(t, readTool)
 
 			// Act: submit arguments outside the read schema.
-			events, err := receiveExecution(t, client, &extensionv1.ExecuteRequest{
-				ToolName:      "read",
+			events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+				ToolName:      new("read"),
 				ArgumentsJson: argumentsJSON,
-			})
+			}.Build())
 
 			// Assert: return one terminal tool error without a gRPC protocol failure.
 			require.NoError(t, err)
@@ -138,10 +138,10 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 	client := newTestClient(t, readTool)
 
 	// Act: request an unregistered tool.
-	events, err := receiveExecution(t, client, &extensionv1.ExecuteRequest{
-		ToolName:      "write",
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName:      new("write"),
 		ArgumentsJson: []byte(`{"path":"notes.txt"}`),
-	})
+	}.Build())
 
 	// Assert: return one terminal tool error without invoking read.
 	require.NoError(t, err)

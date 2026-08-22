@@ -38,7 +38,7 @@ func (*Controller) GetCapabilities(
 	context.Context,
 	*uiv1.GetCapabilitiesRequest,
 ) (*uiv1.GetCapabilitiesResponse, error) {
-	return &uiv1.GetCapabilitiesResponse{ControlsTerminal: true}, nil
+	return uiv1.GetCapabilitiesResponse_builder{ControlsTerminal: new(true)}.Build(), nil
 }
 
 // Open runs one initialized Host-to-TUI stream until either side completes.
@@ -332,13 +332,15 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCa
 	fields := make([]presentationdomain.ToolCallField, 0, len(preview.GetFields()))
 	for _, field := range preview.GetFields() {
 		mapped := presentationdomain.ToolCallField{Name: field.GetName(), Value: nil, Prefix: "", Complete: false}
-		switch content := field.GetContent().(type) {
-		case *uiv1.ToolCallPreviewField_Value:
-			mapped.Value = content.Value.AsInterface()
+		switch field.WhichContent() {
+		case uiv1.ToolCallPreviewField_Value_case:
+			mapped.Value = field.GetValue().AsInterface()
 			mapped.Complete = true
-		case *uiv1.ToolCallPreviewField_Prefix:
-			mapped.Prefix = content.Prefix
+		case uiv1.ToolCallPreviewField_Prefix_case:
+			mapped.Prefix = field.GetPrefix()
+		case uiv1.ToolCallPreviewField_Content_not_set_case:
 		}
+
 		fields = append(fields, mapped)
 	}
 	return presentationdomain.ToolCallState{
@@ -391,17 +393,13 @@ func mapAvailability(availability uiv1.Availability) (presentationdomain.Availab
 func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
 	switch command.Kind {
 	case presentationdomain.CommandSubmit:
-		return &uiv1.OpenResponse{Content: &uiv1.OpenResponse_Submit{
-			Submit: &uiv1.SubmitCommand{Text: command.Text},
-		}}, nil
+		return uiv1.OpenResponse_builder{Submit: uiv1.SubmitCommand_builder{Text: new(command.Text)}.Build()}.Build(), nil
 	case presentationdomain.CommandStop:
-		return &uiv1.OpenResponse{Content: &uiv1.OpenResponse_Stop{Stop: &uiv1.StopCommand{}}}, nil
+		return uiv1.OpenResponse_builder{Stop: &uiv1.StopCommand{}}.Build(), nil
 	case presentationdomain.CommandRetryAuthentication:
-		return &uiv1.OpenResponse{Content: &uiv1.OpenResponse_RetryAuthentication{
-			RetryAuthentication: &uiv1.RetryAuthenticationCommand{},
-		}}, nil
+		return uiv1.OpenResponse_builder{RetryAuthentication: &uiv1.RetryAuthenticationCommand{}}.Build(), nil
 	case presentationdomain.CommandQuit:
-		return &uiv1.OpenResponse{Content: &uiv1.OpenResponse_Quit{Quit: &uiv1.QuitCommand{}}}, nil
+		return uiv1.OpenResponse_builder{Quit: &uiv1.QuitCommand{}}.Build(), nil
 	case presentationdomain.CommandUnspecified:
 		return nil, errors.New("UI command is unspecified")
 	default:

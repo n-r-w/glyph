@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"google.golang.org/protobuf/proto"
+
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
@@ -135,74 +137,70 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	t.Cleanup(client.Close)
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(&uiv1.OpenRequest{Content: &uiv1.OpenRequest_Initialization{
-		Initialization: &uiv1.Initialization{
-			SelectedUiId: "glyph-tui",
-			StartupContent: []*uiv1.StartupContent{{
-				Severity: uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION,
-				Text:     "Glyph session initialized.",
-			}},
-			Extensions:   []*uiv1.ExtensionAvailability{{PluginId: "glyph-tools", Tools: []string{"read"}}},
-			Availability: uiv1.Availability_AVAILABILITY_IDLE,
-		},
-	}}))
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Initialization: uiv1.Initialization_builder{
+		SelectedUiId: new("glyph-tui"),
+		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
+			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
+			Text:     new("Glyph session initialized."),
+		}.Build()},
+		Extensions:   []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{PluginId: new("glyph-tools"), Tools: []string{"read"}}.Build()},
+		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+	}.Build()}.Build()))
 	setTerminalSize(t, terminalFile, 100, 40)
 
 	response, err := stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "héllo🙂", response.GetSubmit().GetText())
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_RUNNING)
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
-		ModelContent: &uiv1.ModelContent{
-			Type: uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA, Position: 0, Text: "streaming response",
-		},
-	})
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+		ModelContent: uiv1.ModelContent_builder{
+			Type: new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA), Position: new(int32(0)), Text: new("streaming response"),
+		}.Build(),
+	}.Build())
 
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	assert.NotNil(t, response.GetStop())
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:       uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START,
-		ToolCallId: "call-1", ToolName: "read",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:            uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
-		ProgressChannel: uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS, Text: "working",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:            uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
-		ProgressChannel: uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT, Text: "content",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:            uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
-		ProgressChannel: uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR, Text: "warning",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:       uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END,
-		ToolCallId: "call-1", ToolName: "read", Text: "done",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:       uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT,
-		ToolCallId: "call-1", ToolName: "read", Text: "result",
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
-		ModelResponse: &uiv1.ModelResponse{Content: []*uiv1.ModelResponseContent{{
-			Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, Text: "complete response",
-		}}},
-	})
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED, Outcome: "completed",
-	})
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
+		ToolCallId: new("call-1"), ToolName: new("read"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS), Text: new("working"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT), Text: new("content"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR), Text: new("warning"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END),
+		ToolCallId: new("call-1"), ToolName: new("read"), Text: new("done"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		ToolCallId: new("call-1"), ToolName: new("read"), Text: new("result"),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
+		ModelResponse: uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
+			Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new("complete response"),
+		}.Build()}}.Build(),
+	}.Build())
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED), Outcome: new("completed"),
+	}.Build())
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_IDLE)
 
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "second request", response.GetSubmit().GetText())
-	require.NoError(t, stream.Send(&uiv1.OpenRequest{Content: &uiv1.OpenRequest_Error{
-		Error: &uiv1.Error{Text: "Authentication failed safely.", RetryAuthentication: true},
-	}}))
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Error: uiv1.Error_builder{Text: new("Authentication failed safely."), RetryAuthentication: new(true)}.Build()}.Build()))
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED)
 
 	response, err = stream.Recv()
@@ -237,18 +235,16 @@ func sendAvailability(
 	availability uiv1.Availability,
 ) {
 	t.Helper()
-	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type:         uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED,
-		Availability: availability,
-	})
+	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
+		Type:         new(uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED),
+		Availability: new(availability),
+	}.Build())
 }
 
 // sendLifecycle writes one lifecycle fixture and requires successful delivery.
 func sendLifecycle(t *testing.T, stream uiv1.UIService_OpenClient, lifecycle *uiv1.LifecycleEvent) {
 	t.Helper()
-	require.NoError(t, stream.Send(&uiv1.OpenRequest{Content: &uiv1.OpenRequest_Lifecycle{
-		Lifecycle: lifecycle,
-	}}))
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Lifecycle: proto.ValueOrDefault(lifecycle)}.Build()))
 }
 
 // terminalSettings reads the current terminal mode for restoration comparison.

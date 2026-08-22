@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package extensionv1
 
 import (
@@ -76,10 +77,10 @@ func TestConnectAndServe(t *testing.T) {
 		catalog.GetTools()[0].GetConstrainedSampling().GetJsonSchema().GetStrictness(),
 	)
 
-	stream, err := client.Service().Execute(t.Context(), &extensionpb.ExecuteRequest{
-		ToolName:      "contract",
+	stream, err := client.Service().Execute(t.Context(), extensionpb.ExecuteRequest_builder{
+		ToolName:      new("contract"),
 		ArgumentsJson: nil,
-	})
+	}.Build())
 	require.NoError(t, err)
 	progress, err := stream.Recv()
 	require.NoError(t, err)
@@ -105,18 +106,16 @@ func (s *contractService) ListTools(
 	_ context.Context,
 	_ *extensionpb.ListToolsRequest,
 ) (*extensionpb.ListToolsResponse, error) {
-	return &extensionpb.ListToolsResponse{
-		Tools: []*extensionpb.ToolDescriptor{{
-			Name: "contract", Description: "Contract test tool.", InputSchemaJson: []byte(`{}`),
-			ConstrainedSampling: &extensionpb.ConstrainedSampling{
-				Config: &extensionpb.ConstrainedSampling_JsonSchema{
-					JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{
-						Strictness: extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
-					},
-				},
-			},
-		}},
-	}, nil
+	return extensionpb.ListToolsResponse_builder{
+		Tools: []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
+			Name: new("contract"), Description: new("Contract test tool."), InputSchemaJson: []byte(`{}`),
+			ConstrainedSampling: extensionpb.ConstrainedSampling_builder{
+				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
+					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
+				}.Build(),
+			}.Build(),
+		}.Build()},
+	}.Build(), nil
 }
 
 // Execute sends progress and one terminal result to prove generated streaming contract access.
@@ -124,21 +123,17 @@ func (s *contractService) Execute(
 	_ *extensionpb.ExecuteRequest,
 	stream extensionpb.ExtensionService_ExecuteServer,
 ) error {
-	if err := stream.Send(&extensionpb.ExecuteResponse{
-		Content: &extensionpb.ExecuteResponse_Progress{
-			Progress: &extensionpb.ToolProgress{
-				Channel: extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS,
-				Content: "started",
-			},
-		},
-	}); err != nil {
+	if err := stream.Send(extensionpb.ExecuteResponse_builder{
+		Progress: extensionpb.ToolProgress_builder{
+			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
+			Content: new("started"),
+		}.Build(),
+	}.Build()); err != nil {
 		return err
 	}
-	if err := stream.Send(&extensionpb.ExecuteResponse{
-		Content: &extensionpb.ExecuteResponse_Result{
-			Result: &extensionpb.ToolResult{Content: "done", IsError: false},
-		},
-	}); err != nil {
+	if err := stream.Send(extensionpb.ExecuteResponse_builder{
+		Result: extensionpb.ToolResult_builder{Content: new("done"), IsError: new(false)}.Build(),
+	}.Build()); err != nil {
 		return err
 	}
 	return nil

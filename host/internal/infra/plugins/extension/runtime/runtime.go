@@ -91,10 +91,10 @@ func (r *Runtime) Execute(
 	// A child context lets progress-delivery failure stop the active RPC without changing runtime availability.
 	executionContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-	stream, err := r.client.Service().Execute(executionContext, &extensionpb.ExecuteRequest{
-		ToolName:      toolName,
+	stream, err := r.client.Service().Execute(executionContext, extensionpb.ExecuteRequest_builder{
+		ToolName:      new(toolName),
 		ArgumentsJson: argumentsJSON,
-	})
+	}.Build())
 	if err != nil {
 		return tool.Result{}, r.executionError(ctx, toolName, err)
 	}
@@ -123,12 +123,12 @@ func (r *Runtime) consumeStream(
 			return tool.Result{}, r.executionError(ctx, toolName, receiveErr)
 		}
 
-		switch content := event.GetContent().(type) {
-		case *extensionpb.ExecuteResponse_Progress:
+		switch event.WhichContent() {
+		case extensionpb.ExecuteResponse_Progress_case:
 			if terminalResult != nil {
 				return tool.Result{}, r.protocolViolation("event received after terminal result")
 			}
-			progress, progressErr := mapProgress(content.Progress)
+			progress, progressErr := mapProgress(event.GetProgress())
 			if progressErr != nil {
 				return tool.Result{}, r.protocolViolation(progressErr.Error())
 			}
@@ -137,19 +137,21 @@ func (r *Runtime) consumeStream(
 				cancel()
 				return tool.Result{}, fmt.Errorf("deliver extension progress: %w", deliveryErr)
 			}
-		case *extensionpb.ExecuteResponse_Result:
+		case extensionpb.ExecuteResponse_Result_case:
 			if terminalResult != nil {
 				return tool.Result{}, r.protocolViolation("second terminal result received")
 			}
-			if content.Result == nil {
+			if event.GetResult() == nil {
 				return tool.Result{}, r.protocolViolation("terminal result payload is missing")
 			}
 			terminalResult = &tool.Result{
-				Content: content.Result.GetContent(),
-				IsError: content.Result.GetIsError(),
+				Content: event.GetResult().GetContent(),
+				IsError: event.GetResult().GetIsError(),
 			}
-		default:
+		case extensionpb.ExecuteResponse_Content_not_set_case:
 			return tool.Result{}, r.protocolViolation("event contains neither progress nor result")
+		default:
+			return tool.Result{}, r.protocolViolation("event content is invalid")
 		}
 	}
 }
@@ -248,12 +250,12 @@ func mapConstrainedSampling(
 	if constraint == nil {
 		return emptyConstrainedSampling(), nil
 	}
-	switch config := constraint.GetConfig().(type) {
-	case *extensionpb.ConstrainedSampling_JsonSchema:
-		return mapJSONSchemaSampling(config.JsonSchema)
-	case *extensionpb.ConstrainedSampling_Grammar:
-		return mapGrammarSampling(config.Grammar, schemaJSON)
-	case nil:
+	switch constraint.WhichConfig() {
+	case extensionpb.ConstrainedSampling_JsonSchema_case:
+		return mapJSONSchemaSampling(constraint.GetJsonSchema())
+	case extensionpb.ConstrainedSampling_Grammar_case:
+		return mapGrammarSampling(constraint.GetGrammar(), schemaJSON)
+	case extensionpb.ConstrainedSampling_Config_not_set_case:
 		return emptyConstrainedSampling(), errors.New("config is missing")
 	default:
 		return emptyConstrainedSampling(), errors.New("config is invalid")

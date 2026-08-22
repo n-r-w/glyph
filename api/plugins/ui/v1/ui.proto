@@ -1,4 +1,4 @@
-syntax = "proto3";
+edition = "2023";
 
 package glyph.plugins.ui.v1;
 
@@ -76,20 +76,18 @@ enum Availability {
 message LifecycleEvent {
   LifecycleType type = 1;
   string run_id = 2;
-  reserved 3;
-  reserved "position";
-  string text = 4;
-  string tool_call_id = 5;
-  string tool_name = 6;
-  ProgressChannel progress_channel = 7;
-  bool is_error = 8;
-  string outcome = 9;
-  string error_message = 10;
-  Availability availability = 11;
-  ModelContent model_content = 12;
-  ModelResponse model_response = 13;
-  ToolCallPreview tool_call_preview = 14;
-  FinalToolCall final_tool_call = 15;
+  string text = 3;
+  string tool_call_id = 4;
+  string tool_name = 5;
+  ProgressChannel progress_channel = 6;
+  bool is_error = 7;
+  string outcome = 8;
+  string error_message = 9;
+  Availability availability = 10;
+  ModelContent model_content = 11;
+  ModelResponse model_response = 12;
+  ToolCallPreview tool_call_preview = 13;
+  FinalToolCall final_tool_call = 14;
 }
 
 // ToolCallPreview carries transient provenance-aware function-call state.
@@ -151,11 +149,9 @@ message ModelResponse {
   string model = 5;
   string response_id = 6;
   ModelUsage usage = 7;
-  reserved 8;
-  reserved "metadata";
-  repeated ModelDiagnostic diagnostics = 9;
-  repeated ModelResponseContent content = 10;
-  optional string response_model = 11;
+  repeated ModelDiagnostic diagnostics = 8;
+  repeated ModelResponseContent content = 9;
+  string response_model = 10;
 }
 
 // ModelResponseContent carries one ordered finalized text, refusal, or reasoning block.
@@ -186,22 +182,21 @@ enum LifecycleType {
   LIFECYCLE_TYPE_AGENT_START = 1;
   LIFECYCLE_TYPE_TURN_START = 2;
   LIFECYCLE_TYPE_MESSAGE_START = 3;
-  reserved 4;
-  LIFECYCLE_TYPE_MESSAGE_END = 5;
-  LIFECYCLE_TYPE_TOOL_EXECUTION_START = 6;
-  LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE = 7;
-  LIFECYCLE_TYPE_TOOL_EXECUTION_END = 8;
-  LIFECYCLE_TYPE_TOOL_RESULT = 9;
-  LIFECYCLE_TYPE_TURN_END = 10;
-  LIFECYCLE_TYPE_AGENT_END = 11;
-  LIFECYCLE_TYPE_AGENT_SETTLED = 12;
-  LIFECYCLE_TYPE_AVAILABILITY_CHANGED = 13;
-  LIFECYCLE_TYPE_MODEL_CONTENT_START = 14;
-  LIFECYCLE_TYPE_MODEL_TEXT_DELTA = 15;
-  LIFECYCLE_TYPE_MODEL_CONTENT_END = 16;
-  LIFECYCLE_TYPE_TOOL_CALL_START = 17;
-  LIFECYCLE_TYPE_TOOL_CALL_DELTA = 18;
-  LIFECYCLE_TYPE_TOOL_CALL_END = 19;
+  LIFECYCLE_TYPE_MESSAGE_END = 4;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_START = 5;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE = 6;
+  LIFECYCLE_TYPE_TOOL_EXECUTION_END = 7;
+  LIFECYCLE_TYPE_TOOL_RESULT = 8;
+  LIFECYCLE_TYPE_TURN_END = 9;
+  LIFECYCLE_TYPE_AGENT_END = 10;
+  LIFECYCLE_TYPE_AGENT_SETTLED = 11;
+  LIFECYCLE_TYPE_AVAILABILITY_CHANGED = 12;
+  LIFECYCLE_TYPE_MODEL_CONTENT_START = 13;
+  LIFECYCLE_TYPE_MODEL_TEXT_DELTA = 14;
+  LIFECYCLE_TYPE_MODEL_CONTENT_END = 15;
+  LIFECYCLE_TYPE_TOOL_CALL_START = 16;
+  LIFECYCLE_TYPE_TOOL_CALL_DELTA = 17;
+  LIFECYCLE_TYPE_TOOL_CALL_END = 18;
 }
 
 // ProgressChannel identifies the meaning of one tool progress fragment.

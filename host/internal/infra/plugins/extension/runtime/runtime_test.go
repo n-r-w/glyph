@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package runtime
 
 import (
@@ -409,25 +410,25 @@ func (s *protocolService) ListTools(
 	_ context.Context,
 	_ *extensionpb.ListToolsRequest,
 ) (*extensionpb.ListToolsResponse, error) {
-	descriptor := &extensionpb.ToolDescriptor{
-		Name:                "read",
-		Description:         "Read a project file.",
+	descriptor := extensionpb.ToolDescriptor_builder{
+		Name:                new("read"),
+		Description:         new("Read a project file."),
 		InputSchemaJson:     []byte(validSchemaJSON),
 		ConstrainedSampling: nil,
-	}
-	response := &extensionpb.ListToolsResponse{Tools: []*extensionpb.ToolDescriptor{descriptor}}
+	}.Build()
+	response := extensionpb.ListToolsResponse_builder{Tools: []*extensionpb.ToolDescriptor{descriptor}}.Build()
 
 	switch s.mode {
 	case "empty-name":
-		descriptor.Name = ""
+		descriptor.SetName("")
 	case "empty-description":
-		descriptor.Description = ""
+		descriptor.SetDescription("")
 	case "invalid-schema-json":
-		descriptor.InputSchemaJson = []byte(`{"type":`)
+		descriptor.SetInputSchemaJson([]byte(`{"type":`))
 	case "schema-outside-profile":
-		descriptor.InputSchemaJson = []byte(`{"type":"object","properties":{},"required":[],"additionalProperties":false,"title":"not allowed"}`)
+		descriptor.SetInputSchemaJson([]byte(`{"type":"object","properties":{},"required":[],"additionalProperties":false,"title":"not allowed"}`))
 	case "duplicate-name":
-		response.Tools = append(response.Tools, descriptor)
+		response.SetTools(append(response.GetTools(), descriptor))
 	}
 	return response, nil
 }
@@ -450,19 +451,15 @@ func (s *protocolService) Execute(
 			return err
 		}
 	}
-	progress := &extensionpb.ExecuteResponse{
-		Content: &extensionpb.ExecuteResponse_Progress{
-			Progress: &extensionpb.ToolProgress{
-				Channel: extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS,
-				Content: "working",
-			},
-		},
-	}
-	result := &extensionpb.ExecuteResponse{
-		Content: &extensionpb.ExecuteResponse_Result{
-			Result: &extensionpb.ToolResult{Content: "done", IsError: false},
-		},
-	}
+	progress := extensionpb.ExecuteResponse_builder{
+		Progress: extensionpb.ToolProgress_builder{
+			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
+			Content: new("working"),
+		}.Build(),
+	}.Build()
+	result := extensionpb.ExecuteResponse_builder{
+		Result: extensionpb.ToolResult_builder{Content: new("done"), IsError: new(false)}.Build(),
+	}.Build()
 
 	switch s.mode {
 	case "missing-result":
@@ -478,7 +475,7 @@ func (s *protocolService) Execute(
 		}
 		return stream.Send(progress)
 	case "empty-event":
-		return stream.Send(&extensionpb.ExecuteResponse{Content: nil})
+		return stream.Send(&extensionpb.ExecuteResponse{})
 	case "wait":
 		if err := stream.Send(progress); err != nil {
 			return err
