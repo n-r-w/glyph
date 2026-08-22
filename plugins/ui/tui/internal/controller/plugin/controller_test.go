@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,7 +91,13 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		return nil
 	})
 	program.EXPECT().Send(presentationdomain.Event{Kind: presentationdomain.EventInformation, Text: "information"})
-	program.EXPECT().Send(presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 2, Text: "delta"})
+	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
+		assert.NotEqual(t, "hidden reasoning", event.Text)
+		assert.Equal(t, presentationdomain.Event{
+			Kind: presentationdomain.EventModelDelta, Position: 2,
+			ModelContentKind: presentationdomain.ModelContentText, Text: "delta",
+		}, event)
+	}).AnyTimes()
 	program.EXPECT().Quit().Do(func() { close(runDone) })
 	session.EXPECT().Close().Return(nil)
 
@@ -104,14 +111,67 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	}}))
 	require.NoError(t, stream.Send(&uiv1.OpenRequest{Content: &uiv1.OpenRequest_Lifecycle{
 		Lifecycle: &uiv1.LifecycleEvent{
-			Type:     uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_UPDATE,
-			Position: 2, Text: "delta",
+			Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+			ModelContent: &uiv1.ModelContent{
+				Type:     uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA,
+				Kind:     uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING,
+				Position: 1, Text: "hidden reasoning",
+			},
+		},
+	}}))
+	require.NoError(t, stream.Send(&uiv1.OpenRequest{Content: &uiv1.OpenRequest_Lifecycle{
+		Lifecycle: &uiv1.LifecycleEvent{
+			Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+			ModelContent: &uiv1.ModelContent{
+				Type:     uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA,
+				Kind:     uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
+				Position: 2, Text: "delta",
+			},
 		},
 	}}))
 	require.NoError(t, stream.CloseSend())
 
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+// TestMapLifecyclePreservesRefusalKind verifies refusal deltas stay distinct from ordinary model text.
+func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
+	t.Parallel()
+
+	event, err := mapLifecycle(&uiv1.LifecycleEvent{
+		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+		ModelContent: &uiv1.ModelContent{
+			Type:     uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA,
+			Kind:     uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL,
+			Position: 3, Text: "cannot help",
+		},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, presentationdomain.EventModelDelta, event.Kind)
+	assert.Equal(t, presentationdomain.ModelContentRefusal, event.ModelContentKind)
+	assert.Equal(t, "cannot help", event.Text)
+}
+
+// TestMapLifecyclePreservesFinalizedRefusalBlocks verifies mixed visible content reaches presentation state.
+func TestMapLifecyclePreservesFinalizedRefusalBlocks(t *testing.T) {
+	t.Parallel()
+
+	event, err := mapLifecycle(&uiv1.LifecycleEvent{
+		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
+		ModelResponse: &uiv1.ModelResponse{Content: []*uiv1.ModelResponseContent{
+			{Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, Text: "hidden"},
+			{Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, Text: "answer"},
+			{Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL, Text: "cannot help"},
+		}},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []presentationdomain.ModelResponseContent{
+		{Kind: presentationdomain.ModelContentText, Text: "answer"},
+		{Kind: presentationdomain.ModelContentRefusal, Text: "cannot help"},
+	}, event.ModelResponseContent)
 }
 
 // TestOpenMapsCommandsThroughOneStreamSender verifies UI commands use one serialized sender.
@@ -251,18 +311,25 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	state := presentationdomain.State{}
 	frames := []*uiv1.LifecycleEvent{
 		{
-			Type:     uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START,
-			Position: 0,
+			Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START,
 		},
 		{
-			Type:     uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_UPDATE,
-			Position: 1,
-			Text:     "complete answer",
+			Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+			ModelContent: &uiv1.ModelContent{
+				Type: uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA, Position: 1, Text: "complete answer",
+			},
 		},
 		{
-			Type:     uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
-			Position: 0,
-			Text:     "complete answer",
+			Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
+			ModelResponse: &uiv1.ModelResponse{
+				Text: "complete answer", Provider: "openai-codex", Model: "gpt-test", ResponseId: "resp-1",
+				Usage:       &uiv1.ModelUsage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5},
+				Diagnostics: []*uiv1.ModelDiagnostic{{Code: "recovered_output", Message: "hidden diagnostic"}},
+				Content: []*uiv1.ModelResponseContent{
+					{Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, Text: "hidden reasoning"},
+					{Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, Text: "complete answer"},
+				},
+			},
 		},
 	}
 	for _, lifecycle := range frames {
@@ -292,8 +359,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "model delta",
 			lifecycle: &uiv1.LifecycleEvent{
-				Type:     uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_UPDATE,
-				Position: 2, Text: "delta",
+				Type:         uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+				ModelContent: &uiv1.ModelContent{Type: uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA, Position: 2, Text: "delta"},
 			},
 			expected: presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 2, Text: "delta"},
 		},
@@ -362,6 +429,34 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			assert.Equal(t, testCase.expected, event)
 		})
 	}
+}
+
+// TestMapToolCallPreviewPreservesCompleteSnapshot verifies direct protobuf projection without truncation.
+func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
+	t.Parallel()
+
+	completeValue, err := structpb.NewValue(map[string]any{
+		"nested": []any{"value", float64(2), true},
+	})
+	require.NoError(t, err)
+	preview := &uiv1.ToolCallPreview{
+		CallId: "call-17", Name: "sample", Position: 23, Provisional: true,
+		Fields: []*uiv1.ToolCallPreviewField{
+			{Name: "complete", Content: &uiv1.ToolCallPreviewField_Value{Value: completeValue}},
+			{Name: "prefix", Content: &uiv1.ToolCallPreviewField_Prefix{Prefix: `{"partial":`}},
+		},
+	}
+
+	assert.Equal(t, presentationdomain.ToolCallState{
+		CallID: "call-17", Name: "sample", Position: 23, Provisional: true,
+		Fields: []presentationdomain.ToolCallField{
+			{Name: "complete", Value: map[string]any{
+				"nested": []any{"value", float64(2), true},
+			}, Prefix: "", Complete: true},
+			{Name: "prefix", Value: nil, Prefix: `{"partial":`, Complete: false},
+		},
+		Arguments: nil,
+	}, mapToolCallPreview(preview))
 }
 
 // TestMapSafeAuthenticationErrorEnablesManualRetry verifies retry state comes only from safe Host errors.

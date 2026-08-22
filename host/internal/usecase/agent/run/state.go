@@ -1,6 +1,9 @@
 package run
 
-import "github.com/n-r-w/glyph/host/internal/domain/agent"
+import (
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
 
 // Status identifies Agent Core run availability.
 type Status uint8
@@ -18,7 +21,8 @@ const (
 type State struct {
 	Status          Status
 	RunID           string
-	PartialResponse agent.ModelResponse
+	PartialResponse model.Response
+	ToolPreviews    map[string]model.ToolCallPreview
 }
 
 // Request starts one Host-identified user run.

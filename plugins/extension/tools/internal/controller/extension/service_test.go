@@ -40,6 +40,8 @@ func TestServiceListTools(t *testing.T) {
 		"required":["path"],
 		"additionalProperties":false
 	}`, string(descriptor.GetInputSchemaJson()))
+	strict := descriptor.GetConstrainedSampling().GetJsonSchema().GetStrictness()
+	assert.Equal(t, extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER, strict)
 	assert.Equal(t, "edit", response.GetTools()[1].GetName())
 	assert.Equal(t, "bash", response.GetTools()[2].GetName())
 }

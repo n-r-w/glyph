@@ -25,6 +25,7 @@ import (
 
 const (
 	runtimeHelperEnvironment = "GLYPH_EXTENSION_RUNTIME_HELPER"
+	runtimeCountEnvironment  = "GLYPH_EXTENSION_RUNTIME_COUNT"
 	validSchemaJSON          = `{"type":"object","properties":{"path":{"type":"string","description":"File path."}},"required":["path"],"additionalProperties":false}`
 	processOperationTimeout  = 10 * time.Second
 )
@@ -32,7 +33,8 @@ const (
 // protocolService emits selected contract behaviors from a real helper process.
 type protocolService struct {
 	extensionpb.UnimplementedExtensionServiceServer
-	mode string
+	mode      string
+	countPath string
 }
 
 // executionOutcome carries a concurrent execution result back to the test goroutine.
@@ -91,6 +93,7 @@ func TestRuntimeHelperProcess(t *testing.T) {
 	extensionsdk.Serve(&protocolService{
 		UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
 		mode:                                mode,
+		countPath:                           os.Getenv(runtimeCountEnvironment),
 	})
 }
 
@@ -217,6 +220,35 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 
 	// Assert: shutdown waits until the process has exited.
 	requireRuntimeStopped(t, runtime)
+}
+
+func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
+	t.Parallel()
+
+	countPath := filepath.Join(t.TempDir(), "executions")
+	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRuntimeHelperProcess$")
+	command.Env = append(os.Environ(), runtimeHelperEnvironment+"=default", runtimeCountEnvironment+"="+countPath)
+	runtime, err := Start(t.Context(), command)
+	require.NoError(t, err)
+	t.Cleanup(runtime.Close)
+	_, err = runtime.ListTools(t.Context())
+	require.NoError(t, err)
+
+	unknown, err := runtime.Execute(t.Context(), "missing", []byte(`{}`), discardProgress)
+	require.NoError(t, err)
+	require.True(t, unknown.IsError)
+	invalid, err := runtime.Execute(t.Context(), "read", []byte(`{}`), discardProgress)
+	require.NoError(t, err)
+	require.True(t, invalid.IsError)
+	_, statErr := os.Stat(countPath)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+
+	valid, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
+	require.NoError(t, err)
+	require.False(t, valid.IsError)
+	count, err := os.ReadFile(countPath)
+	require.NoError(t, err)
+	require.Equal(t, "1\n", string(count))
 }
 
 // TestRuntimePropagatesActiveCancellation verifies cancellation of an in-flight streamed execution.
@@ -378,9 +410,10 @@ func (s *protocolService) ListTools(
 	_ *extensionpb.ListToolsRequest,
 ) (*extensionpb.ListToolsResponse, error) {
 	descriptor := &extensionpb.ToolDescriptor{
-		Name:            "read",
-		Description:     "Read a project file.",
-		InputSchemaJson: []byte(validSchemaJSON),
+		Name:                "read",
+		Description:         "Read a project file.",
+		InputSchemaJson:     []byte(validSchemaJSON),
+		ConstrainedSampling: nil,
 	}
 	response := &extensionpb.ListToolsResponse{Tools: []*extensionpb.ToolDescriptor{descriptor}}
 
@@ -404,6 +437,19 @@ func (s *protocolService) Execute(
 	_ *extensionpb.ExecuteRequest,
 	stream extensionpb.ExtensionService_ExecuteServer,
 ) error {
+	if s.countPath != "" {
+		file, err := os.OpenFile(s.countPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		if _, err = file.WriteString("1\n"); err != nil {
+			_ = file.Close()
+			return err
+		}
+		if err = file.Close(); err != nil {
+			return err
+		}
+	}
 	progress := &extensionpb.ExecuteResponse{
 		Content: &extensionpb.ExecuteResponse_Progress{
 			Progress: &extensionpb.ToolProgress{

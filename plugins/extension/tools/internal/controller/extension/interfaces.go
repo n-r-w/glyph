@@ -2,6 +2,8 @@ package extension
 
 import "context"
 
+//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extension
+
 // ReadTool executes the standard read operation after transport validation.
 type ReadTool interface {
 	Read(ctx context.Context, path string) (string, error)
@@ -41,5 +43,3 @@ type BashResult struct {
 type BashTool interface {
 	Execute(ctx context.Context, command string, handleProgress func(BashProgress) error) (BashResult, error)
 }
-
-//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extension

@@ -2,6 +2,8 @@ package bash
 
 import "context"
 
+//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=bash
+
 // Stream identifies command output origin.
 type Stream uint8
 
@@ -23,8 +25,6 @@ type ProcessResult struct {
 }
 
 // ProcessRunner executes one bash command.
-//
-//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=bash
 type ProcessRunner interface {
 	Run(ctx context.Context, command string, handleProgress ProgressHandler) (ProcessResult, error)
 }

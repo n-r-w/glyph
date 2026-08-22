@@ -7,6 +7,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -117,7 +119,7 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	)
 	runtime.EXPECT().Close()
 
-	call := agent.ToolCall{ID: "call-read", Name: "read", Arguments: map[string]any{}}
+	call := model.ToolCall{ID: "call-read", Name: "read", Arguments: map[string]any{}}
 	_, err := service.Execute(t.Context(), call, discardProgress)
 	require.Error(t, err)
 	assert.Empty(t, service.Tools())
@@ -156,7 +158,7 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 		},
 	)
 
-	call := agent.ToolCall{
+	call := model.ToolCall{
 		ID:   "call-bash",
 		Name: "bash",
 		Arguments: map[string]any{
@@ -236,7 +238,7 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	healthy.EXPECT().Execute(t.Context(), "bash", []byte(`{}`), gomock.Any()).Return(
 		tool.Result{Content: "ok", IsError: false}, nil,
 	)
-	result, executeErr := service.Execute(t.Context(), agent.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, discardProgress)
+	result, executeErr := service.Execute(t.Context(), model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, discardProgress)
 	require.NoError(t, executeErr)
 	assert.Equal(t, "ok", result.Content)
 	healthy.EXPECT().Close()
@@ -279,7 +281,7 @@ func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
-		_, executeErr := service.Execute(t.Context(), agent.ToolCall{
+		_, executeErr := service.Execute(t.Context(), model.ToolCall{
 			ID: "call", Name: "read", Arguments: map[string]any{},
 		}, discardProgress)
 		execution <- executeErr
@@ -334,7 +336,7 @@ func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservati
 		require.NoError(t, err)
 		service.Activate(t.Context())
 
-		_, executeErr := service.Execute(t.Context(), agent.ToolCall{
+		_, executeErr := service.Execute(t.Context(), model.ToolCall{
 			ID: "call", Name: "read", Arguments: map[string]any{},
 		}, discardProgress)
 		require.ErrorIs(t, executeErr, ErrExtensionUnavailable)
@@ -386,7 +388,7 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
-		_, executeErr := service.Execute(t.Context(), agent.ToolCall{
+		_, executeErr := service.Execute(t.Context(), model.ToolCall{
 			ID: "call", Name: "read", Arguments: map[string]any{},
 		}, discardProgress)
 		execution <- executeErr
@@ -439,7 +441,7 @@ func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
-		_, executeErr := service.Execute(t.Context(), agent.ToolCall{
+		_, executeErr := service.Execute(t.Context(), model.ToolCall{
 			ID: "call", Name: "read", Arguments: map[string]any{},
 		}, discardProgress)
 		execution <- executeErr
@@ -497,7 +499,13 @@ func TestServiceSuite(t *testing.T) {
 
 // testDescriptor creates a complete descriptor for registry behavior tests.
 func testDescriptor(name string) tool.Descriptor {
-	return tool.Descriptor{Name: name, Description: "test tool", InputSchemaJSON: []byte(`{}`)}
+	return tool.Descriptor{
+		Name: name, Description: "test tool", InputSchemaJSON: []byte(`{}`),
+		ConstrainedSampling: tool.ConstrainedSampling{
+			Kind: 0, JSONSchemaStrictness: 0,
+			Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+		},
+	}
 }
 
 // discardProgress accepts progress when only terminal behavior matters.

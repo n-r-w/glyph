@@ -101,7 +101,7 @@ func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		),
 		interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(errors.New("browser unavailable")),
 	)
-	service := newService(Config{Model: "model", ThinkingLevel: ""}, credentials, interaction, options)
+	service := newService(Config{Model: testModelDescriptor("model"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, options)
 
 	err := service.SignIn(t.Context())
 
@@ -131,7 +131,7 @@ func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
 		return listener, err
 	}
 	service := newService(
-		Config{Model: "", ThinkingLevel: ""}, credentials, interaction, options,
+		Config{Model: ModelDescriptor(""), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, options,
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -178,7 +178,7 @@ func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
 	)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	service := newService(
-		Config{Model: "", ThinkingLevel: ""}, credentials, interaction, options,
+		Config{Model: ModelDescriptor(""), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, options,
 	)
 
 	err := service.SignIn(t.Context())
@@ -194,7 +194,7 @@ func TestServiceSignOutDeletesOnlyProviderPayload(t *testing.T) {
 	credentials := NewMockCredentials(gomock.NewController(t))
 	interaction := NewMockInteraction(gomock.NewController(t))
 	credentials.EXPECT().Delete().Return(nil)
-	service := New(Config{Model: "", ThinkingLevel: ""}, credentials, interaction)
+	service := New(Config{Model: ModelDescriptor(""), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction)
 
 	require.NoError(t, service.SignOut())
 }

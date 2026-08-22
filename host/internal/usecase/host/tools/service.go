@@ -10,6 +10,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -167,7 +169,7 @@ func (s *Service) Tools() []tool.Descriptor {
 // Execute routes one call or returns a terminal unavailable-tool result.
 func (s *Service) Execute(
 	ctx context.Context,
-	call agent.ToolCall,
+	call model.ToolCall,
 	handleProgress tool.ProgressHandler,
 ) (agent.ToolResult, error) {
 	argumentsJSON, err := json.Marshal(call.Arguments)

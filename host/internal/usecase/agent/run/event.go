@@ -2,6 +2,7 @@ package run
 
 import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
@@ -15,8 +16,18 @@ const (
 	EventTurnStart
 	// EventMessageStart starts one streamed model message.
 	EventMessageStart
-	// EventMessageUpdate carries one text delta and position.
-	EventMessageUpdate
+	// EventContentStart starts one typed model content block.
+	EventContentStart
+	// EventTextDelta carries one model text fragment.
+	EventTextDelta
+	// EventContentEnd finalizes one typed model content block.
+	EventContentEnd
+	// EventToolCallStart starts one provisional function call.
+	EventToolCallStart
+	// EventToolCallDelta replaces one provisional function-call preview.
+	EventToolCallDelta
+	// EventToolCallEnd carries exact final function-call arguments.
+	EventToolCallEnd
 	// EventMessageEnd carries the complete terminal model response.
 	EventMessageEnd
 	// EventToolExecutionStart starts one tool call.
@@ -38,9 +49,10 @@ type Event struct {
 	Type       EventType
 	RunID      string
 	Position   int
-	Delta      string
-	Message    agent.ModelResponse
-	ToolCall   agent.ToolCall
+	Content    model.Content
+	Message    model.Response
+	Preview    model.ToolCallPreview
+	ToolCall   model.ToolCall
 	Progress   tool.Progress
 	ToolResult agent.ToolResult
 	Turn       TurnSummary
@@ -49,7 +61,7 @@ type Event struct {
 
 // TurnSummary is the self-contained terminal turn payload.
 type TurnSummary struct {
-	Response    agent.ModelResponse
+	Response    model.Response
 	ToolResults []agent.ToolResult
 }
 
@@ -61,18 +73,36 @@ type AgentSummary struct {
 }
 
 // newEvent creates a complete event whose optional payloads have explicit zero values.
+func emptyModelResponse() model.Response {
+	return model.Response{
+		Content: nil, Outcome: 0, ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
+		Usage: model.Usage{
+			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
+			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+		},
+		Diagnostics: nil,
+	}
+}
+
 func newEvent(eventType EventType, runID string) Event {
 	return Event{
-		Type:       eventType,
-		RunID:      runID,
-		Position:   0,
-		Delta:      "",
-		Message:    agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
-		ToolCall:   agent.ToolCall{ID: "", Name: "", Arguments: nil},
+		Type:     eventType,
+		RunID:    runID,
+		Position: 0,
+		Content: model.Content{
+			Kind: 0, Text: "", Final: false,
+			ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+			ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+		},
+		Message: emptyModelResponse(),
+		Preview: model.ToolCallPreview{
+			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
+		},
+		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
 		Progress:   tool.Progress{Channel: 0, Content: ""},
 		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
 		Turn: TurnSummary{
-			Response:    agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+			Response:    emptyModelResponse(),
 			ToolResults: nil,
 		},
 		Agent: AgentSummary{Outcome: 0, AddedHistory: nil, ErrorMessage: ""},

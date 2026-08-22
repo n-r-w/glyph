@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package glyph.plugins.ui.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
 
 // UIService exposes fixed startup capabilities and one UI lifecycle stream.
@@ -74,7 +76,8 @@ enum Availability {
 message LifecycleEvent {
   LifecycleType type = 1;
   string run_id = 2;
-  int32 position = 3;
+  reserved 3;
+  reserved "position";
   string text = 4;
   string tool_call_id = 5;
   string tool_name = 6;
@@ -83,6 +86,98 @@ message LifecycleEvent {
   string outcome = 9;
   string error_message = 10;
   Availability availability = 11;
+  ModelContent model_content = 12;
+  ModelResponse model_response = 13;
+  ToolCallPreview tool_call_preview = 14;
+  FinalToolCall final_tool_call = 15;
+}
+
+// ToolCallPreview carries transient provenance-aware function-call state.
+message ToolCallPreview {
+  string call_id = 1;
+  string name = 2;
+  int32 position = 3;
+  bool provisional = 4;
+  repeated ToolCallPreviewField fields = 5;
+}
+
+// ToolCallPreviewField carries either one complete value or one exact scalar prefix.
+message ToolCallPreviewField {
+  string name = 1;
+  oneof content {
+    google.protobuf.Value value = 2;
+    string prefix = 3;
+  }
+}
+
+// FinalToolCall carries exact arguments decoded at function-call completion.
+message FinalToolCall {
+  string call_id = 1;
+  string name = 2;
+  int32 position = 3;
+  google.protobuf.Struct arguments = 4;
+}
+
+// ModelContent carries one typed model content transition.
+message ModelContent {
+  ModelContentType type = 1;
+  int32 position = 2;
+  string text = 3;
+  ModelContentKind kind = 4;
+}
+
+// ModelContentKind identifies visible text, refusal, or hidden reasoning content.
+enum ModelContentKind {
+  MODEL_CONTENT_KIND_UNSPECIFIED = 0;
+  MODEL_CONTENT_KIND_TEXT = 1;
+  MODEL_CONTENT_KIND_REASONING = 2;
+  MODEL_CONTENT_KIND_REFUSAL = 3;
+}
+
+// ModelContentType identifies one content transition.
+enum ModelContentType {
+  MODEL_CONTENT_TYPE_UNSPECIFIED = 0;
+  MODEL_CONTENT_TYPE_START = 1;
+  MODEL_CONTENT_TYPE_TEXT_DELTA = 2;
+  MODEL_CONTENT_TYPE_END = 3;
+}
+
+// ModelResponse carries typed terminal data and public text.
+message ModelResponse {
+  string text = 1;
+  string outcome = 2;
+  string error_message = 3;
+  string provider = 4;
+  string model = 5;
+  string response_id = 6;
+  ModelUsage usage = 7;
+  reserved 8;
+  reserved "metadata";
+  repeated ModelDiagnostic diagnostics = 9;
+  repeated ModelResponseContent content = 10;
+  optional string response_model = 11;
+}
+
+// ModelResponseContent carries one ordered finalized text, refusal, or reasoning block.
+message ModelResponseContent {
+  ModelContentKind kind = 1;
+  string text = 2;
+}
+
+// ModelUsage carries provider-reported token accounting.
+message ModelUsage {
+  int64 input_tokens = 1;
+  int64 output_tokens = 2;
+  int64 cached_input_tokens = 3;
+  int64 cache_write_tokens = 4;
+  int64 reasoning_tokens = 5;
+  int64 total_tokens = 6;
+}
+
+// ModelDiagnostic carries safe typed provider diagnostics.
+message ModelDiagnostic {
+  string code = 1;
+  string message = 2;
 }
 
 // LifecycleType identifies the ordered Host or Agent lifecycle transition.
@@ -91,7 +186,7 @@ enum LifecycleType {
   LIFECYCLE_TYPE_AGENT_START = 1;
   LIFECYCLE_TYPE_TURN_START = 2;
   LIFECYCLE_TYPE_MESSAGE_START = 3;
-  LIFECYCLE_TYPE_MESSAGE_UPDATE = 4;
+  reserved 4;
   LIFECYCLE_TYPE_MESSAGE_END = 5;
   LIFECYCLE_TYPE_TOOL_EXECUTION_START = 6;
   LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE = 7;
@@ -101,6 +196,12 @@ enum LifecycleType {
   LIFECYCLE_TYPE_AGENT_END = 11;
   LIFECYCLE_TYPE_AGENT_SETTLED = 12;
   LIFECYCLE_TYPE_AVAILABILITY_CHANGED = 13;
+  LIFECYCLE_TYPE_MODEL_CONTENT_START = 14;
+  LIFECYCLE_TYPE_MODEL_TEXT_DELTA = 15;
+  LIFECYCLE_TYPE_MODEL_CONTENT_END = 16;
+  LIFECYCLE_TYPE_TOOL_CALL_START = 17;
+  LIFECYCLE_TYPE_TOOL_CALL_DELTA = 18;
+  LIFECYCLE_TYPE_TOOL_CALL_END = 19;
 }
 
 // ProgressChannel identifies the meaning of one tool progress fragment.

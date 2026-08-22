@@ -21,6 +21,56 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// JsonSchemaStrictness controls whether a provider may fall back from strict schema generation.
+type JsonSchemaStrictness int32
+
+const (
+	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED JsonSchemaStrictness = 0
+	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER      JsonSchemaStrictness = 1
+	JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE     JsonSchemaStrictness = 2
+)
+
+// Enum value maps for JsonSchemaStrictness.
+var (
+	JsonSchemaStrictness_name = map[int32]string{
+		0: "JSON_SCHEMA_STRICTNESS_UNSPECIFIED",
+		1: "JSON_SCHEMA_STRICTNESS_PREFER",
+		2: "JSON_SCHEMA_STRICTNESS_REQUIRE",
+	}
+	JsonSchemaStrictness_value = map[string]int32{
+		"JSON_SCHEMA_STRICTNESS_UNSPECIFIED": 0,
+		"JSON_SCHEMA_STRICTNESS_PREFER":      1,
+		"JSON_SCHEMA_STRICTNESS_REQUIRE":     2,
+	}
+)
+
+func (x JsonSchemaStrictness) Enum() *JsonSchemaStrictness {
+	p := new(JsonSchemaStrictness)
+	*p = x
+	return p
+}
+
+func (x JsonSchemaStrictness) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (JsonSchemaStrictness) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_tool_proto_enumTypes[0].Descriptor()
+}
+
+func (JsonSchemaStrictness) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_tool_proto_enumTypes[0]
+}
+
+func (x JsonSchemaStrictness) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use JsonSchemaStrictness.Descriptor instead.
+func (JsonSchemaStrictness) EnumDescriptor() ([]byte, []int) {
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{0}
+}
+
 // ProgressChannel identifies the meaning of a progress fragment.
 type ProgressChannel int32
 
@@ -58,11 +108,11 @@ func (x ProgressChannel) String() string {
 }
 
 func (ProgressChannel) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_tool_proto_enumTypes[0].Descriptor()
+	return file_api_plugins_extension_v1_tool_proto_enumTypes[1].Descriptor()
 }
 
 func (ProgressChannel) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_tool_proto_enumTypes[0]
+	return &file_api_plugins_extension_v1_tool_proto_enumTypes[1]
 }
 
 func (x ProgressChannel) Number() protoreflect.EnumNumber {
@@ -71,7 +121,7 @@ func (x ProgressChannel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ProgressChannel.Descriptor instead.
 func (ProgressChannel) EnumDescriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{0}
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{1}
 }
 
 // ListToolsRequest has no fields because the tool catalog is fixed at startup.
@@ -158,12 +208,13 @@ func (x *ListToolsResponse) GetTools() []*ToolDescriptor {
 
 // ToolDescriptor describes one extension-owned tool.
 type ToolDescriptor struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description     string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	InputSchemaJson []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson,proto3" json:"input_schema_json,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Name                string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description         string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	InputSchemaJson     []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson,proto3" json:"input_schema_json,omitempty"`
+	ConstrainedSampling *ConstrainedSampling   `protobuf:"bytes,4,opt,name=constrained_sampling,json=constrainedSampling,proto3" json:"constrained_sampling,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ToolDescriptor) Reset() {
@@ -217,6 +268,194 @@ func (x *ToolDescriptor) GetInputSchemaJson() []byte {
 	return nil
 }
 
+func (x *ToolDescriptor) GetConstrainedSampling() *ConstrainedSampling {
+	if x != nil {
+		return x.ConstrainedSampling
+	}
+	return nil
+}
+
+// ConstrainedSampling requests provider-side constrained tool input generation.
+type ConstrainedSampling struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Config:
+	//
+	//	*ConstrainedSampling_JsonSchema
+	//	*ConstrainedSampling_Grammar
+	Config        isConstrainedSampling_Config `protobuf_oneof:"config"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConstrainedSampling) Reset() {
+	*x = ConstrainedSampling{}
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConstrainedSampling) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConstrainedSampling) ProtoMessage() {}
+
+func (x *ConstrainedSampling) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConstrainedSampling.ProtoReflect.Descriptor instead.
+func (*ConstrainedSampling) Descriptor() ([]byte, []int) {
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ConstrainedSampling) GetConfig() isConstrainedSampling_Config {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+func (x *ConstrainedSampling) GetJsonSchema() *JsonSchemaConstrainedSampling {
+	if x != nil {
+		if x, ok := x.Config.(*ConstrainedSampling_JsonSchema); ok {
+			return x.JsonSchema
+		}
+	}
+	return nil
+}
+
+func (x *ConstrainedSampling) GetGrammar() *GrammarConstrainedSampling {
+	if x != nil {
+		if x, ok := x.Config.(*ConstrainedSampling_Grammar); ok {
+			return x.Grammar
+		}
+	}
+	return nil
+}
+
+type isConstrainedSampling_Config interface {
+	isConstrainedSampling_Config()
+}
+
+type ConstrainedSampling_JsonSchema struct {
+	JsonSchema *JsonSchemaConstrainedSampling `protobuf:"bytes,1,opt,name=json_schema,json=jsonSchema,proto3,oneof"`
+}
+
+type ConstrainedSampling_Grammar struct {
+	Grammar *GrammarConstrainedSampling `protobuf:"bytes,2,opt,name=grammar,proto3,oneof"`
+}
+
+func (*ConstrainedSampling_JsonSchema) isConstrainedSampling_Config() {}
+
+func (*ConstrainedSampling_Grammar) isConstrainedSampling_Config() {}
+
+// JsonSchemaConstrainedSampling requests JSON Schema constrained generation.
+type JsonSchemaConstrainedSampling struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Strictness    JsonSchemaStrictness   `protobuf:"varint,1,opt,name=strictness,proto3,enum=glyph.plugins.extension.v1.JsonSchemaStrictness" json:"strictness,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JsonSchemaConstrainedSampling) Reset() {
+	*x = JsonSchemaConstrainedSampling{}
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JsonSchemaConstrainedSampling) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JsonSchemaConstrainedSampling) ProtoMessage() {}
+
+func (x *JsonSchemaConstrainedSampling) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JsonSchemaConstrainedSampling.ProtoReflect.Descriptor instead.
+func (*JsonSchemaConstrainedSampling) Descriptor() ([]byte, []int) {
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *JsonSchemaConstrainedSampling) GetStrictness() JsonSchemaStrictness {
+	if x != nil {
+		return x.Strictness
+	}
+	return JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED
+}
+
+// GrammarConstrainedSampling provides equivalent supported grammar formats.
+type GrammarConstrainedSampling struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lark          string                 `protobuf:"bytes,1,opt,name=lark,proto3" json:"lark,omitempty"`
+	Regex         string                 `protobuf:"bytes,2,opt,name=regex,proto3" json:"regex,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GrammarConstrainedSampling) Reset() {
+	*x = GrammarConstrainedSampling{}
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GrammarConstrainedSampling) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GrammarConstrainedSampling) ProtoMessage() {}
+
+func (x *GrammarConstrainedSampling) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GrammarConstrainedSampling.ProtoReflect.Descriptor instead.
+func (*GrammarConstrainedSampling) Descriptor() ([]byte, []int) {
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GrammarConstrainedSampling) GetLark() string {
+	if x != nil {
+		return x.Lark
+	}
+	return ""
+}
+
+func (x *GrammarConstrainedSampling) GetRegex() string {
+	if x != nil {
+		return x.Regex
+	}
+	return ""
+}
+
 // ExecuteRequest starts one tool call with JSON-encoded arguments.
 type ExecuteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -228,7 +467,7 @@ type ExecuteRequest struct {
 
 func (x *ExecuteRequest) Reset() {
 	*x = ExecuteRequest{}
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -240,7 +479,7 @@ func (x *ExecuteRequest) String() string {
 func (*ExecuteRequest) ProtoMessage() {}
 
 func (x *ExecuteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +492,7 @@ func (x *ExecuteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteRequest) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{3}
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ExecuteRequest) GetToolName() string {
@@ -284,7 +523,7 @@ type ExecuteResponse struct {
 
 func (x *ExecuteResponse) Reset() {
 	*x = ExecuteResponse{}
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +535,7 @@ func (x *ExecuteResponse) String() string {
 func (*ExecuteResponse) ProtoMessage() {}
 
 func (x *ExecuteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +548,7 @@ func (x *ExecuteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteResponse) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{4}
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ExecuteResponse) GetContent() isExecuteResponse_Content {
@@ -364,7 +603,7 @@ type ToolProgress struct {
 
 func (x *ToolProgress) Reset() {
 	*x = ToolProgress{}
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -376,7 +615,7 @@ func (x *ToolProgress) String() string {
 func (*ToolProgress) ProtoMessage() {}
 
 func (x *ToolProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -389,7 +628,7 @@ func (x *ToolProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolProgress.ProtoReflect.Descriptor instead.
 func (*ToolProgress) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{5}
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ToolProgress) GetChannel() ProgressChannel {
@@ -417,7 +656,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +668,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +681,7 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
 func (*ToolResult) Descriptor() ([]byte, []int) {
-	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{6}
+	return file_api_plugins_extension_v1_tool_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ToolResult) GetContent() string {
@@ -466,11 +705,24 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\"\x12\n" +
 	"\x10ListToolsRequest\"U\n" +
 	"\x11ListToolsResponse\x12@\n" +
-	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\"r\n" +
+	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\"\xd6\x01\n" +
 	"\x0eToolDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12*\n" +
-	"\x11input_schema_json\x18\x03 \x01(\fR\x0finputSchemaJson\"T\n" +
+	"\x11input_schema_json\x18\x03 \x01(\fR\x0finputSchemaJson\x12b\n" +
+	"\x14constrained_sampling\x18\x04 \x01(\v2/.glyph.plugins.extension.v1.ConstrainedSamplingR\x13constrainedSampling\"\xd1\x01\n" +
+	"\x13ConstrainedSampling\x12\\\n" +
+	"\vjson_schema\x18\x01 \x01(\v29.glyph.plugins.extension.v1.JsonSchemaConstrainedSamplingH\x00R\n" +
+	"jsonSchema\x12R\n" +
+	"\agrammar\x18\x02 \x01(\v26.glyph.plugins.extension.v1.GrammarConstrainedSamplingH\x00R\agrammarB\b\n" +
+	"\x06config\"q\n" +
+	"\x1dJsonSchemaConstrainedSampling\x12P\n" +
+	"\n" +
+	"strictness\x18\x01 \x01(\x0e20.glyph.plugins.extension.v1.JsonSchemaStrictnessR\n" +
+	"strictness\"F\n" +
+	"\x1aGrammarConstrainedSampling\x12\x12\n" +
+	"\x04lark\x18\x01 \x01(\tR\x04lark\x12\x14\n" +
+	"\x05regex\x18\x02 \x01(\tR\x05regex\"T\n" +
 	"\x0eExecuteRequest\x12\x1b\n" +
 	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12%\n" +
 	"\x0earguments_json\x18\x02 \x01(\fR\rargumentsJson\"\xa6\x01\n" +
@@ -484,7 +736,11 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\n" +
 	"ToolResult\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x19\n" +
-	"\bis_error\x18\x02 \x01(\bR\aisError*\x8a\x01\n" +
+	"\bis_error\x18\x02 \x01(\bR\aisError*\x85\x01\n" +
+	"\x14JsonSchemaStrictness\x12&\n" +
+	"\"JSON_SCHEMA_STRICTNESS_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dJSON_SCHEMA_STRICTNESS_PREFER\x10\x01\x12\"\n" +
+	"\x1eJSON_SCHEMA_STRICTNESS_REQUIRE\x10\x02*\x8a\x01\n" +
 	"\x0fProgressChannel\x12 \n" +
 	"\x1cPROGRESS_CHANNEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17PROGRESS_CHANNEL_STATUS\x10\x01\x12\x1b\n" +
@@ -506,32 +762,40 @@ func file_api_plugins_extension_v1_tool_proto_rawDescGZIP() []byte {
 	return file_api_plugins_extension_v1_tool_proto_rawDescData
 }
 
-var file_api_plugins_extension_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_extension_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_api_plugins_extension_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_plugins_extension_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_plugins_extension_v1_tool_proto_goTypes = []any{
-	(ProgressChannel)(0),      // 0: glyph.plugins.extension.v1.ProgressChannel
-	(*ListToolsRequest)(nil),  // 1: glyph.plugins.extension.v1.ListToolsRequest
-	(*ListToolsResponse)(nil), // 2: glyph.plugins.extension.v1.ListToolsResponse
-	(*ToolDescriptor)(nil),    // 3: glyph.plugins.extension.v1.ToolDescriptor
-	(*ExecuteRequest)(nil),    // 4: glyph.plugins.extension.v1.ExecuteRequest
-	(*ExecuteResponse)(nil),   // 5: glyph.plugins.extension.v1.ExecuteResponse
-	(*ToolProgress)(nil),      // 6: glyph.plugins.extension.v1.ToolProgress
-	(*ToolResult)(nil),        // 7: glyph.plugins.extension.v1.ToolResult
+	(JsonSchemaStrictness)(0),             // 0: glyph.plugins.extension.v1.JsonSchemaStrictness
+	(ProgressChannel)(0),                  // 1: glyph.plugins.extension.v1.ProgressChannel
+	(*ListToolsRequest)(nil),              // 2: glyph.plugins.extension.v1.ListToolsRequest
+	(*ListToolsResponse)(nil),             // 3: glyph.plugins.extension.v1.ListToolsResponse
+	(*ToolDescriptor)(nil),                // 4: glyph.plugins.extension.v1.ToolDescriptor
+	(*ConstrainedSampling)(nil),           // 5: glyph.plugins.extension.v1.ConstrainedSampling
+	(*JsonSchemaConstrainedSampling)(nil), // 6: glyph.plugins.extension.v1.JsonSchemaConstrainedSampling
+	(*GrammarConstrainedSampling)(nil),    // 7: glyph.plugins.extension.v1.GrammarConstrainedSampling
+	(*ExecuteRequest)(nil),                // 8: glyph.plugins.extension.v1.ExecuteRequest
+	(*ExecuteResponse)(nil),               // 9: glyph.plugins.extension.v1.ExecuteResponse
+	(*ToolProgress)(nil),                  // 10: glyph.plugins.extension.v1.ToolProgress
+	(*ToolResult)(nil),                    // 11: glyph.plugins.extension.v1.ToolResult
 }
 var file_api_plugins_extension_v1_tool_proto_depIdxs = []int32{
-	3, // 0: glyph.plugins.extension.v1.ListToolsResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
-	6, // 1: glyph.plugins.extension.v1.ExecuteResponse.progress:type_name -> glyph.plugins.extension.v1.ToolProgress
-	7, // 2: glyph.plugins.extension.v1.ExecuteResponse.result:type_name -> glyph.plugins.extension.v1.ToolResult
-	0, // 3: glyph.plugins.extension.v1.ToolProgress.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
-	1, // 4: glyph.plugins.extension.v1.ExtensionService.ListTools:input_type -> glyph.plugins.extension.v1.ListToolsRequest
-	4, // 5: glyph.plugins.extension.v1.ExtensionService.Execute:input_type -> glyph.plugins.extension.v1.ExecuteRequest
-	2, // 6: glyph.plugins.extension.v1.ExtensionService.ListTools:output_type -> glyph.plugins.extension.v1.ListToolsResponse
-	5, // 7: glyph.plugins.extension.v1.ExtensionService.Execute:output_type -> glyph.plugins.extension.v1.ExecuteResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4,  // 0: glyph.plugins.extension.v1.ListToolsResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
+	5,  // 1: glyph.plugins.extension.v1.ToolDescriptor.constrained_sampling:type_name -> glyph.plugins.extension.v1.ConstrainedSampling
+	6,  // 2: glyph.plugins.extension.v1.ConstrainedSampling.json_schema:type_name -> glyph.plugins.extension.v1.JsonSchemaConstrainedSampling
+	7,  // 3: glyph.plugins.extension.v1.ConstrainedSampling.grammar:type_name -> glyph.plugins.extension.v1.GrammarConstrainedSampling
+	0,  // 4: glyph.plugins.extension.v1.JsonSchemaConstrainedSampling.strictness:type_name -> glyph.plugins.extension.v1.JsonSchemaStrictness
+	10, // 5: glyph.plugins.extension.v1.ExecuteResponse.progress:type_name -> glyph.plugins.extension.v1.ToolProgress
+	11, // 6: glyph.plugins.extension.v1.ExecuteResponse.result:type_name -> glyph.plugins.extension.v1.ToolResult
+	1,  // 7: glyph.plugins.extension.v1.ToolProgress.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
+	2,  // 8: glyph.plugins.extension.v1.ExtensionService.ListTools:input_type -> glyph.plugins.extension.v1.ListToolsRequest
+	8,  // 9: glyph.plugins.extension.v1.ExtensionService.Execute:input_type -> glyph.plugins.extension.v1.ExecuteRequest
+	3,  // 10: glyph.plugins.extension.v1.ExtensionService.ListTools:output_type -> glyph.plugins.extension.v1.ListToolsResponse
+	9,  // 11: glyph.plugins.extension.v1.ExtensionService.Execute:output_type -> glyph.plugins.extension.v1.ExecuteResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_tool_proto_init() }
@@ -539,7 +803,11 @@ func file_api_plugins_extension_v1_tool_proto_init() {
 	if File_api_plugins_extension_v1_tool_proto != nil {
 		return
 	}
-	file_api_plugins_extension_v1_tool_proto_msgTypes[4].OneofWrappers = []any{
+	file_api_plugins_extension_v1_tool_proto_msgTypes[3].OneofWrappers = []any{
+		(*ConstrainedSampling_JsonSchema)(nil),
+		(*ConstrainedSampling_Grammar)(nil),
+	}
+	file_api_plugins_extension_v1_tool_proto_msgTypes[7].OneofWrappers = []any{
 		(*ExecuteResponse_Progress)(nil),
 		(*ExecuteResponse_Result)(nil),
 	}
@@ -548,8 +816,8 @@ func file_api_plugins_extension_v1_tool_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_tool_proto_rawDesc), len(file_api_plugins_extension_v1_tool_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   7,
+			NumEnums:      2,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

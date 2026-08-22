@@ -23,9 +23,10 @@ type Coordinator struct {
 	newRunID func() (string, error)
 }
 
-var _ hostui.AgentRunner = (*Coordinator)(nil)
-
-var _ headless.AgentRunner = (*Coordinator)(nil)
+var (
+	_ hostui.AgentRunner   = (*Coordinator)(nil)
+	_ headless.AgentRunner = (*Coordinator)(nil)
+)
 
 // NewCoordinator creates the production Host run coordinator.
 func NewCoordinator(

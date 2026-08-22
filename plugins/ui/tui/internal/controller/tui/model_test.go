@@ -185,11 +185,34 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Kind: presentationdomain.EventModelDelta, Position: 1, Text: "complete answer",
 	})
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelEnd, Position: 0, Text: "complete answer",
+		Kind: presentationdomain.EventModelEnd, Position: 0,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "complete answer"}},
 	})
 
 	assert.Empty(t, model.state.ActiveModel)
 	assert.Equal(t, 1, strings.Count(model.View().Content, "complete answer"))
+}
+
+func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
+	t.Parallel()
+
+	model := newTestModel(t, presentationdomain.AvailabilityRunning, func(presentationdomain.Command) error { return nil })
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventToolCallPreview,
+		ToolCall: presentationdomain.ToolCallState{
+			CallID: "call-1", Name: "read", Position: 1, Provisional: true,
+			Fields: []presentationdomain.ToolCallField{
+				{Name: "path", Value: "file.txt", Complete: true},
+				{Name: "query", Prefix: "hel"},
+			},
+		},
+	})
+
+	view := model.View().Content
+	assert.Contains(t, view, "[tool:call] read (provisional)")
+	assert.Contains(t, view, `path="file.txt"`)
+	assert.Contains(t, view, "query=hel")
+	assert.NotContains(t, view, `{"path"`)
 }
 
 // TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight verifies viewport truncation.
@@ -218,13 +241,26 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 	t.Parallel()
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
-	model = updateModel(t, model, presentationdomain.Event{Kind: presentationdomain.EventModelEnd, Text: "first response"})
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind:                 presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "first response"}},
+	})
 	model = updateModel(t, model, presentationdomain.Event{Kind: presentationdomain.EventAgentSettled, Text: "completed"})
 	model = updateModel(t, model, presentationdomain.Event{Kind: presentationdomain.EventAvailability, Availability: presentationdomain.AvailabilityIdle})
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Text: "second request"}))
 
 	assert.Contains(t, model.View().Content, "assistant: first response")
 	assert.Contains(t, model.View().Content, "Request: second request|")
+}
+
+// TestRenderLineDistinguishesRefusal verifies refusal text has its own terminal prefix.
+func TestRenderLineDistinguishesRefusal(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "[refusal] cannot help", renderLine(presentationdomain.Line{
+		Kind: presentationdomain.LineRefusal,
+		Text: "cannot help",
+	}))
 }
 
 // newTestModel builds a model with one deterministic presentation service.

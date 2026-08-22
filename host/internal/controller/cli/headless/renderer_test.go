@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,10 +43,10 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	for _, event := range []run.Event{
-		{Type: run.EventMessageUpdate, RunID: "run", Position: 1, Delta: "I can"},
-		{Type: run.EventMessageUpdate, RunID: "run", Position: 1, Delta: "not help"},
-		{Type: run.EventMessageEnd, RunID: "run", Message: agent.ModelResponse{
-			Items: []agent.ModelItem{{Kind: agent.ModelItemText, Text: "I cannot help"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: "I can"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: "not help"}},
+		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
+			Content: []model.Content{{Kind: model.ContentRefusal, Text: "I cannot help"}},
 		}},
 	} {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
@@ -61,9 +63,9 @@ func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	require.NoError(t, renderer.DeliverAgent(t.Context(), run.Event{
 		Type: run.EventMessageEnd, RunID: "run",
-		Message: agent.ModelResponse{Items: []agent.ModelItem{{
-			Kind:     agent.ModelItemToolCall,
-			ToolCall: agent.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}},
+		Message: model.Response{Content: []model.Content{{
+			Kind:     model.ContentToolCall,
+			ToolCall: model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}},
 		}}},
 	}))
 
@@ -78,13 +80,17 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
 	events := []run.Event{
-		{Type: run.EventMessageUpdate, RunID: "run", Position: 0, Delta: "hello"},
-		{Type: run.EventToolExecutionStart, RunID: "run", ToolCall: agent.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentReasoning, Text: "hidden reasoning"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentText, Text: "hello"}},
+		{Type: run.EventToolExecutionStart, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStdout, Content: "output"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStderr, Content: "warning"}},
-		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: agent.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Content: "done", IsError: false}},
-		{Type: run.EventMessageEnd, RunID: "run", Message: agent.ModelResponse{Items: []agent.ModelItem{{Kind: agent.ModelItemProviderContext, ProviderContext: agent.ProviderContext{ProviderID: "openai-codex", Payload: []byte("encrypted-secret")}}}}},
+		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Content: "done", IsError: false}},
+		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
+			Content:     []model.Content{{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "openai-codex", Payload: []byte("encrypted-secret")}}},
+			Diagnostics: []model.Diagnostic{{Code: "provider_recovery", Message: "hidden diagnostic"}},
+		}},
 	}
 	for _, event := range events {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
@@ -93,7 +99,9 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 
 	assert.Equal(t, "hello\n", stdout.String())
 	assert.Equal(t, "[tool:start] bash\n[tool:status] working\n[tool:stdout] output\n[tool:stderr] warning\n[tool:end] bash: ok\n", stderr.String())
+	assert.NotContains(t, stdout.String(), "hidden reasoning")
 	assert.NotContains(t, stderr.String(), "encrypted-secret")
+	assert.NotContains(t, stderr.String(), "hidden diagnostic")
 }
 
 // TestRendererWritesStartupInformationAndFailures verifies distinct informational and failure prefixes.
@@ -136,7 +144,7 @@ func TestRendererPropagatesWriterFailure(t *testing.T) {
 	renderer := NewRenderer(closedWriter, &bytes.Buffer{})
 
 	err = renderer.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventMessageUpdate, RunID: "run", Position: 0, Delta: "text",
+		Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentText, Text: "text"},
 	})
 
 	require.Error(t, err)

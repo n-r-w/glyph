@@ -50,7 +50,8 @@ func TestStandardTUIPTY(t *testing.T) {
 		ptyContext, "/usr/bin/script", "-q", "/dev/null",
 		os.Args[0], "-test.run=^TestStandardTUIPTYInner$",
 	)
-	command.Env = append(os.Environ(),
+	command.Env = append(
+		os.Environ(),
 		ptyInnerEnvironment+"=1",
 		ptyBinaryEnvironment+"="+binaryPath,
 		"TERM=xterm-256color",
@@ -152,7 +153,10 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	assert.Equal(t, "héllo🙂", response.GetSubmit().GetText())
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_RUNNING)
 	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_UPDATE, Position: 0, Text: "streaming response",
+		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+		ModelContent: &uiv1.ModelContent{
+			Type: uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA, Position: 0, Text: "streaming response",
+		},
 	})
 
 	response, err = stream.Recv()
@@ -183,7 +187,10 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolCallId: "call-1", ToolName: "read", Text: "result",
 	})
 	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
-		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END, Position: 0, Text: "complete response",
+		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
+		ModelResponse: &uiv1.ModelResponse{Content: []*uiv1.ModelResponseContent{{
+			Kind: uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, Text: "complete response",
+		}}},
 	})
 	sendLifecycle(t, stream, &uiv1.LifecycleEvent{
 		Type: uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED, Outcome: "completed",
@@ -297,6 +304,8 @@ type outputObserver struct {
 	cursor       int
 }
 
+var _ io.Writer = (*outputObserver)(nil)
+
 // newOutputObserver creates an ordered PTY output cursor bound to the test context.
 func newOutputObserver(ctx context.Context) *outputObserver {
 	return &outputObserver{context: ctx, notification: make(chan struct{}, 1)}
@@ -364,5 +373,3 @@ func (waiter *commandWaiter) Wait() error {
 	<-waiter.done
 	return waiter.result
 }
-
-var _ io.Writer = (*outputObserver)(nil)

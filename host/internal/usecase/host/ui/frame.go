@@ -56,16 +56,41 @@ func emptyInitialization() domainui.Initialization {
 // emptyLifecycle returns explicit zero values for non-lifecycle frames.
 func emptyLifecycle() domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: 0, RunID: "", Position: 0, Text: "", ToolCallID: "", ToolName: "",
+		Type: 0, RunID: "", Text: "",
+		ModelContent:  domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
+		ModelResponse: emptyModelResponse(),
+		ToolCallPreview: domainui.ToolCallPreview{
+			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
+		},
+		FinalToolCall: domainui.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil},
+		ToolCallID:    "", ToolName: "",
 		ProgressChannel: 0, IsError: false, Outcome: "", ErrorMessage: "", Availability: 0,
+	}
+}
+
+func emptyModelResponse() domainui.ModelResponse {
+	return domainui.ModelResponse{
+		Text: "", Outcome: "", ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
+		Content: nil,
+		Usage: domainui.ModelUsage{
+			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
+			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+		},
+		Diagnostics: nil,
 	}
 }
 
 // availabilityLifecycle creates a complete state lifecycle payload.
 func availabilityLifecycle(availability domainui.Availability) domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: domainui.LifecycleAvailabilityChanged, RunID: "", Position: 0,
-		Text: "", ToolCallID: "", ToolName: "", ProgressChannel: 0,
+		Type: domainui.LifecycleAvailabilityChanged, RunID: "", Text: "",
+		ModelContent:  domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
+		ModelResponse: emptyModelResponse(),
+		ToolCallPreview: domainui.ToolCallPreview{
+			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
+		},
+		FinalToolCall: domainui.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil},
+		ToolCallID:    "", ToolName: "", ProgressChannel: 0,
 		IsError: false, Outcome: "", ErrorMessage: "", Availability: availability,
 	}
 }

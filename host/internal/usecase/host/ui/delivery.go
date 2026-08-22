@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
@@ -38,27 +40,35 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("deliver UI agent event: %w", err)
 	}
-	lifecycle := domainui.Lifecycle{
-		Type:            mapEventType(event.Type),
-		RunID:           event.RunID,
-		Position:        event.Position,
-		Text:            "",
-		ToolCallID:      "",
-		ToolName:        "",
-		ProgressChannel: 0,
-		IsError:         false,
-		Outcome:         "",
-		ErrorMessage:    "",
-		Availability:    0,
-	}
+	lifecycle := emptyLifecycle()
+	lifecycle.Type = mapEventType(event.Type)
+	lifecycle.RunID = event.RunID
 	switch event.Type {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
-	case run.EventMessageUpdate:
-		lifecycle.Text = event.Delta
+	case run.EventContentStart:
+		lifecycle.ModelContent = domainui.ModelContent{
+			Type: domainui.ModelContentStart, Kind: modelContentKind(event.Content.Kind),
+			Position: event.Position, Text: "",
+		}
+	case run.EventTextDelta:
+		lifecycle.ModelContent = domainui.ModelContent{
+			Type: domainui.ModelContentTextDelta, Kind: modelContentKind(event.Content.Kind),
+			Position: event.Position, Text: event.Content.Text,
+		}
+	case run.EventContentEnd:
+		lifecycle.ModelContent = domainui.ModelContent{
+			Type: domainui.ModelContentEnd, Kind: modelContentKind(event.Content.Kind),
+			Position: event.Position, Text: "",
+		}
+	case run.EventToolCallStart, run.EventToolCallDelta:
+		lifecycle.ToolCallPreview = mapToolCallPreview(event.Preview)
+	case run.EventToolCallEnd:
+		lifecycle.FinalToolCall = domainui.FinalToolCall{
+			CallID: event.ToolCall.ID, Name: event.ToolCall.Name, Position: event.Position,
+			Arguments: cloneArguments(event.ToolCall.Arguments),
+		}
 	case run.EventMessageEnd:
-		lifecycle.Text = responseText(event.Message)
-		lifecycle.Outcome = modelOutcome(event.Message.Outcome)
-		lifecycle.ErrorMessage = event.Message.ErrorMessage
+		lifecycle.ModelResponse = mapModelResponse(event.Message)
 	case run.EventToolExecutionStart:
 		lifecycle.ToolCallID = event.ToolCall.ID
 		lifecycle.ToolName = event.ToolCall.Name
@@ -109,16 +119,127 @@ func (d *Delivery) PresentAuthorizationURL(ctx context.Context, authorizationURL
 	return nil
 }
 
-// mapEventType converts Agent Core event identity without copying event payload objects.
+// mapEventType converts Agent Core event identity without relying on enum positions.
+//
+//nolint:gocyclo // The flat switch maps the closed Agent Core event set.
 func mapEventType(eventType run.EventType) domainui.LifecycleType {
-	return domainui.LifecycleType(eventType)
+	switch eventType {
+	case run.EventAgentStart:
+		return domainui.LifecycleAgentStart
+	case run.EventTurnStart:
+		return domainui.LifecycleTurnStart
+	case run.EventMessageStart:
+		return domainui.LifecycleMessageStart
+	case run.EventContentStart:
+		return domainui.LifecycleModelContentStart
+	case run.EventTextDelta:
+		return domainui.LifecycleModelTextDelta
+	case run.EventContentEnd:
+		return domainui.LifecycleModelContentEnd
+	case run.EventToolCallStart:
+		return domainui.LifecycleToolCallStart
+	case run.EventToolCallDelta:
+		return domainui.LifecycleToolCallDelta
+	case run.EventToolCallEnd:
+		return domainui.LifecycleToolCallEnd
+	case run.EventMessageEnd:
+		return domainui.LifecycleMessageEnd
+	case run.EventToolExecutionStart:
+		return domainui.LifecycleToolExecutionStart
+	case run.EventToolExecutionUpdate:
+		return domainui.LifecycleToolExecutionUpdate
+	case run.EventToolExecutionEnd:
+		return domainui.LifecycleToolExecutionEnd
+	case run.EventToolResult:
+		return domainui.LifecycleToolResult
+	case run.EventTurnEnd:
+		return domainui.LifecycleTurnEnd
+	case run.EventAgentEnd:
+		return domainui.LifecycleAgentEnd
+	default:
+		return 0
+	}
+}
+
+func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview {
+	fields := make([]domainui.ToolCallPreviewField, len(preview.Fields))
+	for index, field := range preview.Fields {
+		fields[index] = domainui.ToolCallPreviewField{
+			Name: field.Name, Value: field.Value, Prefix: field.Prefix,
+			Complete: field.Kind == model.ToolCallPreviewFieldComplete,
+		}
+	}
+	return domainui.ToolCallPreview{
+		CallID: preview.CallID, Name: preview.Name, Position: preview.Position,
+		Provisional: preview.Provisional, Fields: fields,
+	}
+}
+
+func cloneArguments(arguments map[string]any) map[string]any {
+	if arguments == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(arguments))
+	for name, value := range arguments {
+		cloned[name] = value
+	}
+	return cloned
+}
+
+// mapModelResponse copies typed terminal data while excluding opaque provider context.
+func mapModelResponse(response model.Response) domainui.ModelResponse {
+	content := make([]domainui.ModelResponseContent, 0, len(response.Content))
+	for _, item := range response.Content {
+		kind := modelContentKind(item.Kind)
+		if kind == 0 {
+			continue
+		}
+		content = append(content, domainui.ModelResponseContent{Kind: kind, Text: item.Text})
+	}
+	var responseModel *string
+	if response.ResponseModel != nil {
+		value := string(*response.ResponseModel)
+		responseModel = &value
+	}
+	diagnostics := make([]domainui.ModelDiagnostic, len(response.Diagnostics))
+	for index, diagnostic := range response.Diagnostics {
+		diagnostics[index] = domainui.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
+	}
+	return domainui.ModelResponse{
+		Text: responseText(response), Outcome: modelOutcome(response.Outcome), ErrorMessage: response.ErrorMessage,
+		Provider: string(response.Provider), Model: string(response.Model), ResponseModel: responseModel,
+		ResponseID: response.ResponseID,
+		Content:    content,
+		Usage: domainui.ModelUsage{
+			InputTokens: response.Usage.InputTokens, OutputTokens: response.Usage.OutputTokens,
+			CachedInputTokens: response.Usage.CachedInputTokens, CacheWriteTokens: response.Usage.CacheWriteTokens,
+			ReasoningTokens: response.Usage.ReasoningTokens, TotalTokens: response.Usage.TotalTokens,
+		},
+		Diagnostics: diagnostics,
+	}
+}
+
+// modelContentKind maps only UI-safe streamed content kinds.
+func modelContentKind(kind model.ContentKind) domainui.ModelContentKind {
+	switch kind {
+	case model.ContentText:
+		return domainui.ModelContentKindText
+	case model.ContentRefusal:
+		return domainui.ModelContentKindRefusal
+	case model.ContentReasoning:
+		return domainui.ModelContentKindReasoning
+	case model.ContentProviderContext, model.ContentToolCall:
+		return 0
+	default:
+		return 0
+	}
 }
 
 // responseText joins only public model text items and drops opaque provider context.
-func responseText(response agent.ModelResponse) string {
+func responseText(response model.Response) string {
 	var builder strings.Builder
-	for _, item := range response.Items {
-		if item.Kind == agent.ModelItemText {
+	for _, item := range response.Content {
+		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
 			builder.WriteString(item.Text)
 		}
 	}
@@ -126,17 +247,17 @@ func responseText(response agent.ModelResponse) string {
 }
 
 // modelOutcome maps a terminal model outcome to one stable UI value.
-func modelOutcome(outcome agent.ModelOutcome) string {
+func modelOutcome(outcome model.Outcome) string {
 	switch outcome {
-	case agent.ModelOutcomeStop:
+	case model.OutcomeStop:
 		return "stop"
-	case agent.ModelOutcomeToolUse:
+	case model.OutcomeToolUse:
 		return "tool_use"
-	case agent.ModelOutcomeLength:
+	case model.OutcomeLength:
 		return "length"
-	case agent.ModelOutcomeAborted:
+	case model.OutcomeAborted:
 		return "aborted"
-	case agent.ModelOutcomeFailed:
+	case model.OutcomeFailed:
 		return "failed"
 	default:
 		return ""

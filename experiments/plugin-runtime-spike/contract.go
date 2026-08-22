@@ -99,6 +99,8 @@ type extensionPlugin struct {
 	server protocolv1.ExtensionServiceServer
 }
 
+var _ plugin.GRPCPlugin = (*extensionPlugin)(nil)
+
 // GRPCServer registers the extension service inside the plugin process.
 func (p *extensionPlugin) GRPCServer(_ *plugin.GRPCBroker, server *grpc.Server) error {
 	protocolv1.RegisterExtensionServiceServer(server, p.server)
@@ -222,6 +224,8 @@ type uiPlugin struct {
 	server protocolv1.UIServiceServer
 }
 
+var _ plugin.GRPCPlugin = (*uiPlugin)(nil)
+
 // GRPCServer registers the UI service inside the plugin process.
 func (p *uiPlugin) GRPCServer(_ *plugin.GRPCBroker, server *grpc.Server) error {
 	protocolv1.RegisterUIServiceServer(server, p.server)
@@ -272,8 +276,3 @@ func uiPluginSets(server protocolv1.UIServiceServer) map[int]plugin.PluginSet {
 		},
 	}
 }
-
-var (
-	_ plugin.GRPCPlugin = (*extensionPlugin)(nil)
-	_ plugin.GRPCPlugin = (*uiPlugin)(nil)
-)

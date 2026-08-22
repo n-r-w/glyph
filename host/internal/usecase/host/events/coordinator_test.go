@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -64,7 +66,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	settlements := 0
 	dispatcher := NewDispatcher(
 		func(_ context.Context, event run.Event) error {
-			if event.Type == run.EventMessageUpdate {
+			if event.Type == run.EventTextDelta {
 				updates++
 				return deliveryErr
 			}
@@ -74,7 +76,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	)
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		updateErr := dispatcher.Deliver(ctx, run.Event{
-			Type: run.EventMessageUpdate, RunID: request.RunID, Position: 0, Delta: "partial",
+			Type: run.EventTextDelta, RunID: request.RunID, Position: 0, Content: model.Content{Kind: model.ContentText, Text: "partial"},
 		})
 		require.ErrorIs(t, updateErr, deliveryErr)
 		require.NoError(t, dispatcher.Deliver(ctx, run.Event{Type: run.EventAgentEnd, RunID: request.RunID}))
@@ -144,7 +146,7 @@ func TestGenerateRunIDProducesUniqueNonemptyValues(t *testing.T) {
 func completedResult() run.Result {
 	return run.Result{
 		Outcome:      agent.RunOutcomeCompleted,
-		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: agent.UserMessage{Text: "request"}}},
+		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
 		ErrorMessage: "",
 	}
 }
@@ -153,7 +155,7 @@ func completedResult() run.Result {
 func failedResult() run.Result {
 	return run.Result{
 		Outcome:      agent.RunOutcomeFailed,
-		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: agent.UserMessage{Text: "request"}}},
+		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
 		ErrorMessage: "recipient failed",
 	}
 }
@@ -167,7 +169,12 @@ func eventName(eventType run.EventType) string {
 		return "agent_end"
 	case run.EventTurnStart,
 		run.EventMessageStart,
-		run.EventMessageUpdate,
+		run.EventContentStart,
+		run.EventTextDelta,
+		run.EventContentEnd,
+		run.EventToolCallStart,
+		run.EventToolCallDelta,
+		run.EventToolCallEnd,
 		run.EventMessageEnd,
 		run.EventToolExecutionStart,
 		run.EventToolExecutionUpdate,

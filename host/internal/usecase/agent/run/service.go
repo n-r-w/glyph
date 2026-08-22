@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/hooks"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
@@ -27,7 +30,9 @@ var (
 // Service owns in-memory history and one active run state.
 type Service struct {
 	instructions string
+	model        model.Descriptor
 	provider     ModelProvider
+	hooks        hooks.ContextRunner
 	tools        ToolRuntime
 	events       EventSink
 
@@ -37,17 +42,27 @@ type Service struct {
 }
 
 // New creates an Agent Core run service.
-func New(instructions string, provider ModelProvider, tools ToolRuntime, events EventSink) *Service {
+func New(
+	instructions string,
+	selectedModel model.Descriptor,
+	provider ModelProvider,
+	hookRunner hooks.ContextRunner,
+	tools ToolRuntime,
+	events EventSink,
+) *Service {
 	return &Service{
 		instructions: instructions,
+		model:        selectedModel,
 		provider:     provider,
+		hooks:        hookRunner,
 		tools:        tools,
 		events:       events,
 		mutex:        sync.RWMutex{},
 		state: State{
 			Status:          StatusIdle,
 			RunID:           "",
-			PartialResponse: agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+			PartialResponse: emptyModelResponse(),
+			ToolPreviews:    nil,
 		},
 		history: nil,
 	}
@@ -90,7 +105,8 @@ func (s *Service) Settle(runID string) error {
 	s.state = State{
 		Status:          StatusIdle,
 		RunID:           "",
-		PartialResponse: agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+		PartialResponse: emptyModelResponse(),
+		ToolPreviews:    nil,
 	}
 	return nil
 }
@@ -103,6 +119,7 @@ func (s *Service) State() State {
 		Status:          s.state.Status,
 		RunID:           s.state.RunID,
 		PartialResponse: cloneModelResponse(s.state.PartialResponse),
+		ToolPreviews:    cloneToolPreviews(s.state.ToolPreviews),
 	}
 }
 
@@ -130,19 +147,22 @@ func (s *Service) begin(request Request) (int, error) {
 	startIndex := len(s.history)
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryUser,
-		User:       agent.UserMessage{Text: request.UserText},
-		Model:      agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+		User:       model.TextMessage(request.UserText),
+		Model:      emptyModelResponse(),
 		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
 	})
 	s.state = State{
 		Status:          StatusRunning,
 		RunID:           request.RunID,
-		PartialResponse: agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+		PartialResponse: emptyModelResponse(),
+		ToolPreviews:    make(map[string]model.ToolCallPreview),
 	}
 	return startIndex, nil
 }
 
 // runTurn performs one provider request and applies its terminal outcome.
+//
+//nolint:gocyclo // The branches preserve explicit stream, delivery, and terminal failure paths.
 func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, error) {
 	if err := s.deliver(ctx, newEvent(EventTurnStart, runID)); err != nil {
 		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
@@ -151,16 +171,64 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
 	}
 
+	projectedContext, hookErr := s.hooks.TransformContext(ctx, hooks.Context{History: s.ProjectHistory()})
+	if hookErr != nil {
+		return s.finalizeProviderError(ctx, runID, internalHookFailureResponse(hooks.StageContext), hookErr)
+	}
+
 	var deliveryErr error
-	response, providerErr := s.provider.Generate(ctx, ModelRequest{
+	var response model.Response
+	providerErr := s.provider.Stream(ctx, ModelRequest{
 		Instructions: s.instructions,
-		History:      s.ProjectHistory(),
+		Model:        s.model,
+		History:      projectedContext.History,
 		Tools:        s.tools.Tools(),
-	}, func(update ModelUpdate) error {
-		s.applyUpdate(update)
-		event := newEvent(EventMessageUpdate, runID)
-		event.Position = update.Position
-		event.Delta = update.Delta
+	}, func(streamEvent StreamEvent) error {
+		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
+			terminal := cloneModelResponse(streamEvent.Response)
+			if len(terminal.Content) == 0 {
+				terminal.Content = s.State().PartialResponse.Content
+			}
+			streamEvent.Response = terminal
+		}
+		if err := s.applyStreamEvent(streamEvent); err != nil {
+			return err
+		}
+		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
+			response = cloneModelResponse(streamEvent.Response)
+			return nil
+		}
+		event := newEvent(EventContentStart, runID)
+		switch streamEvent.Kind {
+		case StreamEventContentStart:
+			event.Type = EventContentStart
+		case StreamEventTextDelta:
+			event.Type = EventTextDelta
+		case StreamEventContentEnd:
+			event.Type = EventContentEnd
+		case StreamEventToolCallStart:
+			event.Type = EventToolCallStart
+			event.Preview = streamEvent.Preview
+		case StreamEventToolCallDelta:
+			event.Type = EventToolCallDelta
+			event.Preview = streamEvent.Preview
+		case StreamEventToolCallEnd:
+			event.Type = EventToolCallEnd
+			event.ToolCall = streamEvent.ToolCall
+		case StreamEventDone, StreamEventError:
+			return errors.New("terminal model stream event reached lifecycle delivery")
+		default:
+			return fmt.Errorf("unsupported model stream event kind %d", streamEvent.Kind)
+		}
+		event.Position = streamEvent.Position
+		if streamEvent.Kind == StreamEventContentStart || streamEvent.Kind == StreamEventTextDelta ||
+			streamEvent.Kind == StreamEventContentEnd {
+			event.Content = model.Content{
+				Kind: streamEvent.Content.Kind, Text: streamEvent.Delta, Final: false,
+				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+			}
+		}
 		eventErr := s.deliver(ctx, event)
 		if eventErr != nil {
 			deliveryErr = eventErr
@@ -176,6 +244,9 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if providerErr != nil {
 		return s.finalizeProviderError(ctx, runID, response, providerErr)
 	}
+	if response.Outcome == 0 {
+		return s.finalizeProviderError(ctx, runID, response, errors.New("model stream ended without a terminal event"))
+	}
 
 	response = normalizeTerminalResponse(cloneModelResponse(response))
 	s.clearPartial()
@@ -188,17 +259,26 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	return s.applyOutcome(ctx, runID, response)
 }
 
+// internalHookFailureResponse creates one safe provider-neutral hook failure.
+func internalHookFailureResponse(stage hooks.Stage) model.Response {
+	response := emptyModelResponse()
+	response.Outcome = model.OutcomeFailed
+	response.ErrorMessage = failedModelMessage
+	response.Diagnostics = []model.Diagnostic{{Code: "internal_hook_failed", Message: string(stage)}}
+	return response
+}
+
 // normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
-func normalizeTerminalResponse(response agent.ModelResponse) agent.ModelResponse {
+func normalizeTerminalResponse(response model.Response) model.Response {
 	if response.ErrorMessage != "" {
 		return response
 	}
 	switch response.Outcome {
-	case agent.ModelOutcomeAborted:
+	case model.OutcomeAborted:
 		response.ErrorMessage = abortedModelMessage
-	case agent.ModelOutcomeFailed:
+	case model.OutcomeFailed:
 		response.ErrorMessage = failedModelMessage
-	case agent.ModelOutcomeStop, agent.ModelOutcomeToolUse, agent.ModelOutcomeLength:
+	case model.OutcomeStop, model.OutcomeToolUse, model.OutcomeLength:
 	}
 	return response
 }
@@ -207,21 +287,21 @@ func normalizeTerminalResponse(response agent.ModelResponse) agent.ModelResponse
 func (s *Service) finalizeProviderError(
 	ctx context.Context,
 	runID string,
-	response agent.ModelResponse,
+	response model.Response,
 	providerErr error,
 ) (Result, bool, error) {
-	if len(response.Items) == 0 {
-		response = s.State().PartialResponse
-	}
 	response = cloneModelResponse(response)
-	outcome := agent.ModelOutcomeFailed
+	if len(response.Content) == 0 {
+		response.Content = s.State().PartialResponse.Content
+	}
+	outcome := model.OutcomeFailed
 	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
-		outcome = agent.ModelOutcomeAborted
+		outcome = model.OutcomeAborted
 	}
 	errorMessage := response.ErrorMessage
 	if errorMessage == "" {
 		errorMessage = failedModelMessage
-		if outcome == agent.ModelOutcomeAborted {
+		if outcome == model.OutcomeAborted {
 			errorMessage = abortedModelMessage
 		}
 	}
@@ -238,7 +318,7 @@ func (s *Service) finalizeProviderError(
 	turnEnd.Turn = turn
 	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
 	runOutcome := agent.RunOutcomeFailed
-	if outcome == agent.ModelOutcomeAborted {
+	if outcome == model.OutcomeAborted {
 		runOutcome = agent.RunOutcomeAborted
 	}
 	return Result{
@@ -250,14 +330,14 @@ func (s *Service) finalizeProviderError(
 func (s *Service) applyOutcome(
 	ctx context.Context,
 	runID string,
-	response agent.ModelResponse,
+	response model.Response,
 ) (Result, bool, error) {
 	switch response.Outcome {
-	case agent.ModelOutcomeStop:
+	case model.OutcomeStop:
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
-	case agent.ModelOutcomeToolUse:
+	case model.OutcomeToolUse:
 		return s.executeCalls(ctx, runID, response)
-	case agent.ModelOutcomeLength:
+	case model.OutcomeLength:
 		calls := modelToolCalls(response)
 		if len(calls) == 0 {
 			return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
@@ -277,12 +357,12 @@ func (s *Service) applyOutcome(
 		}
 		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
 		return Result{}, err == nil, err
-	case agent.ModelOutcomeAborted:
+	case model.OutcomeAborted:
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeAborted,
 			response.ErrorMessage, errors.New(response.ErrorMessage),
 		)
-	case agent.ModelOutcomeFailed:
+	case model.OutcomeFailed:
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeFailed,
 			response.ErrorMessage, errors.New(response.ErrorMessage),
@@ -297,7 +377,7 @@ func (s *Service) applyOutcome(
 func (s *Service) executeCalls(
 	ctx context.Context,
 	runID string,
-	response agent.ModelResponse,
+	response model.Response,
 ) (Result, bool, error) {
 	results := make([]agent.ToolResult, 0)
 	for _, call := range modelToolCalls(response) {
@@ -373,7 +453,7 @@ func (s *Service) executeCalls(
 func (s *Service) endTurn(
 	ctx context.Context,
 	runID string,
-	response agent.ModelResponse,
+	response model.Response,
 	results []agent.ToolResult,
 	outcome agent.RunOutcome,
 	errorMessage string,
@@ -407,7 +487,8 @@ func (s *Service) finish(
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           runID,
-		PartialResponse: agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+		PartialResponse: emptyModelResponse(),
+		ToolPreviews:    nil,
 	}
 	s.mutex.Unlock()
 	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
@@ -417,35 +498,34 @@ func (s *Service) finish(
 	return result, errors.Join(runErr, eventErr)
 }
 
-// applyUpdate exposes the partial streamed text in current run state.
-func (s *Service) applyUpdate(update ModelUpdate) {
+// applyStreamEvent exposes typed partial model content in current run state.
+func (s *Service) applyStreamEvent(event StreamEvent) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	for len(s.state.PartialResponse.Items) <= update.Position {
-		s.state.PartialResponse.Items = append(s.state.PartialResponse.Items, agent.ModelItem{
-			Kind:            agent.ModelItemText,
-			Text:            "",
-			ProviderContext: agent.ProviderContext{ProviderID: "", Payload: nil},
-			ToolCall:        agent.ToolCall{ID: "", Name: "", Arguments: nil},
-		})
+	if event.Kind == StreamEventToolCallStart || event.Kind == StreamEventToolCallDelta ||
+		event.Kind == StreamEventToolCallEnd {
+		return applyToolCallStreamEvent(s.state.ToolPreviews, event)
 	}
-	s.state.PartialResponse.Items[update.Position].Kind = agent.ModelItemText
-	s.state.PartialResponse.Items[update.Position].Text += update.Delta
+	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
+		clear(s.state.ToolPreviews)
+	}
+	return applyStreamEvent(&s.state.PartialResponse, event)
 }
 
 // clearPartial removes provider streaming scratch data.
 func (s *Service) clearPartial() {
 	s.mutex.Lock()
-	s.state.PartialResponse = agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""}
+	s.state.PartialResponse = emptyModelResponse()
+	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
 }
 
 // appendModel stores one finalized model response.
-func (s *Service) appendModel(response agent.ModelResponse) {
+func (s *Service) appendModel(response model.Response) {
 	s.mutex.Lock()
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryModel,
-		User:       agent.UserMessage{Text: ""},
+		User:       model.TextMessage(""),
 		Model:      cloneModelResponse(response),
 		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
 	})
@@ -457,8 +537,8 @@ func (s *Service) appendToolResult(result agent.ToolResult) {
 	s.mutex.Lock()
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryToolResult,
-		User:       agent.UserMessage{Text: ""},
-		Model:      agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+		User:       model.TextMessage(""),
+		Model:      emptyModelResponse(),
 		ToolResult: result,
 	})
 	s.mutex.Unlock()

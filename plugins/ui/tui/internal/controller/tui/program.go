@@ -14,6 +14,11 @@ type Factory struct {
 	apply Apply
 }
 
+var (
+	_ plugincontroller.ProgramFactory = (*Factory)(nil)
+	_ plugincontroller.Program        = (*program)(nil)
+)
+
 // NewFactory creates a Bubble Tea program factory.
 func NewFactory(apply Apply) *Factory {
 	return &Factory{apply: apply}
@@ -50,8 +55,3 @@ func (program *program) Run() error {
 	_, err := program.tea.Run()
 	return err
 }
-
-var (
-	_ plugincontroller.ProgramFactory = (*Factory)(nil)
-	_ plugincontroller.Program        = (*program)(nil)
-)

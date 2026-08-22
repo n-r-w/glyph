@@ -41,16 +41,16 @@ type grpcExtensionPlugin struct {
 	server extensionpb.ExtensionServiceServer
 }
 
+var (
+	_ plugin.Plugin     = (*grpcExtensionPlugin)(nil)
+	_ plugin.GRPCPlugin = (*grpcExtensionPlugin)(nil)
+)
+
 // grpcClient keeps the generated contract and the process-lifecycle signal together.
 type grpcClient struct {
 	service extensionpb.ExtensionServiceClient
 	done    <-chan struct{}
 }
-
-var (
-	_ plugin.Plugin     = (*grpcExtensionPlugin)(nil)
-	_ plugin.GRPCPlugin = (*grpcExtensionPlugin)(nil)
-)
 
 // Connect starts and connects to the extension process described by command.
 func Connect(ctx context.Context, command *exec.Cmd) (*Client, error) {

@@ -32,12 +32,18 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 	assert.Equal(t, presentationdomain.LineError, state.Startup[1].Kind)
 	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
 
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 1, Text: "Hel"})
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 1, Text: "lo"})
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 0, Text: "First"})
-	assert.Equal(t, map[int]string{0: "First", 1: "Hello"}, state.ActiveModel)
+	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 1, ModelContentKind: presentationdomain.ModelContentText, Text: "Hel"})
+	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 1, ModelContentKind: presentationdomain.ModelContentText, Text: "lo"})
+	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 0, ModelContentKind: presentationdomain.ModelContentText, Text: "First"})
+	assert.Equal(t, map[int]presentationdomain.ActiveModelContent{
+		0: {Kind: presentationdomain.ModelContentText, Text: "First"},
+		1: {Kind: presentationdomain.ModelContentText, Text: "Hello"},
+	}, state.ActiveModel)
 
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelEnd, Position: 1, Text: "Hello"})
+	state = service.Apply(state, presentationdomain.Event{
+		Kind:                 presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "Hello"}},
+	})
 	assert.Equal(t, []presentationdomain.Line{{Kind: presentationdomain.LineModel, Text: "Hello"}}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
 
@@ -62,6 +68,38 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 }
 
 // TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies one complete terminal model line.
+func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
+	t.Parallel()
+
+	service := New()
+	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
+		Kind: presentationdomain.EventToolCallPreview,
+		ToolCall: presentationdomain.ToolCallState{
+			CallID: "call-1", Name: "read", Position: 1, Provisional: true,
+			Fields: []presentationdomain.ToolCallField{{Name: "path", Prefix: "fi"}},
+		},
+	})
+	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
+	state = service.Apply(state, presentationdomain.Event{
+		Kind: presentationdomain.EventToolCallFinal,
+		ToolCall: presentationdomain.ToolCallState{
+			CallID: "call-1", Name: "read", Position: 1, Provisional: false,
+			Arguments: map[string]any{"path": "file.txt"},
+		},
+	})
+	require.False(t, state.ActiveToolCalls["call-1"].Provisional)
+	state = service.Apply(state, presentationdomain.Event{
+		Kind: presentationdomain.EventModelEnd, Status: "tool_use",
+	})
+	require.Contains(t, state.ActiveToolCalls, "call-1")
+	state = service.Apply(state, presentationdomain.Event{
+		Kind: presentationdomain.EventToolStarted, ToolCallID: "call-1", ToolName: "read", Status: "started",
+	})
+	require.Len(t, state.Transcript, 2)
+	require.Contains(t, state.Transcript[0].Text, "file.txt")
+	require.Equal(t, "started", state.Transcript[1].Status)
+}
+
 func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing.T) {
 	t.Parallel()
 
@@ -73,10 +111,35 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		Kind: presentationdomain.EventModelDelta, Position: 1, Text: "complete answer",
 	})
 	state = service.Apply(state, presentationdomain.Event{
-		Kind: presentationdomain.EventModelEnd, Position: 0, Text: "complete answer",
+		Kind: presentationdomain.EventModelEnd, Position: 0,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "complete answer"}},
 	})
 
 	assert.Equal(t, []presentationdomain.Line{{Kind: presentationdomain.LineModel, Text: "complete answer"}}, state.Transcript)
+	assert.Empty(t, state.ActiveModel)
+}
+
+// TestServicePreservesFinalizedRefusalBlocks verifies mixed public model content keeps its semantic kind.
+func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
+	t.Parallel()
+
+	service := New()
+	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
+		Kind: presentationdomain.EventModelDelta, Position: 0,
+		ModelContentKind: presentationdomain.ModelContentText, Text: "draft",
+	})
+	state = service.Apply(state, presentationdomain.Event{
+		Kind: presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{
+			{Kind: presentationdomain.ModelContentText, Text: "answer"},
+			{Kind: presentationdomain.ModelContentRefusal, Text: "cannot help"},
+		},
+	})
+
+	assert.Equal(t, []presentationdomain.Line{
+		{Kind: presentationdomain.LineModel, Text: "answer"},
+		{Kind: presentationdomain.LineRefusal, Text: "cannot help"},
+	}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
 }
 
@@ -143,10 +206,16 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle})
 	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventAvailability, Availability: presentationdomain.AvailabilityRunning})
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelEnd, Text: "first response"})
+	state = service.Apply(state, presentationdomain.Event{
+		Kind:                 presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "first response"}},
+	})
 	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventAgentSettled, Text: "completed"})
 	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventAvailability, Availability: presentationdomain.AvailabilityIdle})
-	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventModelEnd, Text: "second response"})
+	state = service.Apply(state, presentationdomain.Event{
+		Kind:                 presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{Kind: presentationdomain.ModelContentText, Text: "second response"}},
+	})
 
 	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
 	assert.True(t, state.Settled)

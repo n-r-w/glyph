@@ -39,8 +39,18 @@ const (
 	LifecycleTurnStart
 	// LifecycleMessageStart starts one model message.
 	LifecycleMessageStart
-	// LifecycleMessageUpdate carries one model text delta.
-	LifecycleMessageUpdate
+	// LifecycleModelContentStart starts one typed model text block.
+	LifecycleModelContentStart
+	// LifecycleModelTextDelta carries one model text fragment.
+	LifecycleModelTextDelta
+	// LifecycleModelContentEnd finalizes one typed model text block.
+	LifecycleModelContentEnd
+	// LifecycleToolCallStart starts one provisional function call.
+	LifecycleToolCallStart
+	// LifecycleToolCallDelta replaces one provisional function-call preview.
+	LifecycleToolCallDelta
+	// LifecycleToolCallEnd carries exact final function-call arguments.
+	LifecycleToolCallEnd
 	// LifecycleMessageEnd finalizes one model message.
 	LifecycleMessageEnd
 	// LifecycleToolExecutionStart starts one tool call.
@@ -115,12 +125,108 @@ type Initialization struct {
 	Availability   Availability
 }
 
+// ModelContentType identifies one model content transition.
+type ModelContentType uint8
+
+const (
+	// ModelContentStart starts one content block.
+	ModelContentStart ModelContentType = iota + 1
+	// ModelContentTextDelta appends one text-bearing fragment.
+	ModelContentTextDelta
+	// ModelContentEnd finalizes one content block.
+	ModelContentEnd
+)
+
+// ModelContentKind identifies public model text or hidden reasoning content.
+type ModelContentKind uint8
+
+const (
+	// ModelContentKindText contains visible model text.
+	ModelContentKindText ModelContentKind = iota + 1
+	// ModelContentKindRefusal contains visible model refusal text.
+	ModelContentKindRefusal
+	// ModelContentKindReasoning contains hidden reasoning text.
+	ModelContentKindReasoning
+)
+
+// ModelContent carries one typed model content transition.
+type ModelContent struct {
+	Type     ModelContentType
+	Kind     ModelContentKind
+	Position int
+	Text     string
+}
+
+// ModelResponseContent carries one ordered finalized model block.
+type ModelResponseContent struct {
+	Kind ModelContentKind
+	Text string
+}
+
+// ModelUsage carries provider-reported token accounting.
+type ModelUsage struct {
+	InputTokens       int64
+	OutputTokens      int64
+	CachedInputTokens int64
+	CacheWriteTokens  int64
+	ReasoningTokens   int64
+	TotalTokens       int64
+}
+
+// ModelDiagnostic carries safe typed provider diagnostics.
+type ModelDiagnostic struct {
+	Code    string
+	Message string
+}
+
+// ModelResponse carries typed terminal model data.
+type ModelResponse struct {
+	Text          string
+	Outcome       string
+	ErrorMessage  string
+	Provider      string
+	Model         string
+	ResponseModel *string
+	ResponseID    string
+	Content       []ModelResponseContent
+	Usage         ModelUsage
+	Diagnostics   []ModelDiagnostic
+}
+
+// ToolCallPreviewField carries one complete value or exact scalar prefix.
+type ToolCallPreviewField struct {
+	Name     string
+	Value    any
+	Prefix   string
+	Complete bool
+}
+
+// ToolCallPreview carries transient function-call state.
+type ToolCallPreview struct {
+	CallID      string
+	Name        string
+	Position    int
+	Provisional bool
+	Fields      []ToolCallPreviewField
+}
+
+// FinalToolCall carries exact terminal arguments.
+type FinalToolCall struct {
+	CallID    string
+	Name      string
+	Position  int
+	Arguments map[string]any
+}
+
 // Lifecycle carries one explicit provider-neutral lifecycle event.
 type Lifecycle struct {
 	Type            LifecycleType
 	RunID           string
-	Position        int
 	Text            string
+	ModelContent    ModelContent
+	ModelResponse   ModelResponse
+	ToolCallPreview ToolCallPreview
+	FinalToolCall   FinalToolCall
 	ToolCallID      string
 	ToolName        string
 	ProgressChannel ProgressChannel

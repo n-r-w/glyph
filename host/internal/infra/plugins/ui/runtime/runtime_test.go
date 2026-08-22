@@ -79,6 +79,43 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	assert.Equal(t, "/plugins/tools", mapped.GetExtensions()[0].GetPath())
 }
 
+// TestMapLifecycleCarriesTypedTerminalData verifies the generated terminal contract mapping.
+func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
+	t.Parallel()
+
+	event := emptyTestLifecycle()
+	event.Type = domainui.LifecycleMessageEnd
+	actualModel := "gpt-actual"
+	event.ModelResponse = domainui.ModelResponse{
+		Text: "visible", Outcome: "stop", ErrorMessage: "", Provider: "openai-codex",
+		Model: "gpt-test", ResponseModel: &actualModel, ResponseID: "resp-1",
+		Content: []domainui.ModelResponseContent{
+			{Kind: domainui.ModelContentKindReasoning, Text: "hidden"},
+			{Kind: domainui.ModelContentKindText, Text: "visible"},
+			{Kind: domainui.ModelContentKindRefusal, Text: "cannot help"},
+		},
+		Usage: domainui.ModelUsage{
+			InputTokens: 10, OutputTokens: 7, CachedInputTokens: 4,
+			CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 17,
+		},
+		Diagnostics: []domainui.ModelDiagnostic{{Code: "recovered_output", Message: "safe"}},
+	}
+
+	mapped := mapLifecycle(event).GetModelResponse()
+
+	require.NotNil(t, mapped)
+	assert.Equal(t, "openai-codex", mapped.GetProvider())
+	assert.Equal(t, "gpt-test", mapped.GetModel())
+	require.NotNil(t, mapped.ResponseModel)
+	assert.Equal(t, "gpt-actual", mapped.GetResponseModel())
+	assert.Equal(t, "resp-1", mapped.GetResponseId())
+	assert.Equal(t, int64(17), mapped.GetUsage().GetTotalTokens())
+	require.Len(t, mapped.GetContent(), 3)
+	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REASONING, mapped.GetContent()[0].GetKind())
+	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL, mapped.GetContent()[2].GetKind())
+	require.Len(t, mapped.GetDiagnostics(), 1)
+}
+
 // TestMappingRejectsMissingPayloads verifies malformed stream items fail explicitly.
 func TestMappingRejectsMissingPayloads(t *testing.T) {
 	t.Parallel()
@@ -149,7 +186,7 @@ func testLifecycleFrame() domainui.Frame {
 	lifecycle := emptyTestLifecycle()
 	lifecycle.Type = domainui.LifecycleToolExecutionUpdate
 	lifecycle.RunID = "run"
-	lifecycle.Position = 2
+	lifecycle.ModelContent.Position = 2
 	lifecycle.Text = "progress"
 	lifecycle.ToolCallID = "call"
 	lifecycle.ToolName = "read"
@@ -196,7 +233,22 @@ func emptyTestInitialization() domainui.Initialization {
 // emptyTestLifecycle returns explicit zero values for non-lifecycle fixtures.
 func emptyTestLifecycle() domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: 0, RunID: "", Position: 0, Text: "", ToolCallID: "", ToolName: "",
-		ProgressChannel: 0, IsError: false, Outcome: "", ErrorMessage: "", Availability: 0,
+		Type: 0, RunID: "", Text: "",
+		ModelContent: domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
+		ModelResponse: domainui.ModelResponse{
+			Text: "", Outcome: "", ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
+			Content: nil,
+			Usage: domainui.ModelUsage{
+				InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
+				CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+			},
+			Diagnostics: nil,
+		},
+		ToolCallPreview: domainui.ToolCallPreview{
+			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
+		},
+		FinalToolCall: domainui.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil},
+		ToolCallID:    "", ToolName: "", ProgressChannel: 0, IsError: false,
+		Outcome: "", ErrorMessage: "", Availability: 0,
 	}
 }

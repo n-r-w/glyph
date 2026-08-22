@@ -7,6 +7,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
+//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=tools
+
 // ErrExtensionUnavailable marks process, transport, or protocol failure that invalidates a runtime.
 var ErrExtensionUnavailable = errors.New("extension runtime unavailable")
 
@@ -70,5 +72,3 @@ type ExtensionRuntime interface {
 type RuntimeFactory interface {
 	Start(ctx context.Context, candidate Candidate) (ExtensionRuntime, error)
 }
-
-//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=tools

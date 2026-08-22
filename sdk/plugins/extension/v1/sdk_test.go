@@ -71,6 +71,10 @@ func TestConnectAndServe(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, catalog.GetTools(), 1)
 	assert.Equal(t, "contract", catalog.GetTools()[0].GetName())
+	assert.Equal(t,
+		extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
+		catalog.GetTools()[0].GetConstrainedSampling().GetJsonSchema().GetStrictness(),
+	)
 
 	stream, err := client.Service().Execute(t.Context(), &extensionpb.ExecuteRequest{
 		ToolName:      "contract",
@@ -102,9 +106,16 @@ func (s *contractService) ListTools(
 	_ *extensionpb.ListToolsRequest,
 ) (*extensionpb.ListToolsResponse, error) {
 	return &extensionpb.ListToolsResponse{
-		Tools: []*extensionpb.ToolDescriptor{
-			{Name: "contract", Description: "Contract test tool.", InputSchemaJson: []byte(`{}`)},
-		},
+		Tools: []*extensionpb.ToolDescriptor{{
+			Name: "contract", Description: "Contract test tool.", InputSchemaJson: []byte(`{}`),
+			ConstrainedSampling: &extensionpb.ConstrainedSampling{
+				Config: &extensionpb.ConstrainedSampling_JsonSchema{
+					JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{
+						Strictness: extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
+					},
+				},
+			},
+		}},
 	}, nil
 }
 

@@ -5,9 +5,44 @@ import "fmt"
 
 // Descriptor describes one model-callable tool.
 type Descriptor struct {
-	Name            string
-	Description     string
-	InputSchemaJSON []byte
+	Name                string
+	Description         string
+	InputSchemaJSON     []byte
+	ConstrainedSampling ConstrainedSampling
+}
+
+// ConstrainedSamplingKind identifies one provider-neutral constrained generation request.
+type ConstrainedSamplingKind uint8
+
+const (
+	// ConstrainedSamplingJSONSchema requests JSON Schema constrained generation.
+	ConstrainedSamplingJSONSchema ConstrainedSamplingKind = iota + 1
+	// ConstrainedSamplingGrammar requests grammar constrained generation.
+	ConstrainedSamplingGrammar
+)
+
+// JSONSchemaStrictness controls whether a provider may fall back from strict generation.
+type JSONSchemaStrictness uint8
+
+const (
+	// JSONSchemaStrictPrefer permits provider fallback when strict generation is unavailable.
+	JSONSchemaStrictPrefer JSONSchemaStrictness = iota + 1
+	// JSONSchemaStrictRequire rejects providers that cannot guarantee strict generation.
+	JSONSchemaStrictRequire
+)
+
+// GrammarVariants contains equivalent grammar definitions for supported formats.
+type GrammarVariants struct {
+	Lark  string
+	Regex string
+}
+
+// ConstrainedSampling describes one optional provider-side input constraint.
+type ConstrainedSampling struct {
+	Kind                 ConstrainedSamplingKind
+	JSONSchemaStrictness JSONSchemaStrictness
+	Grammar              GrammarVariants
+	GrammarInputProperty string
 }
 
 // ProgressChannel identifies the meaning of one progress fragment.

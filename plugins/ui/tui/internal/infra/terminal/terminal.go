@@ -20,6 +20,11 @@ type Service struct {
 	open openTTY
 }
 
+var (
+	_ plugincontroller.Terminal        = (*Service)(nil)
+	_ plugincontroller.TerminalSession = (*Session)(nil)
+)
+
 // Session owns the input and output files for one TUI program.
 type Session struct {
 	input  *os.File
@@ -62,8 +67,3 @@ func (session *Session) Close() error {
 	}
 	return errors.Join(session.input.Close(), session.output.Close())
 }
-
-var (
-	_ plugincontroller.Terminal        = (*Service)(nil)
-	_ plugincontroller.TerminalSession = (*Session)(nil)
-)

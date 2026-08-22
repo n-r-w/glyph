@@ -98,21 +98,29 @@ func (s *Service) ListTools(
 ) (*extensionv1.ListToolsResponse, error) {
 	return &extensionv1.ListToolsResponse{Tools: []*extensionv1.ToolDescriptor{
 		{
-			Name:            readToolName,
-			Description:     "Read the complete contents of a text file in the working project.",
-			InputSchemaJson: []byte(readInputSchemaJSON),
+			Name: readToolName, Description: "Read the complete contents of a text file in the working project.",
+			InputSchemaJson: []byte(readInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		},
 		{
-			Name:            editToolName,
-			Description:     "Replace one uniquely occurring text fragment in a project file.",
-			InputSchemaJson: []byte(editInputSchemaJSON),
+			Name: editToolName, Description: "Replace one uniquely occurring text fragment in a project file.",
+			InputSchemaJson: []byte(editInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		},
 		{
-			Name:            bashToolName,
-			Description:     "Execute one bash command in the working project.",
-			InputSchemaJson: []byte(bashInputSchemaJSON),
+			Name: bashToolName, Description: "Execute one bash command in the working project.",
+			InputSchemaJson: []byte(bashInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		},
 	}}, nil
+}
+
+// strictPreferSampling requests strict schema generation while permitting provider fallback.
+func strictPreferSampling() *extensionv1.ConstrainedSampling {
+	return &extensionv1.ConstrainedSampling{
+		Config: &extensionv1.ConstrainedSampling_JsonSchema{
+			JsonSchema: &extensionv1.JsonSchemaConstrainedSampling{
+				Strictness: extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER,
+			},
+		},
+	}
 }
 
 // Execute validates and executes one standard tool call.

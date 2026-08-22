@@ -1,6 +1,9 @@
 package run
 
-import "github.com/n-r-w/glyph/host/internal/domain/agent"
+import (
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
 
 //nolint:misspell // This exact model-visible error is stored for skipped calls.
 const skippedCallError = "Tool call skipped because the agent run was cancelled."
@@ -18,31 +21,78 @@ func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 	return agent.HistoryEntry{
 		Kind:       entry.Kind,
-		User:       entry.User,
+		User:       cloneMessage(entry.User),
 		Model:      cloneModelResponse(entry.Model),
 		ToolResult: entry.ToolResult,
 	}
 }
 
+// cloneMessage isolates user content and image bytes.
+func cloneMessage(message model.Message) model.Message {
+	content := make([]model.InputContent, len(message.Content))
+	for index, item := range message.Content {
+		content[index] = model.InputContent{
+			Kind: item.Kind, Text: item.Text, MediaType: item.MediaType,
+			Data: append([]byte(nil), item.Data...),
+		}
+	}
+	return model.Message{Content: content}
+}
+
 // cloneModelResponse preserves ordered content while isolating mutable values.
-func cloneModelResponse(response agent.ModelResponse) agent.ModelResponse {
-	items := make([]agent.ModelItem, len(response.Items))
-	for index, item := range response.Items {
-		items[index] = agent.ModelItem{
-			Kind: item.Kind,
-			Text: item.Text,
-			ProviderContext: agent.ProviderContext{
+func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]model.ToolCallPreview {
+	if previews == nil {
+		return nil
+	}
+	cloned := make(map[string]model.ToolCallPreview, len(previews))
+	for callID, preview := range previews {
+		preview.Fields = clonePreviewFields(preview.Fields)
+		cloned[callID] = preview
+	}
+	return cloned
+}
+
+func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPreviewField {
+	if fields == nil {
+		return nil
+	}
+	cloned := make([]model.ToolCallPreviewField, len(fields))
+	for index, field := range fields {
+		field.Value = cloneJSONValue(field.Value)
+		cloned[index] = field
+	}
+	return cloned
+}
+
+func cloneModelResponse(response model.Response) model.Response {
+	items := make([]model.Content, len(response.Content))
+	for index, item := range response.Content {
+		items[index] = model.Content{
+			Kind:  item.Kind,
+			Text:  item.Text,
+			Final: item.Final,
+			ProviderContext: model.ProviderContext{
 				ProviderID: item.ProviderContext.ProviderID,
 				Payload:    append([]byte(nil), item.ProviderContext.Payload...),
 			},
-			ToolCall: agent.ToolCall{
+			ToolCall: model.ToolCall{
 				ID:        item.ToolCall.ID,
 				Name:      item.ToolCall.Name,
 				Arguments: cloneArguments(item.ToolCall.Arguments),
 			},
 		}
 	}
-	return agent.ModelResponse{Items: items, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage}
+	var responseModel *model.ID
+	if response.ResponseModel != nil {
+		value := *response.ResponseModel
+		responseModel = &value
+	}
+	diagnostics := append([]model.Diagnostic(nil), response.Diagnostics...)
+	return model.Response{
+		Content: items, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
+		Provider: response.Provider, Model: response.Model, ResponseModel: responseModel,
+		ResponseID: response.ResponseID, Usage: response.Usage, Diagnostics: diagnostics,
+	}
 }
 
 // cloneArguments recursively preserves the JSON-compatible argument tree.
@@ -83,7 +133,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			index++
 			continue
 		}
-		if entry.Model.Outcome == agent.ModelOutcomeAborted || entry.Model.Outcome == agent.ModelOutcomeFailed {
+		if entry.Model.Outcome == model.OutcomeAborted || entry.Model.Outcome == model.OutcomeFailed {
 			index++
 			continue
 		}
@@ -103,8 +153,8 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			}
 			projected = append(projected, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryToolResult,
-				User:  agent.UserMessage{Text: ""},
-				Model: agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""},
+				User:  model.TextMessage(""),
+				Model: emptyModelResponse(),
 				ToolResult: agent.ToolResult{
 					CallID: call.ID, ToolName: call.Name, Content: skippedCallError, IsError: true,
 				},
@@ -116,10 +166,10 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 }
 
 // modelToolCalls returns finalized calls in model-provided order.
-func modelToolCalls(response agent.ModelResponse) []agent.ToolCall {
-	calls := make([]agent.ToolCall, 0)
-	for _, item := range response.Items {
-		if item.Kind == agent.ModelItemToolCall {
+func modelToolCalls(response model.Response) []model.ToolCall {
+	calls := make([]model.ToolCall, 0)
+	for _, item := range response.Content {
+		if item.Kind == model.ContentToolCall {
 			calls = append(calls, item.ToolCall)
 		}
 	}

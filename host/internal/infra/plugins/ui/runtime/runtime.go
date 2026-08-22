@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"sync"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -154,10 +156,9 @@ func mapInitialization(initialization domainui.Initialization) *uipb.Initializat
 
 // mapLifecycle converts one explicit lifecycle payload.
 func mapLifecycle(event domainui.Lifecycle) *uipb.LifecycleEvent {
-	return &uipb.LifecycleEvent{
+	mapped := &uipb.LifecycleEvent{
 		Type:            mapLifecycleType(event.Type),
 		RunId:           event.RunID,
-		Position:        int32(event.Position), //nolint:gosec // Runnable model output indexes cannot approach int32 limits.
 		Text:            event.Text,
 		ToolCallId:      event.ToolCallID,
 		ToolName:        event.ToolName,
@@ -166,7 +167,33 @@ func mapLifecycle(event domainui.Lifecycle) *uipb.LifecycleEvent {
 		Outcome:         event.Outcome,
 		ErrorMessage:    event.ErrorMessage,
 		Availability:    mapAvailability(event.Availability),
+		ModelContent:    nil,
+		ModelResponse:   nil,
+		ToolCallPreview: nil,
+		FinalToolCall:   nil,
 	}
+	if event.ModelContent.Type != 0 {
+		mapped.ModelContent = &uipb.ModelContent{
+			Type:     mapModelContentType(event.ModelContent.Type),
+			Position: int32(event.ModelContent.Position), //nolint:gosec // Model positions remain bounded by response size.
+			Text:     event.ModelContent.Text, Kind: mapModelContentKind(event.ModelContent.Kind),
+		}
+	}
+	if event.Type == domainui.LifecycleMessageEnd {
+		mapped.ModelResponse = mapModelResponse(event.ModelResponse)
+	}
+	if event.Type == domainui.LifecycleToolCallStart || event.Type == domainui.LifecycleToolCallDelta {
+		mapped.ToolCallPreview = mapToolCallPreview(event.ToolCallPreview)
+	}
+	if event.Type == domainui.LifecycleToolCallEnd {
+		arguments, _ := structpb.NewStruct(event.FinalToolCall.Arguments)
+		mapped.FinalToolCall = &uipb.FinalToolCall{
+			CallId: event.FinalToolCall.CallID, Name: event.FinalToolCall.Name,
+			Position:  int32(event.FinalToolCall.Position), //nolint:gosec // Positions are bounded by response size.
+			Arguments: arguments,
+		}
+	}
+	return mapped
 }
 
 // mapCommand validates one generated UI command.
@@ -205,8 +232,116 @@ func mapAvailability(value domainui.Availability) uipb.Availability {
 }
 
 // mapLifecycleType converts Host lifecycle identity to the public contract.
+//
+//nolint:gocyclo // The flat switch maps the complete lifecycle enum.
 func mapLifecycleType(value domainui.LifecycleType) uipb.LifecycleType {
-	return uipb.LifecycleType(value)
+	switch value {
+	case domainui.LifecycleAgentStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START
+	case domainui.LifecycleTurnStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TURN_START
+	case domainui.LifecycleMessageStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START
+	case domainui.LifecycleModelContentStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START
+	case domainui.LifecycleModelTextDelta:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA
+	case domainui.LifecycleModelContentEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END
+	case domainui.LifecycleToolCallStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START
+	case domainui.LifecycleToolCallDelta:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA
+	case domainui.LifecycleToolCallEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END
+	case domainui.LifecycleMessageEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
+	case domainui.LifecycleToolExecutionStart:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START
+	case domainui.LifecycleToolExecutionUpdate:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE
+	case domainui.LifecycleToolExecutionEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
+	case domainui.LifecycleToolResult:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
+	case domainui.LifecycleTurnEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_TURN_END
+	case domainui.LifecycleAgentEnd:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END
+	case domainui.LifecycleAgentSettled:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED
+	case domainui.LifecycleAvailabilityChanged:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED
+	default:
+		return uipb.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
+	}
+}
+
+func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview {
+	fields := make([]*uipb.ToolCallPreviewField, len(preview.Fields))
+	for index, field := range preview.Fields {
+		mapped := &uipb.ToolCallPreviewField{Name: field.Name, Content: nil}
+		if field.Complete {
+			value, _ := structpb.NewValue(field.Value)
+			mapped.Content = &uipb.ToolCallPreviewField_Value{Value: value}
+		} else {
+			mapped.Content = &uipb.ToolCallPreviewField_Prefix{Prefix: field.Prefix}
+		}
+		fields[index] = mapped
+	}
+	return &uipb.ToolCallPreview{
+		CallId: preview.CallID, Name: preview.Name,
+		Position:    int32(preview.Position), //nolint:gosec // Positions are bounded by response size.
+		Provisional: preview.Provisional, Fields: fields,
+	}
+}
+
+func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
+	content := make([]*uipb.ModelResponseContent, len(response.Content))
+	for index, item := range response.Content {
+		content[index] = &uipb.ModelResponseContent{Kind: mapModelContentKind(item.Kind), Text: item.Text}
+	}
+	diagnostics := make([]*uipb.ModelDiagnostic, len(response.Diagnostics))
+	for index, diagnostic := range response.Diagnostics {
+		diagnostics[index] = &uipb.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
+	}
+	return &uipb.ModelResponse{
+		Text: response.Text, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
+		Provider: response.Provider, Model: response.Model, ResponseModel: response.ResponseModel,
+		ResponseId: response.ResponseID,
+		Usage: &uipb.ModelUsage{
+			InputTokens: response.Usage.InputTokens, OutputTokens: response.Usage.OutputTokens,
+			CachedInputTokens: response.Usage.CachedInputTokens, CacheWriteTokens: response.Usage.CacheWriteTokens,
+			ReasoningTokens: response.Usage.ReasoningTokens, TotalTokens: response.Usage.TotalTokens,
+		},
+		Diagnostics: diagnostics, Content: content,
+	}
+}
+
+func mapModelContentKind(value domainui.ModelContentKind) uipb.ModelContentKind {
+	switch value {
+	case domainui.ModelContentKindText:
+		return uipb.ModelContentKind_MODEL_CONTENT_KIND_TEXT
+	case domainui.ModelContentKindRefusal:
+		return uipb.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL
+	case domainui.ModelContentKindReasoning:
+		return uipb.ModelContentKind_MODEL_CONTENT_KIND_REASONING
+	default:
+		return uipb.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED
+	}
+}
+
+func mapModelContentType(value domainui.ModelContentType) uipb.ModelContentType {
+	switch value {
+	case domainui.ModelContentStart:
+		return uipb.ModelContentType_MODEL_CONTENT_TYPE_START
+	case domainui.ModelContentTextDelta:
+		return uipb.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA
+	case domainui.ModelContentEnd:
+		return uipb.ModelContentType_MODEL_CONTENT_TYPE_END
+	default:
+		return uipb.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED
+	}
 }
 
 // mapProgressChannel converts Host tool progress identity to the public contract.

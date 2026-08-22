@@ -20,7 +20,13 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 		Issues: []toolservice.Issue{{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}},
 		Extensions: []toolservice.LoadedExtension{{
 			ID: "tools", Path: "/plugins/tools",
-			Tools: []tool.Descriptor{{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)}},
+			Tools: []tool.Descriptor{{
+				Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`),
+				ConstrainedSampling: tool.ConstrainedSampling{
+					Kind: 0, JSONSchemaStrictness: 0,
+					Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+				},
+			}},
 		}},
 	}, []SelectionIssue{{
 		Candidate: domainui.Candidate{ID: "excluded", Path: "/excluded"}, Err: errors.New("incompatible"),

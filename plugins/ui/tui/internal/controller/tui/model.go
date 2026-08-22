@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -30,6 +31,8 @@ type Model struct {
 	apply    Apply
 	emit     Emit
 }
+
+var _ tea.Model = (*Model)(nil)
 
 const fixedViewLineCount = 5
 
@@ -184,12 +187,14 @@ func (model *Model) insertText(text string) {
 func (model Model) View() tea.View {
 	body := model.visibleBodyLines()
 	lines := make([]string, 0, fixedViewLineCount+len(body))
-	lines = append(lines,
+	lines = append(
+		lines,
 		"Glyph",
 		"Status: "+availabilityText(model.state.Availability),
 	)
 	lines = append(lines, body...)
-	lines = append(lines,
+	lines = append(
+		lines,
 		"Request: "+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
 		fmt.Sprintf("Terminal: %dx%d", model.width, model.height),
 		"Keys: Enter submit | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
@@ -203,7 +208,9 @@ func (model Model) View() tea.View {
 
 // visibleBodyLines keeps the latest transcript while preserving the editor and help lines.
 func (model Model) visibleBodyLines() []string {
-	lines := make([]string, 0, len(model.state.Startup)+len(model.state.Transcript)+len(model.state.ActiveModel)+1)
+	estimatedLines := len(model.state.Startup) + len(model.state.Transcript) +
+		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
+	lines := make([]string, 0, estimatedLines)
 	for _, line := range model.state.Startup {
 		lines = append(lines, strings.Split(renderLine(line), "\n")...)
 	}
@@ -216,7 +223,20 @@ func (model Model) visibleBodyLines() []string {
 	}
 	sort.Ints(positions)
 	for _, position := range positions {
-		lines = append(lines, strings.Split("assistant: "+model.state.ActiveModel[position], "\n")...)
+		content := model.state.ActiveModel[position]
+		kind := presentationdomain.LineModel
+		if content.Kind == presentationdomain.ModelContentRefusal {
+			kind = presentationdomain.LineRefusal
+		}
+		lines = append(lines, strings.Split(renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}), "\n")...)
+	}
+	calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
+	for _, call := range model.state.ActiveToolCalls {
+		calls = append(calls, call)
+	}
+	sort.Slice(calls, func(i, j int) bool { return calls[i].Position < calls[j].Position })
+	for _, call := range calls {
+		lines = append(lines, renderToolCall(call))
 	}
 	if model.state.AuthorizationURL != "" {
 		lines = append(lines, "Authorization: "+model.state.AuthorizationURL)
@@ -235,33 +255,79 @@ func (model Model) visibleBodyLines() []string {
 	return lines
 }
 
+func renderToolCall(call presentationdomain.ToolCallState) string {
+	status := "final"
+	if call.Provisional {
+		status = "provisional"
+	}
+	parts := make([]string, 0, len(call.Fields)+1)
+	for _, field := range call.Fields {
+		if field.Complete {
+			value, _ := json.Marshal(field.Value)
+			parts = append(parts, field.Name+"="+string(value))
+		} else if field.Prefix != "" {
+			parts = append(parts, field.Name+"="+field.Prefix)
+		}
+	}
+	if !call.Provisional && call.Arguments != nil {
+		arguments, _ := json.Marshal(call.Arguments)
+		parts = []string{string(arguments)}
+	}
+	line := "[tool:call] " + call.Name + " (" + status + ")"
+	if len(parts) > 0 {
+		line += " " + strings.Join(parts, " ")
+	}
+	return line
+}
+
+// linePrefix assigns a stable prefix to non-tool presentation lines.
+func linePrefix(kind presentationdomain.LineKind) string {
+	switch kind {
+	case presentationdomain.LineInformation, presentationdomain.LineUnspecified:
+		return "[info]"
+	case presentationdomain.LineError:
+		return "[error]"
+	case presentationdomain.LineWarning:
+		return "[warning]"
+	case presentationdomain.LineUser:
+		return "user:"
+	case presentationdomain.LineModel:
+		return "assistant:"
+	case presentationdomain.LineRefusal:
+		return "[refusal]"
+	case presentationdomain.LineToolStatus, presentationdomain.LineToolStdout,
+		presentationdomain.LineToolStderr, presentationdomain.LineToolDone,
+		presentationdomain.LineToolError:
+		return toolLinePrefix(kind)
+	default:
+		return ""
+	}
+}
+
+// toolLinePrefix assigns a stable prefix to tool presentation lines.
+func toolLinePrefix(kind presentationdomain.LineKind) string {
+	switch kind {
+	case presentationdomain.LineToolStatus:
+		return "[tool:status]"
+	case presentationdomain.LineToolStdout:
+		return "[tool:stdout]"
+	case presentationdomain.LineToolStderr:
+		return "[tool:stderr]"
+	case presentationdomain.LineToolDone:
+		return "[tool:done]"
+	case presentationdomain.LineToolError:
+		return "[tool:error]"
+	case presentationdomain.LineUnspecified, presentationdomain.LineInformation,
+		presentationdomain.LineError, presentationdomain.LineWarning, presentationdomain.LineUser,
+		presentationdomain.LineModel, presentationdomain.LineRefusal:
+		return ""
+	}
+	return ""
+}
+
 // renderLine assigns one stable terminal prefix to each presentation line kind.
 func renderLine(line presentationdomain.Line) string {
-	var prefix string
-	switch line.Kind {
-	case presentationdomain.LineInformation:
-		prefix = "[info]"
-	case presentationdomain.LineError:
-		prefix = "[error]"
-	case presentationdomain.LineWarning:
-		prefix = "[warning]"
-	case presentationdomain.LineUser:
-		prefix = "user:"
-	case presentationdomain.LineModel:
-		prefix = "assistant:"
-	case presentationdomain.LineToolStatus:
-		prefix = "[tool:status]"
-	case presentationdomain.LineToolStdout:
-		prefix = "[tool:stdout]"
-	case presentationdomain.LineToolStderr:
-		prefix = "[tool:stderr]"
-	case presentationdomain.LineToolDone:
-		prefix = "[tool:done]"
-	case presentationdomain.LineToolError:
-		prefix = "[tool:error]"
-	case presentationdomain.LineUnspecified:
-		prefix = "[info]"
-	}
+	prefix := linePrefix(line.Kind)
 
 	parts := []string{prefix}
 	if line.ToolName != "" {
@@ -276,8 +342,6 @@ func renderLine(line presentationdomain.Line) string {
 
 	return strings.Join(parts, " ")
 }
-
-var _ tea.Model = (*Model)(nil)
 
 // availabilityText maps Host availability to concise terminal status text.
 func availabilityText(availability presentationdomain.Availability) string {

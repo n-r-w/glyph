@@ -8,69 +8,58 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
+
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
+
+var _ run.ModelProvider = (*Service)(nil)
 
 const (
 	requestFailedMessage   = "OpenAI Codex request failed."
 	requestCanceledMessage = "OpenAI Codex request was canceled."
 )
 
-// finalizedOutputItems preserves complete items emitted through response.output_item.done.
-// Codex may leave response.completed.output empty, while present completed items remain authoritative.
-type finalizedOutputItems map[int64]responses.ResponseOutputItemUnion
-
-// record stores one finalized output item at its provider position.
-func (items finalizedOutputItems) record(outputIndex int64, item responses.ResponseOutputItemUnion) bool {
-	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
-		return false
+// Stream emits one provider response as provider-neutral semantic events.
+func (s *Service) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
+	var handlerErr error
+	response, streamErr := s.generateResponse(ctx, request, func(event run.StreamEvent) error {
+		if err := handle(event); err != nil {
+			handlerErr = err
+			return err
+		}
+		return nil
+	})
+	if handlerErr != nil {
+		return handlerErr
 	}
-	items[outputIndex] = item
-	return true
+	response.Provider = request.Model.Provider
+	response.Model = request.Model.Model
+	terminalKind := run.StreamEventDone
+	if streamErr != nil {
+		terminalKind = run.StreamEventError
+	}
+	terminalEvent := semanticStreamEvent(terminalKind, 0, 0, "")
+	terminalEvent.Response = response
+	if err := handle(terminalEvent); err != nil {
+		return err
+	}
+	return streamErr
 }
 
-// merge preserves completed items and fills omitted output positions from response.output_item.done
-// while retaining provider output order.
-func (items finalizedOutputItems) merge(
-	completed []responses.ResponseOutputItemUnion,
-) ([]responses.ResponseOutputItemUnion, error) {
-	highestPosition := len(completed) - 1
-	for position := range items {
-		if int(position) > highestPosition {
-			highestPosition = int(position)
-		}
-	}
-	if highestPosition < 0 {
-		return nil, nil
-	}
-	merged := make([]responses.ResponseOutputItemUnion, 0, highestPosition+1)
-	for position := range highestPosition + 1 {
-		if position < len(completed) {
-			merged = append(merged, completed[position])
-			continue
-		}
-		item, ok := items[int64(position)]
-		if !ok {
-			return nil, fmt.Errorf("OpenAI Codex returned noncontiguous finalized output at position %d", position)
-		}
-		merged = append(merged, item)
-	}
-	return merged, nil
-}
-
-// Generate streams one provider response into Agent Core values.
-func (s *Service) Generate(
+// generateResponse decodes one Codex stream and returns its terminal response.
+func (s *Service) generateResponse(
 	ctx context.Context,
 	request run.ModelRequest,
-	handleUpdate run.ModelUpdateHandler,
-) (agent.ModelResponse, error) {
+	handle run.StreamHandler,
+) (model.Response, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
 		return failedModelResponse(safeErrorMessage(err)), err
@@ -85,7 +74,11 @@ func (s *Service) Generate(
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
 	}
-	errorTransport := newErrorCaptureTransport(baseTransport)
+	hookedTransport := &hookTransport{
+		base: baseTransport, runner: s.config.Hooks,
+		provider: request.Model.Provider, model: request.Model.Model,
+	}
+	errorTransport := newErrorCaptureTransport(hookedTransport)
 	httpClient := &http.Client{
 		Transport:     errorTransport,
 		CheckRedirect: s.options.httpClient.CheckRedirect,
@@ -109,24 +102,16 @@ func (s *Service) Generate(
 	defer func() {
 		_ = stream.Close()
 	}()
-	finalized := make(finalizedOutputItems)
+	assembler := newSemanticAssembler(handle, grammarInputProperties(request.Tools))
 
 	for stream.Next() {
-		event := stream.Current()
-		if outputIndex, delta, isModelUpdate := streamModelUpdate(event); isModelUpdate {
-			if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
-				return failedModelResponse(requestFailedMessage), safeError(requestFailedMessage)
-			}
-			handlerErr := handleUpdate(run.ModelUpdate{Position: int(outputIndex), Delta: delta})
-			if handlerErr != nil {
-				return failedModelResponse("OpenAI Codex stream delivery failed."), handlerErr
-			}
-			continue
-		}
-		response, terminal, terminalErr := handleTerminalStreamEvent(event, finalized)
+		response, terminal, terminalErr := assembler.consume(stream.Current())
 		if terminal {
 			return response, terminalErr
 		}
+	}
+	if finishErr := assembler.finish(); finishErr != nil {
+		return failedModelResponse("OpenAI Codex stream delivery failed."), finishErr
 	}
 	streamErr := stream.Err()
 	if streamErr != nil {
@@ -135,72 +120,25 @@ func (s *Service) Generate(
 	return failedModelResponse(requestFailedMessage), safeError(requestFailedMessage)
 }
 
-// streamModelUpdate maps every official incremental text event to one provider-neutral fragment.
-func streamModelUpdate(event responses.ResponseStreamEventUnion) (position int64, delta string, ok bool) {
-	switch event.Type {
-	case "response.output_text.delta":
-		delta := event.AsResponseOutputTextDelta()
-		return delta.OutputIndex, delta.Delta, true
-	case "response.refusal.delta":
-		delta := event.AsResponseRefusalDelta()
-		return delta.OutputIndex, delta.Delta, true
-	default:
-		return 0, "", false
-	}
-}
-
-// handleTerminalStreamEvent records finalized output items and converts terminal provider events.
-func handleTerminalStreamEvent(
-	event responses.ResponseStreamEventUnion,
-	finalized finalizedOutputItems,
-) (agent.ModelResponse, bool, error) {
-	switch event.Type {
-	case "response.output_item.done":
-		done := event.AsResponseOutputItemDone()
-		if !finalized.record(done.OutputIndex, done.Item) {
-			return failedModelResponse(requestFailedMessage), true, safeError(requestFailedMessage)
-		}
-	case "response.completed":
-		response, err := modelResponse(event.AsResponseCompleted().Response, agent.ModelOutcomeStop, finalized)
-		return response, true, err
-	case "response.incomplete":
-		incomplete := event.AsResponseIncomplete().Response
-		if incomplete.IncompleteDetails.Reason == "max_output_tokens" {
-			response, err := modelResponse(incomplete, agent.ModelOutcomeLength, finalized)
-			return response, true, err
-		}
-		message := providerFailureMessage(incomplete.Error.Message)
-		response, err := failedResponseFromSDK(incomplete, message, finalized)
-		return response, true, err
-	case "response.failed":
-		failed := event.AsResponseFailed().Response
-		message := providerFailureMessage(failed.Error.Message)
-		response, err := failedResponseFromSDK(failed, message, finalized)
-		return response, true, err
-	case "error":
-		providerEvent := event.AsError()
-		message := providerFailureMessage(providerEvent.Message)
-		return failedModelResponse(message), true, safeError(message)
-	}
-	return agent.ModelResponse{Items: nil, Outcome: 0, ErrorMessage: ""}, false, nil
-}
-
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
 func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNewParams, error) {
-	if s.config.Model == "" || request.Instructions == "" {
-		return responses.ResponseNewParams{}, errors.New("OpenAI Codex model and request instructions are required")
+	if request.Model.Provider != ProviderID || request.Model.Model == "" ||
+		request.Model.Model != s.config.Model.Model || request.Instructions == "" {
+		return responses.ResponseNewParams{}, errors.New(
+			"OpenAI Codex selected provider, model, and request instructions are required",
+		)
 	}
-	input, err := buildInput(request.History)
+	tools, err := buildTools(request.Tools, s.toolCapabilities())
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
-	tools, err := buildTools(request.Tools)
+	input, err := buildInput(request.History, grammarInputProperties(request.Tools))
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
 	//nolint:exhaustruct // Optional SDK request fields intentionally use zero values.
 	params := responses.ResponseNewParams{
-		Model:             s.config.Model,
+		Model:             string(request.Model.Model),
 		Instructions:      param.NewOpt(request.Instructions),
 		Store:             param.NewOpt(false),
 		ParallelToolCalls: param.NewOpt(false),
@@ -221,18 +159,24 @@ func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNew
 	return params, nil
 }
 
+// toolCapabilities maps provider-neutral support into Codex request selection.
+func (s *Service) toolCapabilities() toolCapabilities {
+	return toolCapabilities{
+		strict: s.config.Model.ToolCapabilities.StrictJSONSchema,
+		lark:   s.config.Model.ToolCapabilities.Grammar.Lark,
+		regex:  s.config.Model.ToolCapabilities.Grammar.Regex,
+	}
+}
+
 // modelResponse converts supported SDK output items while preserving their order.
+//
+//nolint:gocyclo // The flat branches convert the closed Codex output union.
 func modelResponse(
 	response responses.Response,
-	defaultOutcome agent.ModelOutcome,
-	finalized finalizedOutputItems,
-) (agent.ModelResponse, error) {
-	output, mergeErr := finalized.merge(response.Output)
-	if mergeErr != nil {
-		return failedModelResponse(requestFailedMessage), mergeErr
-	}
-	response.Output = output
-	items := make([]agent.ModelItem, 0, len(response.Output))
+	defaultOutcome model.Outcome,
+	grammarInputProperties map[string]string,
+) (model.Response, error) {
+	items := make([]model.Content, 0, len(response.Output))
 	hasToolCall := false
 	for outputIndex := range response.Output {
 		output := &response.Output[outputIndex]
@@ -249,38 +193,66 @@ func modelResponse(
 			if err != nil {
 				return failedModelResponse(requestFailedMessage), fmt.Errorf("encode Codex reasoning context: %w", err)
 			}
-			items = append(items, agent.ModelItem{
-				Kind: agent.ModelItemProviderContext, Text: "",
-				ProviderContext: agent.ProviderContext{ProviderID: ProviderID, Payload: payload},
-				ToolCall:        agent.ToolCall{ID: "", Name: "", Arguments: nil},
-			})
+			items = append(items,
+				model.Content{
+					Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
+					ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				},
+				model.Content{
+					Kind: model.ContentProviderContext, Text: "", Final: true,
+					ProviderContext: model.ProviderContext{ProviderID: ProviderID, Payload: payload},
+					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				},
+			)
 		case "message":
 			message := output.AsMessage()
-			var text strings.Builder
 			for contentIndex := range message.Content {
 				content := &message.Content[contentIndex]
+				var kind model.ContentKind
+				var text string
 				switch content.Type {
 				case "output_text":
-					text.WriteString(content.AsOutputText().Text)
+					kind = model.ContentText
+					text = content.AsOutputText().Text
 				case "refusal":
-					text.WriteString(content.AsRefusal().Refusal)
+					kind = model.ContentRefusal
+					text = content.AsRefusal().Refusal
+				default:
+					return failedModelResponse(requestFailedMessage), fmt.Errorf(
+						"OpenAI Codex returned unsupported message content %q", content.Type,
+					)
 				}
+				items = append(items, model.Content{
+					Kind: kind, Text: text, Final: true,
+					ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				})
 			}
-			items = append(items, agent.ModelItem{
-				Kind: agent.ModelItemText, Text: text.String(),
-				ProviderContext: agent.ProviderContext{ProviderID: "", Payload: nil},
-				ToolCall:        agent.ToolCall{ID: "", Name: "", Arguments: nil},
-			})
 		case "function_call":
 			call := output.AsFunctionCall()
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
 				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned invalid tool-call arguments")
 			}
-			items = append(items, agent.ModelItem{
-				Kind: agent.ModelItemToolCall, Text: "",
-				ProviderContext: agent.ProviderContext{ProviderID: "", Payload: nil},
-				ToolCall:        agent.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
+			items = append(items, model.Content{
+				Kind: model.ContentToolCall, Text: "", Final: true,
+				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+				ToolCall:        model.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
+			})
+			hasToolCall = true
+		case "custom_tool_call":
+			call := output.AsCustomToolCall()
+			property, ok := grammarInputProperties[call.Name]
+			if !ok || property == "" {
+				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned an undeclared custom tool call")
+			}
+			items = append(items, model.Content{
+				Kind: model.ContentToolCall, Text: "", Final: true,
+				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+				ToolCall: model.ToolCall{
+					ID: call.CallID, Name: call.Name, Arguments: map[string]any{property: call.Input},
+				},
 			})
 			hasToolCall = true
 		default:
@@ -291,23 +263,40 @@ func modelResponse(
 		}
 	}
 	outcome := defaultOutcome
-	if defaultOutcome == agent.ModelOutcomeStop && hasToolCall {
-		outcome = agent.ModelOutcomeToolUse
+	if defaultOutcome == model.OutcomeStop && hasToolCall {
+		outcome = model.OutcomeToolUse
 	}
-	return agent.ModelResponse{Items: items, Outcome: outcome, ErrorMessage: ""}, nil
+	var responseModel *model.ID
+	if response.Model != "" {
+		actualModel := model.ID(response.Model)
+		responseModel = &actualModel
+	}
+	usage := model.Usage{
+		InputTokens:       response.Usage.InputTokens,
+		OutputTokens:      response.Usage.OutputTokens,
+		CachedInputTokens: response.Usage.InputTokensDetails.CachedTokens,
+		CacheWriteTokens:  response.Usage.InputTokensDetails.CacheWriteTokens,
+		ReasoningTokens:   response.Usage.OutputTokensDetails.ReasoningTokens,
+		TotalTokens:       response.Usage.TotalTokens,
+	}
+	return model.Response{
+		Content: items, Outcome: outcome, ErrorMessage: "", Provider: "", Model: "",
+		ResponseModel: responseModel, ResponseID: response.ID,
+		Usage: usage, Diagnostics: nil,
+	}, nil
 }
 
 // failedResponseFromSDK preserves finalized safe items while returning a failed outcome.
 func failedResponseFromSDK(
 	response responses.Response,
 	message string,
-	finalized finalizedOutputItems,
-) (agent.ModelResponse, error) {
-	converted, err := modelResponse(response, agent.ModelOutcomeFailed, finalized)
+	grammarInputProperties map[string]string,
+) (model.Response, error) {
+	converted, err := modelResponse(response, model.OutcomeFailed, grammarInputProperties)
 	if err != nil {
 		return failedModelResponse(message), errors.Join(safeError(message), err)
 	}
-	converted.Outcome = agent.ModelOutcomeFailed
+	converted.Outcome = model.OutcomeFailed
 	converted.ErrorMessage = message
 	return converted, safeError(message)
 }
@@ -317,11 +306,16 @@ func (s *Service) streamError(
 	ctx context.Context,
 	streamErr error,
 	transport *errorCaptureTransport,
-) (agent.ModelResponse, error) {
+) (model.Response, error) {
 	if ctx.Err() != nil {
-		return agent.ModelResponse{
-			Items: nil, Outcome: agent.ModelOutcomeAborted, ErrorMessage: requestCanceledMessage,
-		}, ctx.Err()
+		response := emptyModelResponse()
+		response.Outcome = model.OutcomeAborted
+		response.ErrorMessage = requestCanceledMessage
+		return response, ctx.Err()
+	}
+	var hookFailure internalhooks.HookError
+	if errors.As(streamErr, &hookFailure) {
+		return hookFailureResponse(hookFailure.Stage), hookFailure
 	}
 	var apiError *openai.Error
 	if errors.As(streamErr, &apiError) {
@@ -364,6 +358,20 @@ func safeErrorMessage(err error) string {
 }
 
 // failedModelResponse creates one terminal provider-neutral failure.
-func failedModelResponse(message string) agent.ModelResponse {
-	return agent.ModelResponse{Items: nil, Outcome: agent.ModelOutcomeFailed, ErrorMessage: message}
+func failedModelResponse(message string) model.Response {
+	response := emptyModelResponse()
+	response.Outcome = model.OutcomeFailed
+	response.ErrorMessage = message
+	return response
+}
+
+func emptyModelResponse() model.Response {
+	return model.Response{
+		Content: nil, Outcome: 0, ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
+		Usage: model.Usage{
+			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
+			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+		},
+		Diagnostics: nil,
+	}
 }

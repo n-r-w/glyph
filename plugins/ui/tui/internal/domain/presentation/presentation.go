@@ -37,6 +37,10 @@ const (
 	EventModelDelta
 	// EventModelEnd settles one model text position.
 	EventModelEnd
+	// EventToolCallPreview replaces one provisional function-call preview.
+	EventToolCallPreview
+	// EventToolCallFinal replaces one preview with exact final arguments.
+	EventToolCallFinal
 	// EventToolStarted records tool identity.
 	EventToolStarted
 	// EventToolProgress records tool status text.
@@ -59,6 +63,30 @@ const (
 	EventError
 )
 
+// ModelContentKind identifies one visible model content block.
+type ModelContentKind uint8
+
+const (
+	// ModelContentUnspecified represents a missing model content kind.
+	ModelContentUnspecified ModelContentKind = iota
+	// ModelContentText contains ordinary model text.
+	ModelContentText
+	// ModelContentRefusal contains model refusal text.
+	ModelContentRefusal
+)
+
+// ModelResponseContent carries one finalized visible model content block.
+type ModelResponseContent struct {
+	Kind ModelContentKind
+	Text string
+}
+
+// ActiveModelContent carries one streaming visible model content block.
+type ActiveModelContent struct {
+	Kind ModelContentKind
+	Text string
+}
+
 // OutputStream identifies readable tool output without exposing tool internals.
 type OutputStream uint8
 
@@ -80,19 +108,22 @@ type Extension struct {
 
 // Event contains the fields used by one presentation update.
 type Event struct {
-	Kind         EventKind
-	Startup      []Line
-	Extensions   []Extension
-	Availability Availability
-	Position     int
-	ToolCallID   string
-	ToolName     string
-	Status       string
-	Stream       OutputStream
-	Text         string
-	ErrorText    string
-	ExitCode     int
-	Failure      bool
+	Kind                 EventKind
+	Startup              []Line
+	Extensions           []Extension
+	Availability         Availability
+	Position             int
+	ModelContentKind     ModelContentKind
+	ModelResponseContent []ModelResponseContent
+	ToolCallID           string
+	ToolName             string
+	Status               string
+	Stream               OutputStream
+	Text                 string
+	ErrorText            string
+	ExitCode             int
+	Failure              bool
+	ToolCall             ToolCallState
 }
 
 // LineKind controls the plain prefix used to render one transcript line.
@@ -111,6 +142,8 @@ const (
 	LineUser
 	// LineModel renders model text.
 	LineModel
+	// LineRefusal renders model refusal text.
+	LineRefusal
 	// LineToolStatus renders tool status text.
 	LineToolStatus
 	// LineToolStdout renders standard tool output.
@@ -131,11 +164,30 @@ type Line struct {
 	Text     string
 }
 
+// ToolCallField is one rendered argument field.
+type ToolCallField struct {
+	Name     string
+	Value    any
+	Prefix   string
+	Complete bool
+}
+
+// ToolCallState is one transient or finalized function call.
+type ToolCallState struct {
+	CallID      string
+	Name        string
+	Position    int
+	Provisional bool
+	Fields      []ToolCallField
+	Arguments   map[string]any
+}
+
 // State is the TUI-owned projection of provider-neutral Host frames.
 type State struct {
 	Startup          []Line
 	Transcript       []Line
-	ActiveModel      map[int]string
+	ActiveModel      map[int]ActiveModelContent
+	ActiveToolCalls  map[string]ToolCallState
 	ActiveTools      map[string]string
 	Availability     Availability
 	AuthorizationURL string

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,19 +43,18 @@ func (m *MockModelProvider) EXPECT() *MockModelProviderMockRecorder {
 	return m.recorder
 }
 
-// Generate mocks base method.
-func (m *MockModelProvider) Generate(ctx context.Context, request ModelRequest, handleUpdate ModelUpdateHandler) (agent.ModelResponse, error) {
+// Stream mocks base method.
+func (m *MockModelProvider) Stream(ctx context.Context, request ModelRequest, handle StreamHandler) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Generate", ctx, request, handleUpdate)
-	ret0, _ := ret[0].(agent.ModelResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "Stream", ctx, request, handle)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Generate indicates an expected call of Generate.
-func (mr *MockModelProviderMockRecorder) Generate(ctx, request, handleUpdate any) *gomock.Call {
+// Stream indicates an expected call of Stream.
+func (mr *MockModelProviderMockRecorder) Stream(ctx, request, handle any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generate", reflect.TypeOf((*MockModelProvider)(nil).Generate), ctx, request, handleUpdate)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockModelProvider)(nil).Stream), ctx, request, handle)
 }
 
 // MockToolRuntime is a mock of ToolRuntime interface.
@@ -82,7 +82,7 @@ func (m *MockToolRuntime) EXPECT() *MockToolRuntimeMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockToolRuntime) Execute(ctx context.Context, call agent.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
+func (m *MockToolRuntime) Execute(ctx context.Context, call model.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", ctx, call, handleProgress)
 	ret0, _ := ret[0].(agent.ToolResult)

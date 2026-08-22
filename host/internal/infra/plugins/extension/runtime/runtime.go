@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -225,14 +226,101 @@ func validateCatalog(
 		if err != nil {
 			return nil, nil, fmt.Errorf("tool %q input schema: %w", name, err)
 		}
+		constraint, err := mapConstrainedSampling(descriptor, descriptor.GetInputSchemaJson())
+		if err != nil {
+			return nil, nil, fmt.Errorf("tool %q constrained sampling: %w", name, err)
+		}
 		tools = append(tools, tool.Descriptor{
-			Name:            name,
-			Description:     descriptor.GetDescription(),
-			InputSchemaJSON: bytes.Clone(descriptor.GetInputSchemaJson()),
+			Name: name, Description: descriptor.GetDescription(),
+			InputSchemaJSON: bytes.Clone(descriptor.GetInputSchemaJson()), ConstrainedSampling: constraint,
 		})
 		schemas[name] = schema
 	}
 	return tools, schemas, nil
+}
+
+// mapConstrainedSampling validates the public constraint and produces one Host-owned descriptor.
+func mapConstrainedSampling(
+	descriptor *extensionpb.ToolDescriptor,
+	schemaJSON []byte,
+) (tool.ConstrainedSampling, error) {
+	constraint := descriptor.GetConstrainedSampling()
+	if constraint == nil {
+		return emptyConstrainedSampling(), nil
+	}
+	switch config := constraint.GetConfig().(type) {
+	case *extensionpb.ConstrainedSampling_JsonSchema:
+		return mapJSONSchemaSampling(config.JsonSchema)
+	case *extensionpb.ConstrainedSampling_Grammar:
+		return mapGrammarSampling(config.Grammar, schemaJSON)
+	case nil:
+		return emptyConstrainedSampling(), errors.New("config is missing")
+	default:
+		return emptyConstrainedSampling(), errors.New("config is invalid")
+	}
+}
+
+// mapJSONSchemaSampling converts the closed public strictness enum.
+func mapJSONSchemaSampling(
+	config *extensionpb.JsonSchemaConstrainedSampling,
+) (tool.ConstrainedSampling, error) {
+	if config == nil {
+		return emptyConstrainedSampling(), errors.New("JSON Schema config is missing")
+	}
+	var strictness tool.JSONSchemaStrictness
+	switch config.GetStrictness() {
+	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER:
+		strictness = tool.JSONSchemaStrictPrefer
+	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE:
+		strictness = tool.JSONSchemaStrictRequire
+	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED:
+		return emptyConstrainedSampling(), errors.New("JSON Schema strictness is unspecified")
+	default:
+		return emptyConstrainedSampling(), errors.New("JSON Schema strictness is invalid")
+	}
+	return tool.ConstrainedSampling{
+		Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: strictness,
+		Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+	}, nil
+}
+
+// mapGrammarSampling validates grammar variants and retains the schema input property.
+func mapGrammarSampling(
+	config *extensionpb.GrammarConstrainedSampling,
+	schemaJSON []byte,
+) (tool.ConstrainedSampling, error) {
+	if config == nil {
+		return emptyConstrainedSampling(), errors.New("grammar config is missing")
+	}
+	if strings.TrimSpace(config.GetLark()) == "" && strings.TrimSpace(config.GetRegex()) == "" {
+		return emptyConstrainedSampling(), errors.New("grammar requires at least one nonempty grammar variant")
+	}
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+		Required   []string                   `json:"required"`
+	}
+	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
+		return emptyConstrainedSampling(), fmt.Errorf("parse grammar schema: %w", err)
+	}
+	if len(schema.Properties) != 1 || len(schema.Required) != 1 || schema.Required[0] == "" {
+		return emptyConstrainedSampling(), errors.New("grammar schema must have exactly one required string property")
+	}
+	if _, exists := schema.Properties[schema.Required[0]]; !exists {
+		return emptyConstrainedSampling(), errors.New("grammar schema must have exactly one required string property")
+	}
+	return tool.ConstrainedSampling{
+		Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: 0,
+		Grammar:              tool.GrammarVariants{Lark: config.GetLark(), Regex: config.GetRegex()},
+		GrammarInputProperty: schema.Required[0],
+	}, nil
+}
+
+// emptyConstrainedSampling returns the provider-neutral absence of a constraint.
+func emptyConstrainedSampling() tool.ConstrainedSampling {
+	return tool.ConstrainedSampling{
+		Kind: 0, JSONSchemaStrictness: 0,
+		Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+	}
 }
 
 // compileProfileSchema enforces the prototype schema profile and compiles Draft 2020-12 validation.

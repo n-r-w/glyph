@@ -88,8 +88,8 @@ func TestServiceLoadLogsExtensionCatalog(t *testing.T) {
 		Extensions: []toolservice.LoadedExtension{{
 			ID: "glyph-tools", Path: "/plugins/glyph-tools",
 			Tools: []tool.Descriptor{
-				{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)},
-				{Name: "bash", Description: "bash", InputSchemaJSON: []byte(`{}`)},
+				testStartupDescriptor("read"),
+				testStartupDescriptor("bash"),
 			},
 		}},
 	}
@@ -125,7 +125,7 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 	report := toolservice.LoadReport{
 		Issues: []toolservice.Issue{firstIssue, secondIssue},
 		Extensions: []toolservice.LoadedExtension{
-			{ID: "first", Path: "/override/first", Tools: []tool.Descriptor{{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)}}},
+			{ID: "first", Path: "/override/first", Tools: []tool.Descriptor{testStartupDescriptor("read")}},
 			{ID: "second", Path: "/override/second", Tools: nil},
 		},
 	}
@@ -142,6 +142,16 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, report, loaded)
+}
+
+func testStartupDescriptor(name string) tool.Descriptor {
+	return tool.Descriptor{
+		Name: name, Description: name, InputSchemaJSON: []byte(`{}`),
+		ConstrainedSampling: tool.ConstrainedSampling{
+			Kind: 0, JSONSchemaStrictness: 0,
+			Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+		},
+	}
 }
 
 // TestServiceStartPropagatesCatalogAndReporterFailures verifies startup stops without retry.

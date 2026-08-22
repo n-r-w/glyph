@@ -25,6 +25,33 @@ message ToolDescriptor {
   string name = 1;
   string description = 2;
   bytes input_schema_json = 3;
+  ConstrainedSampling constrained_sampling = 4;
+}
+
+// ConstrainedSampling requests provider-side constrained tool input generation.
+message ConstrainedSampling {
+  oneof config {
+    JsonSchemaConstrainedSampling json_schema = 1;
+    GrammarConstrainedSampling grammar = 2;
+  }
+}
+
+// JsonSchemaConstrainedSampling requests JSON Schema constrained generation.
+message JsonSchemaConstrainedSampling {
+  JsonSchemaStrictness strictness = 1;
+}
+
+// JsonSchemaStrictness controls whether a provider may fall back from strict schema generation.
+enum JsonSchemaStrictness {
+  JSON_SCHEMA_STRICTNESS_UNSPECIFIED = 0;
+  JSON_SCHEMA_STRICTNESS_PREFER = 1;
+  JSON_SCHEMA_STRICTNESS_REQUIRE = 2;
+}
+
+// GrammarConstrainedSampling provides equivalent supported grammar formats.
+message GrammarConstrainedSampling {
+  string lark = 1;
+  string regex = 2;
 }
 
 // ExecuteRequest starts one tool call with JSON-encoded arguments.

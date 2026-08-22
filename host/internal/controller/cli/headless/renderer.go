@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -38,9 +39,12 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeF
 // DeliverAgent renders one Agent Core lifecycle event synchronously.
 func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	switch event.Type {
-	case run.EventMessageUpdate:
-		writeErr := writeText(r.stdout, event.Delta)
-		if writeErr == nil && event.Delta != "" {
+	case run.EventTextDelta:
+		if event.Content.Kind != model.ContentText && event.Content.Kind != model.ContentRefusal {
+			return nil
+		}
+		writeErr := writeText(r.stdout, event.Content.Text)
+		if writeErr == nil && event.Content.Text != "" {
 			r.modelLineOpen = true
 		}
 		return writeErr
@@ -66,6 +70,11 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	case run.EventAgentStart,
 		run.EventTurnStart,
 		run.EventMessageStart,
+		run.EventContentStart,
+		run.EventContentEnd,
+		run.EventToolCallStart,
+		run.EventToolCallDelta,
+		run.EventToolCallEnd,
 		run.EventToolResult,
 		run.EventTurnEnd,
 		run.EventAgentEnd:

@@ -26,6 +26,8 @@ type Controller struct {
 	programs ProgramFactory
 }
 
+var _ uiv1.UIServiceServer = (*Controller)(nil)
+
 // New creates the standard TUI plugin controller.
 func New(terminal Terminal, programs ProgramFactory) *Controller {
 	return &Controller{terminal: terminal, programs: programs}
@@ -121,6 +123,10 @@ func receiveFrames(
 			}
 			return
 		}
+		if lifecycle := request.GetLifecycle(); lifecycle != nil &&
+			lifecycle.GetModelContent().GetKind() == uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING {
+			continue
+		}
 		event, err := mapRequest(request)
 		if err != nil {
 			result <- status.Errorf(codes.InvalidArgument, "map Host frame: %v", err)
@@ -207,7 +213,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 //nolint:gocyclo // The explicit flat switch mirrors the finite lifecycle enum.
 func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, error) {
 	event := presentationdomain.Event{
-		Position:   int(lifecycle.GetPosition()),
+		Position:   0,
 		ToolCallID: lifecycle.GetToolCallId(),
 		ToolName:   lifecycle.GetToolName(),
 		Text:       lifecycle.GetText(),
@@ -222,10 +228,36 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		event.Kind = presentationdomain.EventTurnStarted
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
 		event.Kind = presentationdomain.EventModelDelta
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_UPDATE:
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START:
 		event.Kind = presentationdomain.EventModelDelta
+		event.Position = int(lifecycle.GetModelContent().GetPosition())
+		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA:
+		event.Kind = presentationdomain.EventModelDelta
+		event.Position = int(lifecycle.GetModelContent().GetPosition())
+		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
+		event.Text = lifecycle.GetModelContent().GetText()
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
+		event.Kind = presentationdomain.EventModelDelta
+		event.Position = int(lifecycle.GetModelContent().GetPosition())
+		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
+		event.Kind = presentationdomain.EventToolCallPreview
+		event.ToolCall = mapToolCallPreview(lifecycle.GetToolCallPreview())
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
+		event.Kind = presentationdomain.EventToolCallFinal
+		call := lifecycle.GetFinalToolCall()
+		event.ToolCall = presentationdomain.ToolCallState{
+			CallID: call.GetCallId(), Name: call.GetName(), Position: int(call.GetPosition()),
+			Provisional: false, Fields: nil, Arguments: call.GetArguments().AsMap(),
+		}
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
 		event.Kind = presentationdomain.EventModelEnd
+		event.ModelResponseContent = mapModelResponseContent(lifecycle.GetModelResponse().GetContent())
+		event.ErrorText = lifecycle.GetModelResponse().GetErrorMessage()
+		event.Status = lifecycle.GetModelResponse().GetOutcome()
+		event.Failure = event.ErrorText != ""
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
 		event.Kind = presentationdomain.EventToolStarted
 		event.Status = "started"
@@ -266,6 +298,53 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	}
 
 	return event, nil
+}
+
+// mapModelResponseContent keeps finalized visible text and refusal blocks while dropping reasoning.
+func mapModelResponseContent(content []*uiv1.ModelResponseContent) []presentationdomain.ModelResponseContent {
+	mapped := make([]presentationdomain.ModelResponseContent, 0, len(content))
+	for _, item := range content {
+		kind := mapModelContentKind(item.GetKind())
+		if kind == presentationdomain.ModelContentUnspecified {
+			continue
+		}
+		mapped = append(mapped, presentationdomain.ModelResponseContent{Kind: kind, Text: item.GetText()})
+	}
+	return mapped
+}
+
+// mapModelContentKind converts public content identity into the TUI presentation contract.
+func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelContentKind {
+	switch kind {
+	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
+		return presentationdomain.ModelContentText
+	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
+		return presentationdomain.ModelContentRefusal
+	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED,
+		uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
+		return presentationdomain.ModelContentUnspecified
+	default:
+		return presentationdomain.ModelContentUnspecified
+	}
+}
+
+func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCallState {
+	fields := make([]presentationdomain.ToolCallField, 0, len(preview.GetFields()))
+	for _, field := range preview.GetFields() {
+		mapped := presentationdomain.ToolCallField{Name: field.GetName(), Value: nil, Prefix: "", Complete: false}
+		switch content := field.GetContent().(type) {
+		case *uiv1.ToolCallPreviewField_Value:
+			mapped.Value = content.Value.AsInterface()
+			mapped.Complete = true
+		case *uiv1.ToolCallPreviewField_Prefix:
+			mapped.Prefix = content.Prefix
+		}
+		fields = append(fields, mapped)
+	}
+	return presentationdomain.ToolCallState{
+		CallID: preview.GetCallId(), Name: preview.GetName(), Position: int(preview.GetPosition()),
+		Provisional: preview.GetProvisional(), Fields: fields, Arguments: nil,
+	}
 }
 
 // mapProgress validates the closed progress-channel enum and assigns its output kind.
@@ -329,5 +408,3 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 		return nil, fmt.Errorf("unknown UI command %d", command.Kind)
 	}
 }
-
-var _ uiv1.UIServiceServer = (*Controller)(nil)

@@ -1,0 +1,150 @@
+//nolint:exhaustruct // Tests set only fields needed by each hook boundary.
+package runner
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/hooks"
+)
+
+// TestRunnerAppliesSequentialCopiedValues verifies ordered transformations and copy isolation.
+func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
+	t.Parallel()
+
+	contextSeen := ""
+	requestSeen := ""
+	responseSeen := ""
+	runner := New(
+		[]hooks.ContextHandler{
+			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
+				value.History[0].User.Content[0].Text = "first-context"
+				return value, nil
+			},
+			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
+				contextSeen = value.History[0].User.Content[0].Text
+				value.History[0].User.Content[0].Text = "final-context"
+				return value, nil
+			},
+		},
+		[]hooks.RequestHandler{
+			func(_ context.Context, value hooks.Request) (hooks.Request, error) {
+				value.Payload[0] = '1'
+				value.Headers["X-Test"][0] = "first-request"
+				return value, nil
+			},
+			func(_ context.Context, value hooks.Request) (hooks.Request, error) {
+				requestSeen = string(value.Payload) + ":" + value.Headers["X-Test"][0]
+				value.Payload[0] = '2'
+				value.Headers["X-Test"][0] = "final-request"
+				return value, nil
+			},
+		},
+		[]hooks.ResponseHandler{
+			func(_ context.Context, value hooks.Response) error {
+				value.Headers["X-Test"][0] = "mutated-copy"
+				return nil
+			},
+			func(_ context.Context, value hooks.Response) error {
+				responseSeen = value.Headers["X-Test"][0]
+				return nil
+			},
+		},
+	)
+	originalContext := hooks.Context{History: []agent.HistoryEntry{{
+		Kind: agent.HistoryEntryUser,
+		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: "original-context"}}},
+	}}}
+	originalRequest := hooks.Request{
+		Provider: "provider", Model: "model", Payload: []byte("abc"),
+		Headers: hooks.Header{"X-Test": {"original-request"}},
+	}
+	originalResponse := hooks.Response{
+		Provider: "provider", Model: "model", Status: 200,
+		Headers: hooks.Header{"X-Test": {"original-response"}},
+	}
+
+	transformedContext, err := runner.TransformContext(t.Context(), originalContext)
+	require.NoError(t, err)
+	transformedRequest, err := runner.TransformRequest(t.Context(), originalRequest)
+	require.NoError(t, err)
+	require.NoError(t, runner.ObserveResponse(t.Context(), originalResponse))
+
+	assert.Equal(t, "first-context", contextSeen)
+	assert.Equal(t, "final-context", transformedContext.History[0].User.Content[0].Text)
+	assert.Equal(t, "original-context", originalContext.History[0].User.Content[0].Text)
+	assert.Equal(t, "1bc:first-request", requestSeen)
+	assert.Equal(t, "2bc", string(transformedRequest.Payload))
+	assert.Equal(t, "final-request", transformedRequest.Headers["X-Test"][0])
+	assert.Equal(t, "abc", string(originalRequest.Payload))
+	assert.Equal(t, "original-request", originalRequest.Headers["X-Test"][0])
+	assert.Equal(t, "original-response", responseSeen)
+	assert.Equal(t, "original-response", originalResponse.Headers["X-Test"][0])
+}
+
+// TestRunnerStopsAtFirstError verifies safe stage failures and strict short circuiting.
+func TestRunnerStopsAtFirstError(t *testing.T) {
+	t.Parallel()
+
+	rawErr := errors.New("secret hook failure")
+	tests := []struct {
+		name  string
+		stage hooks.Stage
+		run   func(*Runner) error
+	}{
+		{
+			name: "context", stage: hooks.StageContext,
+			run: func(runner *Runner) error {
+				_, err := runner.TransformContext(t.Context(), hooks.Context{})
+				return err
+			},
+		},
+		{
+			name: "request", stage: hooks.StageRequest,
+			run: func(runner *Runner) error {
+				_, err := runner.TransformRequest(t.Context(), hooks.Request{})
+				return err
+			},
+		},
+		{
+			name: "response", stage: hooks.StageResponse,
+			run: func(runner *Runner) error {
+				return runner.ObserveResponse(t.Context(), hooks.Response{})
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			laterCalls := 0
+			runner := New(
+				[]hooks.ContextHandler{
+					func(context.Context, hooks.Context) (hooks.Context, error) { return hooks.Context{}, rawErr },
+					func(_ context.Context, value hooks.Context) (hooks.Context, error) { laterCalls++; return value, nil },
+				},
+				[]hooks.RequestHandler{
+					func(context.Context, hooks.Request) (hooks.Request, error) { return hooks.Request{}, rawErr },
+					func(_ context.Context, value hooks.Request) (hooks.Request, error) { laterCalls++; return value, nil },
+				},
+				[]hooks.ResponseHandler{
+					func(context.Context, hooks.Response) error { return rawErr },
+					func(context.Context, hooks.Response) error { laterCalls++; return nil },
+				},
+			)
+
+			err := test.run(runner)
+
+			var failure hooks.HookError
+			require.ErrorAs(t, err, &failure)
+			assert.Equal(t, test.stage, failure.Stage)
+			assert.NotContains(t, err.Error(), rawErr.Error())
+			assert.Zero(t, laterCalls)
+		})
+	}
+}

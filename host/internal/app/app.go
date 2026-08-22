@@ -13,7 +13,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
+	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	"github.com/n-r-w/glyph/host/internal/infra/browser"
 	uilogging "github.com/n-r-w/glyph/host/internal/infra/logging"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
@@ -28,6 +31,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -83,9 +87,14 @@ func runHeadlessWithPaths(
 	}
 	tools.Activate(ctx)
 
-	provider := newProvider(paths, configured, interactions.New())
+	hookRunner := hookrunner.New(nil, nil, nil)
+	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
+	provider := newProvider(paths, configured, modelDescriptor, interactions.New(), hookRunner)
+	providerCatalog := providers.New(modelDescriptor, provider)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
-	agentCore := agentrun.New(codingagent.Instructions(), provider, tools, dispatcher)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
+	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
@@ -170,9 +179,17 @@ func runUIWithPaths(
 		return errors.Join(fmt.Errorf("start UI Host extensions: %w", err), recoveryErr)
 	}
 
-	provider := newProvider(paths, configured, interactions.NewUI(delivery.PresentAuthorizationURL, browser.New()))
+	hookRunner := hookrunner.New(nil, nil, nil)
+	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
+	provider := newProvider(
+		paths, configured, modelDescriptor,
+		interactions.NewUI(delivery.PresentAuthorizationURL, browser.New()), hookRunner,
+	)
+	providerCatalog := providers.New(modelDescriptor, provider)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
-	agentCore := agentrun.New(codingagent.Instructions(), provider, tools, dispatcher)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
+	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
 	session := hostui.NewSession(channel, coordinator, provider, func(activationContext context.Context) {
 		selectionWarningsDelivered = true
@@ -203,7 +220,9 @@ func writeSelectionWarnings(stderr io.Writer, issues []hostui.SelectionIssue) er
 func newProvider(
 	paths persistence.Paths,
 	configured settingstore.Settings,
+	modelDescriptor model.Descriptor,
 	interaction codex.Interaction,
+	hookRunner internalhooks.ProviderRunner,
 ) *codex.Service {
 	thinkingLevel := ""
 	if configured.DefaultThinkingLevel != nil {
@@ -211,6 +230,6 @@ func newProvider(
 	}
 	credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
 	return codex.New(codex.Config{
-		Model: configured.DefaultModel, ThinkingLevel: thinkingLevel,
+		Model: modelDescriptor, ThinkingLevel: thinkingLevel, Hooks: hookRunner,
 	}, credentials, interaction)
 }

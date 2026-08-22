@@ -6,6 +6,8 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=plugin
+
 // Terminal opens an independent controlling terminal for Bubble Tea.
 type Terminal interface {
 	Open() (TerminalSession, error)
@@ -32,5 +34,3 @@ type Program interface {
 
 // Emit synchronously sends one accepted UI command to the Host.
 type Emit func(presentationdomain.Command) error
-
-//go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=plugin
