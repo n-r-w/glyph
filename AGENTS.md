@@ -17,7 +17,7 @@
 5. `github.com/cenkalti/backoff/v7` for retry strategies
 
 ## Coding rules
-1. Run `task lint`, `task test` to check code before completing changes.
+1. MUST run `task lint`, `task test` to check code before completing changes.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
