@@ -54,7 +54,7 @@ Top scenarios:
 - SCN-05: The terminal changes size, suspends, resumes, and then loses the UI process. Glyph restores the terminal and the active session remains recoverable.
 
 Operational and UX constraints:
-- CNS-01: The standard TUI owns terminal input dispatch, rendering, focus, viewport state, editor state, and selection state. Agent Core owns none of these concerns.
+- CNS-01: The standard TUI owns terminal input dispatch, rendering, focus, viewport state, editor state, and selection state. Agent Core owns none of these concerns. The standard TUI sends Host commands and renders Host events or results. It does not execute agent or shell behavior.
 - CNS-02: TUI presentation never changes persisted model, tool, or session content.
 - CNS-03: Keyboard operation remains available when mouse reporting, clipboard integration, inline images, or hyperlink activation are unavailable.
 
@@ -119,7 +119,7 @@ Functional:
 - FRQ-31: External-editor invocation shall open the complete editor text and replace editor text with the saved result. Cancellation or editor failure shall preserve the preceding editor text and report an error.
 - FRQ-32: The user shall be able to copy the active editor selection and the selected transcript message.
 - FRQ-33: While a run is active, the user shall be able to submit steering and follow-up messages and restore queued messages to the editor before delivery.
-- FRQ-34: The standard TUI shall expose direct shell execution with two outcomes: include output in the next model-visible user context or keep output outside model context.
+- FRQ-34: The standard TUI shall send a Host direct-shell command that requests either model-visible output in the next user context or model-hidden output outside model context, and shall render the Host result or error.
 - FRQ-35: Clear, abort, and exit shall be distinct actions. Exit shall require an empty editor and no active focused dialog. Abort shall target the active run and shall not discard unsent editor text.
 
 ### Selectors and dialogs

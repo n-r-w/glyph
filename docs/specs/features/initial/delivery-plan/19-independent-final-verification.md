@@ -8,7 +8,7 @@ Verify the complete PRD through public behavior after cleanup.
 
 ## Problem Statement
 
-- PRB-01: The complete product requires one independent requirement-to-evidence pass on macOS and Linux after cleanup.
+- PRB-01: The complete product requires one independent requirement-to-evidence pass on native macOS and clean Linux Docker after cleanup.
 
 ## Target Picture
 
@@ -20,9 +20,9 @@ Verify the complete PRD through public behavior after cleanup.
 
 - Actor: independent verifier.
 - Pre-condition: DEP-01 is met.
-- Trigger: the final product suite runs on macOS and Linux.
-- Required behavior: every normative PRD requirement has passing evidence and both platforms complete required process scenarios.
-- Example input and expected output: Input: run the final requirement-to-evidence suite from clean macOS and Linux checkouts. Expected output: every PRD requirement links to passing evidence and both platforms complete all required process scenarios.
+- Trigger: the final product suite runs on native macOS and in a clean Linux Docker environment.
+- Required behavior: every normative PRD requirement has passing evidence and both environments complete required process scenarios.
+- Example input and expected output: Input: run the final requirement-to-evidence suite from a native macOS checkout and a clean Linux Docker environment. Expected output: every PRD requirement links to passing evidence and both environments complete all required process scenarios.
 
 ## Scope
 
@@ -46,13 +46,13 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Run the full unit, integration, contract, and process-level suites on macOS and Linux.
+- FRQ-01: Run the full unit, integration, contract, and process-level suites on native macOS and in a clean Linux Docker environment.
 - FRQ-02: Execute the standard coding-agent scenario through the standard TUI and Programmatic Control.
 - FRQ-03: Audit every normative requirement in [`prd.md`](../prd.md) against a passing test or an observable packaging or licensing artifact.
 
 ### Non-Functional Requirements
 
-- NFQ-01: This ticket changes no product behavior. It runs the final evidence suite, `task lint`, and `task test` from clean checkouts.
+- NFQ-01: This ticket changes no product behavior. It runs the final evidence suite, `task lint`, and `task test` from a native macOS checkout and a clean Linux Docker environment.
 - NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, and TUI packages. This requirement applies to changes that cross those boundaries.
 
 ### Deliverables
@@ -62,7 +62,7 @@ Out of scope:
 ### Acceptance Criteria
 
 - ACC-01: Every in-scope functional requirement has passing evidence through its owning public or internal contract.
-- ACC-02: macOS and Linux builds execute the standard coding-agent, extension, provider, session, reload, TUI, and Programmatic Control scenarios.
+- ACC-02: Native macOS and clean Linux Docker builds execute the standard coding-agent, extension, provider, session, reload, TUI, and Programmatic Control scenarios.
 - ACC-03: `task lint` and `task test` pass from a clean repository checkout.
 
 ## Overengineering and Overspecification Considerations
@@ -71,7 +71,7 @@ The ticket introduces only the public behavior needed by SCN-01 and the listed f
 
 ## Constraints and Risks
 
-- RSK-01: Platform-specific process or terminal behavior can fail only on one operating system. Run process and TUI lifecycle tests on both required platforms rather than relying on cross-compilation.
+- RSK-01: Platform-specific process or terminal behavior can fail only in one required environment. Run process and TUI lifecycle tests on native macOS and clean Linux Docker rather than relying on cross-compilation.
 
 ## Assumptions
 

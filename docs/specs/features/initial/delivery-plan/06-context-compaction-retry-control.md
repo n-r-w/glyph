@@ -48,7 +48,12 @@ Out of scope:
 
 - FRQ-01: Add response-budget accounting and automatic compaction.
 - FRQ-02: Add manual compaction with user instructions and default summary behavior.
-- FRQ-03: Add retry control through Programmatic Control and the standard TUI.
+- FRQ-03: Add configurable retry control through Programmatic Control and the standard TUI.
+- FRQ-04: Provider adapters shall classify provider responses and errors as retryable or non-retryable. Agent Core shall own retry attempts and delay scheduling. The Glyph host shall own retry-policy configuration. Glyph clients shall receive retry events and choose how to present them.
+- FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
+- FRQ-06: A retry shall repeat only the failed model request and shall not repeat any completed tool execution. Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
+- FRQ-07: Enable retry by default with three retries after the initial request and delays of 1, 2, and 4 seconds. Cap a provider-supplied `Retry-After` delay at 30 seconds. The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
+- FRQ-08: Make the enabled state, maximum retry count, ordered retry delays, `Retry-After` cap, and built-in retryable HTTP statuses configurable through the Glyph host.
 
 ### Non-Functional Requirements
 
@@ -58,13 +63,16 @@ Out of scope:
 ### Deliverables
 
 - DLV-01: Compaction use case and persisted summary entries.
-- DLV-02: Manual compaction and retry client operations.
+- DLV-02: Manual compaction, retry-policy configuration, and retry client operations.
 
 ### Acceptance Criteria
 
 - ACC-01: Automatic compaction replaces an older context prefix, preserves the remaining suffix, and allows the run to continue.
 - ACC-02: Manual compaction applies user instructions and persists the resulting summary.
 - ACC-03: A compacted session resumes after restart with the same active branch.
+- ACC-04: A retryable provider failure produces client retry events and follows the configured policy. The default policy makes three retries after the initial request with delays of 1, 2, and 4 seconds.
+- ACC-05: Retrying a failed model request repeats no completed tool, adds no intermediate attempt to session messages or model context, and persists only the terminal model outcome.
+- ACC-06: Abort cancels an in-progress provider request or pending retry delay and leaves the agent idle.
 
 ## Overengineering and Overspecification Considerations
 

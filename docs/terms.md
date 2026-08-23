@@ -40,7 +40,8 @@
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
-- `programmatic control contract`: A transport-independent contract for correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications.
+- `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.
+- `Programmatic Control transport`: The bidirectional gRPC stream over a Unix socket that exposes the programmatic control contract from the current `glyph` application's headless composition.
 - `interaction request`: A request from an extension through the Glyph host to a Glyph client that expects a result.
 - `notification`: Information sent by an extension through the Glyph host to a Glyph client without expecting a user response; the host reports delivery success or an error.
 - `queue mode`: A setting with values `all` and `one-at-a-time` that controls delivery of queued `steer` and `followUp` messages.

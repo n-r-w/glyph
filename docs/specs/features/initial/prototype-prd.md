@@ -201,7 +201,7 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
 - After an agent run reaches idle, the standard TUI shall accept another request using the retained in-memory history.
   - **Main PRD:** `Differs` — the target product persists and resumes sessions; the prototype retains history only until process exit.
 - When OAuth or a model request fails, the standard TUI shall show the error text, preserve the in-memory history, return to a state from which the failed operation can be retried, and not trigger an automatic retry.
-  - **Main PRD:** `No direct match` — the target PRD defines errors for specific operations but does not define this common prototype recovery state.
+  - **Main PRD:** `Differs` — the target product automatically retries configured transient provider failures in Agent Core, while the prototype ends every failed request without automatic retry.
 
 ### Headless Operation
 
@@ -210,13 +210,13 @@ Deliver a minimal Glyph prototype that runs the same agent core through the stan
 - Headless operation and the standard TUI shall use one model configuration, credential store, and installed extension set.
   - **Main PRD:** `No direct match` — the target PRD places both modes behind the Glyph host but does not explicitly require these three inputs to be shared.
 - A headless invocation shall accept one text request, run one agent loop, and emit a human-readable stream containing model output, tool start and completion, tool progress, and a final error when one occurs.
-  - **Main PRD:** `Differs` — Programmatic Control requires a transport-neutral correlated command and event contract; the prototype provides a one-shot human-readable command with no stable output schema.
+  - **Main PRD:** `Differs` — Programmatic Control requires a transport-independent correlated command and event contract exposed through bidirectional gRPC on a Unix socket; the prototype provides a one-shot human-readable command with no stable output schema.
 - The headless agent shall execute `read`, `edit`, and `bash` itself.
   - **Main PRD:** `Differs` — Programmatic Control requires a headless agent to execute all tools available to it; the prototype makes only `read`, `edit`, and `bash` available.
 - `Ctrl+C` during a headless invocation shall cancel the active model request or tool and terminate the invocation with a nonzero exit code.
   - **Main PRD:** `No direct match` — Programmatic Control includes abort but does not define terminal signal handling or process exit codes.
 - When headless operation reports an error, it shall print the error text and terminate with a nonzero exit code without an automatic retry.
-  - **Main PRD:** `No direct match` — the target PRD defines command acceptance and later execution outcomes but not this one-shot command behavior.
+  - **Main PRD:** `Differs` — the target product automatically retries configured transient provider failures before publishing its terminal operation outcome.
 
 ## Open Questions
 

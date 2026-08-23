@@ -41,7 +41,7 @@ No quantitative estimate of time or resource impact is available. Such measureme
 
 `pi-agent-suite` provides additional behavior on top of Pi. Pi defines the agent core, base agent loop, model integrations, session behavior, and extension boundaries.
 
-Glyph does not yet have its own agent platform implementation.
+Glyph has an executable prototype whose limits are defined in [`prototype-prd.md`](prototype-prd.md), but it does not yet implement the complete independently owned product described in [`prd.md`](prd.md).
 
 ## Desired Outcome
 
@@ -54,7 +54,7 @@ The platform can serve as a shared foundation for a coding agent and other agent
 The problem is solved when:
 1. The Glyph repository contains the source required to build and release the agent core and extension contracts without Pi.
 2. Glyph production code is implemented in Go.
-3. The Light PRD maps each of the 20 `pi-agent-suite` extension entry points to at least one Glyph extension contract without requiring an agent core change or suite-specific core behavior.
+3. Glyph requirements and public contracts are traceable to Glyph-owned behavior and do not require Pi compatibility.
 
 ## Scope
 

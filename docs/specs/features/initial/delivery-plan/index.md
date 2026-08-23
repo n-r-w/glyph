@@ -142,9 +142,9 @@
 - Blockers: None
 - File: [16-environment-reload.md](16-environment-reload.md)
 
-### PHS-17. Reference scenario closure
+### PHS-17. Glyph public-behavior traceability
 - Owner: Cross-component public contract verification
-- Result: Demonstrate that generic Glyph contracts cover all 20 reference entry points listed in [`prd.md`](../prd.md).
+- Result: Demonstrate that every Glyph-owned public behavior group in [`prd.md`](../prd.md) has traceable public-contract evidence.
 - Dependencies: PHS-16
 - Blockers: None
 - File: [17-reference-scenario-closure.md](17-reference-scenario-closure.md)
@@ -185,13 +185,13 @@
 18. PHS-14 - Interactive standard TUI extensions
 19. PHS-15 - Extension installation and state management
 20. PHS-16 - Environment reload
-21. PHS-17 - Reference scenario closure
+21. PHS-17 - Glyph public-behavior traceability
 22. PHS-18 - Cleanup
 23. PHS-19 - Independent final verification
 
 ## References
 
-- [`prd.md`](../prd.md) - target product requirements and reference scenario coverage.
+- [`prd.md`](../prd.md) - target product requirements and Glyph public-behavior traceability.
 - [`prototype-prd.md`](../prototype-prd.md) - implemented prototype scope.
 - [`prototype-technical-solution.md`](../prototype-technical-solution.md) - prototype architecture and implementation baseline.
 - [`standard-tui.md`](../standard-tui.md) - standard terminal-agent interaction requirements.

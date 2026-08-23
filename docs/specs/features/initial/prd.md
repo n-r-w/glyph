@@ -31,7 +31,8 @@
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
-- `programmatic control contract`: A transport-independent contract for correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications.
+- `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.
+- `Programmatic Control transport`: The bidirectional gRPC stream over a Unix socket that exposes the programmatic control contract from the current `glyph` application's headless composition.
 - `queue mode`: A setting with values `all` and `one-at-a-time` that controls delivery of queued `steer` and `followUp` messages.
 - `steer`: A queued message intended to influence an active agent run.
 - `followUp`: A queued message intended for delivery after an active agent run.
@@ -86,7 +87,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - Source, API, configuration, session, or extension compatibility with Pi.
 - Porting or implementing the existing `pi-agent-suite` extensions.
-- Built-in subagents, workflows, MCP support, or specialized context-compaction behavior. These capabilities remain implementable through extensions.
+- Built-in subagents, workflows, or MCP support. These capabilities remain implementable through extensions.
+- Extension replacement of built-in context compaction.
 - First-class parent-agent, child-agent, advisor, council, or workflow semantics in the agent core.
 - A universal extension renderer shared by the standard TUI and future UI plugins.
 - Remote or independently started UI plugins.
@@ -129,7 +131,6 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The Glyph host shall provide one typed resource-contribution contract through which active extensions contribute skills, prompt templates, and context files.
 - At startup and environment reload, the host shall request resource contributions from active extensions and replace each extension's previously collected contributions.
 - Extensions shall be able to register commands that Glyph clients can discover and invoke; user-facing command syntax shall belong to the receiving client.
-- Glyph public extension contracts shall map every extension entry point declared in `pi-package/package.json` at `https://github.com/n-r-w/pi-agent-suite` to at least one contract without requiring an agent-core change or suite-specific core behavior.
 
 #### UI Plugins
 
@@ -185,6 +186,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The host shall accept or reject a programmatic command independently from its later execution outcome.
 - Asynchronous events caused by an accepted command shall be attributable to the controlled operation.
 - The programmatic control contract shall not depend on the standard TUI or a selected transport technology.
+- The current `glyph` application's headless composition shall expose the programmatic control contract through bidirectional gRPC over a Unix socket.
+- The `glyph` application shall host the Programmatic Control transport in its own process and shall not create a separate Host daemon.
 - Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model and reasoning selection, queue modes, compaction, retry control, programmatic shell execution, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
 - Queue mode `all` shall deliver every queued `steer` or `followUp` message at its defined delivery point; `one-at-a-time` shall deliver one queued message at each respective point.
 - A headless agent shall execute its available tools itself.
@@ -221,6 +224,20 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The agent core shall execute model requests through configured providers without implementing provider-specific authentication.
 - Changing the model shall preserve session history and affect subsequent model requests.
 
+#### Retry
+
+- Provider adapters shall classify provider responses and errors as retryable or non-retryable.
+- Agent Core shall own retry attempts and delay scheduling for retryable provider failures.
+- The Glyph host shall own retry-policy configuration.
+- Glyph clients shall receive retry events and choose how to present them.
+- General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
+- A retry shall repeat only the failed model request and shall not repeat any completed tool execution.
+- Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
+- Retry shall be enabled by default with three retries after the initial request. The default delays shall be 1, 2, and 4 seconds.
+- A provider-supplied `Retry-After` delay shall be capped at 30 seconds.
+- The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
+- The retry policy configuration shall include the enabled state, maximum retry count, ordered retry delays, `Retry-After` cap, and built-in retryable HTTP statuses.
+
 #### Core Extension Capabilities
 
 - Agent-core extension contracts shall support tools, lifecycle events, system-prompt changes, context transformations, sessions, and model access without requiring terminal capabilities.
@@ -255,7 +272,6 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The agent core shall compact context automatically when the remaining model context cannot accommodate the response budget.
 - Manual compaction shall accept user instructions for the summary.
 - Context compaction shall replace an older context prefix with a summary and preserve the remaining suffix unchanged.
-- Extensions shall be able to replace the default compaction behavior.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
 - Session entries shall form a tree with parent-child relationships and one active leaf.
 - Continuing from an earlier entry shall create a new branch without deleting existing branches.
@@ -268,6 +284,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The standard TUI shall provide a terminal UI for the standard coding agent without owning agent-core behavior.
 - The standard TUI shall own terminal input dispatch, terminal rendering, and editor behavior.
+- For every user-invokable action, including direct shell, the standard TUI shall send a Host command and render Host events or results. It shall not execute agent or shell behavior.
 - The standard TUI shall satisfy the transcript, viewport, editor, completion, clipboard, selector, and terminal-lifecycle requirements in `docs/specs/features/initial/standard-tui.md`.
 - The standard TUI shall render model output incrementally and keep tool progress visible while a tool runs.
 - The user shall be able to stop the active run through the standard TUI.
@@ -306,34 +323,33 @@ None.
 
 ## Technical Supplement
 
-No technical solution is selected in this document. The mechanism connecting the Glyph host, agent core, Glyph clients, and extension runtimes is deferred to technical design. Runtime extension feasibility is analyzed in `docs/artefacts/go-extension-feasibility.md`.
+No technical solution is selected in this document except Programmatic Control's bidirectional gRPC transport over a Unix socket. The remaining mechanism connecting the Glyph host, agent core, Glyph clients, and extension runtimes is deferred to technical design. Runtime extension feasibility is analyzed in `docs/artefacts/go-extension-feasibility.md`.
 
-### Reference Scenario Coverage
+### Glyph public-behavior traceability
 
-This matrix provides traceability for the 20 current `pi-agent-suite` entry points. It maps each scenario to existing generic Glyph requirements and does not add product behavior or suite-specific core concepts.
+This matrix traces each Glyph-owned public behavior group to its owning PRD section, delivery ticket, and public-contract scenario. It does not require Pi compatibility or external entry-point coverage.
 
-| `pi-agent-suite` entry point | Existing Glyph requirement coverage |
-|---|---|
-| `extensions/system-prompt/index.ts` | Core Extension Capabilities: system-prompt changes and lifecycle events |
-| `extensions/project-rules/index.ts` | Core Extension Capabilities: system-prompt changes |
-| `extensions/mcp-wrapper/index.ts` | Agent and Tool Runtime: tool registration; Extensions and Glyph Clients: commands |
-| `extensions/enable-tools/index.ts` | Agent and Tool Runtime: registered and active tool inspection and active-set changes |
-| `extensions/footer/index.ts` | TUI Extension Capabilities: footers; Core Extension Capabilities: model and lifecycle events |
-| `extensions/codex-fast/index.ts` | Core Extension Capabilities: provider-request middleware; Extensions and Glyph Clients: commands |
-| `extensions/codex-verbosity/index.ts` | Core Extension Capabilities: provider-request middleware |
-| `extensions/codex-quota/index.ts` | Core Extension Capabilities: configured-provider access; TUI Extension Capabilities: statuses |
-| `extensions/custom-compaction/index.ts` | Context and Sessions: compaction replacement; TUI Extension Capabilities: session-entry renderers |
-| `extensions/context-projection/index.ts` | Core Extension Capabilities: per-request context transformations and branch-aware session entries |
-| `extensions/mermaid/index.ts` | TUI Extension Capabilities: custom session-entry renderers; Core Extension Capabilities: model-visible session messages |
-| `extensions/completion-sound/index.ts` | Core Extension Capabilities: lifecycle events; Extensions and Glyph Clients: notifications |
-| `extensions/cmux/index.ts` | Core Extension Capabilities: lifecycle and tool-result events; Extensions and Glyph Clients: notifications |
-| `extensions/main-agent-selection/index.ts` | Extensions and Glyph Clients: commands; TUI Extension Capabilities: custom content |
-| `extensions/run-subagent/index.ts` | Agent and Tool Runtime: tool registration; Core Extension Capabilities: model access and session persistence; TUI Extension Capabilities: renderers and widgets |
-| `extensions/workflow/index.ts` | Agent and Tool Runtime: tool registration; Core Extension Capabilities: context transformations and session entries; TUI Extension Capabilities: widgets |
-| `extensions/structured-prompt/index.ts` | Extensions and Glyph Clients: commands and interaction requests; TUI Extension Capabilities: custom content and editor integration |
-| `extensions/ask-llm/index.ts` | Extensions and Glyph Clients: commands; Core Extension Capabilities: configured-model requests; TUI Extension Capabilities: custom content |
-| `extensions/consult-advisor/index.ts` | Agent and Tool Runtime: tool registration; Core Extension Capabilities: configured-model requests and session entries |
-| `extensions/convene-council/index.ts` | Agent and Tool Runtime: tool registration; Core Extension Capabilities: configured-model requests and session entries |
+| Glyph-owned public behavior group | Owning PRD section | Owner ticket | Public-contract scenario |
+|---|---|---|---|
+| Standard coding tools | Bundled Standard Tools | PHS-01 | A headless agent invokes each bundled tool and receives its result. |
+| Headless control | Programmatic Control | PHS-02 | A controller submits, observes, aborts, and resubmits through `glyph`. |
+| Provider selection and authentication | Model Providers and Authentication | PHS-03 | A client configures a provider, authenticates, selects a model, and changes it. |
+| Persistent sessions | Context and Sessions | PHS-04 | A saved session resumes after application restart. |
+| Session-tree navigation | Context and Sessions; Session Interaction | PHS-05 | A client creates and navigates a branch without deleting another branch. |
+| Built-in compaction and retry | Context and Sessions; Retry | PHS-06 | A client observes automatic or manual compaction and retry behavior. |
+| Extension lifecycle | Extensions and Glyph Clients; Core Extension Capabilities | PHS-07 | An extension receives a session-bound context and lifecycle events. |
+| Input and provider middleware | Core Extension Capabilities | PHS-08 | An extension transforms model-facing input and a provider request. |
+| Tool middleware and run control | Agent and Tool Runtime; Run Control | PHS-09 | An extension changes a tool call or result and controls run continuation. |
+| Commands, interactions, notifications, and events | Extensions and Glyph Clients; Core Extension Capabilities | PHS-10 | A client discovers an extension command and receives its event, interaction, or notification. |
+| Resource contributions | Extensions and Glyph Clients; Bundled Resource Processing | PHS-11 | An active extension contributes a resource used by the standard coding agent. |
+| Extension-defined providers | Model Providers and Authentication | PHS-12 | An extension registers and removes a provider implementation. |
+| TUI transcript rendering | Standard TUI Requirements | PHS-12.1 | The standard TUI renders ordered Host events and results. |
+| TUI viewport navigation | Standard TUI Requirements | PHS-12.2 | The user navigates and searches the rendered transcript during streaming. |
+| TUI editor and terminal interaction | Standard TUI Requirements | PHS-12.3 | The TUI dispatches a Host command and renders its result without executing it. |
+| TUI presentation extensions | TUI Extension Capabilities | PHS-13 | An extension supplies passive terminal presentation while the TUI retains terminal ownership. |
+| Interactive TUI extensions | TUI Extension Capabilities | PHS-14 | An extension uses focused interaction and editor integration through the standard TUI. |
+| Extension installation and state | Extensions and Glyph Clients | PHS-15 | A user installs, enables, disables, updates, or removes a compatible extension. |
+| Environment reload | Environment Reload | PHS-16 | A client reloads the environment while retaining the active session. |
 
 ## References
 
