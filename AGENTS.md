@@ -1,5 +1,7 @@
 # Project Rules
 
+NO BACKWARDS COMPATIBILITY AT ALL. This is new project
+
 ## Language
 1. All documentation and code comments MUST be written in English.
 
