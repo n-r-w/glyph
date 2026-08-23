@@ -23,3 +23,8 @@
 1. Use `t.Context()` instead of `context.Background()`
 2. Use `go.uber.org/mock` for mocks. Custom mocks are FORBIDDEN. Use `//go:generate go tool mockgen ...` to generate mocks
 3. Use `github.com/stretchr/testify` and `testify/suite`
+
+## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
+1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
+2. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/
+3. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/examples/README.md
