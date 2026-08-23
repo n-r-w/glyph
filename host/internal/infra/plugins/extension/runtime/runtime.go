@@ -79,12 +79,12 @@ func (r *Runtime) Execute(
 
 	schema, ok := r.toolSchema(toolName)
 	if !ok {
-		return tool.Result{Content: fmt.Sprintf("tool %q is unavailable", toolName), IsError: true}, nil
+		return tool.Result{Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", toolName)), IsError: true}, nil
 	}
 	if validationErr := validateArguments(schema, argumentsJSON); validationErr != nil {
 		return tool.Result{
-			Content: fmt.Sprintf("invalid arguments for tool %q: %v", toolName, validationErr),
-			IsError: true,
+			Contents: tool.TextContents(fmt.Sprintf("invalid arguments for tool %q: %v", toolName, validationErr)),
+			IsError:  true,
 		}, nil
 	}
 
@@ -144,10 +144,11 @@ func (r *Runtime) consumeStream(
 			if event.GetResult() == nil {
 				return tool.Result{}, r.protocolViolation("terminal result payload is missing")
 			}
-			terminalResult = &tool.Result{
-				Content: event.GetResult().GetContent(),
-				IsError: event.GetResult().GetIsError(),
+			contents, mapErr := mapResultContents(event.GetResult().GetContents())
+			if mapErr != nil {
+				return tool.Result{}, r.protocolViolation(mapErr.Error())
 			}
+			terminalResult = &tool.Result{Contents: contents, IsError: event.GetResult().GetIsError()}
 		case extensionpb.ExecuteResponse_Content_not_set_case:
 			return tool.Result{}, r.protocolViolation("event contains neither progress nor result")
 		default:
@@ -224,7 +225,7 @@ func validateCatalog(
 			return nil, nil, fmt.Errorf("tool name %q is duplicated", name)
 		}
 
-		schema, err := compileProfileSchema(descriptor.GetInputSchemaJson())
+		schema, err := compileToolSchema(descriptor.GetInputSchemaJson())
 		if err != nil {
 			return nil, nil, fmt.Errorf("tool %q input schema: %w", name, err)
 		}
@@ -325,13 +326,21 @@ func emptyConstrainedSampling() tool.ConstrainedSampling {
 	}
 }
 
-// compileProfileSchema enforces the prototype schema profile and compiles Draft 2020-12 validation.
-func compileProfileSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
+// compileToolSchema compiles a Draft 2020-12 object schema for tool arguments.
+func compileToolSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
 	const schemaLocation = "glyph://extension/input-schema.json"
 
-	if err := validateSchemaProfile(schemaJSON); err != nil {
-		return nil, err
+	var root struct {
+		Type json.RawMessage `json:"type"`
 	}
+	if err := json.Unmarshal(schemaJSON, &root); err != nil {
+		return nil, fmt.Errorf("parse JSON Schema: %w", err)
+	}
+	var rootType string
+	if err := json.Unmarshal(root.Type, &rootType); err != nil || rootType != "object" {
+		return nil, errors.New("schema root type must be object")
+	}
+
 	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaJSON))
 	if err != nil {
 		return nil, fmt.Errorf("parse JSON Schema: %w", err)
@@ -349,83 +358,6 @@ func compileProfileSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
 	return schema, nil
 }
 
-// validateSchemaProfile rejects every keyword and shape outside the strict prototype object profile.
-func validateSchemaProfile(schemaJSON []byte) error {
-	const schemaRootKeywordCount = 4
-
-	var root map[string]json.RawMessage
-	if err := json.Unmarshal(schemaJSON, &root); err != nil {
-		return fmt.Errorf("parse schema profile: %w", err)
-	}
-	if len(root) != schemaRootKeywordCount {
-		return errors.New("schema root must contain only type, properties, required, and additionalProperties")
-	}
-
-	var rootType string
-	if err := json.Unmarshal(root["type"], &rootType); err != nil || rootType != "object" {
-		return errors.New("schema root type must be object")
-	}
-	var additionalProperties bool
-	if err := json.Unmarshal(root["additionalProperties"], &additionalProperties); err != nil || additionalProperties {
-		return errors.New("schema additionalProperties must be false")
-	}
-
-	var properties map[string]map[string]json.RawMessage
-	if err := json.Unmarshal(root["properties"], &properties); err != nil || properties == nil {
-		return errors.New("schema properties must be an object")
-	}
-	for propertyName, property := range properties {
-		if err := validateSchemaProperty(propertyName, property); err != nil {
-			return err
-		}
-	}
-
-	var required []string
-	if err := json.Unmarshal(root["required"], &required); err != nil {
-		return errors.New("schema required must be an array of property names")
-	}
-	return validateRequiredProperties(properties, required)
-}
-
-// validateRequiredProperties ensures the required list names every property exactly once.
-func validateRequiredProperties(
-	properties map[string]map[string]json.RawMessage,
-	required []string,
-) error {
-	if len(required) != len(properties) {
-		return errors.New("schema must require every property exactly once")
-	}
-	seen := make(map[string]struct{}, len(required))
-	for _, propertyName := range required {
-		if _, exists := properties[propertyName]; !exists {
-			return fmt.Errorf("required property %q is not defined", propertyName)
-		}
-		if _, duplicate := seen[propertyName]; duplicate {
-			return fmt.Errorf("required property %q is duplicated", propertyName)
-		}
-		seen[propertyName] = struct{}{}
-	}
-	return nil
-}
-
-// validateSchemaProperty enforces the required string type and nonempty description.
-func validateSchemaProperty(propertyName string, property map[string]json.RawMessage) error {
-	const schemaPropertyKeywordCount = 2
-
-	if len(property) != schemaPropertyKeywordCount {
-		return fmt.Errorf("property %q must contain only type and description", propertyName)
-	}
-	var propertyType string
-	if err := json.Unmarshal(property["type"], &propertyType); err != nil || propertyType != "string" {
-		return fmt.Errorf("property %q type must be string", propertyName)
-	}
-	var description string
-	if err := json.Unmarshal(property["description"], &description); err != nil || description == "" {
-		return fmt.Errorf("property %q description must be nonempty", propertyName)
-	}
-	return nil
-}
-
 // validateArguments parses one JSON value and applies its cached schema.
 func validateArguments(schema *jsonschema.Schema, argumentsJSON []byte) error {
 	arguments, err := jsonschema.UnmarshalJSON(bytes.NewReader(argumentsJSON))
@@ -437,6 +369,40 @@ func validateArguments(schema *jsonschema.Schema, argumentsJSON []byte) error {
 		return fmt.Errorf("validate arguments JSON: %w", validationErr)
 	}
 	return nil
+}
+
+// mapResultContents converts ordered extension result blocks into domain values.
+func mapResultContents(contents []*extensionpb.ToolResultContent) ([]tool.ResultContent, error) {
+	if len(contents) == 0 {
+		return nil, errors.New("result contents are empty")
+	}
+	mapped := make([]tool.ResultContent, 0, len(contents))
+	for index, content := range contents {
+		if content == nil {
+			return nil, fmt.Errorf("result content %d is missing", index)
+		}
+		switch content.WhichContent() {
+		case extensionpb.ToolResultContent_Text_case:
+			mapped = append(mapped, tool.ResultContent{
+				Kind: tool.ResultContentText, Text: content.GetText(), Image: tool.ResultImage{MediaType: "", Data: nil},
+			})
+		case extensionpb.ToolResultContent_Image_case:
+			image := content.GetImage()
+			if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
+				return nil, fmt.Errorf("result image %d is invalid", index)
+			}
+			mapped = append(mapped, tool.ResultContent{
+				Kind: tool.ResultContentImage, Text: "", Image: tool.ResultImage{
+					MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
+				},
+			})
+		case extensionpb.ToolResultContent_Content_not_set_case:
+			return nil, fmt.Errorf("result content %d is missing", index)
+		default:
+			return nil, fmt.Errorf("result content %d is invalid", index)
+		}
+	}
+	return mapped, nil
 }
 
 // mapProgress maps the closed public enum into a Host infrastructure value.

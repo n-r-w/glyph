@@ -14,6 +14,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -191,6 +192,9 @@ func mapLifecycle(event domainui.Lifecycle) *uipb.LifecycleEvent {
 	if event.Type == domainui.LifecycleToolCallStart || event.Type == domainui.LifecycleToolCallDelta {
 		mapped.SetToolCallPreview(mapToolCallPreview(event.ToolCallPreview))
 	}
+	if event.Type == domainui.LifecycleToolResult {
+		mapped.SetToolResultContents(mapToolResultContents(event.ToolResultContents))
+	}
 	if event.Type == domainui.LifecycleToolCallEnd {
 		arguments, _ := structpb.NewStruct(event.FinalToolCall.Arguments)
 		mapped.SetFinalToolCall(uipb.FinalToolCall_builder{
@@ -281,6 +285,22 @@ func mapLifecycleType(value domainui.LifecycleType) uipb.LifecycleType {
 	default:
 		return uipb.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	}
+}
+
+// mapToolResultContents copies ordered domain blocks into the public UI contract.
+func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultContent {
+	mapped := make([]*uipb.ToolResultContent, 0, len(contents))
+	for _, content := range contents {
+		switch content.Kind {
+		case tool.ResultContentText:
+			mapped = append(mapped, uipb.ToolResultContent_builder{Text: new(content.Text)}.Build())
+		case tool.ResultContentImage:
+			mapped = append(mapped, uipb.ToolResultContent_builder{Image: uipb.ToolResultImage_builder{
+				MediaType: new(content.Image.MediaType), Data: append([]byte(nil), content.Image.Data...),
+			}.Build()}.Build())
+		}
+	}
+	return mapped
 }
 
 func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview {

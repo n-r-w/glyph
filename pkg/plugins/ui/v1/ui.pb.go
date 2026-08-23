@@ -1219,25 +1219,26 @@ func (b0 ExtensionAvailability_builder) Build() *ExtensionAvailability {
 
 // LifecycleEvent carries one explicit provider-neutral lifecycle update.
 type LifecycleEvent struct {
-	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Type            LifecycleType          `protobuf:"varint,1,opt,name=type,enum=glyph.plugins.ui.v1.LifecycleType"`
-	xxx_hidden_RunId           *string                `protobuf:"bytes,2,opt,name=run_id,json=runId"`
-	xxx_hidden_Text            *string                `protobuf:"bytes,3,opt,name=text"`
-	xxx_hidden_ToolCallId      *string                `protobuf:"bytes,4,opt,name=tool_call_id,json=toolCallId"`
-	xxx_hidden_ToolName        *string                `protobuf:"bytes,5,opt,name=tool_name,json=toolName"`
-	xxx_hidden_ProgressChannel ProgressChannel        `protobuf:"varint,6,opt,name=progress_channel,json=progressChannel,enum=glyph.plugins.ui.v1.ProgressChannel"`
-	xxx_hidden_IsError         bool                   `protobuf:"varint,7,opt,name=is_error,json=isError"`
-	xxx_hidden_Outcome         *string                `protobuf:"bytes,8,opt,name=outcome"`
-	xxx_hidden_ErrorMessage    *string                `protobuf:"bytes,9,opt,name=error_message,json=errorMessage"`
-	xxx_hidden_Availability    Availability           `protobuf:"varint,10,opt,name=availability,enum=glyph.plugins.ui.v1.Availability"`
-	xxx_hidden_ModelContent    *ModelContent          `protobuf:"bytes,11,opt,name=model_content,json=modelContent"`
-	xxx_hidden_ModelResponse   *ModelResponse         `protobuf:"bytes,12,opt,name=model_response,json=modelResponse"`
-	xxx_hidden_ToolCallPreview *ToolCallPreview       `protobuf:"bytes,13,opt,name=tool_call_preview,json=toolCallPreview"`
-	xxx_hidden_FinalToolCall   *FinalToolCall         `protobuf:"bytes,14,opt,name=final_tool_call,json=finalToolCall"`
-	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
-	XXX_presence               [1]uint32
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Type               LifecycleType          `protobuf:"varint,1,opt,name=type,enum=glyph.plugins.ui.v1.LifecycleType"`
+	xxx_hidden_RunId              *string                `protobuf:"bytes,2,opt,name=run_id,json=runId"`
+	xxx_hidden_Text               *string                `protobuf:"bytes,3,opt,name=text"`
+	xxx_hidden_ToolCallId         *string                `protobuf:"bytes,4,opt,name=tool_call_id,json=toolCallId"`
+	xxx_hidden_ToolName           *string                `protobuf:"bytes,5,opt,name=tool_name,json=toolName"`
+	xxx_hidden_ProgressChannel    ProgressChannel        `protobuf:"varint,6,opt,name=progress_channel,json=progressChannel,enum=glyph.plugins.ui.v1.ProgressChannel"`
+	xxx_hidden_IsError            bool                   `protobuf:"varint,7,opt,name=is_error,json=isError"`
+	xxx_hidden_Outcome            *string                `protobuf:"bytes,8,opt,name=outcome"`
+	xxx_hidden_ErrorMessage       *string                `protobuf:"bytes,9,opt,name=error_message,json=errorMessage"`
+	xxx_hidden_Availability       Availability           `protobuf:"varint,10,opt,name=availability,enum=glyph.plugins.ui.v1.Availability"`
+	xxx_hidden_ModelContent       *ModelContent          `protobuf:"bytes,11,opt,name=model_content,json=modelContent"`
+	xxx_hidden_ModelResponse      *ModelResponse         `protobuf:"bytes,12,opt,name=model_response,json=modelResponse"`
+	xxx_hidden_ToolCallPreview    *ToolCallPreview       `protobuf:"bytes,13,opt,name=tool_call_preview,json=toolCallPreview"`
+	xxx_hidden_FinalToolCall      *FinalToolCall         `protobuf:"bytes,14,opt,name=final_tool_call,json=finalToolCall"`
+	xxx_hidden_ToolResultContents *[]*ToolResultContent  `protobuf:"bytes,15,rep,name=tool_result_contents,json=toolResultContents"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *LifecycleEvent) Reset() {
@@ -1387,54 +1388,63 @@ func (x *LifecycleEvent) GetFinalToolCall() *FinalToolCall {
 	return nil
 }
 
+func (x *LifecycleEvent) GetToolResultContents() []*ToolResultContent {
+	if x != nil {
+		if x.xxx_hidden_ToolResultContents != nil {
+			return *x.xxx_hidden_ToolResultContents
+		}
+	}
+	return nil
+}
+
 func (x *LifecycleEvent) SetType(v LifecycleType) {
 	x.xxx_hidden_Type = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 15)
 }
 
 func (x *LifecycleEvent) SetRunId(v string) {
 	x.xxx_hidden_RunId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 15)
 }
 
 func (x *LifecycleEvent) SetText(v string) {
 	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 15)
 }
 
 func (x *LifecycleEvent) SetToolCallId(v string) {
 	x.xxx_hidden_ToolCallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 15)
 }
 
 func (x *LifecycleEvent) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 15)
 }
 
 func (x *LifecycleEvent) SetProgressChannel(v ProgressChannel) {
 	x.xxx_hidden_ProgressChannel = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 15)
 }
 
 func (x *LifecycleEvent) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 15)
 }
 
 func (x *LifecycleEvent) SetOutcome(v string) {
 	x.xxx_hidden_Outcome = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 15)
 }
 
 func (x *LifecycleEvent) SetErrorMessage(v string) {
 	x.xxx_hidden_ErrorMessage = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 15)
 }
 
 func (x *LifecycleEvent) SetAvailability(v Availability) {
 	x.xxx_hidden_Availability = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 15)
 }
 
 func (x *LifecycleEvent) SetModelContent(v *ModelContent) {
@@ -1451,6 +1461,10 @@ func (x *LifecycleEvent) SetToolCallPreview(v *ToolCallPreview) {
 
 func (x *LifecycleEvent) SetFinalToolCall(v *FinalToolCall) {
 	x.xxx_hidden_FinalToolCall = v
+}
+
+func (x *LifecycleEvent) SetToolResultContents(v []*ToolResultContent) {
+	x.xxx_hidden_ToolResultContents = &v
 }
 
 func (x *LifecycleEvent) HasType() bool {
@@ -1648,6 +1662,8 @@ type LifecycleEvent_builder struct {
 	ToolCallPreview *ToolCallPreview
 	// The finalized tool call and decoded arguments.
 	FinalToolCall *FinalToolCall
+	// The ordered typed terminal tool result blocks.
+	ToolResultContents []*ToolResultContent
 }
 
 func (b0 LifecycleEvent_builder) Build() *LifecycleEvent {
@@ -1655,49 +1671,338 @@ func (b0 LifecycleEvent_builder) Build() *LifecycleEvent {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Type != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 15)
 		x.xxx_hidden_Type = *b.Type
 	}
 	if b.RunId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 15)
 		x.xxx_hidden_RunId = b.RunId
 	}
 	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 15)
 		x.xxx_hidden_Text = b.Text
 	}
 	if b.ToolCallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 15)
 		x.xxx_hidden_ToolCallId = b.ToolCallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 15)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	if b.ProgressChannel != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 15)
 		x.xxx_hidden_ProgressChannel = *b.ProgressChannel
 	}
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 15)
 		x.xxx_hidden_IsError = *b.IsError
 	}
 	if b.Outcome != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 15)
 		x.xxx_hidden_Outcome = b.Outcome
 	}
 	if b.ErrorMessage != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 15)
 		x.xxx_hidden_ErrorMessage = b.ErrorMessage
 	}
 	if b.Availability != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 15)
 		x.xxx_hidden_Availability = *b.Availability
 	}
 	x.xxx_hidden_ModelContent = b.ModelContent
 	x.xxx_hidden_ModelResponse = b.ModelResponse
 	x.xxx_hidden_ToolCallPreview = b.ToolCallPreview
 	x.xxx_hidden_FinalToolCall = b.FinalToolCall
+	x.xxx_hidden_ToolResultContents = &b.ToolResultContents
+	return m0
+}
+
+// ToolResultContent carries one ordered terminal tool result block.
+type ToolResultContent struct {
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Content isToolResultContent_Content `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ToolResultContent) Reset() {
+	*x = ToolResultContent{}
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResultContent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResultContent) ProtoMessage() {}
+
+func (x *ToolResultContent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ToolResultContent) GetText() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*toolResultContent_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
+}
+
+func (x *ToolResultContent) GetImage() *ToolResultImage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*toolResultContent_Image); ok {
+			return x.Image
+		}
+	}
+	return nil
+}
+
+func (x *ToolResultContent) SetText(v string) {
+	x.xxx_hidden_Content = &toolResultContent_Text{v}
+}
+
+func (x *ToolResultContent) SetImage(v *ToolResultImage) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &toolResultContent_Image{v}
+}
+
+func (x *ToolResultContent) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ToolResultContent) HasText() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*toolResultContent_Text)
+	return ok
+}
+
+func (x *ToolResultContent) HasImage() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*toolResultContent_Image)
+	return ok
+}
+
+func (x *ToolResultContent) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ToolResultContent) ClearText() {
+	if _, ok := x.xxx_hidden_Content.(*toolResultContent_Text); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ToolResultContent) ClearImage() {
+	if _, ok := x.xxx_hidden_Content.(*toolResultContent_Image); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const ToolResultContent_Content_not_set_case case_ToolResultContent_Content = 0
+const ToolResultContent_Text_case case_ToolResultContent_Content = 1
+const ToolResultContent_Image_case case_ToolResultContent_Content = 2
+
+func (x *ToolResultContent) WhichContent() case_ToolResultContent_Content {
+	if x == nil {
+		return ToolResultContent_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *toolResultContent_Text:
+		return ToolResultContent_Text_case
+	case *toolResultContent_Image:
+		return ToolResultContent_Image_case
+	default:
+		return ToolResultContent_Content_not_set_case
+	}
+}
+
+type ToolResultContent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The result content payload.
+
+	// Fields of oneof xxx_hidden_Content:
+	// The UTF-8 text payload.
+	Text *string
+	// The binary image payload.
+	Image *ToolResultImage
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 ToolResultContent_builder) Build() *ToolResultContent {
+	m0 := &ToolResultContent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Text != nil {
+		x.xxx_hidden_Content = &toolResultContent_Text{*b.Text}
+	}
+	if b.Image != nil {
+		x.xxx_hidden_Content = &toolResultContent_Image{b.Image}
+	}
+	return m0
+}
+
+type case_ToolResultContent_Content protoreflect.FieldNumber
+
+func (x case_ToolResultContent_Content) String() string {
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[7].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isToolResultContent_Content interface {
+	isToolResultContent_Content()
+}
+
+type toolResultContent_Text struct {
+	// The UTF-8 text payload.
+	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
+}
+
+type toolResultContent_Image struct {
+	// The binary image payload.
+	Image *ToolResultImage `protobuf:"bytes,2,opt,name=image,oneof"`
+}
+
+func (*toolResultContent_Text) isToolResultContent_Content() {}
+
+func (*toolResultContent_Image) isToolResultContent_Content() {}
+
+// ToolResultImage carries binary image data and its media type.
+type ToolResultImage struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType"`
+	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ToolResultImage) Reset() {
+	*x = ToolResultImage{}
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResultImage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResultImage) ProtoMessage() {}
+
+func (x *ToolResultImage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ToolResultImage) GetMediaType() string {
+	if x != nil {
+		if x.xxx_hidden_MediaType != nil {
+			return *x.xxx_hidden_MediaType
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ToolResultImage) GetData() []byte {
+	if x != nil {
+		return x.xxx_hidden_Data
+	}
+	return nil
+}
+
+func (x *ToolResultImage) SetMediaType(v string) {
+	x.xxx_hidden_MediaType = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ToolResultImage) SetData(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Data = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ToolResultImage) HasMediaType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ToolResultImage) HasData() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ToolResultImage) ClearMediaType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_MediaType = nil
+}
+
+func (x *ToolResultImage) ClearData() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Data = nil
+}
+
+type ToolResultImage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The image media type.
+	MediaType *string
+	// The binary image data.
+	Data []byte
+}
+
+func (b0 ToolResultImage_builder) Build() *ToolResultImage {
+	m0 := &ToolResultImage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.MediaType != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_MediaType = b.MediaType
+	}
+	if b.Data != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Data = b.Data
+	}
 	return m0
 }
 
@@ -1717,7 +2022,7 @@ type ToolCallPreview struct {
 
 func (x *ToolCallPreview) Reset() {
 	*x = ToolCallPreview{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1729,7 +2034,7 @@ func (x *ToolCallPreview) String() string {
 func (*ToolCallPreview) ProtoMessage() {}
 
 func (x *ToolCallPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1907,7 +2212,7 @@ type ToolCallPreviewField struct {
 
 func (x *ToolCallPreviewField) Reset() {
 	*x = ToolCallPreviewField{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1919,7 +2224,7 @@ func (x *ToolCallPreviewField) String() string {
 func (*ToolCallPreviewField) ProtoMessage() {}
 
 func (x *ToolCallPreviewField) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2077,7 +2382,7 @@ func (b0 ToolCallPreviewField_builder) Build() *ToolCallPreviewField {
 type case_ToolCallPreviewField_Content protoreflect.FieldNumber
 
 func (x case_ToolCallPreviewField_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[8].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[10].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2115,7 +2420,7 @@ type FinalToolCall struct {
 
 func (x *FinalToolCall) Reset() {
 	*x = FinalToolCall{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2127,7 +2432,7 @@ func (x *FinalToolCall) String() string {
 func (*FinalToolCall) ProtoMessage() {}
 
 func (x *FinalToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2286,7 +2591,7 @@ type ModelContent struct {
 
 func (x *ModelContent) Reset() {
 	*x = ModelContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2298,7 +2603,7 @@ func (x *ModelContent) String() string {
 func (*ModelContent) ProtoMessage() {}
 
 func (x *ModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2469,7 +2774,7 @@ type ModelResponse struct {
 
 func (x *ModelResponse) Reset() {
 	*x = ModelResponse{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2481,7 +2786,7 @@ func (x *ModelResponse) String() string {
 func (*ModelResponse) ProtoMessage() {}
 
 func (x *ModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2805,7 +3110,7 @@ type ModelResponseContent struct {
 
 func (x *ModelResponseContent) Reset() {
 	*x = ModelResponseContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2817,7 +3122,7 @@ func (x *ModelResponseContent) String() string {
 func (*ModelResponseContent) ProtoMessage() {}
 
 func (x *ModelResponseContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2922,7 +3227,7 @@ type ModelUsage struct {
 
 func (x *ModelUsage) Reset() {
 	*x = ModelUsage{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2934,7 +3239,7 @@ func (x *ModelUsage) String() string {
 func (*ModelUsage) ProtoMessage() {}
 
 func (x *ModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3150,7 +3455,7 @@ type ModelDiagnostic struct {
 
 func (x *ModelDiagnostic) Reset() {
 	*x = ModelDiagnostic{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3162,7 +3467,7 @@ func (x *ModelDiagnostic) String() string {
 func (*ModelDiagnostic) ProtoMessage() {}
 
 func (x *ModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3263,7 +3568,7 @@ type AuthorizationRequest struct {
 
 func (x *AuthorizationRequest) Reset() {
 	*x = AuthorizationRequest{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3275,7 +3580,7 @@ func (x *AuthorizationRequest) String() string {
 func (*AuthorizationRequest) ProtoMessage() {}
 
 func (x *AuthorizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3343,7 +3648,7 @@ type Information struct {
 
 func (x *Information) Reset() {
 	*x = Information{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3355,7 +3660,7 @@ func (x *Information) String() string {
 func (*Information) ProtoMessage() {}
 
 func (x *Information) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3424,7 +3729,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3436,7 +3741,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3532,7 +3837,7 @@ type OpenResponse struct {
 
 func (x *OpenResponse) Reset() {
 	*x = OpenResponse{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3544,7 +3849,7 @@ func (x *OpenResponse) String() string {
 func (*OpenResponse) ProtoMessage() {}
 
 func (x *OpenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3749,7 +4054,7 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 type case_OpenResponse_Content protoreflect.FieldNumber
 
 func (x case_OpenResponse_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[18].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[20].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -3796,7 +4101,7 @@ type SubmitCommand struct {
 
 func (x *SubmitCommand) Reset() {
 	*x = SubmitCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3808,7 +4113,7 @@ func (x *SubmitCommand) String() string {
 func (*SubmitCommand) ProtoMessage() {}
 
 func (x *SubmitCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3873,7 +4178,7 @@ type StopCommand struct {
 
 func (x *StopCommand) Reset() {
 	*x = StopCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3885,7 +4190,7 @@ func (x *StopCommand) String() string {
 func (*StopCommand) ProtoMessage() {}
 
 func (x *StopCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3917,7 +4222,7 @@ type RetryAuthenticationCommand struct {
 
 func (x *RetryAuthenticationCommand) Reset() {
 	*x = RetryAuthenticationCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3929,7 +4234,7 @@ func (x *RetryAuthenticationCommand) String() string {
 func (*RetryAuthenticationCommand) ProtoMessage() {}
 
 func (x *RetryAuthenticationCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3961,7 +4266,7 @@ type QuitCommand struct {
 
 func (x *QuitCommand) Reset() {
 	*x = QuitCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3973,7 +4278,7 @@ func (x *QuitCommand) String() string {
 func (*QuitCommand) ProtoMessage() {}
 
 func (x *QuitCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4024,7 +4329,7 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x15ExtensionAvailability\x12\x1b\n" +
 	"\tplugin_id\x18\x01 \x01(\tR\bpluginId\x12\x14\n" +
 	"\x05tools\x18\x02 \x03(\tR\x05tools\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\xd5\x05\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\xaf\x06\n" +
 	"\x0eLifecycleEvent\x126\n" +
 	"\x04type\x18\x01 \x01(\x0e2\".glyph.plugins.ui.v1.LifecycleTypeR\x04type\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x12\n" +
@@ -4041,7 +4346,16 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\rmodel_content\x18\v \x01(\v2!.glyph.plugins.ui.v1.ModelContentR\fmodelContent\x12I\n" +
 	"\x0emodel_response\x18\f \x01(\v2\".glyph.plugins.ui.v1.ModelResponseR\rmodelResponse\x12P\n" +
 	"\x11tool_call_preview\x18\r \x01(\v2$.glyph.plugins.ui.v1.ToolCallPreviewR\x0ftoolCallPreview\x12J\n" +
-	"\x0ffinal_tool_call\x18\x0e \x01(\v2\".glyph.plugins.ui.v1.FinalToolCallR\rfinalToolCall\"\xbf\x01\n" +
+	"\x0ffinal_tool_call\x18\x0e \x01(\v2\".glyph.plugins.ui.v1.FinalToolCallR\rfinalToolCall\x12X\n" +
+	"\x14tool_result_contents\x18\x0f \x03(\v2&.glyph.plugins.ui.v1.ToolResultContentR\x12toolResultContents\"r\n" +
+	"\x11ToolResultContent\x12\x14\n" +
+	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12<\n" +
+	"\x05image\x18\x02 \x01(\v2$.glyph.plugins.ui.v1.ToolResultImageH\x00R\x05imageB\t\n" +
+	"\acontent\"D\n" +
+	"\x0fToolResultImage\x12\x1d\n" +
+	"\n" +
+	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"\xbf\x01\n" +
 	"\x0fToolCallPreview\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -4161,7 +4475,7 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x04Open\x12 .glyph.plugins.ui.v1.OpenRequest\x1a!.glyph.plugins.ui.v1.OpenResponse(\x010\x01B/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
 var file_api_plugins_ui_v1_ui_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
 	(ContentSeverity)(0),               // 0: glyph.plugins.ui.v1.ContentSeverity
 	(Availability)(0),                  // 1: glyph.plugins.ui.v1.Availability
@@ -4176,31 +4490,33 @@ var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
 	(*StartupContent)(nil),             // 10: glyph.plugins.ui.v1.StartupContent
 	(*ExtensionAvailability)(nil),      // 11: glyph.plugins.ui.v1.ExtensionAvailability
 	(*LifecycleEvent)(nil),             // 12: glyph.plugins.ui.v1.LifecycleEvent
-	(*ToolCallPreview)(nil),            // 13: glyph.plugins.ui.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil),       // 14: glyph.plugins.ui.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),              // 15: glyph.plugins.ui.v1.FinalToolCall
-	(*ModelContent)(nil),               // 16: glyph.plugins.ui.v1.ModelContent
-	(*ModelResponse)(nil),              // 17: glyph.plugins.ui.v1.ModelResponse
-	(*ModelResponseContent)(nil),       // 18: glyph.plugins.ui.v1.ModelResponseContent
-	(*ModelUsage)(nil),                 // 19: glyph.plugins.ui.v1.ModelUsage
-	(*ModelDiagnostic)(nil),            // 20: glyph.plugins.ui.v1.ModelDiagnostic
-	(*AuthorizationRequest)(nil),       // 21: glyph.plugins.ui.v1.AuthorizationRequest
-	(*Information)(nil),                // 22: glyph.plugins.ui.v1.Information
-	(*Error)(nil),                      // 23: glyph.plugins.ui.v1.Error
-	(*OpenResponse)(nil),               // 24: glyph.plugins.ui.v1.OpenResponse
-	(*SubmitCommand)(nil),              // 25: glyph.plugins.ui.v1.SubmitCommand
-	(*StopCommand)(nil),                // 26: glyph.plugins.ui.v1.StopCommand
-	(*RetryAuthenticationCommand)(nil), // 27: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*QuitCommand)(nil),                // 28: glyph.plugins.ui.v1.QuitCommand
-	(*structpb.Value)(nil),             // 29: google.protobuf.Value
-	(*structpb.Struct)(nil),            // 30: google.protobuf.Struct
+	(*ToolResultContent)(nil),          // 13: glyph.plugins.ui.v1.ToolResultContent
+	(*ToolResultImage)(nil),            // 14: glyph.plugins.ui.v1.ToolResultImage
+	(*ToolCallPreview)(nil),            // 15: glyph.plugins.ui.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil),       // 16: glyph.plugins.ui.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),              // 17: glyph.plugins.ui.v1.FinalToolCall
+	(*ModelContent)(nil),               // 18: glyph.plugins.ui.v1.ModelContent
+	(*ModelResponse)(nil),              // 19: glyph.plugins.ui.v1.ModelResponse
+	(*ModelResponseContent)(nil),       // 20: glyph.plugins.ui.v1.ModelResponseContent
+	(*ModelUsage)(nil),                 // 21: glyph.plugins.ui.v1.ModelUsage
+	(*ModelDiagnostic)(nil),            // 22: glyph.plugins.ui.v1.ModelDiagnostic
+	(*AuthorizationRequest)(nil),       // 23: glyph.plugins.ui.v1.AuthorizationRequest
+	(*Information)(nil),                // 24: glyph.plugins.ui.v1.Information
+	(*Error)(nil),                      // 25: glyph.plugins.ui.v1.Error
+	(*OpenResponse)(nil),               // 26: glyph.plugins.ui.v1.OpenResponse
+	(*SubmitCommand)(nil),              // 27: glyph.plugins.ui.v1.SubmitCommand
+	(*StopCommand)(nil),                // 28: glyph.plugins.ui.v1.StopCommand
+	(*RetryAuthenticationCommand)(nil), // 29: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*QuitCommand)(nil),                // 30: glyph.plugins.ui.v1.QuitCommand
+	(*structpb.Value)(nil),             // 31: google.protobuf.Value
+	(*structpb.Struct)(nil),            // 32: google.protobuf.Struct
 }
 var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	9,  // 0: glyph.plugins.ui.v1.OpenRequest.initialization:type_name -> glyph.plugins.ui.v1.Initialization
 	12, // 1: glyph.plugins.ui.v1.OpenRequest.lifecycle:type_name -> glyph.plugins.ui.v1.LifecycleEvent
-	21, // 2: glyph.plugins.ui.v1.OpenRequest.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
-	22, // 3: glyph.plugins.ui.v1.OpenRequest.information:type_name -> glyph.plugins.ui.v1.Information
-	23, // 4: glyph.plugins.ui.v1.OpenRequest.error:type_name -> glyph.plugins.ui.v1.Error
+	23, // 2: glyph.plugins.ui.v1.OpenRequest.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
+	24, // 3: glyph.plugins.ui.v1.OpenRequest.information:type_name -> glyph.plugins.ui.v1.Information
+	25, // 4: glyph.plugins.ui.v1.OpenRequest.error:type_name -> glyph.plugins.ui.v1.Error
 	10, // 5: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
 	11, // 6: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
 	1,  // 7: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
@@ -4208,32 +4524,34 @@ var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	4,  // 9: glyph.plugins.ui.v1.LifecycleEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
 	5,  // 10: glyph.plugins.ui.v1.LifecycleEvent.progress_channel:type_name -> glyph.plugins.ui.v1.ProgressChannel
 	1,  // 11: glyph.plugins.ui.v1.LifecycleEvent.availability:type_name -> glyph.plugins.ui.v1.Availability
-	16, // 12: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
-	17, // 13: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
-	13, // 14: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
-	15, // 15: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	14, // 16: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
-	29, // 17: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	30, // 18: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	3,  // 19: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
-	2,  // 20: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	19, // 21: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
-	20, // 22: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
-	18, // 23: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
-	2,  // 24: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	25, // 25: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	26, // 26: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
-	27, // 27: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	28, // 28: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
-	6,  // 29: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
-	8,  // 30: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	7,  // 31: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
-	24, // 32: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	31, // [31:33] is the sub-list for method output_type
-	29, // [29:31] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	18, // 12: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
+	19, // 13: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
+	15, // 14: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
+	17, // 15: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	13, // 16: glyph.plugins.ui.v1.LifecycleEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
+	14, // 17: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
+	16, // 18: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
+	31, // 19: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	32, // 20: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	3,  // 21: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
+	2,  // 22: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	21, // 23: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
+	22, // 24: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
+	20, // 25: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
+	2,  // 26: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	27, // 27: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	28, // 28: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
+	29, // 29: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	30, // 30: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
+	6,  // 31: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
+	8,  // 32: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	7,  // 33: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
+	26, // 34: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	33, // [33:35] is the sub-list for method output_type
+	31, // [31:33] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -4248,11 +4566,15 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*openRequest_Information)(nil),
 		(*openRequest_Error)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[8].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[7].OneofWrappers = []any{
+		(*toolResultContent_Text)(nil),
+		(*toolResultContent_Image)(nil),
+	}
+	file_api_plugins_ui_v1_ui_proto_msgTypes[10].OneofWrappers = []any{
 		(*toolCallPreviewField_Value)(nil),
 		(*toolCallPreviewField_Prefix)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[18].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[20].OneofWrappers = []any{
 		(*openResponse_Submit)(nil),
 		(*openResponse_Stop)(nil),
 		(*openResponse_RetryAuthentication)(nil),
@@ -4264,7 +4586,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_ui_proto_rawDesc), len(file_api_plugins_ui_v1_ui_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   23,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

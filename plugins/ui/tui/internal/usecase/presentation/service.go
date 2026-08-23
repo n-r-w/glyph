@@ -5,6 +5,7 @@ package presentation
 
 import (
 	"encoding/json"
+	"strings"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
@@ -119,9 +120,8 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			kind = presentationdomain.LineToolError
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind:     kind,
-			ToolName: toolName(state, event),
-			Text:     event.Text,
+			Kind: kind, ToolName: toolName(state, event), Text: toolResultLineText(event),
+			ToolResultContents: cloneToolResultContents(event.ToolResultContents),
 		})
 		delete(state.ActiveTools, event.ToolCallID)
 	case presentationdomain.EventTurnEnded:
@@ -190,6 +190,41 @@ func cloneState(state presentationdomain.State) presentationdomain.State {
 	state.ActiveTools = activeTools
 
 	return state
+}
+
+// toolResultLineText preserves legacy event text only when no typed blocks exist.
+func toolResultLineText(event presentationdomain.Event) string {
+	if len(event.ToolResultContents) == 0 {
+		return event.Text
+	}
+	return toolResultText(event.ToolResultContents)
+}
+
+// toolResultText creates a readable transcript for text-only terminal rendering.
+func toolResultText(contents []presentationdomain.ToolResultContent) string {
+	parts := make([]string, 0, len(contents))
+	for _, content := range contents {
+		if content.MediaType != "" {
+			parts = append(parts, "[image: "+content.MediaType+"]")
+			continue
+		}
+		parts = append(parts, content.Text)
+	}
+	return strings.Join(parts, "\n")
+}
+
+// cloneToolResultContents isolates mutable image bytes in presentation state.
+func cloneToolResultContents(contents []presentationdomain.ToolResultContent) []presentationdomain.ToolResultContent {
+	if contents == nil {
+		return nil
+	}
+	cloned := make([]presentationdomain.ToolResultContent, len(contents))
+	for index, content := range contents {
+		cloned[index] = presentationdomain.ToolResultContent{
+			Text: content.Text, MediaType: content.MediaType, Data: append([]byte(nil), content.Data...),
+		}
+	}
+	return cloned
 }
 
 func cloneToolCall(call presentationdomain.ToolCallState) presentationdomain.ToolCallState {

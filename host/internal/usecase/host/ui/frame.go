@@ -56,7 +56,7 @@ func emptyInitialization() domainui.Initialization {
 // emptyLifecycle returns explicit zero values for non-lifecycle frames.
 func emptyLifecycle() domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: 0, RunID: "", Text: "",
+		Type: 0, RunID: "", Text: "", ToolResultContents: nil,
 		ModelContent:  domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
 		ModelResponse: emptyModelResponse(),
 		ToolCallPreview: domainui.ToolCallPreview{
@@ -83,7 +83,7 @@ func emptyModelResponse() domainui.ModelResponse {
 // availabilityLifecycle creates a complete state lifecycle payload.
 func availabilityLifecycle(availability domainui.Availability) domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: domainui.LifecycleAvailabilityChanged, RunID: "", Text: "",
+		Type: domainui.LifecycleAvailabilityChanged, RunID: "", Text: "", ToolResultContents: nil,
 		ModelContent:  domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
 		ModelResponse: emptyModelResponse(),
 		ToolCallPreview: domainui.ToolCallPreview{

@@ -225,6 +225,38 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 	}, state.Transcript)
 }
 
+// TestServiceCopiesTypedToolResultImage verifies presentation state owns image bytes.
+func TestServiceCopiesTypedToolResultImage(t *testing.T) {
+	t.Parallel()
+
+	service := New()
+	content := presentationdomain.ToolResultContent{MediaType: "image/png", Data: []byte{1, 2, 3}}
+	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
+		Kind: presentationdomain.EventToolResult, ToolName: "read", ToolResultContents: []presentationdomain.ToolResultContent{content},
+	})
+	content.Data[0] = 9
+
+	require.Len(t, state.Transcript, 1)
+	assert.Equal(t, []byte{1, 2, 3}, state.Transcript[0].ToolResultContents[0].Data)
+}
+
+// TestServiceProjectsTypedToolResultTextInOrder verifies readable ordered terminal output.
+func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
+	t.Parallel()
+
+	state := New().Apply(presentationdomain.State{}, presentationdomain.Event{
+		Kind: presentationdomain.EventToolResult, ToolName: "read",
+		ToolResultContents: []presentationdomain.ToolResultContent{
+			{Text: "first"},
+			{MediaType: "image/png", Data: []byte{1, 2, 3}},
+			{Text: "last"},
+		},
+	})
+
+	require.Len(t, state.Transcript, 1)
+	assert.Equal(t, "first\n[image: image/png]\nlast", state.Transcript[0].Text)
+}
+
 // TestServiceProjectsAuthorizationInformationAndSafeErrors verifies standalone Host frames remain visible.
 func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 	t.Parallel()

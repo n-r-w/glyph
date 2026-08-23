@@ -1,6 +1,8 @@
 // Package ui defines provider-neutral Host UI lifecycle models.
 package ui
 
+import "github.com/n-r-w/glyph/host/internal/domain/tool"
+
 // ContentSeverity identifies startup content importance.
 type ContentSeverity uint8
 
@@ -220,20 +222,21 @@ type FinalToolCall struct {
 
 // Lifecycle carries one explicit provider-neutral lifecycle event.
 type Lifecycle struct {
-	Type            LifecycleType
-	RunID           string
-	Text            string
-	ModelContent    ModelContent
-	ModelResponse   ModelResponse
-	ToolCallPreview ToolCallPreview
-	FinalToolCall   FinalToolCall
-	ToolCallID      string
-	ToolName        string
-	ProgressChannel ProgressChannel
-	IsError         bool
-	Outcome         string
-	ErrorMessage    string
-	Availability    Availability
+	Type               LifecycleType
+	RunID              string
+	Text               string
+	ToolResultContents []tool.ResultContent
+	ModelContent       ModelContent
+	ModelResponse      ModelResponse
+	ToolCallPreview    ToolCallPreview
+	FinalToolCall      FinalToolCall
+	ToolCallID         string
+	ToolName           string
+	ProgressChannel    ProgressChannel
+	IsError            bool
+	Outcome            string
+	ErrorMessage       string
+	Availability       Availability
 }
 
 // FrameKind identifies one Host-to-UI frame payload.

@@ -168,7 +168,7 @@ func TestServiceRunToolUse(t *testing.T) {
 					Content: "running " + current.ID,
 				}))
 				return agent.ToolResult{
-					CallID: current.ID, ToolName: current.Name, Content: "ok", IsError: false,
+					CallID: current.ID, ToolName: current.Name, Contents: tool.TextContents("ok"), IsError: false,
 				}, nil
 			},
 		)
@@ -222,17 +222,17 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(toolUse, nil))
 	toolErr := errors.New("tool operation failed")
 	tools.EXPECT().Execute(gomock.Any(), calls[0], gomock.Any()).Return(
-		agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false}, toolErr,
+		agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false}, toolErr,
 	)
 	tools.EXPECT().Execute(gomock.Any(), calls[1], gomock.Any()).Return(
-		agent.ToolResult{CallID: calls[1].ID, ToolName: calls[1].Name, Content: "ok", IsError: false}, nil,
+		agent.ToolResult{CallID: calls[1].ID, ToolName: calls[1].Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
 	)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			require.Len(t, request.History, 4)
 			assert.Equal(t, "failed", request.History[2].ToolResult.CallID)
 			assert.True(t, request.History[2].ToolResult.IsError)
-			require.ErrorContains(t, errors.New(request.History[2].ToolResult.Content), "tool operation failed")
+			require.ErrorContains(t, errors.New(request.History[2].ToolResult.Contents[0].Text), "tool operation failed")
 			assert.Equal(t, "succeeded", request.History[3].ToolResult.CallID)
 			return emitStream(update, stop, nil)
 		},
@@ -275,7 +275,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 		func(_ context.Context, _ model.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
 			err := handleProgress(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"})
 			require.ErrorIs(t, err, deliveryErr)
-			return agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+			return agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 				fmt.Errorf("runtime propagated delivery: %w", err)
 		},
 	)
@@ -505,7 +505,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 			func(ctx context.Context, call model.ToolCall, _ tool.ProgressHandler) (agent.ToolResult, error) {
 				close(started)
 				<-ctx.Done()
-				return agent.ToolResult{CallID: call.ID, ToolName: call.Name, Content: "", IsError: false}, ctx.Err()
+				return agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: nil, IsError: false}, ctx.Err()
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -533,7 +533,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		projected := service.ProjectHistory()
 		require.Len(t, projected, 4)
 		assert.Equal(t, "skipped", projected[3].ToolResult.CallID)
-		assert.Equal(t, skippedCallError, projected[3].ToolResult.Content)
+		assert.Equal(t, skippedCallError, projected[3].ToolResult.Contents[0].Text)
 		assert.Len(t, service.History(), 3)
 	})
 }

@@ -1,7 +1,10 @@
 // Package agent defines provider-neutral Agent Core history and run values.
 package agent
 
-import "github.com/n-r-w/glyph/host/internal/domain/model"
+import (
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
+)
 
 // HistoryEntryKind identifies one linear history entry.
 type HistoryEntryKind uint8
@@ -27,7 +30,7 @@ type HistoryEntry struct {
 type ToolResult struct {
 	CallID   string
 	ToolName string
-	Content  string
+	Contents []tool.ResultContent
 	IsError  bool
 }
 

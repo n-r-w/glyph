@@ -106,6 +106,13 @@ type Extension struct {
 	Tools []string
 }
 
+// ToolResultContent is one terminal tool result block received from the Host.
+type ToolResultContent struct {
+	Text      string
+	MediaType string
+	Data      []byte
+}
+
 // Event contains the fields used by one presentation update.
 type Event struct {
 	Kind                 EventKind
@@ -120,6 +127,7 @@ type Event struct {
 	Status               string
 	Stream               OutputStream
 	Text                 string
+	ToolResultContents   []ToolResultContent
 	ErrorText            string
 	ExitCode             int
 	Failure              bool
@@ -158,10 +166,11 @@ const (
 
 // Line is one readable startup or transcript entry.
 type Line struct {
-	Kind     LineKind
-	ToolName string
-	Status   string
-	Text     string
+	Kind               LineKind
+	ToolName           string
+	Status             string
+	Text               string
+	ToolResultContents []ToolResultContent
 }
 
 // ToolCallField is one rendered argument field.

@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
@@ -117,6 +118,25 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REASONING, mapped.GetContent()[0].GetKind())
 	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL, mapped.GetContent()[2].GetKind())
 	require.Len(t, mapped.GetDiagnostics(), 1)
+}
+
+// TestMapLifecycleCarriesToolResultBlocks verifies ordered text and exact image bytes.
+func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
+	t.Parallel()
+
+	event := emptyTestLifecycle()
+	event.Type = domainui.LifecycleToolResult
+	event.ToolResultContents = []tool.ResultContent{
+		{Kind: tool.ResultContentText, Text: "first"},
+		{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}},
+	}
+	mapped := mapLifecycle(event).GetToolResultContents()
+	event.ToolResultContents[1].Image.Data[0] = 9
+
+	require.Len(t, mapped, 2)
+	assert.Equal(t, "first", mapped[0].GetText())
+	assert.Equal(t, "image/png", mapped[1].GetImage().GetMediaType())
+	assert.Equal(t, []byte{1, 2, 3}, mapped[1].GetImage().GetData())
 }
 
 // TestMappingRejectsMissingPayloads verifies malformed stream items fail explicitly.

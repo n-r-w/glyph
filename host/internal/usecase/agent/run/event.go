@@ -100,7 +100,7 @@ func newEvent(eventType EventType, runID string) Event {
 		},
 		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
 		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 		Turn: TurnSummary{
 			Response:    emptyModelResponse(),
 			ToolResults: nil,

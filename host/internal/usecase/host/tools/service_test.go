@@ -114,7 +114,7 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	service := New(catalog, factory, discardRuntimeFailure)
 	require.Empty(t, mustLoad(t, service))
 	runtime.EXPECT().Execute(t.Context(), "read", []byte(`{}`), gomock.Any()).Return(
-		tool.Result{Content: "", IsError: false},
+		tool.Result{Contents: tool.TextContents(""), IsError: false},
 		fmt.Errorf("process crashed: %w", ErrExtensionUnavailable),
 	)
 	runtime.EXPECT().Close()
@@ -127,7 +127,7 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	late, err := service.Execute(t.Context(), call, discardProgress)
 	require.NoError(t, err)
 	assert.True(t, late.IsError)
-	assert.ErrorContains(t, errors.New(late.Content), "unavailable")
+	assert.ErrorContains(t, errors.New(late.Contents[0].Text), "unavailable")
 }
 
 // TestServiceExecutePreservesRuntimeOnProgressDeliveryFailure keeps a healthy owner registered.
@@ -154,7 +154,7 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 	).DoAndReturn(
 		func(_ context.Context, _ string, _ []byte, handler tool.ProgressHandler) (tool.Result, error) {
 			require.ErrorIs(t, handler(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"}), deliveryErr)
-			return tool.Result{Content: "", IsError: false}, fmt.Errorf("deliver progress: %w", deliveryErr)
+			return tool.Result{Contents: tool.TextContents(""), IsError: false}, fmt.Errorf("deliver progress: %w", deliveryErr)
 		},
 	)
 
@@ -177,12 +177,12 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 		[]byte(`{"enabled":true,"items":[1,"two",null],"nested":{"value":3.5}}`),
 		gomock.Any(),
 	).Return(
-		tool.Result{Content: "ok", IsError: false}, nil,
+		tool.Result{Contents: tool.TextContents("ok"), IsError: false}, nil,
 	)
 	result, err := service.Execute(t.Context(), call, discardProgress)
 	require.NoError(t, err)
 	assert.Equal(t, agent.ToolResult{
-		CallID: "call-bash", ToolName: "bash", Content: "ok", IsError: false,
+		CallID: "call-bash", ToolName: "bash", Contents: tool.TextContents("ok"), IsError: false,
 	}, result)
 	runtime.EXPECT().Close()
 	service.Close()
@@ -236,11 +236,11 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	}}, failures)
 	assert.Equal(t, []tool.Descriptor{testDescriptor("bash")}, service.Tools())
 	healthy.EXPECT().Execute(t.Context(), "bash", []byte(`{}`), gomock.Any()).Return(
-		tool.Result{Content: "ok", IsError: false}, nil,
+		tool.Result{Contents: tool.TextContents("ok"), IsError: false}, nil,
 	)
 	result, executeErr := service.Execute(t.Context(), model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, discardProgress)
 	require.NoError(t, executeErr)
-	assert.Equal(t, "ok", result.Content)
+	assert.Equal(t, "ok", result.Contents[0].Text)
 	healthy.EXPECT().Close()
 	service.Close()
 }
@@ -324,7 +324,7 @@ func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservati
 		runtime.EXPECT().ListTools(t.Context()).Return([]tool.Descriptor{testDescriptor("read")}, nil)
 		runtime.EXPECT().Done().Return(done)
 		runtime.EXPECT().Execute(t.Context(), "read", []byte(`{}`), gomock.Any()).Return(
-			tool.Result{Content: "", IsError: false}, fmt.Errorf("process exited: %w", ErrExtensionUnavailable),
+			tool.Result{Contents: tool.TextContents(""), IsError: false}, fmt.Errorf("process exited: %w", ErrExtensionUnavailable),
 		)
 		runtime.EXPECT().Close()
 		failures := make([]tool.RuntimeFailure, 0, 1)
@@ -373,7 +373,7 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 		func(context.Context, string, []byte, tool.ProgressHandler) (tool.Result, error) {
 			close(started)
 			<-allowResult
-			return tool.Result{Content: "ok", IsError: false}, nil
+			return tool.Result{Contents: tool.TextContents("ok"), IsError: false}, nil
 		},
 	)
 	closed := make(chan struct{})

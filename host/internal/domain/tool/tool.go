@@ -11,6 +11,29 @@ type Descriptor struct {
 	ConstrainedSampling ConstrainedSampling
 }
 
+// ResultContentKind identifies one terminal tool result content block.
+type ResultContentKind uint8
+
+const (
+	// ResultContentText contains UTF-8 text.
+	ResultContentText ResultContentKind = iota + 1
+	// ResultContentImage contains binary image data.
+	ResultContentImage
+)
+
+// ResultImage contains binary image data and its media type.
+type ResultImage struct {
+	MediaType string
+	Data      []byte
+}
+
+// ResultContent is one ordered terminal tool result content block.
+type ResultContent struct {
+	Kind  ResultContentKind
+	Text  string
+	Image ResultImage
+}
+
 // ConstrainedSamplingKind identifies one provider-neutral constrained generation request.
 type ConstrainedSamplingKind uint8
 
@@ -65,8 +88,15 @@ type Progress struct {
 
 // Result is one terminal tool-execution outcome.
 type Result struct {
-	Content string
-	IsError bool
+	Contents []ResultContent
+	IsError  bool
+}
+
+// TextContents creates one text result content block.
+func TextContents(text string) []ResultContent {
+	return []ResultContent{{
+		Kind: ResultContentText, Text: text, Image: ResultImage{MediaType: "", Data: nil},
+	}}
 }
 
 // ProgressHandler consumes progress in execution order.

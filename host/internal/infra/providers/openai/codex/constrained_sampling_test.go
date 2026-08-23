@@ -166,7 +166,7 @@ func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 			ToolCall: model.ToolCall{ID: "call-old", Name: "sample", Arguments: map[string]any{"payload": "old"}},
 		}}, Outcome: model.OutcomeToolUse}},
 		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
-			CallID: "call-old", ToolName: "sample", Content: "done", IsError: false,
+			CallID: "call-old", ToolName: "sample", Contents: tool.TextContents("done"), IsError: false,
 		}},
 	}
 	events := make([]run.StreamEvent, 0)

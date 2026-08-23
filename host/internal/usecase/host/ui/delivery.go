@@ -78,7 +78,7 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	case run.EventToolExecutionEnd, run.EventToolResult:
 		lifecycle.ToolCallID = event.ToolResult.CallID
 		lifecycle.ToolName = event.ToolResult.ToolName
-		lifecycle.Text = event.ToolResult.Content
+		lifecycle.ToolResultContents = cloneResultContents(event.ToolResult.Contents)
 		lifecycle.IsError = event.ToolResult.IsError
 	case run.EventTurnEnd:
 		lifecycle.Text = responseText(event.Turn.Response)
@@ -173,6 +173,16 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 		CallID: preview.CallID, Name: preview.Name, Position: preview.Position,
 		Provisional: preview.Provisional, Fields: fields,
 	}
+}
+
+// cloneResultContents isolates mutable image bytes before lifecycle delivery.
+func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
+	cloned := make([]tool.ResultContent, len(contents))
+	for index, content := range contents {
+		cloned[index] = tool.ResultContent{Kind: content.Kind, Text: content.Text,
+			Image: tool.ResultImage{MediaType: content.Image.MediaType, Data: append([]byte(nil), content.Image.Data...)}}
+	}
+	return cloned
 }
 
 func cloneArguments(arguments map[string]any) map[string]any {

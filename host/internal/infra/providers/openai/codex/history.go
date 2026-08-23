@@ -47,17 +47,73 @@ func buildInput(
 			input = append(input, modelInput...)
 		case agent.HistoryEntryToolResult:
 			if _, custom := grammarInputProperties[entry.ToolResult.ToolName]; custom {
-				input = append(input, responses.ResponseInputItemParamOfCustomToolCallOutput(
-					entry.ToolResult.CallID, entry.ToolResult.Content,
-				))
+				contents, err := customOutputContents(entry.ToolResult.Contents)
+				if err != nil {
+					return nil, err
+				}
+				input = append(input, responses.ResponseInputItemParamOfCustomToolCallOutput(entry.ToolResult.CallID, contents))
 			} else {
-				input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(
-					entry.ToolResult.CallID, entry.ToolResult.Content,
-				))
+				contents, err := functionOutputContents(entry.ToolResult.Contents)
+				if err != nil {
+					return nil, err
+				}
+				input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(entry.ToolResult.CallID, contents))
 			}
 		}
 	}
 	return input, nil
+}
+
+// functionOutputContents maps typed result blocks into the Codex function-output format.
+//
+//nolint:exhaustruct // SDK union values set exactly one active variant.
+func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFunctionCallOutputItemListParam, error) {
+	mapped := make(responses.ResponseFunctionCallOutputItemListParam, 0, len(contents))
+	for index, content := range contents {
+		switch content.Kind {
+		case tool.ResultContentText:
+			mapped = append(mapped, responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text))
+		case tool.ResultContentImage:
+			if content.Image.MediaType == "" {
+				return nil, fmt.Errorf("tool result image %d has no media type", index)
+			}
+			dataURL := "data:" + content.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(content.Image.Data)
+			mapped = append(mapped, responses.ResponseFunctionCallOutputItemUnionParam{
+				OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(dataURL)},
+			})
+		default:
+			return nil, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
+		}
+	}
+	return mapped, nil
+}
+
+// customOutputContents maps typed blocks into the Codex custom-tool output format.
+//
+//nolint:exhaustruct // SDK union values set exactly one active variant.
+func customOutputContents(
+	contents []tool.ResultContent,
+) ([]responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, error) {
+	mapped := make([]responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, 0, len(contents))
+	for index, content := range contents {
+		switch content.Kind {
+		case tool.ResultContentText:
+			mapped = append(mapped, responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
+				OfInputText: &responses.ResponseInputTextParam{Text: content.Text},
+			})
+		case tool.ResultContentImage:
+			if content.Image.MediaType == "" {
+				return nil, fmt.Errorf("tool result image %d has no media type", index)
+			}
+			dataURL := "data:" + content.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(content.Image.Data)
+			mapped = append(mapped, responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
+				OfInputImage: &responses.ResponseInputImageParam{ImageURL: param.NewOpt(dataURL)},
+			})
+		default:
+			return nil, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
+		}
+	}
+	return mapped, nil
 }
 
 // buildModelInput preserves model item order and ignores context owned by other providers.

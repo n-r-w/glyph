@@ -184,7 +184,10 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-		ToolCallId: new("call-1"), ToolName: new("read"), Text: new("result"),
+		ToolCallId: new("call-1"), ToolName: new("read"),
+		ToolResultContents: []*uiv1.ToolResultContent{
+			uiv1.ToolResultContent_builder{Text: new("result")}.Build(),
+		},
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),

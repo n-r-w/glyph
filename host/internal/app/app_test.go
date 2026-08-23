@@ -134,7 +134,8 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 					"model_text": lifecycle.GetModelResponse().GetText(),
 					"tool_name":  lifecycle.GetToolName(), "tool_status": !lifecycle.GetIsError(),
 					"outcome": lifecycle.GetOutcome(), "settled": lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
-					"availability": lifecycle.GetAvailability(),
+					"availability":         lifecycle.GetAvailability(),
+					"tool_result_contents": semanticToolResultContents(lifecycle.GetToolResultContents()),
 				})
 				if marshalErr != nil {
 					return marshalErr
@@ -152,6 +153,25 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 		}
 	}
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// semanticToolResultContents keeps typed result blocks stable in the shared lifecycle fixture.
+func semanticToolResultContents(contents []*uipb.ToolResultContent) []map[string]any {
+	mapped := make([]map[string]any, 0, len(contents))
+	for _, content := range contents {
+		switch content.WhichContent() {
+		case uipb.ToolResultContent_Text_case:
+			mapped = append(mapped, map[string]any{"text": content.GetText()})
+		case uipb.ToolResultContent_Image_case:
+			image := content.GetImage()
+			mapped = append(mapped, map[string]any{"image": map[string]any{
+				"media_type": image.GetMediaType(), "data": image.GetData(),
+			}})
+		case uipb.ToolResultContent_Content_not_set_case:
+			continue
+		}
+	}
+	return mapped
 }
 
 // TestRunWithPathsIgnoresActiveUIAndFailsWithoutCredentials verifies headless-only concrete composition.
@@ -420,13 +440,14 @@ type sharedOutcome struct {
 
 // semanticLifecycleRecord is the stable subset shared with the standard consumer fixture.
 type semanticLifecycleRecord struct {
-	Type         string `json:"type"`
-	ToolName     string `json:"tool_name,omitempty"`
-	ToolStatus   string `json:"tool_status,omitempty"`
-	Text         string `json:"text,omitempty"`
-	ModelText    string `json:"model_text,omitempty"`
-	Outcome      string `json:"outcome,omitempty"`
-	Availability string `json:"availability,omitempty"`
+	Type               string          `json:"type"`
+	ToolName           string          `json:"tool_name,omitempty"`
+	ToolStatus         string          `json:"tool_status,omitempty"`
+	Text               string          `json:"text,omitempty"`
+	ToolResultContents json.RawMessage `json:"tool_result_contents,omitempty"`
+	ModelText          string          `json:"model_text,omitempty"`
+	Outcome            string          `json:"outcome,omitempty"`
+	Availability       string          `json:"availability,omitempty"`
 }
 
 // uiObservation stores normalized UI lifecycle records and its derived public outcome.
@@ -467,13 +488,14 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 	var toolStartName, toolEndName string
 	for _, line := range strings.Split(strings.TrimSpace(string(payload)), "\n") {
 		var item struct {
-			Type         uipb.LifecycleType `json:"type"`
-			Text         string             `json:"text"`
-			ModelText    string             `json:"model_text"`
-			ToolName     string             `json:"tool_name"`
-			ToolStatus   bool               `json:"tool_status"`
-			Outcome      string             `json:"outcome"`
-			Availability uipb.Availability  `json:"availability"`
+			Type               uipb.LifecycleType `json:"type"`
+			Text               string             `json:"text"`
+			ModelText          string             `json:"model_text"`
+			ToolName           string             `json:"tool_name"`
+			ToolStatus         bool               `json:"tool_status"`
+			Outcome            string             `json:"outcome"`
+			Availability       uipb.Availability  `json:"availability"`
+			ToolResultContents json.RawMessage    `json:"tool_result_contents"`
 		}
 		require.NoError(t, json.Unmarshal([]byte(line), &item))
 		record := semanticLifecycleRecord{}
@@ -499,7 +521,8 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 			}
 			toolName, toolStatus = item.ToolName, record.ToolStatus
 		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
-			record.Type, record.ToolName, record.Text = "tool_result", item.ToolName, item.Text
+			record.Type, record.ToolName = "tool_result", item.ToolName
+			record.ToolResultContents = item.ToolResultContents
 		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 			record.Type, record.Outcome = "agent_end", item.Outcome
 			agentCompleted = item.Outcome == "completed"

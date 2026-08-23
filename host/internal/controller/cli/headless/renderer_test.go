@@ -86,7 +86,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStdout, Content: "output"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStderr, Content: "warning"}},
-		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Content: "done", IsError: false}},
+		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Contents: tool.TextContents("done"), IsError: false}},
 		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
 			Content:     []model.Content{{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "openai-codex", Payload: []byte("encrypted-secret")}}},
 			Diagnostics: []model.Diagnostic{{Code: "provider_recovery", Message: "hidden diagnostic"}},
@@ -102,6 +102,23 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	assert.NotContains(t, stdout.String(), "hidden reasoning")
 	assert.NotContains(t, stderr.String(), "encrypted-secret")
 	assert.NotContains(t, stderr.String(), "hidden diagnostic")
+}
+
+// TestRendererRendersTypedToolResultContents verifies ordered text and safe image notices.
+func TestRendererRendersTypedToolResultContents(t *testing.T) {
+	t.Parallel()
+
+	var stderr bytes.Buffer
+	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
+	err := renderer.DeliverAgent(t.Context(), run.Event{Type: run.EventToolResult, ToolResult: agent.ToolResult{
+		Contents: []tool.ResultContent{
+			{Kind: tool.ResultContentText, Text: "first"},
+			{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1}}},
+			{Kind: tool.ResultContentText, Text: "last"},
+		},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "[tool:result] first\n[tool:result] image omitted: image/png\n[tool:result] last\n", stderr.String())
 }
 
 // TestRendererWritesStartupInformationAndFailures verifies distinct informational and failure prefixes.

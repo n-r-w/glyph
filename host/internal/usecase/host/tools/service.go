@@ -185,10 +185,8 @@ func (s *Service) Execute(
 	s.mutex.Unlock()
 	if !exists {
 		return agent.ToolResult{
-			CallID:   call.ID,
-			ToolName: call.Name,
-			Content:  fmt.Sprintf("tool %q is unavailable", call.Name),
-			IsError:  true,
+			CallID: call.ID, ToolName: call.Name,
+			Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", call.Name)), IsError: true,
 		}, nil
 	}
 
@@ -201,10 +199,8 @@ func (s *Service) Execute(
 		s.report(ctx, failure)
 	}
 	return agent.ToolResult{
-		CallID:   call.ID,
-		ToolName: call.Name,
-		Content:  result.Content,
-		IsError:  result.IsError,
+		CallID: call.ID, ToolName: call.Name,
+		Contents: append([]tool.ResultContent(nil), result.Contents...), IsError: result.IsError,
 	}, executeErr
 }
 

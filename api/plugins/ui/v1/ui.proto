@@ -123,6 +123,27 @@ message LifecycleEvent {
   ToolCallPreview tool_call_preview = 13;
   // The finalized tool call and decoded arguments.
   FinalToolCall final_tool_call = 14;
+  // The ordered typed terminal tool result blocks.
+  repeated ToolResultContent tool_result_contents = 15;
+}
+
+// ToolResultContent carries one ordered terminal tool result block.
+message ToolResultContent {
+  // The result content payload.
+  oneof content {
+    // The UTF-8 text payload.
+    string text = 1;
+    // The binary image payload.
+    ToolResultImage image = 2;
+  }
+}
+
+// ToolResultImage carries binary image data and its media type.
+message ToolResultImage {
+  // The image media type.
+  string media_type = 1;
+  // The binary image data.
+  bytes data = 2;
 }
 
 // ToolCallPreview carries transient provenance-aware function-call state.

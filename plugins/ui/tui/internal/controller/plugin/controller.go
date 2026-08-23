@@ -274,6 +274,12 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		}
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
 		event.Kind = presentationdomain.EventToolResult
+		contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
+		if err != nil {
+			return presentationdomain.Event{}, err
+		}
+		event.Text = ""
+		event.ToolResultContents = contents
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 		event.Kind = presentationdomain.EventTurnEnded
@@ -298,6 +304,36 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	}
 
 	return event, nil
+}
+
+// mapToolResultContents rejects malformed blocks before they reach presentation state.
+func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdomain.ToolResultContent, error) {
+	if len(contents) == 0 {
+		return nil, errors.New("tool result contents are empty")
+	}
+	mapped := make([]presentationdomain.ToolResultContent, 0, len(contents))
+	for index, content := range contents {
+		if content == nil {
+			return nil, fmt.Errorf("tool result content %d is missing", index)
+		}
+		switch content.WhichContent() {
+		case uiv1.ToolResultContent_Text_case:
+			mapped = append(mapped, presentationdomain.ToolResultContent{Text: content.GetText()})
+		case uiv1.ToolResultContent_Image_case:
+			image := content.GetImage()
+			if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
+				return nil, fmt.Errorf("tool result image %d is invalid", index)
+			}
+			mapped = append(mapped, presentationdomain.ToolResultContent{
+				MediaType: image.GetMediaType(), Data: append([]byte(nil), image.GetData()...),
+			})
+		case uiv1.ToolResultContent_Content_not_set_case:
+			return nil, fmt.Errorf("tool result content %d is missing", index)
+		default:
+			return nil, fmt.Errorf("tool result content %d is invalid", index)
+		}
+	}
+	return mapped, nil
 }
 
 // mapModelResponseContent keeps finalized visible text and refusal blocks while dropping reasoning.

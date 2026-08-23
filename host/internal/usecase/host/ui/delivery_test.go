@@ -134,7 +134,7 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 		},
 		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
 		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 		Turn: run.TurnSummary{
 			Response: model.Response{Content: nil, Outcome: 0, ErrorMessage: ""}, ToolResults: nil,
 		},
@@ -182,7 +182,7 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 		Message:    model.Response{Content: nil, Outcome: 0, ErrorMessage: ""},
 		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
 		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 		Turn:       run.TurnSummary{Response: model.Response{Content: nil, Outcome: 0, ErrorMessage: ""}, ToolResults: nil},
 		Agent:      run.AgentSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: ""},
 	}))

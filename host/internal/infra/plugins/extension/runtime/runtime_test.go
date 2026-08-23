@@ -132,7 +132,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 
 	// Assert: preserve complete text in exactly one terminal successful result.
 	require.NoError(t, err)
-	assert.Equal(t, tool.Result{Content: "first\nsecond\n", IsError: false}, result)
+	assert.Equal(t, tool.Result{Contents: tool.TextContents("first\nsecond\n"), IsError: false}, result)
 
 	// Act: replace one unique fragment through the production edit tool.
 	editResult, err := runtime.Execute(
@@ -160,7 +160,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.True(t, bashResult.IsError)
-	assert.JSONEq(t, `{"stdout":"out","stderr":"err","exitCode":7}`, bashResult.Content)
+	assert.JSONEq(t, `{"stdout":"out","stderr":"err","exitCode":7}`, bashResult.Contents[0].Text)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStatus)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStdout)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStderr)
@@ -171,7 +171,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Assert: reject them as a terminal tool error without making the process unavailable.
 	require.NoError(t, err)
 	assert.True(t, invalidResult.IsError)
-	assert.NotEmpty(t, invalidResult.Content)
+	assert.NotEmpty(t, invalidResult.Contents[0].Text)
 	assertRuntimeRunning(t, runtime)
 
 	// Arrange: a FIFO keeps the production read operation active until the Host cancels its stream.
@@ -208,7 +208,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Assert: active cancellation crosses the real process boundary without stopping the runtime.
 	select {
 	case execution := <-executionChannel:
-		assert.Equal(t, tool.Result{Content: "", IsError: false}, execution.result)
+		assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
 		require.ErrorIs(t, execution.err, context.Canceled)
 	case <-time.After(processOperationTimeout):
 		require.FailNow(t, "glyph-tools did not return after cancellation")
@@ -221,6 +221,79 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 
 	// Assert: shutdown waits until the process has exited.
 	requireRuntimeStopped(t, runtime)
+}
+
+// TestCompileToolSchemaAcceptsJSONCompatibleArguments verifies nested and optional schema values.
+func TestCompileToolSchemaAcceptsJSONCompatibleArguments(t *testing.T) {
+	t.Parallel()
+
+	schema, err := compileToolSchema([]byte(`{
+		"type":"object",
+		"properties":{
+			"text":{"type":"string"},
+			"number":{"type":"number"},
+			"enabled":{"type":"boolean"},
+			"nullable":{"type":["string","null"]},
+			"items":{"type":"array","items":{}},
+			"nested":{"type":"object"},
+			"optional":{"type":"string"}
+		},
+		"required":["text","number","enabled","nullable","items","nested"],
+		"additionalProperties":false
+	}`))
+	require.NoError(t, err)
+	require.NoError(t, validateArguments(schema, []byte(`{
+		"text":"value","number":12.5,"enabled":true,"nullable":null,
+		"items":[1,"two",false,null,{"child":3}],"nested":{"child":[true]}
+	}`)))
+	require.Error(t, validateArguments(schema, []byte(`{"text":"value"}`)))
+}
+
+// TestCompileToolSchemaRejectsNonObjectRoot keeps provider tool arguments object-shaped.
+func TestCompileToolSchemaRejectsNonObjectRoot(t *testing.T) {
+	t.Parallel()
+
+	_, err := compileToolSchema([]byte(`{"type":"array","items":{"type":"string"}}`))
+	require.ErrorContains(t, err, "root type must be object")
+}
+
+// TestMapResultContentsPreservesOrderedTextAndImage verifies exact typed transport mapping.
+func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
+	t.Parallel()
+
+	contents, err := mapResultContents([]*extensionpb.ToolResultContent{
+		extensionpb.ToolResultContent_builder{Text: new("first")}.Build(),
+		extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
+			MediaType: new("image/png"), Data: []byte{0, 1, 2, 3},
+		}.Build()}.Build(),
+		extensionpb.ToolResultContent_builder{Text: new("last")}.Build(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []tool.ResultContent{
+		{Kind: tool.ResultContentText, Text: "first"},
+		{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2, 3}}},
+		{Kind: tool.ResultContentText, Text: "last"},
+	}, contents)
+}
+
+// TestMapResultContentsRejectsEmptyResult prevents invalid empty provider output lists.
+func TestMapResultContentsRejectsEmptyResult(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapResultContents(nil)
+	require.ErrorContains(t, err, "result contents are empty")
+}
+
+// TestMapResultContentsRejectsEmptyImageData prevents invalid provider image payloads.
+func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapResultContents([]*extensionpb.ToolResultContent{
+		extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
+			MediaType: new("image/png"), Data: nil,
+		}.Build()}.Build(),
+	})
+	require.ErrorContains(t, err, "result image 0 is invalid")
 }
 
 func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
@@ -278,7 +351,7 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 
 	// Assert: cancellation remains identifiable and does not become a protocol violation.
 	require.ErrorIs(t, execution.err, context.Canceled)
-	assert.Equal(t, tool.Result{Content: "", IsError: false}, execution.result)
+	assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
 	assertRuntimeRunning(t, runtime)
 }
 
@@ -304,7 +377,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			)
 
 			// Assert: fail the call, stop the violating process, and return no terminal payload.
-			assert.Equal(t, tool.Result{Content: "", IsError: false}, result)
+			assert.Equal(t, tool.Result{Contents: nil, IsError: false}, result)
 			require.Error(t, err)
 			require.ErrorIs(t, err, toolservice.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, "extension protocol violation")
@@ -321,7 +394,6 @@ func TestRuntimeRejectsInvalidCatalogs(t *testing.T) {
 		"empty-name",
 		"empty-description",
 		"invalid-schema-json",
-		"schema-outside-profile",
 		"duplicate-name",
 	}
 	for _, mode := range testCases {
@@ -361,7 +433,7 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 
 	result, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
 	require.NoError(t, err)
-	assert.Equal(t, tool.Result{Content: "done", IsError: false}, result)
+	assert.Equal(t, tool.Result{Contents: tool.TextContents("done"), IsError: false}, result)
 }
 
 // TestRuntimeClassifiesTransportFailure marks the closed runtime unavailable.
@@ -402,7 +474,7 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 	// Assert: deliver progress before returning the one terminal result.
 	require.NoError(t, err)
 	assert.Equal(t, []tool.Progress{{Channel: tool.ProgressChannelStatus, Content: "working"}}, progress)
-	assert.Equal(t, tool.Result{Content: "done", IsError: false}, result)
+	assert.Equal(t, tool.Result{Contents: tool.TextContents("done"), IsError: false}, result)
 }
 
 // ListTools returns a valid or deliberately invalid catalog selected by the helper mode.
@@ -425,8 +497,6 @@ func (s *protocolService) ListTools(
 		descriptor.SetDescription("")
 	case "invalid-schema-json":
 		descriptor.SetInputSchemaJson([]byte(`{"type":`))
-	case "schema-outside-profile":
-		descriptor.SetInputSchemaJson([]byte(`{"type":"object","properties":{},"required":[],"additionalProperties":false,"title":"not allowed"}`))
 	case "duplicate-name":
 		response.SetTools(append(response.GetTools(), descriptor))
 	}
@@ -458,7 +528,7 @@ func (s *protocolService) Execute(
 		}.Build(),
 	}.Build()
 	result := extensionpb.ExecuteResponse_builder{
-		Result: extensionpb.ToolResult_builder{Content: new("done"), IsError: new(false)}.Build(),
+		Result: extensionpb.ToolResult_builder{Contents: []*extensionpb.ToolResultContent{extensionpb.ToolResultContent_builder{Text: new("done")}.Build()}, IsError: new(false)}.Build(),
 	}.Build()
 
 	switch s.mode {

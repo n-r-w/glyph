@@ -100,7 +100,7 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 			},
 			Outcome: model.OutcomeToolUse,
 		}},
-		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{CallID: "call-old", ToolName: "read", Content: "old data", IsError: false}},
+		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{CallID: "call-old", ToolName: "read", Contents: tool.TextContents("old data"), IsError: false}},
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("next")},
 	}
 

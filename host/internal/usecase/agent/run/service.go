@@ -149,7 +149,7 @@ func (s *Service) begin(request Request) (int, error) {
 		Kind:       agent.HistoryEntryUser,
 		User:       model.TextMessage(request.UserText),
 		Model:      emptyModelResponse(),
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 	})
 	s.state = State{
 		Status:          StatusRunning,
@@ -345,7 +345,7 @@ func (s *Service) applyOutcome(
 		results := make([]agent.ToolResult, 0, len(calls))
 		for _, call := range calls {
 			result := agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Content: lengthCallMessage, IsError: true,
+				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
 			}
 			s.appendToolResult(result)
 			results = append(results, result)
@@ -402,7 +402,7 @@ func (s *Service) executeCalls(
 		})
 		if executeErr != nil {
 			result = agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Content: executeErr.Error(), IsError: true,
+				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
 			}
 		}
 		result.CallID = call.ID
@@ -527,7 +527,7 @@ func (s *Service) appendModel(response model.Response) {
 		Kind:       agent.HistoryEntryModel,
 		User:       model.TextMessage(""),
 		Model:      cloneModelResponse(response),
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Content: "", IsError: false},
+		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
 	})
 	s.mutex.Unlock()
 }

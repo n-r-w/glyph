@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
 //nolint:misspell // This exact model-visible error is stored for skipped calls.
@@ -23,8 +24,20 @@ func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 		Kind:       entry.Kind,
 		User:       cloneMessage(entry.User),
 		Model:      cloneModelResponse(entry.Model),
-		ToolResult: entry.ToolResult,
+		ToolResult: cloneToolResult(entry.ToolResult),
 	}
+}
+
+// cloneToolResult isolates mutable image bytes in returned history snapshots.
+func cloneToolResult(result agent.ToolResult) agent.ToolResult {
+	contents := make([]tool.ResultContent, len(result.Contents))
+	for index, content := range result.Contents {
+		contents[index] = tool.ResultContent{
+			Kind: content.Kind, Text: content.Text,
+			Image: tool.ResultImage{MediaType: content.Image.MediaType, Data: append([]byte(nil), content.Image.Data...)},
+		}
+	}
+	return agent.ToolResult{CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError}
 }
 
 // cloneMessage isolates user content and image bytes.
@@ -156,7 +169,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 				User:  model.TextMessage(""),
 				Model: emptyModelResponse(),
 				ToolResult: agent.ToolResult{
-					CallID: call.ID, ToolName: call.Name, Content: skippedCallError, IsError: true,
+					CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(skippedCallError), IsError: true,
 				},
 			})
 		}

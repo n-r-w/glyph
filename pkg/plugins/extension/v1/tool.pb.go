@@ -1167,31 +1167,28 @@ func (b0 ToolProgress_builder) Build() *ToolProgress {
 	return m0
 }
 
-// ToolResult is the terminal outcome of one tool call.
-type ToolResult struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Content     *string                `protobuf:"bytes,1,opt,name=content"`
-	xxx_hidden_IsError     bool                   `protobuf:"varint,2,opt,name=is_error,json=isError"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+// ToolResultContent carries one ordered terminal tool result block.
+type ToolResultContent struct {
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Content isToolResultContent_Content `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
-func (x *ToolResult) Reset() {
-	*x = ToolResult{}
+func (x *ToolResultContent) Reset() {
+	*x = ToolResultContent{}
 	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ToolResult) String() string {
+func (x *ToolResultContent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ToolResult) ProtoMessage() {}
+func (*ToolResultContent) ProtoMessage() {}
 
-func (x *ToolResult) ProtoReflect() protoreflect.Message {
+func (x *ToolResultContent) ProtoReflect() protoreflect.Message {
 	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1203,14 +1200,295 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ToolResult) GetContent() string {
+func (x *ToolResultContent) GetText() string {
 	if x != nil {
-		if x.xxx_hidden_Content != nil {
-			return *x.xxx_hidden_Content
+		if x, ok := x.xxx_hidden_Content.(*toolResultContent_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
+}
+
+func (x *ToolResultContent) GetImage() *ToolResultImage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*toolResultContent_Image); ok {
+			return x.Image
+		}
+	}
+	return nil
+}
+
+func (x *ToolResultContent) SetText(v string) {
+	x.xxx_hidden_Content = &toolResultContent_Text{v}
+}
+
+func (x *ToolResultContent) SetImage(v *ToolResultImage) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &toolResultContent_Image{v}
+}
+
+func (x *ToolResultContent) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ToolResultContent) HasText() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*toolResultContent_Text)
+	return ok
+}
+
+func (x *ToolResultContent) HasImage() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*toolResultContent_Image)
+	return ok
+}
+
+func (x *ToolResultContent) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ToolResultContent) ClearText() {
+	if _, ok := x.xxx_hidden_Content.(*toolResultContent_Text); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ToolResultContent) ClearImage() {
+	if _, ok := x.xxx_hidden_Content.(*toolResultContent_Image); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const ToolResultContent_Content_not_set_case case_ToolResultContent_Content = 0
+const ToolResultContent_Text_case case_ToolResultContent_Content = 1
+const ToolResultContent_Image_case case_ToolResultContent_Content = 2
+
+func (x *ToolResultContent) WhichContent() case_ToolResultContent_Content {
+	if x == nil {
+		return ToolResultContent_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *toolResultContent_Text:
+		return ToolResultContent_Text_case
+	case *toolResultContent_Image:
+		return ToolResultContent_Image_case
+	default:
+		return ToolResultContent_Content_not_set_case
+	}
+}
+
+type ToolResultContent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The result content payload.
+
+	// Fields of oneof xxx_hidden_Content:
+	// The UTF-8 text payload.
+	Text *string
+	// The binary image payload.
+	Image *ToolResultImage
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 ToolResultContent_builder) Build() *ToolResultContent {
+	m0 := &ToolResultContent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Text != nil {
+		x.xxx_hidden_Content = &toolResultContent_Text{*b.Text}
+	}
+	if b.Image != nil {
+		x.xxx_hidden_Content = &toolResultContent_Image{b.Image}
+	}
+	return m0
+}
+
+type case_ToolResultContent_Content protoreflect.FieldNumber
+
+func (x case_ToolResultContent_Content) String() string {
+	md := file_api_plugins_extension_v1_tool_proto_msgTypes[9].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isToolResultContent_Content interface {
+	isToolResultContent_Content()
+}
+
+type toolResultContent_Text struct {
+	// The UTF-8 text payload.
+	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
+}
+
+type toolResultContent_Image struct {
+	// The binary image payload.
+	Image *ToolResultImage `protobuf:"bytes,2,opt,name=image,oneof"`
+}
+
+func (*toolResultContent_Text) isToolResultContent_Content() {}
+
+func (*toolResultContent_Image) isToolResultContent_Content() {}
+
+// ToolResultImage carries binary image data and its media type.
+type ToolResultImage struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType"`
+	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ToolResultImage) Reset() {
+	*x = ToolResultImage{}
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResultImage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResultImage) ProtoMessage() {}
+
+func (x *ToolResultImage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ToolResultImage) GetMediaType() string {
+	if x != nil {
+		if x.xxx_hidden_MediaType != nil {
+			return *x.xxx_hidden_MediaType
 		}
 		return ""
 	}
 	return ""
+}
+
+func (x *ToolResultImage) GetData() []byte {
+	if x != nil {
+		return x.xxx_hidden_Data
+	}
+	return nil
+}
+
+func (x *ToolResultImage) SetMediaType(v string) {
+	x.xxx_hidden_MediaType = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ToolResultImage) SetData(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Data = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ToolResultImage) HasMediaType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ToolResultImage) HasData() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ToolResultImage) ClearMediaType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_MediaType = nil
+}
+
+func (x *ToolResultImage) ClearData() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Data = nil
+}
+
+type ToolResultImage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The image media type.
+	MediaType *string
+	// The binary image data.
+	Data []byte
+}
+
+func (b0 ToolResultImage_builder) Build() *ToolResultImage {
+	m0 := &ToolResultImage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.MediaType != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_MediaType = b.MediaType
+	}
+	if b.Data != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Data = b.Data
+	}
+	return m0
+}
+
+// ToolResult is the terminal outcome of one tool call.
+type ToolResult struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_IsError     bool                   `protobuf:"varint,2,opt,name=is_error,json=isError"`
+	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ToolResult) Reset() {
+	*x = ToolResult{}
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult) ProtoMessage() {}
+
+func (x *ToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_tool_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
 }
 
 func (x *ToolResult) GetIsError() bool {
@@ -1220,61 +1498,54 @@ func (x *ToolResult) GetIsError() bool {
 	return false
 }
 
-func (x *ToolResult) SetContent(v string) {
-	x.xxx_hidden_Content = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+func (x *ToolResult) GetContents() []*ToolResultContent {
+	if x != nil {
+		if x.xxx_hidden_Contents != nil {
+			return *x.xxx_hidden_Contents
+		}
+	}
+	return nil
 }
 
 func (x *ToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *ToolResult) HasContent() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+func (x *ToolResult) SetContents(v []*ToolResultContent) {
+	x.xxx_hidden_Contents = &v
 }
 
 func (x *ToolResult) HasIsError() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *ToolResult) ClearContent() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Content = nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
 func (x *ToolResult) ClearIsError() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_IsError = false
 }
 
 type ToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The terminal model-visible result content.
-	Content *string
 	// Whether the tool operation ended with an error.
 	IsError *bool
+	// The ordered terminal model-visible result blocks.
+	Contents []*ToolResultContent
 }
 
 func (b0 ToolResult_builder) Build() *ToolResult {
 	m0 := &ToolResult{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Content != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_Content = b.Content
-	}
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_IsError = *b.IsError
 	}
+	x.xxx_hidden_Contents = &b.Contents
 	return m0
 }
 
@@ -1312,11 +1583,19 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\acontent\"o\n" +
 	"\fToolProgress\x12E\n" +
 	"\achannel\x18\x01 \x01(\x0e2+.glyph.plugins.extension.v1.ProgressChannelR\achannel\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"A\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"y\n" +
+	"\x11ToolResultContent\x12\x14\n" +
+	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12C\n" +
+	"\x05image\x18\x02 \x01(\v2+.glyph.plugins.extension.v1.ToolResultImageH\x00R\x05imageB\t\n" +
+	"\acontent\"D\n" +
+	"\x0fToolResultImage\x12\x1d\n" +
 	"\n" +
-	"ToolResult\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent\x12\x19\n" +
-	"\bis_error\x18\x02 \x01(\bR\aisError*\x85\x01\n" +
+	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"\x81\x01\n" +
+	"\n" +
+	"ToolResult\x12\x19\n" +
+	"\bis_error\x18\x02 \x01(\bR\aisError\x12I\n" +
+	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontentsJ\x04\b\x01\x10\x02R\acontent*\x85\x01\n" +
 	"\x14JsonSchemaStrictness\x12&\n" +
 	"\"JSON_SCHEMA_STRICTNESS_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dJSON_SCHEMA_STRICTNESS_PREFER\x10\x01\x12\"\n" +
@@ -1331,7 +1610,7 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\aExecute\x12*.glyph.plugins.extension.v1.ExecuteRequest\x1a+.glyph.plugins.extension.v1.ExecuteResponse0\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_api_plugins_extension_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_api_plugins_extension_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_api_plugins_extension_v1_tool_proto_goTypes = []any{
 	(JsonSchemaStrictness)(0),             // 0: glyph.plugins.extension.v1.JsonSchemaStrictness
 	(ProgressChannel)(0),                  // 1: glyph.plugins.extension.v1.ProgressChannel
@@ -1344,7 +1623,9 @@ var file_api_plugins_extension_v1_tool_proto_goTypes = []any{
 	(*ExecuteRequest)(nil),                // 8: glyph.plugins.extension.v1.ExecuteRequest
 	(*ExecuteResponse)(nil),               // 9: glyph.plugins.extension.v1.ExecuteResponse
 	(*ToolProgress)(nil),                  // 10: glyph.plugins.extension.v1.ToolProgress
-	(*ToolResult)(nil),                    // 11: glyph.plugins.extension.v1.ToolResult
+	(*ToolResultContent)(nil),             // 11: glyph.plugins.extension.v1.ToolResultContent
+	(*ToolResultImage)(nil),               // 12: glyph.plugins.extension.v1.ToolResultImage
+	(*ToolResult)(nil),                    // 13: glyph.plugins.extension.v1.ToolResult
 }
 var file_api_plugins_extension_v1_tool_proto_depIdxs = []int32{
 	4,  // 0: glyph.plugins.extension.v1.ListToolsResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
@@ -1353,17 +1634,19 @@ var file_api_plugins_extension_v1_tool_proto_depIdxs = []int32{
 	7,  // 3: glyph.plugins.extension.v1.ConstrainedSampling.grammar:type_name -> glyph.plugins.extension.v1.GrammarConstrainedSampling
 	0,  // 4: glyph.plugins.extension.v1.JsonSchemaConstrainedSampling.strictness:type_name -> glyph.plugins.extension.v1.JsonSchemaStrictness
 	10, // 5: glyph.plugins.extension.v1.ExecuteResponse.progress:type_name -> glyph.plugins.extension.v1.ToolProgress
-	11, // 6: glyph.plugins.extension.v1.ExecuteResponse.result:type_name -> glyph.plugins.extension.v1.ToolResult
+	13, // 6: glyph.plugins.extension.v1.ExecuteResponse.result:type_name -> glyph.plugins.extension.v1.ToolResult
 	1,  // 7: glyph.plugins.extension.v1.ToolProgress.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
-	2,  // 8: glyph.plugins.extension.v1.ExtensionService.ListTools:input_type -> glyph.plugins.extension.v1.ListToolsRequest
-	8,  // 9: glyph.plugins.extension.v1.ExtensionService.Execute:input_type -> glyph.plugins.extension.v1.ExecuteRequest
-	3,  // 10: glyph.plugins.extension.v1.ExtensionService.ListTools:output_type -> glyph.plugins.extension.v1.ListToolsResponse
-	9,  // 11: glyph.plugins.extension.v1.ExtensionService.Execute:output_type -> glyph.plugins.extension.v1.ExecuteResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 8: glyph.plugins.extension.v1.ToolResultContent.image:type_name -> glyph.plugins.extension.v1.ToolResultImage
+	11, // 9: glyph.plugins.extension.v1.ToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	2,  // 10: glyph.plugins.extension.v1.ExtensionService.ListTools:input_type -> glyph.plugins.extension.v1.ListToolsRequest
+	8,  // 11: glyph.plugins.extension.v1.ExtensionService.Execute:input_type -> glyph.plugins.extension.v1.ExecuteRequest
+	3,  // 12: glyph.plugins.extension.v1.ExtensionService.ListTools:output_type -> glyph.plugins.extension.v1.ListToolsResponse
+	9,  // 13: glyph.plugins.extension.v1.ExtensionService.Execute:output_type -> glyph.plugins.extension.v1.ExecuteResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_tool_proto_init() }
@@ -1379,13 +1662,17 @@ func file_api_plugins_extension_v1_tool_proto_init() {
 		(*executeResponse_Progress)(nil),
 		(*executeResponse_Result)(nil),
 	}
+	file_api_plugins_extension_v1_tool_proto_msgTypes[9].OneofWrappers = []any{
+		(*toolResultContent_Text)(nil),
+		(*toolResultContent_Image)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_tool_proto_rawDesc), len(file_api_plugins_extension_v1_tool_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

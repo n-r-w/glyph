@@ -67,6 +67,8 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 			status = "error"
 		}
 		return writePrefixed(r.stderr, "[tool:end] ", event.ToolCall.Name+": "+status)
+	case run.EventToolResult:
+		return r.writeToolResult(event.ToolResult.Contents)
 	case run.EventAgentStart,
 		run.EventTurnStart,
 		run.EventMessageStart,
@@ -75,7 +77,6 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 		run.EventToolCallStart,
 		run.EventToolCallDelta,
 		run.EventToolCallEnd,
-		run.EventToolResult,
 		run.EventTurnEnd,
 		run.EventAgentEnd:
 		return nil
@@ -128,6 +129,23 @@ func (r *Renderer) ReportSummary(_ context.Context, report toolservice.LoadRepor
 // WriteError renders one terminal command error.
 func (r *Renderer) WriteError(err error) error {
 	return writePrefixed(r.stderr, "[error] ", err.Error())
+}
+
+// writeToolResult renders typed terminal tool content without printing image bytes.
+func (r *Renderer) writeToolResult(contents []tool.ResultContent) error {
+	for _, content := range contents {
+		switch content.Kind {
+		case tool.ResultContentText:
+			if err := writePrefixed(r.stderr, "[tool:result] ", content.Text); err != nil {
+				return err
+			}
+		case tool.ResultContentImage:
+			if err := writePrefixed(r.stderr, "[tool:result] ", "image omitted: "+content.Image.MediaType); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // writeProgress maps provider-neutral tool progress to one short headless prefix.

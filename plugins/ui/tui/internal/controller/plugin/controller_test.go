@@ -156,16 +156,22 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
 	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineModel, Text: "Request complete."})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Status: "completed"})
-	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}"})
+	assert.Contains(t, state.Transcript, presentationdomain.Line{
+		Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}",
+		ToolResultContents: []presentationdomain.ToolResultContent{{Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}"}},
+	})
 	assert.Empty(t, state.ActiveTools)
 }
 
 // semanticFrame describes the stable lifecycle fields shared by both fixtures.
 type semanticFrame struct {
-	Type         string `json:"type"`
-	ToolName     string `json:"tool_name"`
-	ToolStatus   string `json:"tool_status"`
-	Text         string `json:"text"`
+	Type               string `json:"type"`
+	ToolName           string `json:"tool_name"`
+	ToolStatus         string `json:"tool_status"`
+	Text               string `json:"text"`
+	ToolResultContents []struct {
+		Text string `json:"text"`
+	} `json:"tool_result_contents"`
 	ModelText    string `json:"model_text"`
 	Outcome      string `json:"outcome"`
 	Availability string `json:"availability"`
@@ -195,6 +201,13 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	lifecycle := uiv1.LifecycleEvent_builder{Type: new(typeValue), ToolName: new(frame.ToolName), Text: new(frame.Text), Outcome: new(frame.Outcome)}.Build()
 	if frame.Type == "message_end" && frame.ModelText != "" {
 		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new(frame.ModelText)}.Build()}}.Build())
+	}
+	if frame.Type == "tool_result" {
+		contents := make([]*uiv1.ToolResultContent, 0, len(frame.ToolResultContents))
+		for _, content := range frame.ToolResultContents {
+			contents = append(contents, uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build())
+		}
+		lifecycle.SetToolResultContents(contents)
 	}
 	if frame.Type == "tool_execution_end" {
 		lifecycle.SetIsError(frame.ToolStatus != "ok")
@@ -377,6 +390,44 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	assert.Equal(t, presentationdomain.Event{Kind: presentationdomain.EventError, Text: "safe error"}, event)
 }
 
+// TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.
+func TestMapLifecycleRejectsEmptyToolResultContents(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+	}.Build())
+	require.ErrorContains(t, err, "tool result contents are empty")
+}
+
+// TestMapLifecycleRejectsMissingToolResultContent verifies malformed blocks fail at the UI boundary.
+func TestMapLifecycleRejectsMissingToolResultContent(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		ToolResultContents: []*uiv1.ToolResultContent{
+			uiv1.ToolResultContent_builder{}.Build(),
+		},
+	}.Build())
+	require.ErrorContains(t, err, "tool result content 0 is missing")
+}
+
+// TestMapLifecycleRejectsEmptyToolResultImage prevents empty image payloads from reaching presentation.
+func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		ToolResultContents: []*uiv1.ToolResultContent{
+			uiv1.ToolResultContent_builder{Image: uiv1.ToolResultImage_builder{
+				MediaType: new("image/png"), Data: nil,
+			}.Build()}.Build(),
+		},
+	}.Build())
+	require.ErrorContains(t, err, "tool result image 0 is invalid")
+}
+
 // TestHostMessageEndFinalizesTextStreamAtDifferentPosition verifies complete terminal model projection.
 func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	t.Parallel()
@@ -462,11 +513,15 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			name: "failed tool result",
 			lifecycle: uiv1.LifecycleEvent_builder{
 				Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-				ToolCallId: new("call-1"), ToolName: new("read"), Text: new("denied"), IsError: new(true),
+				ToolCallId: new("call-1"), ToolName: new("read"), IsError: new(true),
+				ToolResultContents: []*uiv1.ToolResultContent{
+					uiv1.ToolResultContent_builder{Text: new("denied")}.Build(),
+				},
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:       presentationdomain.EventToolResult,
-				ToolCallID: "call-1", ToolName: "read", Text: "denied", Failure: true,
+				ToolCallID: "call-1", ToolName: "read", Failure: true,
+				ToolResultContents: []presentationdomain.ToolResultContent{{Text: "denied"}},
 			},
 		},
 		{

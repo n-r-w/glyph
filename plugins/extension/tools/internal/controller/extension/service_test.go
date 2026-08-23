@@ -66,7 +66,9 @@ func TestServiceExecuteRead(t *testing.T) {
 	require.Len(t, events, 1)
 	result := events[0].GetResult()
 	require.NotNil(t, result)
-	assert.Equal(t, "first\nsecond\n", result.GetContent())
+	assert.Equal(t, "first\nsecond\n", result.GetContents()[0].GetText())
+	require.Len(t, result.GetContents(), 1)
+	assert.Equal(t, "first\nsecond\n", result.GetContents()[0].GetText())
 	assert.False(t, result.GetIsError())
 }
 
@@ -91,7 +93,7 @@ func TestServiceExecuteReadError(t *testing.T) {
 	result := events[0].GetResult()
 	require.NotNil(t, result)
 	assert.True(t, result.GetIsError())
-	assert.ErrorContains(t, errors.New(result.GetContent()), "file does not exist")
+	assert.ErrorContains(t, errors.New(result.GetContents()[0].GetText()), "file does not exist")
 }
 
 // TestServiceExecuteRejectsInvalidArguments verifies the complete read-argument schema at the extension boundary.
@@ -124,7 +126,7 @@ func TestServiceExecuteRejectsInvalidArguments(t *testing.T) {
 			result := events[0].GetResult()
 			require.NotNil(t, result)
 			assert.True(t, result.GetIsError())
-			assert.NotEmpty(t, result.GetContent())
+			assert.NotEmpty(t, result.GetContents()[0].GetText())
 		})
 	}
 }
@@ -149,7 +151,7 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 	result := events[0].GetResult()
 	require.NotNil(t, result)
 	assert.True(t, result.GetIsError())
-	assert.ErrorContains(t, errors.New(result.GetContent()), "unknown tool")
+	assert.ErrorContains(t, errors.New(result.GetContents()[0].GetText()), "unknown tool")
 }
 
 // newTestClient serves one controller over an in-memory gRPC connection.

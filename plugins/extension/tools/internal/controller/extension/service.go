@@ -259,7 +259,12 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 // sendResult emits the one terminal event required for every completed tool operation.
 func sendResult(stream extensionv1.ExtensionService_ExecuteServer, content string, isError bool) error {
 	response := extensionv1.ExecuteResponse_builder{
-		Result: extensionv1.ToolResult_builder{Content: new(content), IsError: new(isError)}.Build(),
+		Result: extensionv1.ToolResult_builder{
+			Contents: []*extensionv1.ToolResultContent{
+				extensionv1.ToolResultContent_builder{Text: new(content)}.Build(),
+			},
+			IsError: new(isError),
+		}.Build(),
 	}.Build()
 	if err := stream.Send(response); err != nil {
 		return fmt.Errorf("send terminal tool result: %w", err)

@@ -87,7 +87,10 @@ func TestConnectAndServe(t *testing.T) {
 	assert.Equal(t, "started", progress.GetProgress().GetContent())
 	terminal, err := stream.Recv()
 	require.NoError(t, err)
-	assert.Equal(t, "done", terminal.GetResult().GetContent())
+	require.Len(t, terminal.GetResult().GetContents(), 2)
+	assert.Equal(t, "done", terminal.GetResult().GetContents()[0].GetText())
+	assert.Equal(t, "image/png", terminal.GetResult().GetContents()[1].GetImage().GetMediaType())
+	assert.Equal(t, []byte{0, 1, 2, 3}, terminal.GetResult().GetContents()[1].GetImage().GetData())
 	_, err = stream.Recv()
 	require.ErrorIs(t, err, io.EOF)
 
@@ -132,7 +135,15 @@ func (s *contractService) Execute(
 		return err
 	}
 	if err := stream.Send(extensionpb.ExecuteResponse_builder{
-		Result: extensionpb.ToolResult_builder{Content: new("done"), IsError: new(false)}.Build(),
+		Result: extensionpb.ToolResult_builder{
+			Contents: []*extensionpb.ToolResultContent{
+				extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),
+				extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
+					MediaType: new("image/png"), Data: []byte{0, 1, 2, 3},
+				}.Build()}.Build(),
+			},
+			IsError: new(false),
+		}.Build(),
 	}.Build()); err != nil {
 		return err
 	}

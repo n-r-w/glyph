@@ -103,10 +103,31 @@ enum ProgressChannel {
   PROGRESS_CHANNEL_STDERR = 3;
 }
 
+// ToolResultContent carries one ordered terminal tool result block.
+message ToolResultContent {
+  // The result content payload.
+  oneof content {
+    // The UTF-8 text payload.
+    string text = 1;
+    // The binary image payload.
+    ToolResultImage image = 2;
+  }
+}
+
+// ToolResultImage carries binary image data and its media type.
+message ToolResultImage {
+  // The image media type.
+  string media_type = 1;
+  // The binary image data.
+  bytes data = 2;
+}
+
 // ToolResult is the terminal outcome of one tool call.
 message ToolResult {
-  // The terminal model-visible result content.
-  string content = 1;
+  reserved 1;
+  reserved content;
   // Whether the tool operation ended with an error.
   bool is_error = 2;
+  // The ordered terminal model-visible result blocks.
+  repeated ToolResultContent contents = 3;
 }
