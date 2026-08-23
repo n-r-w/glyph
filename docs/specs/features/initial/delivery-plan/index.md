@@ -93,10 +93,31 @@
 - Blockers: None
 - File: [12-extension-defined-providers.md](12-extension-defined-providers.md)
 
+### PHS-12.1. Standard TUI transcript rendering and layout
+- Owner: Standard TUI presentation
+- Result: Render semantic transcript blocks and keep a stable interaction dock visible.
+- Dependencies: PHS-12
+- Blockers: None
+- File: [12.1-standard-tui-rendering-layout.md](12.1-standard-tui-rendering-layout.md)
+
+### PHS-12.2. Standard TUI viewport navigation
+- Owner: Standard TUI viewport and input routing
+- Result: Keep the complete transcript reachable during streaming, search, selection, and resize.
+- Dependencies: PHS-12.1
+- Blockers: None
+- File: [12.2-standard-tui-viewport-navigation.md](12.2-standard-tui-viewport-navigation.md)
+
+### PHS-12.3. Standard TUI editor and terminal interaction
+- Owner: Standard TUI editor and terminal lifecycle
+- Result: Provide multiline editing, completion, attachments, queued input, selectors, and terminal restoration.
+- Dependencies: PHS-12.2
+- Blockers: None
+- File: [12.3-standard-tui-editor-terminal-interaction.md](12.3-standard-tui-editor-terminal-interaction.md)
+
 ### PHS-13. Standard TUI presentation extensions
 - Owner: Standard TUI extension presentation
 - Result: Let extensions add passive presentation to the standard TUI while the TUI retains terminal ownership.
-- Dependencies: PHS-12
+- Dependencies: PHS-12.3
 - Blockers: None
 - File: [13-tui-presentation-extensions.md](13-tui-presentation-extensions.md)
 
@@ -157,17 +178,21 @@
 11. PHS-10 - Commands, interaction, notifications, and extension events
 12. PHS-11 - Resource contributions
 13. PHS-12 - Extension-defined providers
-14. PHS-13 - Standard TUI presentation extensions
-15. PHS-14 - Interactive standard TUI extensions
-16. PHS-15 - Extension installation and state management
-17. PHS-16 - Environment reload
-18. PHS-17 - Reference scenario closure
-19. PHS-18 - Cleanup
-20. PHS-19 - Independent final verification
+14. PHS-12.1 - Standard TUI transcript rendering and layout
+15. PHS-12.2 - Standard TUI viewport navigation
+16. PHS-12.3 - Standard TUI editor and terminal interaction
+17. PHS-13 - Standard TUI presentation extensions
+18. PHS-14 - Interactive standard TUI extensions
+19. PHS-15 - Extension installation and state management
+20. PHS-16 - Environment reload
+21. PHS-17 - Reference scenario closure
+22. PHS-18 - Cleanup
+23. PHS-19 - Independent final verification
 
 ## References
 
 - [`prd.md`](../prd.md) - target product requirements and reference scenario coverage.
 - [`prototype-prd.md`](../prototype-prd.md) - implemented prototype scope.
 - [`prototype-technical-solution.md`](../prototype-technical-solution.md) - prototype architecture and implementation baseline.
+- [`standard-tui.md`](../standard-tui.md) - standard terminal-agent interaction requirements.
 - [`pi-extension-surface.md`](../../../../artefacts/pi-extension-surface.md) - researched extension capability surface.

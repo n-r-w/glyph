@@ -36,7 +36,7 @@ Out of scope:
 
 ## Dependencies and Preconditions
 
-- DEP-01: [PHS-12](12-extension-defined-providers.md) must meet all acceptance criteria.
+- DEP-01: [PHS-12.3](12.3-standard-tui-editor-terminal-interaction.md) must meet all acceptance criteria.
 
 ## Requirements
 

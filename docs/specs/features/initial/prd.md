@@ -268,6 +268,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The standard TUI shall provide a terminal UI for the standard coding agent without owning agent-core behavior.
 - The standard TUI shall own terminal input dispatch, terminal rendering, and editor behavior.
+- The standard TUI shall satisfy the transcript, viewport, editor, completion, clipboard, selector, and terminal-lifecycle requirements in `docs/specs/features/initial/standard-tui.md`.
 - The standard TUI shall render model output incrementally and keep tool progress visible while a tool runs.
 - The user shall be able to stop the active run through the standard TUI.
 - The standard TUI shall expose model selection, model cycling, environment reload, context compaction, and session operations through user-invokable actions.
@@ -339,6 +340,7 @@ This matrix provides traceability for the 20 current `pi-agent-suite` entry poin
 - `docs/specs/features/initial/problem.md`
 - `docs/terms.md`
 - `docs/specs/features/initial/tui-defaults.md`
+- `docs/specs/features/initial/standard-tui.md`
 - `docs/artefacts/go-extension-feasibility.md`
 - `docs/artefacts/pi-extension-surface.md`
 - `https://github.com/n-r-w/pi-agent-suite`

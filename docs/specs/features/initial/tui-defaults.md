@@ -1,6 +1,6 @@
 # Standard TUI Commands and Key Defaults
 
-This supplement owns the concrete command names and initial keybinding baseline for the standard TUI. Capability requirements and ownership boundaries are defined in `docs/specs/features/initial/prd.md`.
+This supplement owns the concrete command names and initial keybinding baseline for the standard TUI. Capability requirements and ownership boundaries are defined in `docs/specs/features/initial/prd.md` and `docs/specs/features/initial/standard-tui.md`.
 
 The keybinding baseline was copied from Pi instead of being designed again. Glyph owns the recorded values; later Pi changes do not update them automatically. A row applies only when Glyph independently supports the equivalent action and does not add that action to product scope. Pi reference action identifiers identify source semantics and are not Glyph API names.
 
@@ -18,6 +18,7 @@ The keybinding baseline was copied from Pi instead of being designed again. Glyp
 | Clone a session | `/clone` |
 | Name a session | `/name` |
 | Show session information | `/session` |
+| Show active commands and key bindings | `/hotkeys` |
 
 ## Keybinding Baseline
 
@@ -29,16 +30,18 @@ The following values are the complete Pi baseline for macOS and Linux. Platform-
 |---|---|
 | `tui.editor.cursorUp` | `up` |
 | `tui.editor.cursorDown` | `down` |
+| `tui.editor.historyPrevious` | None |
+| `tui.editor.historyNext` | None |
 | `tui.editor.cursorLeft` | `left`, `ctrl+b` |
 | `tui.editor.cursorRight` | `right`, `ctrl+f` |
 | `tui.editor.cursorWordLeft` | `alt+left`, `ctrl+left`, `alt+b` |
 | `tui.editor.cursorWordRight` | `alt+right`, `ctrl+right`, `alt+f` |
-| `tui.editor.cursorLineStart` | `home`, `ctrl+a` |
-| `tui.editor.cursorLineEnd` | `end`, `ctrl+e` |
+| `tui.editor.cursorLineStart` | `home`, `ctrl+home`, `ctrl+a` |
+| `tui.editor.cursorLineEnd` | `end`, `ctrl+end`, `ctrl+e` |
 | `tui.editor.jumpForward` | `ctrl+]` |
 | `tui.editor.jumpBackward` | `ctrl+alt+]` |
-| `tui.editor.pageUp` | `pageUp` |
-| `tui.editor.pageDown` | `pageDown` |
+| `tui.editor.pageUp` | `pageUp`, `ctrl+pageUp` |
+| `tui.editor.pageDown` | `pageDown`, `ctrl+pageDown` |
 
 ### Editor Deletion
 
@@ -78,6 +81,27 @@ The following values are the complete Pi baseline for macOS and Linux. Platform-
 | `tui.select.pageDown` | `pageDown` |
 | `tui.select.confirm` | `enter` |
 | `tui.select.cancel` | `escape`, `ctrl+c` |
+
+### Transcript Viewport
+
+| Pi reference action | Default |
+|---|---|
+| `tui.altScreen.pageUp` | `pageUp` |
+| `tui.altScreen.pageDown` | `pageDown` |
+| `tui.altScreen.halfPageUp` | None |
+| `tui.altScreen.halfPageDown` | None |
+| `tui.altScreen.lineUp` | None |
+| `tui.altScreen.lineDown` | None |
+| `tui.altScreen.previousPrompt` | `ctrl+shift+up` |
+| `tui.altScreen.nextPrompt` | `ctrl+shift+down` |
+| `tui.altScreen.search` | `ctrl+shift+f` |
+| `tui.altScreen.searchNext` | `enter`, `ctrl+g` |
+| `tui.altScreen.searchPrevious` | `shift+enter`, `ctrl+shift+g` |
+| `tui.altScreen.searchClose` | `escape` |
+| `tui.altScreen.top` | `home` |
+| `tui.altScreen.bottom` | `end` |
+
+In the standard TUI transcript, unmodified `home`, `end`, `pageUp`, and `pageDown` use the viewport actions above. Their `ctrl` variants retain editor movement. User configuration can replace either binding.
 
 ### Application
 
@@ -158,5 +182,6 @@ None.
 ## References
 
 - `docs/specs/features/initial/prd.md`
-- `@earendil-works/pi-coding-agent/docs/usage.md`
-- `@earendil-works/pi-coding-agent/docs/keybindings.md`
+- `docs/specs/features/initial/standard-tui.md`
+- `https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/usage.md`
+- `https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/keybindings.md`
