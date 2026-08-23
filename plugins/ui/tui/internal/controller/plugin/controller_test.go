@@ -3,8 +3,12 @@ package plugin
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"go.uber.org/mock/gomock"
@@ -127,6 +131,86 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+// TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer mapping.
+func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
+	t.Parallel()
+	payload, err := os.ReadFile(filepath.Join(repositoryRoot(t), "testdata", "semantic-ui-lifecycle.json"))
+	require.NoError(t, err)
+	var sequence []semanticFrame
+	require.NoError(t, json.Unmarshal(payload, &sequence))
+
+	service := presentationusecase.New()
+	initial, err := mapRequest(initializationRequest())
+	require.NoError(t, err)
+	state := service.Apply(presentationdomain.State{}, initial)
+	for _, frame := range sequence {
+		request := lifecycleRequest(frame)
+		event, mapErr := mapRequest(request)
+		require.NoError(t, mapErr)
+		state = service.Apply(state, event)
+	}
+
+	assert.True(t, state.Settled)
+	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
+	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineModel, Text: "Request complete."})
+	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Status: "completed"})
+	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}"})
+	assert.Empty(t, state.ActiveTools)
+}
+
+// semanticFrame describes the stable lifecycle fields shared by both fixtures.
+type semanticFrame struct {
+	Type         string `json:"type"`
+	ToolName     string `json:"tool_name"`
+	ToolStatus   string `json:"tool_status"`
+	Text         string `json:"text"`
+	ModelText    string `json:"model_text"`
+	Outcome      string `json:"outcome"`
+	Availability string `json:"availability"`
+}
+
+// lifecycleRequest builds a public protobuf frame for the real controller mapper.
+func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
+	typeValue := uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
+	switch frame.Type {
+	case "agent_start":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START
+	case "message_end":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
+	case "tool_execution_start":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START
+	case "tool_execution_end":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
+	case "tool_result":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
+	case "agent_settled":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED
+	case "agent_end":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END
+	case "availability":
+		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED
+	}
+	lifecycle := uiv1.LifecycleEvent_builder{Type: new(typeValue), ToolName: new(frame.ToolName), Text: new(frame.Text), Outcome: new(frame.Outcome)}.Build()
+	if frame.Type == "message_end" && frame.ModelText != "" {
+		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new(frame.ModelText)}.Build()}}.Build())
+	}
+	if frame.Type == "tool_execution_end" {
+		lifecycle.SetIsError(frame.ToolStatus != "ok")
+	}
+	if frame.Type == "availability" {
+		lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
+	}
+	return uiv1.OpenRequest_builder{Lifecycle: lifecycle}.Build()
+}
+
+// repositoryRoot resolves shared testdata from the source file location.
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..", ".."))
 }
 
 // TestMapLifecyclePreservesRefusalKind verifies refusal deltas stay distinct from ordinary model text.

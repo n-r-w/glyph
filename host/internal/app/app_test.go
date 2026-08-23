@@ -4,12 +4,19 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -78,8 +85,10 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 		"%d\n%s\n%s\n",
 		os.Getpid(), initialization.GetSelectedUiId(), strings.Join(startupText, "\n"),
 	)
-	if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
-		return err
+	if os.Getenv(appUIBehaviorEnvironment) != "semantic" {
+		if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
+			return err
+		}
 	}
 	if os.Getenv(appUITerminalEnvironment) == "1" {
 		terminalFile, terminalErr := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -98,6 +107,49 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	}
 	if os.Getenv(appUIBehaviorEnvironment) == "crash" {
 		os.Exit(23)
+	}
+	//nolint:nestif // The helper serves one explicit lifecycle mode for this process fixture.
+	if os.Getenv(appUIBehaviorEnvironment) == "semantic" {
+		if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("read input.txt")}.Build()}.Build()); err != nil {
+			return err
+		}
+		file, err := os.OpenFile(os.Getenv(appUITraceEnvironment), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				slog.ErrorContext(stream.Context(), "close semantic UI trace", "error", closeErr)
+			}
+		}()
+		settled := false
+		for {
+			frame, err := stream.Recv()
+			if err != nil {
+				return err
+			}
+			if lifecycle := frame.GetLifecycle(); lifecycle != nil {
+				payload, marshalErr := json.Marshal(map[string]any{
+					"type": lifecycle.GetType(), "text": lifecycle.GetText(),
+					"model_text": lifecycle.GetModelResponse().GetText(),
+					"tool_name":  lifecycle.GetToolName(), "tool_status": !lifecycle.GetIsError(),
+					"outcome": lifecycle.GetOutcome(), "settled": lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
+					"availability": lifecycle.GetAvailability(),
+				})
+				if marshalErr != nil {
+					return marshalErr
+				}
+				if _, writeErr := fmt.Fprintf(file, "%s\n", payload); writeErr != nil {
+					return writeErr
+				}
+				if lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
+					settled = true
+				}
+				if settled && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
+					return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+				}
+			}
+		}
 	}
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
@@ -317,6 +369,235 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 	processID, parseErr := strconv.Atoi(strings.Split(strings.TrimSpace(string(trace)), "\n")[0])
 	require.NoError(t, parseErr)
 	require.ErrorIs(t, syscall.Kill(processID, 0), syscall.ESRCH)
+}
+
+// TestHostSemanticClientMatchesHeadlessOutcome verifies shared public semantics.
+func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
+	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	accessToken := semanticAccessToken(t, "account")
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken)), 0o600))
+	requestCount := &atomic.Int32{}
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+
+	extensionDirectory := buildToolsExecutable(t)
+	var headlessStdout, headlessStderr bytes.Buffer
+	headlessErr := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeHeadless, Headless: headless.Command{UserText: "read input.txt", ExtensionDirectory: extensionDirectory},
+	}, &headlessStdout, &headlessStderr)
+	require.NoError(t, headlessErr)
+	assert.Equal(t, int32(2), requestCount.Load())
+	headlessObservation := parseHeadlessOutcome(headlessStdout.String(), headlessStderr.String(), headlessErr)
+	expected := sharedOutcome{FinalText: "Request complete.", ToolName: "bash", ToolStartName: "bash", ToolEndName: "bash", ToolStatus: "ok", ToolStarted: true, ToolEnded: true, CommandSucceeded: true}
+	assert.Equal(t, expected, headlessObservation)
+
+	requestCount.Store(0)
+	uiDirectory := t.TempDir()
+	tracePath := filepath.Join(t.TempDir(), "semantic-ui.jsonl")
+	t.Setenv(appUIBehaviorEnvironment, "semantic")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	writeUIExecutable(t, uiDirectory, "Semantic_UI")
+	uiErr := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: extensionDirectory},
+		ExtensionDirectory: extensionDirectory, UIDirectory: uiDirectory, UIID: "semantic-ui",
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	require.NoError(t, uiErr)
+	assert.Equal(t, int32(2), requestCount.Load())
+	ui := parseUIObservation(t, tracePath)
+	assert.Equal(t, loadSemanticLifecycle(t), ui.Records)
+	assert.Equal(t, expected, ui.Shared)
+	assert.Equal(t, headlessObservation, ui.Shared)
+}
+
+// sharedOutcome contains only fields observable from both Host client boundaries.
+type sharedOutcome struct {
+	FinalText, ToolName, ToolStatus string
+	ToolStartName, ToolEndName      string
+	ToolStarted, ToolEnded          bool
+	CommandSucceeded                bool
+}
+
+// semanticLifecycleRecord is the stable subset shared with the standard consumer fixture.
+type semanticLifecycleRecord struct {
+	Type         string `json:"type"`
+	ToolName     string `json:"tool_name,omitempty"`
+	ToolStatus   string `json:"tool_status,omitempty"`
+	Text         string `json:"text,omitempty"`
+	ModelText    string `json:"model_text,omitempty"`
+	Outcome      string `json:"outcome,omitempty"`
+	Availability string `json:"availability,omitempty"`
+}
+
+// uiObservation stores normalized UI lifecycle records and its derived public outcome.
+type uiObservation struct {
+	Shared  sharedOutcome
+	Records []semanticLifecycleRecord
+}
+
+// parseHeadlessOutcome reads shared fields from the one-shot public output.
+func parseHeadlessOutcome(stdout, stderr string, err error) sharedOutcome {
+	observation := sharedOutcome{FinalText: strings.TrimSpace(stdout), CommandSucceeded: err == nil}
+	for _, line := range strings.Split(stderr, "\n") {
+		switch {
+		case strings.HasPrefix(line, "[tool:start] "):
+			observation.ToolName = strings.TrimPrefix(line, "[tool:start] ")
+			observation.ToolStartName = observation.ToolName
+			observation.ToolStarted = true
+		case strings.HasPrefix(line, "[tool:end] "):
+			parts := strings.SplitN(strings.TrimPrefix(line, "[tool:end] "), ": ", 2)
+			if len(parts) == 2 {
+				observation.ToolName, observation.ToolStatus = parts[0], parts[1]
+				observation.ToolEndName = parts[0]
+				observation.ToolEnded = true
+			}
+		}
+	}
+	return observation
+}
+
+// parseUIObservation validates and normalizes every semantic UI trace line.
+func parseUIObservation(t *testing.T, path string) uiObservation {
+	t.Helper()
+	payload, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var records []semanticLifecycleRecord
+	var finalText, toolName, toolStatus string
+	var toolStarted, toolEnded, agentCompleted, settled bool
+	var toolStartName, toolEndName string
+	for _, line := range strings.Split(strings.TrimSpace(string(payload)), "\n") {
+		var item struct {
+			Type         uipb.LifecycleType `json:"type"`
+			Text         string             `json:"text"`
+			ModelText    string             `json:"model_text"`
+			ToolName     string             `json:"tool_name"`
+			ToolStatus   bool               `json:"tool_status"`
+			Outcome      string             `json:"outcome"`
+			Availability uipb.Availability  `json:"availability"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(line), &item))
+		record := semanticLifecycleRecord{}
+		//nolint:exhaustive // The fixture keeps only lifecycle fields used by the semantic consumer.
+		switch item.Type {
+		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START:
+			record.Type = "agent_start"
+		case uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
+			record.Type, record.ModelText = "message_end", item.ModelText
+			finalText = item.ModelText
+		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
+			record.Type, record.ToolName = "tool_execution_start", item.ToolName
+			toolStartName = item.ToolName
+			toolStarted = true
+		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
+			record.Type, record.ToolName = "tool_execution_end", item.ToolName
+			toolEndName = item.ToolName
+			toolEnded = true
+			if item.ToolStatus {
+				record.ToolStatus = "ok"
+			} else {
+				record.ToolStatus = "error"
+			}
+			toolName, toolStatus = item.ToolName, record.ToolStatus
+		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
+			record.Type, record.ToolName, record.Text = "tool_result", item.ToolName, item.Text
+		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
+			record.Type, record.Outcome = "agent_end", item.Outcome
+			agentCompleted = item.Outcome == "completed"
+		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+			record.Type = "agent_settled"
+			settled = true
+		case uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
+			if !settled || item.Availability != uipb.Availability_AVAILABILITY_IDLE {
+				continue
+			}
+			record.Type, record.Availability = "availability", "idle"
+		default:
+			continue
+		}
+		records = append(records, record)
+		if item.ToolName != "" {
+			toolName = item.ToolName
+		}
+	}
+	return uiObservation{Records: records, Shared: sharedOutcome{
+		FinalText: finalText, ToolName: toolName, ToolStatus: toolStatus,
+		ToolStartName: toolStartName, ToolEndName: toolEndName,
+		ToolStarted: toolStarted, ToolEnded: toolEnded, CommandSucceeded: agentCompleted && settled,
+	}}
+}
+
+// loadSemanticLifecycle provides the exact sequence consumed by the TUI mapping test.
+func loadSemanticLifecycle(t *testing.T) []semanticLifecycleRecord {
+	t.Helper()
+	payload, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "semantic-ui-lifecycle.json"))
+	require.NoError(t, err)
+	var records []semanticLifecycleRecord
+	require.NoError(t, json.Unmarshal(payload, &records))
+	return records
+}
+
+// deterministicCodexTransport returns two fixed responses and never performs network I/O.
+type deterministicCodexTransport struct{ requestCount *atomic.Int32 }
+
+func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	requestNumber := transport.requestCount.Add(1)
+	switch requestNumber {
+	case 1:
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(toolResponseSSE)), Header: make(http.Header)}, nil
+	case 2:
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(finalResponseSSE)), Header: make(http.Header)}, nil
+	default:
+		return nil, errors.New("deterministic Codex transport received more than two requests")
+	}
+}
+
+const toolResponseSSE = `data: {"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"","status":"in_progress"}}
+
+data: {"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}
+
+data: {"type":"response.output_item.done","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}
+
+data: {"type":"response.completed","response":{"id":"resp-1","status":"completed","output":[]}}
+
+data: [DONE]
+
+`
+const finalResponseSSE = `data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Request complete."}
+
+data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Request complete.","annotations":[],"logprobs":[]}]}}
+
+data: {"type":"response.completed","response":{"id":"resp-2","status":"completed","output":[]}}
+
+data: [DONE]
+
+`
+
+// semanticAccessToken creates credentials accepted by the local deterministic provider path.
+func semanticAccessToken(t *testing.T, accountID string) string {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{"https://api.openai.com/auth": map[string]string{"chatgpt_account_id": accountID}})
+	require.NoError(t, err)
+	return "header." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+}
+
+// buildToolsExecutable compiles the real tools command into a test-owned temporary directory.
+func buildToolsExecutable(t *testing.T) string {
+	t.Helper()
+	root := repoRoot(t)
+	output := filepath.Join(t.TempDir(), "glyph-tools")
+	command := exec.CommandContext(t.Context(), "go", "build", "-o", output, "./plugins/extension/tools/cmd/glyph-tools")
+	command.Dir = root
+	outputBytes, err := command.CombinedOutput()
+	require.NoError(t, err, string(outputBytes))
+	return filepath.Dir(output)
+}
+
+// repoRoot resolves the repository from the test package working directory.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	directory, err := os.Getwd()
+	require.NoError(t, err)
+	return filepath.Clean(filepath.Join(directory, "..", "..", ".."))
 }
 
 // TestTerminalRecoveryPTY proves normal and os.Exit(23) recovery against a real Darwin PTY.

@@ -1,0 +1,11 @@
+[
+  {"type":"agent_start"},
+  {"type":"message_end"},
+  {"type":"tool_execution_start","tool_name":"bash"},
+  {"type":"tool_execution_end","tool_name":"bash","tool_status":"ok"},
+  {"type":"tool_result","tool_name":"bash","text":"{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}"},
+  {"type":"message_end","model_text":"Request complete."},
+  {"type":"agent_end","outcome":"completed"},
+  {"type":"agent_settled"},
+  {"type":"availability","availability":"idle"}
+]
