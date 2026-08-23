@@ -41,16 +41,16 @@ func (m *MockProjectReader) EXPECT() *MockProjectReaderMockRecorder {
 }
 
 // ReadFile mocks base method.
-func (m *MockProjectReader) ReadFile(ctx context.Context, path string) (string, error) {
+func (m *MockProjectReader) ReadFile(arg0 context.Context, arg1 string, arg2, arg3 uint) (Content, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadFile", ctx, path)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "ReadFile", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(Content)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReadFile indicates an expected call of ReadFile.
-func (mr *MockProjectReaderMockRecorder) ReadFile(ctx, path any) *gomock.Call {
+func (mr *MockProjectReaderMockRecorder) ReadFile(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockProjectReader)(nil).ReadFile), ctx, path)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockProjectReader)(nil).ReadFile), arg0, arg1, arg2, arg3)
 }

@@ -17,7 +17,7 @@ import (
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// TestServiceListTools verifies the complete standard-extension catalog for the read tool.
+// TestServiceListTools verifies the complete standard-extension catalog.
 func TestServiceListTools(t *testing.T) {
 	t.Parallel()
 
@@ -28,22 +28,28 @@ func TestServiceListTools(t *testing.T) {
 	// Act: request the fixed startup catalog.
 	response, err := client.ListTools(t.Context(), &extensionv1.ListToolsRequest{})
 
-	// Assert: expose the complete read, edit, and bash catalog.
+	// Assert: expose the complete read, write, edit, and bash catalog.
 	require.NoError(t, err)
-	require.Len(t, response.GetTools(), 3)
+	require.Len(t, response.GetTools(), 4)
 	descriptor := response.GetTools()[0]
 	assert.Equal(t, "read", descriptor.GetName())
 	assert.NotEmpty(t, descriptor.GetDescription())
 	assert.JSONEq(t, `{
 		"type":"object",
-		"properties":{"path":{"type":"string","description":"Path to the text file to read."}},
+		"properties":{
+			"path":{"type":"string","description":"Path to the file to read."},
+			"offset":{"type":"integer","minimum":1,"description":"One-based line offset."},
+			"limit":{"type":"integer","minimum":1,"description":"Maximum number of lines."}
+		},
 		"required":["path"],
 		"additionalProperties":false
 	}`, string(descriptor.GetInputSchemaJson()))
 	strict := descriptor.GetConstrainedSampling().GetJsonSchema().GetStrictness()
 	assert.Equal(t, extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER, strict)
-	assert.Equal(t, "edit", response.GetTools()[1].GetName())
-	assert.Equal(t, "bash", response.GetTools()[2].GetName())
+	assert.Equal(t, "write", response.GetTools()[1].GetName())
+	assert.Equal(t, "edit", response.GetTools()[2].GetName())
+	assert.Equal(t, "Apply ordered unique exact text replacements to a project file.", response.GetTools()[2].GetDescription())
+	assert.Equal(t, "bash", response.GetTools()[3].GetName())
 }
 
 // TestServiceExecuteRead verifies typed argument decoding and one terminal successful result.
@@ -52,7 +58,7 @@ func TestServiceExecuteRead(t *testing.T) {
 
 	// Arrange: require the read use case to receive the validated path.
 	readTool := NewMockReadTool(gomock.NewController(t))
-	readTool.EXPECT().Read(gomock.Any(), "notes.txt").Return("first\nsecond\n", nil)
+	readTool.EXPECT().Read(gomock.Any(), "notes.txt", uint(0), uint(0)).Return(ReadResult{Text: "first\nsecond\n", Image: nil}, nil)
 	client := newTestClient(t, readTool)
 
 	// Act: execute read through the generated server-streaming contract.
@@ -72,13 +78,55 @@ func TestServiceExecuteRead(t *testing.T) {
 	assert.False(t, result.GetIsError())
 }
 
-// TestServiceExecuteReadError verifies that read failures become terminal model-visible tool errors.
+// TestServiceExecuteReadImage verifies typed image bytes reach the extension result.
+func TestServiceExecuteReadImage(t *testing.T) {
+	t.Parallel()
+
+	image := []byte{1, 2, 3}
+	readTool := NewMockReadTool(gomock.NewController(t))
+	readTool.EXPECT().Read(gomock.Any(), "image.unknown", uint(0), uint(0)).Return(
+		ReadResult{Text: "", Image: &ReadImage{MediaType: "image/png", Data: image}}, nil,
+	)
+
+	events, err := receiveExecution(t, newTestClient(t, readTool), extensionv1.ExecuteRequest_builder{
+		ToolName: new("read"), ArgumentsJson: []byte(`{"path":"image.unknown"}`),
+	}.Build())
+
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.Equal(t, "image/png", events[0].GetResult().GetContents()[0].GetImage().GetMediaType())
+	assert.Equal(t, image, events[0].GetResult().GetContents()[0].GetImage().GetData())
+}
+
+// TestServiceExecuteWrite verifies public write dispatch and success output.
+func TestServiceExecuteWrite(t *testing.T) {
+	t.Parallel()
+
+	writeTool := NewMockWriteTool(gomock.NewController(t))
+	writeTool.EXPECT().Write(gomock.Any(), "nested/notes.txt", "content").Return(nil)
+	client := newTestClientWithTools(
+		t,
+		NewMockReadTool(gomock.NewController(t)),
+		writeTool,
+		NewMockEditTool(gomock.NewController(t)),
+	)
+
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName: new("write"), ArgumentsJson: []byte(`{"path":"nested/notes.txt","content":"content"}`),
+	}.Build())
+
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.False(t, events[0].GetResult().GetIsError())
+}
+
+// TestServiceExecuteReadError returns use-case failures as terminal tool errors.
 func TestServiceExecuteReadError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange: make the read use case reject the requested file.
 	readTool := NewMockReadTool(gomock.NewController(t))
-	readTool.EXPECT().Read(gomock.Any(), "missing.txt").Return("", errors.New("file does not exist"))
+	readTool.EXPECT().Read(gomock.Any(), "missing.txt", uint(0), uint(0)).Return(ReadResult{Text: "", Image: nil}, errors.New("file does not exist"))
 	client := newTestClient(t, readTool)
 
 	// Act: execute read for the missing file.
@@ -131,6 +179,33 @@ func TestServiceExecuteRejectsInvalidArguments(t *testing.T) {
 	}
 }
 
+// TestEditSchemaRejectsEmptySource verifies validation rejects input before edit dispatch.
+func TestEditSchemaRejectsEmptySource(t *testing.T) {
+	t.Parallel()
+
+	arguments := []byte(`{"path":"notes.txt","edits":[{"oldText":"","newText":"new"}]}`)
+	schema, err := compileSchema(editToolName, editInputSchemaJSON)
+	require.NoError(t, err)
+	_, err = validateArguments(schema, arguments)
+	require.Error(t, err)
+
+	client := newTestClientWithTools(
+		t,
+		NewMockReadTool(gomock.NewController(t)),
+		NewMockWriteTool(gomock.NewController(t)),
+		NewMockEditTool(gomock.NewController(t)),
+	)
+
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName:      new("edit"),
+		ArgumentsJson: arguments,
+	}.Build())
+
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.True(t, events[0].GetResult().GetIsError())
+}
+
 // TestServiceExecuteRejectsUnknownTool verifies that dispatch is restricted to the listed read tool.
 func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 	t.Parallel()
@@ -141,7 +216,7 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 
 	// Act: request an unregistered tool.
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
-		ToolName:      new("write"),
+		ToolName:      new("unknown"),
 		ArgumentsJson: []byte(`{"path":"notes.txt"}`),
 	}.Build())
 
@@ -156,11 +231,17 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 
 // newTestClient serves one controller over an in-memory gRPC connection.
 func newTestClient(t *testing.T, readTool ReadTool) extensionv1.ExtensionServiceClient {
+	return newTestClientWithTools(t, readTool, NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)))
+}
+
+// newTestClientWithTools serves selected use cases over an in-memory gRPC connection.
+func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool, editTool EditTool) extensionv1.ExtensionServiceClient {
 	t.Helper()
 
 	service, err := New(
 		readTool,
-		NewMockEditTool(gomock.NewController(t)),
+		writeTool,
+		editTool,
 		NewMockBashTool(gomock.NewController(t)),
 	)
 	require.NoError(t, err)

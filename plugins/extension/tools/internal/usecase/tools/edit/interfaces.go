@@ -4,8 +4,7 @@ import "context"
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=edit
 
-// ProjectEditor reads and writes complete project files.
+// ProjectEditor updates one complete project-file mutation.
 type ProjectEditor interface {
-	ReadFile(ctx context.Context, path string) (string, error)
-	WriteFile(ctx context.Context, path string, content string) error
+	UpdateFile(context.Context, string, func([]byte) ([]byte, error)) error
 }

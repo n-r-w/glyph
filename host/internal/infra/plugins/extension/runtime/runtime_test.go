@@ -116,8 +116,8 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	tools, err := runtime.ListTools(t.Context())
 	require.NoError(t, err)
 
-	// Assert: expose the complete standard read, edit, and bash catalog.
-	require.Len(t, tools, 3)
+	// Assert: expose the complete standard read, write, edit, and bash catalog.
+	require.Len(t, tools, 4)
 	assert.Equal(t, "read", tools[0].Name)
 	assert.NotEmpty(t, tools[0].Description)
 	assert.NotEmpty(t, tools[0].InputSchemaJSON)
@@ -138,7 +138,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	editResult, err := runtime.Execute(
 		t.Context(),
 		"edit",
-		[]byte(`{"path":"notes.txt","oldText":"first","newText":"updated"}`),
+		[]byte(`{"path":"notes.txt","edits":[{"oldText":"first","newText":"updated"}]}`),
 		discardProgress,
 	)
 	require.NoError(t, err)

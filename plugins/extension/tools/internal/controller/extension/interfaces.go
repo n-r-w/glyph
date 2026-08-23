@@ -4,21 +4,44 @@ import "context"
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extension
 
-// ReadTool executes the standard read operation after transport validation.
+// ReadImage contains image bytes detected from file content.
+type ReadImage struct {
+	MediaType string
+	Data      []byte
+}
+
+// ReadResult contains a text or image read result.
+type ReadResult struct {
+	Text  string
+	Image *ReadImage
+}
+
+// ReadTool executes bounded reads.
 type ReadTool interface {
-	Read(ctx context.Context, path string) (string, error)
+	Read(context.Context, string, uint, uint) (ReadResult, error)
 }
 
-// EditTool executes the standard exact-fragment replacement.
+// WriteTool replaces one project file.
+type WriteTool interface {
+	Write(context.Context, string, string) error
+}
+
+// Replacement identifies one exact source replacement.
+type Replacement struct {
+	OldText string `json:"oldText"`
+	NewText string `json:"newText"`
+}
+
+// EditTool applies replacements to one project file.
 type EditTool interface {
-	Edit(ctx context.Context, path, oldText, newText string) error
+	Edit(context.Context, string, []Replacement) error
 }
 
-// BashProgressChannel identifies standard command progress.
+// BashProgressChannel identifies command progress.
 type BashProgressChannel uint8
 
 const (
-	// BashProgressStatus carries lifecycle status.
+	// BashProgressStatus carries command lifecycle state.
 	BashProgressStatus BashProgressChannel = iota
 	// BashProgressStdout carries standard output.
 	BashProgressStdout
@@ -26,20 +49,20 @@ const (
 	BashProgressStderr
 )
 
-// BashProgress is one command progress fragment.
+// BashProgress is one command output fragment.
 type BashProgress struct {
 	Channel BashProgressChannel
 	Content string
 }
 
-// BashResult contains complete command output and exit status.
+// BashResult contains command output and exit status.
 type BashResult struct {
 	Stdout   string
 	Stderr   string
 	ExitCode int
 }
 
-// BashTool executes one command and streams progress.
+// BashTool executes one command.
 type BashTool interface {
-	Execute(ctx context.Context, command string, handleProgress func(BashProgress) error) (BashResult, error)
+	Execute(context.Context, string, func(BashProgress) error) (BashResult, error)
 }

@@ -47,7 +47,7 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Upgrade `read` from complete-file-only operation to offset and limit reads for text files, typed image results for DEF-02, and explicit continuation information when a result is partial.
+- FRQ-01: Upgrade `read` from complete-file-only operation to offset and limit reads for text files, typed image results for DEF-02, and explicit continuation information when a result is partial. A partial text result appends a notice in the same text block that identifies the shown line range, total line count, and next `offset`. The complete text block, including the notice, remains within DEF-01. When the first requested line exceeds the byte limit, `read` returns a bounded text notice identifying the line and byte size and directs the model to use a bounded `bash` command. When the first requested line fits DEF-01 alone but cannot fit with the required continuation notice, `read` returns a bounded text notice with the line, byte size, bounded `bash` command, and the next line `offset`. It does not return a partial line or byte offset.
 - FRQ-02: Add `write` with parent-directory creation and upgrade `edit` to apply one or more unique exact replacements as one file mutation. A missing or non-unique source fragment leaves the file unchanged.
 - FRQ-03: Add `grep`, `find`, and `ls` with the input and result controls in the Standard tool capability baseline below.
 - FRQ-04: Add `bash` timeout input, retain streamed stdout and stderr, terminate the process group on timeout or cancellation, and store complete output in a temporary file when the model-visible result exceeds DEF-01.
@@ -60,7 +60,7 @@ The Pi tool implementations in REF-04 through REF-11 provide evidence for the co
 
 | Tool | Required input and behavior | Partial or large result behavior |
 |---|---|---|
-| `read` | Required `path`; optional one-based `offset`; optional positive `limit`; text files and DEF-02 images | Text returns the requested line range and the next offset when more lines remain; DEF-01 still limits bytes; image content uses typed image result content |
+| `read` | Required `path`; optional one-based `offset`; optional positive `limit`; text files and DEF-02 images | A partial text result includes the shown line range, total lines, and next `offset` in its text block. A first line that exceeds DEF-01 returns a bounded notice with its line and byte size. Image content uses typed image result content |
 | `write` | Required `path` and `content`; creates missing parent directories; replaces complete file content | Confirmation identifies the written path; content is not echoed beyond DEF-01 |
 | `edit` | Required `path` and one or more ordered exact replacements; every source fragment must occur exactly once in the pre-mutation content | All replacements commit together; any invalid replacement returns an error and leaves the file unchanged |
 | `grep` | Required pattern; optional path, glob, case-insensitive mode, literal mode, context lines, and positive match limit | Returns matching paths and lines, reports the reached match or output limit, and does not return unbounded lines |

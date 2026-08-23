@@ -41,18 +41,56 @@ func (m *MockReadTool) EXPECT() *MockReadToolMockRecorder {
 }
 
 // Read mocks base method.
-func (m *MockReadTool) Read(ctx context.Context, path string) (string, error) {
+func (m *MockReadTool) Read(arg0 context.Context, arg1 string, arg2, arg3 uint) (ReadResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Read", ctx, path)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "Read", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(ReadResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Read indicates an expected call of Read.
-func (mr *MockReadToolMockRecorder) Read(ctx, path any) *gomock.Call {
+func (mr *MockReadToolMockRecorder) Read(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockReadTool)(nil).Read), ctx, path)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockReadTool)(nil).Read), arg0, arg1, arg2, arg3)
+}
+
+// MockWriteTool is a mock of WriteTool interface.
+type MockWriteTool struct {
+	ctrl     *gomock.Controller
+	recorder *MockWriteToolMockRecorder
+	isgomock struct{}
+}
+
+// MockWriteToolMockRecorder is the mock recorder for MockWriteTool.
+type MockWriteToolMockRecorder struct {
+	mock *MockWriteTool
+}
+
+// NewMockWriteTool creates a new mock instance.
+func NewMockWriteTool(ctrl *gomock.Controller) *MockWriteTool {
+	mock := &MockWriteTool{ctrl: ctrl}
+	mock.recorder = &MockWriteToolMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockWriteTool) EXPECT() *MockWriteToolMockRecorder {
+	return m.recorder
+}
+
+// Write mocks base method.
+func (m *MockWriteTool) Write(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Write", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Write indicates an expected call of Write.
+func (mr *MockWriteToolMockRecorder) Write(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockWriteTool)(nil).Write), arg0, arg1, arg2)
 }
 
 // MockEditTool is a mock of EditTool interface.
@@ -80,17 +118,17 @@ func (m *MockEditTool) EXPECT() *MockEditToolMockRecorder {
 }
 
 // Edit mocks base method.
-func (m *MockEditTool) Edit(ctx context.Context, path, oldText, newText string) error {
+func (m *MockEditTool) Edit(arg0 context.Context, arg1 string, arg2 []Replacement) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Edit", ctx, path, oldText, newText)
+	ret := m.ctrl.Call(m, "Edit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Edit indicates an expected call of Edit.
-func (mr *MockEditToolMockRecorder) Edit(ctx, path, oldText, newText any) *gomock.Call {
+func (mr *MockEditToolMockRecorder) Edit(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Edit", reflect.TypeOf((*MockEditTool)(nil).Edit), ctx, path, oldText, newText)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Edit", reflect.TypeOf((*MockEditTool)(nil).Edit), arg0, arg1, arg2)
 }
 
 // MockBashTool is a mock of BashTool interface.
@@ -118,16 +156,16 @@ func (m *MockBashTool) EXPECT() *MockBashToolMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockBashTool) Execute(ctx context.Context, command string, handleProgress func(BashProgress) error) (BashResult, error) {
+func (m *MockBashTool) Execute(arg0 context.Context, arg1 string, arg2 func(BashProgress) error) (BashResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", ctx, command, handleProgress)
+	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2)
 	ret0, _ := ret[0].(BashResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockBashToolMockRecorder) Execute(ctx, command, handleProgress any) *gomock.Call {
+func (mr *MockBashToolMockRecorder) Execute(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockBashTool)(nil).Execute), ctx, command, handleProgress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockBashTool)(nil).Execute), arg0, arg1, arg2)
 }

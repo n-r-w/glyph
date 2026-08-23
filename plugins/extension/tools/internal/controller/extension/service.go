@@ -17,19 +17,27 @@ import (
 )
 
 const (
-	standardToolCount = 3
+	standardToolCount = 4
 	readToolName      = "read"
+	writeToolName     = "write"
 	editToolName      = "edit"
 	bashToolName      = "bash"
 
 	readInputSchemaJSON = `{"type":"object","properties":` +
-		`{"path":{"type":"string","description":"Path to the text file to read."}},` +
+		`{"path":{"type":"string","description":"Path to the file to read."},` +
+		`"offset":{"type":"integer","minimum":1,"description":"One-based line offset."},` +
+		`"limit":{"type":"integer","minimum":1,"description":"Maximum number of lines."}},` +
 		`"required":["path"],"additionalProperties":false}`
+	writeInputSchemaJSON = `{"type":"object","properties":` +
+		`{"path":{"type":"string","description":"Path to the file to write."},` +
+		`"content":{"type":"string","description":"Complete file content."}},` +
+		`"required":["path","content"],"additionalProperties":false}`
 	editInputSchemaJSON = `{"type":"object","properties":` +
-		`{"path":{"type":"string","description":"Path to the text file to edit."},` +
-		`"oldText":{"type":"string","description":"Exact source text to replace."},` +
-		`"newText":{"type":"string","description":"Replacement text."}},` +
-		`"required":["path","oldText","newText"],"additionalProperties":false}`
+		`{"path":{"type":"string","description":"Path to the file to edit."},` +
+		`"edits":{"type":"array","minItems":1,"items":{"type":"object","properties":` +
+		`{"oldText":{"type":"string","minLength":1},"newText":{"type":"string"}},` +
+		`"required":["oldText","newText"],"additionalProperties":false}}},` +
+		`"required":["path","edits"],"additionalProperties":false}`
 	bashInputSchemaJSON = `{"type":"object","properties":` +
 		`{"command":{"type":"string","description":"Bash command to execute."}},` +
 		`"required":["command"],"additionalProperties":false}`
@@ -38,24 +46,32 @@ const (
 // Service exposes standard tools through Extension Contract v1.
 type Service struct {
 	extensionv1.UnimplementedExtensionServiceServer
-	readTool ReadTool
-	editTool EditTool
-	bashTool BashTool
-	schemas  map[string]*jsonschema.Schema
+	readTool  ReadTool
+	writeTool WriteTool
+	editTool  EditTool
+	bashTool  BashTool
+	schemas   map[string]*jsonschema.Schema
 }
 
 var _ extensionv1.ExtensionServiceServer = (*Service)(nil)
 
 // readArguments is the transport-local read input.
 type readArguments struct {
-	Path string `json:"path"`
+	Path   string `json:"path"`
+	Offset uint   `json:"offset"`
+	Limit  uint   `json:"limit"`
+}
+
+// writeArguments is the transport-local write input.
+type writeArguments struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 // editArguments is the transport-local edit input.
 type editArguments struct {
-	Path    string `json:"path"`
-	OldText string `json:"oldText"`
-	NewText string `json:"newText"`
+	Path  string        `json:"path"`
+	Edits []Replacement `json:"edits"`
 }
 
 // bashArguments is the transport-local bash input.
@@ -71,12 +87,13 @@ type bashResult struct {
 }
 
 // New creates an extension controller for the standard tools.
-func New(readTool ReadTool, editTool EditTool, bashTool BashTool) (*Service, error) {
+func New(readTool ReadTool, writeTool WriteTool, editTool EditTool, bashTool BashTool) (*Service, error) {
 	schemas := make(map[string]*jsonschema.Schema, standardToolCount)
 	for name, source := range map[string]string{
-		readToolName: readInputSchemaJSON,
-		editToolName: editInputSchemaJSON,
-		bashToolName: bashInputSchemaJSON,
+		readToolName:  readInputSchemaJSON,
+		writeToolName: writeInputSchemaJSON,
+		editToolName:  editInputSchemaJSON,
+		bashToolName:  bashInputSchemaJSON,
 	} {
 		schema, err := compileSchema(name, source)
 		if err != nil {
@@ -87,6 +104,7 @@ func New(readTool ReadTool, editTool EditTool, bashTool BashTool) (*Service, err
 	return &Service{
 		UnimplementedExtensionServiceServer: extensionv1.UnimplementedExtensionServiceServer{},
 		readTool:                            readTool,
+		writeTool:                           writeTool,
 		editTool:                            editTool,
 		bashTool:                            bashTool,
 		schemas:                             schemas,
@@ -100,11 +118,16 @@ func (s *Service) ListTools(
 ) (*extensionv1.ListToolsResponse, error) {
 	return extensionv1.ListToolsResponse_builder{Tools: []*extensionv1.ToolDescriptor{
 		extensionv1.ToolDescriptor_builder{
-			Name: new(readToolName), Description: new("Read the complete contents of a text file in the working project."),
+			Name:            new(readToolName),
+			Description:     new("Read bounded text or supported image contents from a file in the working project."),
 			InputSchemaJson: []byte(readInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		}.Build(),
 		extensionv1.ToolDescriptor_builder{
-			Name: new(editToolName), Description: new("Replace one uniquely occurring text fragment in a project file."),
+			Name: new(writeToolName), Description: new("Create or replace a file in the working project."),
+			InputSchemaJson: []byte(writeInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
+		}.Build(),
+		extensionv1.ToolDescriptor_builder{
+			Name: new(editToolName), Description: new("Apply ordered unique exact text replacements to a project file."),
 			InputSchemaJson: []byte(editInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		}.Build(),
 		extensionv1.ToolDescriptor_builder{
@@ -140,6 +163,8 @@ func (s *Service) Execute(
 	switch request.GetToolName() {
 	case readToolName:
 		return s.executeRead(arguments, stream)
+	case writeToolName:
+		return s.executeWrite(arguments, stream)
 	case editToolName:
 		return s.executeEdit(arguments, stream)
 	case bashToolName:
@@ -155,8 +180,26 @@ func (s *Service) executeRead(arguments []byte, stream extensionv1.ExtensionServ
 	if err := json.Unmarshal(arguments, &input); err != nil {
 		return sendResult(stream, fmt.Sprintf("decode read arguments: %v", err), true)
 	}
-	content, err := s.readTool.Read(stream.Context(), input.Path)
-	return operationResult(stream, content, err)
+	result, err := s.readTool.Read(stream.Context(), input.Path, input.Offset, input.Limit)
+	if err != nil {
+		return operationResult(stream, "", err)
+	}
+	if result.Image != nil {
+		return sendImageResult(stream, result.Image.MediaType, result.Image.Data)
+	}
+	return operationResult(stream, result.Text, nil)
+}
+
+// executeWrite decodes and executes write.
+func (s *Service) executeWrite(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+	var input writeArguments
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return sendResult(stream, fmt.Sprintf("decode write arguments: %v", err), true)
+	}
+	if err := s.writeTool.Write(stream.Context(), input.Path, input.Content); err != nil {
+		return operationResult(stream, "", err)
+	}
+	return sendResult(stream, "wrote file "+input.Path, false)
 }
 
 // executeEdit decodes and executes edit.
@@ -165,7 +208,7 @@ func (s *Service) executeEdit(arguments []byte, stream extensionv1.ExtensionServ
 	if err := json.Unmarshal(arguments, &input); err != nil {
 		return sendResult(stream, fmt.Sprintf("decode edit arguments: %v", err), true)
 	}
-	if err := s.editTool.Edit(stream.Context(), input.Path, input.OldText, input.NewText); err != nil {
+	if err := s.editTool.Edit(stream.Context(), input.Path, input.Edits); err != nil {
 		return operationResult(stream, "", err)
 	}
 	return sendResult(stream, "replaced text in "+input.Path, false)
@@ -252,6 +295,20 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 	}.Build()
 	if err := stream.Send(response); err != nil {
 		return fmt.Errorf("send tool progress: %w", err)
+	}
+	return nil
+}
+
+// sendImageResult emits one typed image result.
+func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaType string, data []byte) error {
+	response := extensionv1.ExecuteResponse_builder{Result: extensionv1.ToolResult_builder{
+		Contents: []*extensionv1.ToolResultContent{extensionv1.ToolResultContent_builder{
+			Image: extensionv1.ToolResultImage_builder{MediaType: new(mediaType), Data: data}.Build(),
+		}.Build()},
+		IsError: new(false),
+	}.Build()}.Build()
+	if err := stream.Send(response); err != nil {
+		return fmt.Errorf("send terminal tool result: %w", err)
 	}
 	return nil
 }

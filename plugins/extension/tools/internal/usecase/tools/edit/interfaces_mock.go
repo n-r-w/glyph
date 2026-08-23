@@ -40,31 +40,16 @@ func (m *MockProjectEditor) EXPECT() *MockProjectEditorMockRecorder {
 	return m.recorder
 }
 
-// ReadFile mocks base method.
-func (m *MockProjectEditor) ReadFile(ctx context.Context, path string) (string, error) {
+// UpdateFile mocks base method.
+func (m *MockProjectEditor) UpdateFile(arg0 context.Context, arg1 string, arg2 func([]byte) ([]byte, error)) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadFile", ctx, path)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadFile indicates an expected call of ReadFile.
-func (mr *MockProjectEditorMockRecorder) ReadFile(ctx, path any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockProjectEditor)(nil).ReadFile), ctx, path)
-}
-
-// WriteFile mocks base method.
-func (m *MockProjectEditor) WriteFile(ctx context.Context, path, content string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteFile", ctx, path, content)
+	ret := m.ctrl.Call(m, "UpdateFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteFile indicates an expected call of WriteFile.
-func (mr *MockProjectEditorMockRecorder) WriteFile(ctx, path, content any) *gomock.Call {
+// UpdateFile indicates an expected call of UpdateFile.
+func (mr *MockProjectEditorMockRecorder) UpdateFile(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockProjectEditor)(nil).WriteFile), ctx, path, content)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFile", reflect.TypeOf((*MockProjectEditor)(nil).UpdateFile), arg0, arg1, arg2)
 }
