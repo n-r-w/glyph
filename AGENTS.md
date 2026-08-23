@@ -18,6 +18,7 @@
 
 ## Coding rules
 1. MUST run `task lint`, `task test` to check code before completing changes.
+2. Use the pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
