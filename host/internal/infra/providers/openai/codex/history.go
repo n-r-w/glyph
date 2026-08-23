@@ -250,22 +250,9 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
 			return nil, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
 		}
-		strict := capabilities.strict
-		if constraint.Kind == tool.ConstrainedSamplingJSONSchema {
-			switch constraint.JSONSchemaStrictness {
-			case tool.JSONSchemaStrictPrefer:
-			case tool.JSONSchemaStrictRequire:
-				if !capabilities.strict {
-					return nil, fmt.Errorf(
-						"tool %q requires JSON Schema constrained sampling, but the selected Codex model does not support it",
-						descriptor.Name,
-					)
-				}
-			default:
-				return nil, fmt.Errorf("tool %q has invalid JSON Schema strictness", descriptor.Name)
-			}
-		} else if constraint.Kind != 0 {
-			return nil, fmt.Errorf("tool %q has invalid constrained sampling kind", descriptor.Name)
+		strict, err := codexStrict(schema, constraint, capabilities, descriptor.Name)
+		if err != nil {
+			return nil, err
 		}
 		//nolint:exhaustruct // Other SDK tool variants are intentionally omitted.
 		tools = append(tools, responses.ToolUnionParam{
@@ -277,6 +264,105 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 		})
 	}
 	return tools, nil
+}
+
+// codexStrict selects provider strictness without changing the Glyph-owned schema.
+func codexStrict(
+	schema map[string]any,
+	constraint tool.ConstrainedSampling,
+	capabilities toolCapabilities,
+	toolName string,
+) (bool, error) {
+	compatible := codexStrictSchemaCompatible(schema)
+	strict := capabilities.strict && compatible
+	if constraint.Kind == 0 {
+		return strict, nil
+	}
+	if constraint.Kind != tool.ConstrainedSamplingJSONSchema {
+		return false, fmt.Errorf("tool %q has invalid constrained sampling kind", toolName)
+	}
+	switch constraint.JSONSchemaStrictness {
+	case tool.JSONSchemaStrictPrefer:
+		return strict, nil
+	case tool.JSONSchemaStrictRequire:
+		if !capabilities.strict {
+			return false, fmt.Errorf(
+				"tool %q requires JSON Schema constrained sampling, but the selected Codex model does not support it",
+				toolName,
+			)
+		}
+		if !compatible {
+			return false, fmt.Errorf(
+				"tool %q requires JSON Schema constrained sampling, "+
+					"but its input schema is not compatible with Codex strict JSON Schema",
+				toolName,
+			)
+		}
+		return true, nil
+	default:
+		return false, fmt.Errorf("tool %q has invalid JSON Schema strictness", toolName)
+	}
+}
+
+// codexStrictSchemaCompatible checks every object nested in a JSON Schema for Codex strict requirements.
+func codexStrictSchemaCompatible(value any) bool {
+	switch schema := value.(type) {
+	case map[string]any:
+		if codexObjectSchema(schema) && !codexStrictObjectSchema(schema) {
+			return false
+		}
+		for _, child := range schema {
+			if !codexStrictSchemaCompatible(child) {
+				return false
+			}
+		}
+	case []any:
+		for _, child := range schema {
+			if !codexStrictSchemaCompatible(child) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// codexObjectSchema reports whether a schema node declares object-specific keywords.
+func codexObjectSchema(schema map[string]any) bool {
+	typeName, isTyped := schema["type"].(string)
+	_, hasProperties := schema["properties"]
+	_, hasAdditionalProperties := schema["additionalProperties"]
+	return isTyped && typeName == "object" || hasProperties || hasAdditionalProperties
+}
+
+// codexStrictObjectSchema checks that an object meets Codex strict requirements.
+func codexStrictObjectSchema(schema map[string]any) bool {
+	additionalProperties, hasAdditionalProperties := schema["additionalProperties"].(bool)
+	if !hasAdditionalProperties || additionalProperties {
+		return false
+	}
+	properties, hasProperties := schema["properties"].(map[string]any)
+	if !hasProperties {
+		return false
+	}
+	required, hasRequired := schema["required"].([]any)
+	if !hasRequired || len(required) != len(properties) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(required))
+	for _, name := range required {
+		propertyName, isString := name.(string)
+		if !isString {
+			return false
+		}
+		if _, duplicate := seen[propertyName]; duplicate {
+			return false
+		}
+		if _, isProperty := properties[propertyName]; !isProperty {
+			return false
+		}
+		seen[propertyName] = struct{}{}
+	}
+	return true
 }
 
 // grammarInputProperties indexes custom input properties for request replay and stream conversion.

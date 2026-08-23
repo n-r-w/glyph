@@ -117,6 +117,100 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 	}
 }
 
+// TestBuildToolsMapsStrictSchemaCompatibility keeps unsupported strict schemas out of the provider request.
+func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		schema        string
+		strictness    tool.JSONSchemaStrictness
+		expectStrict  bool
+		errorContains string
+		unconstrained bool
+	}{
+		"compatible object remains strict": {
+			schema: constrainedToolSchema, strictness: tool.JSONSchemaStrictPrefer, expectStrict: true,
+		},
+		"compatible nested and array item objects remain strict": {
+			schema:       `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"}},"required":["limit"],"additionalProperties":false},"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["options","ranges"],"additionalProperties":false}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: true,
+		},
+		"preferred optional root falls back": {
+			schema:       `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: false,
+		},
+		"unconstrained optional root falls back": {
+			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			expectStrict:  false,
+			unconstrained: true,
+		},
+		"duplicate required property falls back": {
+			schema:       `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}},"required":["a","a"],"additionalProperties":false}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: false,
+		},
+		"required optional root rejects locally": {
+			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictRequire,
+			errorContains: "not compatible with Codex strict JSON Schema",
+		},
+		"preferred nested optional object falls back": {
+			schema:       `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"},"offset":{"type":"integer"}},"required":["limit"],"additionalProperties":false}},"required":["options"],"additionalProperties":false}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: false,
+		},
+		"preferred array item optional object falls back": {
+			schema:       `{"type":"object","properties":{"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"},"end":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["ranges"],"additionalProperties":false}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: false,
+		},
+		"preferred object without additional properties restriction falls back": {
+			schema:       `{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`,
+			strictness:   tool.JSONSchemaStrictPrefer,
+			expectStrict: false,
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			constraint := tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: testCase.strictness,
+			}
+			if testCase.unconstrained {
+				constraint = tool.ConstrainedSampling{}
+			}
+			descriptor := tool.Descriptor{
+				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(testCase.schema),
+				ConstrainedSampling: constraint,
+			}
+			params, err := buildTools([]tool.Descriptor{descriptor}, toolCapabilities{strict: true})
+			if testCase.errorContains != "" {
+				require.ErrorContains(t, err, testCase.errorContains)
+				return
+			}
+			require.NoError(t, err)
+
+			encoded, err := json.Marshal(params)
+			require.NoError(t, err)
+			var mapped []struct {
+				Parameters map[string]any `json:"parameters"`
+				Strict     bool           `json:"strict"`
+			}
+			require.NoError(t, json.Unmarshal(encoded, &mapped))
+			require.Len(t, mapped, 1)
+			assert.Equal(t, testCase.expectStrict, mapped[0].Strict)
+
+			var original map[string]any
+			require.NoError(t, json.Unmarshal([]byte(testCase.schema), &original))
+			assert.Equal(t, original, mapped[0].Parameters)
+		})
+	}
+}
+
 // TestServiceStreamMapsGrammarToolLifecycle verifies custom request, replay, preview, and final arguments.
 func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 	t.Parallel()
