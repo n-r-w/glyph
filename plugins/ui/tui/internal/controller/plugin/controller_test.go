@@ -157,8 +157,8 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineModel, Text: "Request complete."})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Status: "completed"})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
-		Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}",
-		ToolResultContents: []presentationdomain.ToolResultContent{{Text: "{\"stdout\":\"tool-ok\",\"stderr\":\"\",\"exitCode\":0}"}},
+		Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "tool-ok\n\n[Exit code: 0]\n",
+		ToolResultContents: []presentationdomain.ToolResultContent{{Text: "tool-ok\n\n[Exit code: 0]\n"}},
 	})
 	assert.Empty(t, state.ActiveTools)
 }
