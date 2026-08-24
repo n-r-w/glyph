@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -34,6 +35,28 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		"rejected": {
 			CorrelationID: "rejected", Kind: ResponseRejected,
 			Rejection: Rejection{Command: CommandUnspecified, Code: RejectionInvalidArgument, Message: "invalid"},
+		},
+		"models": {
+			CorrelationID: "models", Kind: ResponseModels,
+			Models: ModelsResult{
+				Models: []model.Descriptor{{
+					Provider: "provider", Model: "model",
+					SupportedReasoningLevels: []model.ReasoningLevel{
+						model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
+						model.ReasoningLevelMedium, model.ReasoningLevelHigh,
+						model.ReasoningLevelXHigh, model.ReasoningLevelMax,
+					},
+				}},
+				ActiveSelection: model.Selection{
+					Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelHigh,
+				},
+			},
+		},
+		"model selection": {
+			CorrelationID: "selection", Kind: ResponseModelSelection,
+			Selection: model.Selection{
+				Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelMax,
+			},
 		},
 	}
 
@@ -65,6 +88,26 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assert.Equal(t, programmaticv1.CommandType_COMMAND_TYPE_UNSPECIFIED, rejected.GetCommand())
 				assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, rejected.GetCode())
 				assert.Equal(t, "invalid", rejected.GetMessage())
+			case ResponseModels:
+				models := wire.GetModels()
+				require.Len(t, models.GetModels(), 1)
+				assert.Equal(t, "provider", models.GetModels()[0].GetProviderId())
+				assert.Equal(t, "model", models.GetModels()[0].GetModelId())
+				assert.Equal(t, []programmaticv1.ReasoningLevel{
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH,
+					programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX,
+				}, models.GetModels()[0].GetSupportedReasoningLevels())
+				assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH, models.GetActiveSelection().GetReasoningLevel())
+			case ResponseModelSelection:
+				selection := wire.GetModelSelection().GetSelection()
+				assert.Equal(t, "provider", selection.GetProviderId())
+				assert.Equal(t, "model", selection.GetModelId())
+				assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX, selection.GetReasoningLevel())
 			case ResponseUnspecified:
 				require.Fail(t, "unexpected response kind")
 			}
@@ -186,12 +229,18 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 func TestApprovedEnumValuesMapExactly(t *testing.T) {
 	t.Parallel()
 
-	for index, value := range []CommandKind{CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages} {
+	for index, value := range []CommandKind{
+		CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages,
+		CommandGetModels, CommandSelectModel, CommandSelectReasoningLevel,
+	} {
 		mapped, err := mapCommandType(value)
 		require.NoError(t, err)
 		assert.Equal(t, programmaticv1.CommandType(index), mapped)
 	}
-	for index, value := range []RejectionCode{RejectionInvalidArgument, RejectionBusy, RejectionNoActiveRun, RejectionCorrelationInUse, RejectionInternal} {
+	for index, value := range []RejectionCode{
+		RejectionInvalidArgument, RejectionBusy, RejectionNoActiveRun, RejectionCorrelationInUse,
+		RejectionInternal, RejectionNotFound, RejectionReasoningUnsupported, RejectionCredentialUnavailable,
+	} {
 		mapped, err := mapRejectionCode(value)
 		require.NoError(t, err)
 		assert.Equal(t, programmaticv1.RejectionCode(index+1), mapped)

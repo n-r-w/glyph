@@ -93,6 +93,46 @@ func TestProgrammaticAppSuite(t *testing.T) {
 	suite.Run(t, new(ProgrammaticAppSuite))
 }
 
+// TestModelCommandsUseSharedCatalog verifies Programmatic Control application composition.
+func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
+	t := testSuite.T()
+	fixture := startProgrammaticFixture(t, testPaths(t, codexSettings("")))
+
+	require.NoError(t, fixture.stream.Send(getModelsRequest("models")))
+	modelsResponse, err := fixture.stream.Recv()
+	require.NoError(t, err)
+	assert.Equal(t, "models", modelsResponse.GetCorrelationId())
+	models := modelsResponse.GetCommandResponse().GetModels()
+	require.Len(t, models.GetModels(), 1)
+	assert.Equal(t, "openai-codex", models.GetModels()[0].GetProviderId())
+	assert.Equal(t, "gpt-test", models.GetModels()[0].GetModelId())
+	assert.Equal(t, []programmaticv1.ReasoningLevel{
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
+	}, models.GetModels()[0].GetSupportedReasoningLevels())
+	assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE, models.GetActiveSelection().GetReasoningLevel())
+
+	require.NoError(t, fixture.stream.Send(selectModelRequest("model", "openai-codex", "gpt-test")))
+	modelResponse, err := fixture.stream.Recv()
+	require.NoError(t, err)
+	assert.Equal(t, "model", modelResponse.GetCorrelationId())
+	modelSelection := modelResponse.GetCommandResponse().GetModelSelection().GetSelection()
+	assert.Equal(t, "openai-codex", modelSelection.GetProviderId())
+	assert.Equal(t, "gpt-test", modelSelection.GetModelId())
+
+	require.NoError(t, fixture.stream.Send(selectReasoningRequest(
+		"reasoning", programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
+	)))
+	reasoningResponse, err := fixture.stream.Recv()
+	require.NoError(t, err)
+	assert.Equal(t, "reasoning", reasoningResponse.GetCorrelationId())
+	assert.Equal(t,
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
+		reasoningResponse.GetCommandResponse().GetModelSelection().GetSelection().GetReasoningLevel(),
+	)
+
+	fixture.closeOwner(t)
+}
+
 // TestOwnerCanAbortAndStartAnotherRun verifies multi-operation ownership without a process restart.
 func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	t := testSuite.T()
@@ -231,7 +271,7 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	delivery := hostprogrammatic.NewDelivery()
 	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
 	session := hostprogrammatic.New(
-		coordinator,
+		coordinator, nil,
 		func() agentrun.State { return agentrun.State{Status: agentrun.StatusIdle} },
 		func() []agent.HistoryEntry { return nil },
 		delivery,
@@ -254,7 +294,7 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 	delivery := hostprogrammatic.NewDelivery()
 	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
 	session := hostprogrammatic.New(
-		coordinator,
+		coordinator, nil,
 		func() agentrun.State { return agentrun.State{Status: agentrun.StatusIdle} },
 		func() []agent.HistoryEntry { return nil },
 		delivery,
@@ -474,5 +514,33 @@ func abortRequest(correlationID string) *programmaticv1.OpenRequest {
 func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String(correlationID), GetRunState: programmaticv1.GetRunState_builder{}.Build(),
+	}.Build()
+}
+
+// getModelsRequest builds a generated model-catalog frame.
+func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
+	return programmaticv1.OpenRequest_builder{
+		CorrelationId: proto.String(correlationID), GetModels: programmaticv1.GetModels_builder{}.Build(),
+	}.Build()
+}
+
+// selectModelRequest builds a generated model-selection frame.
+func selectModelRequest(correlationID, providerID, modelID string) *programmaticv1.OpenRequest {
+	return programmaticv1.OpenRequest_builder{
+		CorrelationId: proto.String(correlationID),
+		SelectModel: programmaticv1.SelectModel_builder{
+			ProviderId: proto.String(providerID), ModelId: proto.String(modelID),
+		}.Build(),
+	}.Build()
+}
+
+// selectReasoningRequest builds a generated reasoning-selection frame.
+func selectReasoningRequest(
+	correlationID string,
+	level programmaticv1.ReasoningLevel,
+) *programmaticv1.OpenRequest {
+	return programmaticv1.OpenRequest_builder{
+		CorrelationId:        proto.String(correlationID),
+		SelectReasoningLevel: programmaticv1.SelectReasoningLevel_builder{Level: level.Enum()}.Build(),
 	}.Build()
 }

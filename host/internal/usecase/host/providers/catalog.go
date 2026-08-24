@@ -9,6 +9,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -53,6 +54,11 @@ func (e *SelectionError) Error() string {
 	return fmt.Sprintf("provider catalog selection failed: %s", e.Code)
 }
 
+// SelectionCode returns the stable catalog failure code.
+func (e *SelectionError) SelectionCode() string {
+	return string(e.Code)
+}
+
 // Unwrap returns the secret-free credential validation cause when present.
 func (e *SelectionError) Unwrap() error {
 	return e.cause
@@ -74,6 +80,9 @@ type Catalog struct {
 	selection model.Selection
 	active    int
 }
+
+var _ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
+var _ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
 
 var (
 	_ agentrun.ModelRuntime = (*Catalog)(nil)

@@ -8,10 +8,19 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
 func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
+	modelWire, handled, modelErr := mapModelCommandResponse(response)
+	if modelErr != nil {
+		return nil, modelErr
+	}
+	if handled {
+		return wrapCommandResponse(response.CorrelationID, modelWire), nil
+	}
+
 	wire := new(programmaticv1.CommandResponse)
 	switch response.Kind {
 	case ResponseUserRequestAccepted:
@@ -51,13 +60,55 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		wire.SetRejected(rejected)
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
+	case ResponseModels, ResponseModelSelection:
+		return nil, errors.New("map command response: model response was not handled")
 	default:
 		return nil, fmt.Errorf("map command response: unknown response kind %d", response.Kind)
 	}
+	return wrapCommandResponse(response.CorrelationID, wire), nil
+}
+
+func mapModelCommandResponse(response Response) (*programmaticv1.CommandResponse, bool, error) {
+	wire := new(programmaticv1.CommandResponse)
+	switch response.Kind {
+	case ResponseModels:
+		models, err := mapConfiguredModels(response.Models.Models)
+		if err != nil {
+			return nil, false, err
+		}
+		selection, err := mapModelSelection(response.Models.ActiveSelection)
+		if err != nil {
+			return nil, false, err
+		}
+		result := new(programmaticv1.ModelsResult)
+		result.SetModels(models)
+		result.SetActiveSelection(selection)
+		wire.SetModels(result)
+	case ResponseModelSelection:
+		selection, err := mapModelSelection(response.Selection)
+		if err != nil {
+			return nil, false, err
+		}
+		result := new(programmaticv1.ModelSelectionResult)
+		result.SetSelection(selection)
+		wire.SetModelSelection(result)
+	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
+		ResponseRunState, ResponseMessages, ResponseRejected:
+		return nil, false, nil
+	default:
+		return nil, false, fmt.Errorf("map model command response: unknown response kind %d", response.Kind)
+	}
+	return wire, true, nil
+}
+
+func wrapCommandResponse(
+	correlationID string,
+	response *programmaticv1.CommandResponse,
+) *programmaticv1.OpenResponse {
 	mapped := new(programmaticv1.OpenResponse)
-	mapped.SetCorrelationId(response.CorrelationID)
-	mapped.SetCommandResponse(wire)
-	return mapped, nil
+	mapped.SetCorrelationId(correlationID)
+	mapped.SetCommandResponse(response)
+	return mapped
 }
 
 //nolint:gocyclo // The closed event union is mapped exhaustively.
@@ -147,11 +198,11 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 			user.SetText(entry.UserText)
 			wire.SetUser(user)
 		case HistoryEntryModel:
-			model, err := mapModelResponse(entry.Model)
+			modelResponse, err := mapModelResponse(entry.Model)
 			if err != nil {
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
-			wire.SetModel(model)
+			wire.SetModel(modelResponse)
 		case HistoryEntryToolResult:
 			result, err := mapToolResult(entry.ToolResult)
 			if err != nil {
@@ -367,6 +418,59 @@ func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
 	return mapped, nil
 }
 
+func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.ConfiguredModel, error) {
+	mapped := make([]*programmaticv1.ConfiguredModel, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		levels := make([]programmaticv1.ReasoningLevel, 0, len(descriptor.SupportedReasoningLevels))
+		for _, level := range descriptor.SupportedReasoningLevels {
+			wireLevel, err := mapReasoningLevel(level)
+			if err != nil {
+				return nil, err
+			}
+			levels = append(levels, wireLevel)
+		}
+		configured := new(programmaticv1.ConfiguredModel)
+		configured.SetProviderId(string(descriptor.Provider))
+		configured.SetModelId(string(descriptor.Model))
+		configured.SetSupportedReasoningLevels(levels)
+		mapped = append(mapped, configured)
+	}
+	return mapped, nil
+}
+
+func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {
+	level, err := mapReasoningLevel(selection.ReasoningLevel)
+	if err != nil {
+		return nil, err
+	}
+	mapped := new(programmaticv1.ModelSelection)
+	mapped.SetProviderId(string(selection.Provider))
+	mapped.SetModelId(string(selection.Model))
+	mapped.SetReasoningLevel(level)
+	return mapped, nil
+}
+
+func mapReasoningLevel(level model.ReasoningLevel) (programmaticv1.ReasoningLevel, error) {
+	switch level {
+	case model.ReasoningLevelNone:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE, nil
+	case model.ReasoningLevelMinimal:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL, nil
+	case model.ReasoningLevelLow:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW, nil
+	case model.ReasoningLevelMedium:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM, nil
+	case model.ReasoningLevelHigh:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH, nil
+	case model.ReasoningLevelXHigh:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH, nil
+	case model.ReasoningLevelMax:
+		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX, nil
+	default:
+		return 0, fmt.Errorf("map reasoning level: unknown value %q", level)
+	}
+}
+
 func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 	switch kind {
 	case CommandUnspecified:
@@ -379,6 +483,12 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_RUN_STATE, nil
 	case CommandGetMessages:
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_MESSAGES, nil
+	case CommandGetModels:
+		return programmaticv1.CommandType_COMMAND_TYPE_GET_MODELS, nil
+	case CommandSelectModel:
+		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_MODEL, nil
+	case CommandSelectReasoningLevel:
+		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_REASONING_LEVEL, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}
@@ -396,6 +506,12 @@ func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) 
 		return programmaticv1.RejectionCode_REJECTION_CODE_CORRELATION_IN_USE, nil
 	case RejectionInternal:
 		return programmaticv1.RejectionCode_REJECTION_CODE_INTERNAL, nil
+	case RejectionNotFound:
+		return programmaticv1.RejectionCode_REJECTION_CODE_NOT_FOUND, nil
+	case RejectionReasoningUnsupported:
+		return programmaticv1.RejectionCode_REJECTION_CODE_REASONING_UNSUPPORTED, nil
+	case RejectionCredentialUnavailable:
+		return programmaticv1.RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE, nil
 	case RejectionUnspecified:
 		return 0, errors.New("map rejection code: unspecified value")
 	default:

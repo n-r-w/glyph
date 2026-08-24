@@ -125,7 +125,7 @@ func runProgrammaticWithPaths(
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
-	session := hostprogrammatic.New(coordinator, agentCore.State, agentCore.History, delivery)
+	session := hostprogrammatic.New(coordinator, providerCatalog, agentCore.State, agentCore.History, delivery)
 	controller := controllerprogrammatic.New(ctx, session)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)

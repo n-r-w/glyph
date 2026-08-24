@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -69,4 +70,138 @@ func (m *MockCoordinator) RunPrepared(ctx context.Context, runID, userText strin
 func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, userText any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, userText)
+}
+
+// MockSelectionFailure is a mock of SelectionFailure interface.
+type MockSelectionFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockSelectionFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockSelectionFailureMockRecorder is the mock recorder for MockSelectionFailure.
+type MockSelectionFailureMockRecorder struct {
+	mock *MockSelectionFailure
+}
+
+// NewMockSelectionFailure creates a new mock instance.
+func NewMockSelectionFailure(ctrl *gomock.Controller) *MockSelectionFailure {
+	mock := &MockSelectionFailure{ctrl: ctrl}
+	mock.recorder = &MockSelectionFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSelectionFailure) EXPECT() *MockSelectionFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockSelectionFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockSelectionFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockSelectionFailure)(nil).Error))
+}
+
+// SelectionCode mocks base method.
+func (m *MockSelectionFailure) SelectionCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectionCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SelectionCode indicates an expected call of SelectionCode.
+func (mr *MockSelectionFailureMockRecorder) SelectionCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectionCode", reflect.TypeOf((*MockSelectionFailure)(nil).SelectionCode))
+}
+
+// MockModelCatalog is a mock of ModelCatalog interface.
+type MockModelCatalog struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelCatalogMockRecorder
+	isgomock struct{}
+}
+
+// MockModelCatalogMockRecorder is the mock recorder for MockModelCatalog.
+type MockModelCatalogMockRecorder struct {
+	mock *MockModelCatalog
+}
+
+// NewMockModelCatalog creates a new mock instance.
+func NewMockModelCatalog(ctrl *gomock.Controller) *MockModelCatalog {
+	mock := &MockModelCatalog{ctrl: ctrl}
+	mock.recorder = &MockModelCatalogMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelCatalog) EXPECT() *MockModelCatalogMockRecorder {
+	return m.recorder
+}
+
+// Models mocks base method.
+func (m *MockModelCatalog) Models() []model.Descriptor {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Models")
+	ret0, _ := ret[0].([]model.Descriptor)
+	return ret0
+}
+
+// Models indicates an expected call of Models.
+func (mr *MockModelCatalogMockRecorder) Models() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Models", reflect.TypeOf((*MockModelCatalog)(nil).Models))
+}
+
+// SelectModel mocks base method.
+func (m *MockModelCatalog) SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectModel", ctx, provider, modelID)
+	ret0, _ := ret[0].(model.Selection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectModel indicates an expected call of SelectModel.
+func (mr *MockModelCatalogMockRecorder) SelectModel(ctx, provider, modelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectModel", reflect.TypeOf((*MockModelCatalog)(nil).SelectModel), ctx, provider, modelID)
+}
+
+// SelectReasoningLevel mocks base method.
+func (m *MockModelCatalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectReasoningLevel", level)
+	ret0, _ := ret[0].(model.Selection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectReasoningLevel indicates an expected call of SelectReasoningLevel.
+func (mr *MockModelCatalogMockRecorder) SelectReasoningLevel(level any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningLevel", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningLevel), level)
+}
+
+// Selection mocks base method.
+func (m *MockModelCatalog) Selection() model.Selection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Selection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// Selection indicates an expected call of Selection.
+func (mr *MockModelCatalogMockRecorder) Selection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCatalog)(nil).Selection))
 }

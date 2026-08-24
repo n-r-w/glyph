@@ -25,6 +25,18 @@ type ServiceSuite struct {
 	suite.Suite
 }
 
+type selectionError struct {
+	code SelectionCode
+}
+
+func (e selectionError) Error() string {
+	return "safe selection failure: " + string(e.code)
+}
+
+func (e selectionError) SelectionCode() string {
+	return string(e.code)
+}
+
 func TestServiceSuite(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(ServiceSuite))
@@ -36,7 +48,7 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		started := make(chan struct{})
 		delivered := make(chan struct{})
 		coordinator.EXPECT().PrepareRun().Return("run-1", nil)
@@ -107,7 +119,7 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 
 		for index, values := range []struct {
 			correlationID string
@@ -194,7 +206,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 		s.Run(test.name, func() {
 			ctrl := gomock.NewController(s.T())
 			coordinator := NewMockCoordinator(ctrl)
-			service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 				_, operation, err := service.Handle(s.T().Context(), controller.Command{
@@ -220,11 +232,148 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 	}
 }
 
+// TestModelCommandsUseCatalogDuringActiveRun verifies independent catalog commands.
+func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
+	ctrl := gomock.NewController(s.T())
+	coordinator := NewMockCoordinator(ctrl)
+	catalog := NewMockModelCatalog(ctrl)
+	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
+	_, activeOperation, err := service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "request",
+	})
+	s.Require().NoError(err)
+	s.Require().NotNil(activeOperation)
+	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+
+	type contextKey struct{}
+	commandContext := context.WithValue(s.T().Context(), contextKey{}, "selection")
+	models := []model.Descriptor{{
+		Provider: "provider", Model: "model",
+		SupportedReasoningLevels: []model.ReasoningLevel{model.ReasoningLevelLow, model.ReasoningLevelHigh},
+	}}
+	initial := model.Selection{Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelLow}
+	selectedModel := model.Selection{Provider: "other", Model: "next", ReasoningLevel: model.ReasoningLevelLow}
+	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningLevel: model.ReasoningLevelHigh}
+	catalog.EXPECT().Models().Return(models)
+	catalog.EXPECT().Selection().Return(initial)
+	catalog.EXPECT().SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).Return(selectedModel, nil)
+	catalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selectedReasoning, nil)
+
+	tests := []struct {
+		command controller.Command
+		want    controller.Response
+	}{
+		{
+			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels},
+			want: controller.Response{
+				CorrelationID: "models", Kind: controller.ResponseModels,
+				Models: controller.ModelsResult{Models: models, ActiveSelection: initial},
+			},
+		},
+		{
+			command: controller.Command{
+				CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: "other", ModelID: "next",
+			},
+			want: controller.Response{
+				CorrelationID: "model", Kind: controller.ResponseModelSelection, Selection: selectedModel,
+			},
+		},
+		{
+			command: controller.Command{
+				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningLevel,
+				ReasoningLevel: model.ReasoningLevelHigh,
+			},
+			want: controller.Response{
+				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: selectedReasoning,
+			},
+		},
+	}
+	for _, test := range tests {
+		response, operation, handleErr := service.Handle(commandContext, test.command)
+		s.Require().NoError(handleErr)
+		s.Nil(operation)
+		s.Equal(test.want, response)
+	}
+}
+
+// TestInvalidModelCommandsDoNotCallCatalog verifies argument validation before selection.
+func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
+	ctrl := gomock.NewController(s.T())
+	service := New(
+		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
+		idleStateSnapshot, emptyHistorySnapshot, NewDelivery(),
+	)
+
+	commands := []controller.Command{
+		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: "model"},
+		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: "provider"},
+		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningLevel},
+	}
+	for _, command := range commands {
+		response, operation, err := service.Handle(s.T().Context(), command)
+		s.Require().NoError(err)
+		s.Nil(operation)
+		s.Equal(controller.ResponseRejected, response.Kind)
+		s.Equal(controller.RejectionInvalidArgument, response.Rejection.Code)
+		s.Equal(command.Kind, response.Rejection.Command)
+	}
+}
+
+// TestSelectionErrorsMapToSafeRejections verifies the catalog error boundary.
+func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
+	tests := []struct {
+		name string
+		err  error
+		code controller.RejectionCode
+	}{
+		{
+			name: "not found",
+			err:  selectionError{code: SelectionNotFound},
+			code: controller.RejectionNotFound,
+		},
+		{
+			name: "reasoning unsupported",
+			err:  selectionError{code: SelectionReasoningUnsupported},
+			code: controller.RejectionReasoningUnsupported,
+		},
+		{
+			name: "credential unavailable",
+			err:  selectionError{code: SelectionCredentialUnavailable},
+			code: controller.RejectionCredentialUnavailable,
+		},
+		{name: "internal", err: errors.New("internal details"), code: controller.RejectionInternal},
+	}
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			ctrl := gomock.NewController(s.T())
+			catalog := NewMockModelCatalog(ctrl)
+			service := New(
+				NewMockCoordinator(ctrl), catalog,
+				idleStateSnapshot, emptyHistorySnapshot, NewDelivery(),
+			)
+			catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(model.Selection{}, test.err)
+
+			response, operation, err := service.Handle(s.T().Context(), controller.Command{
+				CorrelationID: "selection", Kind: controller.CommandSelectModel,
+				ProviderID: "provider", ModelID: "model",
+			})
+			s.Require().NoError(err)
+			s.Nil(operation)
+			s.Equal(controller.ResponseRejected, response.Kind)
+			s.Equal(test.code, response.Rejection.Code)
+			if test.code == controller.RejectionInternal {
+				s.NotContains(response.Rejection.Message, "internal details")
+			}
+		})
+	}
+}
+
 // TestConcurrentReservationRejectsOneRequest verifies active reservation is atomic.
 func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -271,7 +420,9 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 		case controller.ResponseUnspecified,
 			controller.ResponseAbortCompleted,
 			controller.ResponseRunState,
-			controller.ResponseMessages:
+			controller.ResponseMessages,
+			controller.ResponseModels,
+			controller.ResponseModelSelection:
 			s.Fail("unexpected response", "kind %d", result.response.Kind)
 		}
 	}
@@ -284,7 +435,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 	preparing := make(chan struct{})
 	prepared := make(chan struct{})
 	coordinator.EXPECT().PrepareRun().DoAndReturn(func() (string, error) {
@@ -327,7 +478,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview"}},
 	}
 	var history []agent.HistoryEntry
-	service := New(coordinator, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
+	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
@@ -386,7 +537,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 func (s *ServiceSuite) TestAbortCancelsAcceptedOperationWithoutStarting() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-accepted", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "request",
@@ -411,7 +562,7 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		started := make(chan struct{})
 		var runContextErr error
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -476,7 +627,7 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		cleanupErr := errors.New("settlement delivery failed")
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
@@ -517,7 +668,7 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		started := make(chan struct{})
 		var runContextErr error
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -556,7 +707,7 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
 		delivery := NewDelivery()
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		release := make(chan struct{})
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
@@ -593,7 +744,7 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 // TestEmptyCorrelationReturnsTerminalError verifies uncorrelated commands produce no response.
 func (s *ServiceSuite) TestEmptyCorrelationReturnsTerminalError() {
 	ctrl := gomock.NewController(s.T())
-	service := New(NewMockCoordinator(ctrl), idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(NewMockCoordinator(ctrl), nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 
 	response, operation, err := service.Handle(
 		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState},

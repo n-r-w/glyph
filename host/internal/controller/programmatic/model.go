@@ -1,5 +1,7 @@
 package programmatic
 
+import "github.com/n-r-w/glyph/host/internal/domain/model"
+
 // CommandKind identifies one Programmatic Control operation.
 type CommandKind uint8
 
@@ -10,13 +12,19 @@ const (
 	CommandAbort
 	CommandGetRunState
 	CommandGetMessages
+	CommandGetModels
+	CommandSelectModel
+	CommandSelectReasoningLevel
 )
 
 // Command is one correlated transport-independent controller operation.
 type Command struct {
-	CorrelationID string
-	Kind          CommandKind
-	UserText      string
+	CorrelationID  string
+	Kind           CommandKind
+	UserText       string
+	ProviderID     model.ProviderID
+	ModelID        model.ID
+	ReasoningLevel model.ReasoningLevel
 }
 
 // ResponseKind identifies one command result.
@@ -30,6 +38,8 @@ const (
 	ResponseRunState
 	ResponseMessages
 	ResponseRejected
+	ResponseModels
+	ResponseModelSelection
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -43,6 +53,9 @@ const (
 	RejectionNoActiveRun
 	RejectionCorrelationInUse
 	RejectionInternal
+	RejectionNotFound
+	RejectionReasoningUnsupported
+	RejectionCredentialUnavailable
 )
 
 // Response is the single result of one correlated command.
@@ -51,7 +64,15 @@ type Response struct {
 	Kind          ResponseKind
 	State         RunStateResult
 	Messages      []HistoryEntry
+	Models        ModelsResult
+	Selection     model.Selection
 	Rejection     Rejection
+}
+
+// ModelsResult contains configured models and the active selection.
+type ModelsResult struct {
+	Models          []model.Descriptor
+	ActiveSelection model.Selection
 }
 
 // Rejection describes one command failure that keeps the session open.

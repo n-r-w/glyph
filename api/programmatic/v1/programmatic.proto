@@ -22,6 +22,9 @@ message OpenRequest {
     Abort abort = 3;
     GetRunState get_run_state = 4;
     GetMessages get_messages = 5;
+    GetModels get_models = 6;
+    SelectModel select_model = 7;
+    SelectReasoningLevel select_reasoning_level = 8;
   }
 }
 
@@ -39,6 +42,23 @@ message GetRunState {}
 
 // GetMessages requests the current public message history.
 message GetMessages {}
+
+// GetModels requests the configured model catalogue and active selection.
+message GetModels {}
+
+// SelectModel selects one configured provider and model.
+message SelectModel {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+}
+
+// SelectReasoningLevel selects the active model reasoning level.
+message SelectReasoningLevel {
+  // The requested reasoning level.
+  ReasoningLevel level = 1;
+}
 
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
@@ -60,6 +80,8 @@ message CommandResponse {
     RunStateResult run_state = 3;
     MessagesResult messages = 4;
     CommandRejected rejected = 5;
+    ModelsResult models = 6;
+    ModelSelectionResult model_selection = 7;
   }
 }
 
@@ -81,6 +103,40 @@ message RunStateResult {
 message MessagesResult {
   // The ordered public history entries.
   repeated HistoryEntry entries = 1;
+}
+
+// ModelsResult contains the configured model catalogue and active selection.
+message ModelsResult {
+  // The configured models in catalogue order.
+  repeated ConfiguredModel models = 1;
+  // The active model selection.
+  ModelSelection active_selection = 2;
+}
+
+// ConfiguredModel describes one configured provider model.
+message ConfiguredModel {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The supported reasoning levels.
+  repeated ReasoningLevel supported_reasoning_levels = 3;
+}
+
+// ModelSelection identifies the active provider, model, and reasoning level.
+message ModelSelection {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The active reasoning level.
+  ReasoningLevel reasoning_level = 3;
+}
+
+// ModelSelectionResult contains the committed model selection.
+message ModelSelectionResult {
+  // The committed model selection.
+  ModelSelection selection = 1;
 }
 
 // CommandRejected describes a command that was not executed.
@@ -314,6 +370,12 @@ enum CommandType {
   COMMAND_TYPE_GET_RUN_STATE = 3;
   // A message-history query.
   COMMAND_TYPE_GET_MESSAGES = 4;
+  // A configured-model query.
+  COMMAND_TYPE_GET_MODELS = 5;
+  // A model selection command.
+  COMMAND_TYPE_SELECT_MODEL = 6;
+  // A reasoning-level selection command.
+  COMMAND_TYPE_SELECT_REASONING_LEVEL = 7;
 }
 
 // RejectionCode identifies why a command was rejected.
@@ -330,6 +392,32 @@ enum RejectionCode {
   REJECTION_CODE_CORRELATION_IN_USE = 4;
   // An internal operation failed.
   REJECTION_CODE_INTERNAL = 5;
+  // The provider-model pair was not found.
+  REJECTION_CODE_NOT_FOUND = 6;
+  // The reasoning level is not supported.
+  REJECTION_CODE_REASONING_UNSUPPORTED = 7;
+  // The selected model credential is unavailable.
+  REJECTION_CODE_CREDENTIAL_UNAVAILABLE = 8;
+}
+
+// ReasoningLevel identifies provider-neutral reasoning effort.
+enum ReasoningLevel {
+  // No reasoning level was provided.
+  REASONING_LEVEL_UNSPECIFIED = 0;
+  // Reasoning effort is disabled.
+  REASONING_LEVEL_NONE = 1;
+  // Minimal reasoning effort.
+  REASONING_LEVEL_MINIMAL = 2;
+  // Low reasoning effort.
+  REASONING_LEVEL_LOW = 3;
+  // Medium reasoning effort.
+  REASONING_LEVEL_MEDIUM = 4;
+  // High reasoning effort.
+  REASONING_LEVEL_HIGH = 5;
+  // Extra-high reasoning effort.
+  REASONING_LEVEL_XHIGH = 6;
+  // Maximum reasoning effort.
+  REASONING_LEVEL_MAX = 7;
 }
 
 // RunState identifies whether an agent run is active.

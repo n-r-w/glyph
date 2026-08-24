@@ -57,6 +57,35 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			}.Build(),
 			want: Command{CorrelationID: "messages", Kind: CommandGetMessages, UserText: ""},
 		},
+		"get models": {
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("models"), GetModels: programmaticv1.GetModels_builder{}.Build(),
+			}.Build(),
+			want: Command{CorrelationID: "models", Kind: CommandGetModels},
+		},
+		"select model": {
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("select-model"),
+				SelectModel: programmaticv1.SelectModel_builder{
+					ProviderId: proto.String("provider"), ModelId: proto.String("model"),
+				}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID: "select-model", Kind: CommandSelectModel,
+				ProviderID: "provider", ModelID: "model",
+			},
+		},
+		"select reasoning": {
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("select-reasoning"),
+				SelectReasoningLevel: programmaticv1.SelectReasoningLevel_builder{
+					Level: programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX.Enum(),
+				}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID: "select-reasoning", Kind: CommandSelectReasoningLevel, ReasoningLevel: "max",
+			},
+		},
 	}
 
 	for name, test := range tests {
@@ -66,6 +95,34 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
 		})
+	}
+}
+
+// TestMapOpenRequestMapsReasoningLevels verifies every transport reasoning value.
+func TestMapOpenRequestMapsReasoningLevels(t *testing.T) {
+	t.Parallel()
+
+	tests := map[programmaticv1.ReasoningLevel]string{
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED: "",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE:        "none",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL:     "minimal",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW:         "low",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM:      "medium",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH:        "high",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH:       "xhigh",
+		programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX:         "max",
+		programmaticv1.ReasoningLevel(99):                         "",
+	}
+	for level, want := range tests {
+		request := programmaticv1.OpenRequest_builder{
+			CorrelationId: proto.String(level.String()),
+			SelectReasoningLevel: programmaticv1.SelectReasoningLevel_builder{
+				Level: level.Enum(),
+			}.Build(),
+		}.Build()
+		got, err := mapOpenRequest(request)
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got.ReasoningLevel))
 	}
 }
 

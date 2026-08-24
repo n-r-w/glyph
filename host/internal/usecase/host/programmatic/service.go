@@ -8,6 +8,7 @@ import (
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -17,6 +18,7 @@ var ErrCorrelationRequired = errors.New("correlation ID is required")
 // Service coordinates one Programmatic Control connection.
 type Service struct {
 	coordinator     Coordinator
+	modelCatalog    ModelCatalog
 	stateSnapshot   func() run.State
 	historySnapshot func() []agent.HistoryEntry
 	delivery        *Delivery
@@ -27,12 +29,13 @@ var _ controller.HostSession = (*Service)(nil)
 // New creates one Programmatic Control session over a synchronous delivery router.
 func New(
 	coordinator Coordinator,
+	modelCatalog ModelCatalog,
 	stateSnapshot func() run.State,
 	historySnapshot func() []agent.HistoryEntry,
 	delivery *Delivery,
 ) *Service {
 	return &Service{
-		coordinator: coordinator, stateSnapshot: stateSnapshot,
+		coordinator: coordinator, modelCatalog: modelCatalog, stateSnapshot: stateSnapshot,
 		historySnapshot: historySnapshot, delivery: delivery,
 	}
 }
@@ -58,6 +61,12 @@ func (s *Service) Handle(
 		return s.runState(command.CorrelationID, current), nil, nil
 	case controller.CommandGetMessages:
 		return s.messages(command.CorrelationID), nil, nil
+	case controller.CommandGetModels:
+		return s.models(command.CorrelationID), nil, nil
+	case controller.CommandSelectModel:
+		return s.selectModel(ctx, command), nil, nil
+	case controller.CommandSelectReasoningLevel:
+		return s.selectReasoningLevel(command), nil, nil
 	case controller.CommandUserRequest:
 	case controller.CommandUnspecified:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), nil, nil
@@ -128,6 +137,52 @@ func (s *Service) messages(correlationID string) controller.Response {
 	return response
 }
 
+func (s *Service) models(correlationID string) controller.Response {
+	response := emptyResponse(correlationID, controller.ResponseModels)
+	response.Models = controller.ModelsResult{
+		Models: s.modelCatalog.Models(), ActiveSelection: s.modelCatalog.Selection(),
+	}
+	return response
+}
+
+func (s *Service) selectModel(ctx context.Context, command controller.Command) controller.Response {
+	selection, err := s.modelCatalog.SelectModel(ctx, command.ProviderID, command.ModelID)
+	if err != nil {
+		return s.selectionRejected(command, err)
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
+	response.Selection = selection
+	return response
+}
+
+func (s *Service) selectReasoningLevel(command controller.Command) controller.Response {
+	selection, err := s.modelCatalog.SelectReasoningLevel(command.ReasoningLevel)
+	if err != nil {
+		return s.selectionRejected(command, err)
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
+	response.Selection = selection
+	return response
+}
+
+func (s *Service) selectionRejected(command controller.Command, err error) controller.Response {
+	var selectionFailure SelectionFailure
+	if !errors.As(err, &selectionFailure) {
+		return s.rejection(command, controller.RejectionInternal, "model selection failed")
+	}
+	code := controller.RejectionInternal
+	switch SelectionCode(selectionFailure.SelectionCode()) {
+	case SelectionNotFound:
+		code = controller.RejectionNotFound
+	case SelectionReasoningUnsupported:
+		code = controller.RejectionReasoningUnsupported
+	case SelectionCredentialUnavailable:
+		code = controller.RejectionCredentialUnavailable
+	default:
+	}
+	return s.rejection(command, code, selectionFailure.Error())
+}
+
 func (s *Service) preflight(
 	command controller.Command,
 ) (*activeRun, *controller.Response, error) {
@@ -157,13 +212,35 @@ func (s *Service) preflight(
 func invalidCommand(command controller.Command) bool {
 	switch command.Kind {
 	case controller.CommandUserRequest:
-		return strings.TrimSpace(command.UserText) == ""
-	case controller.CommandAbort, controller.CommandGetRunState, controller.CommandGetMessages:
-		return command.UserText != ""
+		return strings.TrimSpace(command.UserText) == "" || hasModelArguments(command)
+	case controller.CommandAbort, controller.CommandGetRunState,
+		controller.CommandGetMessages, controller.CommandGetModels:
+		return command.UserText != "" || hasModelArguments(command)
+	case controller.CommandSelectModel:
+		return command.UserText != "" || command.ProviderID == "" || command.ModelID == "" ||
+			command.ReasoningLevel != ""
+	case controller.CommandSelectReasoningLevel:
+		return command.UserText != "" || command.ProviderID != "" || command.ModelID != "" ||
+			!validReasoningLevel(command.ReasoningLevel)
 	case controller.CommandUnspecified:
 		return true
 	}
 	return true
+}
+
+func hasModelArguments(command controller.Command) bool {
+	return command.ProviderID != "" || command.ModelID != "" || command.ReasoningLevel != ""
+}
+
+func validReasoningLevel(level model.ReasoningLevel) bool {
+	switch level {
+	case model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
+		model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
+		model.ReasoningLevelMax:
+		return true
+	default:
+		return false
+	}
 }
 
 func filterRunError(outcome agent.RunOutcome, runErr error) error {
@@ -211,6 +288,10 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 			State: controller.RunStateUnspecified, ActiveCorrelationID: "",
 		},
 		Messages: nil,
+		Models: controller.ModelsResult{
+			Models: nil, ActiveSelection: model.Selection{Provider: "", Model: "", ReasoningLevel: ""},
+		},
+		Selection: model.Selection{Provider: "", Model: "", ReasoningLevel: ""},
 		Rejection: controller.Rejection{
 			Command: controller.CommandUnspecified, Code: controller.RejectionUnspecified, Message: "",
 		},
