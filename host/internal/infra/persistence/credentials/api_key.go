@@ -1,0 +1,132 @@
+package credentials
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/compatible"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
+)
+
+// APIKeySourceKind identifies one API-key source.
+type APIKeySourceKind string
+
+const (
+	// APIKeySourceLiteral uses a configured literal value.
+	APIKeySourceLiteral APIKeySourceKind = "literal"
+	// APIKeySourceEnvironment reads one named environment variable.
+	APIKeySourceEnvironment APIKeySourceKind = "environment"
+	// APIKeySourceCredential reads one named credential entry.
+	APIKeySourceCredential APIKeySourceKind = "credential"
+)
+
+// APIKeySource contains one validated API-key source.
+type APIKeySource struct {
+	Kind  APIKeySourceKind
+	Value string
+}
+
+// APIKeyError reports a safe API-key resolution failure.
+type APIKeyError struct {
+	Source APIKeySourceKind
+	Name   string
+	cause  error
+}
+
+// Error returns source metadata without resolved key material.
+func (e *APIKeyError) Error() string {
+	if e.Name == "" {
+		return fmt.Sprintf("resolve %s API key: unavailable", e.Source)
+	}
+	return fmt.Sprintf("resolve %s API key %q: unavailable", e.Source, e.Name)
+}
+
+// Unwrap exposes cancellation without exposing credential-storage details.
+func (e *APIKeyError) Unwrap() error {
+	return e.cause
+}
+
+// APIKeyResolver resolves one immutable configured source.
+type APIKeyResolver struct {
+	path   string
+	source APIKeySource
+}
+
+var (
+	_ compatible.APIKeyResolver              = (*APIKeyResolver)(nil)
+	_ providers.SelectionCredentialValidator = (*APIKeyResolver)(nil)
+)
+
+// NewAPIKeyResolver creates a resolver for one configured source.
+func NewAPIKeyResolver(path string, source APIKeySource) *APIKeyResolver {
+	return &APIKeyResolver{path: path, source: source}
+}
+
+// ResolveAPIKey resolves the current key value without caching it.
+func (r *APIKeyResolver) ResolveAPIKey(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", r.safeError(err)
+	}
+	switch r.source.Kind {
+	case "":
+		return "", nil
+	case APIKeySourceLiteral:
+		return r.source.Value, nil
+	case APIKeySourceEnvironment:
+		value, found := os.LookupEnv(r.source.Value)
+		if !found || value == "" {
+			return "", r.safeError(nil)
+		}
+		return value, nil
+	case APIKeySourceCredential:
+		return r.resolveCredential(ctx)
+	default:
+		return "", &APIKeyError{Source: r.source.Kind, Name: "", cause: nil}
+	}
+}
+
+// ValidateSelectionCredentials checks that the configured source resolves.
+func (r *APIKeyResolver) ValidateSelectionCredentials(ctx context.Context) error {
+	_, err := r.ResolveAPIKey(ctx)
+	return err
+}
+
+func (r *APIKeyResolver) resolveCredential(ctx context.Context) (string, error) {
+	payload, found, err := New(r.path, r.source.Value).Load()
+	if err != nil || !found {
+		return "", r.safeError(nil)
+	}
+	if err = ctx.Err(); err != nil {
+		return "", r.safeError(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var credential struct {
+		Type string `json:"type"`
+		Key  string `json:"key"`
+	}
+	if err = decoder.Decode(&credential); err != nil {
+		return "", r.safeError(nil)
+	}
+	var extra any
+	if err = decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return "", r.safeError(nil)
+	}
+	if credential.Type != "api_key" || credential.Key == "" {
+		return "", r.safeError(nil)
+	}
+	return credential.Key, nil
+}
+
+func (r *APIKeyResolver) safeError(cause error) *APIKeyError {
+	name := r.source.Value
+	if r.source.Kind != APIKeySourceEnvironment && r.source.Kind != APIKeySourceCredential {
+		name = ""
+	}
+	return &APIKeyError{Source: r.source.Kind, Name: name, cause: cause}
+}

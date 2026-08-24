@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +30,11 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
+	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
@@ -41,6 +46,64 @@ const (
 	appUIBehaviorEnvironment = "GLYPH_APP_UI_BEHAVIOR"
 	appUIPTYInnerEnvironment = "GLYPH_APP_PTY_INNER"
 )
+
+// TestNewProviderCatalogBuildsEveryConfiguredProvider verifies deterministic composition and defaults.
+func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
+	t.Parallel()
+
+	environment := "COMPATIBLE_API_KEY"
+	configured := settingstore.Settings{
+		DefaultProvider:       "a-compatible",
+		DefaultModel:          "a-second",
+		DefaultReasoningLevel: settingstore.ReasoningLevelHigh,
+		Providers: map[string]settingstore.Provider{
+			"openai-codex": {
+				Type: settingstore.ProviderTypeOpenAICodex,
+				Models: []settingstore.Model{
+					{ID: "codex-first", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone}},
+					{ID: "codex-second", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelLow}},
+				},
+			},
+			"z-compatible": {
+				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "http://localhost:11434/v1",
+				API: settingstore.APIChatCompletions,
+				Models: []settingstore.Model{{
+					ID: "z-model", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone},
+				}},
+			},
+			"a-compatible": {
+				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "https://example.com/v1",
+				API:    settingstore.APIChatCompletions,
+				APIKey: &settingstore.APIKey{Environment: &environment},
+				Models: []settingstore.Model{
+					{ID: "a-first", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone}},
+					{ID: "a-second", API: settingstore.APIResponses, ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelLow, settingstore.ReasoningLevelHigh}},
+				},
+			},
+		},
+	}
+	paths := persistence.Paths{CredentialsFile: filepath.Join(t.TempDir(), "credentials.json")}
+
+	catalog, err := newProviderCatalog(configured, paths, interactions.New(), hookrunner.New(nil, nil, nil))
+
+	require.NoError(t, err)
+	models := catalog.Models()
+	require.Len(t, models, 5)
+	assert.Equal(t, []string{
+		"a-compatible/a-first", "a-compatible/a-second", "openai-codex/codex-first",
+		"openai-codex/codex-second", "z-compatible/z-model",
+	}, []string{
+		string(models[0].Provider) + "/" + string(models[0].Model),
+		string(models[1].Provider) + "/" + string(models[1].Model),
+		string(models[2].Provider) + "/" + string(models[2].Model),
+		string(models[3].Provider) + "/" + string(models[3].Model),
+		string(models[4].Provider) + "/" + string(models[4].Model),
+	})
+	assert.Equal(t, model.Selection{
+		Provider: "a-compatible", Model: "a-second", ReasoningLevel: model.ReasoningLevelHigh,
+	}, catalog.Selection())
+	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
+}
 
 // appUIService records initialization and terminates through one quit command.
 type appUIService struct {
@@ -108,6 +171,28 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	if os.Getenv(appUIBehaviorEnvironment) == "crash" {
 		os.Exit(23)
 	}
+	if os.Getenv(appUIBehaviorEnvironment) == "authentication" {
+		for {
+			frame, receiveErr := stream.Recv()
+			if receiveErr != nil {
+				return receiveErr
+			}
+			lifecycle := frame.GetLifecycle()
+			if lifecycle == nil || lifecycle.GetType() != uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED {
+				continue
+			}
+			availability := lifecycle.GetAvailability()
+			if availability != uipb.Availability_AVAILABILITY_IDLE &&
+				availability != uipb.Availability_AVAILABILITY_AUTHENTICATING &&
+				availability != uipb.Availability_AVAILABILITY_AUTHENTICATION_FAILED {
+				continue
+			}
+			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600); err != nil {
+				return err
+			}
+			return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+		}
+	}
 	//nolint:nestif // The helper serves one explicit lifecycle mode for this process fixture.
 	if os.Getenv(appUIBehaviorEnvironment) == "semantic" {
 		if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("read input.txt")}.Build()}.Build()); err != nil {
@@ -174,14 +259,125 @@ func semanticToolResultContents(contents []*uipb.ToolResultContent) []map[string
 	return mapped
 }
 
+// TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization verifies the default runtime and keyless request.
+func TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization(t *testing.T) {
+	t.Parallel()
+
+	requestCount := &atomic.Int32{}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requestCount.Add(1)
+		assert.Equal(t, "/v1/chat/completions", request.URL.Path)
+		assert.Empty(t, request.Header.Values("Authorization"))
+		writer.Header().Set("Content-Type", "text/event-stream")
+		_, err := io.WriteString(writer, "data: {\"id\":\"chat-1\",\"model\":\"local-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compatible response\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+		assert.NoError(t, err)
+	}))
+	t.Cleanup(server.Close)
+	paths := testPaths(t, fmt.Sprintf(`defaultProvider: local
+defaultModel: local-model
+defaultReasoningLevel: none
+providers:
+  openai-codex:
+    type: openai-codex
+    models:
+      - id: codex-model
+        reasoningLevels: [none]
+  local:
+    type: openai-compatible
+    baseURL: %s/v1
+    api: chat-completions
+    models:
+      - id: local-model
+        reasoningLevels: [none]
+`, server.URL))
+	var stdout, stderr bytes.Buffer
+
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeHeadless, Headless: headless.Command{UserText: "request", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: "", UIID: "",
+	}, &stdout, &stderr)
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), requestCount.Load())
+	assert.Equal(t, "compatible response\n", stdout.String())
+}
+
+// TestRunWithPathsUIInvalidSettingsStopsBeforeLogging verifies validation precedes UI startup side effects.
+func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
+	t.Parallel()
+
+	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: codex-model\ndefaultReasoningLevel: high\n")
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: t.TempDir(), UIID: "",
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	require.ErrorContains(t, err, "load Glyph settings")
+	_, statErr := os.Stat(paths.LogFile)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+}
+
+// TestRunWithPathsUICodexDefaultKeepsProviderAuthentication verifies Codex-owned startup authentication.
+func TestRunWithPathsUICodexDefaultKeepsProviderAuthentication(t *testing.T) {
+	paths := testPaths(t, codexSettings(""))
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Codex_UI")
+	tracePath := filepath.Join(t.TempDir(), "authentication-trace")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "authentication")
+
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "codex-ui",
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	require.NoError(t, err)
+	payload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	assert.Equal(t, uipb.Availability_AVAILABILITY_AUTHENTICATING.String(), string(payload))
+}
+
+// TestRunWithPathsUICompatibleDefaultSkipsCodexAuthentication verifies active-provider startup authentication.
+func TestRunWithPathsUICompatibleDefaultSkipsCodexAuthentication(t *testing.T) {
+	paths := testPaths(t, `defaultProvider: local
+defaultModel: local-model
+defaultReasoningLevel: none
+providers:
+  openai-codex:
+    type: openai-codex
+    models:
+      - id: codex-model
+        reasoningLevels: [none]
+  local:
+    type: openai-compatible
+    baseURL: http://localhost:11434/v1
+    api: chat-completions
+    models:
+      - id: local-model
+        reasoningLevels: [none]
+`)
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Compatible_UI")
+	tracePath := filepath.Join(t.TempDir(), "authentication-trace")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "authentication")
+
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "compatible-ui",
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	require.NoError(t, err)
+	payload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	assert.Equal(t, uipb.Availability_AVAILABILITY_IDLE.String(), string(payload))
+}
+
 // TestRunWithPathsIgnoresActiveUIAndFailsWithoutCredentials verifies headless-only concrete composition.
 func TestRunWithPathsIgnoresActiveUIAndFailsWithoutCredentials(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, `defaultProvider: openai-codex
-defaultModel: gpt-test
-activeUI: UI__DO_NOT_TOUCH
-`)
+	paths := testPaths(t, codexSettings("activeUI: UI__DO_NOT_TOUCH\n"))
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
@@ -202,7 +398,7 @@ activeUI: UI__DO_NOT_TOUCH
 func TestRunWithPathsRejectsInvalidExplicitExtensionDirectory(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	missingDirectory := filepath.Join(t.TempDir(), "missing-extensions")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
@@ -219,7 +415,7 @@ func TestRunWithPathsRejectsInvalidExplicitExtensionDirectory(t *testing.T) {
 func TestRunWithPathsReportsUnreadableDefaultDirectory(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	extensionDirectory := filepath.Join(paths.Directory, "plugins", "extension")
 	require.NoError(t, os.MkdirAll(extensionDirectory, 0o700))
 	require.NoError(t, os.Chmod(extensionDirectory, 0o000))
@@ -241,7 +437,7 @@ func TestRunWithPathsReportsUnreadableDefaultDirectory(t *testing.T) {
 func TestRunWithPathsUIReportsAutomaticSelectionWarnings(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	brokenPath := filepath.Join(uiDirectory, "Broken_UI")
 	require.NoError(t, os.WriteFile(brokenPath, []byte("#!/bin/sh\nexit 23\n"), 0o755))
@@ -262,7 +458,7 @@ func TestRunWithPathsUIReportsAutomaticSelectionWarnings(t *testing.T) {
 func TestRunWithPathsUIReportsSelectionWarningsBeforeExtensionStartupFailure(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	brokenPath := filepath.Join(uiDirectory, "Broken_UI")
 	require.NoError(t, os.WriteFile(brokenPath, []byte("#!/bin/sh\nexit 23\n"), 0o755))
@@ -284,7 +480,7 @@ func TestRunWithPathsUIReportsSelectionWarningsBeforeExtensionStartupFailure(t *
 
 // TestRunWithPathsUIKeepsSelectionWarningsInInitialization prevents duplicate terminal diagnostics.
 func TestRunWithPathsUIKeepsSelectionWarningsInInitialization(t *testing.T) {
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	brokenPath := filepath.Join(uiDirectory, "Broken_UI")
 	require.NoError(t, os.WriteFile(brokenPath, []byte("#!/bin/sh\nexit 23\n"), 0o755))
@@ -309,7 +505,7 @@ func TestRunWithPathsUIKeepsSelectionWarningsInInitialization(t *testing.T) {
 
 // TestRunWithPathsUIUsesSelectedStreamAndCleansProcess verifies real UI process composition.
 func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Fake_UI")
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
@@ -344,7 +540,7 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 
 // TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.
 func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Terminal_UI")
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
@@ -369,7 +565,7 @@ func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
 
 // TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement verifies abnormal stream authority.
 func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Crash_UI")
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
@@ -393,7 +589,7 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 
 // TestHostSemanticClientMatchesHeadlessOutcome verifies shared public semantics.
 func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken)), 0o600))
 	requestCount := &atomic.Int32{}
@@ -654,7 +850,7 @@ func TestTerminalRecoveryPTYInner(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, terminalFile.Close()) })
 	originalState := terminalState(t, terminalFile)
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
 	writeConfiguredUIExecutable(t, uiDirectory, "Terminal_UI", tracePath, mode)
@@ -723,6 +919,20 @@ func writeConfiguredUIExecutable(t *testing.T, directory, name, tracePath, mode 
 		os.Args[0],
 	)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, name), []byte(script), 0o755))
+}
+
+// codexSettings returns the strict default Codex fixture used by application tests.
+func codexSettings(extra string) string {
+	return `defaultProvider: openai-codex
+defaultModel: gpt-test
+defaultReasoningLevel: none
+` + extra + `providers:
+  openai-codex:
+    type: openai-codex
+    models:
+      - id: gpt-test
+        reasoningLevels: [none]
+`
 }
 
 // testPaths creates one owner-only Glyph data directory and strict settings fixture.

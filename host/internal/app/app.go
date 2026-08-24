@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"sort"
 
 	"google.golang.org/grpc"
 
@@ -33,6 +34,7 @@ import (
 	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
+	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/compatible"
 	"github.com/n-r-w/glyph/host/internal/infra/terminal"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
@@ -115,9 +117,7 @@ func runProgrammaticWithPaths(
 	tools.Activate(ctx)
 
 	hookRunner := hookrunner.New(nil, nil, nil)
-	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
-	provider := newProvider(paths, interactions.New(), hookRunner)
-	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
@@ -230,9 +230,7 @@ func runHeadlessWithPaths(
 	tools.Activate(ctx)
 
 	hookRunner := hookrunner.New(nil, nil, nil)
-	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
-	provider := newProvider(paths, interactions.New(), hookRunner)
-	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
@@ -256,6 +254,10 @@ func runUIWithPaths(
 	command cli.Command,
 	stderr io.Writer,
 ) (returnErr error) {
+	configured, err := settingstore.New(paths.SettingsFile).Load()
+	if err != nil {
+		return fmt.Errorf("load Glyph settings: %w", err)
+	}
 	logger, logFile, err := uilogging.OpenUI(paths.LogsDirectory, paths.LogFile)
 	if err != nil {
 		return fmt.Errorf("initialize UI logging: %w", err)
@@ -268,10 +270,6 @@ func runUIWithPaths(
 	}()
 	slog.InfoContext(ctx, "starting UI Glyph application")
 
-	configured, err := settingstore.New(paths.SettingsFile).Load()
-	if err != nil {
-		return fmt.Errorf("load Glyph settings: %w", err)
-	}
 	uiDirectory := command.UIDirectory
 	if uiDirectory == "" {
 		uiDirectory = filepath.Join(paths.Directory, "plugins", "ui")
@@ -323,11 +321,8 @@ func runUIWithPaths(
 	}
 
 	hookRunner := hookrunner.New(nil, nil, nil)
-	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
-	provider := newProvider(
-		paths, interactions.NewUI(delivery.PresentAuthorizationURL, browser.New()), hookRunner,
-	)
-	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	interaction := interactions.NewUI(delivery.PresentAuthorizationURL, browser.New())
+	providerCatalog, err := newProviderCatalog(configured, paths, interaction, hookRunner)
 	if err != nil {
 		selection.Runtime.Close()
 		recoveryErr := recovery.Restore()
@@ -337,7 +332,7 @@ func runUIWithPaths(
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
-	session := hostui.NewSession(channel, coordinator, provider, func(activationContext context.Context) {
+	session := hostui.NewSession(channel, coordinator, providerCatalog, func(activationContext context.Context) {
 		selectionWarningsDelivered = true
 		tools.Activate(activationContext)
 	})
@@ -365,17 +360,95 @@ func writeSelectionWarnings(stderr io.Writer, issues []hostui.SelectionIssue) er
 // newProviderCatalog maps validated startup settings into the runtime catalog.
 func newProviderCatalog(
 	configured settingstore.Settings,
-	descriptor model.Descriptor,
-	provider *codex.Service,
+	paths persistence.Paths,
+	interaction codex.Interaction,
+	hookRunner internalhooks.ProviderRunner,
 ) (*providers.Catalog, error) {
-	level := model.ReasoningLevelNone
-	if configured.DefaultThinkingLevel != nil {
-		level = model.ReasoningLevel(*configured.DefaultThinkingLevel)
+	providerIDs := make([]string, 0, len(configured.Providers))
+	for providerID := range configured.Providers {
+		providerIDs = append(providerIDs, providerID)
 	}
-	return providers.New([]providers.Entry{{Descriptor: descriptor, Provider: provider}}, model.Selection{
-		Provider: model.ProviderID(configured.DefaultProvider),
-		Model:    model.ID(configured.DefaultModel), ReasoningLevel: level,
+	sort.Strings(providerIDs)
+
+	entries := make([]providers.Entry, 0)
+	for _, providerID := range providerIDs {
+		providerConfig := configured.Providers[providerID]
+		switch providerConfig.Type {
+		case settingstore.ProviderTypeOpenAICodex:
+			provider := newProvider(paths, interaction, hookRunner)
+			for _, configuredModel := range providerConfig.Models {
+				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
+				descriptor.SupportedReasoningLevels = reasoningLevels(configuredModel.ReasoningLevels)
+				entries = append(entries, providers.Entry{
+					Descriptor: descriptor, Provider: provider,
+					SelectionCredentialValidator: nil, Authentication: provider,
+				})
+			}
+		case settingstore.ProviderTypeOpenAICompatible:
+			resolver := credentialstore.NewAPIKeyResolver(
+				paths.CredentialsFile, apiKeySource(providerConfig.APIKey),
+			)
+			modelAPIs := make(map[model.ID]compatible.API, len(providerConfig.Models))
+			for _, configuredModel := range providerConfig.Models {
+				modelAPIs[model.ID(configuredModel.ID)] = compatible.API(configuredModel.API)
+			}
+			provider, err := compatible.New(compatible.Config{
+				ProviderID: model.ProviderID(providerID), BaseURL: providerConfig.BaseURL,
+				API: compatible.API(providerConfig.API), Models: modelAPIs, APIKey: resolver,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create provider %q: %w", providerID, err)
+			}
+			for _, configuredModel := range providerConfig.Models {
+				entries = append(entries, providers.Entry{
+					Descriptor: model.Descriptor{
+						Provider: model.ProviderID(providerID), Model: model.ID(configuredModel.ID),
+						SupportedReasoningLevels: reasoningLevels(configuredModel.ReasoningLevels),
+						ToolCapabilities: model.ToolCapabilities{
+							StrictJSONSchema: false,
+							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+						},
+					},
+					Provider: provider, SelectionCredentialValidator: resolver, Authentication: nil,
+				})
+			}
+		default:
+			return nil, fmt.Errorf("unsupported configured provider type %q", providerConfig.Type)
+		}
+	}
+	return providers.New(entries, model.Selection{
+		Provider: model.ProviderID(configured.DefaultProvider), Model: model.ID(configured.DefaultModel),
+		ReasoningLevel: model.ReasoningLevel(configured.DefaultReasoningLevel),
 	})
+}
+
+// reasoningLevels maps validated persistence values into an immutable domain slice.
+func reasoningLevels(configured []settingstore.ReasoningLevel) []model.ReasoningLevel {
+	levels := make([]model.ReasoningLevel, len(configured))
+	for index, level := range configured {
+		levels[index] = model.ReasoningLevel(level)
+	}
+	return levels
+}
+
+// apiKeySource maps the validated settings union without resolving its secret.
+func apiKeySource(configured *settingstore.APIKey) credentialstore.APIKeySource {
+	if configured == nil {
+		return credentialstore.APIKeySource{Kind: "", Value: ""}
+	}
+	if configured.Literal != nil {
+		return credentialstore.APIKeySource{
+			Kind: credentialstore.APIKeySourceLiteral, Value: *configured.Literal,
+		}
+	}
+	if configured.Environment != nil {
+		return credentialstore.APIKeySource{
+			Kind: credentialstore.APIKeySourceEnvironment, Value: *configured.Environment,
+		}
+	}
+	return credentialstore.APIKeySource{
+		Kind: credentialstore.APIKeySourceCredential, Value: *configured.Credential,
+	}
 }
 
 // newProvider assembles Codex with one mode-specific interaction implementation.

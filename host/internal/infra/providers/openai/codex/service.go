@@ -11,7 +11,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/hooks"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
 
 const (
@@ -44,8 +44,8 @@ type Service struct {
 }
 
 var (
-	_ run.ModelProvider    = (*Service)(nil)
-	_ hostui.Authenticator = (*Service)(nil)
+	_ run.ModelProvider                = (*Service)(nil)
+	_ providers.ProviderAuthentication = (*Service)(nil)
 )
 
 // New creates the production ChatGPT Codex provider.
@@ -58,8 +58,8 @@ func newService(config Config, credentials Credentials, interaction Interaction,
 	return &Service{config: config, credentials: credentials, interaction: interaction, options: options}
 }
 
-// CheckAuthentication validates or refreshes persisted credentials without starting OAuth.
-func (s *Service) CheckAuthentication(ctx context.Context) error {
+// CheckProviderAuthentication validates or refreshes persisted credentials without starting OAuth.
+func (s *Service) CheckProviderAuthentication(ctx context.Context) error {
 	_, err := s.resolveCredentials(ctx)
 	if err == nil {
 		return nil
@@ -73,8 +73,8 @@ func (s *Service) CheckAuthentication(ctx context.Context) error {
 	return fmt.Errorf("%w: %s", ErrSignInRequired, safeErrorMessage(err))
 }
 
-// IsSignInRequired reports the provider-owned authentication classification.
-func (*Service) IsSignInRequired(err error) bool {
+// IsProviderSignInRequired reports the provider-owned authentication classification.
+func (*Service) IsProviderSignInRequired(err error) bool {
 	return errors.Is(err, ErrSignInRequired)
 }
 

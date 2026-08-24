@@ -2,12 +2,14 @@
 package providers
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // ErrorCode identifies a catalog selection failure.
@@ -18,6 +20,8 @@ const (
 	ErrorCodeNotFound ErrorCode = "not_found"
 	// ErrorCodeReasoningUnsupported reports a level not supported by the active model.
 	ErrorCodeReasoningUnsupported ErrorCode = "reasoning_unsupported"
+	// ErrorCodeCredentialUnavailable reports credentials that cannot resolve before selection.
+	ErrorCodeCredentialUnavailable ErrorCode = "credential_unavailable" //nolint:gosec // This is an error code.
 	// ErrorCodeInvalidConfiguration reports invalid catalog construction input.
 	ErrorCodeInvalidConfiguration ErrorCode = "invalid_configuration"
 )
@@ -38,17 +42,28 @@ type SelectionError struct {
 	Provider       model.ProviderID
 	Model          model.ID
 	ReasoningLevel model.ReasoningLevel
+	cause          error
 }
 
-// Error implements error.
+// Error implements error and includes only the validator's secret-free cause.
 func (e *SelectionError) Error() string {
+	if e.cause != nil {
+		return fmt.Sprintf("provider catalog selection failed: %s: %v", e.Code, e.cause)
+	}
 	return fmt.Sprintf("provider catalog selection failed: %s", e.Code)
+}
+
+// Unwrap returns the secret-free credential validation cause when present.
+func (e *SelectionError) Unwrap() error {
+	return e.cause
 }
 
 // Entry binds one configured model descriptor to its provider runtime.
 type Entry struct {
-	Descriptor model.Descriptor
-	Provider   agentrun.ModelProvider
+	Descriptor                   model.Descriptor
+	Provider                     agentrun.ModelProvider
+	SelectionCredentialValidator SelectionCredentialValidator
+	Authentication               ProviderAuthentication
 }
 
 // Catalog stores immutable configured entries and one active selection.
@@ -60,7 +75,10 @@ type Catalog struct {
 	active    int
 }
 
-var _ agentrun.ModelRuntime = (*Catalog)(nil)
+var (
+	_ agentrun.ModelRuntime = (*Catalog)(nil)
+	_ hostui.Authenticator  = (*Catalog)(nil)
+)
 
 // New creates a catalog from configured entries and a valid default selection.
 func New(entries []Entry, selection model.Selection) (*Catalog, error) {
@@ -123,22 +141,70 @@ func (c *Catalog) Current() agentrun.RuntimeSelection {
 }
 
 // SelectModel commits a configured model and resolves its reasoning fallback.
-func (c *Catalog) SelectModel(provider model.ProviderID, modelID model.ID) (model.Selection, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	active, found := c.entryIndex(provider, modelID)
+func (c *Catalog) SelectModel(
+	ctx context.Context,
+	provider model.ProviderID,
+	modelID model.ID,
+) (model.Selection, error) {
+	c.mutex.RLock()
+	target, found := c.entryIndex(provider, modelID)
+	var validator SelectionCredentialValidator
+	if found {
+		validator = c.entries[target].SelectionCredentialValidator
+	}
+	c.mutex.RUnlock()
 	if !found {
 		return model.Selection{}, &SelectionError{
-			Code: ErrorCodeNotFound, Provider: provider, Model: modelID, ReasoningLevel: "",
+			Code: ErrorCodeNotFound, Provider: provider, Model: modelID, ReasoningLevel: "", cause: nil,
 		}
 	}
+	if validator != nil {
+		if err := validator.ValidateSelectionCredentials(ctx); err != nil {
+			return model.Selection{}, &SelectionError{
+				Code: ErrorCodeCredentialUnavailable, Provider: provider, Model: modelID,
+				ReasoningLevel: "", cause: err,
+			}
+		}
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	level := fallbackReasoningLevel(
-		c.selection.ReasoningLevel, c.entries[active].Descriptor.SupportedReasoningLevels,
+		c.selection.ReasoningLevel, c.entries[target].Descriptor.SupportedReasoningLevels,
 	)
 	c.selection = model.Selection{Provider: provider, Model: modelID, ReasoningLevel: level}
-	c.active = active
+	c.active = target
 	return c.selection, nil
+}
+
+// CheckAuthentication checks authentication for the active provider.
+func (c *Catalog) CheckAuthentication(ctx context.Context) error {
+	authentication := c.activeAuthentication()
+	if authentication == nil {
+		return nil
+	}
+	return authentication.CheckProviderAuthentication(ctx)
+}
+
+// SignIn starts authentication for the active provider.
+func (c *Catalog) SignIn(ctx context.Context) error {
+	authentication := c.activeAuthentication()
+	if authentication == nil {
+		return nil
+	}
+	return authentication.SignInProvider(ctx)
+}
+
+// IsSignInRequired classifies an active-provider authentication error.
+func (c *Catalog) IsSignInRequired(err error) bool {
+	authentication := c.activeAuthentication()
+	return authentication != nil && authentication.IsProviderSignInRequired(err)
+}
+
+func (c *Catalog) activeAuthentication() ProviderAuthentication {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.entries[c.active].Authentication
 }
 
 // SelectReasoningLevel commits a supported level for the active model.
@@ -149,7 +215,7 @@ func (c *Catalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Select
 	if !supports(c.entries[c.active].Descriptor.SupportedReasoningLevels, level) {
 		return model.Selection{}, &SelectionError{
 			Code: ErrorCodeReasoningUnsupported, Provider: c.selection.Provider,
-			Model: c.selection.Model, ReasoningLevel: level,
+			Model: c.selection.Model, ReasoningLevel: level, cause: nil,
 		}
 	}
 	c.selection.ReasoningLevel = level
@@ -265,6 +331,6 @@ func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
 func invalidConfigurationError(selection model.Selection) *SelectionError {
 	return &SelectionError{
 		Code: ErrorCodeInvalidConfiguration, Provider: selection.Provider, Model: selection.Model,
-		ReasoningLevel: selection.ReasoningLevel,
+		ReasoningLevel: selection.ReasoningLevel, cause: nil,
 	}
 }

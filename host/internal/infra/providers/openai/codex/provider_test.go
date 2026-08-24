@@ -884,7 +884,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
-		err := service.CheckAuthentication(t.Context())
+		err := service.CheckProviderAuthentication(t.Context())
 
 		require.NoError(t, err)
 	})
@@ -896,10 +896,10 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
-		err := service.CheckAuthentication(t.Context())
+		err := service.CheckProviderAuthentication(t.Context())
 
 		require.ErrorIs(t, err, ErrSignInRequired)
-		assert.True(t, service.IsSignInRequired(err))
+		assert.True(t, service.IsProviderSignInRequired(err))
 	})
 
 	t.Run("malformed credentials", func(t *testing.T) {
@@ -909,10 +909,10 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
-		err := service.CheckAuthentication(t.Context())
+		err := service.CheckProviderAuthentication(t.Context())
 
 		require.ErrorIs(t, err, ErrSignInRequired)
-		assert.True(t, service.IsSignInRequired(err))
+		assert.True(t, service.IsProviderSignInRequired(err))
 	})
 }
 

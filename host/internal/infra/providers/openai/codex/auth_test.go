@@ -103,7 +103,7 @@ func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	)
 	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
 
-	err := service.SignIn(t.Context())
+	err := service.SignInProvider(t.Context())
 
 	require.NoError(t, err)
 	assert.Equal(t, "approved-code", exchangedCode.Load())
@@ -136,7 +136,7 @@ func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	err := service.SignIn(ctx)
+	err := service.SignInProvider(ctx)
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotNil(t, callbackListener)
@@ -181,7 +181,7 @@ func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
 		Config{Hooks: testProviderHookRunner()}, credentials, interaction, options,
 	)
 
-	err := service.SignIn(t.Context())
+	err := service.SignInProvider(t.Context())
 
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "missing-refresh")

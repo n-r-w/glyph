@@ -40,7 +40,7 @@ import (
 func TestRunWithPathsRPCPublishesSocketAndCleansUp(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	extensionDirectory := t.TempDir()
 	socketDirectory, err := os.MkdirTemp("/tmp", "glyph-app-")
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestProgrammaticAppSuite(t *testing.T) {
 // TestOwnerCanAbortAndStartAnotherRun verifies multi-operation ownership without a process restart.
 func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
@@ -163,7 +163,7 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 // TestOwnerClosureCancelsActiveRun verifies clean disconnect cancellation and joining.
 func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
@@ -185,7 +185,7 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 // TestApplicationCancellationWinsOverStreamShutdown verifies cancellation precedence while work is active.
 func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStreamShutdown() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
@@ -211,7 +211,7 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 // TestProtocolFailureReturnsNonzero verifies that invalid input terminates the owning process as an error.
 func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixture(t, paths)
 	invalid := programmaticv1.OpenRequest_builder{
 		UserRequest: programmaticv1.UserRequest_builder{Text: proto.String("missing correlation")}.Build(),
@@ -294,7 +294,7 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 // TestSocketCleanupFailureReturnsNonzero verifies that cleanup errors change the process result.
 func (testSuite *ProgrammaticAppSuite) TestSocketCleanupFailureReturnsNonzero() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixture(t, paths)
 	require.NoError(t, os.Remove(fixture.socketPath))
 	require.NoError(t, os.Mkdir(fixture.socketPath, 0o700))
@@ -312,7 +312,7 @@ func (testSuite *ProgrammaticAppSuite) TestSocketCleanupFailureReturnsNonzero() 
 // TestAutomaticSocketDirectoryIsRemoved verifies process-owned directory cleanup.
 func (testSuite *ProgrammaticAppSuite) TestAutomaticSocketDirectoryIsRemoved() {
 	t := testSuite.T()
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: gpt-test\n")
+	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixtureAtPath(t, paths, t.TempDir(), "")
 	directory := filepath.Dir(fixture.socketPath)
 

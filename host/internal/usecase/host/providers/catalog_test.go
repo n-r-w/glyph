@@ -1,7 +1,11 @@
+//nolint:exhaustruct // Catalog tests set optional delegates only when behavior needs them.
 package providers
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,7 +75,7 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 			}, model.Selection{Provider: "provider", Model: "active", ReasoningLevel: test.active})
 			require.NoError(t, err)
 
-			selected, err := catalog.SelectModel("provider", "target")
+			selected, err := catalog.SelectModel(t.Context(), "provider", "target")
 
 			require.NoError(t, err)
 			assert.Equal(t, model.Selection{
@@ -97,7 +101,7 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	}, active)
 	require.NoError(t, err)
 
-	_, err = catalog.SelectModel("missing", "model")
+	_, err = catalog.SelectModel(t.Context(), "missing", "model")
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeNotFound, selectionErr.Code)
@@ -131,6 +135,116 @@ func TestCatalogRejectsEntryWithoutProvider(t *testing.T) {
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeInvalidConfiguration, selectionErr.Code)
+}
+
+// TestCatalogCredentialPreflightDoesNotBlockSnapshots verifies I/O occurs outside the catalog lock.
+func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	provider := agentrun.NewMockModelProvider(controller)
+	validator := NewMockSelectionCredentialValidator(controller)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).DoAndReturn(func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	})
+	catalog, err := New([]Entry{
+		{Descriptor: descriptor("provider", "active", model.ReasoningLevelLow, model.ReasoningLevelHigh), Provider: provider},
+		{Descriptor: descriptor("provider", "target", model.ReasoningLevelNone, model.ReasoningLevelLow), Provider: provider, SelectionCredentialValidator: validator},
+	}, model.Selection{Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelHigh})
+	require.NoError(t, err)
+
+	result := make(chan model.Selection, 1)
+	selectionErrors := make(chan error, 1)
+	go func() {
+		selected, selectErr := catalog.SelectModel(t.Context(), "provider", "target")
+		result <- selected
+		selectionErrors <- selectErr
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("credential validation did not start")
+	}
+
+	current := make(chan agentrun.RuntimeSelection, 1)
+	go func() { current <- catalog.Current() }()
+	select {
+	case snapshot := <-current:
+		assert.Equal(t, model.ID("active"), snapshot.Model.Model)
+	case <-time.After(time.Second):
+		t.Fatal("Current blocked during credential resolution")
+	}
+	selected, err := catalog.SelectReasoningLevel(model.ReasoningLevelLow)
+	require.NoError(t, err)
+	assert.Equal(t, model.ReasoningLevelLow, selected.ReasoningLevel)
+
+	close(release)
+	require.NoError(t, <-selectionErrors)
+	selected = <-result
+	assert.Equal(t, model.Selection{
+		Provider: "provider", Model: "target", ReasoningLevel: model.ReasoningLevelLow,
+	}, selected)
+	assert.Equal(t, selected, catalog.Selection())
+}
+
+// TestCatalogCredentialFailureIsSafeAndPreservesSelection verifies atomic preflight failure.
+func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	provider := agentrun.NewMockModelProvider(controller)
+	validator := NewMockSelectionCredentialValidator(controller)
+	safeCause := errors.New(`resolve environment API key "PROVIDER_API_KEY": unavailable`)
+	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).Return(safeCause)
+	active := model.Selection{Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelHigh}
+	catalog, err := New([]Entry{
+		{Descriptor: descriptor("provider", "active", model.ReasoningLevelHigh), Provider: provider},
+		{Descriptor: descriptor("provider", "target", model.ReasoningLevelNone), Provider: provider, SelectionCredentialValidator: validator},
+	}, active)
+	require.NoError(t, err)
+
+	_, err = catalog.SelectModel(t.Context(), "provider", "target")
+
+	var selectionErr *SelectionError
+	require.ErrorAs(t, err, &selectionErr)
+	assert.Equal(t, ErrorCodeCredentialUnavailable, selectionErr.Code)
+	require.ErrorIs(t, err, safeCause)
+	require.ErrorContains(t, err, "PROVIDER_API_KEY")
+	require.ErrorContains(t, err, "unavailable")
+	assert.NotContains(t, err.Error(), "resolved-key-material")
+	assert.Equal(t, active, catalog.Selection())
+}
+
+// TestCatalogAuthenticationDelegatesOnlyToActiveProvider verifies provider-owned UI authentication.
+func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	provider := agentrun.NewMockModelProvider(controller)
+	authentication := NewMockProviderAuthentication(controller)
+	catalog, err := New([]Entry{
+		{Descriptor: descriptor("compatible", "model", model.ReasoningLevelNone), Provider: provider},
+		{Descriptor: descriptor("openai-codex", "model", model.ReasoningLevelNone), Provider: provider, Authentication: authentication},
+	}, model.Selection{Provider: "compatible", Model: "model", ReasoningLevel: model.ReasoningLevelNone})
+	require.NoError(t, err)
+
+	require.NoError(t, catalog.CheckAuthentication(t.Context()))
+	require.NoError(t, catalog.SignIn(t.Context()))
+	assert.False(t, catalog.IsSignInRequired(errors.New("other")))
+
+	_, err = catalog.SelectModel(t.Context(), "openai-codex", "model")
+	require.NoError(t, err)
+	signInRequired := errors.New("sign in required")
+	authentication.EXPECT().CheckProviderAuthentication(gomock.Any()).Return(signInRequired)
+	authentication.EXPECT().SignInProvider(gomock.Any()).Return(nil)
+	authentication.EXPECT().IsProviderSignInRequired(signInRequired).Return(true)
+	require.ErrorIs(t, catalog.CheckAuthentication(t.Context()), signInRequired)
+	require.NoError(t, catalog.SignIn(t.Context()))
+	assert.True(t, catalog.IsSignInRequired(signInRequired))
 }
 
 func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningLevel) model.Descriptor {

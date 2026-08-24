@@ -52,8 +52,8 @@ type loopbackServer struct {
 	err      error
 }
 
-// SignIn performs browser OAuth and persists the resulting provider payload.
-func (s *Service) SignIn(ctx context.Context) error {
+// SignInProvider performs browser OAuth and persists the resulting provider payload.
+func (s *Service) SignInProvider(ctx context.Context) error {
 	state, err := newOAuthState()
 	if err != nil {
 		return err
