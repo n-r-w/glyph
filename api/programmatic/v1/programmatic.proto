@@ -1,0 +1,435 @@
+edition = "2023";
+
+package glyph.programmatic.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
+
+// ProgrammaticControlService exposes one programmatic control session.
+service ProgrammaticControlService {
+  // Open exchanges commands, command responses, and agent events.
+  rpc Open(stream OpenRequest) returns (stream OpenResponse);
+}
+
+// OpenRequest carries one correlated command.
+message OpenRequest {
+  // The controller-assigned command correlation identifier.
+  string correlation_id = 1;
+  // The command payload.
+  oneof command {
+    UserRequest user_request = 2;
+    Abort abort = 3;
+    GetRunState get_run_state = 4;
+    GetMessages get_messages = 5;
+  }
+}
+
+// UserRequest starts an agent run for user text.
+message UserRequest {
+  // The user request text.
+  string text = 1;
+}
+
+// Abort cancels the active agent run.
+message Abort {}
+
+// GetRunState requests the current run state.
+message GetRunState {}
+
+// GetMessages requests the current public message history.
+message GetMessages {}
+
+// OpenResponse carries one correlated command response or agent event.
+message OpenResponse {
+  // The correlation identifier associated with the response.
+  string correlation_id = 1;
+  // The response payload.
+  oneof content {
+    CommandResponse command_response = 2;
+    AgentEvent agent_event = 3;
+  }
+}
+
+// CommandResponse carries exactly one command result.
+message CommandResponse {
+  // The command result.
+  oneof result {
+    UserRequestAccepted user_request_accepted = 1;
+    AbortCompleted abort_completed = 2;
+    RunStateResult run_state = 3;
+    MessagesResult messages = 4;
+    CommandRejected rejected = 5;
+  }
+}
+
+// UserRequestAccepted confirms that an agent run was accepted.
+message UserRequestAccepted {}
+
+// AbortCompleted confirms that the active run settled after cancellation.
+message AbortCompleted {}
+
+// RunStateResult reports the current agent run state.
+message RunStateResult {
+  // The current run state.
+  RunState state = 1;
+  // The correlation identifier of the active user request.
+  string active_correlation_id = 2;
+}
+
+// MessagesResult contains the ordered public message history.
+message MessagesResult {
+  // The ordered public history entries.
+  repeated HistoryEntry entries = 1;
+}
+
+// CommandRejected describes a command that was not executed.
+message CommandRejected {
+  // The rejected command type.
+  CommandType command = 1;
+  // The stable rejection code.
+  RejectionCode code = 2;
+  // The safe rejection message.
+  string message = 3;
+}
+
+// HistoryEntry carries one public message history item.
+message HistoryEntry {
+  // The history item payload.
+  oneof entry {
+    UserMessage user = 1;
+    ModelResponse model = 2;
+    ToolResult tool_result = 3;
+  }
+}
+
+// UserMessage carries one user history item.
+message UserMessage {
+  // The user message text.
+  string text = 1;
+}
+
+// AgentEvent carries one correlated agent lifecycle event.
+message AgentEvent {
+  // The event type.
+  AgentEventType type = 1;
+  // The Host run identifier.
+  string run_id = 2;
+  // The event payload.
+  oneof payload {
+    ModelContent model_content = 3;
+    ToolCallPreview tool_call_preview = 4;
+    FinalToolCall final_tool_call = 5;
+    ToolExecution tool_execution = 6;
+    ToolProgress tool_progress = 7;
+    ToolResult tool_result = 8;
+    ModelResponse model_response = 9;
+    TurnSummary turn = 10;
+    AgentSummary agent = 11;
+  }
+}
+
+// ModelContent carries one typed model content transition.
+message ModelContent {
+  // The semantic content kind.
+  ModelContentKind kind = 1;
+  // The zero-based position in the model response.
+  int32 position = 2;
+  // The text carried by the transition.
+  string text = 3;
+}
+
+// ToolCallPreview carries transient function-call state.
+message ToolCallPreview {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The current tool name.
+  string name = 2;
+  // The zero-based position in the model response.
+  int32 position = 3;
+  // Whether the preview can still change.
+  bool provisional = 4;
+  // The currently decoded argument fields.
+  repeated ToolCallPreviewField fields = 5;
+}
+
+// ToolCallPreviewField carries one decoded value or scalar prefix.
+message ToolCallPreviewField {
+  // The argument field name.
+  string name = 1;
+  // The decoded field content.
+  oneof content {
+    google.protobuf.Value value = 2;
+    string prefix = 3;
+  }
+}
+
+// FinalToolCall carries a completed function call.
+message FinalToolCall {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The finalized tool name.
+  string name = 2;
+  // The zero-based position in the model response.
+  int32 position = 3;
+  // The decoded tool arguments.
+  google.protobuf.Struct arguments = 4;
+}
+
+// ToolExecution identifies a tool execution transition.
+message ToolExecution {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The executed tool name.
+  string tool_name = 2;
+}
+
+// ToolProgress carries one tool progress fragment.
+message ToolProgress {
+  // The semantic progress channel.
+  ProgressChannel channel = 1;
+  // The progress fragment content.
+  string content = 2;
+}
+
+// ToolResult carries the terminal result of one tool call.
+message ToolResult {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The executed tool name.
+  string tool_name = 2;
+  // The ordered result content blocks.
+  repeated ToolResultContent contents = 3;
+  // Whether tool execution failed.
+  bool is_error = 4;
+}
+
+// ToolResultContent carries one ordered tool result block.
+message ToolResultContent {
+  // The result block content.
+  oneof content {
+    string text = 1;
+    ToolResultImage image = 2;
+  }
+}
+
+// ToolResultImage carries binary image data and its media type.
+message ToolResultImage {
+  // The image media type.
+  string media_type = 1;
+  // The exact binary image data.
+  bytes data = 2;
+}
+
+// ModelResponse carries a finalized model response.
+message ModelResponse {
+  // The concatenated finalized public text.
+  string text = 1;
+  // The provider-neutral response outcome.
+  ModelOutcome outcome = 2;
+  // The safe terminal error message.
+  string error_message = 3;
+  // The provider that produced the response.
+  string provider = 4;
+  // The configured model identifier.
+  string model = 5;
+  // The model identifier reported by the provider response.
+  string response_model = 6;
+  // The provider-assigned response identifier.
+  string response_id = 7;
+  // The provider-reported token usage.
+  ModelUsage usage = 8;
+  // The safe response diagnostics.
+  repeated ModelDiagnostic diagnostics = 9;
+  // The ordered finalized response content.
+  repeated ModelResponseItem content = 10;
+}
+
+// ModelResponseItem carries one finalized model response item.
+message ModelResponseItem {
+  // The finalized response item content.
+  oneof content {
+    FinalText text = 1;
+    FinalText refusal = 2;
+    FinalText reasoning = 3;
+    FinalToolCall tool_call = 4;
+  }
+}
+
+// FinalText carries one finalized text block.
+message FinalText {
+  // The finalized block text.
+  string text = 1;
+}
+
+// ModelUsage carries provider-reported token accounting.
+message ModelUsage {
+  // The number of input tokens processed.
+  int64 input_tokens = 1;
+  // The number of output tokens generated.
+  int64 output_tokens = 2;
+  // The number of input tokens read from a cache.
+  int64 cached_input_tokens = 3;
+  // The number of input tokens written to a cache.
+  int64 cache_write_tokens = 4;
+  // The number of output tokens used for reasoning.
+  int64 reasoning_tokens = 5;
+  // The total provider-reported token count.
+  int64 total_tokens = 6;
+}
+
+// ModelDiagnostic carries one safe provider diagnostic.
+message ModelDiagnostic {
+  // The stable machine-readable diagnostic code.
+  string code = 1;
+  // The safe diagnostic message.
+  string message = 2;
+}
+
+// TurnSummary carries the finalized response and tool results for one turn.
+message TurnSummary {
+  // The finalized model response.
+  ModelResponse response = 1;
+  // The ordered terminal tool results.
+  repeated ToolResult tool_results = 2;
+}
+
+// AgentSummary carries the terminal outcome of one agent run.
+message AgentSummary {
+  // The run outcome.
+  RunOutcome outcome = 1;
+  // The safe terminal error message.
+  string error_message = 2;
+}
+
+// CommandType identifies a controller command.
+enum CommandType {
+  // No command type was provided.
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  // A user request command.
+  COMMAND_TYPE_USER_REQUEST = 1;
+  // An abort command.
+  COMMAND_TYPE_ABORT = 2;
+  // A run-state query.
+  COMMAND_TYPE_GET_RUN_STATE = 3;
+  // A message-history query.
+  COMMAND_TYPE_GET_MESSAGES = 4;
+}
+
+// RejectionCode identifies why a command was rejected.
+enum RejectionCode {
+  // No rejection code was provided.
+  REJECTION_CODE_UNSPECIFIED = 0;
+  // The command arguments are invalid.
+  REJECTION_CODE_INVALID_ARGUMENT = 1;
+  // Another agent run is active.
+  REJECTION_CODE_BUSY = 2;
+  // No agent run is active.
+  REJECTION_CODE_NO_ACTIVE_RUN = 3;
+  // The correlation identifier belongs to the active run.
+  REJECTION_CODE_CORRELATION_IN_USE = 4;
+  // An internal operation failed.
+  REJECTION_CODE_INTERNAL = 5;
+}
+
+// RunState identifies whether an agent run is active.
+enum RunState {
+  // No run state was provided.
+  RUN_STATE_UNSPECIFIED = 0;
+  // No agent run is active.
+  RUN_STATE_IDLE = 1;
+  // An agent run is active.
+  RUN_STATE_RUNNING = 2;
+}
+
+// AgentEventType identifies an agent lifecycle event.
+enum AgentEventType {
+  // No agent event type was provided.
+  AGENT_EVENT_TYPE_UNSPECIFIED = 0;
+  // The agent run started.
+  AGENT_EVENT_TYPE_AGENT_START = 1;
+  // An agent turn started.
+  AGENT_EVENT_TYPE_TURN_START = 2;
+  // A model response message started.
+  AGENT_EVENT_TYPE_MESSAGE_START = 3;
+  // A model content block started.
+  AGENT_EVENT_TYPE_MODEL_CONTENT_START = 4;
+  // A model text delta arrived.
+  AGENT_EVENT_TYPE_MODEL_TEXT_DELTA = 5;
+  // A model content block ended.
+  AGENT_EVENT_TYPE_MODEL_CONTENT_END = 6;
+  // Incremental tool call generation started.
+  AGENT_EVENT_TYPE_TOOL_CALL_START = 7;
+  // Incremental tool call state changed.
+  AGENT_EVENT_TYPE_TOOL_CALL_DELTA = 8;
+  // Tool call generation ended.
+  AGENT_EVENT_TYPE_TOOL_CALL_END = 9;
+  // A model response message ended.
+  AGENT_EVENT_TYPE_MESSAGE_END = 10;
+  // Tool execution started.
+  AGENT_EVENT_TYPE_TOOL_EXECUTION_START = 11;
+  // Tool execution emitted progress.
+  AGENT_EVENT_TYPE_TOOL_EXECUTION_UPDATE = 12;
+  // Tool execution ended.
+  AGENT_EVENT_TYPE_TOOL_EXECUTION_END = 13;
+  // A terminal tool result became available.
+  AGENT_EVENT_TYPE_TOOL_RESULT = 14;
+  // The current agent turn ended.
+  AGENT_EVENT_TYPE_TURN_END = 15;
+  // The agent run ended.
+  AGENT_EVENT_TYPE_AGENT_END = 16;
+  // The agent completed all terminal processing.
+  AGENT_EVENT_TYPE_AGENT_SETTLED = 17;
+}
+
+// ModelContentKind identifies model content semantics.
+enum ModelContentKind {
+  // No content kind was provided.
+  MODEL_CONTENT_KIND_UNSPECIFIED = 0;
+  // The content is public response text.
+  MODEL_CONTENT_KIND_TEXT = 1;
+  // The content is hidden model reasoning.
+  MODEL_CONTENT_KIND_REASONING = 2;
+  // The content is a model refusal.
+  MODEL_CONTENT_KIND_REFUSAL = 3;
+}
+
+// ProgressChannel identifies the meaning of a tool progress fragment.
+enum ProgressChannel {
+  // No progress channel was provided.
+  PROGRESS_CHANNEL_UNSPECIFIED = 0;
+  // The fragment reports status information.
+  PROGRESS_CHANNEL_STATUS = 1;
+  // The fragment contains standard output.
+  PROGRESS_CHANNEL_STDOUT = 2;
+  // The fragment contains standard error.
+  PROGRESS_CHANNEL_STDERR = 3;
+}
+
+// ModelOutcome identifies a terminal model response outcome.
+enum ModelOutcome {
+  // No model outcome was provided.
+  MODEL_OUTCOME_UNSPECIFIED = 0;
+  // The model completed normally.
+  MODEL_OUTCOME_STOP = 1;
+  // The model requested tool execution.
+  MODEL_OUTCOME_TOOL_USE = 2;
+  // The model reached an output limit.
+  MODEL_OUTCOME_LENGTH = 3;
+  // The model response was aborted.
+  MODEL_OUTCOME_ABORTED = 4;
+  // The model response failed.
+  MODEL_OUTCOME_FAILED = 5;
+}
+
+// RunOutcome identifies a terminal agent run outcome.
+enum RunOutcome {
+  // No run outcome was provided.
+  RUN_OUTCOME_UNSPECIFIED = 0;
+  // The agent run completed normally.
+  RUN_OUTCOME_COMPLETED = 1;
+  // The agent run was aborted.
+  RUN_OUTCOME_ABORTED = 2;
+  // The agent run failed.
+  RUN_OUTCOME_FAILED = 3;
+}
