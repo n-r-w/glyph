@@ -1,4 +1,4 @@
-// Package cli parses the mutually exclusive headless and UI invocation modes.
+// Package cli parses the mutually exclusive headless, RPC, and UI invocation modes.
 package cli
 
 import (
@@ -20,6 +20,8 @@ const (
 	ModeHeadless Mode = iota + 1
 	// ModeUI starts one selected UI plugin with no positional request.
 	ModeUI
+	// ModeRPC starts programmatic control without a UI plugin.
+	ModeRPC
 )
 
 // Command contains one validated invocation.
@@ -29,19 +31,25 @@ type Command struct {
 	ExtensionDirectory string
 	UIDirectory        string
 	UIID               string
+	SocketPath         string
 }
 
-// Parse validates a headless `run` command or a positional-free UI invocation.
+// Parse validates one Glyph controller invocation.
 func Parse(arguments []string) (Command, error) {
-	if len(arguments) > 0 && arguments[0] == "run" {
-		headlessCommand, err := headless.Parse(arguments)
-		if err != nil {
-			return Command{}, err
+	if len(arguments) > 0 {
+		switch arguments[0] {
+		case "run":
+			headlessCommand, err := headless.Parse(arguments)
+			if err != nil {
+				return Command{}, err
+			}
+			return Command{
+				Mode: ModeHeadless, Headless: headlessCommand,
+				ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: "",
+			}, nil
+		case "rpc":
+			return parseRPC(arguments[1:])
 		}
-		return Command{
-			Mode: ModeHeadless, Headless: headlessCommand,
-			ExtensionDirectory: "", UIDirectory: "", UIID: "",
-		}, nil
 	}
 
 	flags := flag.NewFlagSet("glyph", flag.ContinueOnError)
@@ -73,5 +81,36 @@ func Parse(arguments []string) (Command, error) {
 		ExtensionDirectory: *extensionDirectory,
 		UIDirectory:        *uiDirectory,
 		UIID:               normalizedUIID,
+		SocketPath:         "",
+	}, nil
+}
+
+// parseRPC accepts only extension and socket configuration for programmatic control.
+func parseRPC(arguments []string) (Command, error) {
+	flags := flag.NewFlagSet("glyph rpc", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	extensionDirectory := flags.String("extension-dir", "", "replace the extension catalog directory")
+	socketPath := flags.String("socket", "", "listen on one Unix socket path")
+	if err := flags.Parse(arguments); err != nil {
+		return Command{}, fmt.Errorf("parse Glyph RPC arguments: %w", err)
+	}
+	if flags.NArg() != 0 {
+		return Command{}, errors.New("glyph RPC mode does not accept positional input")
+	}
+	visited := make(map[string]bool)
+	flags.Visit(func(parsed *flag.Flag) { visited[parsed.Name] = true })
+	if visited["extension-dir"] && strings.TrimSpace(*extensionDirectory) == "" {
+		return Command{}, errors.New("--extension-dir requires a nonempty path")
+	}
+	if visited["socket"] && strings.TrimSpace(*socketPath) == "" {
+		return Command{}, errors.New("--socket requires a nonempty path")
+	}
+	return Command{
+		Mode:               ModeRPC,
+		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: *extensionDirectory,
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         *socketPath,
 	}, nil
 }

@@ -32,7 +32,7 @@ func TestExecuteMapsCompletedRunToZero(t *testing.T) {
 		assert.Equal(t, cli.Command{
 			Mode:               cli.ModeHeadless,
 			Headless:           headless.Command{UserText: "request", ExtensionDirectory: "/extensions"},
-			ExtensionDirectory: "", UIDirectory: "", UIID: "",
+			ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: "",
 		}, command)
 		assert.Equal(t, &stdout, actualStdout)
 		assert.Equal(t, &stderr, actualStderr)
