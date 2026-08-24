@@ -51,7 +51,7 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, outcome)
-	assert.Equal(t, []string{"agent_start", "agent_end", "agent_settled", "settle"}, order)
+	assert.Equal(t, []string{"agent_start", "agent_end", "settle", "agent_settled"}, order)
 	assert.Equal(t, []string{"run-fixed", "run-fixed", "run-fixed", "run-fixed"}, seenRunIDs)
 }
 
@@ -126,6 +126,41 @@ func TestCoordinatorSkipsSettlementWhenRunNeverBegins(t *testing.T) {
 	require.ErrorIs(t, err, run.ErrRunActive)
 	assert.Zero(t, settledCalls)
 	assert.Zero(t, settleCalls)
+}
+
+// TestCoordinatorRunsPreparedIdentifier verifies acceptance-time allocation and shared execution.
+func TestCoordinatorRunsPreparedIdentifier(t *testing.T) {
+	t.Parallel()
+
+	allocated := 0
+	dispatcher := NewDispatcher(
+		func(context.Context, run.Event) error { return nil },
+		func(context.Context, string) error { return nil },
+	)
+	coordinator := newCoordinator(
+		func(_ context.Context, request run.Request) (run.Result, error) {
+			assert.Equal(t, "prepared-run", request.RunID)
+			assert.Equal(t, "request", request.UserText)
+			return completedResult(), nil
+		},
+		func(runID string) error {
+			assert.Equal(t, "prepared-run", runID)
+			return nil
+		},
+		dispatcher,
+		func() (string, error) {
+			allocated++
+			return "prepared-run", nil
+		},
+	)
+
+	runID, err := coordinator.PrepareRun()
+	require.NoError(t, err)
+	outcome, err := coordinator.RunPrepared(t.Context(), runID, "request")
+
+	require.NoError(t, err)
+	assert.Equal(t, agent.RunOutcomeCompleted, outcome)
+	assert.Equal(t, 1, allocated)
 }
 
 // TestGenerateRunIDProducesUniqueNonemptyValues verifies Host-owned identifiers without correlation IDs.

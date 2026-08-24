@@ -10,6 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -24,8 +25,9 @@ type Coordinator struct {
 }
 
 var (
-	_ hostui.AgentRunner   = (*Coordinator)(nil)
-	_ headless.AgentRunner = (*Coordinator)(nil)
+	_ hostui.AgentRunner           = (*Coordinator)(nil)
+	_ headless.AgentRunner         = (*Coordinator)(nil)
+	_ hostprogrammatic.Coordinator = (*Coordinator)(nil)
 )
 
 // NewCoordinator creates the production Host run coordinator.
@@ -47,20 +49,34 @@ func newCoordinator(
 	return &Coordinator{execute: execute, settle: settle, events: events, newRunID: newRunID}
 }
 
-// Run executes one Agent Core run, emits Host settlement, and makes Agent Core idle.
-func (c *Coordinator) Run(ctx context.Context, userText string) (agent.RunOutcome, error) {
+// PrepareRun allocates one Host-owned run ID before a controller accepts the run.
+func (c *Coordinator) PrepareRun() (string, error) {
 	runID, err := c.newRunID()
 	if err != nil {
-		return 0, fmt.Errorf("create Host run ID: %w", err)
+		return "", fmt.Errorf("create Host run ID: %w", err)
 	}
+	return runID, nil
+}
+
+// RunPrepared executes one run whose Host ID was allocated before acceptance.
+func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
 	result, runErr := c.execute(ctx, run.Request{RunID: runID, UserText: userText})
 	if len(result.AddedHistory) == 0 {
 		return result.Outcome, runErr
 	}
 	terminalContext := context.WithoutCancel(ctx)
-	settledErr := c.events.DeliverSettled(terminalContext, runID)
 	settleErr := c.settle(runID)
-	return result.Outcome, errors.Join(runErr, settledErr, settleErr)
+	settledErr := c.events.DeliverSettled(terminalContext, runID)
+	return result.Outcome, errors.Join(runErr, settleErr, settledErr)
+}
+
+// Run executes one Agent Core run, emits Host settlement, and makes Agent Core idle.
+func (c *Coordinator) Run(ctx context.Context, userText string) (agent.RunOutcome, error) {
+	runID, err := c.PrepareRun()
+	if err != nil {
+		return 0, err
+	}
+	return c.RunPrepared(ctx, runID, userText)
 }
 
 // generateRunID creates one nonempty process-local unique run identifier.
