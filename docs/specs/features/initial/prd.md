@@ -94,7 +94,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Remote or independently started UI plugins.
 - Windows support.
 - Sandboxing, project trust, or another security policy for trusted extensions.
-- Direct user-entered shell syntax in the standard TUI outside the bundled `bash` tool.
+- Glyph-client direct shell actions. Shell execution remains available when the model invokes the bundled `bash` tool.
 - Extension-defined startup arguments and command argument completion.
 - Technical architecture, API shapes, transport selection, and implementation planning.
 
@@ -154,6 +154,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The bundled tools extension shall be enabled by default for the standard coding agent.
 - The user shall be able to disable, update, and replace the bundled tools extension under the ordinary extension lifecycle.
 - Tools from the bundled extension shall execute without confirmation from the agent core.
+- A Glyph client shall not request direct shell execution. Shell execution shall occur only when the agent invokes an available tool.
 
 #### Bundled Resource Processing
 
@@ -188,7 +189,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The programmatic control contract shall not depend on the standard TUI or a selected transport technology.
 - The current `glyph` application's headless composition shall expose the programmatic control contract through bidirectional gRPC over a Unix socket.
 - The `glyph` application shall host the Programmatic Control transport in its own process and shall not create a separate Host daemon.
-- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model and reasoning selection, queue modes, compaction, retry control, programmatic shell execution, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
+- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model and reasoning selection, queue modes, compaction, retry control, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
 - Queue mode `all` shall deliver every queued `steer` or `followUp` message at its defined delivery point; `one-at-a-time` shall deliver one queued message at each respective point.
 - A headless agent shall execute its available tools itself.
 
@@ -284,7 +285,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The standard TUI shall provide a terminal UI for the standard coding agent without owning agent-core behavior.
 - The standard TUI shall own terminal input dispatch, terminal rendering, and editor behavior.
-- For every user-invokable action, including direct shell, the standard TUI shall send a Host command and render Host events or results. It shall not execute agent or shell behavior.
+- For every user-invokable action, the standard TUI shall send a Host command and render Host events or results. It shall not execute agent behavior.
 - The standard TUI shall satisfy the transcript, viewport, editor, completion, clipboard, selector, and terminal-lifecycle requirements in `docs/specs/features/initial/standard-tui.md`.
 - The standard TUI shall render model output incrementally and keep tool progress visible while a tool runs.
 - The user shall be able to stop the active run through the standard TUI.

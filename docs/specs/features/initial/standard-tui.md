@@ -54,7 +54,7 @@ Top scenarios:
 - SCN-05: The terminal changes size, suspends, resumes, and then loses the UI process. Glyph restores the terminal and the active session remains recoverable.
 
 Operational and UX constraints:
-- CNS-01: The standard TUI owns terminal input dispatch, rendering, focus, viewport state, editor state, and selection state. Agent Core owns none of these concerns. The standard TUI sends Host commands and renders Host events or results. It does not execute agent or shell behavior.
+- CNS-01: The standard TUI owns terminal input dispatch, rendering, focus, viewport state, editor state, and selection state. Agent Core owns none of these concerns. The standard TUI sends Host commands and renders Host events or results. It does not execute agent behavior.
 - CNS-02: TUI presentation never changes persisted model, tool, or session content.
 - CNS-03: Keyboard operation remains available when mouse reporting, clipboard integration, inline images, or hyperlink activation are unavailable.
 
@@ -62,7 +62,7 @@ Operational and UX constraints:
 
 In scope:
 - ISP-01: Transcript layout, semantic rendering, viewport movement, follow mode, prompt navigation, search, selection, copying, and link activation.
-- ISP-02: Multiline editor behavior, prompt history, command and path completion, file and image attachment, clipboard integration, external editor integration, direct shell actions, and queued-message editing.
+- ISP-02: Multiline editor behavior, prompt history, command and path completion, file and image attachment, clipboard integration, external editor integration, and queued-message editing.
 - ISP-03: Selector interaction, configurable key bindings, hotkey discovery, terminal resize, suspension, resume, and restoration.
 
 Out of scope:
@@ -119,27 +119,26 @@ Functional:
 - FRQ-31: External-editor invocation shall open the complete editor text and replace editor text with the saved result. Cancellation or editor failure shall preserve the preceding editor text and report an error.
 - FRQ-32: The user shall be able to copy the active editor selection and the selected transcript message.
 - FRQ-33: While a run is active, the user shall be able to submit steering and follow-up messages and restore queued messages to the editor before delivery.
-- FRQ-34: The standard TUI shall send a Host direct-shell command that requests either model-visible output in the next user context or model-hidden output outside model context, and shall render the Host result or error.
-- FRQ-35: Clear, abort, and exit shall be distinct actions. Exit shall require an empty editor and no active focused dialog. Abort shall target the active run and shall not discard unsent editor text.
+- FRQ-34: Clear, abort, and exit shall be distinct actions. Exit shall require an empty editor and no active focused dialog. Abort shall target the active run and shall not discard unsent editor text.
 
 ### Selectors and dialogs
 
-- FRQ-36: Every DEF-06 shall support preceding item, following item, page up, page down, confirm, and cancel actions.
-- FRQ-37: A selector with more entries than its visible height shall keep the selected item visible and shall expose text filtering when its item source is searchable.
-- FRQ-38: Cancelling a selector or dialog shall restore the preceding editor text, viewport position, and focus.
+- FRQ-35: Every DEF-06 shall support preceding item, following item, page up, page down, confirm, and cancel actions.
+- FRQ-36: A selector with more entries than its visible height shall keep the selected item visible and shall expose text filtering when its item source is searchable.
+- FRQ-37: Cancelling a selector or dialog shall restore the preceding editor text, viewport position, and focus.
 
 ### Terminal lifecycle and discoverability
 
-- FRQ-39: Every standard TUI key binding shall be configurable, and user configuration shall replace the defaults owned by [`tui-defaults.md`](tui-defaults.md).
-- FRQ-40: The user shall be able to display active commands and key bindings from the standard TUI.
-- FRQ-41: Terminal resize shall recompute wrapping, DEF-02 height, DEF-03 placement, selection geometry, and scroll indicator without dropping DEF-01 content.
-- FRQ-42: Suspending and resuming Glyph shall restore application input modes, visible content, viewport position, editor text, and focus.
-- FRQ-43: Normal exit, UI process failure, and Host termination shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes enabled by the standard TUI.
+- FRQ-38: Every standard TUI key binding shall be configurable, and user configuration shall replace the defaults owned by [`tui-defaults.md`](tui-defaults.md).
+- FRQ-39: The user shall be able to display active commands and key bindings from the standard TUI.
+- FRQ-40: Terminal resize shall recompute wrapping, DEF-02 height, DEF-03 placement, selection geometry, and scroll indicator without dropping DEF-01 content.
+- FRQ-41: Suspending and resuming Glyph shall restore application input modes, visible content, viewport position, editor text, and focus.
+- FRQ-42: Normal exit, UI process failure, and Host termination shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes enabled by the standard TUI.
 
 Non-functional:
 - NFQ-01: At every positive terminal width and height, rendering shall not panic. When the complete dock does not fit, the editor line and one status line take precedence over transcript content.
 - NFQ-02: Rendering, search, copy, completion, and selector filtering shall not modify persisted session entries.
-- NFQ-03: Clipboard, external-editor, hyperlink, shell, and attachment errors shall remain user-visible and shall leave the standard TUI usable.
+- NFQ-03: Clipboard, external-editor, hyperlink, and attachment errors shall remain user-visible and shall leave the standard TUI usable.
 - NFQ-04: No TUI state or event shall contain provider credentials, authorization headers, OAuth verifier values, or credential-file contents.
 
 ## Overengineering and Overspecification Considerations
