@@ -50,8 +50,12 @@
 - `nextTurn`: A queued message intended for the next user turn.
 - `terminate`: A tool-result signal that controls whether the agent performs another automatic model request.
 - `model provider`: A local or remote system through which an agent accesses a language model.
+- `provider type`: A provider implementation category that defines shared protocol and authentication behavior for configured provider instances.
+- `provider instance`: One configured model provider with a unique identifier, endpoint, authentication configuration, and model descriptors.
+- `provider catalogue`: The Glyph Host-owned set of configured provider instances and their model descriptors.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
 - `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
+- `model selection`: The active provider instance, model, and reasoning level used when the agent core starts its next model request.
 - `UI`: A presentation and input surface through which a person interacts with Glyph.
 - `terminal UI`: A UI presented inside a terminal.
 - `standard TUI`: The terminal UI plugin distributed with Glyph; it owns terminal-specific rendering, input, and extension capabilities.

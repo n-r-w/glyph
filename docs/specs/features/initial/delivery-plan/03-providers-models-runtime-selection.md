@@ -4,7 +4,7 @@ Support the required built-in providers and model selection without ending the s
 
 ## Key definitions and abbreviations
 
-- DEF-01: Provider catalogue. The Host-owned set of configured provider implementations and their model descriptors.
+- DEF-01: Provider catalogue. The Glyph Host-owned set of configured provider instances and their model descriptors.
 
 ## Problem Statement
 
@@ -33,6 +33,7 @@ In scope:
 Out of scope:
 
 - OSP-01: No extension-defined providers or provider middleware.
+- OSP-02: No `!command` API-key resolution.
 
 ## Dependencies and Preconditions
 
@@ -46,10 +47,10 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Add the user-configured OpenAI-compatible provider with Chat Completions and Responses support.
+- FRQ-01: Support multiple user-configured provider instances of the OpenAI-compatible provider type. Each instance shall have a unique identifier and support Chat Completions, Responses, or both APIs.
 - FRQ-02: Replace the immutable startup model catalogue with configured provider and model catalogues.
 - FRQ-03: Add model and reasoning selection to Programmatic Control and the standard TUI.
-- FRQ-04: Resolve API keys through credential sources and keep secret values out of settings.
+- FRQ-04: An OpenAI-compatible provider instance shall accept an optional API key as a literal value, an environment-variable reference, or a local credential-file entry reference. `!command` resolution is not supported.
 
 ### Non-Functional Requirements
 
@@ -64,8 +65,8 @@ Out of scope:
 ### Acceptance Criteria
 
 - ACC-01: A user selects a different configured model and the next request uses it without clearing conversation history.
-- ACC-02: Failed credential resolution preserves the active model and returns an error before model execution.
-- ACC-03: OpenAI-compatible operation without a credential source sends no authorization.
+- ACC-02: Failure to resolve a referenced API key preserves the active provider, model, and reasoning selection and returns an error before applying the requested selection.
+- ACC-03: An OpenAI-compatible provider instance without an API key remains selectable, and its requests contain no `Authorization` header.
 
 ## Overengineering and Overspecification Considerations
 

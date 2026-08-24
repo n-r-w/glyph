@@ -64,7 +64,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - A programmatic controller runs and controls a headless Glyph agent without loading the standard TUI.
 - A user gives the standard terminal coding agent a task. The agent inspects the project, invokes tools, changes files, runs commands, reports the result, and continues the conversation.
-- A user authenticates with OpenAI Codex or configures an OpenAI-compatible API, selects a model, and changes the model without leaving the session.
+- A user authenticates with OpenAI Codex or configures one or more OpenAI-compatible provider instances, selects a model, and changes the model without leaving the session.
 - A user resumes a saved session, navigates its tree, and continues from an earlier point without deleting another branch.
 - A Go developer installs a compatible extension without rebuilding Glyph. Its core capabilities work headlessly, and its terminal capabilities activate only with the standard TUI.
 - An extension requests interaction or sends a notification through the Glyph host to a Glyph client.
@@ -75,7 +75,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 ### Scope
 
 - Glyph host, agent core, locally managed UI plugins including the standard TUI, and programmatic control.
-- OpenAI Codex and a user-configured OpenAI-compatible API.
+- OpenAI Codex and user-configured OpenAI-compatible provider instances.
 - Bundled standard coding tools.
 - Runtime-installable Go extensions.
 - A UI catalog separate from the extension catalog.
@@ -166,19 +166,20 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 #### Model Providers and Authentication
 
-- Glyph shall provide an OpenAI Codex provider and a user-configured OpenAI-compatible provider.
+- Glyph shall provide an OpenAI Codex provider type and an OpenAI-compatible provider type.
+- Glyph shall support multiple configured provider instances of the OpenAI-compatible provider type, each with a unique identifier.
 - Each provider shall own its authentication behavior, including API-key resolution, OAuth login, token refresh, and conversion of credentials into request authorization.
 - The Glyph host shall provide provider implementations with generic credential storage and interaction through a Glyph client.
 - Host-provided credential storage shall persist credentials in the local credential file.
 - The Glyph host shall allow an extension to register and unregister a provider implementation, including its authentication, model catalogue, and streaming behavior.
 - The local credential file shall be accessible only to the user running Glyph.
 - The OpenAI Codex provider shall use interactive OAuth authentication and persist its OAuth credentials through host-provided credential storage.
-- The OpenAI-compatible provider shall be configured with a base URL, an explicit model list, and an optional credential source.
-- The OpenAI-compatible provider shall support OpenAI Chat Completions and OpenAI Responses.
+- Each OpenAI-compatible provider instance shall be configured with a base URL, an explicit model list, and an optional API key.
+- An OpenAI-compatible provider instance API key shall be a literal value, an environment-variable reference, or a local credential-file entry reference. API-key resolution shall not execute a command.
+- The OpenAI-compatible provider type shall support OpenAI Chat Completions and OpenAI Responses.
 - Provider configuration shall select the OpenAI wire API through an explicit `api` field, and a model configuration shall be able to override it.
-- A provider configuration without a credential source shall use no authorization.
-- Provider configuration shall not contain secret values.
-- Selecting a model whose configured credential source cannot be resolved shall fail immediately, preserve the active model, and produce an error.
+- An OpenAI-compatible provider instance without an API key shall remain available and shall use no request authorization.
+- Selecting a model whose referenced API key cannot be resolved shall fail immediately, preserve the active provider, model, and reasoning selection, and produce an error.
 
 #### Programmatic Control
 
