@@ -4,6 +4,8 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 
@@ -28,78 +30,115 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, new(ServiceSuite))
 }
 
-// TestAcceptedRunDeliversAcceptanceBeforeCorrelatedEvents verifies the accepted run lifecycle.
-func (s *ServiceSuite) TestAcceptedRunDeliversAcceptanceBeforeCorrelatedEvents() {
+// TestAcceptedOperationStartsExplicitlyAndBackpressures verifies the returned operation contract.
+func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
+		delivery := NewDelivery()
 		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
-		command := controller.Command{CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: "request"}
-
-		gomock.InOrder(
-			coordinator.EXPECT().PrepareRun().Return("run-1", nil),
-			sender.EXPECT().SendResponse(gomock.Any(), controller.Response{
-				CorrelationID: "c1",
-				Kind:          controller.ResponseUserRequestAccepted,
-			}),
-			coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
-				func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
-					require.NoError(t, delivery.DeliverAgent(ctx, run.Event{Type: run.EventAgentStart, RunID: "run-1"}))
-					require.NoError(t, delivery.DeliverSettled(ctx, "run-1"))
-					return agent.RunOutcomeCompleted, nil
-				},
-			),
-		)
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "c1",
-			Type:          controller.AgentEventAgentStart,
-			RunID:         "run-1",
-		})
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "c1",
-			Type:          controller.AgentEventAgentSettled,
-			RunID:         "run-1",
-		})
-
-		err := service.Handle(t.Context(), command)
-		synctest.Wait()
-
-		assert.NoError(t, err)
-	})
-}
-
-// TestCompletedRunReleasesPreparedContext verifies sequential runs release parent context references.
-func (s *ServiceSuite) TestCompletedRunReleasesPreparedContext() {
-	synctest.Test(s.T(), func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
-		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
-		var runContext context.Context
-
-		coordinator.EXPECT().PrepareRun().Return("run-complete", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "complete", Type: controller.AgentEventAgentSettled, RunID: "run-complete",
-		})
-		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-complete", "request").DoAndReturn(
+		started := make(chan struct{})
+		delivered := make(chan struct{})
+		coordinator.EXPECT().PrepareRun().Return("run-1", nil)
+		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
-				runContext = ctx
-				require.NoError(t, delivery.DeliverSettled(context.WithoutCancel(ctx), "run-complete"))
+				close(started)
+				if err := delivery.DeliverAgent(ctx, run.Event{Type: run.EventAgentStart, RunID: "run-1"}); err != nil {
+					return agent.RunOutcomeFailed, err
+				}
+				close(delivered)
+				if err := delivery.DeliverSettled(context.WithoutCancel(ctx), "run-1"); err != nil {
+					return agent.RunOutcomeFailed, err
+				}
 				return agent.RunOutcomeCompleted, nil
 			},
 		)
 
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
-			CorrelationID: "complete", Kind: controller.CommandUserRequest, UserText: "request",
-		}))
-		synctest.Wait()
+		response, operation, err := service.Handle(t.Context(), controller.Command{
+			CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: "request",
+		})
 
-		require.NotNil(t, runContext)
-		require.ErrorIs(t, runContext.Err(), context.Canceled)
+		require.NoError(t, err)
+		assert.Equal(t, controller.Response{
+			CorrelationID: "c1", Kind: controller.ResponseUserRequestAccepted,
+		}, response)
+		require.NotNil(t, operation)
+		select {
+		case <-started:
+			assert.Fail(t, "operation started before Start")
+		default:
+		}
+
+		operation.Start()
+		operation.Start()
+		synctest.Wait()
+		select {
+		case <-started:
+		default:
+			assert.Fail(t, "operation did not start")
+		}
+		select {
+		case <-delivered:
+			assert.Fail(t, "event production did not apply backpressure")
+		default:
+		}
+
+		assert.Equal(t, controller.AgentEvent{
+			CorrelationID: "c1", Type: controller.AgentEventAgentStart, RunID: "run-1",
+		}, <-operation.Events())
+		synctest.Wait()
+		select {
+		case <-delivered:
+		default:
+			assert.Fail(t, "event producer remained blocked after consumption")
+		}
+		assert.Equal(t, controller.AgentEvent{
+			CorrelationID: "c1", Type: controller.AgentEventAgentSettled, RunID: "run-1",
+		}, <-operation.Events())
+		synctest.Wait()
+		_, open := <-operation.Events()
+		assert.False(t, open)
+	})
+}
+
+// TestSequentialRunsKeepPreparedRunIDs verifies a settled session accepts later work.
+func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
+	synctest.Test(s.T(), func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		coordinator := NewMockCoordinator(ctrl)
+		delivery := NewDelivery()
+		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+
+		for index, values := range []struct {
+			correlationID string
+			runID         string
+		}{
+			{correlationID: "c1", runID: "run-1"},
+			{correlationID: "c2", runID: "run-2"},
+		} {
+			coordinator.EXPECT().PrepareRun().Return(values.runID, nil)
+			coordinator.EXPECT().RunPrepared(gomock.Any(), values.runID, "request").DoAndReturn(
+				func(ctx context.Context, runID, _ string) (agent.RunOutcome, error) {
+					if err := delivery.DeliverSettled(context.WithoutCancel(ctx), runID); err != nil {
+						return agent.RunOutcomeFailed, err
+					}
+					return agent.RunOutcomeCompleted, nil
+				},
+			)
+			response, operation, err := service.Handle(t.Context(), controller.Command{
+				CorrelationID: values.correlationID, Kind: controller.CommandUserRequest, UserText: "request",
+			})
+			require.NoError(t, err)
+			assert.Equal(t, controller.ResponseUserRequestAccepted, response.Kind)
+			require.NotNil(t, operation)
+			operation.Start()
+			event := <-operation.Events()
+			assert.Equal(t, values.runID, event.RunID)
+			assert.Equal(t, values.correlationID, event.CorrelationID)
+			synctest.Wait()
+			_, open := <-operation.Events()
+			assert.False(t, open, "run %d event stream remained open", index)
+		}
 	})
 }
 
@@ -153,139 +192,217 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
-			synctest.Test(s.T(), func(t *testing.T) {
-				ctrl := gomock.NewController(t)
-				coordinator := NewMockCoordinator(ctrl)
-				sender := NewMockSender(ctrl)
-				delivery := NewDelivery(sender)
-				service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
-				if test.active {
-					coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-					sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
-					coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").Return(agent.RunOutcomeCompleted, nil)
-					require.NoError(t, service.Handle(t.Context(), controller.Command{
-						CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-					}))
-					synctest.Wait()
-				}
-				if test.expectedCode == controller.RejectionInternal {
-					coordinator.EXPECT().PrepareRun().Return("", test.prepareErr)
-				}
-				sender.EXPECT().SendResponse(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(_ context.Context, response controller.Response) error {
-						assert.Equal(t, test.command.CorrelationID, response.CorrelationID)
-						assert.Equal(t, controller.ResponseRejected, response.Kind)
-						assert.Equal(t, test.expectedType, response.Rejection.Command)
-						assert.Equal(t, test.expectedCode, response.Rejection.Code)
-						return nil
-					},
-				)
+			ctrl := gomock.NewController(s.T())
+			coordinator := NewMockCoordinator(ctrl)
+			service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+			if test.active {
+				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
+				_, operation, err := service.Handle(s.T().Context(), controller.Command{
+					CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(operation)
+				defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+			}
+			if test.expectedCode == controller.RejectionInternal {
+				coordinator.EXPECT().PrepareRun().Return("", test.prepareErr)
+			}
 
-				err := service.Handle(t.Context(), test.command)
-				assert.NoError(t, err)
-			})
+			response, operation, err := service.Handle(s.T().Context(), test.command)
+
+			s.Require().NoError(err)
+			s.Nil(operation)
+			s.Equal(test.command.CorrelationID, response.CorrelationID)
+			s.Equal(controller.ResponseRejected, response.Kind)
+			s.Equal(test.expectedType, response.Rejection.Command)
+			s.Equal(test.expectedCode, response.Rejection.Code)
 		})
 	}
 }
 
-// TestConcurrentReservationRejectsTheLosingRequest verifies the busy response at the atomic reserve point.
-func (s *ServiceSuite) TestConcurrentReservationRejectsTheLosingRequest() {
+// TestConcurrentReservationRejectsOneRequest verifies active reservation is atomic.
+func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	sender := NewMockSender(ctrl)
-	delivery := NewDelivery(sender)
-	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
+	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	var prepareBarrier sync.WaitGroup
+	prepareBarrier.Add(2)
+	var runNumber atomic.Int64
 	coordinator.EXPECT().PrepareRun().DoAndReturn(func() (string, error) {
-		s.Require().True(delivery.reserve(&activeRun{
-			correlationID: "winner", runID: "run-winner", cancel: func() {}, done: make(chan struct{}),
-		}))
-		return "run-loser", nil
-	})
-	sender.EXPECT().SendResponse(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, response controller.Response) error {
-			s.Equal("loser", response.CorrelationID)
-			s.Equal(controller.ResponseRejected, response.Kind)
-			s.Equal(controller.RejectionBusy, response.Rejection.Code)
-			return nil
-		},
-	)
+		prepareBarrier.Done()
+		prepareBarrier.Wait()
+		if runNumber.Add(1) == 1 {
+			return "run-1", nil
+		}
+		return "run-2", nil
+	}).Times(2)
 
-	err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "loser", Kind: controller.CommandUserRequest, UserText: "request",
+	type result struct {
+		response  controller.Response
+		operation controller.Operation
+		err       error
+	}
+	results := make([]result, 2)
+	var calls sync.WaitGroup
+	calls.Add(2)
+	for index := range results {
+		go func() {
+			defer calls.Done()
+			results[index].response, results[index].operation, results[index].err = service.Handle(
+				s.T().Context(), controller.Command{
+					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: "request",
+				},
+			)
+		}()
+	}
+	calls.Wait()
+
+	accepted := 0
+	rejected := 0
+	for _, result := range results {
+		s.Require().NoError(result.err)
+		switch result.response.Kind {
+		case controller.ResponseUserRequestAccepted:
+			accepted++
+			s.Require().NotNil(result.operation)
+		case controller.ResponseRejected:
+			rejected++
+			s.Equal(controller.RejectionBusy, result.response.Rejection.Code)
+		case controller.ResponseUnspecified,
+			controller.ResponseAbortCompleted,
+			controller.ResponseRunState,
+			controller.ResponseMessages:
+			s.Fail("unexpected response", "kind %d", result.response.Kind)
+		}
+	}
+	s.Equal(1, accepted)
+	s.Equal(1, rejected)
+	s.Require().NoError(service.CancelAndWait(s.T().Context()))
+}
+
+// TestDisconnectPreventsLateReservation verifies in-flight acceptance cannot outlive session cleanup.
+func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
+	ctrl := gomock.NewController(s.T())
+	coordinator := NewMockCoordinator(ctrl)
+	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	preparing := make(chan struct{})
+	prepared := make(chan struct{})
+	coordinator.EXPECT().PrepareRun().DoAndReturn(func() (string, error) {
+		close(preparing)
+		<-prepared
+		return "run-late", nil
+	})
+	type handleResult struct {
+		response  controller.Response
+		operation controller.Operation
+		err       error
+	}
+	result := make(chan handleResult)
+	go func() {
+		response, operation, err := service.Handle(s.T().Context(), controller.Command{
+			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: "request",
+		})
+		result <- handleResult{response: response, operation: operation, err: err}
+	}()
+	<-preparing
+
+	s.Require().NoError(service.CancelAndWait(s.T().Context()))
+	close(prepared)
+	handled := <-result
+
+	s.Require().NoError(handled.err)
+	s.Nil(handled.operation)
+	s.Equal(controller.ResponseRejected, handled.response.Kind)
+	s.Equal(controller.RejectionBusy, handled.response.Rejection.Code)
+}
+
+// TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies state correlation and history mapping.
+func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
+	ctrl := gomock.NewController(s.T())
+	coordinator := NewMockCoordinator(ctrl)
+	delivery := NewDelivery()
+	state := run.State{
+		Status: run.StatusRunning, RunID: "run-active",
+		PartialResponse: model.Response{Content: []model.Content{{Kind: model.ContentText, Text: "partial"}}},
+		ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview"}},
+	}
+	var history []agent.HistoryEntry
+	service := New(coordinator, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
+	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
+	_, operation, err := service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
+	})
+	s.Require().NoError(err)
+	s.Require().NotNil(operation)
+	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+
+	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "state", Kind: controller.CommandGetRunState,
+	})
+	s.Require().NoError(err)
+	s.Nil(returnedOperation)
+	s.Equal(controller.Response{
+		CorrelationID: "state", Kind: controller.ResponseRunState,
+		State: controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: "active"},
+	}, response)
+
+	responseModel := model.ID("response-model")
+	history = []agent.HistoryEntry{
+		{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")},
+		{Kind: agent.HistoryEntryModel, Model: model.Response{
+			Content: []model.Content{
+				{Kind: model.ContentText, Text: "answer", Final: true},
+				{Kind: model.ContentText, Text: "partial", Final: false},
+				{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "provider", Payload: []byte(`{"secret":true}`)}},
+				{Kind: model.ContentReasoning, Text: "reason", Final: true},
+			},
+			Outcome: model.OutcomeStop, Provider: "provider", Model: "model", ResponseModel: &responseModel,
+		}},
+		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
+			CallID: "call", ToolName: "tool",
+			Contents: []tool.ResultContent{
+				{Kind: tool.ResultContentText, Text: "output"},
+				{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}},
+			},
+		}},
+	}
+	response, returnedOperation, err = service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "messages", Kind: controller.CommandGetMessages,
+	})
+	s.Require().NoError(err)
+	s.Nil(returnedOperation)
+	s.Equal(controller.ResponseMessages, response.Kind)
+	s.Require().Len(response.Messages, 3)
+	s.Equal("hello", response.Messages[0].UserText)
+	s.Equal("answer", response.Messages[1].Model.Text)
+	s.Require().Len(response.Messages[1].Model.Content, 2)
+	s.Equal(controller.ModelResponseContentReasoning, response.Messages[1].Model.Content[1].Kind)
+	s.Equal([]byte{1, 2}, response.Messages[2].ToolResult.Contents[1].Image.Data)
+	response.Messages[2].ToolResult.Contents[1].Image.Data[0] = 9
+	s.Equal(byte(1), history[2].ToolResult.Contents[1].Image.Data[0])
+}
+
+// TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.
+func (s *ServiceSuite) TestAbortCancelsAcceptedOperationWithoutStarting() {
+	ctrl := gomock.NewController(s.T())
+	coordinator := NewMockCoordinator(ctrl)
+	service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	coordinator.EXPECT().PrepareRun().Return("run-accepted", nil)
+	_, operation, err := service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "request",
+	})
+	s.Require().NoError(err)
+
+	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
+		CorrelationID: "abort", Kind: controller.CommandAbort,
 	})
 
 	s.Require().NoError(err)
-}
-
-// TestQueriesReturnPublicSnapshotsDuringActiveRun verifies state correlation and ordered history mapping.
-func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringActiveRun() {
-	synctest.Test(s.T(), func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
-		state := run.State{
-			Status: run.StatusRunning, RunID: "run-active",
-			PartialResponse: model.Response{Content: []model.Content{{Kind: model.ContentText, Text: "partial"}}},
-			ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview"}},
-		}
-		var history []agent.HistoryEntry
-		service := New(coordinator, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
-		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
-		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").Return(agent.RunOutcomeCompleted, nil)
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-		}))
-		synctest.Wait()
-
-		sender.EXPECT().SendResponse(gomock.Any(), controller.Response{
-			CorrelationID: "state", Kind: controller.ResponseRunState,
-			State: controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: "active"},
-		})
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
-			CorrelationID: "state", Kind: controller.CommandGetRunState,
-		}))
-
-		responseModel := model.ID("response-model")
-		history = []agent.HistoryEntry{
-			{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")},
-			{Kind: agent.HistoryEntryModel, Model: model.Response{
-				Content: []model.Content{
-					{Kind: model.ContentText, Text: "answer", Final: true},
-					{Kind: model.ContentText, Text: "partial", Final: false},
-					{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "provider", Payload: []byte(`{"secret":true}`)}},
-					{Kind: model.ContentReasoning, Text: "reason", Final: true},
-				},
-				Outcome: model.OutcomeStop, Provider: "provider", Model: "model", ResponseModel: &responseModel,
-			}},
-			{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
-				CallID: "call", ToolName: "tool", IsError: false,
-				Contents: []tool.ResultContent{
-					{Kind: tool.ResultContentText, Text: "output"},
-					{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}},
-				},
-			}},
-		}
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, response controller.Response) error {
-				require.Equal(t, "messages", response.CorrelationID)
-				require.Equal(t, controller.ResponseMessages, response.Kind)
-				require.Len(t, response.Messages, 3)
-				assert.Equal(t, "hello", response.Messages[0].UserText)
-				assert.Equal(t, "answer", response.Messages[1].Model.Text)
-				require.Len(t, response.Messages[1].Model.Content, 2)
-				assert.Equal(t, controller.ModelResponseContentReasoning, response.Messages[1].Model.Content[1].Kind)
-				assert.Equal(t, []byte{1, 2}, response.Messages[2].ToolResult.Contents[1].Image.Data)
-				response.Messages[2].ToolResult.Contents[1].Image.Data[0] = 9
-				return nil
-			},
-		)
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
-			CorrelationID: "messages", Kind: controller.CommandGetMessages,
-		}))
-		assert.Equal(t, byte(1), history[2].ToolResult.Contents[1].Image.Data[0])
-	})
+	s.Nil(returnedOperation)
+	s.Equal(controller.ResponseAbortCompleted, response.Kind)
+	_, open := <-operation.Events()
+	s.False(open)
+	operation.Start()
 }
 
 // TestAbortCancelsJoinsAndReportsIdle verifies settlement precedes abort completion.
@@ -293,51 +410,63 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
+		delivery := NewDelivery()
 		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
-		release := make(chan struct{})
+		started := make(chan struct{})
 		var runContextErr error
-
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
-				select {
-				case <-ctx.Done():
-				case <-release:
-				}
+				close(started)
+				<-ctx.Done()
 				runContextErr = ctx.Err()
-				require.NoError(t, delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"))
+				if err := delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"); err != nil {
+					return agent.RunOutcomeFailed, err
+				}
 				return agent.RunOutcomeAborted, context.Canceled
 			},
 		)
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
+		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-		}))
-		synctest.Wait()
-
-		gomock.InOrder(
-			sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-				CorrelationID: "active", Type: controller.AgentEventAgentSettled, RunID: "run-active",
-			}),
-			sender.EXPECT().SendResponse(gomock.Any(), controller.Response{
-				CorrelationID: "abort", Kind: controller.ResponseAbortCompleted,
-			}),
-		)
-		err := service.Handle(t.Context(), controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort})
-		close(release)
-		synctest.Wait()
-
-		require.NoError(t, err)
-		require.ErrorIs(t, runContextErr, context.Canceled)
-		sender.EXPECT().SendResponse(gomock.Any(), controller.Response{
-			CorrelationID: "state", Kind: controller.ResponseRunState,
-			State: controller.RunStateResult{State: controller.RunStateIdle},
 		})
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
+		require.NoError(t, err)
+		operation.Start()
+		synctest.Wait()
+		select {
+		case <-started:
+		default:
+			assert.Fail(t, "run did not start")
+		}
+
+		type abortResult struct {
+			response controller.Response
+			err      error
+		}
+		aborted := make(chan abortResult)
+		go func() {
+			response, _, abortErr := service.Handle(t.Context(), controller.Command{
+				CorrelationID: "abort", Kind: controller.CommandAbort,
+			})
+			aborted <- abortResult{response: response, err: abortErr}
+		}()
+		synctest.Wait()
+		select {
+		case result := <-aborted:
+			assert.Fail(t, "abort completed before settlement", "result: %+v", result)
+		default:
+		}
+		assert.Equal(t, controller.AgentEventAgentSettled, (<-operation.Events()).Type)
+		synctest.Wait()
+		result := <-aborted
+		require.NoError(t, result.err)
+		assert.Equal(t, controller.ResponseAbortCompleted, result.response.Kind)
+		require.ErrorIs(t, runContextErr, context.Canceled)
+
+		state, _, stateErr := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "state", Kind: controller.CommandGetRunState,
-		}))
+		})
+		require.NoError(t, stateErr)
+		assert.Equal(t, controller.RunStateIdle, state.State.State)
 	})
 }
 
@@ -346,135 +475,133 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
+		delivery := NewDelivery()
 		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		cleanupErr := errors.New("settlement delivery failed")
-
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
 				<-ctx.Done()
-				require.NoError(t, delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"))
+				if err := delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"); err != nil {
+					return agent.RunOutcomeFailed, err
+				}
 				return agent.RunOutcomeAborted, errors.Join(context.Canceled, cleanupErr)
 			},
 		)
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "active", Type: controller.AgentEventAgentSettled, RunID: "run-active",
-		})
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
+		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-		}))
+		})
+		require.NoError(t, err)
+		operation.Start()
+		synctest.Wait()
+		aborted := make(chan error)
+		go func() {
+			_, _, abortErr := service.Handle(t.Context(), controller.Command{
+				CorrelationID: "abort", Kind: controller.CommandAbort,
+			})
+			aborted <- abortErr
+		}()
+		synctest.Wait()
+		assert.Equal(t, controller.AgentEventAgentSettled, (<-operation.Events()).Type)
 		synctest.Wait()
 
-		err := service.Handle(t.Context(), controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort})
-
-		require.ErrorIs(t, err, cleanupErr)
-		require.NotErrorIs(t, err, context.Canceled)
+		abortErr := <-aborted
+		require.ErrorIs(t, abortErr, cleanupErr)
+		require.NotErrorIs(t, abortErr, context.Canceled)
 	})
 }
 
-// TestDisconnectCancelsAndJoinsActiveRun verifies controller ownership of active work.
-func (s *ServiceSuite) TestDisconnectCancelsAndJoinsActiveRun() {
+// TestDisconnectCancelsBlockedEventAndJoins verifies stream closure releases synchronous production.
+func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
+		delivery := NewDelivery()
 		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
-		release := make(chan struct{})
+		started := make(chan struct{})
 		var runContextErr error
-
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
-				select {
-				case <-ctx.Done():
-				case <-release:
-				}
+				close(started)
+				deliveryErr := delivery.DeliverAgent(context.WithoutCancel(ctx), run.Event{
+					Type: run.EventAgentStart, RunID: "run-active",
+				})
 				runContextErr = ctx.Err()
-				require.NoError(t, delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"))
-				return agent.RunOutcomeAborted, context.Canceled
+				return agent.RunOutcomeAborted, errors.Join(context.Canceled, deliveryErr)
 			},
 		)
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "active", Type: controller.AgentEventAgentSettled, RunID: "run-active",
-		})
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
+		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-		}))
-		synctest.Wait()
-
-		err := service.CancelAndWait(t.Context())
-		close(release)
-		synctest.Wait()
-
+		})
 		require.NoError(t, err)
+		operation.Start()
+		synctest.Wait()
+		select {
+		case <-started:
+		default:
+			assert.Fail(t, "run did not reach event production")
+		}
+
+		require.NoError(t, service.CancelAndWait(t.Context()))
 		require.ErrorIs(t, runContextErr, context.Canceled)
+		_, open := <-operation.Events()
+		assert.False(t, open)
 	})
 }
 
-// TestDisconnectJoinsRunAfterSettlement verifies idle delivery does not lose the run join handle.
+// TestDisconnectJoinsRunAfterSettlement verifies idle delivery retains the join handle.
 func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
-		sender := NewMockSender(ctrl)
-		delivery := NewDelivery(sender)
+		delivery := NewDelivery()
 		service := New(coordinator, idleStateSnapshot, emptyHistorySnapshot, delivery)
 		release := make(chan struct{})
-		completed := make(chan error, 1)
-
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-		sender.EXPECT().SendResponse(gomock.Any(), gomock.Any())
-		sender.EXPECT().SendEvent(gomock.Any(), controller.AgentEvent{
-			CorrelationID: "active", Type: controller.AgentEventAgentSettled, RunID: "run-active",
-		})
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
-				require.NoError(t, delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"))
+				if err := delivery.DeliverSettled(context.WithoutCancel(ctx), "run-active"); err != nil {
+					return agent.RunOutcomeFailed, err
+				}
 				<-release
 				return agent.RunOutcomeCompleted, nil
 			},
 		)
-		require.NoError(t, service.Handle(t.Context(), controller.Command{
+		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first",
-		}))
+		})
+		require.NoError(t, err)
+		operation.Start()
+		assert.Equal(t, controller.AgentEventAgentSettled, (<-operation.Events()).Type)
 		synctest.Wait()
 
-		go func() {
-			completed <- service.CancelAndWait(t.Context())
-		}()
+		completed := make(chan error)
+		go func() { completed <- service.CancelAndWait(t.Context()) }()
 		synctest.Wait()
 		select {
-		case err := <-completed:
-			require.NoError(t, err)
-			assert.Fail(t, "disconnect returned before the settled run completed")
+		case disconnectErr := <-completed:
+			assert.Fail(t, "disconnect returned before run completion", "error: %v", disconnectErr)
 		default:
 		}
 		close(release)
 		synctest.Wait()
-		select {
-		case err := <-completed:
-			require.NoError(t, err)
-		default:
-			assert.Fail(t, "disconnect did not join the settled run")
-		}
+		require.NoError(t, <-completed)
 	})
 }
 
 // TestEmptyCorrelationReturnsTerminalError verifies uncorrelated commands produce no response.
 func (s *ServiceSuite) TestEmptyCorrelationReturnsTerminalError() {
 	ctrl := gomock.NewController(s.T())
-	service := New(
-		NewMockCoordinator(ctrl), idleStateSnapshot, emptyHistorySnapshot, NewDelivery(NewMockSender(ctrl)),
+	service := New(NewMockCoordinator(ctrl), idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+
+	response, operation, err := service.Handle(
+		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState},
 	)
 
-	err := service.Handle(s.T().Context(), controller.Command{Kind: controller.CommandGetRunState})
-
 	s.Require().ErrorIs(err, ErrCorrelationRequired)
+	s.Equal(controller.Response{}, response)
+	s.Nil(operation)
 }
 
 func idleStateSnapshot() run.State {

@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	programmatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -70,56 +69,4 @@ func (m *MockCoordinator) RunPrepared(ctx context.Context, runID, userText strin
 func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, userText any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, userText)
-}
-
-// MockSender is a mock of Sender interface.
-type MockSender struct {
-	ctrl     *gomock.Controller
-	recorder *MockSenderMockRecorder
-	isgomock struct{}
-}
-
-// MockSenderMockRecorder is the mock recorder for MockSender.
-type MockSenderMockRecorder struct {
-	mock *MockSender
-}
-
-// NewMockSender creates a new mock instance.
-func NewMockSender(ctrl *gomock.Controller) *MockSender {
-	mock := &MockSender{ctrl: ctrl}
-	mock.recorder = &MockSenderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSender) EXPECT() *MockSenderMockRecorder {
-	return m.recorder
-}
-
-// SendEvent mocks base method.
-func (m *MockSender) SendEvent(ctx context.Context, event programmatic.AgentEvent) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendEvent", ctx, event)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendEvent indicates an expected call of SendEvent.
-func (mr *MockSenderMockRecorder) SendEvent(ctx, event any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendEvent", reflect.TypeOf((*MockSender)(nil).SendEvent), ctx, event)
-}
-
-// SendResponse mocks base method.
-func (m *MockSender) SendResponse(ctx context.Context, response programmatic.Response) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendResponse", ctx, response)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendResponse indicates an expected call of SendResponse.
-func (mr *MockSenderMockRecorder) SendResponse(ctx, response any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendResponse", reflect.TypeOf((*MockSender)(nil).SendResponse), ctx, response)
 }

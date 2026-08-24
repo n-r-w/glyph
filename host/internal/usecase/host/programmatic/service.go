@@ -37,74 +37,77 @@ func New(
 	}
 }
 
-// Handle executes one transport-independent command.
-func (s *Service) Handle(ctx context.Context, command controller.Command) error {
-	current, rejected, err := s.preflight(ctx, command)
-	if rejected || err != nil {
-		return err
+// Handle executes one transport-independent command and returns its single response.
+func (s *Service) Handle(
+	ctx context.Context,
+	command controller.Command,
+) (controller.Response, controller.Operation, error) {
+	current, rejection, err := s.preflight(command)
+	if err != nil {
+		return controller.Response{}, nil, err
 	}
+	if rejection != nil {
+		return *rejection, nil, nil
+	}
+
 	switch command.Kind {
 	case controller.CommandAbort:
-		return s.abort(ctx, command.CorrelationID, current)
+		response, abortErr := s.abort(command.CorrelationID, current)
+		return response, nil, abortErr
 	case controller.CommandGetRunState:
-		return s.sendState(ctx, command.CorrelationID, current)
+		return s.runState(command.CorrelationID, current), nil, nil
 	case controller.CommandGetMessages:
-		return s.sendMessages(ctx, command.CorrelationID)
+		return s.messages(command.CorrelationID), nil, nil
 	case controller.CommandUserRequest:
 	case controller.CommandUnspecified:
-		return s.reject(ctx, command, controller.RejectionInvalidArgument, "invalid command payload")
+		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), nil, nil
 	}
 
 	runID, err := s.coordinator.PrepareRun()
 	if err != nil {
-		return s.reject(ctx, command, controller.RejectionInternal, "Host run ID allocation failed")
+		return s.runPreparationRejected(command)
 	}
+
 	runContext, cancel := context.WithCancel(ctx)
-	active := &activeRun{
+	operation := &activeRun{
+		delivery:      s.delivery,
 		correlationID: command.CorrelationID,
 		runID:         runID,
+		coordinator:   s.coordinator,
+		userText:      command.UserText,
+		runContext:    runContext,
 		cancel:        cancel,
+		events:        make(chan controller.AgentEvent),
+		streamDone:    make(chan struct{}),
 		done:          make(chan struct{}),
+		state:         operationAccepted,
+		streamStopped: false,
 		err:           nil,
 	}
-	if !s.delivery.reserve(active) {
+	if !s.delivery.reserve(operation) {
 		cancel()
-		return s.reject(ctx, command, controller.RejectionBusy, "a run is active")
+		close(operation.events)
+		close(operation.streamDone)
+		close(operation.done)
+		return s.rejection(command, controller.RejectionBusy, "a run is active"), nil, nil
 	}
-	if sendErr := s.delivery.sendResponse(ctx, emptyResponse(
-		command.CorrelationID,
-		controller.ResponseUserRequestAccepted,
-	)); sendErr != nil {
-		s.delivery.release(active)
-		cancel()
-		return fmt.Errorf("deliver Programmatic Control response: %w", sendErr)
-	}
-	go func() {
-		outcome, runErr := s.coordinator.RunPrepared(runContext, runID, command.UserText)
-		s.delivery.finish(active, filterRunError(outcome, runErr))
-	}()
-	return nil
+
+	return emptyResponse(command.CorrelationID, controller.ResponseUserRequestAccepted), operation, nil
 }
 
-// CancelAndWait cancels and joins active work owned by the controller connection.
+// CancelAndWait cancels and joins work owned by the controller connection.
 func (s *Service) CancelAndWait(context.Context) error {
 	return s.delivery.cancelAndWaitAll()
 }
 
-func (s *Service) abort(ctx context.Context, correlationID string, active *activeRun) error {
+func (s *Service) abort(correlationID string, active *activeRun) (controller.Response, error) {
 	if err := s.delivery.cancelAndWait(active); err != nil {
-		return fmt.Errorf("abort Programmatic Control run: %w", err)
+		return controller.Response{}, fmt.Errorf("abort Programmatic Control run: %w", err)
 	}
-	if err := s.delivery.sendResponse(ctx, emptyResponse(
-		correlationID,
-		controller.ResponseAbortCompleted,
-	)); err != nil {
-		return fmt.Errorf("deliver Programmatic Control abort: %w", err)
-	}
-	return nil
+	return emptyResponse(correlationID, controller.ResponseAbortCompleted), nil
 }
 
-func (s *Service) sendState(ctx context.Context, correlationID string, active *activeRun) error {
+func (s *Service) runState(correlationID string, active *activeRun) controller.Response {
 	state := s.stateSnapshot()
 	publicState := controller.RunStateIdle
 	if active != nil || state.Status == run.StatusRunning || state.Status == run.StatusAwaitingSettlement {
@@ -116,44 +119,39 @@ func (s *Service) sendState(ctx context.Context, correlationID string, active *a
 	}
 	response := emptyResponse(correlationID, controller.ResponseRunState)
 	response.State = controller.RunStateResult{State: publicState, ActiveCorrelationID: activeCorrelationID}
-	if err := s.delivery.sendResponse(ctx, response); err != nil {
-		return fmt.Errorf("deliver Programmatic Control run state: %w", err)
-	}
-	return nil
+	return response
 }
 
-func (s *Service) sendMessages(ctx context.Context, correlationID string) error {
+func (s *Service) messages(correlationID string) controller.Response {
 	response := emptyResponse(correlationID, controller.ResponseMessages)
 	response.Messages = mapHistory(s.historySnapshot())
-	if err := s.delivery.sendResponse(ctx, response); err != nil {
-		return fmt.Errorf("deliver Programmatic Control messages: %w", err)
-	}
-	return nil
+	return response
 }
 
 func (s *Service) preflight(
-	ctx context.Context,
 	command controller.Command,
-) (*activeRun, bool, error) {
+) (*activeRun, *controller.Response, error) {
 	if command.CorrelationID == "" {
-		return nil, false, ErrCorrelationRequired
+		return nil, nil, ErrCorrelationRequired
 	}
 	if invalidCommand(command) {
-		return nil, true, s.reject(ctx, command, controller.RejectionInvalidArgument, "invalid command payload")
+		response := s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload")
+		return nil, &response, nil
 	}
 	active := s.delivery.activeSnapshot()
 	if active != nil && active.correlationID == command.CorrelationID {
-		return active, true, s.reject(
-			ctx, command, controller.RejectionCorrelationInUse, "correlation ID is active",
-		)
+		response := s.rejection(command, controller.RejectionCorrelationInUse, "correlation ID is active")
+		return active, &response, nil
 	}
 	if command.Kind == controller.CommandUserRequest && active != nil {
-		return active, true, s.reject(ctx, command, controller.RejectionBusy, "a run is active")
+		response := s.rejection(command, controller.RejectionBusy, "a run is active")
+		return active, &response, nil
 	}
 	if command.Kind == controller.CommandAbort && active == nil {
-		return nil, true, s.reject(ctx, command, controller.RejectionNoActiveRun, "no run is active")
+		response := s.rejection(command, controller.RejectionNoActiveRun, "no run is active")
+		return nil, &response, nil
 	}
-	return active, false, nil
+	return active, nil, nil
 }
 
 func invalidCommand(command controller.Command) bool {
@@ -219,16 +217,21 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 	}
 }
 
-func (s *Service) reject(
-	ctx context.Context,
+// runPreparationRejected keeps run ID allocation failure inside the command response.
+func (s *Service) runPreparationRejected(
+	command controller.Command,
+) (controller.Response, controller.Operation, error) {
+	return s.rejection(
+		command, controller.RejectionInternal, "Host run ID allocation failed",
+	), nil, nil
+}
+
+func (s *Service) rejection(
 	command controller.Command,
 	code controller.RejectionCode,
 	message string,
-) error {
+) controller.Response {
 	response := emptyResponse(command.CorrelationID, controller.ResponseRejected)
 	response.Rejection = controller.Rejection{Command: command.Kind, Code: code, Message: message}
-	if err := s.delivery.sendResponse(ctx, response); err != nil {
-		return fmt.Errorf("deliver Programmatic Control rejection: %w", err)
-	}
-	return nil
+	return response
 }

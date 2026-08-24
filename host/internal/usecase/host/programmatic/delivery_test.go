@@ -2,11 +2,11 @@
 package programmatic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -104,18 +104,18 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			ctrl := gomock.NewController(t)
-			sender := NewMockSender(ctrl)
-			delivery := NewDelivery(sender)
-			require.True(t, delivery.reserve(&activeRun{correlationID: "correlation", runID: "run"}))
+			delivery := NewDelivery()
+			active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+			require.True(t, delivery.reserve(active))
+			delivered := make(chan error)
+			go func() { delivered <- delivery.DeliverAgent(t.Context(), test.event) }()
+
 			expected := test.expected
 			expected.CorrelationID = "correlation"
 			expected.RunID = "run"
-			sender.EXPECT().SendEvent(gomock.Any(), expected)
-
-			err := delivery.DeliverAgent(t.Context(), test.event)
-
-			assert.NoError(t, err)
+			assert.Equal(t, expected, <-active.Events())
+			require.NoError(t, <-delivered)
+			delivery.finish(active, nil)
 		})
 	}
 }
@@ -124,11 +124,27 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	delivery := NewDelivery(NewMockSender(ctrl))
-	require.True(t, delivery.reserve(&activeRun{correlationID: "correlation", runID: "active"}))
+	delivery := NewDelivery()
+	active := newTestActiveRun(t.Context(), delivery, "correlation", "active")
+	require.True(t, delivery.reserve(active))
 
 	err := delivery.DeliverAgent(t.Context(), run.Event{Type: run.EventAgentStart, RunID: "other"})
 
 	require.Error(t, err)
+	delivery.finish(active, nil)
+}
+
+func newTestActiveRun(
+	ctx context.Context,
+	delivery *Delivery,
+	correlationID string,
+	runID string,
+) *activeRun {
+	runContext, cancel := context.WithCancel(ctx)
+	return &activeRun{
+		delivery: delivery, correlationID: correlationID, runID: runID,
+		runContext: runContext, cancel: cancel,
+		events: make(chan controller.AgentEvent), streamDone: make(chan struct{}),
+		done: make(chan struct{}), state: operationRunning,
+	}
 }

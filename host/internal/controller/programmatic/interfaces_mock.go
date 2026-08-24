@@ -16,6 +16,56 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockOperation is a mock of Operation interface.
+type MockOperation struct {
+	ctrl     *gomock.Controller
+	recorder *MockOperationMockRecorder
+	isgomock struct{}
+}
+
+// MockOperationMockRecorder is the mock recorder for MockOperation.
+type MockOperationMockRecorder struct {
+	mock *MockOperation
+}
+
+// NewMockOperation creates a new mock instance.
+func NewMockOperation(ctrl *gomock.Controller) *MockOperation {
+	mock := &MockOperation{ctrl: ctrl}
+	mock.recorder = &MockOperationMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
+	return m.recorder
+}
+
+// Events mocks base method.
+func (m *MockOperation) Events() <-chan AgentEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Events")
+	ret0, _ := ret[0].(<-chan AgentEvent)
+	return ret0
+}
+
+// Events indicates an expected call of Events.
+func (mr *MockOperationMockRecorder) Events() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockOperation)(nil).Events))
+}
+
+// Start mocks base method.
+func (m *MockOperation) Start() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Start")
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockOperationMockRecorder) Start() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockOperation)(nil).Start))
+}
+
 // MockHostSession is a mock of HostSession interface.
 type MockHostSession struct {
 	ctrl     *gomock.Controller
@@ -55,11 +105,13 @@ func (mr *MockHostSessionMockRecorder) CancelAndWait(ctx any) *gomock.Call {
 }
 
 // Handle mocks base method.
-func (m *MockHostSession) Handle(ctx context.Context, command Command) error {
+func (m *MockHostSession) Handle(ctx context.Context, command Command) (Response, Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", ctx, command)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(Response)
+	ret1, _ := ret[1].(Operation)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Handle indicates an expected call of Handle.

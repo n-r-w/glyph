@@ -10,28 +10,54 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+type operationState uint8
+
+const (
+	operationAccepted operationState = iota
+	operationRunning
+	operationFinished
+)
+
 type activeRun struct {
+	delivery      *Delivery
 	correlationID string
 	runID         string
+	coordinator   Coordinator
+	userText      string
+	runContext    context.Context
 	cancel        context.CancelFunc
+	events        chan controller.AgentEvent
+	streamDone    chan struct{}
 	done          chan struct{}
+	state         operationState
+	streamStopped bool
 	err           error
+}
+
+var _ controller.Operation = (*activeRun)(nil)
+
+// Start begins the prepared run at most once.
+func (a *activeRun) Start() {
+	a.delivery.start(a)
+}
+
+// Events returns the operation's synchronous event stream.
+func (a *activeRun) Events() <-chan controller.AgentEvent {
+	return a.events
 }
 
 // Delivery correlates Host lifecycle delivery with one accepted user request.
 type Delivery struct {
-	sender Sender
-
-	sendMutex  sync.Mutex
 	mutex      sync.Mutex
+	closed     bool
 	active     *activeRun
 	operations map[*activeRun]struct{}
 }
 
 // NewDelivery creates a synchronous Programmatic Control delivery router.
-func NewDelivery(sender Sender) *Delivery {
+func NewDelivery() *Delivery {
 	return &Delivery{
-		sender: sender, sendMutex: sync.Mutex{}, mutex: sync.Mutex{}, active: nil,
+		mutex: sync.Mutex{}, closed: false, active: nil,
 		operations: make(map[*activeRun]struct{}),
 	}
 }
@@ -45,7 +71,7 @@ func (d *Delivery) activeSnapshot() *activeRun {
 func (d *Delivery) reserve(active *activeRun) bool {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	if d.active != nil {
+	if d.closed || d.active != nil {
 		return false
 	}
 	d.active = active
@@ -53,36 +79,71 @@ func (d *Delivery) reserve(active *activeRun) bool {
 	return true
 }
 
-func (d *Delivery) release(active *activeRun) {
+func (d *Delivery) start(active *activeRun) {
 	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	if d.active == active {
-		d.active = nil
+	if active.state != operationAccepted {
+		d.mutex.Unlock()
+		return
 	}
-	if _, exists := d.operations[active]; exists {
-		delete(d.operations, active)
-		close(active.done)
-	}
+	active.state = operationRunning
+	d.mutex.Unlock()
+
+	go func() {
+		outcome, runErr := active.coordinator.RunPrepared(
+			active.runContext, active.runID, active.userText,
+		)
+		d.finish(active, filterRunError(outcome, runErr))
+	}()
 }
 
 func (d *Delivery) finish(active *activeRun, err error) {
 	d.mutex.Lock()
+	if active.state == operationFinished {
+		d.mutex.Unlock()
+		return
+	}
+	active.state = operationFinished
 	active.err = err
 	delete(d.operations, active)
 	active.cancel()
+	d.stopStreamLocked(active)
+	close(active.events)
 	close(active.done)
 	d.mutex.Unlock()
 }
 
+func (d *Delivery) finishAcceptedLocked(active *activeRun) {
+	if d.active == active {
+		d.active = nil
+	}
+	active.state = operationFinished
+	delete(d.operations, active)
+	active.cancel()
+	d.stopStreamLocked(active)
+	close(active.events)
+	close(active.done)
+}
+
+func (d *Delivery) stopStreamLocked(active *activeRun) {
+	if active.streamStopped {
+		return
+	}
+	active.streamStopped = true
+	close(active.streamDone)
+}
+
 func (d *Delivery) cancelAndWaitAll() error {
 	d.mutex.Lock()
+	d.closed = true
 	operations := make([]*activeRun, 0, len(d.operations))
 	for operation := range d.operations {
 		operations = append(operations, operation)
-	}
-	active := d.active
-	if active != nil {
-		active.cancel()
+		d.stopStreamLocked(operation)
+		if operation.state == operationAccepted {
+			d.finishAcceptedLocked(operation)
+			continue
+		}
+		operation.cancel()
 	}
 	d.mutex.Unlock()
 
@@ -96,31 +157,36 @@ func (d *Delivery) cancelAndWaitAll() error {
 
 func (d *Delivery) cancelAndWait(active *activeRun) error {
 	d.mutex.Lock()
-	cancel := active.cancel
-	if d.active != active {
-		cancel = nil
+	if active.state == operationAccepted {
+		d.finishAcceptedLocked(active)
+		d.mutex.Unlock()
+		return nil
+	}
+	if d.active == active {
+		active.cancel()
 	}
 	d.mutex.Unlock()
-	if cancel != nil {
-		cancel()
-	}
+
 	<-active.done
 	return active.err
 }
 
-func (d *Delivery) sendResponse(ctx context.Context, response controller.Response) error {
-	d.sendMutex.Lock()
-	defer d.sendMutex.Unlock()
-	return d.sender.SendResponse(ctx, response)
+func (d *Delivery) emit(
+	ctx context.Context,
+	active *activeRun,
+	event controller.AgentEvent,
+) error {
+	select {
+	case active.events <- event:
+		return nil
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	case <-active.streamDone:
+		return context.Canceled
+	}
 }
 
-func (d *Delivery) sendEvent(ctx context.Context, event controller.AgentEvent) error {
-	d.sendMutex.Lock()
-	defer d.sendMutex.Unlock()
-	return d.sender.SendEvent(ctx, event)
-}
-
-// DeliverAgent forwards one correlated Agent Core event.
+// DeliverAgent forwards one correlated Agent Core event with controller backpressure.
 func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	d.mutex.Lock()
 	active := d.active
@@ -133,13 +199,13 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 
 	mapped := mapAgentEvent(event)
 	mapped.CorrelationID = correlationID
-	if err := d.sendEvent(ctx, mapped); err != nil {
+	if err := d.emit(ctx, active, mapped); err != nil {
 		return fmt.Errorf("deliver Programmatic Control agent event: %w", err)
 	}
 	return nil
 }
 
-// DeliverSettled clears active state and forwards one correlated Host settlement.
+// DeliverSettled clears active state and delivers the coordinator-owned settlement.
 func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 	d.mutex.Lock()
 	active := d.active
@@ -155,7 +221,7 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 	settled.CorrelationID = correlationID
 	settled.Type = controller.AgentEventAgentSettled
 	settled.RunID = runID
-	if err := d.sendEvent(ctx, settled); err != nil {
+	if err := d.emit(ctx, active, settled); err != nil {
 		return fmt.Errorf("deliver Programmatic Control settlement: %w", err)
 	}
 	return nil
