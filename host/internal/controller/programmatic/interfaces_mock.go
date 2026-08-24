@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -118,4 +119,71 @@ func (m *MockHostSession) Handle(ctx context.Context, command Command) (Response
 func (mr *MockHostSessionMockRecorder) Handle(ctx, command any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHostSession)(nil).Handle), ctx, command)
+}
+
+// MockOpenStream is a mock of OpenStream interface.
+type MockOpenStream struct {
+	ctrl     *gomock.Controller
+	recorder *MockOpenStreamMockRecorder
+	isgomock struct{}
+}
+
+// MockOpenStreamMockRecorder is the mock recorder for MockOpenStream.
+type MockOpenStreamMockRecorder struct {
+	mock *MockOpenStream
+}
+
+// NewMockOpenStream creates a new mock instance.
+func NewMockOpenStream(ctrl *gomock.Controller) *MockOpenStream {
+	mock := &MockOpenStream{ctrl: ctrl}
+	mock.recorder = &MockOpenStreamMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOpenStream) EXPECT() *MockOpenStreamMockRecorder {
+	return m.recorder
+}
+
+// Context mocks base method.
+func (m *MockOpenStream) Context() context.Context {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Context")
+	ret0, _ := ret[0].(context.Context)
+	return ret0
+}
+
+// Context indicates an expected call of Context.
+func (mr *MockOpenStreamMockRecorder) Context() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockOpenStream)(nil).Context))
+}
+
+// Recv mocks base method.
+func (m *MockOpenStream) Recv() (*programmaticv1.OpenRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Recv")
+	ret0, _ := ret[0].(*programmaticv1.OpenRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Recv indicates an expected call of Recv.
+func (mr *MockOpenStreamMockRecorder) Recv() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockOpenStream)(nil).Recv))
+}
+
+// Send mocks base method.
+func (m *MockOpenStream) Send(arg0 *programmaticv1.OpenResponse) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Send", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Send indicates an expected call of Send.
+func (mr *MockOpenStreamMockRecorder) Send(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockOpenStream)(nil).Send), arg0)
 }
