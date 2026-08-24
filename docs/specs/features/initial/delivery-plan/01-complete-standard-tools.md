@@ -6,6 +6,7 @@ Deliver bounded, production-usable `read`, `write`, `edit`, `grep`, `find`, `ls`
 
 - DEF-01: Standard tool output budget. Model-visible text is limited to 50 KiB or 2,000 lines, whichever limit is reached first.
 - DEF-02: Supported image. A JPEG, static PNG, GIF, WebP, or BMP file identified from its content rather than its filename.
+- DEF-03: Search and listing defaults. `grep` returns at most 100 matches, `find` returns at most 1,000 results, and `ls` returns at most 500 entries unless the caller supplies a positive limit. A grep line is limited to 500 characters.
 
 ## Problem Statement
 
@@ -49,7 +50,7 @@ Out of scope:
 
 - FRQ-01: Upgrade `read` from complete-file-only operation to offset and limit reads for text files, typed image results for DEF-02, and explicit continuation information when a result is partial. A partial text result appends a notice in the same text block that identifies the shown line range, total line count, and next `offset`. The complete text block, including the notice, remains within DEF-01. When the first requested line exceeds the byte limit, `read` returns a bounded text notice identifying the line and byte size and directs the model to use a bounded `bash` command. When the first requested line fits DEF-01 alone but cannot fit with the required continuation notice, `read` returns a bounded text notice with the line, byte size, bounded `bash` command, and the next line `offset`. It does not return a partial line or byte offset.
 - FRQ-02: Add `write` with parent-directory creation and upgrade `edit` to apply one or more unique exact replacements as one file mutation. A missing or non-unique source fragment leaves the file unchanged.
-- FRQ-03: Add `grep`, `find`, and `ls` with the input and result controls in the Standard tool capability baseline below.
+- FRQ-03: Add `grep`, `find`, and `ls` with the input and result controls in the Standard tool capability baseline below. `grep` and `find` use `github.com/bmatcuk/doublestar/v4` for glob matching. Their traversal does not apply `.gitignore` rules. `grep` skips symbolic links. `find` returns a matching symbolic link but does not enter a linked directory. `ls` marks a symbolic link to a directory with a trailing slash and does not traverse it. A reported match, result, or entry limit requires observing one additional result. A grep line longer than 500 characters is truncated and reported. `grep`, `find`, and `ls` escape carriage returns and line feeds in displayed filesystem names. They never save complete output to a temporary file when output is truncated.
 - FRQ-04: Add `bash` timeout input, retain streamed stdout and stderr, terminate the process group on timeout or cancellation, and store complete output in a temporary file when the model-visible result exceeds DEF-01.
 - FRQ-05: Replace the prototype string-only schema profile with JSON-compatible tool arguments that support strings, numbers, booleans, null, arrays, nested objects, and optional fields.
 - FRQ-06: Apply DEF-01 to every textual standard-tool result while preserving Host schema validation, cancellation, and model-visible operation errors.
@@ -63,9 +64,9 @@ The Pi tool implementations in REF-04 through REF-11 provide evidence for the co
 | `read` | Required `path`; optional one-based `offset`; optional positive `limit`; text files and DEF-02 images | A partial text result includes the shown line range, total lines, and next `offset` in its text block. A first line that exceeds DEF-01 returns a bounded notice with its line and byte size. Image content uses typed image result content |
 | `write` | Required `path` and `content`; creates missing parent directories; replaces complete file content | Confirmation identifies the written path; content is not echoed beyond DEF-01 |
 | `edit` | Required `path` and one or more ordered exact replacements; every source fragment must occur exactly once in the pre-mutation content | All replacements commit together; any invalid replacement returns an error and leaves the file unchanged |
-| `grep` | Required pattern; optional path, glob, case-insensitive mode, literal mode, context lines, and positive match limit | Returns matching paths and lines, reports the reached match or output limit, and does not return unbounded lines |
-| `find` | Required glob pattern; optional root path and positive result limit; returns project-relative paths | Reports the reached result or output limit |
-| `ls` | Optional path and positive entry limit; marks directories distinctly | Reports the reached entry or output limit |
+| `grep` | Required pattern; optional path, glob, case-insensitive mode, literal mode, non-negative context lines, and positive `limit`. Default limit is 100. Displayed path line breaks are escaped. Matches use project-relative paths and line numbers. A glob filters traversed files. | Returns bounded context, reports the reached match limit, output limit, or truncated long lines, and limits each grep line to 500 characters. It skips symbolic links and does not use `.gitignore`. |
+| `find` | Required recursive glob pattern; optional root path and positive result limit. Default result limit is 1,000. Returns project-relative paths with line breaks escaped. | Reports the reached result or output limit. It returns matching symbolic links without traversing linked directories and does not use `.gitignore`. |
+| `ls` | Optional path and positive entry limit. Default entry limit is 500. Includes hidden entries, escapes line breaks in displayed names, and marks directories, including symbolic links to directories, with a trailing slash. | Reports the reached entry or output limit. |
 | `bash` | Required command; optional positive timeout in seconds with no default timeout; streams stdout and stderr separately | Returns exit code and bounded output; a truncated result identifies the temporary file containing complete combined output |
 
 ### Non-Functional Requirements
@@ -84,8 +85,8 @@ The Pi tool implementations in REF-04 through REF-11 provide evidence for the co
 - ACC-01: Through the standard TUI, the agent can locate files, read them, update an existing file, create a file, run a command, and report the result.
 - ACC-02: Reading with `offset` and `limit` returns exactly the requested available lines and identifies the next offset when more content remains.
 - ACC-03: A multi-replacement edit changes the file once when every source fragment is unique and leaves the file byte-for-byte unchanged when any source fragment is missing or duplicated.
-- ACC-04: `grep`, `find`, and `ls` apply every filter and limit listed in the capability baseline and report which limit truncated the result.
-- ACC-05: No textual standard-tool result exceeds 50 KiB or 2,000 lines. A truncated `bash` result identifies a readable temporary file containing its complete output.
+- ACC-04: `grep`, `find`, and `ls` apply every filter and limit listed in the capability baseline and report which limit truncated the result. A reported match, result, or entry limit has one observed additional result.
+- ACC-05: No textual standard-tool result exceeds 50 KiB or 2,000 lines. A truncated `bash` result identifies a readable temporary file containing its complete output. A truncated `grep`, `find`, or `ls` result does not create a temporary file.
 - ACC-06: `bash` timeout and cancellation terminate the command process group and return the distinct timeout or cancellation outcome.
 - ACC-07: Reading any DEF-02 image returns typed image content without converting binary data to text.
 - ACC-08: The same coding task completes through headless execution.

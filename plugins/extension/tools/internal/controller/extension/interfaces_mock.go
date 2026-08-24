@@ -169,3 +169,72 @@ func (mr *MockBashToolMockRecorder) Execute(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockBashTool)(nil).Execute), arg0, arg1, arg2)
 }
+
+// MockSearchTool is a mock of SearchTool interface.
+type MockSearchTool struct {
+	ctrl     *gomock.Controller
+	recorder *MockSearchToolMockRecorder
+	isgomock struct{}
+}
+
+// MockSearchToolMockRecorder is the mock recorder for MockSearchTool.
+type MockSearchToolMockRecorder struct {
+	mock *MockSearchTool
+}
+
+// NewMockSearchTool creates a new mock instance.
+func NewMockSearchTool(ctrl *gomock.Controller) *MockSearchTool {
+	mock := &MockSearchTool{ctrl: ctrl}
+	mock.recorder = &MockSearchToolMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSearchTool) EXPECT() *MockSearchToolMockRecorder {
+	return m.recorder
+}
+
+// Find mocks base method.
+func (m *MockSearchTool) Find(arg0 context.Context, arg1 FindArguments) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Find", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Find indicates an expected call of Find.
+func (mr *MockSearchToolMockRecorder) Find(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockSearchTool)(nil).Find), arg0, arg1)
+}
+
+// Grep mocks base method.
+func (m *MockSearchTool) Grep(arg0 context.Context, arg1 GrepArguments) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Grep", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Grep indicates an expected call of Grep.
+func (mr *MockSearchToolMockRecorder) Grep(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Grep", reflect.TypeOf((*MockSearchTool)(nil).Grep), arg0, arg1)
+}
+
+// List mocks base method.
+func (m *MockSearchTool) List(arg0 context.Context, arg1 ListArguments) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockSearchToolMockRecorder) List(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSearchTool)(nil).List), arg0, arg1)
+}

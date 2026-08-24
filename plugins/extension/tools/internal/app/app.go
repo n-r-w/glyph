@@ -10,6 +10,7 @@ import (
 	bashtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/bash"
 	edittool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/edit"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
+	searchtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/search"
 	writetool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/write"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -21,7 +22,8 @@ func Serve() error {
 	writeService := writetool.New(projectFiles)
 	editService := edittool.New(projectFiles)
 	bashService := bashtool.New(bashprocess.New())
-	controller, err := extensioncontroller.New(readService, writeService, editService, bashService)
+	searchService := searchtool.New(projectFiles)
+	controller, err := extensioncontroller.New(readService, writeService, editService, bashService, searchService)
 	if err != nil {
 		return fmt.Errorf("create extension controller: %w", err)
 	}

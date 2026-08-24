@@ -66,3 +66,34 @@ type BashResult struct {
 type BashTool interface {
 	Execute(context.Context, string, func(BashProgress) error) (BashResult, error)
 }
+
+// GrepArguments contains validated grep input.
+type GrepArguments struct {
+	Pattern    string
+	Path       string
+	Glob       string
+	IgnoreCase bool
+	Literal    bool
+	Context    uint
+	Limit      uint
+}
+
+// FindArguments contains validated find input.
+type FindArguments struct {
+	Pattern string
+	Path    string
+	Limit   uint
+}
+
+// ListArguments contains validated ls input.
+type ListArguments struct {
+	Path  string
+	Limit uint
+}
+
+// SearchTool executes the project discovery tools.
+type SearchTool interface {
+	Grep(context.Context, GrepArguments) (string, error)
+	Find(context.Context, FindArguments) (string, error)
+	List(context.Context, ListArguments) (string, error)
+}

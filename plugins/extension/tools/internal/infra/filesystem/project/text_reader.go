@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
 )
 
@@ -32,7 +33,7 @@ func newTextReadState(offset, limit uint) *textReadState {
 	if start == 0 {
 		start = 1
 	}
-	maxLines := uint(readtool.MaximumTextLines)
+	maxLines := uint(textbudget.MaximumLines)
 	if limit > 0 && limit < maxLines {
 		maxLines = limit
 	}
@@ -99,7 +100,7 @@ func (s *textReadState) consume(ctx context.Context, reader *bufio.Reader, path 
 func (s *textReadState) append(fragment []byte) {
 	s.lineSize += len(fragment)
 	candidate := s.line + 1
-	if !s.stopped && candidate >= s.start && s.selected < s.maxLines && s.lineSize <= readtool.MaximumTextBytes {
+	if !s.stopped && candidate >= s.start && s.selected < s.maxLines && s.lineSize <= textbudget.MaximumBytes {
 		s.lineBuffer.Write(fragment)
 	}
 }
@@ -107,11 +108,11 @@ func (s *textReadState) append(fragment []byte) {
 // finish commits the current complete line to bounded output.
 func (s *textReadState) finish() {
 	s.line++
-	if s.line == s.start && s.lineSize > readtool.MaximumTextBytes {
+	if s.line == s.start && s.lineSize > textbudget.MaximumBytes {
 		s.oversizedSize = int64(s.lineSize)
 	}
 	canAppend := !s.stopped && s.oversizedSize == 0 && s.line >= s.start && s.selected < s.maxLines
-	if canAppend && s.outputSize+s.lineSize <= readtool.MaximumTextBytes {
+	if canAppend && s.outputSize+s.lineSize <= textbudget.MaximumBytes {
 		s.selectedLines = append(s.selectedLines, s.lineBuffer.String())
 		s.outputSize += s.lineSize
 		s.selected++
@@ -177,6 +178,6 @@ func (s *textReadState) content(path string) (readtool.Content, error) {
 
 // needsMoreNoticeSpace reports whether one notice would exceed a result budget.
 func (s *textReadState) needsMoreNoticeSpace() bool {
-	return len(s.selectedLines) >= readtool.MaximumTextLines ||
-		s.outputSize+continuationReserveBytes > readtool.MaximumTextBytes
+	return len(s.selectedLines) >= textbudget.MaximumLines ||
+		s.outputSize+continuationReserveBytes > textbudget.MaximumBytes
 }

@@ -4,13 +4,6 @@ import "context"
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=read
 
-const (
-	// MaximumTextBytes is the complete text-result byte budget.
-	MaximumTextBytes = 50 * 1024
-	// MaximumTextLines is the complete text-result line budget.
-	MaximumTextLines = 2000
-)
-
 // Image contains image bytes detected from file content.
 type Image struct {
 	MediaType string

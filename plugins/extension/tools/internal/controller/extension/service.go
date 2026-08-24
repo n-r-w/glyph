@@ -17,10 +17,13 @@ import (
 )
 
 const (
-	standardToolCount = 4
+	standardToolCount = 7
 	readToolName      = "read"
 	writeToolName     = "write"
 	editToolName      = "edit"
+	grepToolName      = "grep"
+	findToolName      = "find"
+	listToolName      = "ls"
 	bashToolName      = "bash"
 
 	readInputSchemaJSON = `{"type":"object","properties":` +
@@ -38,6 +41,15 @@ const (
 		`{"oldText":{"type":"string","minLength":1},"newText":{"type":"string"}},` +
 		`"required":["oldText","newText"],"additionalProperties":false}}},` +
 		`"required":["path","edits"],"additionalProperties":false}`
+	grepInputSchemaJSON = `{"type":"object","properties":` +
+		`{"pattern":{"type":"string"},"path":{"type":"string"},"glob":{"type":"string"},` +
+		`"ignoreCase":{"type":"boolean"},"literal":{"type":"boolean"},"context":{"type":"integer","minimum":0},` +
+		`"limit":{"type":"integer","minimum":1}},"required":["pattern"],"additionalProperties":false}`
+	findInputSchemaJSON = `{"type":"object","properties":` +
+		`{"pattern":{"type":"string"},"path":{"type":"string"},"limit":{"type":"integer","minimum":1}},` +
+		`"required":["pattern"],"additionalProperties":false}`
+	listInputSchemaJSON = `{"type":"object","properties":` +
+		`{"path":{"type":"string"},"limit":{"type":"integer","minimum":1}},"additionalProperties":false}`
 	bashInputSchemaJSON = `{"type":"object","properties":` +
 		`{"command":{"type":"string","description":"Bash command to execute."}},` +
 		`"required":["command"],"additionalProperties":false}`
@@ -46,11 +58,12 @@ const (
 // Service exposes standard tools through Extension Contract v1.
 type Service struct {
 	extensionv1.UnimplementedExtensionServiceServer
-	readTool  ReadTool
-	writeTool WriteTool
-	editTool  EditTool
-	bashTool  BashTool
-	schemas   map[string]*jsonschema.Schema
+	readTool   ReadTool
+	writeTool  WriteTool
+	editTool   EditTool
+	bashTool   BashTool
+	searchTool SearchTool
+	schemas    map[string]*jsonschema.Schema
 }
 
 var _ extensionv1.ExtensionServiceServer = (*Service)(nil)
@@ -79,6 +92,30 @@ type bashArguments struct {
 	Command string `json:"command"`
 }
 
+// grepArguments is the transport-local grep input.
+type grepArguments struct {
+	Pattern    string `json:"pattern"`
+	Path       string `json:"path"`
+	Glob       string `json:"glob"`
+	IgnoreCase bool   `json:"ignoreCase"`
+	Literal    bool   `json:"literal"`
+	Context    uint   `json:"context"`
+	Limit      uint   `json:"limit"`
+}
+
+// findArguments is the transport-local find input.
+type findArguments struct {
+	Pattern string `json:"pattern"`
+	Path    string `json:"path"`
+	Limit   uint   `json:"limit"`
+}
+
+// listArguments is the transport-local ls input.
+type listArguments struct {
+	Path  string `json:"path"`
+	Limit uint   `json:"limit"`
+}
+
 // bashResult is the model-visible terminal command result.
 type bashResult struct {
 	Stdout   string `json:"stdout"`
@@ -87,12 +124,21 @@ type bashResult struct {
 }
 
 // New creates an extension controller for the standard tools.
-func New(readTool ReadTool, writeTool WriteTool, editTool EditTool, bashTool BashTool) (*Service, error) {
+func New(
+	readTool ReadTool,
+	writeTool WriteTool,
+	editTool EditTool,
+	bashTool BashTool,
+	searchTool SearchTool,
+) (*Service, error) {
 	schemas := make(map[string]*jsonschema.Schema, standardToolCount)
 	for name, source := range map[string]string{
 		readToolName:  readInputSchemaJSON,
 		writeToolName: writeInputSchemaJSON,
 		editToolName:  editInputSchemaJSON,
+		grepToolName:  grepInputSchemaJSON,
+		findToolName:  findInputSchemaJSON,
+		listToolName:  listInputSchemaJSON,
 		bashToolName:  bashInputSchemaJSON,
 	} {
 		schema, err := compileSchema(name, source)
@@ -107,6 +153,7 @@ func New(readTool ReadTool, writeTool WriteTool, editTool EditTool, bashTool Bas
 		writeTool:                           writeTool,
 		editTool:                            editTool,
 		bashTool:                            bashTool,
+		searchTool:                          searchTool,
 		schemas:                             schemas,
 	}, nil
 }
@@ -129,6 +176,18 @@ func (s *Service) ListTools(
 		extensionv1.ToolDescriptor_builder{
 			Name: new(editToolName), Description: new("Apply ordered unique exact text replacements to a project file."),
 			InputSchemaJson: []byte(editInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
+		}.Build(),
+		extensionv1.ToolDescriptor_builder{
+			Name: new(grepToolName), Description: new("Search project files for matching lines."),
+			InputSchemaJson: []byte(grepInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
+		}.Build(),
+		extensionv1.ToolDescriptor_builder{
+			Name: new(findToolName), Description: new("Find project paths matching a glob."),
+			InputSchemaJson: []byte(findInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
+		}.Build(),
+		extensionv1.ToolDescriptor_builder{
+			Name: new(listToolName), Description: new("List direct project directory entries."),
+			InputSchemaJson: []byte(listInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		}.Build(),
 		extensionv1.ToolDescriptor_builder{
 			Name: new(bashToolName), Description: new("Execute one bash command in the working project."),
@@ -167,6 +226,12 @@ func (s *Service) Execute(
 		return s.executeWrite(arguments, stream)
 	case editToolName:
 		return s.executeEdit(arguments, stream)
+	case grepToolName:
+		return s.executeGrep(arguments, stream)
+	case findToolName:
+		return s.executeFind(arguments, stream)
+	case listToolName:
+		return s.executeList(arguments, stream)
 	case bashToolName:
 		return s.executeBash(arguments, stream)
 	default:
@@ -212,6 +277,38 @@ func (s *Service) executeEdit(arguments []byte, stream extensionv1.ExtensionServ
 		return operationResult(stream, "", err)
 	}
 	return sendResult(stream, "replaced text in "+input.Path, false)
+}
+
+// executeGrep decodes and executes grep.
+func (s *Service) executeGrep(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+	var input grepArguments
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return sendResult(stream, fmt.Sprintf("decode grep arguments: %v", err), true)
+	}
+	command := GrepArguments(input)
+	result, err := s.searchTool.Grep(stream.Context(), command)
+	return operationResult(stream, result, err)
+}
+
+// executeFind decodes and executes find.
+func (s *Service) executeFind(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+	var input findArguments
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return sendResult(stream, fmt.Sprintf("decode find arguments: %v", err), true)
+	}
+	command := FindArguments(input)
+	result, err := s.searchTool.Find(stream.Context(), command)
+	return operationResult(stream, result, err)
+}
+
+// executeList decodes and executes ls.
+func (s *Service) executeList(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+	var input listArguments
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return sendResult(stream, fmt.Sprintf("decode ls arguments: %v", err), true)
+	}
+	result, err := s.searchTool.List(stream.Context(), ListArguments(input))
+	return operationResult(stream, result, err)
 }
 
 // executeBash decodes and executes bash while mapping progress channels.

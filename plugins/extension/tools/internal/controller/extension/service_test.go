@@ -28,9 +28,9 @@ func TestServiceListTools(t *testing.T) {
 	// Act: request the fixed startup catalog.
 	response, err := client.ListTools(t.Context(), &extensionv1.ListToolsRequest{})
 
-	// Assert: expose the complete read, write, edit, and bash catalog.
+	// Assert: expose the complete standard tool catalog.
 	require.NoError(t, err)
-	require.Len(t, response.GetTools(), 4)
+	require.Len(t, response.GetTools(), 7)
 	descriptor := response.GetTools()[0]
 	assert.Equal(t, "read", descriptor.GetName())
 	assert.NotEmpty(t, descriptor.GetDescription())
@@ -49,7 +49,10 @@ func TestServiceListTools(t *testing.T) {
 	assert.Equal(t, "write", response.GetTools()[1].GetName())
 	assert.Equal(t, "edit", response.GetTools()[2].GetName())
 	assert.Equal(t, "Apply ordered unique exact text replacements to a project file.", response.GetTools()[2].GetDescription())
-	assert.Equal(t, "bash", response.GetTools()[3].GetName())
+	assert.Equal(t, "grep", response.GetTools()[3].GetName())
+	assert.Equal(t, "find", response.GetTools()[4].GetName())
+	assert.Equal(t, "ls", response.GetTools()[5].GetName())
+	assert.Equal(t, "bash", response.GetTools()[6].GetName())
 }
 
 // TestServiceExecuteRead verifies typed argument decoding and one terminal successful result.
@@ -76,6 +79,23 @@ func TestServiceExecuteRead(t *testing.T) {
 	require.Len(t, result.GetContents(), 1)
 	assert.Equal(t, "first\nsecond\n", result.GetContents()[0].GetText())
 	assert.False(t, result.GetIsError())
+}
+
+func TestServiceExecuteGrepDispatchesValidatedArguments(t *testing.T) {
+	t.Parallel()
+
+	searchTool := NewMockSearchTool(gomock.NewController(t))
+	searchTool.EXPECT().Grep(gomock.Any(), GrepArguments{Pattern: "needle", Path: "src", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: 2}).Return("src/a.go:1:needle\n", nil)
+	client := newTestClientWithTools(t, NewMockReadTool(gomock.NewController(t)), NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), searchTool)
+
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName: new("grep"), ArgumentsJson: []byte(`{"pattern":"needle","path":"src","limit":2}`),
+	}.Build())
+
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.Equal(t, "src/a.go:1:needle\n", events[0].GetResult().GetContents()[0].GetText())
+	assert.False(t, events[0].GetResult().GetIsError())
 }
 
 // TestServiceExecuteReadImage verifies typed image bytes reach the extension result.
@@ -109,6 +129,7 @@ func TestServiceExecuteWrite(t *testing.T) {
 		NewMockReadTool(gomock.NewController(t)),
 		writeTool,
 		NewMockEditTool(gomock.NewController(t)),
+		NewMockSearchTool(gomock.NewController(t)),
 	)
 
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
@@ -194,6 +215,7 @@ func TestEditSchemaRejectsEmptySource(t *testing.T) {
 		NewMockReadTool(gomock.NewController(t)),
 		NewMockWriteTool(gomock.NewController(t)),
 		NewMockEditTool(gomock.NewController(t)),
+		NewMockSearchTool(gomock.NewController(t)),
 	)
 
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
@@ -231,11 +253,11 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 
 // newTestClient serves one controller over an in-memory gRPC connection.
 func newTestClient(t *testing.T, readTool ReadTool) extensionv1.ExtensionServiceClient {
-	return newTestClientWithTools(t, readTool, NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)))
+	return newTestClientWithTools(t, readTool, NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), NewMockSearchTool(gomock.NewController(t)))
 }
 
 // newTestClientWithTools serves selected use cases over an in-memory gRPC connection.
-func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool, editTool EditTool) extensionv1.ExtensionServiceClient {
+func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool, editTool EditTool, searchTool SearchTool) extensionv1.ExtensionServiceClient {
 	t.Helper()
 
 	service, err := New(
@@ -243,6 +265,7 @@ func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool
 		writeTool,
 		editTool,
 		NewMockBashTool(gomock.NewController(t)),
+		searchTool,
 	)
 	require.NoError(t, err)
 	listener := bufconn.Listen(1024 * 1024)

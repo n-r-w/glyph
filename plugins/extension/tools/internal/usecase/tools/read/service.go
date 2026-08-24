@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
 // Service coordinates bounded project-file reads.
@@ -40,11 +41,11 @@ func (s *Service) Read(ctx context.Context, path string, offset, limit uint) (ex
 	if content.OversizedSize > 0 {
 		command := fmt.Sprintf(
 			"sed -n '%dp' %s | head -c %d",
-			content.Start, shellQuote(path), MaximumTextBytes,
+			content.Start, shellQuote(path), textbudget.MaximumBytes,
 		)
 		message := fmt.Sprintf(
 			"[Line %d is %d bytes and exceeds the %d byte limit. Use `%s` to inspect that line.]",
-			content.Start, content.OversizedSize, MaximumTextBytes, command,
+			content.Start, content.OversizedSize, textbudget.MaximumBytes, command,
 		)
 		if content.Next > 0 {
 			message = fmt.Sprintf(

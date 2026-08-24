@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
 // TestServiceRead verifies continuation notices retain the requested result text.
@@ -30,7 +32,7 @@ func TestServiceReadOversizedLineProvidesBoundedCommand(t *testing.T) {
 
 	reader := NewMockProjectReader(gomock.NewController(t))
 	reader.EXPECT().ReadFile(t.Context(), "dir/a'b.txt", uint(7), uint(1)).Return(
-		Content{Text: "", Image: nil, Start: 7, End: 0, Total: 0, Next: 0, OversizedSize: MaximumTextBytes + 1}, nil,
+		Content{Text: "", Image: nil, Start: 7, End: 0, Total: 0, Next: 0, OversizedSize: textbudget.MaximumBytes + 1}, nil,
 	)
 
 	result, err := New(reader).Read(t.Context(), "dir/a'b.txt", 7, 1)

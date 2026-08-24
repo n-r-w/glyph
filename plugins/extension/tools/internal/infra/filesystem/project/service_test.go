@@ -9,6 +9,7 @@ import (
 	"time"
 
 	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 	edittool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/edit"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
 
@@ -36,7 +37,7 @@ func TestServiceReadFileReturnsCompleteExactByteBudget(t *testing.T) {
 	t.Parallel()
 
 	filePath := t.TempDir() + "/notes.txt"
-	content := strings.Repeat("x", readtool.MaximumTextBytes)
+	content := strings.Repeat("x", textbudget.MaximumBytes)
 	require.NoError(t, writeTestFile(filePath, content))
 
 	result, err := New().ReadFile(t.Context(), filePath, 1, 0)
@@ -52,14 +53,14 @@ func TestServiceReadFileReturnsCompleteExactLineBudget(t *testing.T) {
 	t.Parallel()
 
 	filePath := t.TempDir() + "/notes.txt"
-	content := strings.Repeat("x\n", readtool.MaximumTextLines)
+	content := strings.Repeat("x\n", textbudget.MaximumLines)
 	require.NoError(t, writeTestFile(filePath, content))
 
 	result, err := New().ReadFile(t.Context(), filePath, 1, 0)
 
 	require.NoError(t, err)
 	assert.Equal(t, content, result.Text)
-	assert.Equal(t, uint(readtool.MaximumTextLines), result.End)
+	assert.Equal(t, uint(textbudget.MaximumLines), result.End)
 	assert.Zero(t, result.Next)
 }
 
@@ -69,7 +70,7 @@ func TestServiceReadFileReservesLineForContinuationNotice(t *testing.T) {
 
 	filePath := t.TempDir() + "/notes.txt"
 	var source strings.Builder
-	for line := 1; line <= readtool.MaximumTextLines+1; line++ {
+	for line := 1; line <= textbudget.MaximumLines+1; line++ {
 		source.WriteString("x\n")
 	}
 	require.NoError(t, writeTestFile(filePath, source.String()))
@@ -77,8 +78,8 @@ func TestServiceReadFileReservesLineForContinuationNotice(t *testing.T) {
 	content, err := New().ReadFile(t.Context(), filePath, 1, 0)
 
 	require.NoError(t, err)
-	assert.Equal(t, uint(readtool.MaximumTextLines-1), content.End)
-	assert.Equal(t, uint(readtool.MaximumTextLines), content.Next)
+	assert.Equal(t, uint(textbudget.MaximumLines-1), content.End)
+	assert.Equal(t, uint(textbudget.MaximumLines), content.Next)
 }
 
 // TestServiceReadFileKeepsPartialResultWithinCompleteBudget verifies text plus notice fits both budgets.
@@ -86,14 +87,14 @@ func TestServiceReadFileKeepsPartialResultWithinCompleteBudget(t *testing.T) {
 	t.Parallel()
 
 	filePath := t.TempDir() + "/notes.txt"
-	content := strings.Repeat("x\n", readtool.MaximumTextLines+1)
+	content := strings.Repeat("x\n", textbudget.MaximumLines+1)
 	require.NoError(t, writeTestFile(filePath, content))
 
 	result, err := readtool.New(New()).Read(t.Context(), filePath, 1, 0)
 
 	require.NoError(t, err)
-	assert.LessOrEqual(t, len(result.Text), readtool.MaximumTextBytes)
-	assert.LessOrEqual(t, strings.Count(result.Text, "\n")+1, readtool.MaximumTextLines)
+	assert.LessOrEqual(t, len(result.Text), textbudget.MaximumBytes)
+	assert.LessOrEqual(t, strings.Count(result.Text, "\n")+1, textbudget.MaximumLines)
 	assert.Contains(t, result.Text, "Use offset=2000 to continue.")
 }
 
@@ -111,17 +112,17 @@ func TestServiceReadFileReturnsBoundedNoticeWhenFirstLineLeavesNoContinuationRoo
 	t.Parallel()
 
 	filePath := t.TempDir() + "/notes.txt"
-	content := strings.Repeat("x", readtool.MaximumTextBytes-1) + "\nsecond\n"
+	content := strings.Repeat("x", textbudget.MaximumBytes-1) + "\nsecond\n"
 	require.NoError(t, writeTestFile(filePath, content))
 
 	result, err := readtool.New(New()).Read(t.Context(), filePath, 1, 0)
 
 	require.NoError(t, err)
-	assert.NotContains(t, result.Text, strings.Repeat("x", readtool.MaximumTextBytes-1))
+	assert.NotContains(t, result.Text, strings.Repeat("x", textbudget.MaximumBytes-1))
 	assert.Contains(t, result.Text, "Line 1")
 	assert.Contains(t, result.Text, "head -c 51200")
 	assert.Contains(t, result.Text, "Use offset=2 to continue.")
-	assert.LessOrEqual(t, len(result.Text), readtool.MaximumTextBytes)
+	assert.LessOrEqual(t, len(result.Text), textbudget.MaximumBytes)
 }
 
 // TestServiceReadFileReadsEmptyFileAtFirstOffset returns empty content at the first line.
@@ -210,13 +211,13 @@ func TestServiceReadFileReportsOversizedFirstLine(t *testing.T) {
 	t.Parallel()
 
 	filePath := t.TempDir() + "/notes.txt"
-	require.NoError(t, writeTestFile(filePath, string(make([]byte, readtool.MaximumTextBytes+1))))
+	require.NoError(t, writeTestFile(filePath, string(make([]byte, textbudget.MaximumBytes+1))))
 
 	content, err := New().ReadFile(t.Context(), filePath, 1, 1)
 
 	require.NoError(t, err)
 	assert.Equal(t, uint(1), content.Start)
-	assert.Equal(t, int64(readtool.MaximumTextBytes+1), content.OversizedSize)
+	assert.Equal(t, int64(textbudget.MaximumBytes+1), content.OversizedSize)
 	assert.Empty(t, content.Text)
 }
 
