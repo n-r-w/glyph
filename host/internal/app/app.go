@@ -3,17 +3,22 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
 
+	"google.golang.org/grpc"
+
 	"github.com/n-r-w/glyph/host/internal/config/codingagent"
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
 	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
@@ -26,15 +31,18 @@ import (
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	uicatalog "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/catalog"
 	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
+	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
 	"github.com/n-r-w/glyph/host/internal/infra/terminal"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
 // Run initializes user data paths and performs one validated invocation.
@@ -46,17 +54,150 @@ func Run(ctx context.Context, command cli.Command, stdout, stderr io.Writer) err
 	return runWithPaths(ctx, paths, command, stdout, stderr)
 }
 
-// runWithPaths selects the isolated headless or UI composition path.
+// runWithPaths selects an isolated composition path for the requested mode.
 func runWithPaths(
 	ctx context.Context,
 	paths persistence.Paths,
 	command cli.Command,
 	stdout, stderr io.Writer,
 ) error {
-	if command.Mode == cli.ModeHeadless {
+	switch command.Mode {
+	case cli.ModeHeadless:
 		return runHeadlessWithPaths(ctx, paths, command.Headless, stdout, stderr)
+	case cli.ModeRPC:
+		return runProgrammaticWithPaths(ctx, paths, command, stdout)
+	case cli.ModeUI:
+		return runUIWithPaths(ctx, paths, command, stderr)
 	}
-	return runUIWithPaths(ctx, paths, command, stderr)
+	return fmt.Errorf("unsupported Glyph application mode %d", command.Mode)
+}
+
+// runProgrammaticWithPaths assembles the single-owner RPC Host.
+func runProgrammaticWithPaths(
+	ctx context.Context,
+	paths persistence.Paths,
+	command cli.Command,
+	stdout io.Writer,
+) (returnErr error) {
+	slog.InfoContext(ctx, "starting programmatic Glyph application")
+	configured, err := settingstore.New(paths.SettingsFile).Load()
+	if err != nil {
+		return fmt.Errorf("load Glyph settings: %w", err)
+	}
+
+	tools := toolservice.New(catalog.New(), extensionruntime.NewFactory(), func(
+		reportContext context.Context,
+		failure tool.RuntimeFailure,
+	) error {
+		message, runtimeErr := failure.Message()
+		slog.ErrorContext(reportContext, message,
+			"plugin_id", failure.PluginID,
+			"error", runtimeErr,
+		)
+		return nil
+	})
+	toolsClosed := false
+	closeTools := func() {
+		if toolsClosed {
+			return
+		}
+		tools.Close()
+		toolsClosed = true
+		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
+	}
+	defer closeTools()
+	startupService := startup.New(tools.Load)
+	if _, err = startupService.Load(ctx, startup.Request{
+		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
+	}); err != nil {
+		return fmt.Errorf("start programmatic Host extensions: %w", err)
+	}
+	tools.Activate(ctx)
+
+	hookRunner := hookrunner.New(nil, nil, nil)
+	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
+	provider := newProvider(paths, configured, modelDescriptor, interactions.New(), hookRunner)
+	providerCatalog := providers.New(modelDescriptor, provider)
+	delivery := hostprogrammatic.NewDelivery()
+	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
+	)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
+	session := hostprogrammatic.New(coordinator, agentCore.State, agentCore.History, delivery)
+	controller := controllerprogrammatic.New(ctx, session)
+	server := grpc.NewServer(grpc.WaitForHandlers(true))
+	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)
+
+	socketService, err := programmaticsocket.New(ctx, command.SocketPath)
+	if err != nil {
+		return fmt.Errorf("open Programmatic Control socket: %w", err)
+	}
+	defer func() {
+		closeTools()
+		returnErr = errors.Join(returnErr, socketService.Close())
+	}()
+	if err = json.NewEncoder(stdout).Encode(struct {
+		Socket string `json:"socket"`
+	}{Socket: socketService.Path()}); err != nil {
+		return fmt.Errorf("write Programmatic Control socket announcement: %w", err)
+	}
+
+	return runProgrammaticServer(ctx, server, socketService, controller.Completions(), session)
+}
+
+// runProgrammaticServer owns server execution and Host-session shutdown.
+func runProgrammaticServer(
+	ctx context.Context,
+	server *grpc.Server,
+	socketService *programmaticsocket.Service,
+	completions <-chan controllerprogrammatic.SessionCompletion,
+	session *hostprogrammatic.Service,
+) error {
+	serveResults := make(chan error, 1)
+	go func() {
+		serveResults <- server.Serve(socketService.Listener)
+	}()
+
+	var result error
+	serveResultRead := false
+	select {
+	case completion := <-completions:
+		result = completion.Err
+		if completion.CleanupErr != nil {
+			result = errors.Join(result, completion.CleanupErr)
+		}
+	case serveErr := <-serveResults:
+		serveResultRead = true
+		if serveErr != nil {
+			result = fmt.Errorf("serve Programmatic Control: %w", serveErr)
+		}
+	case <-ctx.Done():
+		result = ctx.Err()
+	}
+
+	// Cancellation can become ready together with another terminal result.
+	if ctx.Err() != nil {
+		result = ctx.Err()
+	}
+	cleanupErr := session.CancelAndWait(context.WithoutCancel(ctx))
+	server.Stop()
+	if !serveResultRead {
+		serveErr := <-serveResults
+		if serveErr != nil && ctx.Err() == nil {
+			result = errors.Join(result, fmt.Errorf("serve Programmatic Control: %w", serveErr))
+		}
+	}
+	if ctx.Err() != nil {
+		if cleanupErr != nil {
+			return errors.Join(ctx.Err(), cleanupErr)
+		}
+		return ctx.Err()
+	}
+	if cleanupErr != nil {
+		return errors.Join(result, cleanupErr)
+	}
+	return result
 }
 
 // runHeadlessWithPaths preserves the accepted one-shot Host composition.

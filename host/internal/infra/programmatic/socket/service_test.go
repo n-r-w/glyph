@@ -123,6 +123,23 @@ func TestCloseClosesListenerAndRemovesAutomaticPaths(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
+// TestCloseRemovesPathsAfterServerClosesListener verifies idempotent listener cleanup.
+func TestCloseRemovesPathsAfterServerClosesListener(t *testing.T) {
+	t.Parallel()
+
+	service, err := New(t.Context(), "")
+	require.NoError(t, err)
+	path := service.Path()
+	directory := filepath.Dir(path)
+	require.NoError(t, service.Listener.Close())
+
+	require.NoError(t, service.Close())
+	_, err = os.Lstat(path)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(directory)
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
 func TestCloseRemovesExplicitSocketAndRetainsCallerParent(t *testing.T) {
 	t.Parallel()
 

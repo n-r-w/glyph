@@ -65,6 +65,9 @@ func (service *Service) Path() string {
 // Close closes the listener and removes paths owned by the service.
 func (service *Service) Close() error {
 	closeErr := service.Listener.Close()
+	if errors.Is(closeErr, net.ErrClosed) {
+		closeErr = nil
+	}
 	removeSocketErr := removeIfExists(service.path)
 	removeDirectoryErr := removeAutomaticDirectory(service.automaticDirectory)
 	return errors.Join(closeErr, removeSocketErr, removeDirectoryErr)
