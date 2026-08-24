@@ -17,6 +17,11 @@ func TestModelDescriptorAdvertisesKnownCapabilities(t *testing.T) {
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna",
+		SupportedReasoningLevels: []model.ReasoningLevel{
+			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
+			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
+			model.ReasoningLevelMax,
+		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: true,
 			Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
@@ -33,6 +38,11 @@ func TestModelDescriptorDoesNotInferUnknownCapabilities(t *testing.T) {
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna-preview",
+		SupportedReasoningLevels: []model.ReasoningLevel{
+			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
+			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
+			model.ReasoningLevelMax,
+		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
 		},

@@ -45,13 +45,13 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 		assert.Equal(t, "glyph", request.Header.Get("User-Agent"))
 		var body map[string]any
 		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
-		assert.Equal(t, "gpt-test", body["model"])
+		assert.Equal(t, "gpt-request", body["model"])
 		assert.Equal(t, false, body["store"])
 		assert.Equal(t, "request instructions", body["instructions"])
 		assert.Equal(t, true, body["stream"])
 		assert.Contains(t, body["include"], "reasoning.encrypted_content")
 		reasoning := body["reasoning"].(map[string]any)
-		assert.Equal(t, "high", reasoning["effort"])
+		assert.Equal(t, "medium", reasoning["effort"])
 		assert.Equal(t, "auto", reasoning["summary"])
 		tools := body["tools"].([]any)
 		if !assert.Len(t, tools, 1) {
@@ -88,7 +88,7 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 	}))
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "high", Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
 	updates := make([]run.StreamEvent, 0)
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("first")},
@@ -105,9 +105,10 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 	}
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
-		Instructions: "request instructions",
-		Model:        testModelDescriptor("gpt-test"),
-		History:      history,
+		Instructions:   "request instructions",
+		Model:          testModelDescriptor("gpt-request"),
+		ReasoningLevel: model.ReasoningLevelMedium,
+		History:        history,
 		Tools: []tool.Descriptor{{
 			Name: "read", Description: "Read a file.",
 			InputSchemaJSON: []byte(`{"type":"object","properties":{"path":{"type":"string","description":"File path."}},"required":["path"],"additionalProperties":false}`),
@@ -169,7 +170,7 @@ func TestServiceStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 		writeSSE(writer, `{"type":"response.completed","response":{"id":"resp-rich","model":"gpt-actual","status":"completed","service_tier":"default","metadata":{"region":"test"},"usage":{"input_tokens":10,"output_tokens":7,"total_tokens":17,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-selected", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -218,7 +219,7 @@ func TestServiceStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -260,7 +261,7 @@ func TestServiceStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -301,7 +302,7 @@ func TestServiceStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -339,7 +340,7 @@ func TestServiceStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	updates := make([]run.StreamEvent, 0, 2)
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
@@ -395,7 +396,7 @@ func TestServiceStreamStreamsReasoningInOutputOrder(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 7)
 
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -450,7 +451,7 @@ func TestServiceStreamStreamsRefusalDeltas(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 5)
 
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -500,7 +501,7 @@ func TestServiceStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
 	t.Cleanup(server.Close)
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 	history := []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryModel,
 		Model: model.Response{Content: []model.Content{{
@@ -533,18 +534,22 @@ func TestServiceStreamOmitsAbsentReasoning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var body map[string]any
 		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		assert.Equal(t, "gpt-request", body["model"])
+		reasoning := body["reasoning"].(map[string]any)
+		assert.NotContains(t, reasoning, "effort")
 		input := body["input"].([]any)
 		assert.Equal(t, []string{"message"}, inputTypes(input))
 		writeSSE(writer, completedEvent(`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
-		Instructions: "instructions",
-		Model:        testModelDescriptor("gpt-test"),
-		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
-		Tools:        nil,
+		Instructions:   "instructions",
+		Model:          testModelDescriptor("gpt-request"),
+		ReasoningLevel: model.ReasoningLevelNone,
+		History:        []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
+		Tools:          nil,
 	}, func(run.StreamEvent) error { return nil })
 	response := terminalResponse(events)
 
@@ -594,7 +599,7 @@ func TestServiceStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	options := testProviderOptions(server)
 	options.tokenURL = server.URL + "/token"
 	options.now = func() time.Time { return now }
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -626,7 +631,7 @@ func TestServiceStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
 	options.now = func() time.Time { return now }
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
 
 	_, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -645,7 +650,7 @@ func TestServiceStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 	credentials := NewMockCredentials(gomock.NewController(t))
 	credentials.EXPECT().Load().Return(nil, false, nil)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	service := New(testConfig("model", ""), credentials, interaction)
+	service := New(testConfig(), credentials, interaction)
 
 	events, err := collectStreamEvents(service,
 		t.Context(),
@@ -698,7 +703,7 @@ func TestServiceStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	service := newService(
-		testConfig("model", ""), credentials, interaction, testProviderOptions(server),
+		testConfig(), credentials, interaction, testProviderOptions(server),
 	)
 	request := run.ModelRequest{
 		Instructions: "instructions",
@@ -744,7 +749,7 @@ func TestServiceStreamHTTPFailuresDoNotRetry(t *testing.T) {
 				_, _ = writer.Write([]byte(testCase.body))
 			}))
 			t.Cleanup(server.Close)
-			service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+			service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 
 			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 				Instructions: "instructions",
@@ -792,7 +797,7 @@ func TestServiceStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			interaction := NewMockInteraction(gomock.NewController(t))
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { writeSSE(writer, testCase.event) }))
 			t.Cleanup(server.Close)
-			service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+			service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 
 			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 				Instructions: "instructions",
@@ -830,7 +835,7 @@ func TestServiceStreamCancellationMapsAborted(t *testing.T) {
 		<-request.Context().Done()
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 	ctx, cancel := context.WithCancel(t.Context())
 	result := make(chan struct {
 		response model.Response
@@ -877,7 +882,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 			testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 		)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig("model", ""), credentials, interaction, defaultServiceOptions())
+		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
 		err := service.CheckAuthentication(t.Context())
 
@@ -889,7 +894,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		credentials := NewMockCredentials(gomock.NewController(t))
 		credentials.EXPECT().Load().Return(nil, false, nil)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig("model", ""), credentials, interaction, defaultServiceOptions())
+		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
 		err := service.CheckAuthentication(t.Context())
 
@@ -902,7 +907,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		credentials := NewMockCredentials(gomock.NewController(t))
 		credentials.EXPECT().Load().Return([]byte("not-json"), true, nil)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig("model", ""), credentials, interaction, defaultServiceOptions())
+		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
 
 		err := service.CheckAuthentication(t.Context())
 
@@ -911,12 +916,9 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 	})
 }
 
-// testConfig creates one complete provider configuration fixture.
-func testConfig(modelID, thinkingLevel string) Config {
-	return Config{
-		Model: testModelDescriptor(modelID), ThinkingLevel: thinkingLevel,
-		Hooks: testProviderHookRunner(),
-	}
+// testConfig creates one provider-owned configuration fixture.
+func testConfig() Config {
+	return Config{Hooks: testProviderHookRunner()}
 }
 
 // testModelDescriptor creates an explicitly capable model fixture for adapter tests.

@@ -122,13 +122,12 @@ func (s *Service) generateResponse(
 
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
 func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNewParams, error) {
-	if request.Model.Provider != ProviderID || request.Model.Model == "" ||
-		request.Model.Model != s.config.Model.Model || request.Instructions == "" {
+	if request.Model.Provider != ProviderID || request.Model.Model == "" || request.Instructions == "" {
 		return responses.ResponseNewParams{}, errors.New(
 			"OpenAI Codex selected provider, model, and request instructions are required",
 		)
 	}
-	tools, err := buildTools(request.Tools, s.toolCapabilities())
+	tools, err := buildTools(request.Tools, requestToolCapabilities(request.Model))
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
@@ -153,18 +152,18 @@ func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNew
 		},
 		Tools: tools,
 	}
-	if s.config.ThinkingLevel != "" {
-		params.Reasoning.Effort = shared.ReasoningEffort(s.config.ThinkingLevel)
+	if request.ReasoningLevel != "" && request.ReasoningLevel != model.ReasoningLevelNone {
+		params.Reasoning.Effort = shared.ReasoningEffort(request.ReasoningLevel)
 	}
 	return params, nil
 }
 
-// toolCapabilities maps provider-neutral support into Codex request selection.
-func (s *Service) toolCapabilities() toolCapabilities {
+// requestToolCapabilities maps provider-neutral support into Codex request selection.
+func requestToolCapabilities(descriptor model.Descriptor) toolCapabilities {
 	return toolCapabilities{
-		strict: s.config.Model.ToolCapabilities.StrictJSONSchema,
-		lark:   s.config.Model.ToolCapabilities.Grammar.Lark,
-		regex:  s.config.Model.ToolCapabilities.Grammar.Regex,
+		strict: descriptor.ToolCapabilities.StrictJSONSchema,
+		lark:   descriptor.ToolCapabilities.Grammar.Lark,
+		regex:  descriptor.ToolCapabilities.Grammar.Regex,
 	}
 }
 

@@ -116,13 +116,14 @@ func runProgrammaticWithPaths(
 
 	hookRunner := hookrunner.New(nil, nil, nil)
 	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
-	provider := newProvider(paths, configured, modelDescriptor, interactions.New(), hookRunner)
-	providerCatalog := providers.New(modelDescriptor, provider)
+	provider := newProvider(paths, interactions.New(), hookRunner)
+	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	if err != nil {
+		return fmt.Errorf("create provider catalog: %w", err)
+	}
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
-	)
+	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
 	session := hostprogrammatic.New(coordinator, agentCore.State, agentCore.History, delivery)
 	controller := controllerprogrammatic.New(ctx, session)
@@ -230,12 +231,13 @@ func runHeadlessWithPaths(
 
 	hookRunner := hookrunner.New(nil, nil, nil)
 	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
-	provider := newProvider(paths, configured, modelDescriptor, interactions.New(), hookRunner)
-	providerCatalog := providers.New(modelDescriptor, provider)
+	provider := newProvider(paths, interactions.New(), hookRunner)
+	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	if err != nil {
+		return fmt.Errorf("create provider catalog: %w", err)
+	}
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
-	)
+	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
@@ -323,14 +325,17 @@ func runUIWithPaths(
 	hookRunner := hookrunner.New(nil, nil, nil)
 	modelDescriptor := codex.ModelDescriptor(model.ID(configured.DefaultModel))
 	provider := newProvider(
-		paths, configured, modelDescriptor,
-		interactions.NewUI(delivery.PresentAuthorizationURL, browser.New()), hookRunner,
+		paths, interactions.NewUI(delivery.PresentAuthorizationURL, browser.New()), hookRunner,
 	)
-	providerCatalog := providers.New(modelDescriptor, provider)
+	providerCatalog, err := newProviderCatalog(configured, modelDescriptor, provider)
+	if err != nil {
+		selection.Runtime.Close()
+		recoveryErr := recovery.Restore()
+		tools.Close()
+		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
+	}
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog.Models()[0], providerCatalog.Provider(), hookRunner, tools, dispatcher,
-	)
+	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
 	session := hostui.NewSession(channel, coordinator, provider, func(activationContext context.Context) {
 		selectionWarningsDelivered = true
@@ -357,20 +362,28 @@ func writeSelectionWarnings(stderr io.Writer, issues []hostui.SelectionIssue) er
 	return warningErr
 }
 
+// newProviderCatalog maps validated startup settings into the runtime catalog.
+func newProviderCatalog(
+	configured settingstore.Settings,
+	descriptor model.Descriptor,
+	provider *codex.Service,
+) (*providers.Catalog, error) {
+	level := model.ReasoningLevelNone
+	if configured.DefaultThinkingLevel != nil {
+		level = model.ReasoningLevel(*configured.DefaultThinkingLevel)
+	}
+	return providers.New([]providers.Entry{{Descriptor: descriptor, Provider: provider}}, model.Selection{
+		Provider: model.ProviderID(configured.DefaultProvider),
+		Model:    model.ID(configured.DefaultModel), ReasoningLevel: level,
+	})
+}
+
 // newProvider assembles Codex with one mode-specific interaction implementation.
 func newProvider(
 	paths persistence.Paths,
-	configured settingstore.Settings,
-	modelDescriptor model.Descriptor,
 	interaction codex.Interaction,
 	hookRunner internalhooks.ProviderRunner,
 ) *codex.Service {
-	thinkingLevel := ""
-	if configured.DefaultThinkingLevel != nil {
-		thinkingLevel = string(*configured.DefaultThinkingLevel)
-	}
 	credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
-	return codex.New(codex.Config{
-		Model: modelDescriptor, ThinkingLevel: thinkingLevel, Hooks: hookRunner,
-	}, credentials, interaction)
+	return codex.New(codex.Config{Hooks: hookRunner}, credentials, interaction)
 }

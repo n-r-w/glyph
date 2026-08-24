@@ -70,7 +70,7 @@ func TestServiceRunStop(t *testing.T) {
 		delivered = append(delivered, event)
 		return nil
 	}).Times(12)
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-1", UserText: "hi"})
 
@@ -180,7 +180,7 @@ func TestServiceRunToolUse(t *testing.T) {
 			return nil
 		},
 	).AnyTimes()
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-tools", UserText: "go"})
 
@@ -199,6 +199,76 @@ func TestServiceRunToolUse(t *testing.T) {
 		EventAgentEnd,
 	}, eventTypes(delivered))
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+}
+
+// TestServiceReadsRuntimeBeforeEachProviderRequest verifies request snapshots and uninterrupted history.
+func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
+	t.Parallel()
+
+	oldProvider := NewMockModelProvider(gomock.NewController(t))
+	newProvider := NewMockModelProvider(gomock.NewController(t))
+	runtime := NewMockModelRuntime(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model"}
+	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model"}
+	committed := false
+	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
+		if committed {
+			return RuntimeSelection{
+				Model: newModel, ReasoningLevel: model.ReasoningLevelHigh, Provider: newProvider,
+			}
+		}
+		return RuntimeSelection{
+			Model: oldModel, ReasoningLevel: model.ReasoningLevelLow, Provider: oldProvider,
+		}
+	}).AnyTimes()
+	requestStarted := make(chan struct{})
+	releaseRequest := make(chan struct{})
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "file"}}
+	oldProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request ModelRequest, update StreamHandler) error {
+			assert.Equal(t, oldModel, request.Model)
+			close(requestStarted)
+			<-releaseRequest
+			return emitStream(update, model.Response{
+				Content: []model.Content{testCallItem(call)}, Outcome: model.OutcomeToolUse,
+			}, nil)
+		},
+	)
+	oldProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("stale provider used")).AnyTimes()
+	newProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request ModelRequest, update StreamHandler) error {
+			assert.Equal(t, newModel, request.Model)
+			assert.Equal(t, model.ReasoningLevelHigh, request.ReasoningLevel)
+			require.Len(t, request.History, 3)
+			assert.Equal(t, agent.HistoryEntryUser, request.History[0].Kind)
+			assert.Equal(t, agent.HistoryEntryModel, request.History[1].Kind)
+			assert.Equal(t, agent.HistoryEntryToolResult, request.History[2].Kind)
+			return emitStream(update, model.Response{
+				Content: []model.Content{testTextItem("done")}, Outcome: model.OutcomeStop,
+			}, nil)
+		},
+	)
+	tools.EXPECT().Tools().Return(nil).Times(2)
+	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(agent.ToolResult{
+		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
+	}, nil)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events)
+	result := make(chan error, 1)
+	go func() {
+		_, err := service.Run(t.Context(), Request{RunID: "runtime-switch", UserText: "go"})
+		result <- err
+	}()
+
+	<-requestStarted
+	committed = true
+	close(releaseRequest)
+
+	require.NoError(t, <-result)
+	require.Len(t, service.History(), 4)
+	assert.Equal(t, "done", service.History()[3].Model.Content[0].Text)
 }
 
 // TestServiceRunToolErrorContinues stores the error result, finishes later calls, and requests the model again.
@@ -238,7 +308,7 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-tool-error", UserText: "go"})
 
@@ -279,7 +349,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 				fmt.Errorf("runtime propagated delivery: %w", err)
 		},
 	)
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-progress-error", UserText: "go"})
 
@@ -308,7 +378,7 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-failed-partial", UserText: "hi"})
 
@@ -347,7 +417,7 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 			return nil
 		},
 	).AnyTimes()
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-safe-error", UserText: "go"})
 
@@ -407,7 +477,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 		outcome := make(chan error, 1)
 		go func() {
 			_, err := service.Run(t.Context(), Request{RunID: "run-failed", UserText: "hi"})
@@ -470,7 +540,7 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 				return nil
 			},
 		).AnyTimes()
-		service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 		_, err := service.Run(ctx, Request{RunID: "run-provider-cancel", UserText: "hi"})
 
@@ -509,7 +579,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		outcome := make(chan error, 1)
@@ -570,7 +640,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 				model.Response{Content: nil, Outcome: testCase.modelOutcome, ErrorMessage: ""}, nil,
 			))
 			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-			service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+			service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 			result, err := service.Run(t.Context(), Request{RunID: "run-" + name, UserText: "hi"})
 
@@ -605,7 +675,7 @@ func TestServiceRunEventDeliveryFailure(t *testing.T) {
 			return nil
 		},
 	)
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-delivery", UserText: "hi"})
 
@@ -640,13 +710,31 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := New(testInstructions, testModelDescriptor, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-length", UserText: "go"})
 
 	require.NoError(t, err)
 	require.Len(t, service.History(), 4)
 	assert.Equal(t, "length-call", service.History()[2].ToolResult.CallID)
+}
+
+func newTestService(
+	t *testing.T,
+	instructions string,
+	descriptor model.Descriptor,
+	level model.ReasoningLevel,
+	provider ModelProvider,
+	hookRunner hooks.ContextRunner,
+	tools ToolRuntime,
+	events EventSink,
+) *Service {
+	t.Helper()
+	runtime := NewMockModelRuntime(gomock.NewController(t))
+	runtime.EXPECT().Current().Return(RuntimeSelection{
+		Model: descriptor, ReasoningLevel: level, Provider: provider,
+	}).AnyTimes()
+	return New(instructions, runtime, hookRunner, tools, events)
 }
 
 // testTextItem creates one complete text content item.
@@ -742,7 +830,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: model.OutcomeStop}})
 		},
 	)
-	service := New(testInstructions, testModelDescriptor, provider, hookRunner, tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookRunner, tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "context-success", UserText: "persisted input"})
 
@@ -773,7 +861,7 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 			return value, nil
 		},
 	}, nil, nil)
-	service := New(testInstructions, testModelDescriptor, provider, hookRunner, tools, events)
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningLevelHigh, provider, hookRunner, tools, events)
 
 	result, err := service.Run(t.Context(), Request{RunID: "context-failure", UserText: "persisted input"})
 

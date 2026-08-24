@@ -13,5 +13,14 @@ func ModelDescriptor(modelID model.ID) model.Descriptor {
 			Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
 		}
 	}
-	return model.Descriptor{Provider: ProviderID, Model: modelID, ToolCapabilities: capabilities}
+	return model.Descriptor{
+		Provider: ProviderID,
+		Model:    modelID,
+		SupportedReasoningLevels: []model.ReasoningLevel{
+			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
+			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
+			model.ReasoningLevelMax,
+		},
+		ToolCapabilities: capabilities,
+	}
 }

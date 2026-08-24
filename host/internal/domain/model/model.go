@@ -7,11 +7,39 @@ type ProviderID string
 // ID identifies one provider model.
 type ID string
 
-// Descriptor describes one model selected during Host startup.
+// ReasoningLevel controls provider-neutral model reasoning effort.
+type ReasoningLevel string
+
+const (
+	// ReasoningLevelNone disables reasoning effort.
+	ReasoningLevelNone ReasoningLevel = "none"
+	// ReasoningLevelMinimal requests minimal reasoning effort.
+	ReasoningLevelMinimal ReasoningLevel = "minimal"
+	// ReasoningLevelLow requests low reasoning effort.
+	ReasoningLevelLow ReasoningLevel = "low"
+	// ReasoningLevelMedium requests medium reasoning effort.
+	ReasoningLevelMedium ReasoningLevel = "medium"
+	// ReasoningLevelHigh requests high reasoning effort.
+	ReasoningLevelHigh ReasoningLevel = "high"
+	// ReasoningLevelXHigh requests extra-high reasoning effort.
+	ReasoningLevelXHigh ReasoningLevel = "xhigh"
+	// ReasoningLevelMax requests maximum reasoning effort.
+	ReasoningLevelMax ReasoningLevel = "max"
+)
+
+// Selection identifies one provider, model, and reasoning combination.
+type Selection struct {
+	Provider       ProviderID
+	Model          ID
+	ReasoningLevel ReasoningLevel
+}
+
+// Descriptor describes one configured model and its capabilities.
 type Descriptor struct {
-	Provider         ProviderID
-	Model            ID
-	ToolCapabilities ToolCapabilities
+	Provider                 ProviderID
+	Model                    ID
+	SupportedReasoningLevels []ReasoningLevel
+	ToolCapabilities         ToolCapabilities
 }
 
 // ToolCapabilities describes provider-neutral constrained tool support.

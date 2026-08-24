@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -21,11 +20,9 @@ const (
 	signInRequiredMessage = "OpenAI Codex sign-in required."
 )
 
-// Config contains the resolved prototype coding-agent model configuration.
+// Config contains provider-owned Codex configuration.
 type Config struct {
-	Model         model.Descriptor
-	ThinkingLevel string
-	Hooks         hooks.ProviderRunner
+	Hooks hooks.ProviderRunner
 }
 
 // serviceOptions contains provider-owned protocol endpoints and deterministic seams.

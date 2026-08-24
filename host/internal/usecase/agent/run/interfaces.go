@@ -14,10 +14,23 @@ import (
 
 // ModelRequest contains projected history and the available tool catalog.
 type ModelRequest struct {
-	Instructions string
-	Model        model.Descriptor
-	History      []agent.HistoryEntry
-	Tools        []tool.Descriptor
+	Instructions   string
+	Model          model.Descriptor
+	ReasoningLevel model.ReasoningLevel
+	History        []agent.HistoryEntry
+	Tools          []tool.Descriptor
+}
+
+// RuntimeSelection is one immutable provider request snapshot.
+type RuntimeSelection struct {
+	Model          model.Descriptor
+	ReasoningLevel model.ReasoningLevel
+	Provider       ModelProvider
+}
+
+// ModelRuntime supplies the active selection immediately before a provider request.
+type ModelRuntime interface {
+	Current() RuntimeSelection
 }
 
 // StreamEventKind identifies one provider-neutral model stream transition.

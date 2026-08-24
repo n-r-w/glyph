@@ -252,7 +252,7 @@ func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: "[a-z]+"})
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryModel, Model: model.Response{Content: []model.Content{{
@@ -265,7 +265,10 @@ func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 	}
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test"},
+		Instructions: "test", Model: model.Descriptor{
+			Provider: ProviderID, Model: "gpt-test",
+			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true}},
+		},
 		History: history, Tools: []tool.Descriptor{descriptor},
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
@@ -304,9 +307,7 @@ func TestServiceStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
-	service := newService(Config{
-		Model: ModelDescriptor("gpt-unknown"), ThinkingLevel: "high", Hooks: testProviderHookRunner(),
-	}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
@@ -352,9 +353,7 @@ func TestServiceStreamSendsNonStrictPreferredTool(t *testing.T) {
 		writeSSE(writer, completedEvent(`[]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{
-		Model: ModelDescriptor("gpt-unknown"), ThinkingLevel: "high", Hooks: testProviderHookRunner(),
-	}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})},
@@ -384,9 +383,7 @@ func TestServiceStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		Provider: ProviderID, Model: "gpt-regex-only",
 		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true}},
 	}
-	service := newService(Config{
-		Model: selectedModel, ThinkingLevel: "high", Hooks: testProviderHookRunner(),
-	}, credentials, interaction, testProviderOptions(server))
+	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: selectedModel,
@@ -418,11 +415,7 @@ func TestServiceStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
-	config := testConfig("gpt-test", "high")
-	config.Model.ToolCapabilities = model.ToolCapabilities{
-		StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: true, Regex: true},
-	}
-	service := newService(config, credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test"},

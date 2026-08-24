@@ -30,8 +30,7 @@ var (
 // Service owns in-memory history and one active run state.
 type Service struct {
 	instructions string
-	model        model.Descriptor
-	provider     ModelProvider
+	runtime      ModelRuntime
 	hooks        hooks.ContextRunner
 	tools        ToolRuntime
 	events       EventSink
@@ -44,16 +43,14 @@ type Service struct {
 // New creates an Agent Core run service.
 func New(
 	instructions string,
-	selectedModel model.Descriptor,
-	provider ModelProvider,
+	runtime ModelRuntime,
 	hookRunner hooks.ContextRunner,
 	tools ToolRuntime,
 	events EventSink,
 ) *Service {
 	return &Service{
 		instructions: instructions,
-		model:        selectedModel,
-		provider:     provider,
+		runtime:      runtime,
 		hooks:        hookRunner,
 		tools:        tools,
 		events:       events,
@@ -178,11 +175,14 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 
 	var deliveryErr error
 	var response model.Response
-	providerErr := s.provider.Stream(ctx, ModelRequest{
-		Instructions: s.instructions,
-		Model:        s.model,
-		History:      projectedContext.History,
-		Tools:        s.tools.Tools(),
+	tools := s.tools.Tools()
+	selection := s.runtime.Current()
+	providerErr := selection.Provider.Stream(ctx, ModelRequest{
+		Instructions:   s.instructions,
+		Model:          selection.Model,
+		ReasoningLevel: selection.ReasoningLevel,
+		History:        projectedContext.History,
+		Tools:          tools,
 	}, func(streamEvent StreamEvent) error {
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
 			terminal := cloneModelResponse(streamEvent.Response)

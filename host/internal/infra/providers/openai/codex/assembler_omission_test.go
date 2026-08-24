@@ -204,15 +204,11 @@ func streamOmittedToolEvents(
 		writeSSE(writer, fixtures...)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig("gpt-test", "high"), credentials, interaction, testProviderOptions(server))
+	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
-		Instructions: "test", Model: model.Descriptor{
-			Provider: ProviderID, Model: "gpt-test", ToolCapabilities: model.ToolCapabilities{
-				StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
-			},
-		},
-		History: nil, Tools: tools,
+		Instructions: "test", Model: testModelDescriptor("gpt-test"),
+		ReasoningLevel: model.ReasoningLevelHigh, History: nil, Tools: tools,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil

@@ -226,9 +226,7 @@ func hookTestService(t *testing.T, runner *hookrunner.Runner, options serviceOpt
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	).Times(calls)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	return newService(Config{
-		Model: testModelDescriptor("gpt-test"), ThinkingLevel: "", Hooks: runner,
-	}, credentials, interaction, options)
+	return newService(Config{Hooks: runner}, credentials, interaction, options)
 }
 
 func hookModelRequest(instructions string) run.ModelRequest {

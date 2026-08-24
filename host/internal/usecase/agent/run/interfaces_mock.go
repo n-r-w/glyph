@@ -19,6 +19,44 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockModelRuntime is a mock of ModelRuntime interface.
+type MockModelRuntime struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelRuntimeMockRecorder
+	isgomock struct{}
+}
+
+// MockModelRuntimeMockRecorder is the mock recorder for MockModelRuntime.
+type MockModelRuntimeMockRecorder struct {
+	mock *MockModelRuntime
+}
+
+// NewMockModelRuntime creates a new mock instance.
+func NewMockModelRuntime(ctrl *gomock.Controller) *MockModelRuntime {
+	mock := &MockModelRuntime{ctrl: ctrl}
+	mock.recorder = &MockModelRuntimeMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelRuntime) EXPECT() *MockModelRuntimeMockRecorder {
+	return m.recorder
+}
+
+// Current mocks base method.
+func (m *MockModelRuntime) Current() RuntimeSelection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Current")
+	ret0, _ := ret[0].(RuntimeSelection)
+	return ret0
+}
+
+// Current indicates an expected call of Current.
+func (mr *MockModelRuntimeMockRecorder) Current() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Current", reflect.TypeOf((*MockModelRuntime)(nil).Current))
+}
+
 // MockModelProvider is a mock of ModelProvider interface.
 type MockModelProvider struct {
 	ctrl     *gomock.Controller
