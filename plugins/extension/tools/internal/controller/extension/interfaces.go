@@ -1,8 +1,18 @@
 package extension
 
-import "context"
+import (
+	"context"
+
+	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extension
+
+// ResultSender delivers one terminal extension response.
+type ResultSender interface {
+	Send(*extensionv1.ExecuteResponse) error
+}
 
 // ReadImage contains image bytes detected from file content.
 type ReadImage struct {
@@ -55,11 +65,11 @@ type BashProgress struct {
 	Content string
 }
 
-// BashResult contains command output and exit status.
+// BashResult contains bounded command output, exit status, and truncation metadata.
 type BashResult struct {
-	Stdout   string
-	Stderr   string
-	ExitCode int
+	Text       string
+	ExitCode   int
+	Truncation textbudget.Truncation
 }
 
 // BashTool executes one command.

@@ -1,6 +1,10 @@
 package bash
 
-import "context"
+import (
+	"context"
+
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=bash
 
@@ -17,11 +21,11 @@ const (
 // ProgressHandler consumes command output in delivery order.
 type ProgressHandler func(stream Stream, content string) error
 
-// ProcessResult contains complete command output and exit status.
+// ProcessResult contains bounded command output, exit status, and truncation metadata.
 type ProcessResult struct {
-	Stdout   string
-	Stderr   string
-	ExitCode int
+	Output     string
+	ExitCode   int
+	Truncation textbudget.Truncation
 }
 
 // ProcessRunner executes one bash command.

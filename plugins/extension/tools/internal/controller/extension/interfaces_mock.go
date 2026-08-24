@@ -13,8 +13,47 @@ import (
 	context "context"
 	reflect "reflect"
 
+	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockResultSender is a mock of ResultSender interface.
+type MockResultSender struct {
+	ctrl     *gomock.Controller
+	recorder *MockResultSenderMockRecorder
+	isgomock struct{}
+}
+
+// MockResultSenderMockRecorder is the mock recorder for MockResultSender.
+type MockResultSenderMockRecorder struct {
+	mock *MockResultSender
+}
+
+// NewMockResultSender creates a new mock instance.
+func NewMockResultSender(ctrl *gomock.Controller) *MockResultSender {
+	mock := &MockResultSender{ctrl: ctrl}
+	mock.recorder = &MockResultSenderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockResultSender) EXPECT() *MockResultSenderMockRecorder {
+	return m.recorder
+}
+
+// Send mocks base method.
+func (m *MockResultSender) Send(arg0 *extensionv1.ExecuteResponse) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Send", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Send indicates an expected call of Send.
+func (mr *MockResultSenderMockRecorder) Send(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockResultSender)(nil).Send), arg0)
+}
 
 // MockReadTool is a mock of ReadTool interface.
 type MockReadTool struct {

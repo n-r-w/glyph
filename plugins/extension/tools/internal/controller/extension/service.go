@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"os"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/status"
@@ -51,7 +54,8 @@ const (
 	listInputSchemaJSON = `{"type":"object","properties":` +
 		`{"path":{"type":"string"},"limit":{"type":"integer","minimum":1}},"additionalProperties":false}`
 	bashInputSchemaJSON = `{"type":"object","properties":` +
-		`{"command":{"type":"string","description":"Bash command to execute."}},` +
+		`{"command":{"type":"string","description":"Bash command to execute."},` +
+		`"timeout":{"type":"number","exclusiveMinimum":0,"description":"Timeout in seconds; no default timeout."}},` +
 		`"required":["command"],"additionalProperties":false}`
 )
 
@@ -89,7 +93,16 @@ type editArguments struct {
 
 // bashArguments is the transport-local bash input.
 type bashArguments struct {
-	Command string `json:"command"`
+	Command string   `json:"command"`
+	Timeout *float64 `json:"timeout"`
+}
+
+// bashTimeoutError distinguishes a tool timeout from caller cancellation.
+type bashTimeoutError struct{ seconds float64 }
+
+// Error returns the model-visible timeout outcome.
+func (e bashTimeoutError) Error() string {
+	return fmt.Sprintf("bash command timed out after %g seconds", e.seconds)
 }
 
 // grepArguments is the transport-local grep input.
@@ -114,13 +127,6 @@ type findArguments struct {
 type listArguments struct {
 	Path  string `json:"path"`
 	Limit uint   `json:"limit"`
-}
-
-// bashResult is the model-visible terminal command result.
-type bashResult struct {
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
-	ExitCode int    `json:"exitCode"`
 }
 
 // New creates an extension controller for the standard tools.
@@ -190,7 +196,8 @@ func (s *Service) ListTools(
 			InputSchemaJson: []byte(listInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		}.Build(),
 		extensionv1.ToolDescriptor_builder{
-			Name: new(bashToolName), Description: new("Execute one bash command in the working project."),
+			Name:            new(bashToolName),
+			Description:     new("Execute a bash command with optional timeout and bounded combined output."),
 			InputSchemaJson: []byte(bashInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
 		}.Build(),
 	}}.Build(), nil
@@ -317,17 +324,67 @@ func (s *Service) executeBash(arguments []byte, stream extensionv1.ExtensionServ
 	if err := json.Unmarshal(arguments, &input); err != nil {
 		return sendResult(stream, fmt.Sprintf("decode bash arguments: %v", err), true)
 	}
-	result, err := s.bashTool.Execute(stream.Context(), input.Command, func(progress BashProgress) error {
+	executionContext, stopTimeout, err := bashExecutionContext(stream.Context(), input.Timeout)
+	if err != nil {
+		return sendResult(stream, err.Error(), true)
+	}
+	defer stopTimeout()
+	result, err := s.bashTool.Execute(executionContext, input.Command, func(progress BashProgress) error {
 		return sendProgress(stream, progress)
 	})
 	if err != nil {
+		if result.Text != "" && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			return sendBashResult(stream, result, true)
+		}
 		return operationResult(stream, "", err)
 	}
-	content, err := json.Marshal(bashResult(result))
-	if err != nil {
-		return fmt.Errorf("encode bash result: %w", err)
+	return sendBashResult(stream, result, result.ExitCode != 0)
+}
+
+// sendBashResult retains complete output only when its path reaches the caller.
+func sendBashResult(sender ResultSender, result BashResult, isError bool) error {
+	if err := sendResult(sender, result.Text, isError); err != nil {
+		return errors.Join(err, removeBashOutput(result.Truncation.FullOutputPath))
 	}
-	return sendResult(stream, string(content), result.ExitCode != 0)
+	return nil
+}
+
+// removeBashOutput removes an undelivered complete-output file.
+func removeBashOutput(path string) error {
+	if path == "" {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove undelivered bash output: %w", err)
+	}
+	return nil
+}
+
+// bashExecutionContext cancels one command with a timeout-specific cause.
+func bashExecutionContext(parent context.Context, seconds *float64) (context.Context, func(), error) {
+	if seconds == nil {
+		return parent, func() {}, nil
+	}
+	if *seconds <= 0 {
+		return nil, nil, errors.New("bash timeout must be positive")
+	}
+	maximumSeconds := float64(math.MaxInt64) / float64(time.Second)
+	if *seconds > maximumSeconds {
+		return nil, nil, errors.New("bash timeout exceeds supported duration")
+	}
+	duration := time.Duration(*seconds * float64(time.Second))
+	if duration == 0 {
+		duration = time.Nanosecond
+	}
+	ctx, cancel := context.WithCancelCause(parent)
+	timer := time.AfterFunc(duration, func() {
+		cancel(bashTimeoutError{seconds: *seconds})
+	})
+	stop := func() {
+		timer.Stop()
+		cancel(nil)
+	}
+	return ctx, stop, nil
 }
 
 // validateArguments applies the compiled schema before typed decoding.
@@ -411,7 +468,7 @@ func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaTyp
 }
 
 // sendResult emits the one terminal event required for every completed tool operation.
-func sendResult(stream extensionv1.ExtensionService_ExecuteServer, content string, isError bool) error {
+func sendResult(stream ResultSender, content string, isError bool) error {
 	response := extensionv1.ExecuteResponse_builder{
 		Result: extensionv1.ToolResult_builder{
 			Contents: []*extensionv1.ToolResultContent{

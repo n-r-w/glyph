@@ -259,14 +259,28 @@ func newTestClient(t *testing.T, readTool ReadTool) extensionv1.ExtensionService
 // newTestClientWithTools serves selected use cases over an in-memory gRPC connection.
 func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool, editTool EditTool, searchTool SearchTool) extensionv1.ExtensionServiceClient {
 	t.Helper()
-
-	service, err := New(
+	return newTestClientWithAllTools(
+		t,
 		readTool,
 		writeTool,
 		editTool,
 		NewMockBashTool(gomock.NewController(t)),
 		searchTool,
 	)
+}
+
+// newTestClientWithAllTools serves the selected tool implementations through bufconn.
+func newTestClientWithAllTools(
+	t *testing.T,
+	readTool ReadTool,
+	writeTool WriteTool,
+	editTool EditTool,
+	bashTool BashTool,
+	searchTool SearchTool,
+) extensionv1.ExtensionServiceClient {
+	t.Helper()
+
+	service, err := New(readTool, writeTool, editTool, bashTool, searchTool)
 	require.NoError(t, err)
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer()

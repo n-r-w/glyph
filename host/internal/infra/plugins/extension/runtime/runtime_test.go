@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -116,8 +117,8 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	tools, err := runtime.ListTools(t.Context())
 	require.NoError(t, err)
 
-	// Assert: expose the complete standard read, write, edit, and bash catalog.
-	require.Len(t, tools, 4)
+	// Assert: expose the complete seven-tool standard catalog.
+	require.Len(t, tools, 7)
 	assert.Equal(t, "read", tools[0].Name)
 	assert.NotEmpty(t, tools[0].Description)
 	assert.NotEmpty(t, tools[0].InputSchemaJSON)
@@ -149,18 +150,22 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 
 	// Act: stream both output channels and return a nonzero terminal bash result.
 	bashProgress := make([]tool.ProgressChannel, 0, 3)
+	bashFragments := make([]string, 0, 2)
 	bashResult, err := runtime.Execute(
 		t.Context(),
 		"bash",
 		[]byte(`{"command":"printf out; printf err >&2; exit 7"}`),
 		func(progress tool.Progress) error {
 			bashProgress = append(bashProgress, progress.Channel)
+			if progress.Channel == tool.ProgressChannelStdout || progress.Channel == tool.ProgressChannelStderr {
+				bashFragments = append(bashFragments, progress.Content)
+			}
 			return nil
 		},
 	)
 	require.NoError(t, err)
 	assert.True(t, bashResult.IsError)
-	assert.JSONEq(t, `{"stdout":"out","stderr":"err","exitCode":7}`, bashResult.Contents[0].Text)
+	assert.Equal(t, strings.Join(bashFragments, "")+"\n\n[Exit code: 7]\n", bashResult.Contents[0].Text)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStatus)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStdout)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStderr)

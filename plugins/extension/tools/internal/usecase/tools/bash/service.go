@@ -16,7 +16,7 @@ var _ extensioncontroller.BashTool = (*Service)(nil)
 // New creates a bash service.
 func New(runner ProcessRunner) *Service { return &Service{runner: runner} }
 
-// Execute streams status and command output and returns complete output.
+// Execute streams status and command output and returns a bounded terminal result.
 func (s *Service) Execute(
 	ctx context.Context,
 	command string,
@@ -39,8 +39,13 @@ func (s *Service) Execute(
 		}
 		return handleProgress(extensioncontroller.BashProgress{Channel: channel, Content: content})
 	})
-	if err != nil {
-		return extensioncontroller.BashResult{}, fmt.Errorf("run bash command: %w", err)
+	mapped := extensioncontroller.BashResult{
+		Text:       result.Output,
+		ExitCode:   result.ExitCode,
+		Truncation: result.Truncation,
 	}
-	return extensioncontroller.BashResult{Stdout: result.Stdout, Stderr: result.Stderr, ExitCode: result.ExitCode}, nil
+	if err != nil {
+		return mapped, fmt.Errorf("run bash command: %w", err)
+	}
+	return mapped, nil
 }
