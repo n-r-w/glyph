@@ -3,7 +3,9 @@ package codex
 import (
 	"bytes"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
@@ -31,7 +33,7 @@ func (transport *hookTransport) RoundTrip(request *http.Request) (*http.Response
 	transformed, err := transport.runner.TransformRequest(request.Context(), internalhooks.Request{
 		Provider: transport.provider,
 		Model:    transport.model,
-		Payload:  append([]byte(nil), payload...),
+		Payload:  bytes.Clone(payload),
 		Headers:  headerCopy(request.Header),
 	})
 	if err != nil {
@@ -65,9 +67,9 @@ func headerCopy(header http.Header) internalhooks.Header {
 	if header == nil {
 		return nil
 	}
-	cloned := make(internalhooks.Header, len(header))
-	for name, values := range header {
-		cloned[name] = append([]string(nil), values...)
+	cloned := maps.Clone(internalhooks.Header(header))
+	for name, values := range cloned {
+		cloned[name] = slices.Clone(values)
 	}
 	return cloned
 }

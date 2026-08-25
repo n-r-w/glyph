@@ -1,6 +1,10 @@
 package run
 
 import (
+	"bytes"
+	"maps"
+	"slices"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -11,11 +15,11 @@ const skippedCallError = "Tool call skipped because the agent run was cancelled.
 
 // cloneHistory isolates mutable provider bytes, argument maps, and slices.
 func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
-	result := make([]agent.HistoryEntry, len(history))
-	for index := range history {
-		result[index] = cloneHistoryEntry(history[index])
+	cloned := slices.Clone(history)
+	for index := range cloned {
+		cloned[index] = cloneHistoryEntry(cloned[index])
 	}
-	return result
+	return cloned
 }
 
 // cloneHistoryEntry returns one independent history value.
@@ -30,26 +34,20 @@ func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 
 // cloneToolResult isolates mutable image bytes in returned history snapshots.
 func cloneToolResult(result agent.ToolResult) agent.ToolResult {
-	contents := make([]tool.ResultContent, len(result.Contents))
-	for index, content := range result.Contents {
-		contents[index] = tool.ResultContent{
-			Kind: content.Kind, Text: content.Text,
-			Image: tool.ResultImage{MediaType: content.Image.MediaType, Data: append([]byte(nil), content.Image.Data...)},
-		}
+	result.Contents = slices.Clone(result.Contents)
+	for index := range result.Contents {
+		result.Contents[index].Image.Data = bytes.Clone(result.Contents[index].Image.Data)
 	}
-	return agent.ToolResult{CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError}
+	return result
 }
 
 // cloneMessage isolates user content and image bytes.
 func cloneMessage(message model.Message) model.Message {
-	content := make([]model.InputContent, len(message.Content))
-	for index, item := range message.Content {
-		content[index] = model.InputContent{
-			Kind: item.Kind, Text: item.Text, MediaType: item.MediaType,
-			Data: append([]byte(nil), item.Data...),
-		}
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = bytes.Clone(message.Content[index].Data)
 	}
-	return model.Message{Content: content}
+	return message
 }
 
 // cloneModelResponse preserves ordered content while isolating mutable values.
@@ -57,8 +55,8 @@ func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]mod
 	if previews == nil {
 		return nil
 	}
-	cloned := make(map[string]model.ToolCallPreview, len(previews))
-	for callID, preview := range previews {
+	cloned := maps.Clone(previews)
+	for callID, preview := range cloned {
 		preview.Fields = clonePreviewFields(preview.Fields)
 		cloned[callID] = preview
 	}
@@ -69,39 +67,25 @@ func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPre
 	if fields == nil {
 		return nil
 	}
-	cloned := make([]model.ToolCallPreviewField, len(fields))
-	for index, field := range fields {
-		field.Value = cloneJSONValue(field.Value)
-		cloned[index] = field
+	cloned := slices.Clone(fields)
+	for index := range cloned {
+		cloned[index].Value = cloneJSONValue(cloned[index].Value)
 	}
 	return cloned
 }
 
 func cloneModelResponse(response model.Response) model.Response {
-	items := make([]model.Content, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		items[index] = model.Content{
-			Kind:  item.Kind,
-			Text:  item.Text,
-			Final: item.Final,
-			ProviderContext: model.ProviderContext{
-				Source:  item.ProviderContext.Source,
-				Payload: append([]byte(nil), item.ProviderContext.Payload...),
-			},
-			ToolCall: model.ToolCall{
-				ID:        item.ToolCall.ID,
-				Name:      item.ToolCall.Name,
-				Arguments: cloneArguments(item.ToolCall.Arguments),
-			},
-		}
+	items := slices.Clone(response.Content)
+	for index := range items {
+		items[index].ProviderContext.Payload = bytes.Clone(items[index].ProviderContext.Payload)
+		items[index].ToolCall.Arguments = cloneArguments(items[index].ToolCall.Arguments)
 	}
 	var responseModel *model.ID
 	if response.ResponseModel != nil {
 		value := *response.ResponseModel
 		responseModel = &value
 	}
-	diagnostics := append([]model.Diagnostic(nil), response.Diagnostics...)
+	diagnostics := slices.Clone(response.Diagnostics)
 	return model.Response{
 		Content: items, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
 		Provider: response.Provider, Model: response.Model, ResponseModel: responseModel,
@@ -114,8 +98,8 @@ func cloneArguments(arguments map[string]any) map[string]any {
 	if arguments == nil {
 		return nil
 	}
-	result := make(map[string]any, len(arguments))
-	for name, value := range arguments {
+	result := maps.Clone(arguments)
+	for name, value := range result {
 		result[name] = cloneJSONValue(value)
 	}
 	return result
@@ -127,8 +111,8 @@ func cloneJSONValue(value any) any {
 	case map[string]any:
 		return cloneArguments(typed)
 	case []any:
-		result := make([]any, len(typed))
-		for index, item := range typed {
+		result := slices.Clone(typed)
+		for index, item := range result {
 			result[index] = cloneJSONValue(item)
 		}
 		return result

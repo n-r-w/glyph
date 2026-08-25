@@ -53,7 +53,7 @@ func (s *Service) Load() (payload []byte, found bool, err error) {
 	if !payloadFound {
 		return nil, false, nil
 	}
-	return append([]byte(nil), storedPayload...), true, nil
+	return bytes.Clone(storedPayload), true, nil
 }
 
 // Save atomically replaces the provider's opaque JSON payload.

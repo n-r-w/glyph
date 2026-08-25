@@ -49,7 +49,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (*http.Response
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
 	t.mu.Lock()
-	t.body = append([]byte(nil), body...)
+	t.body = bytes.Clone(body)
 	t.mu.Unlock()
 	return response, nil
 }
@@ -58,7 +58,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (*http.Response
 func (t *errorCaptureTransport) ErrorBody() []byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return append([]byte(nil), t.body...)
+	return bytes.Clone(t.body)
 }
 
 // providerErrorDetail extracts the approved backend error shapes.

@@ -2,9 +2,11 @@
 package runner
 
 import (
+	"bytes"
 	"context"
+	"maps"
+	"slices"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 )
@@ -28,9 +30,9 @@ func New(
 	responseHandlers []hooks.ResponseHandler,
 ) *Runner {
 	return &Runner{
-		contextHandlers:  append([]hooks.ContextHandler(nil), contextHandlers...),
-		requestHandlers:  append([]hooks.RequestHandler(nil), requestHandlers...),
-		responseHandlers: append([]hooks.ResponseHandler(nil), responseHandlers...),
+		contextHandlers:  slices.Clone(contextHandlers),
+		requestHandlers:  slices.Clone(requestHandlers),
+		responseHandlers: slices.Clone(responseHandlers),
 	}
 }
 
@@ -71,20 +73,17 @@ func (runner *Runner) ObserveResponse(ctx context.Context, value hooks.Response)
 }
 
 func cloneContext(value hooks.Context) hooks.Context {
-	history := make([]agent.HistoryEntry, len(value.History))
+	value.History = slices.Clone(value.History)
 	for index := range value.History {
-		entry := &value.History[index]
-		history[index] = agent.HistoryEntry{
-			Kind: entry.Kind, User: cloneMessage(entry.User), Model: cloneModelResponse(entry.Model),
-			ToolResult: entry.ToolResult,
-		}
+		value.History[index].User = cloneMessage(value.History[index].User)
+		value.History[index].Model = cloneModelResponse(value.History[index].Model)
 	}
-	return hooks.Context{History: history}
+	return value
 }
 
 func cloneRequest(value hooks.Request) hooks.Request {
 	return hooks.Request{
-		Provider: value.Provider, Model: value.Model, Payload: append([]byte(nil), value.Payload...),
+		Provider: value.Provider, Model: value.Model, Payload: bytes.Clone(value.Payload),
 		Headers: cloneHeader(value.Headers),
 	}
 }
@@ -100,39 +99,26 @@ func cloneHeader(header hooks.Header) hooks.Header {
 	if header == nil {
 		return nil
 	}
-	cloned := make(hooks.Header, len(header))
-	for name, values := range header {
-		cloned[name] = append([]string(nil), values...)
+	cloned := maps.Clone(header)
+	for name, values := range cloned {
+		cloned[name] = slices.Clone(values)
 	}
 	return cloned
 }
 
 func cloneMessage(message model.Message) model.Message {
-	content := make([]model.InputContent, len(message.Content))
-	for index, item := range message.Content {
-		content[index] = model.InputContent{
-			Kind: item.Kind, Text: item.Text, MediaType: item.MediaType,
-			Data: append([]byte(nil), item.Data...),
-		}
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = bytes.Clone(message.Content[index].Data)
 	}
-	return model.Message{Content: content}
+	return message
 }
 
 func cloneModelResponse(response model.Response) model.Response {
-	content := make([]model.Content, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		content[index] = model.Content{
-			Kind: item.Kind, Text: item.Text, Final: item.Final,
-			ProviderContext: model.ProviderContext{
-				Source:  item.ProviderContext.Source,
-				Payload: append([]byte(nil), item.ProviderContext.Payload...),
-			},
-			ToolCall: model.ToolCall{
-				ID: item.ToolCall.ID, Name: item.ToolCall.Name,
-				Arguments: cloneArguments(item.ToolCall.Arguments),
-			},
-		}
+	content := slices.Clone(response.Content)
+	for index := range content {
+		content[index].ProviderContext.Payload = bytes.Clone(content[index].ProviderContext.Payload)
+		content[index].ToolCall.Arguments = cloneArguments(content[index].ToolCall.Arguments)
 	}
 	var responseModel *model.ID
 	if response.ResponseModel != nil {
@@ -143,7 +129,7 @@ func cloneModelResponse(response model.Response) model.Response {
 		Content: content, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
 		Provider: response.Provider, Model: response.Model, ResponseModel: responseModel,
 		ResponseID: response.ResponseID, Usage: response.Usage,
-		Diagnostics: append([]model.Diagnostic(nil), response.Diagnostics...),
+		Diagnostics: slices.Clone(response.Diagnostics),
 	}
 }
 
@@ -151,8 +137,8 @@ func cloneArguments(arguments map[string]any) map[string]any {
 	if arguments == nil {
 		return nil
 	}
-	cloned := make(map[string]any, len(arguments))
-	for name, value := range arguments {
+	cloned := maps.Clone(arguments)
+	for name, value := range cloned {
 		cloned[name] = cloneJSONValue(value)
 	}
 	return cloned
@@ -163,8 +149,8 @@ func cloneJSONValue(value any) any {
 	case map[string]any:
 		return cloneArguments(typed)
 	case []any:
-		cloned := make([]any, len(typed))
-		for index, item := range typed {
+		cloned := slices.Clone(typed)
+		for index, item := range cloned {
 			cloned[index] = cloneJSONValue(item)
 		}
 		return cloned

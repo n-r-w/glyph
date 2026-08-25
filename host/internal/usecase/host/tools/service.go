@@ -96,7 +96,7 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 	if err != nil {
 		return LoadReport{}, fmt.Errorf("discover extensions: %w", err)
 	}
-	issues := append([]Issue(nil), discovery.Issues...)
+	issues := slices.Clone(discovery.Issues)
 	states := make(map[string]*runtimeState, len(discovery.Candidates))
 	for _, candidate := range discovery.Candidates {
 		runtime, startErr := s.factory.Start(ctx, candidate)
@@ -128,7 +128,7 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 	for id, state := range states {
 		if state.available {
 			extensions = append(extensions, LoadedExtension{
-				ID: id, Path: state.path, Tools: append([]tool.Descriptor(nil), state.tools...),
+				ID: id, Path: state.path, Tools: slices.Clone(state.tools),
 			})
 		}
 	}
@@ -205,7 +205,7 @@ func (s *Service) Execute(
 	}
 	return agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name,
-		Contents: append([]tool.ResultContent(nil), result.Contents...), IsError: result.IsError,
+		Contents: slices.Clone(result.Contents), IsError: result.IsError,
 	}, executeErr
 }
 

@@ -281,13 +281,11 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 
 // currentModelIndex resolves the Host-confirmed selection in configured order.
 func (model Model) currentModelIndex() int {
-	for index, configured := range model.state.Models {
-		if configured.ProviderID == model.state.ModelSelection.ProviderID &&
-			configured.ModelID == model.state.ModelSelection.ModelID {
-			return index
-		}
-	}
-	return 0
+	index := slices.IndexFunc(model.state.Models, func(configured presentationdomain.ConfiguredModel) bool {
+		return configured.ProviderID == model.state.ModelSelection.ProviderID &&
+			configured.ModelID == model.state.ModelSelection.ModelID
+	})
+	return max(index, 0)
 }
 
 // emitCommand serializes one UI command without blocking the update loop.

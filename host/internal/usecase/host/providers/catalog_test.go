@@ -4,6 +4,7 @@ package providers
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -259,7 +260,7 @@ func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.Rea
 		Provider: provider, Model: modelID,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: levels[0] != model.ReasoningChoiceOff || len(levels) > 1,
-			Choices:   append([]model.ReasoningChoice(nil), levels...), Default: levels[0],
+			Choices:   slices.Clone(levels), Default: levels[0],
 		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false,

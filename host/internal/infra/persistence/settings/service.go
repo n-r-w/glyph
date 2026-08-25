@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -195,7 +196,9 @@ func validate(decoded settingsFile) (Settings, error) {
 	if !found {
 		return Settings{}, errors.New("defaultProvider must identify a configured provider")
 	}
-	_, found = findModel(defaultProvider.Models, decoded.DefaultModel)
+	found = slices.ContainsFunc(defaultProvider.Models, func(configured Model) bool {
+		return configured.ID == decoded.DefaultModel
+	})
 	if !found {
 		return Settings{}, errors.New("defaultModel must identify a model on defaultProvider")
 	}
@@ -247,17 +250,6 @@ func validateProviders(configured map[string]providerFile) (map[string]Provider,
 		return nil, errors.New("providers must contain exactly one openai-codex instance")
 	}
 	return providers, nil
-}
-
-func findModel(models []Model, modelID string) (Model, bool) {
-	for _, configured := range models {
-		if configured.ID == modelID {
-			return configured, true
-		}
-	}
-	return Model{ID: "", API: "", Reasoning: Reasoning{
-		Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
-	}}, false
 }
 
 func validateActiveUI(configured *string) (string, error) {
@@ -350,7 +342,7 @@ func validateModel(providerID string, providerType ProviderType, providerAPI API
 //
 //nolint:gocyclo // The flat validation mirrors the closed capability and wire-format combinations.
 func validateReasoning(providerID, modelID string, api API, configured reasoningFile) (Reasoning, error) {
-	choices := append([]ReasoningChoice(nil), configured.Choices...)
+	choices := slices.Clone(configured.Choices)
 	seen := make(map[ReasoningChoice]struct{}, len(choices))
 	for _, choice := range choices {
 		if !isReasoningChoiceSupported(choice) {
@@ -363,7 +355,7 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 		}
 		seen[choice] = struct{}{}
 	}
-	if len(choices) == 0 || !supportsReasoningChoice(choices, configured.Default) {
+	if len(choices) == 0 || !slices.Contains(choices, configured.Default) {
 		return Reasoning{}, fmt.Errorf(
 			"provider %q model %q reasoning default must be listed in choices", providerID, modelID,
 		)
@@ -415,8 +407,8 @@ func validateReasoningShape(choices []ReasoningChoice, defaultChoice ReasoningCh
 	if len(choices) == 1 && choices[0] == ReasoningChoiceOn && defaultChoice == ReasoningChoiceOn {
 		return nil
 	}
-	isToggle := len(choices) == 2 && supportsReasoningChoice(choices, ReasoningChoiceOff) &&
-		supportsReasoningChoice(choices, ReasoningChoiceOn)
+	isToggle := len(choices) == 2 && slices.Contains(choices, ReasoningChoiceOff) &&
+		slices.Contains(choices, ReasoningChoiceOn)
 	if isToggle {
 		return nil
 	}
@@ -496,15 +488,6 @@ func validateIdentifier(name, value string) error {
 
 func isAPISupported(api API) bool {
 	return api == APIChatCompletions || api == APIResponses
-}
-
-func supportsReasoningChoice(levels []ReasoningChoice, target ReasoningChoice) bool {
-	for _, level := range levels {
-		if level == target {
-			return true
-		}
-	}
-	return false
 }
 
 // isReasoningChoiceSupported recognizes the complete configured reasoning-choice set.

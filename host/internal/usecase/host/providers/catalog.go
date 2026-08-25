@@ -111,7 +111,7 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	if !found {
 		return nil, invalidConfigurationError()
 	}
-	if !supports(catalog.entries[active].Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
+	if !slices.Contains(catalog.entries[active].Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
 		return nil, invalidConfigurationError()
 	}
 	catalog.active = active
@@ -209,7 +209,7 @@ func (c *Catalog) SelectReasoningChoice(level model.ReasoningChoice) (model.Sele
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if !supports(c.entries[c.active].Descriptor.ReasoningCapabilities.Choices, level) {
+	if !slices.Contains(c.entries[c.active].Descriptor.ReasoningCapabilities.Choices, level) {
 		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
 	}
 	c.selection.ReasoningChoice = level
@@ -233,7 +233,7 @@ func validateDescriptor(
 ) error {
 	capabilities := descriptor.ReasoningCapabilities
 	if descriptor.Provider == "" || descriptor.Model == "" || len(capabilities.Choices) == 0 ||
-		!supports(capabilities.Choices, capabilities.Default) {
+		!slices.Contains(capabilities.Choices, capabilities.Default) {
 		return invalidConfigurationError()
 	}
 	models, exists := seen[descriptor.Provider]
@@ -260,7 +260,7 @@ func validateDescriptor(
 
 // fallbackReasoningChoice preserves exact choices and applies the configured cross-model fallback.
 func fallbackReasoningChoice(active model.ReasoningChoice, target model.ReasoningCapabilities) model.ReasoningChoice {
-	if supports(target.Choices, active) {
+	if slices.Contains(target.Choices, active) {
 		return active
 	}
 	if active == model.ReasoningChoiceOff {
@@ -270,7 +270,7 @@ func fallbackReasoningChoice(active model.ReasoningChoice, target model.Reasonin
 		return target.Default
 	}
 	if isEffort(active) {
-		if supports(target.Choices, model.ReasoningChoiceOn) {
+		if slices.Contains(target.Choices, model.ReasoningChoiceOn) {
 			return model.ReasoningChoiceOn
 		}
 		activeRank, _ := reasoningRank(active)
@@ -296,15 +296,6 @@ func fallbackReasoningChoice(active model.ReasoningChoice, target model.Reasonin
 }
 
 // supports reports whether one effective choice list contains the target.
-func supports(levels []model.ReasoningChoice, target model.ReasoningChoice) bool {
-	for _, level := range levels {
-		if level == target {
-			return true
-		}
-	}
-	return false
-}
-
 // reasoningRank defines the product ordering used by model-selection fallback.
 func reasoningRank(level model.ReasoningChoice) (int, bool) {
 	switch level {
@@ -340,9 +331,7 @@ func validReasoningChoice(choice model.ReasoningChoice) bool {
 
 // cloneDescriptor keeps configured capability slices immutable to catalog callers.
 func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
-	descriptor.ReasoningCapabilities.Choices = append(
-		[]model.ReasoningChoice(nil), descriptor.ReasoningCapabilities.Choices...,
-	)
+	descriptor.ReasoningCapabilities.Choices = slices.Clone(descriptor.ReasoningCapabilities.Choices)
 	return descriptor
 }
 

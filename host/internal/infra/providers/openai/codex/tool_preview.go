@@ -1,9 +1,11 @@
 package codex
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"unicode/utf8"
 
 	"github.com/camilbenameur/go-llm-stream/scanner"
@@ -41,7 +43,8 @@ func (a *functionPreviewAssembler) appendFragment(fragment string) ([]model.Tool
 		token := a.tokenizer.NextToken()
 		switch token.Kind {
 		case scanner.TokenIncomplete:
-			incomplete = copyToken(token)
+			incomplete = token
+			incomplete.Raw = bytes.Clone(token.Raw)
 			return a.preview(incomplete), nil
 		case scanner.TokenError:
 			return nil, fmt.Errorf("parse streamed function arguments: %w", token.Err)
@@ -141,7 +144,7 @@ func (a *functionPreviewAssembler) completeContainer(start, end int64) error {
 }
 
 func (a *functionPreviewAssembler) preview(incomplete scanner.Token) []model.ToolCallPreviewField {
-	fields := clonePreviewFields(a.fields)
+	fields := slices.Clone(a.fields)
 	if a.depth != 1 || a.currentKey == "" || incomplete.Kind != scanner.TokenIncomplete ||
 		incomplete.IsKey || len(incomplete.Raw) == 0 {
 		return fields
@@ -186,17 +189,6 @@ func (a *functionPreviewAssembler) setField(field model.ToolCallPreviewField) {
 		}
 	}
 	a.fields = append(a.fields, field)
-}
-
-func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPreviewField {
-	cloned := make([]model.ToolCallPreviewField, len(fields))
-	copy(cloned, fields)
-	return cloned
-}
-
-func copyToken(token scanner.Token) scanner.Token {
-	token.Raw = append([]byte(nil), token.Raw...)
-	return token
 }
 
 func (a *functionPreviewAssembler) close() {

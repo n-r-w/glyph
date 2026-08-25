@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -65,7 +68,7 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	case run.EventToolCallEnd:
 		lifecycle.FinalToolCall = domainui.FinalToolCall{
 			CallID: event.ToolCall.ID, Name: event.ToolCall.Name, Position: event.Position,
-			Arguments: cloneArguments(event.ToolCall.Arguments),
+			Arguments: maps.Clone(event.ToolCall.Arguments),
 		}
 	case run.EventMessageEnd:
 		lifecycle.ModelResponse = mapModelResponse(event.Message)
@@ -177,21 +180,9 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 
 // cloneResultContents isolates mutable image bytes before lifecycle delivery.
 func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
-	cloned := make([]tool.ResultContent, len(contents))
-	for index, content := range contents {
-		cloned[index] = tool.ResultContent{Kind: content.Kind, Text: content.Text,
-			Image: tool.ResultImage{MediaType: content.Image.MediaType, Data: append([]byte(nil), content.Image.Data...)}}
-	}
-	return cloned
-}
-
-func cloneArguments(arguments map[string]any) map[string]any {
-	if arguments == nil {
-		return nil
-	}
-	cloned := make(map[string]any, len(arguments))
-	for name, value := range arguments {
-		cloned[name] = value
+	cloned := slices.Clone(contents)
+	for index := range cloned {
+		cloned[index].Image.Data = bytes.Clone(cloned[index].Image.Data)
 	}
 	return cloned
 }

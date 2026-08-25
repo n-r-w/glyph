@@ -861,7 +861,7 @@ func (transport *errorCaptureTransport) RoundTrip(request *http.Request) (*http.
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
 	transport.mu.Lock()
-	transport.body = append([]byte(nil), body...)
+	transport.body = bytes.Clone(body)
 	transport.mu.Unlock()
 	return response, nil
 }
@@ -870,7 +870,7 @@ func (transport *errorCaptureTransport) RoundTrip(request *http.Request) (*http.
 func (transport *errorCaptureTransport) ErrorBody() []byte {
 	transport.mu.Lock()
 	defer transport.mu.Unlock()
-	return append([]byte(nil), transport.body...)
+	return bytes.Clone(transport.body)
 }
 
 // normalizeProviderError surfaces the backend detail shape without exposing request credentials.

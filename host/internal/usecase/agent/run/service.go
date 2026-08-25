@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -462,7 +463,7 @@ func (s *Service) endTurn(
 	errorMessage string,
 	runErr error,
 ) (Result, bool, error) {
-	turn := TurnSummary{Response: cloneModelResponse(response), ToolResults: append([]agent.ToolResult(nil), results...)}
+	turn := TurnSummary{Response: cloneModelResponse(response), ToolResults: slices.Clone(results)}
 	turnEnd := newEvent(EventTurnEnd, runID)
 	turnEnd.Turn = turn
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {

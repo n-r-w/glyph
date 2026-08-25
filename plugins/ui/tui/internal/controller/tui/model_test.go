@@ -4,6 +4,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -214,7 +215,7 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 	})
 	model.input = []rune("draft")
 	model.cursor = len(model.input)
-	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+	originalTranscript := slices.Clone(model.state.Transcript)
 
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'l', Mod: tea.ModCtrl}))
 	assert.True(t, model.selectorOpen)
@@ -262,7 +263,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		{Kind: presentationdomain.LineModel, Text: "first"},
 		{Kind: presentationdomain.LineModel, Text: "second"},
 	}
-	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+	originalTranscript := slices.Clone(model.state.Transcript)
 
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'l', Mod: tea.ModCtrl}))
 	view := model.View().Content
@@ -290,7 +291,7 @@ func TestTypedModelCommandIsConsumedWhenOpeningSelector(t *testing.T) {
 	t.Parallel()
 
 	model := newSelectionTestModel(t, presentationdomain.AvailabilityIdle, nil)
-	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+	originalTranscript := slices.Clone(model.state.Transcript)
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Text: "/model"}))
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
 

@@ -439,7 +439,17 @@ func newProviderCatalog(
 		}
 	}
 	defaultProvider := configured.Providers[configured.DefaultProvider]
-	defaultModel, _ := configuredModel(defaultProvider.Models, configured.DefaultModel)
+	defaultModel := settingstore.Model{
+		ID: "", API: "", Reasoning: settingstore.Reasoning{
+			Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
+		},
+	}
+	defaultModelIndex := slices.IndexFunc(defaultProvider.Models, func(configuredModel settingstore.Model) bool {
+		return configuredModel.ID == configured.DefaultModel
+	})
+	if defaultModelIndex >= 0 {
+		defaultModel = defaultProvider.Models[defaultModelIndex]
+	}
 	return providers.New(entries, model.Selection{
 		Provider: model.ProviderID(configured.DefaultProvider), Model: model.ID(configured.DefaultModel),
 		ReasoningChoice: model.ReasoningChoice(defaultModel.Reasoning.Default),
@@ -447,19 +457,6 @@ func newProviderCatalog(
 }
 
 // configuredModel finds one validated model without exposing persistence details outside assembly.
-func configuredModel(models []settingstore.Model, modelID string) (settingstore.Model, bool) {
-	for _, configured := range models {
-		if configured.ID == modelID {
-			return configured, true
-		}
-	}
-	return settingstore.Model{
-		ID: "", API: "", Reasoning: settingstore.Reasoning{
-			Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
-		},
-	}, false
-}
-
 // reasoningCapabilities maps validated persistence values into the model domain.
 func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCapabilities {
 	choices := make([]model.ReasoningChoice, len(configured.Choices))

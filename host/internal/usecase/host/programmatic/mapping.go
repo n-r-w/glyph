@@ -1,6 +1,9 @@
 package programmatic
 
 import (
+	"bytes"
+	"maps"
+	"slices"
 	"strings"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
@@ -152,7 +155,7 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 				Kind: controller.ToolResultContentImage, Text: "",
 				Image: controller.ToolResultImage{
 					MediaType: content.Image.MediaType,
-					Data:      append([]byte(nil), content.Image.Data...),
+					Data:      bytes.Clone(content.Image.Data),
 				},
 			})
 		}
@@ -246,8 +249,8 @@ func cloneArguments(arguments map[string]any) map[string]any {
 	if arguments == nil {
 		return nil
 	}
-	cloned := make(map[string]any, len(arguments))
-	for key, value := range arguments {
+	cloned := maps.Clone(arguments)
+	for key, value := range cloned {
 		cloned[key] = cloneJSONValue(value)
 	}
 	return cloned
@@ -258,13 +261,13 @@ func cloneJSONValue(value any) any {
 	case map[string]any:
 		return cloneArguments(typed)
 	case []any:
-		cloned := make([]any, len(typed))
-		for index, item := range typed {
+		cloned := slices.Clone(typed)
+		for index, item := range cloned {
 			cloned[index] = cloneJSONValue(item)
 		}
 		return cloned
 	case []byte:
-		return append([]byte(nil), typed...)
+		return bytes.Clone(typed)
 	default:
 		return typed
 	}

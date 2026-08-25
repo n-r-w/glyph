@@ -4,10 +4,12 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -215,7 +217,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	for _, extension := range initialization.GetExtensions() {
 		event.Extensions = append(event.Extensions, presentationdomain.Extension{
 			ID: extension.GetPluginId(), Path: extension.GetPath(),
-			Tools: append([]string(nil), extension.GetTools()...),
+			Tools: slices.Clone(extension.GetTools()),
 		})
 	}
 	for _, configured := range initialization.GetModels() {
@@ -400,7 +402,7 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 				return nil, fmt.Errorf("tool result image %d is invalid", index)
 			}
 			mapped = append(mapped, presentationdomain.ToolResultContent{
-				MediaType: image.GetMediaType(), Data: append([]byte(nil), image.GetData()...),
+				MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
 			})
 		case uiv1.ToolResultContent_Content_not_set_case:
 			return nil, fmt.Errorf("tool result content %d is missing", index)

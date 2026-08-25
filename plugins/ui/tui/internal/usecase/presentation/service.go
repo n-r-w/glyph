@@ -4,7 +4,10 @@
 package presentation
 
 import (
+	"bytes"
 	"encoding/json"
+	"maps"
+	"slices"
 	"strings"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
@@ -177,34 +180,24 @@ func appendFinalModelContent(
 
 // cloneState isolates mutable maps and slices before applying one event.
 func cloneState(state presentationdomain.State) presentationdomain.State {
-	state.Startup = append([]presentationdomain.Line(nil), state.Startup...)
-	state.Transcript = append([]presentationdomain.Line(nil), state.Transcript...)
+	state.Startup = slices.Clone(state.Startup)
+	state.Transcript = slices.Clone(state.Transcript)
 	state.Models = cloneModels(state.Models)
-	activeModel := make(map[int]presentationdomain.ActiveModelContent, len(state.ActiveModel))
-	for position, content := range state.ActiveModel {
-		activeModel[position] = content
-	}
-	state.ActiveModel = activeModel
-	activeToolCalls := make(map[string]presentationdomain.ToolCallState, len(state.ActiveToolCalls))
+	state.ActiveModel = maps.Clone(state.ActiveModel)
+	state.ActiveToolCalls = maps.Clone(state.ActiveToolCalls)
 	for callID, call := range state.ActiveToolCalls {
-		activeToolCalls[callID] = cloneToolCall(call)
+		state.ActiveToolCalls[callID] = cloneToolCall(call)
 	}
-	state.ActiveToolCalls = activeToolCalls
-	activeTools := make(map[string]string, len(state.ActiveTools))
-	for callID, name := range state.ActiveTools {
-		activeTools[callID] = name
-	}
-	state.ActiveTools = activeTools
+	state.ActiveTools = maps.Clone(state.ActiveTools)
 
 	return state
 }
 
 // cloneModels isolates configured reasoning slices from incoming events.
 func cloneModels(models []presentationdomain.ConfiguredModel) []presentationdomain.ConfiguredModel {
-	cloned := make([]presentationdomain.ConfiguredModel, len(models))
-	for index, configured := range models {
-		cloned[index] = configured
-		cloned[index].Reasoning.Choices = append([]presentationdomain.ReasoningChoice(nil), configured.Reasoning.Choices...)
+	cloned := slices.Clone(models)
+	for index := range cloned {
+		cloned[index].Reasoning.Choices = slices.Clone(cloned[index].Reasoning.Choices)
 	}
 	return cloned
 }
@@ -235,24 +228,16 @@ func cloneToolResultContents(contents []presentationdomain.ToolResultContent) []
 	if contents == nil {
 		return nil
 	}
-	cloned := make([]presentationdomain.ToolResultContent, len(contents))
-	for index, content := range contents {
-		cloned[index] = presentationdomain.ToolResultContent{
-			Text: content.Text, MediaType: content.MediaType, Data: append([]byte(nil), content.Data...),
-		}
+	cloned := slices.Clone(contents)
+	for index := range cloned {
+		cloned[index].Data = bytes.Clone(cloned[index].Data)
 	}
 	return cloned
 }
 
 func cloneToolCall(call presentationdomain.ToolCallState) presentationdomain.ToolCallState {
-	call.Fields = append([]presentationdomain.ToolCallField(nil), call.Fields...)
-	if call.Arguments != nil {
-		arguments := make(map[string]any, len(call.Arguments))
-		for name, value := range call.Arguments {
-			arguments[name] = value
-		}
-		call.Arguments = arguments
-	}
+	call.Fields = slices.Clone(call.Fields)
+	call.Arguments = maps.Clone(call.Arguments)
 	return call
 }
 

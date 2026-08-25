@@ -4,10 +4,12 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"sync"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -155,7 +157,7 @@ func mapInitialization(initialization domainui.Initialization) *uipb.Initializat
 	for _, extension := range initialization.Extensions {
 		extensions = append(extensions, uipb.ExtensionAvailability_builder{
 			PluginId: new(extension.PluginID),
-			Tools:    append([]string(nil), extension.Tools...),
+			Tools:    slices.Clone(extension.Tools),
 			Path:     new(extension.Path),
 		}.Build())
 	}
@@ -390,7 +392,7 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 			mapped = append(mapped, uipb.ToolResultContent_builder{Text: new(content.Text)}.Build())
 		case tool.ResultContentImage:
 			mapped = append(mapped, uipb.ToolResultContent_builder{Image: uipb.ToolResultImage_builder{
-				MediaType: new(content.Image.MediaType), Data: append([]byte(nil), content.Image.Data...),
+				MediaType: new(content.Image.MediaType), Data: bytes.Clone(content.Image.Data),
 			}.Build()}.Build())
 		}
 	}
