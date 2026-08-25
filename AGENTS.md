@@ -18,6 +18,7 @@ NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 4. `log/slog` for logging (must use structured logging with context). Use global logger with context, instead of passing logger instances around. E.g. `slog.DebugContext`.
 5. `github.com/cenkalti/backoff/v7` for retry strategies
 6. `github.com/samber/lo` for slices/maps/strings/channels/functions (if no standard library functions available)
+7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
 
 ## Coding rules
 1. MUST run `task lint`, `task test` to check code before completing changes.
