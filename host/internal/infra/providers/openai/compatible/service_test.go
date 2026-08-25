@@ -44,7 +44,8 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer,
-			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"content":"hello "}}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":"think ","content":"hello "}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"refusal":"no"}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"fi"}}]}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le\"}"}}]},"finish_reason":"tool_calls"}]}`,
@@ -56,7 +57,8 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	models := map[model.ID]API{"demo": ""}
 	service, err := New(Config{
 		ProviderID: "openrouter", BaseURL: server.URL + "/v1", API: APIChatCompletions,
-		Models: models, APIKey: expectAPIKey(t, "secret", nil, 1),
+		Models: models, ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatEffort},
+		APIKey: expectAPIKey(t, "secret", nil, 1),
 	})
 	require.NoError(t, err)
 	models["demo"] = APIResponses
@@ -78,8 +80,119 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Len(t, body["tools"], 1)
 	assert.Contains(t, eventKinds(events), run.StreamEventTextDelta)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
+	require.GreaterOrEqual(t, len(terminal.Response.Content), 2)
+	assert.Equal(t, model.Content{Kind: model.ContentReasoning, Text: "think ", Final: true}, terminal.Response.Content[0])
+	assert.Equal(t, model.Content{Kind: model.ContentText, Text: "hello ", Final: true}, terminal.Response.Content[1])
 	assert.Contains(t, terminal.Response.Content, model.Content{Kind: model.ContentRefusal, Text: "no", Final: true})
 	assert.Contains(t, terminal.Response.Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}})
+}
+
+// TestChatEffortMapsChoices verifies the closed choice-to-field mapping for Chat Completions.
+func (s *serviceSuite) TestChatEffortMapsChoices() {
+	for _, testCase := range []struct {
+		name     string
+		choice   model.ReasoningChoice
+		expected string
+		present  bool
+	}{
+		{name: "off", choice: model.ReasoningChoiceOff, expected: "none", present: true},
+		{name: "effort", choice: model.ReasoningChoiceLow, expected: "low", present: true},
+		{name: "on", choice: model.ReasoningChoiceOn, present: false},
+	} {
+		s.Run(testCase.name, func() {
+			t := s.T()
+			var body map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+					return
+				}
+				writer.Header().Set("Content-Type", "text/event-stream")
+				writeSSE(t, writer, `{"id":"chat-choice","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)
+			}))
+			t.Cleanup(server.Close)
+			driver, err := New(Config{
+				ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
+				Models:               map[model.ID]API{"demo": ""},
+				ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatEffort},
+				APIKey:               expectAPIKey(t, "", nil, 1),
+			})
+			s.Require().NoError(err)
+			request := richRequest("local", "demo")
+			request.ReasoningChoice = testCase.choice
+
+			events := streamEvents(t, driver, request)
+
+			s.Equal(run.StreamEventDone, events[len(events)-1].Kind)
+			value, present := body["reasoning_effort"]
+			s.Equal(testCase.present, present)
+			if testCase.present {
+				s.Equal(testCase.expected, value)
+			}
+		})
+	}
+}
+
+// TestChatHistoryUsesNativeReasoningOrTextFallback verifies visible replay and opaque-context filtering.
+func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
+	for _, testCase := range []struct {
+		name            string
+		wireFormat      string
+		expectedContent string
+		expectedReason  string
+	}{
+		{name: "native", wireFormat: reasoningWireFormatOpenAIChatEffort, expectedContent: "answer", expectedReason: "firstsecond"},
+		{name: "text fallback", wireFormat: "", expectedContent: "firstanswersecond"},
+	} {
+		s.Run(testCase.name, func() {
+			t := s.T()
+			var body map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+					return
+				}
+				writer.Header().Set("Content-Type", "text/event-stream")
+				writeSSE(t, writer, `{"id":"chat-history","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
+			}))
+			t.Cleanup(server.Close)
+			driver, err := New(Config{
+				ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
+				Models:               map[model.ID]API{"demo": ""},
+				ReasoningWireFormats: map[model.ID]string{"demo": testCase.wireFormat},
+				APIKey:               expectAPIKey(t, "", nil, 1),
+			})
+			s.Require().NoError(err)
+			request := richRequest("local", "demo")
+			request.History[1].Model.Content = []model.Content{
+				{Kind: model.ContentReasoning, Text: "first", Final: true, ProviderContext: model.ProviderContext{
+					Source:  model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source"},
+					Payload: []byte("opaque-secret"),
+				}},
+				{Kind: model.ContentText, Text: "answer", Final: true},
+				{Kind: model.ContentReasoning, Text: "", Final: true},
+				{Kind: model.ContentReasoning, Text: "second", Final: true},
+			}
+			request.History = append(request.History, agent.HistoryEntry{
+				Kind:  agent.HistoryEntryModel,
+				Model: model.Response{Content: []model.Content{{Kind: model.ContentReasoning, Text: "", Final: true}}},
+			})
+
+			events := streamEvents(t, driver, request)
+
+			s.Equal(run.StreamEventDone, events[len(events)-1].Kind)
+			messages := body["messages"].([]any)
+			s.Len(messages, 4)
+			assistant := messages[2].(map[string]any)
+			s.Equal(testCase.expectedContent, assistant["content"])
+			if testCase.expectedReason == "" {
+				s.NotContains(assistant, "reasoning")
+			} else {
+				s.Equal(testCase.expectedReason, assistant["reasoning"])
+			}
+			encoded, encodeErr := json.Marshal(body)
+			s.Require().NoError(encodeErr)
+			s.NotContains(string(encoded), "opaque-secret")
+		})
+	}
 }
 
 func (s *serviceSuite) TestAPIKeyResolvesBeforeEveryRequest() {
@@ -353,11 +466,14 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 		{name: "empty model", mutate: func(config *Config) { config.Models = map[model.ID]API{"": ""} }},
 		{name: "unknown override", mutate: func(config *Config) { config.Models = map[model.ID]API{"demo": "legacy"} }},
 		{name: "unsupported reasoning wire format", mutate: func(config *Config) {
-			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-chat-effort"}
+			config.ReasoningWireFormats = map[model.ID]string{"demo": "custom"}
 		}},
-		{name: "reasoning wire format API mismatch", mutate: func(config *Config) {
+		{name: "responses reasoning wire format API mismatch", mutate: func(config *Config) {
 			config.API = APIChatCompletions
 			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-responses"}
+		}},
+		{name: "chat reasoning wire format API mismatch", mutate: func(config *Config) {
+			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-chat-effort"}
 		}},
 		{name: "no resolver", mutate: func(config *Config) { config.APIKey = nil }},
 	}
@@ -407,6 +523,8 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 			wireFormats := map[model.ID]string{}
 			if api == APIResponses {
 				wireFormats["demo"] = "openai-responses"
+			} else {
+				wireFormats["demo"] = "openai-chat-effort"
 			}
 			service, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: api,
@@ -419,7 +537,7 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 			events := streamEvents(t, service, request)
 			assert.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
 			if api == APIChatCompletions {
-				assert.NotContains(t, body, "reasoning_effort")
+				assert.Equal(t, "none", body["reasoning_effort"])
 			} else {
 				reasoning := body["reasoning"].(map[string]any)
 				assert.Equal(t, "none", reasoning["effort"])

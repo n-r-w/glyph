@@ -67,7 +67,14 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "http://localhost:11434/v1",
 				API: settingstore.APIChatCompletions,
 				Models: []settingstore.Model{{
-					ID: "z-model", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
+					ID: "z-model", Reasoning: settingstore.Reasoning{
+						Supported: true,
+						Choices: []settingstore.ReasoningChoice{
+							settingstore.ReasoningChoiceOff, settingstore.ReasoningChoiceLow,
+						},
+						Default:    settingstore.ReasoningChoiceLow,
+						WireFormat: settingstore.ReasoningWireFormatOpenAIChatEffort,
+					},
 				}},
 			},
 			"a-compatible": {
@@ -102,6 +109,11 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		Provider: "a-compatible", Model: "a-second", ReasoningChoice: model.ReasoningChoiceHigh,
 	}, catalog.Selection())
 	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
+	assert.Equal(t, model.ReasoningCapabilities{
+		Supported: true,
+		Choices:   []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceLow},
+		Default:   model.ReasoningChoiceLow,
+	}, models[4].ReasoningCapabilities)
 }
 
 // appUIService records initialization and terminates through one quit command.

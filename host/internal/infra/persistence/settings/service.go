@@ -63,6 +63,8 @@ type ReasoningWireFormat string
 const (
 	// ReasoningWireFormatOpenAIResponses uses OpenAI Responses reasoning fields.
 	ReasoningWireFormatOpenAIResponses ReasoningWireFormat = "openai-responses"
+	// ReasoningWireFormatOpenAIChatEffort uses Chat Completions effort and reasoning fields.
+	ReasoningWireFormatOpenAIChatEffort ReasoningWireFormat = "openai-chat-effort"
 )
 
 // APIKey identifies one configured API-key source.
@@ -432,6 +434,8 @@ func wireFormatMatchesAPI(format ReasoningWireFormat, api API) bool {
 	switch format {
 	case ReasoningWireFormatOpenAIResponses:
 		return api == APIResponses
+	case ReasoningWireFormatOpenAIChatEffort:
+		return api == APIChatCompletions
 	default:
 		return false
 	}

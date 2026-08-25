@@ -31,27 +31,34 @@ type chatToolState struct {
 
 // chatAccumulator keeps provider ordering while translating deltas into semantic stream events.
 type chatAccumulator struct {
-	content         []model.Content
-	textPosition    int
-	refusalPosition int
-	tools           map[int64]*chatToolState
-	responseID      string
-	responseModel   string
-	usage           model.Usage
-	outcome         model.Outcome
+	content           []model.Content
+	textPosition      int
+	refusalPosition   int
+	reasoningPosition int
+	parseReasoning    bool
+	tools             map[int64]*chatToolState
+	responseID        string
+	responseModel     string
+	usage             model.Usage
+	outcome           model.Outcome
 }
 
-func newChatAccumulator() *chatAccumulator {
-	return &chatAccumulator{textPosition: -1, refusalPosition: -1, tools: make(map[int64]*chatToolState)}
+func newChatAccumulator(parseReasoning bool) *chatAccumulator {
+	return &chatAccumulator{
+		textPosition: -1, refusalPosition: -1, reasoningPosition: -1,
+		parseReasoning: parseReasoning, tools: make(map[int64]*chatToolState),
+	}
 }
 
 func (s *Driver) streamChatCompletions(
 	ctx context.Context,
 	request run.ModelRequest,
+	configuredModel modelConfig,
 	key string,
 	handle run.StreamHandler,
 ) (model.Response, error) {
-	params, err := chatParams(request)
+	chatEffort := configuredModel.reasoningWireFormat == reasoningWireFormatOpenAIChatEffort
+	params, err := chatParams(request, chatEffort)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -66,7 +73,7 @@ func (s *Driver) streamChatCompletions(
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()
-	state := newChatAccumulator()
+	state := newChatAccumulator(chatEffort)
 	for stream.Next() {
 		consumeErr := state.consume(stream.Current(), handle)
 		if consumeErr != nil {
@@ -91,8 +98,8 @@ func (s *Driver) streamChatCompletions(
 	return state.response(), nil
 }
 
-func chatParams(request run.ModelRequest) (openai.ChatCompletionNewParams, error) {
-	messages, err := chatMessages(request)
+func chatParams(request run.ModelRequest, chatEffort bool) (openai.ChatCompletionNewParams, error) {
+	messages, err := chatMessages(request, chatEffort)
 	if err != nil {
 		return openai.ChatCompletionNewParams{}, err
 	}
@@ -108,13 +115,20 @@ func chatParams(request run.ModelRequest) (openai.ChatCompletionNewParams, error
 		StreamOptions:     openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
 		Tools:             tools,
 	}
-	if request.ReasoningChoice != "" && request.ReasoningChoice != model.ReasoningChoiceOff {
-		params.ReasoningEffort = shared.ReasoningEffort(request.ReasoningChoice)
+	if chatEffort {
+		switch request.ReasoningChoice {
+		case "", model.ReasoningChoiceOn:
+		case model.ReasoningChoiceOff:
+			params.ReasoningEffort = shared.ReasoningEffort("none")
+		case model.ReasoningChoiceMinimal, model.ReasoningChoiceLow, model.ReasoningChoiceMedium,
+			model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
+			params.ReasoningEffort = shared.ReasoningEffort(request.ReasoningChoice)
+		}
 	}
 	return params, nil
 }
 
-func chatMessages(request run.ModelRequest) ([]openai.ChatCompletionMessageParamUnion, error) {
+func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.ChatCompletionMessageParamUnion, error) {
 	messages := []openai.ChatCompletionMessageParamUnion{openai.SystemMessage(request.Instructions)}
 	for entryIndex := range request.History {
 		entry := &request.History[entryIndex]
@@ -126,7 +140,7 @@ func chatMessages(request run.ModelRequest) ([]openai.ChatCompletionMessageParam
 			}
 			messages = append(messages, openai.UserMessage(content))
 		case agent.HistoryEntryModel:
-			message, ok, err := chatAssistantMessage(entry.Model)
+			message, ok, err := chatAssistantMessage(entry.Model, nativeReasoning)
 			if err != nil {
 				return nil, err
 			}
@@ -166,8 +180,12 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 	return content, nil
 }
 
-func chatAssistantMessage(response model.Response) (openai.ChatCompletionMessageParamUnion, bool, error) {
+func chatAssistantMessage(
+	response model.Response,
+	nativeReasoning bool,
+) (openai.ChatCompletionMessageParamUnion, bool, error) {
 	var text strings.Builder
+	var reasoning strings.Builder
 	var refusal string
 	calls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
 	for index := range response.Content {
@@ -178,7 +196,14 @@ func chatAssistantMessage(response model.Response) (openai.ChatCompletionMessage
 		case model.ContentRefusal:
 			refusal += item.Text
 		case model.ContentReasoning:
-			continue
+			if item.Text == "" {
+				continue
+			}
+			if nativeReasoning {
+				reasoning.WriteString(item.Text)
+			} else {
+				text.WriteString(item.Text)
+			}
 		case model.ContentToolCall:
 			arguments, err := json.Marshal(item.ToolCall.Arguments)
 			if err != nil {
@@ -196,11 +221,14 @@ func chatAssistantMessage(response model.Response) (openai.ChatCompletionMessage
 			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
 		}
 	}
-	if text.Len() == 0 && refusal == "" && len(calls) == 0 {
+	if text.Len() == 0 && reasoning.Len() == 0 && refusal == "" && len(calls) == 0 {
 		return openai.ChatCompletionMessageParamUnion{}, false, nil
 	}
 	message := openai.AssistantMessage(text.String())
 	message.OfAssistant.ToolCalls = calls
+	if reasoning.Len() > 0 {
+		message.OfAssistant.SetExtraFields(map[string]any{"reasoning": reasoning.String()})
+	}
 	if refusal != "" {
 		message.OfAssistant.Refusal = param.NewOpt(refusal)
 	}
@@ -249,7 +277,6 @@ func dataURL(mediaType string, data []byte) string {
 	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
 }
 
-//nolint:gocyclo // The branches map the closed Chat Completions stream union.
 func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle run.StreamHandler) error {
 	if chunk.ID != "" {
 		state.responseID = chunk.ID
@@ -267,65 +294,103 @@ func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle r
 		}
 	}
 	for choiceIndex := range chunk.Choices {
-		choice := &chunk.Choices[choiceIndex]
-		if choice.Delta.Content != "" {
-			if err := state.contentDelta(model.ContentText, choice.Delta.Content, handle); err != nil {
-				return err
-			}
-		}
-		if choice.Delta.Refusal != "" {
-			if err := state.contentDelta(model.ContentRefusal, choice.Delta.Refusal, handle); err != nil {
-				return err
-			}
-		}
-		for deltaIndex := range choice.Delta.ToolCalls {
-			delta := &choice.Delta.ToolCalls[deltaIndex]
-			if err := state.toolDelta(delta, handle); err != nil {
-				return err
-			}
-		}
-		switch choice.FinishReason {
-		case "":
-		case "stop":
-			state.outcome = model.OutcomeStop
-		case "tool_calls", "function_call":
-			state.outcome = model.OutcomeToolUse
-		case "length":
-			state.outcome = model.OutcomeLength
-		case "content_filter":
-			state.outcome = model.OutcomeStop
-		default:
-			return fmt.Errorf("unsupported Chat Completions finish reason %q", choice.FinishReason)
+		if err := state.consumeChoice(&chunk.Choices[choiceIndex], handle); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string, handle run.StreamHandler) error {
-	position := state.textPosition
-	if kind == model.ContentRefusal {
-		position = state.refusalPosition
+func (state *chatAccumulator) consumeChoice(
+	choice *openai.ChatCompletionChunkChoice,
+	handle run.StreamHandler,
+) error {
+	if state.parseReasoning {
+		reasoning, err := chatReasoningDelta(choice.Delta)
+		if err != nil {
+			return err
+		}
+		if reasoning != "" {
+			if deltaErr := state.contentDelta(model.ContentReasoning, reasoning, handle); deltaErr != nil {
+				return deltaErr
+			}
+		}
 	}
-	if position < 0 {
-		position = len(state.content)
-		state.content = append(state.content, model.Content{Kind: kind})
-		if kind == model.ContentText {
-			state.textPosition = position
-		} else {
-			state.refusalPosition = position
-		}
-		startEvent := run.StreamEvent{
-			Kind: run.StreamEventContentStart, Position: position, Content: model.Content{Kind: kind},
-		}
-		if err := handle(startEvent); err != nil {
+	if choice.Delta.Content != "" {
+		if err := state.contentDelta(model.ContentText, choice.Delta.Content, handle); err != nil {
 			return err
 		}
 	}
-	state.content[position].Text += delta
+	if choice.Delta.Refusal != "" {
+		if err := state.contentDelta(model.ContentRefusal, choice.Delta.Refusal, handle); err != nil {
+			return err
+		}
+	}
+	for deltaIndex := range choice.Delta.ToolCalls {
+		if err := state.toolDelta(&choice.Delta.ToolCalls[deltaIndex], handle); err != nil {
+			return err
+		}
+	}
+	switch choice.FinishReason {
+	case "":
+	case "stop", "content_filter":
+		state.outcome = model.OutcomeStop
+	case "tool_calls", "function_call":
+		state.outcome = model.OutcomeToolUse
+	case "length":
+		state.outcome = model.OutcomeLength
+	default:
+		return fmt.Errorf("unsupported Chat Completions finish reason %q", choice.FinishReason)
+	}
+	return nil
+}
+
+func chatReasoningDelta(delta openai.ChatCompletionChunkChoiceDelta) (string, error) {
+	field, ok := delta.JSON.ExtraFields["reasoning"]
+	if !ok {
+		return "", nil
+	}
+	var reasoning string
+	if err := json.Unmarshal([]byte(field.Raw()), &reasoning); err != nil {
+		return "", fmt.Errorf("decode Chat Completions reasoning delta: %w", err)
+	}
+	return reasoning, nil
+}
+
+func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string, handle run.StreamHandler) error {
+	position, positionErr := state.contentPosition(kind)
+	if positionErr != nil {
+		return positionErr
+	}
+	if *position < 0 {
+		*position = len(state.content)
+		state.content = append(state.content, model.Content{Kind: kind})
+		startEvent := run.StreamEvent{
+			Kind: run.StreamEventContentStart, Position: *position, Content: model.Content{Kind: kind},
+		}
+		if handleErr := handle(startEvent); handleErr != nil {
+			return handleErr
+		}
+	}
+	state.content[*position].Text += delta
 	return handle(run.StreamEvent{
-		Kind: run.StreamEventTextDelta, Position: position,
+		Kind: run.StreamEventTextDelta, Position: *position,
 		Content: model.Content{Kind: kind}, Delta: delta,
 	})
+}
+
+func (state *chatAccumulator) contentPosition(kind model.ContentKind) (*int, error) {
+	switch kind {
+	case model.ContentText:
+		return &state.textPosition, nil
+	case model.ContentRefusal:
+		return &state.refusalPosition, nil
+	case model.ContentReasoning:
+		return &state.reasoningPosition, nil
+	case model.ContentToolCall:
+		return nil, errors.New("tool call cannot use a text delta")
+	}
+	return nil, fmt.Errorf("unsupported Chat Completions content kind %d", kind)
 }
 
 func (state *chatAccumulator) toolDelta(
@@ -387,7 +452,8 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 	for position := range state.content {
 		kind := state.content[position].Kind
-		if (kind != model.ContentText && kind != model.ContentRefusal) || state.content[position].Final {
+		if (kind != model.ContentText && kind != model.ContentRefusal && kind != model.ContentReasoning) ||
+			state.content[position].Final {
 			continue
 		}
 		state.content[position].Final = true

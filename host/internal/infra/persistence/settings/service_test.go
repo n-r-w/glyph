@@ -57,6 +57,13 @@ providers:
           choices: [on]
           default: on
           wireFormat: openai-responses
+      - id: chat-effort
+        api: chat-completions
+        reasoning:
+          supported: true
+          choices: [off, low, high]
+          default: low
+          wireFormat: openai-chat-effort
       - id: plain
         reasoning:
           supported: false
@@ -71,7 +78,7 @@ providers:
 	s.Equal("effort", loaded.DefaultModel)
 	s.Equal("glyph-tui-plugin", loaded.ActiveUI)
 	models := loaded.Providers["openrouter"].Models
-	s.Require().Len(models, 4)
+	s.Require().Len(models, 5)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceMinimal, ReasoningChoiceMedium, ReasoningChoiceHigh},
 		Default: ReasoningChoiceMedium, CompatibilityKey: "", WireFormat: ReasoningWireFormatOpenAIResponses,
@@ -79,9 +86,16 @@ providers:
 	s.Equal([]ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceOn}, models[1].Reasoning.Choices)
 	s.Equal(ReasoningChoiceOn, models[2].Reasoning.Default)
 	s.Equal(Reasoning{
+		Supported:        true,
+		Choices:          []ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceLow, ReasoningChoiceHigh},
+		Default:          ReasoningChoiceLow,
+		CompatibilityKey: "",
+		WireFormat:       ReasoningWireFormatOpenAIChatEffort,
+	}, models[3].Reasoning)
+	s.Equal(Reasoning{
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
 		CompatibilityKey: "", WireFormat: "",
-	}, models[3].Reasoning)
+	}, models[4].Reasoning)
 }
 
 // TestLoadAcceptsEachAPIKeySource verifies the structured union's three valid variants.
@@ -106,7 +120,6 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 		"missing wire format":     withoutLine(validSettings(""), "wireFormat:"),
 		"API mismatch":            replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-effort"),
 		"unknown wire format":     replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: custom"),
-		"future chat effort":      futureWireFormatSettings("openai-chat-effort"),
 		"future Ollama Ornith":    futureWireFormatSettings("ollama-ornith"),
 		"on mixed with effort":    replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
 		"key on non-reasoning":    replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),

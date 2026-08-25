@@ -30,7 +30,8 @@ const (
 	// APIResponses selects the Responses API.
 	APIResponses API = "responses"
 
-	reasoningWireFormatOpenAIResponses = "openai-responses"
+	reasoningWireFormatOpenAIResponses  = "openai-responses"
+	reasoningWireFormatOpenAIChatEffort = "openai-chat-effort"
 )
 
 // Config contains immutable configuration for one provider instance.
@@ -109,8 +110,7 @@ func configuredModels(config Config) (map[model.ID]modelConfig, error) {
 			selectedAPI = override
 		}
 		reasoningWireFormat := config.ReasoningWireFormats[modelID]
-		if reasoningWireFormat != "" &&
-			(reasoningWireFormat != reasoningWireFormatOpenAIResponses || selectedAPI != APIResponses) {
+		if !reasoningWireFormatMatchesAPI(reasoningWireFormat, selectedAPI) {
 			return nil, fmt.Errorf("model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI)
 		}
 		models[modelID] = modelConfig{
@@ -119,6 +119,19 @@ func configuredModels(config Config) (map[model.ID]modelConfig, error) {
 		}
 	}
 	return models, nil
+}
+
+func reasoningWireFormatMatchesAPI(format string, api API) bool {
+	switch format {
+	case "":
+		return true
+	case reasoningWireFormatOpenAIResponses:
+		return api == APIResponses
+	case reasoningWireFormatOpenAIChatEffort:
+		return api == APIChatCompletions
+	default:
+		return false
+	}
 }
 
 func validateAPI(api API) error {
@@ -132,7 +145,7 @@ func validateAPI(api API) error {
 //
 //nolint:nestif // Error classification must preserve handler, cancellation, and provider outcomes.
 func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
-	selectedAPI, err := s.requestAPI(request)
+	configuredModel, err := s.requestModelConfig(request)
 	if err != nil {
 		return s.emitFailure(handle, request, model.OutcomeFailed, requestFailedMessage, err)
 	}
@@ -144,9 +157,9 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		)
 	}
 	var response model.Response
-	switch selectedAPI {
+	switch configuredModel.api {
 	case APIChatCompletions:
-		response, err = s.streamChatCompletions(ctx, request, key, handle)
+		response, err = s.streamChatCompletions(ctx, request, configuredModel, key, handle)
 	case APIResponses:
 		response, err = s.streamResponses(ctx, request, key, handle)
 	}
@@ -185,15 +198,15 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	return nil
 }
 
-func (s *Driver) requestAPI(request run.ModelRequest) (API, error) {
+func (s *Driver) requestModelConfig(request run.ModelRequest) (modelConfig, error) {
 	if request.Model.Provider != s.providerID {
-		return "", errors.New("configured provider does not match request")
+		return modelConfig{}, errors.New("configured provider does not match request")
 	}
 	configuredModel, ok := s.models[request.Model.Model]
 	if !ok {
-		return "", errors.New("configured model does not match request")
+		return modelConfig{}, errors.New("configured model does not match request")
 	}
-	return configuredModel.api, nil
+	return configuredModel, nil
 }
 
 func (s *Driver) emitFailure(
