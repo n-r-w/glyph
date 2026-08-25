@@ -11,6 +11,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 )
 
@@ -24,12 +25,16 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	runner := New(
 		[]hooks.ContextHandler{
 			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-				value.History[0].User.Content[0].Text = mo.Some("first-context")
+				message := value.History[0].User.OrEmpty()
+				message.Content[0].Text = mo.Some("first-context")
+				value.History[0].User = mo.Some(message)
 				return value, nil
 			},
 			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-				contextSeen = value.History[0].User.Content[0].Text.OrEmpty()
-				value.History[0].User.Content[0].Text = mo.Some("final-context")
+				message := value.History[0].User.OrEmpty()
+				contextSeen = message.Content[0].Text.OrEmpty()
+				message.Content[0].Text = mo.Some("final-context")
+				value.History[0].User = mo.Some(message)
 				return value, nil
 			},
 		},
@@ -58,8 +63,9 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 		},
 	)
 	originalContext := hooks.Context{History: []agent.HistoryEntry{{
-		Kind: agent.HistoryEntryUser,
-		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context"), MediaType: mo.None[string](), Data: mo.None[[]byte]()}}}, Model: model.Response{}, ToolResult: agent.ToolResult{},
+		Kind:  agent.HistoryEntryUser,
+		User:  mo.Some(model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context"), MediaType: mo.None[string](), Data: mo.None[[]byte]()}}}),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}}}
 	originalRequest := hooks.Request{
 		Provider: "provider", Model: "model", Payload: []byte("abc"),
@@ -77,8 +83,8 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	require.NoError(t, runner.ObserveResponse(t.Context(), originalResponse))
 
 	assert.Equal(t, "first-context", contextSeen)
-	assert.Equal(t, "final-context", transformedContext.History[0].User.Content[0].Text.OrEmpty())
-	assert.Equal(t, "original-context", originalContext.History[0].User.Content[0].Text.OrEmpty())
+	assert.Equal(t, "final-context", transformedContext.History[0].User.OrEmpty().Content[0].Text.OrEmpty())
+	assert.Equal(t, "original-context", originalContext.History[0].User.OrEmpty().Content[0].Text.OrEmpty())
 	assert.Equal(t, "1bc:first-request", requestSeen)
 	assert.Equal(t, "2bc", string(transformedRequest.Payload))
 	assert.Equal(t, "final-request", transformedRequest.Headers["X-Test"][0])
@@ -149,13 +155,13 @@ func TestRunnerStopsAtFirstError(t *testing.T) {
 	}
 }
 
-// TestRunnerClonesModelOutputOptions verifies hook context copies isolate mutable model output payloads.
-func TestRunnerClonesModelOutputOptions(t *testing.T) {
+// TestRunnerClonesHistoryOptions verifies hook context copies isolate mutable history payloads.
+func TestRunnerClonesHistoryOptions(t *testing.T) {
 	t.Parallel()
 
 	original := hooks.Context{History: []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryModel,
-		Model: model.Response{Content: []model.Content{
+		Model: mo.Some(model.Response{Content: []model.Content{
 			{
 				Kind: model.ContentReasoning, Text: mo.Some("reason"),
 				ProviderContext: mo.Some(model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}}), Final: false, ToolCall: mo.None[model.ToolCall](),
@@ -165,20 +171,33 @@ func TestRunnerClonesModelOutputOptions(t *testing.T) {
 				ToolCall: mo.Some(model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
 			},
 		}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-		}, User: model.Message{}, ToolResult: agent.ToolResult{},
+		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
+	}, {
+		Kind: agent.HistoryEntryToolResult,
+		User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		ToolResult: mo.Some(agent.ToolResult{
+			CallID: "call", ToolName: "tool",
+			Contents: []tool.ResultContent{{
+				Kind: tool.ResultContentImage, Text: mo.None[string](),
+				Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{4, 5, 6}}),
+			}}, IsError: false,
+		}),
 	}}}
 	runner := New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			providerContext := value.History[0].Model.Content[0].ProviderContext.OrEmpty()
+			providerContext := value.History[0].Model.OrEmpty().Content[0].ProviderContext.OrEmpty()
 			providerContext.Payload[0] = 9
-			call := value.History[0].Model.Content[1].ToolCall.OrEmpty()
+			call := value.History[0].Model.OrEmpty().Content[1].ToolCall.OrEmpty()
 			call.Arguments["items"].([]any)[0] = "changed"
+			image := value.History[1].ToolResult.OrEmpty().Contents[0].Image.OrEmpty()
+			image.Data[0] = 9
 			return value, nil
 		},
 	}, nil, nil)
 
 	_, err := runner.TransformContext(t.Context(), original)
 	require.NoError(t, err)
-	assert.Equal(t, byte(1), original.History[0].Model.Content[0].ProviderContext.OrEmpty().Payload[0])
-	assert.Equal(t, "first", original.History[0].Model.Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
+	assert.Equal(t, byte(1), original.History[0].Model.OrEmpty().Content[0].ProviderContext.OrEmpty().Payload[0])
+	assert.Equal(t, "first", original.History[0].Model.OrEmpty().Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
+	assert.Equal(t, byte(4), original.History[1].ToolResult.OrEmpty().Contents[0].Image.OrEmpty().Data[0])
 }

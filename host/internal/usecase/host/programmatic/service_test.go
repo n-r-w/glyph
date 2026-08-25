@@ -502,8 +502,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 
 	responseModel := model.ID("response-model")
 	history = []agent.HistoryEntry{
-		{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello"), Model: model.Response{}, ToolResult: agent.ToolResult{}},
-		{Kind: agent.HistoryEntryModel, Model: model.Response{
+		{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult]()},
+		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
 			Content: []model.Content{
 				{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
@@ -511,15 +511,15 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 				{Kind: model.ContentReasoning, Text: mo.Some("reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			},
 			Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(responseModel), ErrorMessage: mo.None[string](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-		}, User: model.Message{}, ToolResult: agent.ToolResult{},
+		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 		},
-		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
+		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call", ToolName: "tool",
 			Contents: []tool.ResultContent{
 				{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()},
 				{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}})},
 			}, IsError: false,
-		}, User: model.Message{}, Model: model.Response{},
+		}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		},
 	}
 	response, returnedOperation, err = service.Handle(s.T().Context(), controller.Command{
@@ -535,7 +535,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Equal(controller.ModelResponseContentReasoning, response.Messages[1].Model.Content[1].Kind)
 	s.Equal([]byte{1, 2}, response.Messages[2].ToolResult.Contents[1].Image.Data)
 	response.Messages[2].ToolResult.Contents[1].Image.Data[0] = 9
-	s.Equal(byte(1), history[2].ToolResult.Contents[1].Image.OrEmpty().Data[0])
+	s.Equal(byte(1), history[2].ToolResult.OrEmpty().Contents[1].Image.OrEmpty().Data[0])
 }
 
 // TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.

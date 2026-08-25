@@ -9,7 +9,9 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 )
 
@@ -77,10 +79,23 @@ func (runner *Runner) ObserveResponse(ctx context.Context, value hooks.Response)
 func cloneContext(value hooks.Context) hooks.Context {
 	value.History = slices.Clone(value.History)
 	for index := range value.History {
-		value.History[index].User = cloneMessage(value.History[index].User)
-		value.History[index].Model = cloneModelResponse(value.History[index].Model)
+		value.History[index].User = value.History[index].User.MapValue(cloneMessage)
+		value.History[index].Model = value.History[index].Model.MapValue(cloneModelResponse)
+		value.History[index].ToolResult = value.History[index].ToolResult.MapValue(cloneToolResult)
 	}
 	return value
+}
+
+// cloneToolResult isolates mutable image bytes in hook context snapshots.
+func cloneToolResult(result agent.ToolResult) agent.ToolResult {
+	result.Contents = slices.Clone(result.Contents)
+	for index := range result.Contents {
+		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
+			image.Data = bytes.Clone(image.Data)
+			return image
+		})
+	}
+	return result
 }
 
 func cloneRequest(value hooks.Request) hooks.Request {

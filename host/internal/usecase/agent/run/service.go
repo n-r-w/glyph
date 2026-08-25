@@ -147,9 +147,9 @@ func (s *Service) begin(request Request) (int, error) {
 	startIndex := len(s.history)
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryUser,
-		User:       model.TextMessage(request.UserText),
-		Model:      model.Response{},
-		ToolResult: agent.ToolResult{},
+		User:       mo.Some(model.TextMessage(request.UserText)),
+		Model:      mo.None[model.Response](),
+		ToolResult: mo.None[agent.ToolResult](),
 	})
 	s.state = State{
 		Status:          StatusRunning,
@@ -539,9 +539,9 @@ func (s *Service) appendModel(response model.Response) {
 	s.mutex.Lock()
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryModel,
-		User:       model.TextMessage(""),
-		Model:      cloneModelResponse(response),
-		ToolResult: agent.ToolResult{},
+		User:       mo.None[model.Message](),
+		Model:      mo.Some(cloneModelResponse(response)),
+		ToolResult: mo.None[agent.ToolResult](),
 	})
 	s.mutex.Unlock()
 }
@@ -551,9 +551,9 @@ func (s *Service) appendToolResult(result agent.ToolResult) {
 	s.mutex.Lock()
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryToolResult,
-		User:       model.TextMessage(""),
-		Model:      model.Response{},
-		ToolResult: result,
+		User:       mo.None[model.Message](),
+		Model:      mo.None[model.Response](),
+		ToolResult: mo.Some(cloneToolResult(result)),
 	})
 	s.mutex.Unlock()
 }

@@ -37,30 +37,31 @@ func buildInput(
 		entry := &history[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			message, err := userMessageInput(entry.User)
+			message, err := userMessageInput(entry.User.OrEmpty())
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			modelInput, err := buildModelInput(entry.Model, grammarInputProperties, target)
+			modelInput, err := buildModelInput(entry.Model.OrEmpty(), grammarInputProperties, target)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, modelInput...)
 		case agent.HistoryEntryToolResult:
-			if _, custom := grammarInputProperties[entry.ToolResult.ToolName]; custom {
-				contents, err := customOutputContents(entry.ToolResult.Contents)
+			result := entry.ToolResult.OrEmpty()
+			if _, custom := grammarInputProperties[result.ToolName]; custom {
+				contents, err := customOutputContents(result.Contents)
 				if err != nil {
 					return nil, err
 				}
-				input = append(input, responses.ResponseInputItemParamOfCustomToolCallOutput(entry.ToolResult.CallID, contents))
+				input = append(input, responses.ResponseInputItemParamOfCustomToolCallOutput(result.CallID, contents))
 			} else {
-				contents, err := functionOutputContents(entry.ToolResult.Contents)
+				contents, err := functionOutputContents(result.Contents)
 				if err != nil {
 					return nil, err
 				}
-				input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(entry.ToolResult.CallID, contents))
+				input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(result.CallID, contents))
 			}
 		}
 	}
@@ -72,14 +73,14 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 	return lo.MapErr(
 		contents,
 		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
-			var empty responses.ResponseFunctionCallOutputItemUnionParam
 			switch content.Kind {
 			case tool.ResultContentText:
 				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
 			case tool.ResultContentImage:
 				image := content.Image.OrEmpty()
 				if image.MediaType == "" {
-					return empty, fmt.Errorf("tool result image %d has no media type", index)
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result image %d has no media type", index)
 				}
 				dataURL := "data:" + image.MediaType + ";base64," +
 					base64.StdEncoding.EncodeToString(image.Data)
@@ -94,7 +95,8 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 					},
 				}, nil
 			default:
-				return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
+				return responses.ResponseFunctionCallOutputItemUnionParam{},
+					fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
 			}
 		},
 	)
@@ -107,7 +109,6 @@ func customOutputContents(
 	return lo.MapErr(contents, func(content tool.ResultContent, index int) (
 		responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, error,
 	) {
-		var empty responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam
 		switch content.Kind {
 		case tool.ResultContentText:
 			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputText is active.
@@ -121,7 +122,8 @@ func customOutputContents(
 		case tool.ResultContentImage:
 			image := content.Image.OrEmpty()
 			if image.MediaType == "" {
-				return empty, fmt.Errorf("tool result image %d has no media type", index)
+				return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
+					fmt.Errorf("tool result image %d has no media type", index)
 			}
 			dataURL := "data:" + image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
 			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputImage is active.
@@ -135,7 +137,8 @@ func customOutputContents(
 				},
 			}, nil
 		default:
-			return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
+			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
+				fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
 		}
 	})
 }
@@ -266,18 +269,17 @@ type toolCapabilities struct {
 // buildTools maps provider-neutral schemas into Codex tool request types.
 func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([]responses.ToolUnionParam, error) {
 	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, _ int) (responses.ToolUnionParam, error) {
-		var empty responses.ToolUnionParam
 		constraint := descriptor.ConstrainedSampling.OrEmpty()
 		if constraint.Kind == tool.ConstrainedSamplingGrammar {
 			if !capabilities.lark && !capabilities.regex {
-				return empty, fmt.Errorf(
+				return responses.ToolUnionParam{}, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but the selected Codex model does not support it",
 					descriptor.Name,
 				)
 			}
 			definition, syntax := preferredGrammar(constraint.Grammar.OrEmpty(), capabilities)
 			if definition == "" {
-				return empty, fmt.Errorf(
+				return responses.ToolUnionParam{}, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
 					descriptor.Name,
 				)
@@ -297,11 +299,11 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 
 		var schema map[string]any
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-			return empty, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
+			return responses.ToolUnionParam{}, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
 		}
 		strict, err := codexStrict(schema, constraint, capabilities, descriptor.Name)
 		if err != nil {
-			return empty, err
+			return responses.ToolUnionParam{}, err
 		}
 		//nolint:exhaustruct // responses.ToolUnionParam sets only the active OfFunction field.
 		return responses.ToolUnionParam{

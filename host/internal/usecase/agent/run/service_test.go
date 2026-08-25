@@ -69,7 +69,7 @@ func TestServiceRunStop(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
 	require.Len(t, service.History(), 2)
-	assert.Equal(t, response, service.History()[1].Model)
+	assert.Equal(t, mo.Some(response), service.History()[1].Model)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 	for _, event := range delivered {
 		assert.Equal(t, "run-1", event.RunID)
@@ -140,8 +140,8 @@ func TestServiceRunToolUse(t *testing.T) {
 				return emitStream(update, firstResponse, nil)
 			}
 			require.Len(t, request.History, 4)
-			assert.Equal(t, "call-1", request.History[2].ToolResult.CallID)
-			assert.Equal(t, "call-2", request.History[3].ToolResult.CallID)
+			assert.Equal(t, "call-1", request.History[2].ToolResult.OrEmpty().CallID)
+			assert.Equal(t, "call-2", request.History[3].ToolResult.OrEmpty().CallID)
 			return emitStream(update, stopResponse, nil)
 		},
 	).Times(2)
@@ -239,9 +239,9 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			require.Len(t, request.History, 3)
 			assert.Equal(t, agent.HistoryEntryUser, request.History[0].Kind)
 			assert.Equal(t, agent.HistoryEntryModel, request.History[1].Kind)
-			require.Len(t, request.History[1].Model.Content, 2)
-			assert.Equal(t, model.ContentReasoning, request.History[1].Model.Content[0].Kind)
-			assert.Equal(t, "visible reasoning", request.History[1].Model.Content[0].Text.OrEmpty())
+			require.Len(t, request.History[1].Model.OrEmpty().Content, 2)
+			assert.Equal(t, model.ContentReasoning, request.History[1].Model.OrEmpty().Content[0].Kind)
+			assert.Equal(t, "visible reasoning", request.History[1].Model.OrEmpty().Content[0].Text.OrEmpty())
 			assert.Equal(t, agent.HistoryEntryToolResult, request.History[2].Kind)
 			return emitStream(update, model.Response{
 				Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
@@ -266,7 +266,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 
 	require.NoError(t, <-result)
 	require.Len(t, service.History(), 4)
-	assert.Equal(t, "done", service.History()[3].Model.Content[0].Text.OrEmpty())
+	assert.Equal(t, "done", service.History()[3].Model.OrEmpty().Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunToolErrorContinues stores the error result, finishes later calls, and requests the model again.
@@ -297,10 +297,10 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			require.Len(t, request.History, 4)
-			assert.Equal(t, "failed", request.History[2].ToolResult.CallID)
-			assert.True(t, request.History[2].ToolResult.IsError)
-			require.ErrorContains(t, errors.New(request.History[2].ToolResult.Contents[0].Text.OrEmpty()), "tool operation failed")
-			assert.Equal(t, "succeeded", request.History[3].ToolResult.CallID)
+			assert.Equal(t, "failed", request.History[2].ToolResult.OrEmpty().CallID)
+			assert.True(t, request.History[2].ToolResult.OrEmpty().IsError)
+			require.ErrorContains(t, errors.New(request.History[2].ToolResult.OrEmpty().Contents[0].Text.OrEmpty()), "tool operation failed")
+			assert.Equal(t, "succeeded", request.History[3].ToolResult.OrEmpty().CallID)
 			return emitStream(update, stop, nil)
 		},
 	)
@@ -354,7 +354,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 	history := service.History()
 	require.Len(t, history, 3)
-	assert.True(t, history[2].ToolResult.IsError)
+	assert.True(t, history[2].ToolResult.OrEmpty().IsError)
 }
 
 // TestServiceRunProviderFailurePreservesStreamedText keeps partial text when the terminal error has no content.
@@ -381,8 +381,8 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 	require.Error(t, err)
 	history := service.History()
 	require.Len(t, history, 2)
-	require.Len(t, history[1].Model.Content, 1)
-	assert.Equal(t, "partial", history[1].Model.Content[0].Text.OrEmpty())
+	require.Len(t, history[1].Model.OrEmpty().Content, 1)
+	assert.Equal(t, "partial", history[1].Model.OrEmpty().Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunProviderFailurePreservesSafeMessage keeps provider-approved detail in every terminal payload.
@@ -422,16 +422,18 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	assert.Equal(t, safeMessage, result.ErrorMessage)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, safeMessage, history[1].Model.ErrorMessage.OrEmpty())
-	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
-	assert.Equal(t, "resp-failed", history[1].Model.ResponseID.OrEmpty())
-	assert.Equal(t, model.ID("gpt-actual"), history[1].Model.ResponseModel.OrEmpty())
-	history[1].Model.ResponseModel = mo.Some(model.ID("mutated"))
+	assert.Equal(t, safeMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, "resp-failed", history[1].Model.OrEmpty().ResponseID.OrEmpty())
+	assert.Equal(t, model.ID("gpt-actual"), history[1].Model.OrEmpty().ResponseModel.OrEmpty())
+	mutatedResponse := history[1].Model.OrEmpty()
+	mutatedResponse.ResponseModel = mo.Some(model.ID("mutated"))
+	history[1].Model = mo.Some(mutatedResponse)
 	preservedHistory := service.History()
-	assert.Equal(t, model.ID("gpt-actual"), preservedHistory[1].Model.ResponseModel.OrEmpty())
-	assert.Equal(t, int64(5), history[1].Model.Usage.OrEmpty().TotalTokens)
-	assert.Equal(t, []model.Diagnostic{{Code: "provider_error", Message: safeMessage}}, history[1].Model.Diagnostics)
-	assert.Len(t, history[1].Model.Content, 2)
+	assert.Equal(t, model.ID("gpt-actual"), preservedHistory[1].Model.OrEmpty().ResponseModel.OrEmpty())
+	assert.Equal(t, int64(5), history[1].Model.OrEmpty().Usage.OrEmpty().TotalTokens)
+	assert.Equal(t, []model.Diagnostic{{Code: "provider_error", Message: safeMessage}}, history[1].Model.OrEmpty().Diagnostics)
+	assert.Len(t, history[1].Model.OrEmpty().Content, 2)
 	assert.Len(t, service.ProjectHistory(), 1)
 	var messageEnd Event
 	var agentEnd Event
@@ -497,8 +499,8 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		assert.Empty(t, service.State().PartialResponse.Content)
 		history := service.History()
 		require.Len(t, history, 2)
-		assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
-		assert.Equal(t, "Model request failed.", history[1].Model.ErrorMessage.OrEmpty())
+		assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
+		assert.Equal(t, "Model request failed.", history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
 		assert.Len(t, service.ProjectHistory(), 1)
 	})
 }
@@ -541,8 +543,8 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		require.NotErrorIs(t, err, terminalContextErr)
 		history := service.History()
 		require.Len(t, history, 2)
-		assert.Equal(t, model.OutcomeAborted, history[1].Model.Outcome.OrEmpty())
-		assert.Equal(t, "Model request was canceled.", history[1].Model.ErrorMessage.OrEmpty())
+		assert.Equal(t, model.OutcomeAborted, history[1].Model.OrEmpty().Outcome.OrEmpty())
+		assert.Equal(t, "Model request was canceled.", history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
 		assert.Empty(t, service.State().PartialResponse.Content)
 	})
 }
@@ -590,12 +592,12 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 
 		history := service.History()
 		require.Len(t, history, 3)
-		assert.Equal(t, "active", history[2].ToolResult.CallID)
-		assert.True(t, history[2].ToolResult.IsError)
+		assert.Equal(t, "active", history[2].ToolResult.OrEmpty().CallID)
+		assert.True(t, history[2].ToolResult.OrEmpty().IsError)
 		projected := service.ProjectHistory()
 		require.Len(t, projected, 4)
-		assert.Equal(t, "skipped", projected[3].ToolResult.CallID)
-		assert.Equal(t, skippedCallError, projected[3].ToolResult.Contents[0].Text.OrEmpty())
+		assert.Equal(t, "skipped", projected[3].ToolResult.OrEmpty().CallID)
+		assert.Equal(t, skippedCallError, projected[3].ToolResult.OrEmpty().Contents[0].Text.OrEmpty())
 		assert.Len(t, service.History(), 3)
 	})
 }
@@ -653,7 +655,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 			assert.Equal(t, testCase.errorMessage, result.ErrorMessage)
 			history := service.History()
 			require.Len(t, history, 2)
-			assert.Equal(t, testCase.errorMessage, history[1].Model.ErrorMessage.OrEmpty())
+			assert.Equal(t, testCase.errorMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
 			assert.Len(t, service.ProjectHistory(), 1)
 		})
 	}
@@ -708,7 +710,7 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			require.Len(t, request.History, 3)
-			assert.True(t, request.History[2].ToolResult.IsError)
+			assert.True(t, request.History[2].ToolResult.OrEmpty().IsError)
 			return emitStream(update, stop, nil)
 		},
 	)
@@ -719,7 +721,7 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, service.History(), 4)
-	assert.Equal(t, "length-call", service.History()[2].ToolResult.CallID)
+	assert.Equal(t, "length-call", service.History()[2].ToolResult.OrEmpty().CallID)
 }
 
 func newTestService(
@@ -808,18 +810,18 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	contextSeen := ""
 	hookRunner := hookrunner.New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			value.History[0].User.Content[0].Text = mo.Some("first transformation")
+			value.History[0].User.OrEmpty().Content[0].Text = mo.Some("first transformation")
 			return value, nil
 		},
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			contextSeen = value.History[0].User.Content[0].Text.OrEmpty()
-			value.History[0].User.Content[0].Text = mo.Some("final transformation")
+			contextSeen = value.History[0].User.OrEmpty().Content[0].Text.OrEmpty()
+			value.History[0].User.OrEmpty().Content[0].Text = mo.Some("final transformation")
 			return value, nil
 		},
 	}, nil, nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
-			assert.Equal(t, "final transformation", request.History[0].User.Content[0].Text.OrEmpty())
+			assert.Equal(t, "final transformation", request.History[0].User.OrEmpty().Content[0].Text.OrEmpty())
 			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: mo.Some(model.OutcomeStop), Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, Position: 0, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}})
 		},
 	)
@@ -832,7 +834,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	assert.Equal(t, "first transformation", contextSeen)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, "persisted input", history[0].User.Content[0].Text.OrEmpty())
+	assert.Equal(t, "persisted input", history[0].User.OrEmpty().Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunStopsOnContextHookFailure verifies safe terminal failure before provider invocation.
@@ -846,7 +848,7 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	laterCalls := 0
 	hookRunner := hookrunner.New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			value.History[0].User.Content[0].Text = mo.Some("secret transformed context")
+			value.History[0].User.OrEmpty().Content[0].Text = mo.Some("secret transformed context")
 			return hooks.Context{}, errors.New("secret raw hook error")
 		},
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
@@ -865,10 +867,10 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	assert.Zero(t, laterCalls)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, "persisted input", history[0].User.Content[0].Text.OrEmpty())
-	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
-	assert.Equal(t, failedModelMessage, history[1].Model.ErrorMessage.OrEmpty())
-	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.Diagnostics)
+	assert.Equal(t, "persisted input", history[0].User.OrEmpty().Content[0].Text.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, failedModelMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.OrEmpty().Diagnostics)
 	assert.Equal(t, []agent.HistoryEntry{history[0]}, service.ProjectHistory())
 }
 

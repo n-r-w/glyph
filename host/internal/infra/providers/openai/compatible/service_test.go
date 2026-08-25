@@ -164,7 +164,7 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 			})
 			s.Require().NoError(err)
 			request := richRequest("local", "demo")
-			request.History[1].Model.Content = []model.Content{
+			replaceHistoryModelContent(&request, []model.Content{
 				{Kind: model.ContentReasoning, Text: mo.Some("first"), Final: true, ProviderContext: mo.Some(model.ProviderContext{
 					Source:  model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source", CompatibilityKey: mo.None[string]()},
 					Payload: []byte("opaque-secret"),
@@ -173,10 +173,10 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 				{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentReasoning, Text: mo.Some("second"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-			}
+			})
 			request.History = append(request.History, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryModel,
-				Model: model.Response{Content: []model.Content{{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, User: model.Message{}, ToolResult: agent.ToolResult{},
+				Model: mo.Some(model.Response{Content: []model.Content{{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 			})
 
 			events := streamEvents(t, driver, request)
@@ -222,13 +222,13 @@ func (s *serviceSuite) TestOrnithUsesFixedNativeReasoning() {
 	s.Require().NoError(err)
 	request := richRequest("ollama", "ornith")
 	request.ReasoningChoice = model.ReasoningChoiceOn
-	request.History[1].Model.Content = []model.Content{
+	replaceHistoryModelContent(&request, []model.Content{
 		{Kind: model.ContentReasoning, Text: mo.Some("earlier"), Final: true, ProviderContext: mo.Some(model.ProviderContext{
 			Source: model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source", CompatibilityKey: mo.None[string]()}, Payload: []byte("opaque-secret"),
 		}), ToolCall: mo.None[model.ToolCall](),
 		},
 		{Kind: model.ContentText, Text: mo.Some("history"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-	}
+	})
 
 	events := streamEvents(t, driver, request)
 
@@ -351,7 +351,7 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 	require.NoError(t, err)
 
 	request := richRequest("local", "demo")
-	request.History[1].Model.Content = append(request.History[1].Model.Content,
+	appendHistoryModelContent(&request,
 		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "local", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-local","encrypted_content":"cipher","summary":["old"]}`)}), ToolCall: mo.None[model.ToolCall]()},
 		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "foreign", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-foreign","encrypted_content":"secret","summary":[]}`)}), ToolCall: mo.None[model.ToolCall]()},
 	)
@@ -371,7 +371,7 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 func (s *serviceSuite) TestResponsesReplaysContextAcrossModelsWithSharedCompatibilityKey() {
 	t := s.T()
 	request := richRequest("local", "target-model")
-	request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+	appendHistoryModelContent(&request, model.Content{
 		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 		ProviderContext: mo.Some(model.ProviderContext{
 			Source: model.ProviderContextSource{
@@ -393,7 +393,7 @@ func (s *serviceSuite) TestResponsesReplaysContextAcrossModelsWithSharedCompatib
 func (s *serviceSuite) TestResponsesReplaysExactModelAfterCompatibilityKeyChange() {
 	t := s.T()
 	request := richRequest("local", "same-model")
-	request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+	appendHistoryModelContent(&request, model.Content{
 		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 		ProviderContext: mo.Some(model.ProviderContext{
 			Source: model.ProviderContextSource{
@@ -439,7 +439,7 @@ func (s *serviceSuite) TestResponsesOmitsIncompatibleContextAndKeepsVisibleReaso
 		s.Run(testCase.name, func() {
 			t := s.T()
 			request := richRequest("local", "target-model")
-			request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+			appendHistoryModelContent(&request, model.Content{
 				Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 				ProviderContext: mo.Some(model.ProviderContext{
 					Source:  testCase.source,
@@ -726,7 +726,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	request := richRequest(runtime.Model.Provider, runtime.Model.Model)
 	request.Model = runtime.Model
 	request.ReasoningChoice = runtime.ReasoningChoice
-	request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+	appendHistoryModelContent(&request, model.Content{
 		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 		ProviderContext: mo.Some(model.ProviderContext{
 			Source: model.ProviderContextSource{
@@ -838,6 +838,20 @@ func runResponsesRequest(
 	return body
 }
 
+// replaceHistoryModelContent replaces model content and restores the updated Option value.
+func replaceHistoryModelContent(request *run.ModelRequest, content []model.Content) {
+	response := request.History[1].Model.OrEmpty()
+	response.Content = content
+	request.History[1].Model = mo.Some(response)
+}
+
+// appendHistoryModelContent appends model content and restores the updated Option value.
+func appendHistoryModelContent(request *run.ModelRequest, content ...model.Content) {
+	response := request.History[1].Model.OrEmpty()
+	response.Content = append(response.Content, content...)
+	request.History[1].Model = mo.Some(response)
+}
+
 func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 	return run.ModelRequest{
 		Instructions: "be useful", Model: model.Descriptor{Provider: provider, Model: modelID, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
@@ -845,27 +859,27 @@ func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 		History: []agent.HistoryEntry{
 			{
 				Kind: agent.HistoryEntryUser,
-				User: model.Message{Content: []model.InputContent{
+				User: mo.Some(model.Message{Content: []model.InputContent{
 					{Kind: model.InputContentText, Text: mo.Some("look"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 					{Kind: model.InputContentImage, MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3}), Text: mo.None[string]()},
-				}}, Model: model.Response{}, ToolResult: agent.ToolResult{},
+				}}), Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			},
 			{
 				Kind: agent.HistoryEntryModel,
-				Model: model.Response{Content: []model.Content{
+				Model: mo.Some(model.Response{Content: []model.Content{
 					{Kind: model.ContentText, Text: mo.Some("checking"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 					{
 						Kind: model.ContentToolCall, Final: true,
 						ToolCall: mo.Some(model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext](),
 					},
 				}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-				}, User: model.Message{}, ToolResult: agent.ToolResult{},
+				}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 			},
 			{
 				Kind: agent.HistoryEntryToolResult,
-				ToolResult: agent.ToolResult{
+				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call-old", ToolName: "read", Contents: tool.TextContents("done"), IsError: false,
-				}, User: model.Message{}, Model: model.Response{},
+				}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 			},
 		},
 		Tools: []tool.Descriptor{{Name: "read", Description: "Read a file", InputSchemaJSON: []byte(`{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`), ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}},

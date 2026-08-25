@@ -102,16 +102,16 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	updates := make([]run.StreamEvent, 0)
 	history := []agent.HistoryEntry{
 		{
-			Model:      model.Response{},
-			ToolResult: agent.ToolResult{},
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
 			Kind:       agent.HistoryEntryUser,
-			User:       model.TextMessage("first"),
+			User:       mo.Some(model.TextMessage("first")),
 		},
 		{
-			User:       model.Message{},
-			ToolResult: agent.ToolResult{},
+			User:       mo.None[model.Message](),
+			ToolResult: mo.None[agent.ToolResult](),
 			Kind:       agent.HistoryEntryModel,
-			Model: model.Response{
+			Model: mo.Some(model.Response{
 				ErrorMessage:  mo.None[string](),
 				Provider:      mo.None[model.ProviderID](),
 				Model:         mo.None[model.ID](),
@@ -161,24 +161,24 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 					},
 				},
 				Outcome: mo.Some(model.OutcomeToolUse),
-			},
+			}),
 		},
 		{
-			User:  model.Message{},
-			Model: model.Response{},
+			User:  mo.None[model.Message](),
+			Model: mo.None[model.Response](),
 			Kind:  agent.HistoryEntryToolResult,
-			ToolResult: agent.ToolResult{
+			ToolResult: mo.Some(agent.ToolResult{
 				CallID:   "call-old",
 				ToolName: "read",
 				Contents: tool.TextContents("old data"),
 				IsError:  false,
-			},
+			}),
 		},
 		{
-			Model:      model.Response{},
-			ToolResult: agent.ToolResult{},
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
 			Kind:       agent.HistoryEntryUser,
-			User:       model.TextMessage("next"),
+			User:       mo.Some(model.TextMessage("next")),
 		},
 	}
 
@@ -336,10 +336,10 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 			},
 			History: []agent.HistoryEntry{
 				{
-					Model:      model.Response{},
-					ToolResult: agent.ToolResult{},
+					Model:      mo.None[model.Response](),
+					ToolResult: mo.None[agent.ToolResult](),
 					Kind:       agent.HistoryEntryUser,
-					User: model.Message{
+					User: mo.Some(model.Message{
 						Content: []model.InputContent{
 							{
 								MediaType: mo.None[string](),
@@ -354,7 +354,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 								Data:      mo.Some([]byte{1, 2, 3}),
 							},
 						},
-					},
+					}),
 				},
 			},
 			Tools: nil,
@@ -598,10 +598,10 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 			Model:           testModelDescriptor("gpt-test"),
 			History: []agent.HistoryEntry{
 				{
-					Model:      model.Response{},
-					ToolResult: agent.ToolResult{},
+					Model:      mo.None[model.Response](),
+					ToolResult: mo.None[agent.ToolResult](),
 					Kind:       agent.HistoryEntryUser,
-					User:       model.TextMessage("request"),
+					User:       mo.Some(model.TextMessage("request")),
 				},
 			},
 			Tools: nil,
@@ -705,10 +705,10 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 		Model:           testModelDescriptor("gpt-test"),
 		History: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("request"),
+				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
 		Tools: nil,
@@ -782,10 +782,10 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoiceOn,
 		History: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("request"),
+				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
 	}
@@ -806,10 +806,10 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 	request.History = append(
 		request.History,
 		agent.HistoryEntry{
-			User:       model.Message{},
-			ToolResult: agent.ToolResult{},
+			User:       mo.None[model.Message](),
+			ToolResult: mo.None[agent.ToolResult](),
 			Kind:       agent.HistoryEntryModel,
-			Model:      firstResponse,
+			Model:      mo.Some(firstResponse),
 		},
 	)
 	secondEvents, err := collectStreamEvents(
@@ -869,10 +869,10 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 		Model:           testModelDescriptor("gpt-test"),
 		History: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("request"),
+				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
 		Tools: nil,
@@ -958,10 +958,10 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	history := []agent.HistoryEntry{
 		{
-			User:       model.Message{},
-			ToolResult: agent.ToolResult{},
+			User:       mo.None[model.Message](),
+			ToolResult: mo.None[agent.ToolResult](),
 			Kind:       agent.HistoryEntryModel,
-			Model: model.Response{
+			Model: mo.Some(model.Response{
 				Outcome:       mo.None[model.Outcome](),
 				ErrorMessage:  mo.None[string](),
 				Provider:      mo.None[model.ProviderID](),
@@ -989,7 +989,7 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 						),
 					},
 				},
-			},
+			}),
 		},
 	}
 
@@ -1053,10 +1053,10 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoiceOff,
 		History: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("hello"),
+				User:       mo.Some(model.TextMessage("hello")),
 			},
 		},
 		Tools: nil,
@@ -1142,10 +1142,10 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 			Model:           testModelDescriptor("gpt-test"),
 			History: []agent.HistoryEntry{
 				{
-					Model:      model.Response{},
-					ToolResult: agent.ToolResult{},
+					Model:      mo.None[model.Response](),
+					ToolResult: mo.None[agent.ToolResult](),
 					Kind:       agent.HistoryEntryUser,
-					User:       model.TextMessage("hello"),
+					User:       mo.Some(model.TextMessage("hello")),
 				},
 			},
 			Tools: nil,
@@ -1199,10 +1199,10 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 			Model:           testModelDescriptor("gpt-test"),
 			History: []agent.HistoryEntry{
 				{
-					Model:      model.Response{},
-					ToolResult: agent.ToolResult{},
+					Model:      mo.None[model.Response](),
+					ToolResult: mo.None[agent.ToolResult](),
 					Kind:       agent.HistoryEntryUser,
-					User:       model.TextMessage("hello"),
+					User:       mo.Some(model.TextMessage("hello")),
 				},
 			},
 			Tools: nil,
@@ -1229,10 +1229,10 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
 			History: []agent.HistoryEntry{{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("hello"),
+				User:       mo.Some(model.TextMessage("hello")),
 			}},
 			Tools: nil,
 		},
@@ -1299,10 +1299,10 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 		Model:           testModelDescriptor("model"),
 		History: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("hello"),
+				User:       mo.Some(model.TextMessage("hello")),
 			},
 		},
 		Tools: nil,
@@ -1386,10 +1386,10 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 					Model:           testModelDescriptor("gpt-test"),
 					History: []agent.HistoryEntry{
 						{
-							Model:      model.Response{},
-							ToolResult: agent.ToolResult{},
+							Model:      mo.None[model.Response](),
+							ToolResult: mo.None[agent.ToolResult](),
 							Kind:       agent.HistoryEntryUser,
-							User:       model.TextMessage("hello"),
+							User:       mo.Some(model.TextMessage("hello")),
 						},
 					},
 					Tools: nil,
@@ -1461,10 +1461,10 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 					Model:           testModelDescriptor("gpt-test"),
 					History: []agent.HistoryEntry{
 						{
-							Model:      model.Response{},
-							ToolResult: agent.ToolResult{},
+							Model:      mo.None[model.Response](),
+							ToolResult: mo.None[agent.ToolResult](),
 							Kind:       agent.HistoryEntryUser,
-							User:       model.TextMessage("hello"),
+							User:       mo.Some(model.TextMessage("hello")),
 						},
 					},
 					Tools: nil,
@@ -1524,10 +1524,10 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 				Model:           testModelDescriptor("gpt-test"),
 				History: []agent.HistoryEntry{
 					{
-						Model:      model.Response{},
-						ToolResult: agent.ToolResult{},
+						Model:      mo.None[model.Response](),
+						ToolResult: mo.None[agent.ToolResult](),
 						Kind:       agent.HistoryEntryUser,
-						User:       model.TextMessage("hello"),
+						User:       mo.Some(model.TextMessage("hello")),
 					},
 				},
 				Tools: nil,

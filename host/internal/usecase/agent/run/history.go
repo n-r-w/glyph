@@ -29,9 +29,9 @@ func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 	return agent.HistoryEntry{
 		Kind:       entry.Kind,
-		User:       cloneMessage(entry.User),
-		Model:      cloneModelResponse(entry.Model),
-		ToolResult: cloneToolResult(entry.ToolResult),
+		User:       entry.User.MapValue(cloneMessage),
+		Model:      entry.Model.MapValue(cloneModelResponse),
+		ToolResult: entry.ToolResult.MapValue(cloneToolResult),
 	}
 }
 
@@ -39,12 +39,10 @@ func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 func cloneToolResult(result agent.ToolResult) agent.ToolResult {
 	result.Contents = slices.Clone(result.Contents)
 	for index := range result.Contents {
-		image, ok := result.Contents[index].Image.Get()
-		if !ok {
-			continue
-		}
-		image.Data = bytes.Clone(image.Data)
-		result.Contents[index].Image = mo.Some(image)
+		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
+			image.Data = bytes.Clone(image.Data)
+			return image
+		})
 	}
 	return result
 }
@@ -140,7 +138,8 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			index++
 			continue
 		}
-		outcome := entry.Model.Outcome.OrEmpty()
+		response := entry.Model.OrEmpty()
+		outcome := response.Outcome.OrEmpty()
 		if outcome == model.OutcomeAborted || outcome == model.OutcomeFailed {
 			index++
 			continue
@@ -150,22 +149,22 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 		results := make(map[string]agent.ToolResult)
 		next := index + 1
 		for next < len(history) && history[next].Kind == agent.HistoryEntryToolResult {
-			result := history[next].ToolResult
+			result := history[next].ToolResult.OrEmpty()
 			results[result.CallID] = result
 			projected = append(projected, cloneHistoryEntry(history[next]))
 			next++
 		}
-		for _, call := range modelToolCalls(entry.Model) {
+		for _, call := range modelToolCalls(response) {
 			if _, exists := results[call.ID]; exists {
 				continue
 			}
 			projected = append(projected, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryToolResult,
-				User:  model.TextMessage(""),
-				Model: model.Response{},
-				ToolResult: agent.ToolResult{
+				User:  mo.None[model.Message](),
+				Model: mo.None[model.Response](),
+				ToolResult: mo.Some(agent.ToolResult{
 					CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(skippedCallError), IsError: true,
-				},
+				}),
 			})
 		}
 		index = next

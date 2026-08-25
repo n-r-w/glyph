@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -248,8 +249,10 @@ func hookModelRequest(instructions string) run.ModelRequest {
 	return run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: instructions,
 		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
-		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello"), Model: model.Response{}, ToolResult: agent.ToolResult{}}},
-		Tools:        nil,
+		History: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		}},
+		Tools: nil,
 	}
 }
 

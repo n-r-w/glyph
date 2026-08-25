@@ -182,13 +182,13 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 		entry := &request.History[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			content, err := chatUserContent(entry.User)
+			content, err := chatUserContent(entry.User.OrEmpty())
 			if err != nil {
 				return nil, err
 			}
 			messages = append(messages, openai.UserMessage(content))
 		case agent.HistoryEntryModel:
-			message, ok, err := chatAssistantMessage(entry.Model, nativeReasoning)
+			message, ok, err := chatAssistantMessage(entry.Model.OrEmpty(), nativeReasoning)
 			if err != nil {
 				return nil, err
 			}
@@ -196,11 +196,12 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 				messages = append(messages, message)
 			}
 		case agent.HistoryEntryToolResult:
-			content, err := chatToolResult(entry.ToolResult.Contents)
+			result := entry.ToolResult.OrEmpty()
+			content, err := chatToolResult(result.Contents)
 			if err != nil {
 				return nil, err
 			}
-			messages = append(messages, openai.ToolMessage(content, entry.ToolResult.CallID))
+			messages = append(messages, openai.ToolMessage(content, result.CallID))
 		default:
 			return nil, fmt.Errorf("unsupported history entry kind %d", entry.Kind)
 		}
@@ -212,7 +213,6 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 	return lo.MapErr(
 		message.Content,
 		func(item model.InputContent, index int) (openai.ChatCompletionContentPartUnionParam, error) {
-			var empty openai.ChatCompletionContentPartUnionParam
 			switch item.Kind {
 			case model.InputContentText:
 				return openai.TextContentPart(item.Text.OrEmpty()), nil
@@ -220,14 +220,15 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 				mediaType := item.MediaType.OrEmpty()
 				data := item.Data.OrEmpty()
 				if mediaType == "" || len(data) == 0 {
-					return empty, fmt.Errorf("user image %d requires media type and data", index)
+					return openai.ChatCompletionContentPartUnionParam{},
+						fmt.Errorf("user image %d requires media type and data", index)
 				}
 				return openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
 					URL:    dataURL(mediaType, data),
 					Detail: "",
 				}), nil
 			default:
-				return empty, fmt.Errorf("unsupported user content kind %d", item.Kind)
+				return openai.ChatCompletionContentPartUnionParam{}, fmt.Errorf("unsupported user content kind %d", item.Kind)
 			}
 		},
 	)

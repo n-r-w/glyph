@@ -192,23 +192,24 @@ func responsesInput(
 		entry := &history[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			message, err := responsesUserMessage(entry.User)
+			message, err := responsesUserMessage(entry.User.OrEmpty())
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			items, err := responsesModelItems(entry.Model, target)
+			items, err := responsesModelItems(entry.Model.OrEmpty(), target)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, items...)
 		case agent.HistoryEntryToolResult:
-			output, err := responsesToolOutput(entry.ToolResult.Contents)
+			result := entry.ToolResult.OrEmpty()
+			output, err := responsesToolOutput(result.Contents)
 			if err != nil {
 				return nil, err
 			}
-			input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(entry.ToolResult.CallID, output))
+			input = append(input, responses.ResponseInputItemParamOfFunctionCallOutput(result.CallID, output))
 		default:
 			return nil, fmt.Errorf("unsupported history entry kind %d", entry.Kind)
 		}
@@ -316,14 +317,14 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 	return lo.MapErr(
 		contents,
 		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
-			var empty responses.ResponseFunctionCallOutputItemUnionParam
 			switch content.Kind {
 			case tool.ResultContentText:
 				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
 			case tool.ResultContentImage:
 				image := content.Image.OrEmpty()
 				if image.MediaType == "" || len(image.Data) == 0 {
-					return empty, fmt.Errorf("tool result image %d requires media type and data", index)
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result image %d requires media type and data", index)
 				}
 				imageURL := dataURL(image.MediaType, image.Data)
 				//nolint:exhaustruct // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
@@ -337,7 +338,8 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 					},
 				}, nil
 			default:
-				return empty, fmt.Errorf("unsupported tool result content kind %d", content.Kind)
+				return responses.ResponseFunctionCallOutputItemUnionParam{},
+					fmt.Errorf("unsupported tool result content kind %d", content.Kind)
 			}
 		},
 	)

@@ -268,10 +268,10 @@ func completedResult() run.Result {
 		Outcome: agent.RunOutcomeCompleted,
 		AddedHistory: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("request"),
+				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
 		ErrorMessage: "",
@@ -284,10 +284,10 @@ func failedResult() run.Result {
 		Outcome: agent.RunOutcomeFailed,
 		AddedHistory: []agent.HistoryEntry{
 			{
-				Model:      model.Response{},
-				ToolResult: agent.ToolResult{},
+				Model:      mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
 				Kind:       agent.HistoryEntryUser,
-				User:       model.TextMessage("request"),
+				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
 		ErrorMessage: "recipient failed",

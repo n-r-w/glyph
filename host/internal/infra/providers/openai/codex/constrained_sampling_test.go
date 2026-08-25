@@ -256,17 +256,19 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()})
 	history := []agent.HistoryEntry{
-		{Kind: agent.HistoryEntryModel, Model: model.Response{Content: []model.Content{{
+		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{Content: []model.Content{{
 			Kind: model.ContentToolCall,
 			ToolCall: mo.Some(model.ToolCall{
 				ID: "call-old", Name: "sample", Arguments: map[string]any{"payload": "old"},
 			}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
 		}}, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-		}, User: model.Message{}, ToolResult: agent.ToolResult{},
+		}), User: mo.None[model.Message](),
+			ToolResult: mo.None[agent.ToolResult](),
 		},
-		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
+		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call-old", ToolName: "sample", Contents: tool.TextContents("done"), IsError: false,
-		}, User: model.Message{}, Model: model.Response{},
+		}), User: mo.None[model.Message](),
+			Model: mo.None[model.Response](),
 		},
 	}
 	events := make([]run.StreamEvent, 0)

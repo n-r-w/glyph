@@ -19,22 +19,21 @@ func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryUser, UserText: publicInputText(entry.User),
+				Kind: controller.HistoryEntryUser, UserText: publicInputText(entry.User.OrEmpty()),
 				Model: controller.ModelResponse{}, ToolResult: controller.ToolResult{},
 			}, true
 		case agent.HistoryEntryModel:
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryModel, UserText: "", Model: mapModelResponse(entry.Model),
+				Kind: controller.HistoryEntryModel, UserText: "", Model: mapModelResponse(entry.Model.OrEmpty()),
 				ToolResult: controller.ToolResult{},
 			}, true
 		case agent.HistoryEntryToolResult:
 			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryToolResult, UserText: "", Model: controller.ModelResponse{},
-				ToolResult: mapToolResult(entry.ToolResult),
+				ToolResult: mapToolResult(entry.ToolResult.OrEmpty()),
 			}, true
 		}
-		var empty controller.HistoryEntry
-		return empty, false
+		return controller.HistoryEntry{}, false
 	})
 }
 
@@ -163,8 +162,7 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 					},
 				}, true
 			}
-			var empty controller.ToolResultContent
-			return empty, false
+			return controller.ToolResultContent{}, false
 		},
 	)
 	return controller.ToolResult{

@@ -2,6 +2,8 @@
 package agent
 
 import (
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
@@ -21,9 +23,9 @@ const (
 // HistoryEntry is one ordered session-history item.
 type HistoryEntry struct {
 	Kind       HistoryEntryKind
-	User       model.Message
-	Model      model.Response
-	ToolResult ToolResult
+	User       mo.Option[model.Message]
+	Model      mo.Option[model.Response]
+	ToolResult mo.Option[ToolResult]
 }
 
 // ToolResult is one model-visible terminal tool result.
