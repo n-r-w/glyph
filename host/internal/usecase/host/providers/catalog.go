@@ -39,11 +39,8 @@ const (
 
 // SelectionError reports a safe typed catalog failure.
 type SelectionError struct {
-	Code           ErrorCode
-	Provider       model.ProviderID
-	Model          model.ID
-	ReasoningLevel model.ReasoningLevel
-	cause          error
+	Code  ErrorCode
+	cause error
 }
 
 // Error implements error and includes only the validator's secret-free cause.
@@ -97,9 +94,7 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	for index, entry := range entries {
 		entry.Descriptor = cloneDescriptor(entry.Descriptor)
 		if entry.Provider == nil {
-			return nil, invalidConfigurationError(model.Selection{
-				Provider: entry.Descriptor.Provider, Model: entry.Descriptor.Model, ReasoningLevel: "",
-			})
+			return nil, invalidConfigurationError()
 		}
 		if err := validateDescriptor(entry.Descriptor, seen); err != nil {
 			return nil, err
@@ -112,10 +107,10 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	catalog := &Catalog{entries: configured, mutex: sync.RWMutex{}, selection: selection, active: 0}
 	active, found := catalog.entryIndex(selection.Provider, selection.Model)
 	if !found {
-		return nil, invalidConfigurationError(selection)
+		return nil, invalidConfigurationError()
 	}
 	if !supports(catalog.entries[active].Descriptor.SupportedReasoningLevels, selection.ReasoningLevel) {
-		return nil, invalidConfigurationError(selection)
+		return nil, invalidConfigurationError()
 	}
 	catalog.active = active
 	return catalog, nil
@@ -156,24 +151,14 @@ func (c *Catalog) SelectModel(
 	provider model.ProviderID,
 	modelID model.ID,
 ) (model.Selection, error) {
-	c.mutex.RLock()
 	target, found := c.entryIndex(provider, modelID)
-	var validator SelectionCredentialValidator
-	if found {
-		validator = c.entries[target].SelectionCredentialValidator
-	}
-	c.mutex.RUnlock()
 	if !found {
-		return model.Selection{}, &SelectionError{
-			Code: ErrorCodeNotFound, Provider: provider, Model: modelID, ReasoningLevel: "", cause: nil,
-		}
+		return model.Selection{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
 	}
+	validator := c.entries[target].SelectionCredentialValidator
 	if validator != nil {
 		if err := validator.ValidateSelectionCredentials(ctx); err != nil {
-			return model.Selection{}, &SelectionError{
-				Code: ErrorCodeCredentialUnavailable, Provider: provider, Model: modelID,
-				ReasoningLevel: "", cause: err,
-			}
+			return model.Selection{}, &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
 		}
 	}
 
@@ -223,10 +208,7 @@ func (c *Catalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Select
 	defer c.mutex.Unlock()
 
 	if !supports(c.entries[c.active].Descriptor.SupportedReasoningLevels, level) {
-		return model.Selection{}, &SelectionError{
-			Code: ErrorCodeReasoningUnsupported, Provider: c.selection.Provider,
-			Model: c.selection.Model, ReasoningLevel: level, cause: nil,
-		}
+		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
 	}
 	c.selection.ReasoningLevel = level
 	return c.selection, nil
@@ -246,9 +228,8 @@ func validateDescriptor(
 	descriptor model.Descriptor,
 	seen map[model.ProviderID]map[model.ID]struct{},
 ) error {
-	selection := model.Selection{Provider: descriptor.Provider, Model: descriptor.Model, ReasoningLevel: ""}
 	if descriptor.Provider == "" || descriptor.Model == "" || len(descriptor.SupportedReasoningLevels) == 0 {
-		return invalidConfigurationError(selection)
+		return invalidConfigurationError()
 	}
 	models, exists := seen[descriptor.Provider]
 	if !exists {
@@ -256,18 +237,16 @@ func validateDescriptor(
 		seen[descriptor.Provider] = models
 	}
 	if _, exists = models[descriptor.Model]; exists {
-		return invalidConfigurationError(selection)
+		return invalidConfigurationError()
 	}
 	models[descriptor.Model] = struct{}{}
 	levels := make(map[model.ReasoningLevel]struct{}, len(descriptor.SupportedReasoningLevels))
 	for _, level := range descriptor.SupportedReasoningLevels {
 		if _, valid := reasoningRank(level); !valid {
-			selection.ReasoningLevel = level
-			return invalidConfigurationError(selection)
+			return invalidConfigurationError()
 		}
 		if _, duplicate := levels[level]; duplicate {
-			selection.ReasoningLevel = level
-			return invalidConfigurationError(selection)
+			return invalidConfigurationError()
 		}
 		levels[level] = struct{}{}
 	}
@@ -338,9 +317,6 @@ func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
 	return descriptor
 }
 
-func invalidConfigurationError(selection model.Selection) *SelectionError {
-	return &SelectionError{
-		Code: ErrorCodeInvalidConfiguration, Provider: selection.Provider, Model: selection.Model,
-		ReasoningLevel: selection.ReasoningLevel, cause: nil,
-	}
+func invalidConfigurationError() *SelectionError {
+	return &SelectionError{Code: ErrorCodeInvalidConfiguration, cause: nil}
 }

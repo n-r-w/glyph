@@ -381,7 +381,8 @@ func newProviderCatalog(
 		providerConfig := configured.Providers[providerID]
 		switch providerConfig.Type {
 		case settingstore.ProviderTypeOpenAICodex:
-			provider := newProvider(paths, interaction, hookRunner)
+			credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
+			provider := codex.New(codex.Config{Hooks: hookRunner}, credentials, interaction)
 			for _, configuredModel := range providerConfig.Models {
 				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
 				descriptor.SupportedReasoningLevels = reasoningLevels(configuredModel.ReasoningLevels)
@@ -455,14 +456,4 @@ func apiKeySource(configured *settingstore.APIKey) credentialstore.APIKeySource 
 	return credentialstore.APIKeySource{
 		Kind: credentialstore.APIKeySourceCredential, Value: *configured.Credential,
 	}
-}
-
-// newProvider assembles Codex with one mode-specific interaction implementation.
-func newProvider(
-	paths persistence.Paths,
-	interaction codex.Interaction,
-	hookRunner internalhooks.ProviderRunner,
-) *codex.Service {
-	credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
-	return codex.New(codex.Config{Hooks: hookRunner}, credentials, interaction)
 }

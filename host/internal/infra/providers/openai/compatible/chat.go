@@ -88,7 +88,7 @@ func (s *Service) streamChatCompletions(
 	if finishErr := state.finish(handle); finishErr != nil {
 		return model.Response{}, handlerError(finishErr)
 	}
-	return state.response(request), nil
+	return state.response(), nil
 }
 
 func chatParams(request run.ModelRequest) (openai.ChatCompletionNewParams, error) {
@@ -399,7 +399,7 @@ func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 	return nil
 }
 
-func (state *chatAccumulator) response(_ run.ModelRequest) model.Response {
+func (state *chatAccumulator) response() model.Response {
 	var responseModel *model.ID
 	if state.responseModel != "" {
 		value := model.ID(state.responseModel)
