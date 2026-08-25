@@ -46,7 +46,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	if configured, ok := s.models[request.Model.Model]; ok {
 		source := model.ProviderContextSource{
 			ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
-			CompatibilityKey: configured.reasoningCompatibilityKey,
+			CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
 		}
 		for index := range response.Content {
 			content := &response.Content[index]
@@ -150,7 +150,7 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 	}
 	target := model.ProviderContextSource{
 		ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
-		CompatibilityKey: configured.reasoningCompatibilityKey,
+		CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
 	}
 	input, err := buildInput(request.History, grammarInputProperties(request.Tools), target)
 	if err != nil {

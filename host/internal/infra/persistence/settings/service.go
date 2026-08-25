@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/mo"
 	"go.yaml.in/yaml/v3"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
@@ -72,9 +73,9 @@ const (
 
 // APIKey identifies one configured API-key source.
 type APIKey struct {
-	Literal     *string
-	Environment *string
-	Credential  *string
+	Literal     mo.Option[string]
+	Environment mo.Option[string]
+	Credential  mo.Option[string]
 }
 
 // Reasoning contains one validated model reasoning configuration.
@@ -82,7 +83,7 @@ type Reasoning struct {
 	Supported        bool
 	Choices          []ReasoningChoice
 	Default          ReasoningChoice
-	CompatibilityKey string
+	CompatibilityKey mo.Option[string]
 	WireFormat       ReasoningWireFormat
 }
 
@@ -98,7 +99,7 @@ type Provider struct {
 	Type    ProviderType
 	BaseURL string
 	API     API
-	APIKey  *APIKey
+	APIKey  mo.Option[APIKey]
 	Models  []Model
 }
 
@@ -107,7 +108,7 @@ type Settings struct {
 	DefaultProvider string
 	DefaultModel    string
 	Providers       map[string]Provider
-	ActiveUI        string
+	ActiveUI        mo.Option[string]
 }
 
 // Service loads one settings file.
@@ -125,21 +126,21 @@ type settingsFile struct {
 	DefaultProvider string                  `yaml:"defaultProvider"`
 	DefaultModel    string                  `yaml:"defaultModel"`
 	Providers       map[string]providerFile `yaml:"providers"`
-	ActiveUI        *string                 `yaml:"activeUI"`
+	ActiveUI        mo.Option[string]       `yaml:"activeUI"`
 }
 
 type providerFile struct {
-	Type    ProviderType `yaml:"type"`
-	BaseURL string       `yaml:"baseURL"`
-	API     API          `yaml:"api"`
-	APIKey  *apiKeyFile  `yaml:"apiKey"`
-	Models  []modelFile  `yaml:"models"`
+	Type    ProviderType          `yaml:"type"`
+	BaseURL string                `yaml:"baseURL"`
+	API     API                   `yaml:"api"`
+	APIKey  mo.Option[apiKeyFile] `yaml:"apiKey"`
+	Models  []modelFile           `yaml:"models"`
 }
 
 type apiKeyFile struct {
-	Literal     *string `yaml:"literal"`
-	Environment *string `yaml:"environment"`
-	Credential  *string `yaml:"credential"`
+	Literal     mo.Option[string] `yaml:"literal"`
+	Environment mo.Option[string] `yaml:"environment"`
+	Credential  mo.Option[string] `yaml:"credential"`
 }
 
 type modelFile struct {
@@ -152,8 +153,174 @@ type reasoningFile struct {
 	Supported        bool                `yaml:"supported"`
 	Choices          []ReasoningChoice   `yaml:"choices"`
 	Default          ReasoningChoice     `yaml:"default"`
-	CompatibilityKey *string             `yaml:"compatibilityKey"`
+	CompatibilityKey mo.Option[string]   `yaml:"compatibilityKey"`
 	WireFormat       ReasoningWireFormat `yaml:"wireFormat"`
+}
+
+// The YAML methods preserve scalar presence before validation because mo.Option does not decode plain YAML scalars.
+func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "defaultProvider", "defaultModel", "providers", "activeUI")
+	if err != nil {
+		return err
+	}
+	var decoded settingsFile
+	if decodeErr := decodeYAMLField(fields, "defaultProvider", &decoded.DefaultProvider); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "defaultModel", &decoded.DefaultModel); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "providers", &decoded.Providers); decodeErr != nil {
+		return decodeErr
+	}
+	activeUI, decodeErr := decodeYAMLOption[string](fields, "activeUI")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.ActiveUI = activeUI
+	*configured = decoded
+	return nil
+}
+
+func (configured *providerFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "type", "baseURL", "api", "apiKey", "models")
+	if err != nil {
+		return err
+	}
+	var decoded providerFile
+	apiKey, decodeErr := decodeYAMLOption[apiKeyFile](fields, "apiKey")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.APIKey = apiKey
+	if fieldErr := decodeYAMLField(fields, "type", &decoded.Type); fieldErr != nil {
+		return fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, "baseURL", &decoded.BaseURL); fieldErr != nil {
+		return fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, "api", &decoded.API); fieldErr != nil {
+		return fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, "models", &decoded.Models); fieldErr != nil {
+		return fieldErr
+	}
+	*configured = decoded
+	return nil
+}
+
+func (configured *apiKeyFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "literal", "environment", "credential")
+	if err != nil {
+		return err
+	}
+	var decoded apiKeyFile
+	literal, decodeErr := decodeYAMLOption[string](fields, "literal")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	environment, decodeErr := decodeYAMLOption[string](fields, "environment")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	credential, decodeErr := decodeYAMLOption[string](fields, "credential")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.Literal = literal
+	decoded.Environment = environment
+	decoded.Credential = credential
+	*configured = decoded
+	return nil
+}
+
+func (configured *modelFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "id", "api", "reasoning")
+	if err != nil {
+		return err
+	}
+	var decoded modelFile
+	if decodeErr := decodeYAMLField(fields, "id", &decoded.ID); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "api", &decoded.API); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "reasoning", &decoded.Reasoning); decodeErr != nil {
+		return decodeErr
+	}
+	*configured = decoded
+	return nil
+}
+
+func (configured *reasoningFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "supported", "choices", "default", "compatibilityKey", "wireFormat")
+	if err != nil {
+		return err
+	}
+	var decoded reasoningFile
+	if decodeErr := decodeYAMLField(fields, "supported", &decoded.Supported); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "choices", &decoded.Choices); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "default", &decoded.Default); decodeErr != nil {
+		return decodeErr
+	}
+	if decodeErr := decodeYAMLField(fields, "wireFormat", &decoded.WireFormat); decodeErr != nil {
+		return decodeErr
+	}
+	compatibilityKey, decodeErr := decodeYAMLOption[string](fields, "compatibilityKey")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.CompatibilityKey = compatibilityKey
+	*configured = decoded
+	return nil
+}
+
+func decodeYAMLMapping(node *yaml.Node, fieldNames ...string) (map[string]yaml.Node, error) {
+	const mappingPairSize = 2
+	if node.Kind != yaml.MappingNode {
+		return nil, errors.New("expected YAML mapping")
+	}
+	known := make(map[string]struct{}, len(fieldNames))
+	for _, field := range fieldNames {
+		known[field] = struct{}{}
+	}
+	fields := make(map[string]yaml.Node, len(node.Content)/mappingPairSize)
+	for index := 0; index < len(node.Content); index += mappingPairSize {
+		field := node.Content[index].Value
+		if _, found := known[field]; !found {
+			return nil, fmt.Errorf("unknown YAML field %q", field)
+		}
+		if _, duplicate := fields[field]; duplicate {
+			return nil, fmt.Errorf("duplicate YAML field %q", field)
+		}
+		fields[field] = *node.Content[index+1]
+	}
+	return fields, nil
+}
+
+func decodeYAMLField[T any](fields map[string]yaml.Node, field string, target *T) error {
+	node, present := fields[field]
+	if !present {
+		return nil
+	}
+	return node.Decode(target)
+}
+
+func decodeYAMLOption[T any](fields map[string]yaml.Node, field string) (mo.Option[T], error) {
+	node, present := fields[field]
+	if !present || node.Tag == "!!null" {
+		return mo.None[T](), nil
+	}
+	var value T
+	if err := node.Decode(&value); err != nil {
+		return mo.None[T](), err
+	}
+	return mo.Some(value), nil
 }
 
 // Load parses and validates the configured settings file.
@@ -230,11 +397,11 @@ func validateDefaults(decoded settingsFile) error {
 func validateProviders(configured map[string]providerFile) (map[string]Provider, error) {
 	providers := make(map[string]Provider, len(configured))
 	codexCount := 0
-	for providerID, providerFile := range configured {
+	for providerID := range configured {
 		if err := validateIdentifier("provider ID", providerID); err != nil {
 			return nil, err
 		}
-		provider, err := validateProvider(providerID, providerFile)
+		provider, err := validateProvider(providerID, configured[providerID])
 		if err != nil {
 			return nil, err
 		}
@@ -252,15 +419,16 @@ func validateProviders(configured map[string]providerFile) (map[string]Provider,
 	return providers, nil
 }
 
-func validateActiveUI(configured *string) (string, error) {
-	if configured == nil {
-		return "", nil
+func validateActiveUI(configured mo.Option[string]) (mo.Option[string], error) {
+	value, present := configured.Get()
+	if !present {
+		return mo.None[string](), nil
 	}
-	activeUI := pluginid.Normalize(*configured)
+	activeUI := pluginid.Normalize(value)
 	if activeUI == "" {
-		return "", errors.New("activeUI must have a nonempty normalized plugin ID")
+		return mo.None[string](), errors.New("activeUI must have a nonempty normalized plugin ID")
 	}
-	return activeUI, nil
+	return mo.Some(activeUI), nil
 }
 
 func validateProvider(providerID string, configured providerFile) (Provider, error) {
@@ -272,12 +440,12 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 	}
 
 	provider := Provider{
-		Type: configured.Type, BaseURL: configured.BaseURL, API: configured.API, APIKey: nil,
+		Type: configured.Type, BaseURL: configured.BaseURL, API: configured.API, APIKey: mo.None[APIKey](),
 		Models: make([]Model, 0, len(configured.Models)),
 	}
 	switch configured.Type {
 	case ProviderTypeOpenAICodex:
-		if configured.BaseURL != "" || configured.API != "" || configured.APIKey != nil {
+		if configured.BaseURL != "" || configured.API != "" || configured.APIKey.IsSome() {
 			return Provider{}, fmt.Errorf("provider %q has fields that are not valid for openai-codex", providerID)
 		}
 	case ProviderTypeOpenAICompatible:
@@ -303,12 +471,12 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 	return provider, nil
 }
 
-func validateCompatibleProvider(providerID string, configured providerFile) (*APIKey, error) {
+func validateCompatibleProvider(providerID string, configured providerFile) (mo.Option[APIKey], error) {
 	if err := validateBaseURL(configured.BaseURL); err != nil {
-		return nil, fmt.Errorf("provider %q: %w", providerID, err)
+		return mo.None[APIKey](), fmt.Errorf("provider %q: %w", providerID, err)
 	}
 	if !isAPISupported(configured.API) {
-		return nil, fmt.Errorf("provider %q has unsupported API %q", providerID, configured.API)
+		return mo.None[APIKey](), fmt.Errorf("provider %q has unsupported API %q", providerID, configured.API)
 	}
 	return validateAPIKey(providerID, configured.APIKey)
 }
@@ -360,10 +528,9 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 			"provider %q model %q reasoning default must be listed in choices", providerID, modelID,
 		)
 	}
-	key := ""
-	if configured.CompatibilityKey != nil {
-		key = *configured.CompatibilityKey
-		if key == "" || key != strings.TrimSpace(key) {
+	key := configured.CompatibilityKey
+	if value, present := key.Get(); present {
+		if value == "" || value != strings.TrimSpace(value) {
 			return Reasoning{}, fmt.Errorf(
 				"provider %q model %q reasoning compatibilityKey must be nonempty without surrounding whitespace",
 				providerID, modelID,
@@ -372,7 +539,7 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 	}
 	if !configured.Supported {
 		invalidShape := len(choices) != 1 || choices[0] != ReasoningChoiceOff ||
-			configured.Default != ReasoningChoiceOff || key != "" || configured.WireFormat != ""
+			configured.Default != ReasoningChoiceOff || key.IsSome() || configured.WireFormat != ""
 		if invalidShape {
 			return Reasoning{}, fmt.Errorf(
 				"provider %q model %q has contradictory non-reasoning capabilities", providerID, modelID,
@@ -380,7 +547,7 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 		}
 		return Reasoning{
 			Supported: false, Choices: choices, Default: configured.Default,
-			CompatibilityKey: "", WireFormat: "",
+			CompatibilityKey: mo.None[string](), WireFormat: "",
 		}, nil
 	}
 	if configured.WireFormat == "" {
@@ -439,36 +606,35 @@ func wireFormatMatchesAPI(format ReasoningWireFormat, api API) bool {
 	}
 }
 
-//nolint:nilnil // A nil key and nil error represent an omitted optional API-key source.
-func validateAPIKey(providerID string, configured *apiKeyFile) (*APIKey, error) {
-	if configured == nil {
-		return nil, nil
+func validateAPIKey(providerID string, configured mo.Option[apiKeyFile]) (mo.Option[APIKey], error) {
+	configuredAPIKey, configuredPresent := configured.Get()
+	if !configuredPresent {
+		return mo.None[APIKey](), nil
 	}
+	apiKey := APIKey(configuredAPIKey)
 	count := 0
-	for _, value := range []*string{configured.Literal, configured.Environment, configured.Credential} {
-		if value != nil {
+	for _, present := range []bool{apiKey.Literal.IsSome(), apiKey.Environment.IsSome(), apiKey.Credential.IsSome()} {
+		if present {
 			count++
 		}
 	}
 	if count != 1 {
-		return nil, fmt.Errorf("provider %q apiKey must contain exactly one source", providerID)
+		return mo.None[APIKey](), fmt.Errorf("provider %q apiKey must contain exactly one source", providerID)
 	}
-	if configured.Literal != nil && *configured.Literal == "" {
-		return nil, fmt.Errorf("provider %q apiKey literal must not be empty", providerID)
+	if literal, sourcePresent := apiKey.Literal.Get(); sourcePresent && literal == "" {
+		return mo.None[APIKey](), fmt.Errorf("provider %q apiKey literal must not be empty", providerID)
 	}
-	if configured.Environment != nil {
-		if err := validateIdentifier("apiKey environment", *configured.Environment); err != nil {
-			return nil, fmt.Errorf("provider %q: %w", providerID, err)
+	if environment, sourcePresent := apiKey.Environment.Get(); sourcePresent {
+		if err := validateIdentifier("apiKey environment", environment); err != nil {
+			return mo.None[APIKey](), fmt.Errorf("provider %q: %w", providerID, err)
 		}
 	}
-	if configured.Credential != nil {
-		if err := validateIdentifier("apiKey credential", *configured.Credential); err != nil {
-			return nil, fmt.Errorf("provider %q: %w", providerID, err)
+	if credential, sourcePresent := apiKey.Credential.Get(); sourcePresent {
+		if err := validateIdentifier("apiKey credential", credential); err != nil {
+			return mo.None[APIKey](), fmt.Errorf("provider %q: %w", providerID, err)
 		}
 	}
-	return &APIKey{
-		Literal: configured.Literal, Environment: configured.Environment, Credential: configured.Credential,
-	}, nil
+	return mo.Some(apiKey), nil
 }
 
 func validateBaseURL(value string) error {

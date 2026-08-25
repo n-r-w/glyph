@@ -13,6 +13,7 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/grpc"
 
 	"github.com/n-r-w/glyph/host/internal/config/codingagent"
@@ -280,7 +281,7 @@ func runUIWithPaths(
 	selection, err := selector.Select(ctx, hostui.SelectionRequest{
 		Directory:  domainui.Directory{Path: uiDirectory},
 		ExplicitUI: command.UIID,
-		ActiveUI:   configured.ActiveUI,
+		ActiveUI:   configured.ActiveUI.OrEmpty(),
 	})
 	if err != nil {
 		return errors.Join(fmt.Errorf("select UI plugin: %w", err), writeSelectionWarnings(stderr, selection.Issues))
@@ -382,7 +383,7 @@ func newProviderCatalog(
 		case settingstore.ProviderTypeOpenAICodex:
 			credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
 			modelIDs := make([]model.ID, len(providerConfig.Models))
-			compatibilityKeys := make(map[model.ID]string, len(providerConfig.Models))
+			compatibilityKeys := make(map[model.ID]mo.Option[string], len(providerConfig.Models))
 			for index, configuredModel := range providerConfig.Models {
 				modelID := model.ID(configuredModel.ID)
 				modelIDs[index] = modelID
@@ -405,7 +406,7 @@ func newProviderCatalog(
 			)
 			modelAPIs := make(map[model.ID]compatible.API, len(providerConfig.Models))
 			wireFormats := make(map[model.ID]string, len(providerConfig.Models))
-			compatibilityKeys := make(map[model.ID]string, len(providerConfig.Models))
+			compatibilityKeys := make(map[model.ID]mo.Option[string], len(providerConfig.Models))
 			for _, configuredModel := range providerConfig.Models {
 				modelID := model.ID(configuredModel.ID)
 				modelAPIs[modelID] = compatible.API(configuredModel.API)
@@ -440,7 +441,7 @@ func newProviderCatalog(
 	defaultProvider := configured.Providers[configured.DefaultProvider]
 	defaultModel := settingstore.Model{
 		ID: "", API: "", Reasoning: settingstore.Reasoning{
-			Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
+			Supported: false, Choices: nil, Default: "", CompatibilityKey: mo.None[string](), WireFormat: "",
 		},
 	}
 	defaultModelIndex := slices.IndexFunc(defaultProvider.Models, func(configuredModel settingstore.Model) bool {
@@ -467,21 +468,22 @@ func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCap
 }
 
 // apiKeySource maps the validated settings union without resolving its secret.
-func apiKeySource(configured *settingstore.APIKey) credentialstore.APIKeySource {
-	if configured == nil {
+func apiKeySource(configured mo.Option[settingstore.APIKey]) credentialstore.APIKeySource {
+	apiKey, present := configured.Get()
+	if !present {
 		return credentialstore.APIKeySource{Kind: "", Value: ""}
 	}
-	if configured.Literal != nil {
+	if literal, selected := apiKey.Literal.Get(); selected {
 		return credentialstore.APIKeySource{
-			Kind: credentialstore.APIKeySourceLiteral, Value: *configured.Literal,
+			Kind: credentialstore.APIKeySourceLiteral, Value: literal,
 		}
 	}
-	if configured.Environment != nil {
+	if environment, selected := apiKey.Environment.Get(); selected {
 		return credentialstore.APIKeySource{
-			Kind: credentialstore.APIKeySourceEnvironment, Value: *configured.Environment,
+			Kind: credentialstore.APIKeySourceEnvironment, Value: environment,
 		}
 	}
 	return credentialstore.APIKeySource{
-		Kind: credentialstore.APIKeySourceCredential, Value: *configured.Credential,
+		Kind: credentialstore.APIKeySourceCredential, Value: apiKey.Credential.OrEmpty(),
 	}
 }

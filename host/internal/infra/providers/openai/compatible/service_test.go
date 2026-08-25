@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -701,7 +702,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	driver, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models:                     map[model.ID]API{"demo": ""},
-		ReasoningCompatibilityKeys: map[model.ID]string{"demo": "family"},
+		ReasoningCompatibilityKeys: map[model.ID]mo.Option[string]{"demo": mo.Some("family")},
 		APIKey:                     expectAPIKey(t, "", nil, 1),
 	})
 	require.NoError(t, err)
@@ -823,10 +824,12 @@ func runResponsesRequest(
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models:                     map[model.ID]API{request.Model.Model: APIResponses},
-		ReasoningWireFormats:       map[model.ID]string{request.Model.Model: wireFormat},
-		ReasoningCompatibilityKeys: map[model.ID]string{request.Model.Model: compatibilityKey},
-		APIKey:                     expectAPIKey(t, "", nil, 1),
+		Models:               map[model.ID]API{request.Model.Model: APIResponses},
+		ReasoningWireFormats: map[model.ID]string{request.Model.Model: wireFormat},
+		ReasoningCompatibilityKeys: map[model.ID]mo.Option[string]{
+			request.Model.Model: mo.EmptyableToOption(compatibilityKey),
+		},
+		APIKey: expectAPIKey(t, "", nil, 1),
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, request)

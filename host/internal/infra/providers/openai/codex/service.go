@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
@@ -27,7 +28,7 @@ const (
 type Config struct {
 	Hooks                      hooks.ProviderRunner
 	Models                     []model.ID
-	ReasoningCompatibilityKeys map[model.ID]string
+	ReasoningCompatibilityKeys map[model.ID]mo.Option[string]
 }
 
 // driverOptions contains provider-owned protocol endpoints and deterministic seams.
@@ -44,7 +45,7 @@ type driverOptions struct {
 type modelConfig struct {
 	api                       string
 	reasoningWireFormat       string
-	reasoningCompatibilityKey string
+	reasoningCompatibilityKey mo.Option[string]
 }
 
 // Driver owns Codex OAuth credentials and Responses translation.

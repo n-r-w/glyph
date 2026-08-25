@@ -3,10 +3,13 @@ package settings
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.yaml.in/yaml/v3"
 )
 
 type SettingsSuite struct{ suite.Suite }
@@ -83,12 +86,12 @@ providers:
 	s.Require().NoError(err)
 	s.Equal("openrouter", loaded.DefaultProvider)
 	s.Equal("effort", loaded.DefaultModel)
-	s.Equal("glyph-tui-plugin", loaded.ActiveUI)
+	s.Equal(mo.Some("glyph-tui-plugin"), loaded.ActiveUI)
 	models := loaded.Providers["openrouter"].Models
 	s.Require().Len(models, 6)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceMinimal, ReasoningChoiceMedium, ReasoningChoiceHigh},
-		Default: ReasoningChoiceMedium, CompatibilityKey: "", WireFormat: ReasoningWireFormatOpenAIResponses,
+		Default: ReasoningChoiceMedium, CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOpenAIResponses,
 	}, models[0].Reasoning)
 	s.Equal([]ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceOn}, models[1].Reasoning.Choices)
 	s.Equal(ReasoningChoiceOn, models[2].Reasoning.Default)
@@ -96,28 +99,168 @@ providers:
 		Supported:        true,
 		Choices:          []ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceLow, ReasoningChoiceHigh},
 		Default:          ReasoningChoiceLow,
-		CompatibilityKey: "",
+		CompatibilityKey: mo.None[string](),
 		WireFormat:       ReasoningWireFormatOpenAIChatEffort,
 	}, models[3].Reasoning)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceOn}, Default: ReasoningChoiceOn,
-		CompatibilityKey: "", WireFormat: ReasoningWireFormatOllamaOrnith,
+		CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOllamaOrnith,
 	}, models[4].Reasoning)
 	s.Equal(Reasoning{
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
-		CompatibilityKey: "", WireFormat: "",
+		CompatibilityKey: mo.None[string](), WireFormat: "",
 	}, models[5].Reasoning)
 }
 
 // TestLoadAcceptsEachAPIKeySource verifies the structured union's three valid variants.
 func (s *SettingsSuite) TestLoadAcceptsEachAPIKeySource() {
-	for name, source := range map[string]string{
-		"literal": "literal: '!not-a-command'", "environment": "environment: GLYPH_TEST_API_KEY", "credential": "credential: local-entry",
-	} {
+	testCases := map[string]struct {
+		source   string
+		expected APIKey
+	}{
+		"literal": {
+			source: "literal: '!not-a-command'",
+			expected: APIKey{
+				Literal: mo.Some("!not-a-command"), Environment: mo.None[string](), Credential: mo.None[string](),
+			},
+		},
+		"environment": {
+			source: "environment: GLYPH_TEST_API_KEY",
+			expected: APIKey{
+				Literal: mo.None[string](), Environment: mo.Some("GLYPH_TEST_API_KEY"), Credential: mo.None[string](),
+			},
+		},
+		"credential": {
+			source: "credential: local-entry",
+			expected: APIKey{
+				Literal: mo.None[string](), Environment: mo.None[string](), Credential: mo.Some("local-entry"),
+			},
+		},
+	}
+	for name, testCase := range testCases {
 		s.Run(name, func() {
-			loaded, err := New(writeSettings(s.T(), validSettings("    apiKey:\n      "+source))).Load()
+			loaded, err := New(writeSettings(s.T(), validSettings("    apiKey:\n      "+testCase.source))).Load()
 			s.Require().NoError(err)
-			s.NotNil(loaded.Providers["compatible"].APIKey)
+			apiKey, present := loaded.Providers["compatible"].APIKey.Get()
+			s.Require().True(present)
+			s.Equal(testCase.expected, apiKey)
+		})
+	}
+}
+
+// TestLoadPreservesOptionalScalarYAML verifies boundary conversion for omitted, null, empty, and non-empty scalars.
+func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
+	s.Run("omitted", func() {
+		content := validSettings("")
+		decoded := decodeSettingsFile(s.T(), content)
+		s.True(decoded.ActiveUI.IsNone())
+		s.True(decoded.Providers["compatible"].APIKey.IsNone())
+		s.True(decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey.IsNone())
+
+		loaded, err := New(writeSettings(s.T(), content)).Load()
+		s.Require().NoError(err)
+		s.True(loaded.ActiveUI.IsNone())
+		s.True(loaded.Providers["compatible"].APIKey.IsNone())
+		s.True(loaded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey.IsNone())
+	})
+	s.Run("null", func() {
+		content := replace(validSettings(""), "providers:", "activeUI: null\nproviders:")
+		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey: null")
+		content = replace(content, "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: null\n          wireFormat: openai-responses\n      - id: plain")
+		decoded := decodeSettingsFile(s.T(), content)
+		s.True(decoded.ActiveUI.IsNone())
+		s.True(decoded.Providers["compatible"].APIKey.IsNone())
+		s.True(decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey.IsNone())
+
+		loaded, err := New(writeSettings(s.T(), content)).Load()
+		s.Require().NoError(err)
+		s.True(loaded.ActiveUI.IsNone())
+		s.True(loaded.Providers["compatible"].APIKey.IsNone())
+		s.True(loaded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey.IsNone())
+	})
+	s.Run("empty", func() {
+		testCases := map[string]struct {
+			content string
+			assert  func(settingsFile)
+		}{
+			"active UI": {
+				content: replace(validSettings(""), "providers:", "activeUI: ''\nproviders:"),
+				assert:  func(decoded settingsFile) { s.Equal(mo.Some(""), decoded.ActiveUI) },
+			},
+			"API key source": {
+				content: replace(validSettings(""), "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey:\n      literal: ''"),
+				assert: func(decoded settingsFile) {
+					apiKey, present := decoded.Providers["compatible"].APIKey.Get()
+					s.Require().True(present)
+					s.Equal(mo.Some(""), apiKey.Literal)
+				},
+			},
+			"compatibility key": {
+				content: replace(validSettings(""), "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: ''\n          wireFormat: openai-responses\n      - id: plain"),
+				assert: func(decoded settingsFile) {
+					s.Equal(mo.Some(""), decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey)
+				},
+			},
+		}
+		for name, testCase := range testCases {
+			s.Run(name, func() {
+				testCase.assert(decodeSettingsFile(s.T(), testCase.content))
+				_, err := New(writeSettings(s.T(), testCase.content)).Load()
+				s.Require().Error(err)
+			})
+		}
+	})
+	s.Run("non-empty", func() {
+		content := replace(validSettings(""), "providers:", "activeUI: glyph-tui\nproviders:")
+		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey:\n      literal: secret")
+		content = replace(content, "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: family\n          wireFormat: openai-responses\n      - id: plain")
+		decoded := decodeSettingsFile(s.T(), content)
+		s.Equal(mo.Some("glyph-tui"), decoded.ActiveUI)
+		decodedAPIKey, present := decoded.Providers["compatible"].APIKey.Get()
+		s.Require().True(present)
+		s.Equal(mo.Some("secret"), decodedAPIKey.Literal)
+		s.Equal(mo.Some("family"), decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey)
+
+		loaded, err := New(writeSettings(s.T(), content)).Load()
+		s.Require().NoError(err)
+		s.Equal(mo.Some("glyph-tui"), loaded.ActiveUI)
+		apiKey, present := loaded.Providers["compatible"].APIKey.Get()
+		s.Require().True(present)
+		s.Equal(mo.Some("secret"), apiKey.Literal)
+		s.Equal(mo.Some("family"), loaded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey)
+	})
+}
+
+// TestLoadRejectsUnknownYAMLFields verifies strict decoding at every handwritten settings level.
+func (s *SettingsSuite) TestLoadRejectsUnknownYAMLFields() {
+	testCases := map[string]string{
+		"settings":  validSettings("extra: value"),
+		"provider":  replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
+		"API key":   validSettings("    apiKey:\n      command: echo-key"),
+		"model":     replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
+		"reasoning": replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          budget: high"),
+	}
+	for name, content := range testCases {
+		s.Run(name, func() {
+			_, err := New(writeSettings(s.T(), content)).Load()
+			s.Require().Error(err)
+		})
+	}
+}
+
+// TestLoadRejectsDuplicateYAMLFields verifies duplicate-key rejection at every settings mapping level.
+func (s *SettingsSuite) TestLoadRejectsDuplicateYAMLFields() {
+	testCases := map[string]string{
+		"settings":  validSettings("defaultProvider: other"),
+		"provider":  replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    type: openai-compatible"),
+		"API key":   validSettings("    apiKey:\n      literal: first\n      literal: second"),
+		"model":     replace(validSettings(""), "id: compatible", "id: compatible\n        id: other"),
+		"reasoning": replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          choices: [off, low]"),
+	}
+	for name, content := range testCases {
+		s.Run(name, func() {
+			_, err := New(writeSettings(s.T(), content)).Load()
+			s.Require().Error(err)
 		})
 	}
 }
@@ -149,7 +292,6 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 // TestLoadRejectsInvalidSettings verifies the remaining closed settings rules.
 func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 	testCases := map[string]string{
-		"unknown root field":          validSettings("extra: value"),
 		"old thinking field":          validSettings("defaultThinkingLevel: high"),
 		"missing default provider":    withoutLine(validSettings(""), "defaultProvider:"),
 		"missing default model":       withoutLine(validSettings(""), "defaultModel:"),
@@ -166,19 +308,17 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 		"relative URL":                replace(validSettings(""), "https://example.com/v1", "/v1"),
 		"non-HTTP URL":                replace(validSettings(""), "https://example.com/v1", "file:///tmp/api"),
 		"unknown API":                 replace(validSettings(""), "api: responses", "api: completions"),
-		"provider unknown field":      replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
 		"empty model ID":              replace(validSettings(""), "id: compatible", "id: ''"),
 		"duplicate model":             replace(validSettings(""), "      - id: compatible", "      - id: compatible\n        reasoning:\n          supported: false\n          choices: [off]\n          default: off\n      - id: compatible"),
 		"unknown model API":           replace(validSettings(""), "id: compatible", "id: compatible\n        api: completions"),
-		"model unknown field":         replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
 		"unknown default provider":    replace(validSettings(""), "defaultProvider: openai-codex", "defaultProvider: missing"),
 		"unknown default model":       replace(validSettings(""), "defaultModel: codex", "defaultModel: missing"),
 		"empty API key map":           validSettings("    apiKey: {}"),
+		"null API key source":         validSettings("    apiKey:\n      literal: null"),
 		"multiple API key fields":     validSettings("    apiKey:\n      environment: API_KEY\n      credential: entry"),
 		"empty literal":               validSettings("    apiKey:\n      literal: ''"),
 		"empty environment":           validSettings("    apiKey:\n      environment: ''"),
 		"empty credential":            validSettings("    apiKey:\n      credential: ''"),
-		"unknown API key field":       validSettings("    apiKey:\n      command: echo-key"),
 		"empty active UI":             replace(validSettings(""), "providers:", "activeUI: ___---\nproviders:"),
 		"multiple YAML documents":     validSettings("") + "---\n" + validSettings(""),
 		"provider ID whitespace":      replace(validSettings(""), "compatible:", "' compatible ':"),
@@ -203,6 +343,15 @@ func (s *SettingsSuite) TestLoadDecodeErrorsDoNotExposeLiteral() {
 		s.Require().Error(err)
 		s.NotContains(err.Error(), secret)
 	}
+}
+
+func decodeSettingsFile(t *testing.T, content string) settingsFile {
+	t.Helper()
+	decoder := yaml.NewDecoder(strings.NewReader(content))
+	decoder.KnownFields(true)
+	var decoded settingsFile
+	require.NoError(t, decoder.Decode(&decoded))
+	return decoded
 }
 
 func validSettings(extra string) string {

@@ -63,7 +63,7 @@ func (s *Driver) streamResponses(
 	configured := s.models[request.Model.Model]
 	target := model.ProviderContextSource{
 		ProviderID: s.providerID, API: string(configured.api), Model: request.Model.Model,
-		CompatibilityKey: configured.reasoningCompatibilityKey,
+		CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
 	}
 	params, err := responsesParams(request, target, configured.reasoningWireFormat)
 	if err != nil {

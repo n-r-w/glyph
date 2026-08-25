@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -44,7 +45,7 @@ type Config struct {
 	API                        API
 	Models                     map[model.ID]API
 	ReasoningWireFormats       map[model.ID]string
-	ReasoningCompatibilityKeys map[model.ID]string
+	ReasoningCompatibilityKeys map[model.ID]mo.Option[string]
 	APIKey                     APIKeyResolver
 }
 
@@ -52,7 +53,7 @@ type Config struct {
 type modelConfig struct {
 	api                       API
 	reasoningWireFormat       string
-	reasoningCompatibilityKey string
+	reasoningCompatibilityKey mo.Option[string]
 }
 
 // Driver owns one immutable OpenAI-compatible provider instance.

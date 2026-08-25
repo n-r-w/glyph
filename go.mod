@@ -19,6 +19,7 @@ require (
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/openai/openai-go/v3 v3.49.0
 	github.com/samber/lo v1.53.0
+	github.com/samber/mo v1.17.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
@@ -88,7 +89,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/samber/mo v1.17.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.3 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect

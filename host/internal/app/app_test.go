@@ -24,6 +24,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/grpc"
 
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,6 @@ const (
 func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	t.Parallel()
 
-	environment := "COMPATIBLE_API_KEY"
 	configured := settingstore.Settings{
 		DefaultProvider: "a-compatible",
 		DefaultModel:    "a-second",
@@ -78,8 +78,10 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 			},
 			"a-compatible": {
 				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "https://example.com/v1",
-				API:    settingstore.APIChatCompletions,
-				APIKey: &settingstore.APIKey{Environment: &environment},
+				API: settingstore.APIChatCompletions,
+				APIKey: mo.Some(settingstore.APIKey{
+					Literal: mo.None[string](), Environment: mo.Some("COMPATIBLE_API_KEY"), Credential: mo.None[string](),
+				}),
 				Models: []settingstore.Model{
 					{ID: "a-first", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff)},
 					{ID: "a-second", API: settingstore.APIResponses, Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh)},
