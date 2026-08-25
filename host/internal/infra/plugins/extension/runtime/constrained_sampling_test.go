@@ -4,6 +4,7 @@ package runtime
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,19 +18,25 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 
 	testCases := map[string]struct {
 		descriptor    *extensionpb.ToolDescriptor
-		expected      tool.ConstrainedSampling
+		expected      mo.Option[tool.ConstrainedSampling]
 		errorContains string
 	}{
+		"constraint absent": {
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, nil),
+			expected:   mo.None[tool.ConstrainedSampling](),
+		},
 		"strict prefer": {
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER),
 				}.Build(),
 			}.Build()),
-			expected: tool.ConstrainedSampling{
-				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: tool.JSONSchemaStrictPrefer,
-				Grammar: tool.GrammarVariants{}, GrammarInputProperty: "",
-			},
+			expected: mo.Some(tool.ConstrainedSampling{
+				Kind:                 tool.ConstrainedSamplingJSONSchema,
+				JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
+				Grammar:              mo.None[tool.GrammarVariants](),
+				GrammarInputProperty: mo.None[string](),
+			}),
 		},
 		"strict require": {
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
@@ -37,10 +44,12 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
 				}.Build(),
 			}.Build()),
-			expected: tool.ConstrainedSampling{
-				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: tool.JSONSchemaStrictRequire,
-				Grammar: tool.GrammarVariants{}, GrammarInputProperty: "",
-			},
+			expected: mo.Some(tool.ConstrainedSampling{
+				Kind:                 tool.ConstrainedSamplingJSONSchema,
+				JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictRequire),
+				Grammar:              mo.None[tool.GrammarVariants](),
+				GrammarInputProperty: mo.None[string](),
+			}),
 		},
 		"strictness is required": {
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
@@ -66,11 +75,27 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 					Lark: new("start: /[a-z]+/"), Regex: new("[a-z]+"),
 				}.Build(),
 			}.Build()),
-			expected: tool.ConstrainedSampling{
-				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: 0,
-				Grammar:              tool.GrammarVariants{Lark: "start: /[a-z]+/", Regex: "[a-z]+"},
-				GrammarInputProperty: "path",
-			},
+			expected: mo.Some(tool.ConstrainedSampling{
+				Kind:                 tool.ConstrainedSamplingGrammar,
+				JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.Some(tool.GrammarVariants{
+					Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+"),
+				}),
+				GrammarInputProperty: mo.Some("path"),
+			}),
+		},
+		"grammar preserves independent variant absence": {
+			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
+				Grammar: extensionpb.GrammarConstrainedSampling_builder{Regex: new("[a-z]+")}.Build(),
+			}.Build()),
+			expected: mo.Some(tool.ConstrainedSampling{
+				Kind:                 tool.ConstrainedSamplingGrammar,
+				JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.Some(tool.GrammarVariants{
+					Lark: mo.None[string](), Regex: mo.Some("[a-z]+"),
+				}),
+				GrammarInputProperty: mo.Some("path"),
+			}),
 		},
 		"grammar rejects multiple properties": {
 			descriptor: constrainedProtoDescriptor(

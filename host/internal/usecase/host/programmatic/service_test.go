@@ -9,6 +9,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -515,8 +516,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{
 			CallID: "call", ToolName: "tool",
 			Contents: []tool.ResultContent{
-				{Kind: tool.ResultContentText, Text: "output"},
-				{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}},
+				{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()},
+				{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}})},
 			},
 		}},
 	}
@@ -533,7 +534,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Equal(controller.ModelResponseContentReasoning, response.Messages[1].Model.Content[1].Kind)
 	s.Equal([]byte{1, 2}, response.Messages[2].ToolResult.Contents[1].Image.Data)
 	response.Messages[2].ToolResult.Contents[1].Image.Data[0] = 9
-	s.Equal(byte(1), history[2].ToolResult.Contents[1].Image.Data[0])
+	s.Equal(byte(1), history[2].ToolResult.Contents[1].Image.OrEmpty().Data[0])
 }
 
 // TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.

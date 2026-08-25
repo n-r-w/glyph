@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -172,11 +173,12 @@ func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 	event := emptyTestLifecycle()
 	event.Type = domainui.LifecycleToolResult
 	event.ToolResultContents = []tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: "first"},
-		{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}},
+		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
+		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}})},
 	}
 	mapped := mapLifecycle(event).GetToolResultContents()
-	event.ToolResultContents[1].Image.Data[0] = 9
+	image := event.ToolResultContents[1].Image.OrEmpty()
+	image.Data[0] = 9
 
 	require.Len(t, mapped, 2)
 	assert.Equal(t, "first", mapped[0].GetText())

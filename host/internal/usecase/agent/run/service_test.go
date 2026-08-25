@@ -9,6 +9,7 @@ import (
 	"testing/synctest"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
@@ -312,7 +313,7 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 			require.Len(t, request.History, 4)
 			assert.Equal(t, "failed", request.History[2].ToolResult.CallID)
 			assert.True(t, request.History[2].ToolResult.IsError)
-			require.ErrorContains(t, errors.New(request.History[2].ToolResult.Contents[0].Text), "tool operation failed")
+			require.ErrorContains(t, errors.New(request.History[2].ToolResult.Contents[0].Text.OrEmpty()), "tool operation failed")
 			assert.Equal(t, "succeeded", request.History[3].ToolResult.CallID)
 			return emitStream(update, stop, nil)
 		},
@@ -613,7 +614,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		projected := service.ProjectHistory()
 		require.Len(t, projected, 4)
 		assert.Equal(t, "skipped", projected[3].ToolResult.CallID)
-		assert.Equal(t, skippedCallError, projected[3].ToolResult.Contents[0].Text)
+		assert.Equal(t, skippedCallError, projected[3].ToolResult.Contents[0].Text.OrEmpty())
 		assert.Len(t, service.History(), 3)
 	})
 }
@@ -885,4 +886,21 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	assert.Equal(t, failedModelMessage, history[1].Model.ErrorMessage)
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.Diagnostics)
 	assert.Equal(t, []agent.HistoryEntry{history[0]}, service.ProjectHistory())
+}
+
+// TestCloneToolResultClonesImageBytesInsideOption verifies history snapshots do not share mutable image data.
+func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {
+	t.Parallel()
+
+	original := agent.ToolResult{Contents: []tool.ResultContent{{
+		Kind:  tool.ResultContentImage,
+		Text:  mo.None[string](),
+		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
+	}}}
+	cloned := cloneToolResult(original)
+	image, ok := cloned.Contents[0].Image.Get()
+	require.True(t, ok)
+	image.Data[0] = 9
+
+	assert.Equal(t, byte(1), original.Contents[0].Image.OrEmpty().Data[0])
 }

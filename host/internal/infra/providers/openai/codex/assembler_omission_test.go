@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -106,7 +107,7 @@ func TestDriverStreamRejectsConflictingFinalizedFunctionArguments(t *testing.T) 
 func TestDriverStreamRejectsConflictingFinalizedCustomInput(t *testing.T) {
 	t.Parallel()
 
-	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: "", Regex: "[a-z]+"})
+	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
 		`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
 		`{"type":"response.custom_tool_call_input.done","output_index":0,"item_id":"ctc-1","input":"approved"}`,
@@ -151,7 +152,7 @@ func TestDriverStreamRejectsInvalidTerminalFunctionArguments(t *testing.T) {
 func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 	t.Parallel()
 
-	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: "", Regex: "[a-z]+"})
+	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
 		`{"type":"response.custom_tool_call_input.delta","output_index":0,"delta":"ab"}`,
 		`{"type":"response.output_item.done","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"abc","status":"completed"}}`,
@@ -169,7 +170,7 @@ func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 	t.Parallel()
 
-	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: "", Regex: "[a-z]+"})
+	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
 		`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
 		`{"type":"response.custom_tool_call_input.delta","output_index":0,"delta":"ab"}`,

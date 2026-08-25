@@ -9,6 +9,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -127,7 +128,7 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	late, err := service.Execute(t.Context(), call, discardProgress)
 	require.NoError(t, err)
 	assert.True(t, late.IsError)
-	assert.ErrorContains(t, errors.New(late.Contents[0].Text), "unavailable")
+	assert.ErrorContains(t, errors.New(late.Contents[0].Text.OrEmpty()), "unavailable")
 }
 
 // TestServiceExecutePreservesRuntimeOnProgressDeliveryFailure keeps a healthy owner registered.
@@ -240,7 +241,7 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	)
 	result, executeErr := service.Execute(t.Context(), model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, discardProgress)
 	require.NoError(t, executeErr)
-	assert.Equal(t, "ok", result.Contents[0].Text)
+	assert.Equal(t, "ok", result.Contents[0].Text.OrEmpty())
 	healthy.EXPECT().Close()
 	service.Close()
 }
@@ -501,10 +502,7 @@ func TestServiceSuite(t *testing.T) {
 func testDescriptor(name string) tool.Descriptor {
 	return tool.Descriptor{
 		Name: name, Description: "test tool", InputSchemaJSON: []byte(`{}`),
-		ConstrainedSampling: tool.ConstrainedSampling{
-			Kind: 0, JSONSchemaStrictness: 0,
-			Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
-		},
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 	}
 }
 

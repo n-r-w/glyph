@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -51,34 +52,34 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 			errorContains: "requires JSON Schema constrained sampling",
 		},
 		"grammar chooses lark before regex": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: "start: /[a-z]+/", Regex: "[a-z]+"}),
+			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")}),
 			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
 			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"lark","definition":"start: /[a-z]+/"}}]`,
 		},
 		"grammar uses regex when lark is empty": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Regex: "[a-z]+"}),
+			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+")}),
 			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
 			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
 		},
 		"grammar chooses a format supported by the model": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: "start: /[a-z]+/", Regex: "[a-z]+"}),
+			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")}),
 			capabilities: toolCapabilities{strict: true, lark: false, regex: true},
 			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
 		},
 		"grammar rejects when offered formats are unsupported": {
-			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Lark: "start: /[a-z]+/"}),
+			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/")}),
 			capabilities:  toolCapabilities{strict: true, lark: false, regex: true},
 			errorContains: "no supported grammar variant",
 		},
 		"grammar rejects unsupported mode": {
-			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Regex: "[a-z]+"}),
+			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+")}),
 			capabilities:  toolCapabilities{strict: true, lark: false, regex: false},
 			errorContains: "requires grammar constrained sampling",
 		},
 		"grammar requires a nonempty variant": {
 			descriptor: tool.Descriptor{
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingGrammar},
+				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingGrammar}),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "no supported grammar variant",
@@ -86,7 +87,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 		"JSON Schema requires valid strictness": {
 			descriptor: tool.Descriptor{
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingJSONSchema},
+				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingJSONSchema}),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid JSON Schema strictness",
@@ -94,7 +95,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 		"constraint kind must be known": {
 			descriptor: tool.Descriptor{
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingKind(99)},
+				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingKind(99)}),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid constrained sampling kind",
@@ -177,11 +178,12 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			constraint := tool.ConstrainedSampling{
-				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: testCase.strictness,
-			}
+			constraint := mo.Some(tool.ConstrainedSampling{
+				Kind:                 tool.ConstrainedSamplingJSONSchema,
+				JSONSchemaStrictness: mo.Some(testCase.strictness),
+			})
 			if testCase.unconstrained {
-				constraint = tool.ConstrainedSampling{}
+				constraint = mo.None[tool.ConstrainedSampling]()
 			}
 			descriptor := tool.Descriptor{
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(testCase.schema),
@@ -253,7 +255,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: "[a-z]+"})
+	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+")})
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryModel, Model: model.Response{Content: []model.Content{{
 			Kind:     model.ContentToolCall,
@@ -387,7 +389,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: selectedModel,
-		Tools: []tool.Descriptor{constrainedDescriptor(0, tool.GrammarVariants{Lark: "start: /[a-z]+/"})},
+		Tools: []tool.Descriptor{constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/")})},
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -435,17 +437,21 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 
 func constrainedDescriptor(strictness tool.JSONSchemaStrictness, variants tool.GrammarVariants) tool.Descriptor {
 	constraint := tool.ConstrainedSampling{
-		Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: strictness,
-		Grammar: tool.GrammarVariants{}, GrammarInputProperty: "",
+		Kind:                 tool.ConstrainedSamplingJSONSchema,
+		JSONSchemaStrictness: mo.Some(strictness),
+		Grammar:              mo.None[tool.GrammarVariants](),
+		GrammarInputProperty: mo.None[string](),
 	}
 	if variants != (tool.GrammarVariants{}) {
 		constraint = tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: 0,
-			Grammar: variants, GrammarInputProperty: "payload",
+			Kind:                 tool.ConstrainedSamplingGrammar,
+			JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar:              mo.Some(variants),
+			GrammarInputProperty: mo.Some("payload"),
 		}
 	}
 	return tool.Descriptor{
 		Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-		ConstrainedSampling: constraint,
+		ConstrainedSampling: mo.Some(constraint),
 	}
 }

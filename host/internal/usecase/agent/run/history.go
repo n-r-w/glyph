@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -38,7 +39,12 @@ func cloneHistoryEntry(entry agent.HistoryEntry) agent.HistoryEntry {
 func cloneToolResult(result agent.ToolResult) agent.ToolResult {
 	result.Contents = slices.Clone(result.Contents)
 	for index := range result.Contents {
-		result.Contents[index].Image.Data = bytes.Clone(result.Contents[index].Image.Data)
+		image, ok := result.Contents[index].Image.Get()
+		if !ok {
+			continue
+		}
+		image.Data = bytes.Clone(image.Data)
+		result.Contents[index].Image = mo.Some(image)
 	}
 	return result
 }

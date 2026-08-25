@@ -388,10 +388,12 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 	return lo.FilterMap(contents, func(content tool.ResultContent, _ int) (*uipb.ToolResultContent, bool) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			return uipb.ToolResultContent_builder{Text: new(content.Text)}.Build(), true
+			text := content.Text.OrEmpty()
+			return uipb.ToolResultContent_builder{Text: &text}.Build(), true
 		case tool.ResultContentImage:
+			image := content.Image.OrEmpty()
 			return uipb.ToolResultContent_builder{Image: uipb.ToolResultImage_builder{
-				MediaType: new(content.Image.MediaType), Data: bytes.Clone(content.Image.Data),
+				MediaType: &image.MediaType, Data: bytes.Clone(image.Data),
 			}.Build()}.Build(), true
 		}
 		return nil, false

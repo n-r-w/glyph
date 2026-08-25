@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,9 +16,9 @@ func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {
 	t.Parallel()
 
 	contents, err := functionOutputContents([]tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: "first", Image: tool.ResultImage{MediaType: "", Data: nil}},
-		{Kind: tool.ResultContentImage, Text: "", Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}}},
-		{Kind: tool.ResultContentText, Text: "last", Image: tool.ResultImage{MediaType: "", Data: nil}},
+		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
+		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}})},
+		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
 	})
 	require.NoError(t, err)
 
@@ -35,9 +36,9 @@ func TestCustomOutputContentsPreservesTextImageOrder(t *testing.T) {
 	t.Parallel()
 
 	contents, err := customOutputContents([]tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: "first", Image: tool.ResultImage{MediaType: "", Data: nil}},
-		{Kind: tool.ResultContentImage, Text: "", Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}}},
-		{Kind: tool.ResultContentText, Text: "last", Image: tool.ResultImage{MediaType: "", Data: nil}},
+		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
+		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}})},
+		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
 	})
 	require.NoError(t, err)
 

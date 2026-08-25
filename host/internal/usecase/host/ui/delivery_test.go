@@ -6,6 +6,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -189,4 +190,21 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 	require.Len(t, frames, 2)
 	assert.Equal(t, domainui.LifecycleAgentEnd, frames[0].Lifecycle.Type)
 	assert.Equal(t, domainui.LifecycleAgentSettled, frames[1].Lifecycle.Type)
+}
+
+// TestCloneResultContentsClonesImageBytesInsideOption verifies lifecycle frames do not share mutable image data.
+func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
+	t.Parallel()
+
+	original := []tool.ResultContent{{
+		Kind:  tool.ResultContentImage,
+		Text:  mo.None[string](),
+		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
+	}}
+	cloned := cloneResultContents(original)
+	image, ok := cloned[0].Image.Get()
+	require.True(t, ok)
+	image.Data[0] = 9
+
+	assert.Equal(t, byte(1), original[0].Image.OrEmpty().Data[0])
 }

@@ -248,12 +248,13 @@ func chatToolResult(contents []tool.ResultContent) (string, error) {
 	parts, err := lo.MapErr(contents, func(content tool.ResultContent, index int) (string, error) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			return content.Text, nil
+			return content.Text.OrEmpty(), nil
 		case tool.ResultContentImage:
-			if content.Image.MediaType == "" || len(content.Image.Data) == 0 {
+			image := content.Image.OrEmpty()
+			if image.MediaType == "" || len(image.Data) == 0 {
 				return "", fmt.Errorf("tool result image %d requires media type and data", index)
 			}
-			return dataURL(content.Image.MediaType, content.Image.Data), nil
+			return dataURL(image.MediaType, image.Data), nil
 		default:
 			return "", fmt.Errorf("unsupported tool result content kind %d", content.Kind)
 		}

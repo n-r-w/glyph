@@ -137,11 +137,12 @@ func (r *Renderer) writeToolResult(contents []tool.ResultContent) error {
 	for _, content := range contents {
 		switch content.Kind {
 		case tool.ResultContentText:
-			if err := writePrefixed(r.stderr, "[tool:result] ", content.Text); err != nil {
+			if err := writePrefixed(r.stderr, "[tool:result] ", content.Text.OrEmpty()); err != nil {
 				return err
 			}
 		case tool.ResultContentImage:
-			if err := writePrefixed(r.stderr, "[tool:result] ", "image omitted: "+content.Image.MediaType); err != nil {
+			message := "image omitted: " + content.Image.OrEmpty().MediaType
+			if err := writePrefixed(r.stderr, "[tool:result] ", message); err != nil {
 				return err
 			}
 		}

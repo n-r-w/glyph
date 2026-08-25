@@ -77,13 +77,14 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 			var empty responses.ResponseFunctionCallOutputItemUnionParam
 			switch content.Kind {
 			case tool.ResultContentText:
-				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text), nil
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
 			case tool.ResultContentImage:
-				if content.Image.MediaType == "" {
+				image := content.Image.OrEmpty()
+				if image.MediaType == "" {
 					return empty, fmt.Errorf("tool result image %d has no media type", index)
 				}
-				dataURL := "data:" + content.Image.MediaType + ";base64," +
-					base64.StdEncoding.EncodeToString(content.Image.Data)
+				dataURL := "data:" + image.MediaType + ";base64," +
+					base64.StdEncoding.EncodeToString(image.Data)
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(dataURL)},
 				}, nil
@@ -107,13 +108,14 @@ func customOutputContents(
 		switch content.Kind {
 		case tool.ResultContentText:
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
-				OfInputText: &responses.ResponseInputTextParam{Text: content.Text},
+				OfInputText: &responses.ResponseInputTextParam{Text: content.Text.OrEmpty()},
 			}, nil
 		case tool.ResultContentImage:
-			if content.Image.MediaType == "" {
+			image := content.Image.OrEmpty()
+			if image.MediaType == "" {
 				return empty, fmt.Errorf("tool result image %d has no media type", index)
 			}
-			dataURL := "data:" + content.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(content.Image.Data)
+			dataURL := "data:" + image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputImage: &responses.ResponseInputImageParam{ImageURL: param.NewOpt(dataURL)},
 			}, nil
@@ -241,7 +243,7 @@ type toolCapabilities struct {
 func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([]responses.ToolUnionParam, error) {
 	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, _ int) (responses.ToolUnionParam, error) {
 		var empty responses.ToolUnionParam
-		constraint := descriptor.ConstrainedSampling
+		constraint := descriptor.ConstrainedSampling.OrEmpty()
 		if constraint.Kind == tool.ConstrainedSamplingGrammar {
 			if !capabilities.lark && !capabilities.regex {
 				return empty, fmt.Errorf(
@@ -249,7 +251,7 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 					descriptor.Name,
 				)
 			}
-			definition, syntax := preferredGrammar(constraint.Grammar, capabilities)
+			definition, syntax := preferredGrammar(constraint.Grammar.OrEmpty(), capabilities)
 			if definition == "" {
 				return empty, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
@@ -297,7 +299,7 @@ func codexStrict(
 	if constraint.Kind != tool.ConstrainedSamplingJSONSchema {
 		return false, fmt.Errorf("tool %q has invalid constrained sampling kind", toolName)
 	}
-	switch constraint.JSONSchemaStrictness {
+	switch constraint.JSONSchemaStrictness.OrEmpty() {
 	case tool.JSONSchemaStrictPrefer:
 		return strict, nil
 	case tool.JSONSchemaStrictRequire:
@@ -384,9 +386,11 @@ func codexStrictObjectSchema(schema map[string]any) bool {
 // grammarInputProperties indexes custom input properties for request replay and stream conversion.
 func grammarInputProperties(descriptors []tool.Descriptor) map[string]string {
 	properties := make(map[string]string)
-	for _, descriptor := range descriptors {
-		if descriptor.ConstrainedSampling.Kind == tool.ConstrainedSamplingGrammar {
-			properties[descriptor.Name] = descriptor.ConstrainedSampling.GrammarInputProperty
+	for index := range descriptors {
+		descriptor := &descriptors[index]
+		constraint := descriptor.ConstrainedSampling.OrEmpty()
+		if constraint.Kind == tool.ConstrainedSamplingGrammar {
+			properties[descriptor.Name] = constraint.GrammarInputProperty.OrEmpty()
 		}
 	}
 	return properties
@@ -394,11 +398,11 @@ func grammarInputProperties(descriptors []tool.Descriptor) map[string]string {
 
 // preferredGrammar selects the first model-supported nonempty format in provider preference order.
 func preferredGrammar(variants tool.GrammarVariants, capabilities toolCapabilities) (definition, syntax string) {
-	if capabilities.lark && strings.TrimSpace(variants.Lark) != "" {
-		return variants.Lark, "lark"
+	if lark, ok := variants.Lark.Get(); capabilities.lark && ok && strings.TrimSpace(lark) != "" {
+		return lark, "lark"
 	}
-	if capabilities.regex && strings.TrimSpace(variants.Regex) != "" {
-		return variants.Regex, "regex"
+	if regex, ok := variants.Regex.Get(); capabilities.regex && ok && strings.TrimSpace(regex) != "" {
+		return regex, "regex"
 	}
 	return "", ""
 }

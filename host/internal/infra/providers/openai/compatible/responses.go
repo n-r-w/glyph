@@ -276,12 +276,13 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 			var empty responses.ResponseFunctionCallOutputItemUnionParam
 			switch content.Kind {
 			case tool.ResultContentText:
-				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text), nil
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
 			case tool.ResultContentImage:
-				if content.Image.MediaType == "" || len(content.Image.Data) == 0 {
+				image := content.Image.OrEmpty()
+				if image.MediaType == "" || len(image.Data) == 0 {
 					return empty, fmt.Errorf("tool result image %d requires media type and data", index)
 				}
-				imageURL := dataURL(content.Image.MediaType, content.Image.Data)
+				imageURL := dataURL(image.MediaType, image.Data)
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(imageURL)},
 				}, nil

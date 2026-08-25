@@ -140,8 +140,8 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 	for id, state := range states {
 		s.runtimes[id] = state
 		if state.available {
-			for _, descriptor := range state.tools {
-				s.owners[descriptor.Name] = toolOwner{pluginID: id, state: state}
+			for index := range state.tools {
+				s.owners[state.tools[index].Name] = toolOwner{pluginID: id, state: state}
 			}
 		}
 	}
@@ -287,8 +287,8 @@ func (s *Service) disableLocked(state *runtimeState) bool {
 		return false
 	}
 	state.available = false
-	for _, descriptor := range state.tools {
-		delete(s.owners, descriptor.Name)
+	for index := range state.tools {
+		delete(s.owners, state.tools[index].Name)
 	}
 	return true
 }
@@ -308,8 +308,9 @@ func (s *Service) report(ctx context.Context, failure tool.RuntimeFailure) {
 func findConflicts(states map[string]*runtimeState) map[string][]string {
 	owners := make(map[string][]string)
 	for id, state := range states {
-		for _, descriptor := range state.tools {
-			owners[descriptor.Name] = append(owners[descriptor.Name], id)
+		for index := range state.tools {
+			name := state.tools[index].Name
+			owners[name] = append(owners[name], id)
 		}
 	}
 	conflicts := make(map[string][]string)

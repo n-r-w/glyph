@@ -148,15 +148,16 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 			switch content.Kind {
 			case tool.ResultContentText:
 				return controller.ToolResultContent{
-					Kind: controller.ToolResultContentText, Text: content.Text,
+					Kind: controller.ToolResultContentText, Text: content.Text.OrEmpty(),
 					Image: controller.ToolResultImage{MediaType: "", Data: nil},
 				}, true
 			case tool.ResultContentImage:
+				image := content.Image.OrEmpty()
 				return controller.ToolResultContent{
 					Kind: controller.ToolResultContentImage, Text: "",
 					Image: controller.ToolResultImage{
-						MediaType: content.Image.MediaType,
-						Data:      bytes.Clone(content.Image.Data),
+						MediaType: image.MediaType,
+						Data:      bytes.Clone(image.Data),
 					},
 				}, true
 			}

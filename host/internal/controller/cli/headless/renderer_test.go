@@ -10,6 +10,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -112,9 +113,9 @@ func TestRendererRendersTypedToolResultContents(t *testing.T) {
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
 	err := renderer.DeliverAgent(t.Context(), run.Event{Type: run.EventToolResult, ToolResult: agent.ToolResult{
 		Contents: []tool.ResultContent{
-			{Kind: tool.ResultContentText, Text: "first"},
-			{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1}}},
-			{Kind: tool.ResultContentText, Text: "last"},
+			{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
+			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1}})},
+			{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
 		},
 	}})
 	require.NoError(t, err)

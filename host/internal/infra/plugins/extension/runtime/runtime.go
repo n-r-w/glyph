@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -243,25 +244,31 @@ func validateCatalog(
 	return tools, schemas, nil
 }
 
-// mapConstrainedSampling validates the public constraint and produces one Host-owned descriptor.
+// mapConstrainedSampling validates the public constraint and preserves its presence.
 func mapConstrainedSampling(
 	descriptor *extensionpb.ToolDescriptor,
 	schemaJSON []byte,
-) (tool.ConstrainedSampling, error) {
+) (mo.Option[tool.ConstrainedSampling], error) {
 	constraint := descriptor.GetConstrainedSampling()
 	if constraint == nil {
-		return emptyConstrainedSampling(), nil
+		return mo.None[tool.ConstrainedSampling](), nil
 	}
+	var mapped tool.ConstrainedSampling
+	var err error
 	switch constraint.WhichConfig() {
 	case extensionpb.ConstrainedSampling_JsonSchema_case:
-		return mapJSONSchemaSampling(constraint.GetJsonSchema())
+		mapped, err = mapJSONSchemaSampling(constraint.GetJsonSchema())
 	case extensionpb.ConstrainedSampling_Grammar_case:
-		return mapGrammarSampling(constraint.GetGrammar(), schemaJSON)
+		mapped, err = mapGrammarSampling(constraint.GetGrammar(), schemaJSON)
 	case extensionpb.ConstrainedSampling_Config_not_set_case:
-		return emptyConstrainedSampling(), errors.New("config is missing")
+		err = errors.New("config is missing")
 	default:
-		return emptyConstrainedSampling(), errors.New("config is invalid")
+		err = errors.New("config is invalid")
 	}
+	if err != nil {
+		return mo.None[tool.ConstrainedSampling](), err
+	}
+	return mo.Some(mapped), nil
 }
 
 // mapJSONSchemaSampling converts the closed public strictness enum.
@@ -269,7 +276,7 @@ func mapJSONSchemaSampling(
 	config *extensionpb.JsonSchemaConstrainedSampling,
 ) (tool.ConstrainedSampling, error) {
 	if config == nil {
-		return emptyConstrainedSampling(), errors.New("JSON Schema config is missing")
+		return tool.ConstrainedSampling{}, errors.New("JSON Schema config is missing")
 	}
 	var strictness tool.JSONSchemaStrictness
 	switch config.GetStrictness() {
@@ -278,13 +285,15 @@ func mapJSONSchemaSampling(
 	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE:
 		strictness = tool.JSONSchemaStrictRequire
 	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED:
-		return emptyConstrainedSampling(), errors.New("JSON Schema strictness is unspecified")
+		return tool.ConstrainedSampling{}, errors.New("JSON Schema strictness is unspecified")
 	default:
-		return emptyConstrainedSampling(), errors.New("JSON Schema strictness is invalid")
+		return tool.ConstrainedSampling{}, errors.New("JSON Schema strictness is invalid")
 	}
 	return tool.ConstrainedSampling{
-		Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: strictness,
-		Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
+		Kind:                 tool.ConstrainedSamplingJSONSchema,
+		JSONSchemaStrictness: mo.Some(strictness),
+		Grammar:              mo.None[tool.GrammarVariants](),
+		GrammarInputProperty: mo.None[string](),
 	}, nil
 }
 
@@ -294,37 +303,38 @@ func mapGrammarSampling(
 	schemaJSON []byte,
 ) (tool.ConstrainedSampling, error) {
 	if config == nil {
-		return emptyConstrainedSampling(), errors.New("grammar config is missing")
+		return tool.ConstrainedSampling{}, errors.New("grammar config is missing")
 	}
-	if strings.TrimSpace(config.GetLark()) == "" && strings.TrimSpace(config.GetRegex()) == "" {
-		return emptyConstrainedSampling(), errors.New("grammar requires at least one nonempty grammar variant")
+	lark := mo.None[string]()
+	if config.HasLark() {
+		lark = mo.Some(config.GetLark())
+	}
+	regex := mo.None[string]()
+	if config.HasRegex() {
+		regex = mo.Some(config.GetRegex())
+	}
+	if strings.TrimSpace(lark.OrEmpty()) == "" && strings.TrimSpace(regex.OrEmpty()) == "" {
+		return tool.ConstrainedSampling{}, errors.New("grammar requires at least one nonempty grammar variant")
 	}
 	var schema struct {
 		Properties map[string]json.RawMessage `json:"properties"`
 		Required   []string                   `json:"required"`
 	}
 	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
-		return emptyConstrainedSampling(), fmt.Errorf("parse grammar schema: %w", err)
+		return tool.ConstrainedSampling{}, fmt.Errorf("parse grammar schema: %w", err)
 	}
 	if len(schema.Properties) != 1 || len(schema.Required) != 1 || schema.Required[0] == "" {
-		return emptyConstrainedSampling(), errors.New("grammar schema must have exactly one required string property")
+		return tool.ConstrainedSampling{}, errors.New("grammar schema must have exactly one required string property")
 	}
 	if _, exists := schema.Properties[schema.Required[0]]; !exists {
-		return emptyConstrainedSampling(), errors.New("grammar schema must have exactly one required string property")
+		return tool.ConstrainedSampling{}, errors.New("grammar schema must have exactly one required string property")
 	}
 	return tool.ConstrainedSampling{
-		Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: 0,
-		Grammar:              tool.GrammarVariants{Lark: config.GetLark(), Regex: config.GetRegex()},
-		GrammarInputProperty: schema.Required[0],
+		Kind:                 tool.ConstrainedSamplingGrammar,
+		JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+		Grammar:              mo.Some(tool.GrammarVariants{Lark: lark, Regex: regex}),
+		GrammarInputProperty: mo.Some(schema.Required[0]),
 	}, nil
-}
-
-// emptyConstrainedSampling returns the provider-neutral absence of a constraint.
-func emptyConstrainedSampling() tool.ConstrainedSampling {
-	return tool.ConstrainedSampling{
-		Kind: 0, JSONSchemaStrictness: 0,
-		Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
-	}
 }
 
 // compileToolSchema compiles a Draft 2020-12 object schema for tool arguments.
@@ -384,7 +394,7 @@ func mapResultContents(contents []*extensionpb.ToolResultContent) ([]tool.Result
 		switch content.WhichContent() {
 		case extensionpb.ToolResultContent_Text_case:
 			return tool.ResultContent{
-				Kind: tool.ResultContentText, Text: content.GetText(), Image: tool.ResultImage{MediaType: "", Data: nil},
+				Kind: tool.ResultContentText, Text: mo.Some(content.GetText()), Image: mo.None[tool.ResultImage](),
 			}, nil
 		case extensionpb.ToolResultContent_Image_case:
 			image := content.GetImage()
@@ -392,9 +402,9 @@ func mapResultContents(contents []*extensionpb.ToolResultContent) ([]tool.Result
 				return tool.ResultContent{}, fmt.Errorf("result image %d is invalid", index)
 			}
 			return tool.ResultContent{
-				Kind: tool.ResultContentImage, Text: "", Image: tool.ResultImage{
+				Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{
 					MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
-				},
+				}),
 			}, nil
 		case extensionpb.ToolResultContent_Content_not_set_case:
 			return tool.ResultContent{}, fmt.Errorf("result content %d is missing", index)

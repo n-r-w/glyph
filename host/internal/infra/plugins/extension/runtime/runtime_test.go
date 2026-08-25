@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -165,7 +166,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.True(t, bashResult.IsError)
-	assert.Equal(t, strings.Join(bashFragments, "")+"\n\n[Exit code: 7]\n", bashResult.Contents[0].Text)
+	assert.Equal(t, strings.Join(bashFragments, "")+"\n\n[Exit code: 7]\n", bashResult.Contents[0].Text.OrEmpty())
 	assert.Contains(t, bashProgress, tool.ProgressChannelStatus)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStdout)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStderr)
@@ -275,9 +276,9 @@ func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, []tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: "first"},
-		{Kind: tool.ResultContentImage, Image: tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2, 3}}},
-		{Kind: tool.ResultContentText, Text: "last"},
+		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
+		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2, 3}})},
+		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
 	}, contents)
 }
 

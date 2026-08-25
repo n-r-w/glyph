@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,7 +29,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	}
 	toolResult := agent.ToolResult{
 		CallID: "call", ToolName: "tool",
-		Contents: []tool.ResultContent{{Kind: tool.ResultContentText, Text: "output"}},
+		Contents: []tool.ResultContent{{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()}},
 	}
 	tests := []struct {
 		name     string

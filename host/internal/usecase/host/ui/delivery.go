@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
@@ -183,7 +184,12 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
 	cloned := slices.Clone(contents)
 	for index := range cloned {
-		cloned[index].Image.Data = bytes.Clone(cloned[index].Image.Data)
+		image, ok := cloned[index].Image.Get()
+		if !ok {
+			continue
+		}
+		image.Data = bytes.Clone(image.Data)
+		cloned[index].Image = mo.Some(image)
 	}
 	return cloned
 }

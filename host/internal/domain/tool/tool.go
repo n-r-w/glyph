@@ -1,14 +1,18 @@
 // Package tool defines provider-neutral tools and their execution values.
 package tool
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/samber/mo"
+)
 
 // Descriptor describes one model-callable tool.
 type Descriptor struct {
 	Name                string
 	Description         string
 	InputSchemaJSON     []byte
-	ConstrainedSampling ConstrainedSampling
+	ConstrainedSampling mo.Option[ConstrainedSampling]
 }
 
 // ResultContentKind identifies one terminal tool result content block.
@@ -30,8 +34,8 @@ type ResultImage struct {
 // ResultContent is one ordered terminal tool result content block.
 type ResultContent struct {
 	Kind  ResultContentKind
-	Text  string
-	Image ResultImage
+	Text  mo.Option[string]
+	Image mo.Option[ResultImage]
 }
 
 // ConstrainedSamplingKind identifies one provider-neutral constrained generation request.
@@ -56,16 +60,16 @@ const (
 
 // GrammarVariants contains equivalent grammar definitions for supported formats.
 type GrammarVariants struct {
-	Lark  string
-	Regex string
+	Lark  mo.Option[string]
+	Regex mo.Option[string]
 }
 
 // ConstrainedSampling describes one optional provider-side input constraint.
 type ConstrainedSampling struct {
 	Kind                 ConstrainedSamplingKind
-	JSONSchemaStrictness JSONSchemaStrictness
-	Grammar              GrammarVariants
-	GrammarInputProperty string
+	JSONSchemaStrictness mo.Option[JSONSchemaStrictness]
+	Grammar              mo.Option[GrammarVariants]
+	GrammarInputProperty mo.Option[string]
 }
 
 // ProgressChannel identifies the meaning of one progress fragment.
@@ -95,7 +99,7 @@ type Result struct {
 // TextContents creates one text result content block.
 func TextContents(text string) []ResultContent {
 	return []ResultContent{{
-		Kind: ResultContentText, Text: text, Image: ResultImage{MediaType: "", Data: nil},
+		Kind: ResultContentText, Text: mo.Some(text), Image: mo.None[ResultImage](),
 	}}
 }
 

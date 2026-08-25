@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -147,10 +148,7 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 func testStartupDescriptor(name string) tool.Descriptor {
 	return tool.Descriptor{
 		Name: name, Description: name, InputSchemaJSON: []byte(`{}`),
-		ConstrainedSampling: tool.ConstrainedSampling{
-			Kind: 0, JSONSchemaStrictness: 0,
-			Grammar: tool.GrammarVariants{Lark: "", Regex: ""}, GrammarInputProperty: "",
-		},
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 	}
 }
 
