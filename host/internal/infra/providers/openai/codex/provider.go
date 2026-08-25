@@ -16,6 +16,7 @@ import (
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
+	"github.com/samber/lo"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
@@ -305,10 +306,9 @@ func modelResponse(
 
 // modelReasoningContent converts visible summary text and attaches only usable replay context.
 func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Content, error) {
-	summary := make([]string, len(reasoning.Summary))
-	for index, item := range reasoning.Summary {
-		summary[index] = item.Text
-	}
+	summary := lo.Map(reasoning.Summary, func(item responses.ResponseReasoningItemSummary, _ int) string {
+		return item.Text
+	})
 	visible := model.Content{
 		Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
 		ProviderContext: model.ProviderContext{

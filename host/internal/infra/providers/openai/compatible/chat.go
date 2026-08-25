@@ -13,6 +13,7 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
+	"github.com/samber/lo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -167,23 +168,25 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 }
 
 func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartUnionParam, error) {
-	content := make([]openai.ChatCompletionContentPartUnionParam, 0, len(message.Content))
-	for index, item := range message.Content {
-		switch item.Kind {
-		case model.InputContentText:
-			content = append(content, openai.TextContentPart(item.Text))
-		case model.InputContentImage:
-			if item.MediaType == "" || len(item.Data) == 0 {
-				return nil, fmt.Errorf("user image %d requires media type and data", index)
+	return lo.MapErr(
+		message.Content,
+		func(item model.InputContent, index int) (openai.ChatCompletionContentPartUnionParam, error) {
+			var empty openai.ChatCompletionContentPartUnionParam
+			switch item.Kind {
+			case model.InputContentText:
+				return openai.TextContentPart(item.Text), nil
+			case model.InputContentImage:
+				if item.MediaType == "" || len(item.Data) == 0 {
+					return empty, fmt.Errorf("user image %d requires media type and data", index)
+				}
+				return openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+					URL: dataURL(item.MediaType, item.Data),
+				}), nil
+			default:
+				return empty, fmt.Errorf("unsupported user content kind %d", item.Kind)
 			}
-			content = append(content, openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-				URL: dataURL(item.MediaType, item.Data),
-			}))
-		default:
-			return nil, fmt.Errorf("unsupported user content kind %d", item.Kind)
-		}
-	}
-	return content, nil
+		},
+	)
 }
 
 func chatAssistantMessage(
@@ -242,41 +245,44 @@ func chatAssistantMessage(
 }
 
 func chatToolResult(contents []tool.ResultContent) (string, error) {
-	parts := make([]string, 0, len(contents))
-	for index, content := range contents {
+	parts, err := lo.MapErr(contents, func(content tool.ResultContent, index int) (string, error) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			parts = append(parts, content.Text)
+			return content.Text, nil
 		case tool.ResultContentImage:
 			if content.Image.MediaType == "" || len(content.Image.Data) == 0 {
 				return "", fmt.Errorf("tool result image %d requires media type and data", index)
 			}
-			parts = append(parts, dataURL(content.Image.MediaType, content.Image.Data))
+			return dataURL(content.Image.MediaType, content.Image.Data), nil
 		default:
 			return "", fmt.Errorf("unsupported tool result content kind %d", content.Kind)
 		}
+	})
+	if err != nil {
+		return "", err
 	}
 	return strings.Join(parts, "\n"), nil
 }
 
 func chatTools(descriptors []tool.Descriptor, strictSupported bool) ([]openai.ChatCompletionToolUnionParam, error) {
-	tools := make([]openai.ChatCompletionToolUnionParam, 0, len(descriptors))
-	for index, descriptor := range descriptors {
-		var schema map[string]any
-		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-			return nil, fmt.Errorf("tool %d has invalid input schema: %w", index, err)
-		}
-		definition := shared.FunctionDefinitionParam{
-			Name:        descriptor.Name,
-			Description: param.NewOpt(descriptor.Description),
-			Parameters:  schema,
-		}
-		if strictSupported {
-			definition.Strict = param.NewOpt(true)
-		}
-		tools = append(tools, openai.ChatCompletionFunctionTool(definition))
-	}
-	return tools, nil
+	return lo.MapErr(
+		descriptors,
+		func(descriptor tool.Descriptor, index int) (openai.ChatCompletionToolUnionParam, error) {
+			var schema map[string]any
+			if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
+				return openai.ChatCompletionToolUnionParam{}, fmt.Errorf("tool %d has invalid input schema: %w", index, err)
+			}
+			definition := shared.FunctionDefinitionParam{
+				Name:        descriptor.Name,
+				Description: param.NewOpt(descriptor.Description),
+				Parameters:  schema,
+			}
+			if strictSupported {
+				definition.Strict = param.NewOpt(true)
+			}
+			return openai.ChatCompletionFunctionTool(definition), nil
+		},
+	)
 }
 
 func dataURL(mediaType string, data []byte) string {

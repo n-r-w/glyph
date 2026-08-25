@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/samber/lo"
+
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -258,10 +261,9 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 	case run.EventToolExecutionEnd, run.EventToolResult:
 		mapped.ToolResult = mapToolResult(event.ToolResult)
 	case run.EventTurnEnd:
-		toolResults := make([]controller.ToolResult, len(event.Turn.ToolResults))
-		for index, result := range event.Turn.ToolResults {
-			toolResults[index] = mapToolResult(result)
-		}
+		toolResults := lo.Map(event.Turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
+			return mapToolResult(result)
+		})
 		mapped.Turn = controller.TurnSummary{
 			Response: mapModelResponse(event.Turn.Response), ToolResults: toolResults,
 		}

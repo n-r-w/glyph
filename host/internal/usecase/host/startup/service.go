@@ -7,6 +7,9 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/samber/lo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
@@ -78,10 +81,9 @@ func (s *Service) Load(ctx context.Context, request Request) (toolservice.LoadRe
 		"issue_count", len(report.Issues),
 	)
 	for _, extension := range report.Extensions {
-		toolNames := make([]string, len(extension.Tools))
-		for index, descriptor := range extension.Tools {
-			toolNames[index] = descriptor.Name
-		}
+		toolNames := lo.Map(extension.Tools, func(descriptor tool.Descriptor, _ int) string {
+			return descriptor.Name
+		})
 		slog.InfoContext(ctx, "loaded extension",
 			"plugin_id", extension.ID,
 			"path", extension.Path,

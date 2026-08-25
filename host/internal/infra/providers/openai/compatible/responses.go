@@ -13,6 +13,7 @@ import (
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
+	"github.com/samber/lo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -260,48 +261,47 @@ func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionPar
 	if decodeErr != nil || contextValue.ID == "" || contextValue.EncryptedContent == "" {
 		return responses.ResponseInputItemUnionParam{}, errors.New("OpenAI-compatible provider context is malformed")
 	}
-	summary := make([]responses.ResponseReasoningItemSummaryParam, len(contextValue.Summary))
-	for index, text := range contextValue.Summary {
-		summary[index] = responses.ResponseReasoningItemSummaryParam{Text: text}
-	}
+	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
+		return responses.ResponseReasoningItemSummaryParam{Text: text}
+	})
 	item := responses.ResponseInputItemParamOfReasoning(contextValue.ID, summary)
 	item.OfReasoning.EncryptedContent = param.NewOpt(contextValue.EncryptedContent)
 	return item, nil
 }
 
 func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunctionCallOutputItemListParam, error) {
-	output := make(responses.ResponseFunctionCallOutputItemListParam, 0, len(contents))
-	for index, content := range contents {
-		switch content.Kind {
-		case tool.ResultContentText:
-			output = append(output, responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text))
-		case tool.ResultContentImage:
-			if content.Image.MediaType == "" || len(content.Image.Data) == 0 {
-				return nil, fmt.Errorf("tool result image %d requires media type and data", index)
+	return lo.MapErr(
+		contents,
+		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
+			var empty responses.ResponseFunctionCallOutputItemUnionParam
+			switch content.Kind {
+			case tool.ResultContentText:
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text), nil
+			case tool.ResultContentImage:
+				if content.Image.MediaType == "" || len(content.Image.Data) == 0 {
+					return empty, fmt.Errorf("tool result image %d requires media type and data", index)
+				}
+				imageURL := dataURL(content.Image.MediaType, content.Image.Data)
+				return responses.ResponseFunctionCallOutputItemUnionParam{
+					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(imageURL)},
+				}, nil
+			default:
+				return empty, fmt.Errorf("unsupported tool result content kind %d", content.Kind)
 			}
-			imageURL := dataURL(content.Image.MediaType, content.Image.Data)
-			output = append(output, responses.ResponseFunctionCallOutputItemUnionParam{
-				OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(imageURL)},
-			})
-		default:
-			return nil, fmt.Errorf("unsupported tool result content kind %d", content.Kind)
-		}
-	}
-	return output, nil
+		},
+	)
 }
 
 func responsesTools(descriptors []tool.Descriptor, strictSupported bool) ([]responses.ToolUnionParam, error) {
-	tools := make([]responses.ToolUnionParam, 0, len(descriptors))
-	for index, descriptor := range descriptors {
+	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, index int) (responses.ToolUnionParam, error) {
 		var schema map[string]any
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-			return nil, fmt.Errorf("tool %d has invalid input schema: %w", index, err)
+			return responses.ToolUnionParam{}, fmt.Errorf("tool %d has invalid input schema: %w", index, err)
 		}
 		toolParam := responses.ToolParamOfFunction(descriptor.Name, schema, strictSupported)
 		toolParam.OfFunction.Description = param.NewOpt(descriptor.Description)
-		tools = append(tools, toolParam)
-	}
-	return tools, nil
+		return toolParam, nil
+	})
 }
 
 //nolint:gocyclo // The branches map the closed Responses stream union.
@@ -470,8 +470,6 @@ func responseContentKey(kind string, outputIndex, contentIndex int64) string {
 }
 
 // responsesModelResponse builds the authoritative terminal snapshot from completed output items.
-//
-//nolint:gocyclo // The branches map the closed Responses output union.
 func responsesModelResponse(
 	response responses.Response,
 	providerID model.ProviderID,
@@ -497,10 +495,9 @@ func responsesModelResponse(
 			}
 		case "reasoning":
 			reasoning := output.AsReasoning()
-			summary := make([]string, len(reasoning.Summary))
-			for index := range reasoning.Summary {
-				summary[index] = reasoning.Summary[index].Text
-			}
+			summary := lo.Map(reasoning.Summary, func(item responses.ResponseReasoningItemSummary, _ int) string {
+				return item.Text
+			})
 			visible := model.Content{Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true}
 			// Only encrypted items with stable IDs can be replayed on the next stateless request.
 			if reasoning.ID != "" && reasoning.EncryptedContent != "" {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 
 	"github.com/stretchr/testify/assert"
@@ -149,10 +150,9 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 		return err
 	}
 	initialization := frame.GetInitialization()
-	startupText := make([]string, 0, len(initialization.GetStartupContent()))
-	for _, content := range initialization.GetStartupContent() {
-		startupText = append(startupText, content.GetText())
-	}
+	startupText := lo.Map(initialization.GetStartupContent(), func(content *uipb.StartupContent, _ int) string {
+		return content.GetText()
+	})
 	trace := fmt.Sprintf(
 		"%d\n%s\n%s\n",
 		os.Getpid(), initialization.GetSelectedUiId(), strings.Join(startupText, "\n"),
@@ -251,21 +251,20 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 
 // semanticToolResultContents keeps typed result blocks stable in the shared lifecycle fixture.
 func semanticToolResultContents(contents []*uipb.ToolResultContent) []map[string]any {
-	mapped := make([]map[string]any, 0, len(contents))
-	for _, content := range contents {
+	return lo.FilterMap(contents, func(content *uipb.ToolResultContent, _ int) (map[string]any, bool) {
 		switch content.WhichContent() {
 		case uipb.ToolResultContent_Text_case:
-			mapped = append(mapped, map[string]any{"text": content.GetText()})
+			return map[string]any{"text": content.GetText()}, true
 		case uipb.ToolResultContent_Image_case:
 			image := content.GetImage()
-			mapped = append(mapped, map[string]any{"image": map[string]any{
+			return map[string]any{"image": map[string]any{
 				"media_type": image.GetMediaType(), "data": image.GetData(),
-			}})
+			}}, true
 		case uipb.ToolResultContent_Content_not_set_case:
-			continue
+			return nil, false
 		}
-	}
-	return mapped
+		return nil, false
+	})
 }
 
 // TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization verifies the default runtime and keyless request.

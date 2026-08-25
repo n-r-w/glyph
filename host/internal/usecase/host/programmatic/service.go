@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -255,12 +257,10 @@ func removeCancellation(err error) error {
 		return nil
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		filtered := make([]error, 0, len(joined.Unwrap()))
-		for _, child := range joined.Unwrap() {
-			if childErr := removeCancellation(child); childErr != nil {
-				filtered = append(filtered, childErr)
-			}
-		}
+		filtered := lo.FilterMap(joined.Unwrap(), func(child error, _ int) (error, bool) {
+			childErr := removeCancellation(child)
+			return childErr, childErr != nil
+		})
 		return errors.Join(filtered...)
 	}
 	if wrapped, ok := err.(interface{ Unwrap() error }); ok {

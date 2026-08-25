@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/openai/openai-go/v3/packages/param"
@@ -69,24 +71,27 @@ func buildInput(
 //
 //nolint:exhaustruct // SDK union values set exactly one active variant.
 func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFunctionCallOutputItemListParam, error) {
-	mapped := make(responses.ResponseFunctionCallOutputItemListParam, 0, len(contents))
-	for index, content := range contents {
-		switch content.Kind {
-		case tool.ResultContentText:
-			mapped = append(mapped, responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text))
-		case tool.ResultContentImage:
-			if content.Image.MediaType == "" {
-				return nil, fmt.Errorf("tool result image %d has no media type", index)
+	return lo.MapErr(
+		contents,
+		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
+			var empty responses.ResponseFunctionCallOutputItemUnionParam
+			switch content.Kind {
+			case tool.ResultContentText:
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text), nil
+			case tool.ResultContentImage:
+				if content.Image.MediaType == "" {
+					return empty, fmt.Errorf("tool result image %d has no media type", index)
+				}
+				dataURL := "data:" + content.Image.MediaType + ";base64," +
+					base64.StdEncoding.EncodeToString(content.Image.Data)
+				return responses.ResponseFunctionCallOutputItemUnionParam{
+					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(dataURL)},
+				}, nil
+			default:
+				return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
 			}
-			dataURL := "data:" + content.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(content.Image.Data)
-			mapped = append(mapped, responses.ResponseFunctionCallOutputItemUnionParam{
-				OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(dataURL)},
-			})
-		default:
-			return nil, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
-		}
-	}
-	return mapped, nil
+		},
+	)
 }
 
 // customOutputContents maps typed blocks into the Codex custom-tool output format.
@@ -95,26 +100,27 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 func customOutputContents(
 	contents []tool.ResultContent,
 ) ([]responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, error) {
-	mapped := make([]responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, 0, len(contents))
-	for index, content := range contents {
+	return lo.MapErr(contents, func(content tool.ResultContent, index int) (
+		responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, error,
+	) {
+		var empty responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam
 		switch content.Kind {
 		case tool.ResultContentText:
-			mapped = append(mapped, responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
+			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputText: &responses.ResponseInputTextParam{Text: content.Text},
-			})
+			}, nil
 		case tool.ResultContentImage:
 			if content.Image.MediaType == "" {
-				return nil, fmt.Errorf("tool result image %d has no media type", index)
+				return empty, fmt.Errorf("tool result image %d has no media type", index)
 			}
 			dataURL := "data:" + content.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(content.Image.Data)
-			mapped = append(mapped, responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
+			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputImage: &responses.ResponseInputImageParam{ImageURL: param.NewOpt(dataURL)},
-			})
+			}, nil
 		default:
-			return nil, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
+			return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
 		}
-	}
-	return mapped, nil
+	})
 }
 
 // buildModelInput preserves model item order and ignores context owned by other providers.
@@ -184,11 +190,10 @@ func reasoningInput(payload []byte) (responses.ResponseInputItemUnionParam, erro
 			"OpenAI Codex stateless continuation requires encrypted reasoning",
 		)
 	}
-	summary := make([]responses.ResponseReasoningItemSummaryParam, len(contextValue.Summary))
-	for index, text := range contextValue.Summary {
+	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
 		//nolint:exhaustruct // SDK sets the fixed summary type during JSON encoding.
-		summary[index] = responses.ResponseReasoningItemSummaryParam{Text: text}
-	}
+		return responses.ResponseReasoningItemSummaryParam{Text: text}
+	})
 	reasoning := responses.ResponseInputItemParamOfReasoning(contextValue.ID, summary)
 	reasoning.OfReasoning.EncryptedContent = param.NewOpt(contextValue.EncryptedContent)
 	return reasoning, nil
@@ -234,49 +239,47 @@ type toolCapabilities struct {
 
 // buildTools maps provider-neutral schemas into Codex tool request types.
 func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([]responses.ToolUnionParam, error) {
-	tools := make([]responses.ToolUnionParam, 0, len(descriptors))
-	for _, descriptor := range descriptors {
+	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, _ int) (responses.ToolUnionParam, error) {
+		var empty responses.ToolUnionParam
 		constraint := descriptor.ConstrainedSampling
 		if constraint.Kind == tool.ConstrainedSamplingGrammar {
 			if !capabilities.lark && !capabilities.regex {
-				return nil, fmt.Errorf(
+				return empty, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but the selected Codex model does not support it",
 					descriptor.Name,
 				)
 			}
 			definition, syntax := preferredGrammar(constraint.Grammar, capabilities)
 			if definition == "" {
-				return nil, fmt.Errorf(
+				return empty, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
 					descriptor.Name,
 				)
 			}
 			//nolint:exhaustruct // Other SDK tool variants are intentionally omitted.
-			tools = append(tools, responses.ToolUnionParam{OfCustom: &responses.CustomToolParam{
+			return responses.ToolUnionParam{OfCustom: &responses.CustomToolParam{
 				Name: descriptor.Name, Description: param.NewOpt(descriptor.Description),
 				Format: shared.CustomToolInputFormatParamOfGrammar(definition, syntax),
-			}})
-			continue
+			}}, nil
 		}
 
 		var schema map[string]any
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-			return nil, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
+			return empty, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
 		}
 		strict, err := codexStrict(schema, constraint, capabilities, descriptor.Name)
 		if err != nil {
-			return nil, err
+			return empty, err
 		}
 		//nolint:exhaustruct // Other SDK tool variants are intentionally omitted.
-		tools = append(tools, responses.ToolUnionParam{
+		return responses.ToolUnionParam{
 			//nolint:exhaustruct // Optional Codex function fields use SDK zero values.
 			OfFunction: &responses.FunctionToolParam{
 				Name: descriptor.Name, Description: param.NewOpt(descriptor.Description),
 				Parameters: schema, Strict: param.NewOpt(strict),
 			},
-		})
-	}
-	return tools, nil
+		}, nil
+	})
 }
 
 // codexStrict selects provider strictness without changing the Glyph-owned schema.

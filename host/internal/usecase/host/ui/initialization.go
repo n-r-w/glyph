@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
@@ -38,10 +42,9 @@ func BuildInitialization(
 		summaryParts = append(summaryParts, "extensions: none")
 	}
 	for _, extension := range report.Extensions {
-		tools := make([]string, len(extension.Tools))
-		for index, descriptor := range extension.Tools {
-			tools[index] = descriptor.Name
-		}
+		tools := lo.Map(extension.Tools, func(descriptor tool.Descriptor, _ int) string {
+			return descriptor.Name
+		})
 		extensions = append(extensions, domainui.ExtensionAvailability{
 			PluginID: extension.ID, Path: extension.Path, Tools: tools,
 		})
@@ -63,20 +66,25 @@ func BuildInitialization(
 		Models:         nil,
 		ModelSelection: emptyModelSelection(),
 	}
-	for _, descriptor := range modelCatalog.Models() {
-		choices := make([]domainui.ReasoningChoice, 0, len(descriptor.ReasoningCapabilities.Choices))
-		for _, choice := range descriptor.ReasoningCapabilities.Choices {
-			choices = append(choices, reasoningChoiceToUI(choice))
-		}
-		initialization.Models = append(initialization.Models, domainui.ConfiguredModel{
-			ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model),
-			Reasoning: domainui.ReasoningCapabilities{
-				Supported: descriptor.ReasoningCapabilities.Supported,
-				Choices:   choices,
-				Default:   reasoningChoiceToUI(descriptor.ReasoningCapabilities.Default),
-			},
-		})
-	}
+	initialization.Models = lo.Map(
+		modelCatalog.Models(),
+		func(descriptor model.Descriptor, _ int) domainui.ConfiguredModel {
+			choices := lo.Map(
+				descriptor.ReasoningCapabilities.Choices,
+				func(choice model.ReasoningChoice, _ int) domainui.ReasoningChoice {
+					return reasoningChoiceToUI(choice)
+				},
+			)
+			return domainui.ConfiguredModel{
+				ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model),
+				Reasoning: domainui.ReasoningCapabilities{
+					Supported: descriptor.ReasoningCapabilities.Supported,
+					Choices:   choices,
+					Default:   reasoningChoiceToUI(descriptor.ReasoningCapabilities.Default),
+				},
+			}
+		},
+	)
 	initialization.ModelSelection = selectionToUI(modelCatalog.Selection())
 	return initialization
 }

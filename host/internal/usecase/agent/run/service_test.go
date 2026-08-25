@@ -8,6 +8,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
@@ -767,11 +769,9 @@ func testCallItem(call model.ToolCall) model.Content {
 
 // eventTypes extracts observable event order for compact assertions.
 func eventTypes(events []Event) []EventType {
-	result := make([]EventType, len(events))
-	for index, event := range events {
-		result[index] = event.Type
-	}
-	return result
+	return lo.Map(events, func(event Event, _ int) EventType {
+		return event.Type
+	})
 }
 
 // streamResult returns one deterministic semantic provider stream for tests.

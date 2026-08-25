@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -66,13 +68,12 @@ func New(config Config, credentials Credentials, interaction Interaction) *Drive
 
 // newDriver creates a provider with internal protocol seams used by package tests.
 func newDriver(config Config, credentials Credentials, interaction Interaction, options driverOptions) *Driver {
-	models := make(map[model.ID]modelConfig, len(config.Models))
-	for _, modelID := range config.Models {
-		models[modelID] = modelConfig{
+	models := lo.SliceToMap(config.Models, func(modelID model.ID) (model.ID, modelConfig) {
+		return modelID, modelConfig{
 			api: "responses", reasoningWireFormat: "openai-responses",
 			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
 		}
-	}
+	})
 	return &Driver{
 		hooks: config.Hooks, models: models,
 		credentials: credentials, interaction: interaction, options: options,

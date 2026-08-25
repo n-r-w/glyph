@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -111,10 +113,9 @@ func (r *Renderer) ReportSummary(_ context.Context, report toolservice.LoadRepor
 		return writePrefixed(r.stderr, "[info] ", "extensions: none")
 	}
 	for _, extension := range report.Extensions {
-		names := make([]string, len(extension.Tools))
-		for index, descriptor := range extension.Tools {
-			names[index] = descriptor.Name
-		}
+		names := lo.Map(extension.Tools, func(descriptor tool.Descriptor, _ int) string {
+			return descriptor.Name
+		})
 		toolsText := "no tools"
 		if len(names) > 0 {
 			toolsText = strings.Join(names, ", ")

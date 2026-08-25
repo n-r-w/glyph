@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -376,33 +377,31 @@ func mapResultContents(contents []*extensionpb.ToolResultContent) ([]tool.Result
 	if len(contents) == 0 {
 		return nil, errors.New("result contents are empty")
 	}
-	mapped := make([]tool.ResultContent, 0, len(contents))
-	for index, content := range contents {
+	return lo.MapErr(contents, func(content *extensionpb.ToolResultContent, index int) (tool.ResultContent, error) {
 		if content == nil {
-			return nil, fmt.Errorf("result content %d is missing", index)
+			return tool.ResultContent{}, fmt.Errorf("result content %d is missing", index)
 		}
 		switch content.WhichContent() {
 		case extensionpb.ToolResultContent_Text_case:
-			mapped = append(mapped, tool.ResultContent{
+			return tool.ResultContent{
 				Kind: tool.ResultContentText, Text: content.GetText(), Image: tool.ResultImage{MediaType: "", Data: nil},
-			})
+			}, nil
 		case extensionpb.ToolResultContent_Image_case:
 			image := content.GetImage()
 			if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
-				return nil, fmt.Errorf("result image %d is invalid", index)
+				return tool.ResultContent{}, fmt.Errorf("result image %d is invalid", index)
 			}
-			mapped = append(mapped, tool.ResultContent{
+			return tool.ResultContent{
 				Kind: tool.ResultContentImage, Text: "", Image: tool.ResultImage{
 					MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
 				},
-			})
+			}, nil
 		case extensionpb.ToolResultContent_Content_not_set_case:
-			return nil, fmt.Errorf("result content %d is missing", index)
+			return tool.ResultContent{}, fmt.Errorf("result content %d is missing", index)
 		default:
-			return nil, fmt.Errorf("result content %d is invalid", index)
+			return tool.ResultContent{}, fmt.Errorf("result content %d is invalid", index)
 		}
-	}
-	return mapped, nil
+	})
 }
 
 // mapProgress maps the closed public enum into a Host infrastructure value.

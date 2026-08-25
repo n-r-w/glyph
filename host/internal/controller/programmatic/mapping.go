@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -185,9 +186,7 @@ func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
 }
 
 func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, error) {
-	mapped := make([]*programmaticv1.HistoryEntry, 0, len(entries))
-	for index := range entries {
-		entry := &entries[index]
+	return lo.MapErr(entries, func(entry HistoryEntry, index int) (*programmaticv1.HistoryEntry, error) {
 		wire := new(programmaticv1.HistoryEntry)
 		switch entry.Kind {
 		case HistoryEntryUser:
@@ -211,9 +210,8 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 		default:
 			return nil, fmt.Errorf("map history entry %d: unknown entry kind %d", index, entry.Kind)
 		}
-		mapped = append(mapped, wire)
-	}
-	return mapped, nil
+		return wire, nil
+	})
 }
 
 func mapModelContent(content ModelContent) (*programmaticv1.ModelContent, error) {
@@ -237,25 +235,30 @@ func mapToolCallPreview(preview ToolCallPreview) (*programmaticv1.ToolCallPrevie
 	if err != nil {
 		return nil, err
 	}
-	fields := make([]*programmaticv1.ToolCallPreviewField, 0, len(preview.Fields))
-	for index, field := range preview.Fields {
-		mapped := new(programmaticv1.ToolCallPreviewField)
-		mapped.SetName(field.Name)
-		switch field.Kind {
-		case ToolCallPreviewFieldComplete:
-			value, valueErr := structpb.NewValue(field.Value)
-			if valueErr != nil {
-				return nil, fmt.Errorf("map tool call preview field %d value: %w", index, valueErr)
+	fields, err := lo.MapErr(
+		preview.Fields,
+		func(field ToolCallPreviewField, index int) (*programmaticv1.ToolCallPreviewField, error) {
+			mapped := new(programmaticv1.ToolCallPreviewField)
+			mapped.SetName(field.Name)
+			switch field.Kind {
+			case ToolCallPreviewFieldComplete:
+				value, valueErr := structpb.NewValue(field.Value)
+				if valueErr != nil {
+					return nil, fmt.Errorf("map tool call preview field %d value: %w", index, valueErr)
+				}
+				mapped.SetValue(value)
+			case ToolCallPreviewFieldPrefix:
+				mapped.SetPrefix(field.Prefix)
+			case ToolCallPreviewFieldUnspecified:
+				return nil, fmt.Errorf("map tool call preview field %d: unspecified content kind", index)
+			default:
+				return nil, fmt.Errorf("map tool call preview field %d: unknown content kind %d", index, field.Kind)
 			}
-			mapped.SetValue(value)
-		case ToolCallPreviewFieldPrefix:
-			mapped.SetPrefix(field.Prefix)
-		case ToolCallPreviewFieldUnspecified:
-			return nil, fmt.Errorf("map tool call preview field %d: unspecified content kind", index)
-		default:
-			return nil, fmt.Errorf("map tool call preview field %d: unknown content kind %d", index, field.Kind)
-		}
-		fields = append(fields, mapped)
+			return mapped, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 	mapped := new(programmaticv1.ToolCallPreview)
 	mapped.SetCallId(preview.CallID)
@@ -295,23 +298,28 @@ func mapToolProgress(progress ToolProgress) (*programmaticv1.ToolProgress, error
 }
 
 func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
-	contents := make([]*programmaticv1.ToolResultContent, 0, len(result.Contents))
-	for index, content := range result.Contents {
-		mapped := new(programmaticv1.ToolResultContent)
-		switch content.Kind {
-		case ToolResultContentText:
-			mapped.SetText(content.Text)
-		case ToolResultContentImage:
-			image := new(programmaticv1.ToolResultImage)
-			image.SetMediaType(content.Image.MediaType)
-			image.SetData(bytes.Clone(content.Image.Data))
-			mapped.SetImage(image)
-		case ToolResultContentUnspecified:
-			return nil, fmt.Errorf("map tool result content %d: unspecified content kind", index)
-		default:
-			return nil, fmt.Errorf("map tool result content %d: unknown content kind %d", index, content.Kind)
-		}
-		contents = append(contents, mapped)
+	contents, err := lo.MapErr(
+		result.Contents,
+		func(content ToolResultContent, index int) (*programmaticv1.ToolResultContent, error) {
+			mapped := new(programmaticv1.ToolResultContent)
+			switch content.Kind {
+			case ToolResultContentText:
+				mapped.SetText(content.Text)
+			case ToolResultContentImage:
+				image := new(programmaticv1.ToolResultImage)
+				image.SetMediaType(content.Image.MediaType)
+				image.SetData(bytes.Clone(content.Image.Data))
+				mapped.SetImage(image)
+			case ToolResultContentUnspecified:
+				return nil, fmt.Errorf("map tool result content %d: unspecified content kind", index)
+			default:
+				return nil, fmt.Errorf("map tool result content %d: unknown content kind %d", index, content.Kind)
+			}
+			return mapped, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 	mapped := new(programmaticv1.ToolResult)
 	mapped.SetCallId(result.CallID)
@@ -326,35 +334,39 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	if err != nil {
 		return nil, err
 	}
-	content := make([]*programmaticv1.ModelResponseItem, 0, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		mapped := new(programmaticv1.ModelResponseItem)
-		switch item.Kind {
-		case ModelResponseContentText:
-			text := new(programmaticv1.FinalText)
-			text.SetText(item.Text)
-			mapped.SetText(text)
-		case ModelResponseContentRefusal:
-			text := new(programmaticv1.FinalText)
-			text.SetText(item.Text)
-			mapped.SetRefusal(text)
-		case ModelResponseContentReasoning:
-			text := new(programmaticv1.FinalText)
-			text.SetText(item.Text)
-			mapped.SetReasoning(text)
-		case ModelResponseContentToolCall:
-			call, mapErr := mapFinalToolCall(item.ToolCall)
-			if mapErr != nil {
-				return nil, fmt.Errorf("map model response content %d: %w", index, mapErr)
+	content, err := lo.MapErr(
+		response.Content,
+		func(item ModelResponseContent, index int) (*programmaticv1.ModelResponseItem, error) {
+			mapped := new(programmaticv1.ModelResponseItem)
+			switch item.Kind {
+			case ModelResponseContentText:
+				text := new(programmaticv1.FinalText)
+				text.SetText(item.Text)
+				mapped.SetText(text)
+			case ModelResponseContentRefusal:
+				text := new(programmaticv1.FinalText)
+				text.SetText(item.Text)
+				mapped.SetRefusal(text)
+			case ModelResponseContentReasoning:
+				text := new(programmaticv1.FinalText)
+				text.SetText(item.Text)
+				mapped.SetReasoning(text)
+			case ModelResponseContentToolCall:
+				call, mapErr := mapFinalToolCall(item.ToolCall)
+				if mapErr != nil {
+					return nil, fmt.Errorf("map model response content %d: %w", index, mapErr)
+				}
+				mapped.SetToolCall(call)
+			case ModelResponseContentUnspecified:
+				return nil, fmt.Errorf("map model response content %d: unspecified content kind", index)
+			default:
+				return nil, fmt.Errorf("map model response content %d: unknown content kind %d", index, item.Kind)
 			}
-			mapped.SetToolCall(call)
-		case ModelResponseContentUnspecified:
-			return nil, fmt.Errorf("map model response content %d: unspecified content kind", index)
-		default:
-			return nil, fmt.Errorf("map model response content %d: unknown content kind %d", index, item.Kind)
-		}
-		content = append(content, mapped)
+			return mapped, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 	usage := new(programmaticv1.ModelUsage)
 	usage.SetInputTokens(response.Usage.InputTokens)
@@ -363,13 +375,12 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	usage.SetCacheWriteTokens(response.Usage.CacheWriteTokens)
 	usage.SetReasoningTokens(response.Usage.ReasoningTokens)
 	usage.SetTotalTokens(response.Usage.TotalTokens)
-	diagnostics := make([]*programmaticv1.ModelDiagnostic, 0, len(response.Diagnostics))
-	for _, diagnostic := range response.Diagnostics {
+	diagnostics := lo.Map(response.Diagnostics, func(diagnostic ModelDiagnostic, _ int) *programmaticv1.ModelDiagnostic {
 		mapped := new(programmaticv1.ModelDiagnostic)
 		mapped.SetCode(diagnostic.Code)
 		mapped.SetMessage(diagnostic.Message)
-		diagnostics = append(diagnostics, mapped)
-	}
+		return mapped
+	})
 	mapped := new(programmaticv1.ModelResponse)
 	mapped.SetText(response.Text)
 	mapped.SetOutcome(outcome)
@@ -391,13 +402,15 @@ func mapTurnSummary(turn TurnSummary) (*programmaticv1.TurnSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	results := make([]*programmaticv1.ToolResult, 0, len(turn.ToolResults))
-	for index, result := range turn.ToolResults {
+	results, err := lo.MapErr(turn.ToolResults, func(result ToolResult, index int) (*programmaticv1.ToolResult, error) {
 		mapped, mapErr := mapToolResult(result)
 		if mapErr != nil {
 			return nil, fmt.Errorf("map turn tool result %d: %w", index, mapErr)
 		}
-		results = append(results, mapped)
+		return mapped, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	mapped := new(programmaticv1.TurnSummary)
 	mapped.SetResponse(response)
@@ -417,15 +430,15 @@ func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
 }
 
 func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.ConfiguredModel, error) {
-	mapped := make([]*programmaticv1.ConfiguredModel, 0, len(descriptors))
-	for _, descriptor := range descriptors {
-		choices := make([]programmaticv1.ReasoningChoice, 0, len(descriptor.ReasoningCapabilities.Choices))
-		for _, choice := range descriptor.ReasoningCapabilities.Choices {
-			wireChoice, err := mapReasoningChoice(choice)
-			if err != nil {
-				return nil, err
-			}
-			choices = append(choices, wireChoice)
+	return lo.MapErr(descriptors, func(descriptor model.Descriptor, _ int) (*programmaticv1.ConfiguredModel, error) {
+		choices, err := lo.MapErr(
+			descriptor.ReasoningCapabilities.Choices,
+			func(choice model.ReasoningChoice, _ int) (programmaticv1.ReasoningChoice, error) {
+				return mapReasoningChoice(choice)
+			},
+		)
+		if err != nil {
+			return nil, err
 		}
 		defaultChoice, err := mapReasoningChoice(descriptor.ReasoningCapabilities.Default)
 		if err != nil {
@@ -439,9 +452,8 @@ func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.Conf
 		configured.SetProviderId(string(descriptor.Provider))
 		configured.SetModelId(string(descriptor.Model))
 		configured.SetReasoning(capabilities)
-		mapped = append(mapped, configured)
-	}
-	return mapped, nil
+		return configured, nil
+	})
 }
 
 func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {

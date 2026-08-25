@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -165,13 +167,12 @@ func mapEventType(eventType run.EventType) domainui.LifecycleType {
 }
 
 func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview {
-	fields := make([]domainui.ToolCallPreviewField, len(preview.Fields))
-	for index, field := range preview.Fields {
-		fields[index] = domainui.ToolCallPreviewField{
+	fields := lo.Map(preview.Fields, func(field model.ToolCallPreviewField, _ int) domainui.ToolCallPreviewField {
+		return domainui.ToolCallPreviewField{
 			Name: field.Name, Value: field.Value, Prefix: field.Prefix,
 			Complete: field.Kind == model.ToolCallPreviewFieldComplete,
 		}
-	}
+	})
 	return domainui.ToolCallPreview{
 		CallID: preview.CallID, Name: preview.Name, Position: preview.Position,
 		Provisional: preview.Provisional, Fields: fields,
@@ -189,24 +190,18 @@ func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
 
 // mapModelResponse copies typed terminal data while excluding opaque provider context.
 func mapModelResponse(response model.Response) domainui.ModelResponse {
-	content := make([]domainui.ModelResponseContent, 0, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
+	content := lo.FilterMap(response.Content, func(item model.Content, _ int) (domainui.ModelResponseContent, bool) {
 		kind := modelContentKind(item.Kind)
-		if kind == 0 {
-			continue
-		}
-		content = append(content, domainui.ModelResponseContent{Kind: kind, Text: item.Text})
-	}
+		return domainui.ModelResponseContent{Kind: kind, Text: item.Text}, kind != 0
+	})
 	var responseModel *string
 	if response.ResponseModel != nil {
 		value := string(*response.ResponseModel)
 		responseModel = &value
 	}
-	diagnostics := make([]domainui.ModelDiagnostic, len(response.Diagnostics))
-	for index, diagnostic := range response.Diagnostics {
-		diagnostics[index] = domainui.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
-	}
+	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) domainui.ModelDiagnostic {
+		return domainui.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
+	})
 	return domainui.ModelResponse{
 		Text: responseText(response), Outcome: modelOutcome(response.Outcome), ErrorMessage: response.ErrorMessage,
 		Provider: string(response.Provider), Model: string(response.Model), ResponseModel: responseModel,

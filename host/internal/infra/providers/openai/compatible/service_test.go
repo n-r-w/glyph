@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -882,11 +883,9 @@ func streamEvents(t *testing.T, service *Driver, request run.ModelRequest) []run
 }
 
 func eventKinds(events []run.StreamEvent) []run.StreamEventKind {
-	kinds := make([]run.StreamEventKind, len(events))
-	for index := range events {
-		kinds[index] = events[index].Kind
-	}
-	return kinds
+	return lo.Map(events, func(event run.StreamEvent, _ int) run.StreamEventKind {
+		return event.Kind
+	})
 }
 
 func writeSSE(t *testing.T, writer http.ResponseWriter, events ...string) {

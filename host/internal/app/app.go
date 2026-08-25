@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"slices"
 
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 
 	"github.com/n-r-w/glyph/host/internal/config/codingagent"
@@ -370,10 +372,7 @@ func newProviderCatalog(
 	interaction codex.Interaction,
 	hookRunner internalhooks.ProviderRunner,
 ) (*providers.Catalog, error) {
-	providerIDs := make([]string, 0, len(configured.Providers))
-	for providerID := range configured.Providers {
-		providerIDs = append(providerIDs, providerID)
-	}
+	providerIDs := slices.Collect(maps.Keys(configured.Providers))
 	slices.Sort(providerIDs)
 
 	entries := make([]providers.Entry, 0)
@@ -459,10 +458,9 @@ func newProviderCatalog(
 // configuredModel finds one validated model without exposing persistence details outside assembly.
 // reasoningCapabilities maps validated persistence values into the model domain.
 func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCapabilities {
-	choices := make([]model.ReasoningChoice, len(configured.Choices))
-	for index, choice := range configured.Choices {
-		choices[index] = model.ReasoningChoice(choice)
-	}
+	choices := lo.Map(configured.Choices, func(choice settingstore.ReasoningChoice, _ int) model.ReasoningChoice {
+		return model.ReasoningChoice(choice)
+	})
 	return model.ReasoningCapabilities{
 		Supported: configured.Supported, Choices: choices, Default: model.ReasoningChoice(configured.Default),
 	}

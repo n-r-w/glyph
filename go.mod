@@ -18,6 +18,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/openai/openai-go/v3 v3.49.0
+	github.com/samber/lo v1.53.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
@@ -50,7 +51,7 @@ require (
 	github.com/codeclysm/extract/v3 v3.1.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/easyp-tech/easyp v0.16.6 // indirect
 	github.com/easyp-tech/service v0.2.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -84,10 +85,10 @@ require (
 	github.com/otiai10/copy v1.14.1 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pjbgf/sha1cd v0.5.0 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/samber/lo v1.52.0 // indirect
+	github.com/samber/mo v1.17.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.3 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect

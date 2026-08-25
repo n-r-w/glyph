@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"google.golang.org/protobuf/proto"
@@ -146,35 +147,34 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 
 // mapInitialization converts one complete startup state.
 func mapInitialization(initialization domainui.Initialization) *uipb.Initialization {
-	startup := make([]*uipb.StartupContent, 0, len(initialization.StartupContent))
-	for _, content := range initialization.StartupContent {
-		startup = append(startup, uipb.StartupContent_builder{
+	startup := lo.Map(initialization.StartupContent, func(content domainui.StartupContent, _ int) *uipb.StartupContent {
+		return uipb.StartupContent_builder{
 			Severity: new(mapSeverity(content.Severity)),
 			Text:     new(content.Text),
-		}.Build())
-	}
-	extensions := make([]*uipb.ExtensionAvailability, 0, len(initialization.Extensions))
-	for _, extension := range initialization.Extensions {
-		extensions = append(extensions, uipb.ExtensionAvailability_builder{
-			PluginId: new(extension.PluginID),
-			Tools:    slices.Clone(extension.Tools),
-			Path:     new(extension.Path),
-		}.Build())
-	}
-	models := make([]*uipb.ConfiguredModel, 0, len(initialization.Models))
-	for _, configured := range initialization.Models {
-		choices := make([]uipb.ReasoningChoice, 0, len(configured.Reasoning.Choices))
-		for _, choice := range configured.Reasoning.Choices {
-			choices = append(choices, mapReasoningChoice(choice))
-		}
+		}.Build()
+	})
+	extensions := lo.Map(
+		initialization.Extensions,
+		func(extension domainui.ExtensionAvailability, _ int) *uipb.ExtensionAvailability {
+			return uipb.ExtensionAvailability_builder{
+				PluginId: new(extension.PluginID),
+				Tools:    slices.Clone(extension.Tools),
+				Path:     new(extension.Path),
+			}.Build()
+		},
+	)
+	models := lo.Map(initialization.Models, func(configured domainui.ConfiguredModel, _ int) *uipb.ConfiguredModel {
+		choices := lo.Map(configured.Reasoning.Choices, func(choice domainui.ReasoningChoice, _ int) uipb.ReasoningChoice {
+			return mapReasoningChoice(choice)
+		})
 		reasoning := uipb.ReasoningCapabilities_builder{
 			Supported: new(configured.Reasoning.Supported), Choices: choices,
 			DefaultChoice: new(mapReasoningChoice(configured.Reasoning.Default)),
 		}.Build()
-		models = append(models, uipb.ConfiguredModel_builder{
+		return uipb.ConfiguredModel_builder{
 			ProviderId: new(configured.ProviderID), ModelId: new(configured.ModelID), Reasoning: reasoning,
-		}.Build())
-	}
+		}.Build()
+	})
 	return uipb.Initialization_builder{
 		SelectedUiId:   new(initialization.SelectedUIID),
 		StartupContent: startup,
@@ -385,23 +385,21 @@ func mapLifecycleType(value domainui.LifecycleType) uipb.LifecycleType {
 
 // mapToolResultContents copies ordered domain blocks into the public UI contract.
 func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultContent {
-	mapped := make([]*uipb.ToolResultContent, 0, len(contents))
-	for _, content := range contents {
+	return lo.FilterMap(contents, func(content tool.ResultContent, _ int) (*uipb.ToolResultContent, bool) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			mapped = append(mapped, uipb.ToolResultContent_builder{Text: new(content.Text)}.Build())
+			return uipb.ToolResultContent_builder{Text: new(content.Text)}.Build(), true
 		case tool.ResultContentImage:
-			mapped = append(mapped, uipb.ToolResultContent_builder{Image: uipb.ToolResultImage_builder{
+			return uipb.ToolResultContent_builder{Image: uipb.ToolResultImage_builder{
 				MediaType: new(content.Image.MediaType), Data: bytes.Clone(content.Image.Data),
-			}.Build()}.Build())
+			}.Build()}.Build(), true
 		}
-	}
-	return mapped
+		return nil, false
+	})
 }
 
 func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview {
-	fields := make([]*uipb.ToolCallPreviewField, len(preview.Fields))
-	for index, field := range preview.Fields {
+	fields := lo.Map(preview.Fields, func(field domainui.ToolCallPreviewField, _ int) *uipb.ToolCallPreviewField {
 		mapped := uipb.ToolCallPreviewField_builder{Name: new(field.Name)}.Build()
 		if field.Complete {
 			value, _ := structpb.NewValue(field.Value)
@@ -409,8 +407,8 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview 
 		} else {
 			mapped.SetPrefix(field.Prefix)
 		}
-		fields[index] = mapped
-	}
+		return mapped
+	})
 	return uipb.ToolCallPreview_builder{
 		CallId: new(preview.CallID), Name: new(preview.Name),
 		Position:    new(int32(preview.Position)), //nolint:gosec // Positions are bounded by response size.
@@ -419,19 +417,16 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview 
 }
 
 func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
-	content := make([]*uipb.ModelResponseContent, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		content[index] = uipb.ModelResponseContent_builder{
+	content := lo.Map(response.Content, func(item domainui.ModelResponseContent, _ int) *uipb.ModelResponseContent {
+		return uipb.ModelResponseContent_builder{
 			Kind: new(mapModelContentKind(item.Kind)), Text: new(item.Text),
 		}.Build()
-	}
-	diagnostics := make([]*uipb.ModelDiagnostic, len(response.Diagnostics))
-	for index, diagnostic := range response.Diagnostics {
-		diagnostics[index] = uipb.ModelDiagnostic_builder{
+	})
+	diagnostics := lo.Map(response.Diagnostics, func(diagnostic domainui.ModelDiagnostic, _ int) *uipb.ModelDiagnostic {
+		return uipb.ModelDiagnostic_builder{
 			Code: new(diagnostic.Code), Message: new(diagnostic.Message),
 		}.Build()
-	}
+	})
 	return uipb.ModelResponse_builder{
 		Text: new(response.Text), Outcome: new(response.Outcome), ErrorMessage: new(response.ErrorMessage),
 		Provider: new(response.Provider), Model: new(response.Model), ResponseModel: response.ResponseModel,

@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
+
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -13,28 +15,27 @@ import (
 )
 
 func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
-	entries := make([]controller.HistoryEntry, 0, len(history))
-	for index := range history {
-		entry := &history[index]
+	return lo.FilterMap(history, func(entry agent.HistoryEntry, _ int) (controller.HistoryEntry, bool) {
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			entries = append(entries, controller.HistoryEntry{
+			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryUser, UserText: publicInputText(entry.User),
 				Model: emptyModelResponse(), ToolResult: emptyToolResult(),
-			})
+			}, true
 		case agent.HistoryEntryModel:
-			entries = append(entries, controller.HistoryEntry{
+			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryModel, UserText: "", Model: mapModelResponse(entry.Model),
 				ToolResult: emptyToolResult(),
-			})
+			}, true
 		case agent.HistoryEntryToolResult:
-			entries = append(entries, controller.HistoryEntry{
+			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryToolResult, UserText: "", Model: emptyModelResponse(),
 				ToolResult: mapToolResult(entry.ToolResult),
-			})
+			}, true
 		}
-	}
-	return entries
+		var empty controller.HistoryEntry
+		return empty, false
+	})
 }
 
 func publicInputText(message model.Message) string {
@@ -69,10 +70,9 @@ func mapModelResponse(response model.Response) controller.ModelResponse {
 		value := string(*response.ResponseModel)
 		responseModel = &value
 	}
-	diagnostics := make([]controller.ModelDiagnostic, len(response.Diagnostics))
-	for index, diagnostic := range response.Diagnostics {
-		diagnostics[index] = controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
-	}
+	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) controller.ModelDiagnostic {
+		return controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
+	})
 	return controller.ModelResponse{
 		Text:          text.String(),
 		Outcome:       mapModelOutcome(response.Outcome),
@@ -121,20 +121,20 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 }
 
 func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPreview {
-	fields := make([]controller.ToolCallPreviewField, len(preview.Fields))
-	for index, field := range preview.Fields {
-		fields[index] = controller.ToolCallPreviewField{
+	fields := lo.Map(preview.Fields, func(field model.ToolCallPreviewField, _ int) controller.ToolCallPreviewField {
+		mapped := controller.ToolCallPreviewField{
 			Name: field.Name, Kind: controller.ToolCallPreviewFieldUnspecified, Value: nil, Prefix: "",
 		}
 		switch field.Kind {
 		case model.ToolCallPreviewFieldComplete:
-			fields[index].Kind = controller.ToolCallPreviewFieldComplete
-			fields[index].Value = cloneJSONValue(field.Value)
+			mapped.Kind = controller.ToolCallPreviewFieldComplete
+			mapped.Value = cloneJSONValue(field.Value)
 		case model.ToolCallPreviewFieldPrefix:
-			fields[index].Kind = controller.ToolCallPreviewFieldPrefix
-			fields[index].Prefix = field.Prefix
+			mapped.Kind = controller.ToolCallPreviewFieldPrefix
+			mapped.Prefix = field.Prefix
 		}
-	}
+		return mapped
+	})
 	return controller.ToolCallPreview{
 		CallID: preview.CallID, Name: preview.Name, Position: preview.Position,
 		Provisional: preview.Provisional, Fields: fields,
@@ -142,24 +142,28 @@ func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPrevie
 }
 
 func mapToolResult(result agent.ToolResult) controller.ToolResult {
-	contents := make([]controller.ToolResultContent, 0, len(result.Contents))
-	for _, content := range result.Contents {
-		switch content.Kind {
-		case tool.ResultContentText:
-			contents = append(contents, controller.ToolResultContent{
-				Kind: controller.ToolResultContentText, Text: content.Text,
-				Image: controller.ToolResultImage{MediaType: "", Data: nil},
-			})
-		case tool.ResultContentImage:
-			contents = append(contents, controller.ToolResultContent{
-				Kind: controller.ToolResultContentImage, Text: "",
-				Image: controller.ToolResultImage{
-					MediaType: content.Image.MediaType,
-					Data:      bytes.Clone(content.Image.Data),
-				},
-			})
-		}
-	}
+	contents := lo.FilterMap(
+		result.Contents,
+		func(content tool.ResultContent, _ int) (controller.ToolResultContent, bool) {
+			switch content.Kind {
+			case tool.ResultContentText:
+				return controller.ToolResultContent{
+					Kind: controller.ToolResultContentText, Text: content.Text,
+					Image: controller.ToolResultImage{MediaType: "", Data: nil},
+				}, true
+			case tool.ResultContentImage:
+				return controller.ToolResultContent{
+					Kind: controller.ToolResultContentImage, Text: "",
+					Image: controller.ToolResultImage{
+						MediaType: content.Image.MediaType,
+						Data:      bytes.Clone(content.Image.Data),
+					},
+				}, true
+			}
+			var empty controller.ToolResultContent
+			return empty, false
+		},
+	)
 	return controller.ToolResult{
 		CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
 	}

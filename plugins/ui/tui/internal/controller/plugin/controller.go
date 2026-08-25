@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -190,59 +191,71 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
-	event := presentationdomain.Event{
-		Kind:           presentationdomain.EventInitialization,
-		Availability:   availability,
-		Startup:        make([]presentationdomain.Line, 0, len(initialization.GetStartupContent())),
-		Extensions:     make([]presentationdomain.Extension, 0, len(initialization.GetExtensions())),
-		Models:         make([]presentationdomain.ConfiguredModel, 0, len(initialization.GetModels())),
-		ModelSelection: selection,
-	}
-	for _, content := range initialization.GetStartupContent() {
-		var kind presentationdomain.LineKind
-		switch content.GetSeverity() {
-		case uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION:
-			kind = presentationdomain.LineInformation
-		case uiv1.ContentSeverity_CONTENT_SEVERITY_ERROR:
-			kind = presentationdomain.LineError
-		case uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING:
-			kind = presentationdomain.LineWarning
-		case uiv1.ContentSeverity_CONTENT_SEVERITY_UNSPECIFIED:
-			return presentationdomain.Event{}, errors.New("startup content severity is unspecified")
-		default:
-			return presentationdomain.Event{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
-		}
-		event.Startup = append(event.Startup, presentationdomain.Line{Kind: kind, Text: content.GetText()})
-	}
-	for _, extension := range initialization.GetExtensions() {
-		event.Extensions = append(event.Extensions, presentationdomain.Extension{
-			ID: extension.GetPluginId(), Path: extension.GetPath(),
-			Tools: slices.Clone(extension.GetTools()),
-		})
-	}
-	for _, configured := range initialization.GetModels() {
-		reasoning := configured.GetReasoning()
-		if reasoning == nil {
-			return presentationdomain.Event{}, errors.New("model reasoning capabilities are missing")
-		}
-		choices := make([]presentationdomain.ReasoningChoice, 0, len(reasoning.GetChoices()))
-		for _, choice := range reasoning.GetChoices() {
-			mapped, mapErr := mapReasoningChoice(choice)
-			if mapErr != nil {
-				return presentationdomain.Event{}, mapErr
+	startup, err := lo.MapErr(
+		initialization.GetStartupContent(),
+		func(content *uiv1.StartupContent, _ int) (presentationdomain.Line, error) {
+			var kind presentationdomain.LineKind
+			switch content.GetSeverity() {
+			case uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION:
+				kind = presentationdomain.LineInformation
+			case uiv1.ContentSeverity_CONTENT_SEVERITY_ERROR:
+				kind = presentationdomain.LineError
+			case uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING:
+				kind = presentationdomain.LineWarning
+			case uiv1.ContentSeverity_CONTENT_SEVERITY_UNSPECIFIED:
+				return presentationdomain.Line{}, errors.New("startup content severity is unspecified")
+			default:
+				return presentationdomain.Line{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
 			}
-			choices = append(choices, mapped)
-		}
-		defaultChoice, mapErr := mapReasoningChoice(reasoning.GetDefaultChoice())
-		if mapErr != nil {
-			return presentationdomain.Event{}, mapErr
-		}
-		event.Models = append(event.Models, presentationdomain.ConfiguredModel{
-			ProviderID: configured.GetProviderId(), ModelID: configured.GetModelId(),
-			Reasoning: presentationdomain.ReasoningCapabilities{
-				Supported: reasoning.GetSupported(), Choices: choices, Default: defaultChoice,
-			},
-		})
+			return presentationdomain.Line{Kind: kind, Text: content.GetText()}, nil
+		},
+	)
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	extensions := lo.Map(
+		initialization.GetExtensions(),
+		func(extension *uiv1.ExtensionAvailability, _ int) presentationdomain.Extension {
+			return presentationdomain.Extension{
+				ID: extension.GetPluginId(), Path: extension.GetPath(),
+				Tools: slices.Clone(extension.GetTools()),
+			}
+		},
+	)
+	models, err := lo.MapErr(
+		initialization.GetModels(),
+		func(configured *uiv1.ConfiguredModel, _ int) (presentationdomain.ConfiguredModel, error) {
+			reasoning := configured.GetReasoning()
+			if reasoning == nil {
+				return presentationdomain.ConfiguredModel{}, errors.New("model reasoning capabilities are missing")
+			}
+			choices, mapErr := lo.MapErr(
+				reasoning.GetChoices(),
+				func(choice uiv1.ReasoningChoice, _ int) (presentationdomain.ReasoningChoice, error) {
+					return mapReasoningChoice(choice)
+				},
+			)
+			if mapErr != nil {
+				return presentationdomain.ConfiguredModel{}, mapErr
+			}
+			defaultChoice, mapErr := mapReasoningChoice(reasoning.GetDefaultChoice())
+			if mapErr != nil {
+				return presentationdomain.ConfiguredModel{}, mapErr
+			}
+			return presentationdomain.ConfiguredModel{
+				ProviderID: configured.GetProviderId(), ModelID: configured.GetModelId(),
+				Reasoning: presentationdomain.ReasoningCapabilities{
+					Supported: reasoning.GetSupported(), Choices: choices, Default: defaultChoice,
+				},
+			}, nil
+		},
+	)
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	event := presentationdomain.Event{
+		Kind: presentationdomain.EventInitialization, Availability: availability,
+		Startup: startup, Extensions: extensions, Models: models, ModelSelection: selection,
 	}
 	return event, nil
 }
@@ -388,42 +401,42 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 	if len(contents) == 0 {
 		return nil, errors.New("tool result contents are empty")
 	}
-	mapped := make([]presentationdomain.ToolResultContent, 0, len(contents))
-	for index, content := range contents {
-		if content == nil {
-			return nil, fmt.Errorf("tool result content %d is missing", index)
-		}
-		switch content.WhichContent() {
-		case uiv1.ToolResultContent_Text_case:
-			mapped = append(mapped, presentationdomain.ToolResultContent{Text: content.GetText()})
-		case uiv1.ToolResultContent_Image_case:
-			image := content.GetImage()
-			if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
-				return nil, fmt.Errorf("tool result image %d is invalid", index)
+	return lo.MapErr(
+		contents,
+		func(content *uiv1.ToolResultContent, index int) (presentationdomain.ToolResultContent, error) {
+			if content == nil {
+				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
 			}
-			mapped = append(mapped, presentationdomain.ToolResultContent{
-				MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
-			})
-		case uiv1.ToolResultContent_Content_not_set_case:
-			return nil, fmt.Errorf("tool result content %d is missing", index)
-		default:
-			return nil, fmt.Errorf("tool result content %d is invalid", index)
-		}
-	}
-	return mapped, nil
+			switch content.WhichContent() {
+			case uiv1.ToolResultContent_Text_case:
+				return presentationdomain.ToolResultContent{Text: content.GetText()}, nil
+			case uiv1.ToolResultContent_Image_case:
+				image := content.GetImage()
+				if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
+					return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result image %d is invalid", index)
+				}
+				return presentationdomain.ToolResultContent{
+					MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
+				}, nil
+			case uiv1.ToolResultContent_Content_not_set_case:
+				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
+			default:
+				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is invalid", index)
+			}
+		},
+	)
 }
 
 // mapModelResponseContent keeps finalized visible text and refusal blocks while dropping reasoning.
 func mapModelResponseContent(content []*uiv1.ModelResponseContent) []presentationdomain.ModelResponseContent {
-	mapped := make([]presentationdomain.ModelResponseContent, 0, len(content))
-	for _, item := range content {
-		kind := mapModelContentKind(item.GetKind())
-		if kind == presentationdomain.ModelContentUnspecified {
-			continue
-		}
-		mapped = append(mapped, presentationdomain.ModelResponseContent{Kind: kind, Text: item.GetText()})
-	}
-	return mapped
+	return lo.FilterMap(
+		content,
+		func(item *uiv1.ModelResponseContent, _ int) (presentationdomain.ModelResponseContent, bool) {
+			kind := mapModelContentKind(item.GetKind())
+			return presentationdomain.ModelResponseContent{Kind: kind, Text: item.GetText()},
+				kind != presentationdomain.ModelContentUnspecified
+		},
+	)
 }
 
 // mapModelContentKind converts public content identity into the TUI presentation contract.
@@ -443,8 +456,7 @@ func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelCon
 }
 
 func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCallState {
-	fields := make([]presentationdomain.ToolCallField, 0, len(preview.GetFields()))
-	for _, field := range preview.GetFields() {
+	fields := lo.Map(preview.GetFields(), func(field *uiv1.ToolCallPreviewField, _ int) presentationdomain.ToolCallField {
 		mapped := presentationdomain.ToolCallField{Name: field.GetName(), Value: nil, Prefix: "", Complete: false}
 		switch field.WhichContent() {
 		case uiv1.ToolCallPreviewField_Value_case:
@@ -454,9 +466,8 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCa
 			mapped.Prefix = field.GetPrefix()
 		case uiv1.ToolCallPreviewField_Content_not_set_case:
 		}
-
-		fields = append(fields, mapped)
-	}
+		return mapped
+	})
 	return presentationdomain.ToolCallState{
 		CallID: preview.GetCallId(), Name: preview.GetName(), Position: int(preview.GetPosition()),
 		Provisional: preview.GetProvisional(), Fields: fields, Arguments: nil,

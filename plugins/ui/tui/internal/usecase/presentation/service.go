@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
+
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
@@ -212,14 +214,12 @@ func toolResultLineText(event presentationdomain.Event) string {
 
 // toolResultText creates a readable transcript for text-only terminal rendering.
 func toolResultText(contents []presentationdomain.ToolResultContent) string {
-	parts := make([]string, 0, len(contents))
-	for _, content := range contents {
+	parts := lo.Map(contents, func(content presentationdomain.ToolResultContent, _ int) string {
 		if content.MediaType != "" {
-			parts = append(parts, "[image: "+content.MediaType+"]")
-			continue
+			return "[image: " + content.MediaType + "]"
 		}
-		parts = append(parts, content.Text)
-	}
+		return content.Text
+	})
 	return strings.Join(parts, "\n")
 }
 

@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
@@ -98,28 +100,27 @@ func New(config Config) (*Driver, error) {
 
 // configuredModels validates and snapshots each model-specific API and reasoning configuration.
 func configuredModels(config Config) (map[model.ID]modelConfig, error) {
-	models := make(map[model.ID]modelConfig, len(config.Models))
-	for modelID, override := range config.Models {
+	return lo.MapEntriesErr(config.Models, func(modelID model.ID, override API) (model.ID, modelConfig, error) {
+		var empty modelConfig
 		if strings.TrimSpace(string(modelID)) == "" {
-			return nil, errors.New("OpenAI-compatible model ID is required")
+			return "", empty, errors.New("OpenAI-compatible model ID is required")
 		}
 		selectedAPI := config.API
 		if override != "" {
 			if err := validateAPI(override); err != nil {
-				return nil, fmt.Errorf("model %q API override: %w", modelID, err)
+				return "", empty, fmt.Errorf("model %q API override: %w", modelID, err)
 			}
 			selectedAPI = override
 		}
 		reasoningWireFormat := config.ReasoningWireFormats[modelID]
 		if !reasoningWireFormatMatchesAPI(reasoningWireFormat, selectedAPI) {
-			return nil, fmt.Errorf("model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI)
+			return "", empty, fmt.Errorf("model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI)
 		}
-		models[modelID] = modelConfig{
+		return modelID, modelConfig{
 			api: selectedAPI, reasoningWireFormat: reasoningWireFormat,
 			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
-		}
-	}
-	return models, nil
+		}, nil
+	})
 }
 
 func reasoningWireFormatMatchesAPI(format string, api API) bool {

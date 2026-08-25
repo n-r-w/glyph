@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
 	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
@@ -1012,11 +1014,10 @@ func testCredentialPayload(t *testing.T, accessToken, refreshToken, accountID st
 
 // inputTypes returns the ordered Responses item discriminators from a captured request.
 func inputTypes(input []any) []string {
-	result := make([]string, len(input))
-	for index, item := range input {
-		result[index], _ = item.(map[string]any)["type"].(string)
-	}
-	return result
+	return lo.Map(input, func(item any, _ int) string {
+		value, _ := item.(map[string]any)["type"].(string)
+		return value
+	})
 }
 
 // completedEvent constructs one successful terminal Responses SSE event.
@@ -1040,11 +1041,9 @@ func writeSSE(writer http.ResponseWriter, events ...string) {
 
 // streamEventKinds returns semantic event identities in delivery order.
 func streamEventKinds(events []run.StreamEvent) []run.StreamEventKind {
-	kinds := make([]run.StreamEventKind, len(events))
-	for index, event := range events {
-		kinds[index] = event.Kind
-	}
-	return kinds
+	return lo.Map(events, func(event run.StreamEvent, _ int) run.StreamEventKind {
+		return event.Kind
+	})
 }
 
 // collectStreamEvents returns every provider event in delivery order.

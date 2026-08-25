@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/samber/lo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -165,12 +167,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 
 // modelToolCalls returns finalized calls in model-provided order.
 func modelToolCalls(response model.Response) []model.ToolCall {
-	calls := make([]model.ToolCall, 0)
-	for index := range response.Content {
-		item := &response.Content[index]
-		if item.Kind == model.ContentToolCall {
-			calls = append(calls, item.ToolCall)
-		}
-	}
-	return calls
+	return lo.FilterMap(response.Content, func(item model.Content, _ int) (model.ToolCall, bool) {
+		return item.ToolCall, item.Kind == model.ContentToolCall
+	})
 }
