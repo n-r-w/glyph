@@ -24,6 +24,7 @@ NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 1. MUST run `task lint`, `task test` to check code before completing changes.
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct`.
+4. Suppressing `//nolint:exhaustruct` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
