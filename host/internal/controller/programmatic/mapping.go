@@ -13,14 +13,6 @@ import (
 )
 
 func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
-	modelWire, handled, modelErr := mapModelCommandResponse(response)
-	if modelErr != nil {
-		return nil, modelErr
-	}
-	if handled {
-		return wrapCommandResponse(response.CorrelationID, modelWire), nil
-	}
-
 	wire := new(programmaticv1.CommandResponse)
 	switch response.Kind {
 	case ResponseUserRequestAccepted:
@@ -44,6 +36,14 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		result := new(programmaticv1.MessagesResult)
 		result.SetEntries(entries)
 		wire.SetMessages(result)
+	case ResponseModels:
+		if err := mapModelsCommandResponse(wire, response.Models); err != nil {
+			return nil, err
+		}
+	case ResponseModelSelection:
+		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
+			return nil, err
+		}
 	case ResponseRejected:
 		command, err := mapCommandType(response.Rejection.Command)
 		if err != nil {
@@ -60,45 +60,42 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		wire.SetRejected(rejected)
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
-	case ResponseModels, ResponseModelSelection:
-		return nil, errors.New("map command response: model response was not handled")
 	default:
 		return nil, fmt.Errorf("map command response: unknown response kind %d", response.Kind)
 	}
 	return wrapCommandResponse(response.CorrelationID, wire), nil
 }
 
-func mapModelCommandResponse(response Response) (*programmaticv1.CommandResponse, bool, error) {
-	wire := new(programmaticv1.CommandResponse)
-	switch response.Kind {
-	case ResponseModels:
-		models, err := mapConfiguredModels(response.Models.Models)
-		if err != nil {
-			return nil, false, err
-		}
-		selection, err := mapModelSelection(response.Models.ActiveSelection)
-		if err != nil {
-			return nil, false, err
-		}
-		result := new(programmaticv1.ModelsResult)
-		result.SetModels(models)
-		result.SetActiveSelection(selection)
-		wire.SetModels(result)
-	case ResponseModelSelection:
-		selection, err := mapModelSelection(response.Selection)
-		if err != nil {
-			return nil, false, err
-		}
-		result := new(programmaticv1.ModelSelectionResult)
-		result.SetSelection(selection)
-		wire.SetModelSelection(result)
-	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
-		ResponseRunState, ResponseMessages, ResponseRejected:
-		return nil, false, nil
-	default:
-		return nil, false, fmt.Errorf("map model command response: unknown response kind %d", response.Kind)
+// mapModelsCommandResponse maps the catalog and confirmed selection after response-kind dispatch.
+func mapModelsCommandResponse(wire *programmaticv1.CommandResponse, response ModelsResult) error {
+	models, err := mapConfiguredModels(response.Models)
+	if err != nil {
+		return err
 	}
-	return wire, true, nil
+	selection, err := mapModelSelection(response.ActiveSelection)
+	if err != nil {
+		return err
+	}
+	result := new(programmaticv1.ModelsResult)
+	result.SetModels(models)
+	result.SetActiveSelection(selection)
+	wire.SetModels(result)
+	return nil
+}
+
+// mapModelSelectionCommandResponse maps one confirmed selection after response-kind dispatch.
+func mapModelSelectionCommandResponse(
+	wire *programmaticv1.CommandResponse,
+	selection model.Selection,
+) error {
+	mapped, err := mapModelSelection(selection)
+	if err != nil {
+		return err
+	}
+	result := new(programmaticv1.ModelSelectionResult)
+	result.SetSelection(mapped)
+	wire.SetModelSelection(result)
+	return nil
 }
 
 func wrapCommandResponse(

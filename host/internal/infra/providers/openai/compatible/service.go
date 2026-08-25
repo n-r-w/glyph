@@ -162,7 +162,7 @@ func (s *Service) requestAPI(request run.ModelRequest) (API, error) {
 		return "", errors.New("configured provider does not match request")
 	}
 	override, ok := s.models[request.Model.Model]
-	if !ok || request.Model.Model == "" {
+	if !ok {
 		return "", errors.New("configured model does not match request")
 	}
 	if override != "" {

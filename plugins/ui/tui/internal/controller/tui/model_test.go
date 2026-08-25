@@ -420,7 +420,6 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 }
 
 // TestModelWrapsCompletedUnicodeContent verifies readable wrapping, display width, and embedded line boundaries.
-// It uses one completed response at width 16 and has no external dependencies.
 func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 	t.Parallel()
 
@@ -442,7 +441,6 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 }
 
 // TestModelWrapsActiveContent verifies word wrapping and long-token splitting for active streaming text.
-// It uses one active response at width 16 and has no external dependencies.
 func TestModelWrapsActiveContent(t *testing.T) {
 	t.Parallel()
 
@@ -462,7 +460,6 @@ func TestModelWrapsActiveContent(t *testing.T) {
 }
 
 // TestModelClipsAfterWrapping verifies that the height budget selects wrapped visual lines.
-// It uses a four-line wrapped stream with space for two body lines and checks nonpositive width safety.
 func TestModelClipsAfterWrapping(t *testing.T) {
 	t.Parallel()
 
@@ -527,7 +524,7 @@ func TestRenderLineDistinguishesRefusal(t *testing.T) {
 	}))
 }
 
-// newTestModel builds a model with one deterministic presentation service.
+// newSelectionTestModel builds a model with configured selections and deterministic presentation behavior.
 func newSelectionTestModel(t *testing.T, availability presentationdomain.Availability, emit Emit) Model {
 	t.Helper()
 	service := presentationusecase.New()
