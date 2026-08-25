@@ -23,8 +23,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestServiceStreamAppliesRequestHooksBeforeOneDispatch verifies sequential payload and header replacement.
-func TestServiceStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
+// TestDriverStreamAppliesRequestHooksBeforeOneDispatch verifies sequential payload and header replacement.
+func TestDriverStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 	t.Parallel()
 
 	var requests atomic.Int32
@@ -68,7 +68,7 @@ func TestServiceStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 			return nil
 		},
 	})
-	service := hookTestService(t, runner, testProviderOptions(server), 1)
+	service := hookTestDriver(t, runner, testProviderOptions(server), 1)
 
 	events, err := collectStreamEvents(service, t.Context(), hookModelRequest("original instructions"), nil)
 	response := terminalResponse(events)
@@ -80,8 +80,8 @@ func TestServiceStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 	assert.Equal(t, int32(1), requests.Load())
 }
 
-// TestServiceStreamStopsBeforeDispatchOnRequestHookFailure verifies safe request-stage short circuiting.
-func TestServiceStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
+// TestDriverStreamStopsBeforeDispatchOnRequestHookFailure verifies safe request-stage short circuiting.
+func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	t.Parallel()
 
 	var requests atomic.Int32
@@ -120,7 +120,7 @@ func TestServiceStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 			return value, nil
 		},
 	}, nil)
-	service := hookTestService(t, runner, testProviderOptions(server), 2)
+	service := hookTestDriver(t, runner, testProviderOptions(server), 2)
 
 	events, err := collectStreamEvents(service, t.Context(), hookModelRequest("instructions"), nil)
 	response := terminalResponse(events)
@@ -139,13 +139,13 @@ func TestServiceStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	assert.Equal(t, int32(1), requests.Load())
 }
 
-// TestServiceStreamClosesBodyOnResponseHookFailure verifies pre-decode response short circuiting.
-func TestServiceStreamClosesBodyOnResponseHookFailure(t *testing.T) {
+// TestDriverStreamClosesBodyOnResponseHookFailure verifies pre-decode response short circuiting.
+func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	t.Parallel()
 
 	body := &trackingReadCloser{Reader: bytes.NewBufferString("data: " + completedEvent(`[]`) + "\n\n")}
 	transport := &staticResponseTransport{body: body}
-	options := defaultServiceOptions()
+	options := defaultDriverOptions()
 	options.modelBaseURL = "https://hooks.invalid"
 	options.httpClient = &http.Client{Transport: transport}
 	laterCalls := 0
@@ -162,7 +162,7 @@ func TestServiceStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 			return nil
 		},
 	})
-	service := hookTestService(t, runner, options, 1)
+	service := hookTestDriver(t, runner, options, 1)
 	events := make([]run.StreamEvent, 0)
 
 	events, err := collectStreamEvents(service, t.Context(), hookModelRequest("instructions"), func(event run.StreamEvent) error {
@@ -215,7 +215,7 @@ func (body *trackingReadCloser) Close() error {
 	return nil
 }
 
-func hookTestService(t *testing.T, runner *hookrunner.Runner, options serviceOptions, calls int) *Service {
+func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptions, calls int) *Driver {
 	t.Helper()
 	accountID := "hook-account"
 	accessToken := testJWT(t, map[string]any{
@@ -226,7 +226,7 @@ func hookTestService(t *testing.T, runner *hookrunner.Runner, options serviceOpt
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	).Times(calls)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	return newService(Config{Hooks: runner}, credentials, interaction, options)
+	return newDriver(Config{Hooks: runner, Models: nil}, credentials, interaction, options)
 }
 
 func hookModelRequest(instructions string) run.ModelRequest {

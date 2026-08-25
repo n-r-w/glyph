@@ -382,7 +382,11 @@ func newProviderCatalog(
 		switch providerConfig.Type {
 		case settingstore.ProviderTypeOpenAICodex:
 			credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
-			provider := codex.New(codex.Config{Hooks: hookRunner}, credentials, interaction)
+			modelIDs := make([]model.ID, len(providerConfig.Models))
+			for index, configuredModel := range providerConfig.Models {
+				modelIDs[index] = model.ID(configuredModel.ID)
+			}
+			provider := codex.New(codex.Config{Hooks: hookRunner, Models: modelIDs}, credentials, interaction)
 			for _, configuredModel := range providerConfig.Models {
 				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
 				descriptor.SupportedReasoningLevels = reasoningLevels(configuredModel.ReasoningLevels)

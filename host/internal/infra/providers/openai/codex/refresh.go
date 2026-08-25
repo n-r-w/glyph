@@ -27,7 +27,7 @@ type tokenResponse struct {
 }
 
 // resolveCredentials reloads provider state and refreshes it at the approved threshold.
-func (s *Service) resolveCredentials(ctx context.Context) (oauthCredentials, error) {
+func (s *Driver) resolveCredentials(ctx context.Context) (oauthCredentials, error) {
 	payload, found, loadErr := s.credentials.Load()
 	if loadErr != nil {
 		return oauthCredentials{}, fmt.Errorf("load OpenAI Codex credentials: %w", loadErr)
@@ -64,7 +64,7 @@ func validateCredentials(credentials oauthCredentials) error {
 }
 
 // refreshCredentials performs the provider's JSON refresh request and persists rotation.
-func (s *Service) refreshCredentials(ctx context.Context, current oauthCredentials) (oauthCredentials, error) {
+func (s *Driver) refreshCredentials(ctx context.Context, current oauthCredentials) (oauthCredentials, error) {
 	requestBody, err := json.Marshal(map[string]string{
 		"client_id":     codexClientID,
 		"grant_type":    "refresh_token",
@@ -128,7 +128,7 @@ func decodeRefreshResponse(response *http.Response) (tokenResponse, error) {
 }
 
 // rotateCredentials validates provider rotation and retains an omitted refresh token.
-func (s *Service) rotateCredentials(current oauthCredentials, refreshed tokenResponse) (oauthCredentials, error) {
+func (s *Driver) rotateCredentials(current oauthCredentials, refreshed tokenResponse) (oauthCredentials, error) {
 	if refreshed.AccessToken == "" || refreshed.ExpiresIn <= 0 {
 		return oauthCredentials{}, errors.New("OpenAI Codex credential refresh response is incomplete")
 	}

@@ -30,7 +30,7 @@ func expectAPIKey(t *testing.T, key string, resolveErr error, calls int) *MockAP
 	return resolver
 }
 
-func TestServiceSuite(t *testing.T) {
+func TestDriverSuite(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(serviceSuite))
 }
@@ -460,7 +460,7 @@ func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 	}
 }
 
-func streamEvents(t *testing.T, service *Service, request run.ModelRequest) []run.StreamEvent {
+func streamEvents(t *testing.T, service *Driver, request run.ModelRequest) []run.StreamEvent {
 	t.Helper()
 	var events []run.StreamEvent
 	err := service.Stream(t.Context(), request, func(event run.StreamEvent) error {

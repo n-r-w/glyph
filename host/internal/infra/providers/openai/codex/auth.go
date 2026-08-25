@@ -53,7 +53,7 @@ type loopbackServer struct {
 }
 
 // SignInProvider performs browser OAuth and persists the resulting provider payload.
-func (s *Service) SignInProvider(ctx context.Context) error {
+func (s *Driver) SignInProvider(ctx context.Context) error {
 	state, err := newOAuthState()
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (s *Service) SignInProvider(ctx context.Context) error {
 }
 
 // SignOut deletes only the OpenAI Codex provider payload.
-func (s *Service) SignOut() error {
+func (s *Driver) SignOut() error {
 	if err := s.credentials.Delete(); err != nil {
 		return fmt.Errorf("delete OpenAI Codex credentials: %w", err)
 	}
@@ -136,7 +136,7 @@ func (s *Service) SignOut() error {
 }
 
 // oauthConfig builds the PKCE authorization-code client for one active callback listener.
-func (s *Service) oauthConfig(redirectURL string) oauth2.Config {
+func (s *Driver) oauthConfig(redirectURL string) oauth2.Config {
 	return oauth2.Config{ //nolint:exhaustruct // OAuth public-client flow has no client secret.
 		ClientID:    codexClientID,
 		RedirectURL: redirectURL,
@@ -159,7 +159,7 @@ func newOAuthState() (string, error) {
 }
 
 // startLoopbackServer tries the two registered Codex callback ports in order.
-func (s *Service) startLoopbackServer(state string) (*loopbackServer, string, error) {
+func (s *Driver) startLoopbackServer(state string) (*loopbackServer, string, error) {
 	var listener net.Listener
 	var listenErr error
 	for _, port := range []string{firstCallbackPort, secondCallbackPort} {

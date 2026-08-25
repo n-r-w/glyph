@@ -53,7 +53,7 @@ func newResponsesAccumulator(handle run.StreamHandler) *responsesAccumulator {
 	}
 }
 
-func (s *Service) streamResponses(
+func (s *Driver) streamResponses(
 	ctx context.Context,
 	request run.ModelRequest,
 	key string,

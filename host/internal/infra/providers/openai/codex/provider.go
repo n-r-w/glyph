@@ -20,7 +20,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-var _ run.ModelProvider = (*Service)(nil)
+var _ run.ModelProvider = (*Driver)(nil)
 
 const (
 	requestFailedMessage   = "OpenAI Codex request failed."
@@ -28,7 +28,7 @@ const (
 )
 
 // Stream emits one provider response as provider-neutral semantic events.
-func (s *Service) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
+func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
 	var handlerErr error
 	response, streamErr := s.generateResponse(ctx, request, func(event run.StreamEvent) error {
 		if err := handle(event); err != nil {
@@ -55,7 +55,7 @@ func (s *Service) Stream(ctx context.Context, request run.ModelRequest, handle r
 }
 
 // generateResponse decodes one Codex stream and returns its terminal response.
-func (s *Service) generateResponse(
+func (s *Driver) generateResponse(
 	ctx context.Context,
 	request run.ModelRequest,
 	handle run.StreamHandler,
@@ -75,7 +75,7 @@ func (s *Service) generateResponse(
 		baseTransport = http.DefaultTransport
 	}
 	hookedTransport := &hookTransport{
-		base: baseTransport, runner: s.config.Hooks,
+		base: baseTransport, runner: s.hooks,
 		provider: request.Model.Provider, model: request.Model.Model,
 	}
 	errorTransport := newErrorCaptureTransport(hookedTransport)
@@ -121,7 +121,7 @@ func (s *Service) generateResponse(
 }
 
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
-func (s *Service) requestParams(request run.ModelRequest) (responses.ResponseNewParams, error) {
+func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewParams, error) {
 	if request.Model.Provider != ProviderID || request.Model.Model == "" || request.Instructions == "" {
 		return responses.ResponseNewParams{}, errors.New(
 			"OpenAI Codex selected provider, model, and request instructions are required",
@@ -301,7 +301,7 @@ func failedResponseFromSDK(
 }
 
 // streamError maps cancellation, 401, and bounded provider details without replay.
-func (s *Service) streamError(
+func (s *Driver) streamError(
 	ctx context.Context,
 	streamErr error,
 	transport *errorCaptureTransport,

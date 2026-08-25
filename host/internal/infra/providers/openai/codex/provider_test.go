@@ -25,8 +25,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput verifies the complete Responses translation.
-func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
+// TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput verifies the complete Responses translation.
+func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-ordered"
@@ -88,7 +88,7 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 	}))
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
 	updates := make([]run.StreamEvent, 0)
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("first")},
@@ -135,8 +135,8 @@ func TestServiceStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) 
 	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[3].ToolCall.Arguments)
 }
 
-// TestServiceStreamSerializesImageAndMapsTerminalAccounting verifies rich input and terminal values.
-func TestServiceStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
+// TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies rich input and terminal values.
+func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-image"
@@ -170,7 +170,7 @@ func TestServiceStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 		writeSSE(writer, `{"type":"response.completed","response":{"id":"resp-rich","model":"gpt-actual","status":"completed","service_tier":"default","metadata":{"region":"test"},"usage":{"input_tokens":10,"output_tokens":7,"total_tokens":17,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -195,8 +195,8 @@ func TestServiceStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	}, response.Usage)
 }
 
-// TestServiceStreamUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty preserves terminal streamed output.
-func TestServiceStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
+// TestDriverStreamUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty preserves terminal streamed output.
+func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-tool-preview"
@@ -219,7 +219,7 @@ func TestServiceStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -240,8 +240,8 @@ func TestServiceStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	require.Equal(t, map[string]any{"path": "file.txt", "query": "hello"}, events[3].ToolCall.Arguments)
 }
 
-// TestServiceStreamRecoversFunctionCallWithoutAddedEvent verifies authoritative item completion creates the lifecycle.
-func TestServiceStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
+// TestDriverStreamRecoversFunctionCallWithoutAddedEvent verifies authoritative item completion creates the lifecycle.
+func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-tool-missing-added"
@@ -261,7 +261,7 @@ func TestServiceStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -282,7 +282,7 @@ func TestServiceStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	}, events[1].ToolCall)
 }
 
-func TestServiceStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
+func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-invalid-tool"
@@ -302,7 +302,7 @@ func TestServiceStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -317,7 +317,7 @@ func TestServiceStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 
-func TestServiceStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
+func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-finalized-text"
@@ -340,7 +340,7 @@ func TestServiceStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	updates := make([]run.StreamEvent, 0, 2)
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
@@ -372,8 +372,8 @@ func TestServiceStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[3].ToolCall.Arguments)
 }
 
-// TestServiceStreamStreamsReasoningInOutputOrder verifies Codex-owned mixed-content assembly.
-func TestServiceStreamStreamsReasoningInOutputOrder(t *testing.T) {
+// TestDriverStreamStreamsReasoningInOutputOrder verifies Codex-owned mixed-content assembly.
+func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-reasoning"
@@ -396,7 +396,7 @@ func TestServiceStreamStreamsReasoningInOutputOrder(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 7)
 
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -428,8 +428,8 @@ func TestServiceStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	assert.Equal(t, model.ContentText, terminal.Content[2].Kind)
 }
 
-// TestServiceStreamStreamsRefusalDeltas preserves incremental and finalized refusal text.
-func TestServiceStreamStreamsRefusalDeltas(t *testing.T) {
+// TestDriverStreamStreamsRefusalDeltas preserves incremental and finalized refusal text.
+func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-refusal"
@@ -451,7 +451,7 @@ func TestServiceStreamStreamsRefusalDeltas(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 5)
 
 	err := service.Stream(t.Context(), run.ModelRequest{
@@ -489,8 +489,8 @@ func TestServiceStreamStreamsRefusalDeltas(t *testing.T) {
 	assert.Equal(t, "I cannot help", response.Content[2].Text)
 }
 
-// TestServiceStreamRejectsMissingEncryptedReasoning verifies stateless replay fails before HTTP.
-func TestServiceStreamRejectsMissingEncryptedReasoning(t *testing.T) {
+// TestDriverStreamRejectsMissingEncryptedReasoning verifies stateless replay fails before HTTP.
+func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account"
@@ -501,7 +501,7 @@ func TestServiceStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
 	t.Cleanup(server.Close)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 	history := []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryModel,
 		Model: model.Response{Content: []model.Content{{
@@ -522,8 +522,8 @@ func TestServiceStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	assert.Zero(t, requests.Load())
 }
 
-// TestServiceStreamOmitsAbsentReasoning verifies user-only history does not synthesize context.
-func TestServiceStreamOmitsAbsentReasoning(t *testing.T) {
+// TestDriverStreamOmitsAbsentReasoning verifies user-only history does not synthesize context.
+func TestDriverStreamOmitsAbsentReasoning(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account"
@@ -542,7 +542,7 @@ func TestServiceStreamOmitsAbsentReasoning(t *testing.T) {
 		writeSSE(writer, completedEvent(`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions:   "instructions",
@@ -557,8 +557,8 @@ func TestServiceStreamOmitsAbsentReasoning(t *testing.T) {
 	assert.Equal(t, model.OutcomeStop, response.Outcome)
 }
 
-// TestServiceStreamRefreshesAtThresholdAndPersistsRotation verifies fresh request authorization.
-func TestServiceStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
+// TestDriverStreamRefreshesAtThresholdAndPersistsRotation verifies fresh request authorization.
+func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
@@ -599,7 +599,7 @@ func TestServiceStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	options := testProviderOptions(server)
 	options.tokenURL = server.URL + "/token"
 	options.now = func() time.Time { return now }
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -614,8 +614,8 @@ func TestServiceStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	assert.Equal(t, int32(1), tokenRequests.Load())
 }
 
-// TestServiceStreamSkipsRefreshOutsideThreshold verifies six remaining minutes use loaded credentials.
-func TestServiceStreamSkipsRefreshOutsideThreshold(t *testing.T) {
+// TestDriverStreamSkipsRefreshOutsideThreshold verifies six remaining minutes use loaded credentials.
+func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
@@ -631,7 +631,7 @@ func TestServiceStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
 	options.now = func() time.Time { return now }
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
 
 	_, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 		Instructions: "instructions",
@@ -643,8 +643,8 @@ func TestServiceStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestServiceStreamMissingCredentialsDoesNotStartOAuth verifies headless failure requires no interaction.
-func TestServiceStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
+// TestDriverStreamMissingCredentialsDoesNotStartOAuth verifies headless failure requires no interaction.
+func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 	t.Parallel()
 
 	credentials := NewMockCredentials(gomock.NewController(t))
@@ -671,8 +671,8 @@ func TestServiceStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 	assert.Equal(t, signInRequiredMessage, response.ErrorMessage)
 }
 
-// TestServiceStreamLoadsCredentialsForEveryRequest verifies access data is never cached across model calls.
-func TestServiceStreamLoadsCredentialsForEveryRequest(t *testing.T) {
+// TestDriverStreamLoadsCredentialsForEveryRequest verifies access data is never cached across model calls.
+func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-fresh-load"
@@ -702,7 +702,7 @@ func TestServiceStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 		))
 	}))
 	t.Cleanup(server.Close)
-	service := newService(
+	service := newDriver(
 		testConfig(), credentials, interaction, testProviderOptions(server),
 	)
 	request := run.ModelRequest{
@@ -721,8 +721,8 @@ func TestServiceStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	assert.Equal(t, "Bearer "+secondAccess, <-authorizations)
 }
 
-// TestServiceStreamHTTPFailuresDoNotRetry verifies safe 401 and one-attempt provider errors.
-func TestServiceStreamHTTPFailuresDoNotRetry(t *testing.T) {
+// TestDriverStreamHTTPFailuresDoNotRetry verifies safe 401 and one-attempt provider errors.
+func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 	t.Parallel()
 
 	testCases := map[string]struct {
@@ -749,7 +749,7 @@ func TestServiceStreamHTTPFailuresDoNotRetry(t *testing.T) {
 				_, _ = writer.Write([]byte(testCase.body))
 			}))
 			t.Cleanup(server.Close)
-			service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+			service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 
 			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 				Instructions: "instructions",
@@ -767,8 +767,8 @@ func TestServiceStreamHTTPFailuresDoNotRetry(t *testing.T) {
 	}
 }
 
-// TestServiceStreamMapsIncompleteAndFailedOutcomes verifies terminal SSE status mapping.
-func TestServiceStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
+// TestDriverStreamMapsIncompleteAndFailedOutcomes verifies terminal SSE status mapping.
+func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 	t.Parallel()
 
 	testCases := map[string]struct {
@@ -797,7 +797,7 @@ func TestServiceStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			interaction := NewMockInteraction(gomock.NewController(t))
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { writeSSE(writer, testCase.event) }))
 			t.Cleanup(server.Close)
-			service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+			service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 
 			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
 				Instructions: "instructions",
@@ -817,8 +817,8 @@ func TestServiceStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 	}
 }
 
-// TestServiceStreamCancellationMapsAborted verifies request cancellation terminates the SSE stream.
-func TestServiceStreamCancellationMapsAborted(t *testing.T) {
+// TestDriverStreamCancellationMapsAborted verifies request cancellation terminates the SSE stream.
+func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account"
@@ -835,7 +835,7 @@ func TestServiceStreamCancellationMapsAborted(t *testing.T) {
 		<-request.Context().Done()
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 	ctx, cancel := context.WithCancel(t.Context())
 	result := make(chan struct {
 		response model.Response
@@ -867,8 +867,8 @@ func TestServiceStreamCancellationMapsAborted(t *testing.T) {
 	}
 }
 
-// TestServiceCheckAuthenticationUsesProviderOwnedClassification verifies Host preflight ownership.
-func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) {
+// TestDriverCheckAuthenticationUsesProviderOwnedClassification verifies Host preflight ownership.
+func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) {
 	t.Parallel()
 
 	t.Run("usable credentials", func(t *testing.T) {
@@ -882,7 +882,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 			testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 		)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
+		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
 		err := service.CheckProviderAuthentication(t.Context())
 
@@ -894,7 +894,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		credentials := NewMockCredentials(gomock.NewController(t))
 		credentials.EXPECT().Load().Return(nil, false, nil)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
+		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
 		err := service.CheckProviderAuthentication(t.Context())
 
@@ -907,7 +907,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 		credentials := NewMockCredentials(gomock.NewController(t))
 		credentials.EXPECT().Load().Return([]byte("not-json"), true, nil)
 		interaction := NewMockInteraction(gomock.NewController(t))
-		service := newService(testConfig(), credentials, interaction, defaultServiceOptions())
+		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
 		err := service.CheckProviderAuthentication(t.Context())
 
@@ -918,7 +918,7 @@ func TestServiceCheckAuthenticationUsesProviderOwnedClassification(t *testing.T)
 
 // testConfig creates one provider-owned configuration fixture.
 func testConfig() Config {
-	return Config{Hooks: testProviderHookRunner()}
+	return Config{Hooks: testProviderHookRunner(), Models: nil}
 }
 
 // testModelDescriptor creates an explicitly capable model fixture for adapter tests.
@@ -938,8 +938,8 @@ func testProviderHookRunner() internalhooks.ProviderRunner {
 }
 
 // testProviderOptions points both SDK and token HTTP calls at one test server.
-func testProviderOptions(server *httptest.Server) serviceOptions {
-	options := defaultServiceOptions()
+func testProviderOptions(server *httptest.Server) driverOptions {
+	options := defaultDriverOptions()
 	options.modelBaseURL = server.URL
 	options.httpClient = server.Client()
 	return options
@@ -994,7 +994,7 @@ func streamEventKinds(events []run.StreamEvent) []run.StreamEventKind {
 
 // collectStreamEvents returns every provider event in delivery order.
 func collectStreamEvents(
-	service *Service,
+	service *Driver,
 	ctx context.Context,
 	request run.ModelRequest,
 	handleEvent func(run.StreamEvent) error,

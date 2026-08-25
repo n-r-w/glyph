@@ -211,8 +211,8 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 	}
 }
 
-// TestServiceStreamMapsGrammarToolLifecycle verifies custom request, replay, preview, and final arguments.
-func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
+// TestDriverStreamMapsGrammarToolLifecycle verifies custom request, replay, preview, and final arguments.
+func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-grammar"
@@ -252,7 +252,7 @@ func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 		)
 	}))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: "[a-z]+"})
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryModel, Model: model.Response{Content: []model.Content{{
@@ -291,8 +291,8 @@ func TestServiceStreamMapsGrammarToolLifecycle(t *testing.T) {
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[3].Response.Content[0].ToolCall.Arguments)
 }
 
-// TestServiceStreamDoesNotInferMissingCapabilities verifies omitted support remains unsupported.
-func TestServiceStreamDoesNotInferMissingCapabilities(t *testing.T) {
+// TestDriverStreamDoesNotInferMissingCapabilities verifies omitted support remains unsupported.
+func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-missing-capabilities"
@@ -307,7 +307,7 @@ func TestServiceStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
@@ -323,8 +323,8 @@ func TestServiceStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
 }
 
-// TestServiceStreamSendsNonStrictPreferredTool verifies unsupported strict preference degrades to a function tool.
-func TestServiceStreamSendsNonStrictPreferredTool(t *testing.T) {
+// TestDriverStreamSendsNonStrictPreferredTool verifies unsupported strict preference degrades to a function tool.
+func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-prefer-fallback"
@@ -353,7 +353,7 @@ func TestServiceStreamSendsNonStrictPreferredTool(t *testing.T) {
 		writeSSE(writer, completedEvent(`[]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})},
@@ -363,8 +363,8 @@ func TestServiceStreamSendsNonStrictPreferredTool(t *testing.T) {
 	assert.Equal(t, 1, requests)
 }
 
-// TestServiceStreamRejectsUnsupportedGrammarBeforeDispatch verifies format intersection before HTTP dispatch.
-func TestServiceStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
+// TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch verifies format intersection before HTTP dispatch.
+func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-unsupported-grammar"
@@ -383,7 +383,7 @@ func TestServiceStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		Provider: ProviderID, Model: "gpt-regex-only",
 		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true}},
 	}
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: selectedModel,
@@ -399,8 +399,8 @@ func TestServiceStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
 }
 
-// TestServiceStreamRejectsRequiredConstraintBeforeDispatch verifies capability failure has no HTTP side effect.
-func TestServiceStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
+// TestDriverStreamRejectsRequiredConstraintBeforeDispatch verifies capability failure has no HTTP side effect.
+func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-unsupported"
@@ -415,7 +415,7 @@ func TestServiceStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
-	service := newService(testConfig(), credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test"},

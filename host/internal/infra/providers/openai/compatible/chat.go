@@ -45,7 +45,7 @@ func newChatAccumulator() *chatAccumulator {
 	return &chatAccumulator{textPosition: -1, refusalPosition: -1, tools: make(map[int64]*chatToolState)}
 }
 
-func (s *Service) streamChatCompletions(
+func (s *Driver) streamChatCompletions(
 	ctx context.Context,
 	request run.ModelRequest,
 	key string,

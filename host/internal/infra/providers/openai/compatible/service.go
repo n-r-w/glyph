@@ -40,20 +40,26 @@ type Config struct {
 	APIKey     APIKeyResolver
 }
 
-// Service owns one immutable OpenAI-compatible provider instance.
-type Service struct {
+// modelConfig contains provider-owned wire metadata for one configured model.
+type modelConfig struct {
+	api                       API
+	reasoningWireFormat       string
+	reasoningCompatibilityKey string
+}
+
+// Driver owns one immutable OpenAI-compatible provider instance.
+type Driver struct {
 	providerID model.ProviderID
 	baseURL    string
-	api        API
-	models     map[model.ID]API
+	models     map[model.ID]modelConfig
 	apiKey     APIKeyResolver
 	httpClient *http.Client
 }
 
-var _ run.ModelProvider = (*Service)(nil)
+var _ run.ModelProvider = (*Driver)(nil)
 
 // New validates configuration and creates one provider instance.
-func New(config Config) (*Service, error) {
+func New(config Config) (*Driver, error) {
 	if strings.TrimSpace(string(config.ProviderID)) == "" {
 		return nil, errors.New("OpenAI-compatible provider ID is required")
 	}
@@ -71,22 +77,25 @@ func New(config Config) (*Service, error) {
 	if config.APIKey == nil {
 		return nil, errors.New("OpenAI-compatible API key resolver is required")
 	}
-	models := make(map[model.ID]API, len(config.Models))
+	models := make(map[model.ID]modelConfig, len(config.Models))
 	for modelID, override := range config.Models {
 		if strings.TrimSpace(string(modelID)) == "" {
 			return nil, errors.New("OpenAI-compatible model ID is required")
 		}
+		selectedAPI := config.API
 		if override != "" {
 			if apiErr := validateAPI(override); apiErr != nil {
 				return nil, fmt.Errorf("model %q API override: %w", modelID, apiErr)
 			}
+			selectedAPI = override
 		}
-		models[modelID] = override
+		models[modelID] = modelConfig{
+			api: selectedAPI, reasoningWireFormat: "", reasoningCompatibilityKey: "",
+		}
 	}
-	return &Service{
+	return &Driver{
 		providerID: config.ProviderID,
 		baseURL:    strings.TrimRight(config.BaseURL, "/"),
-		api:        config.API,
 		models:     models,
 		apiKey:     config.APIKey,
 		httpClient: &http.Client{},
@@ -103,7 +112,7 @@ func validateAPI(api API) error {
 // Stream emits one provider response as provider-neutral events.
 //
 //nolint:nestif // Error classification must preserve handler, cancellation, and provider outcomes.
-func (s *Service) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
+func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
 	selectedAPI, err := s.requestAPI(request)
 	if err != nil {
 		return s.emitFailure(handle, request, model.OutcomeFailed, requestFailedMessage, err)
@@ -157,21 +166,18 @@ func (s *Service) Stream(ctx context.Context, request run.ModelRequest, handle r
 	return nil
 }
 
-func (s *Service) requestAPI(request run.ModelRequest) (API, error) {
+func (s *Driver) requestAPI(request run.ModelRequest) (API, error) {
 	if request.Model.Provider != s.providerID {
 		return "", errors.New("configured provider does not match request")
 	}
-	override, ok := s.models[request.Model.Model]
+	configuredModel, ok := s.models[request.Model.Model]
 	if !ok {
 		return "", errors.New("configured model does not match request")
 	}
-	if override != "" {
-		return override, nil
-	}
-	return s.api, nil
+	return configuredModel.api, nil
 }
 
-func (s *Service) emitFailure(
+func (s *Driver) emitFailure(
 	handle run.StreamHandler,
 	request run.ModelRequest,
 	outcome model.Outcome,

@@ -19,8 +19,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// TestServiceSignInValidatesStateExchangesAndPersists verifies the complete browser PKCE success path.
-func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
+// TestDriverSignInValidatesStateExchangesAndPersists verifies the complete browser PKCE success path.
+func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account-123"
@@ -54,7 +54,7 @@ func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		return nil
 	})
 	var attemptedAddresses []string
-	options := defaultServiceOptions()
+	options := defaultDriverOptions()
 	options.authorizationURL = tokenServer.URL + "/authorize"
 	options.tokenURL = tokenServer.URL
 	options.httpClient = tokenServer.Client()
@@ -101,7 +101,7 @@ func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		),
 		interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(errors.New("browser unavailable")),
 	)
-	service := newService(Config{Hooks: testProviderHookRunner()}, credentials, interaction, options)
+	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
 
 	err := service.SignInProvider(t.Context())
 
@@ -110,8 +110,8 @@ func TestServiceSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	assert.Equal(t, []string{"127.0.0.1:1455", "127.0.0.1:1457"}, attemptedAddresses)
 }
 
-// TestServiceSignInCancellationClosesCallbackServer verifies cancellation stops both waiting and listening.
-func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
+// TestDriverSignInCancellationClosesCallbackServer verifies cancellation stops both waiting and listening.
+func TestDriverSignInCancellationClosesCallbackServer(t *testing.T) {
 	t.Parallel()
 
 	credentials := NewMockCredentials(gomock.NewController(t))
@@ -119,7 +119,7 @@ func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
 	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).Return(nil)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	var callbackListener *net.TCPListener
-	options := defaultServiceOptions()
+	options := defaultDriverOptions()
 	options.listen = func(network, _ string) (net.Listener, error) {
 		listener, err := net.ListenTCP(
 			"tcp4",
@@ -130,8 +130,8 @@ func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
 		}
 		return listener, err
 	}
-	service := newService(
-		Config{Hooks: testProviderHookRunner()}, credentials, interaction, options,
+	service := newDriver(
+		Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options,
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -145,8 +145,8 @@ func TestServiceSignInCancellationClosesCallbackServer(t *testing.T) {
 	require.NoError(t, replacement.Close())
 }
 
-// TestServiceSignInRejectsIncompleteToken verifies invalid provider token data is never persisted.
-func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
+// TestDriverSignInRejectsIncompleteToken verifies invalid provider token data is never persisted.
+func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 	t.Parallel()
 
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
@@ -156,7 +156,7 @@ func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
 	t.Cleanup(tokenServer.Close)
 	credentials := NewMockCredentials(gomock.NewController(t))
 	interaction := NewMockInteraction(gomock.NewController(t))
-	options := defaultServiceOptions()
+	options := defaultDriverOptions()
 	options.authorizationURL = tokenServer.URL + "/authorize"
 	options.tokenURL = tokenServer.URL
 	options.httpClient = tokenServer.Client()
@@ -177,8 +177,8 @@ func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
 		},
 	)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
-	service := newService(
-		Config{Hooks: testProviderHookRunner()}, credentials, interaction, options,
+	service := newDriver(
+		Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options,
 	)
 
 	err := service.SignInProvider(t.Context())
@@ -187,14 +187,14 @@ func TestServiceSignInRejectsIncompleteToken(t *testing.T) {
 	assert.NotContains(t, err.Error(), "missing-refresh")
 }
 
-// TestServiceSignOutDeletesOnlyProviderPayload verifies sign-out delegates one opaque delete.
-func TestServiceSignOutDeletesOnlyProviderPayload(t *testing.T) {
+// TestDriverSignOutDeletesOnlyProviderPayload verifies sign-out delegates one opaque delete.
+func TestDriverSignOutDeletesOnlyProviderPayload(t *testing.T) {
 	t.Parallel()
 
 	credentials := NewMockCredentials(gomock.NewController(t))
 	interaction := NewMockInteraction(gomock.NewController(t))
 	credentials.EXPECT().Delete().Return(nil)
-	service := New(Config{Hooks: testProviderHookRunner()}, credentials, interaction)
+	service := New(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction)
 
 	require.NoError(t, service.SignOut())
 }
