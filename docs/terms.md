@@ -50,12 +50,24 @@
 - `nextTurn`: A queued message intended for the next user turn.
 - `terminate`: A tool-result signal that controls whether the agent performs another automatic model request.
 - `model provider`: A local or remote system through which an agent accesses a language model.
-- `provider type`: A provider implementation category that defines shared protocol and authentication behavior for configured provider instances.
+- `provider type`: A provider driver category that defines shared protocol and authentication behavior for configured provider instances.
+- `provider driver`: An infrastructure component that translates provider-neutral model operations into one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.
 - `provider instance`: One configured model provider with a unique identifier, endpoint, authentication configuration, and model descriptors.
 - `provider catalogue`: The Glyph Host-owned set of configured provider instances and their model descriptors.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
-- `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
-- `model selection`: The active provider instance, model, and reasoning level used when the agent core starts its next model request.
+- `reasoning capability`: A model's ability to produce reasoning content separately from its final answer.
+- `reasoning control`: The single user-facing control whose available choices reflect the selected model's reasoning capabilities.
+- `reasoning choice`: One value available through reasoning control: `off`, `on`, or a supported reasoning effort.
+- `reasoning effort`: A provider-supported qualitative amount of model reasoning.
+- `reasoning activation`: A provider-specific request mechanism that enables or disables reasoning.
+- `fixed reasoning`: Model reasoning behavior that the user cannot change.
+- `visible reasoning content`: Provider-returned reasoning text intended for typed conversation history and client presentation.
+- `provider reasoning context`: Opaque or encrypted provider-owned reasoning data retained for compatible request replay but not exposed to clients.
+- `encrypted reasoning block`: Provider reasoning context that only its owning provider can interpret.
+- `reasoning compatibility key`: An optional nonempty model identifier that explicitly permits provider reasoning context replay between models with the same provider instance, API, and key.
+- `reasoning compatibility group`: Models with the same provider instance, API, and nonempty reasoning compatibility key.
+- `reasoning wire format`: The provider API fields used for reasoning activation, effort control, visible content, and provider reasoning context.
+- `model selection`: The active provider instance, model, and reasoning choice used when the agent core starts its next model request.
 - `UI`: A presentation and input surface through which a person interacts with Glyph.
 - `terminal UI`: A UI presented inside a terminal.
 - `standard TUI`: The terminal UI plugin distributed with Glyph; it owns terminal-specific rendering, input, and extension capabilities.

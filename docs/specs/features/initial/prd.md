@@ -41,7 +41,12 @@
 - `interaction request`: A request from an extension through the Glyph host to a Glyph client that expects a result.
 - `notification`: Information sent by an extension through the Glyph host to a Glyph client without expecting a user response; the host reports delivery success or an error.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
-- `reasoning level`: A configured setting for model reasoning effort, limited by the selected model's capabilities.
+- `reasoning capability`: A model's ability to produce reasoning content separately from its final answer.
+- `reasoning control`: The single user-facing control whose available choices reflect the selected model's reasoning capabilities.
+- `reasoning choice`: One value available through reasoning control: `off`, `on`, or a supported reasoning effort.
+- `visible reasoning content`: Provider-returned reasoning text intended for typed conversation history and client presentation.
+- `provider reasoning context`: Opaque or encrypted provider-owned reasoning data retained for compatible request replay but not exposed to clients.
+- `reasoning compatibility key`: An optional nonempty model identifier that explicitly permits provider reasoning context replay between models with the same provider instance, API, and key.
 - `Go interface`: A Go language type that defines a method set; this term does not refer to a UI plugin, Glyph client, or extension.
 - `skill`: A reusable instruction resource contributed by an extension.
 - `prompt template`: A reusable user-request template contributed by an extension.
@@ -56,6 +61,8 @@ The project owner maintains `pi-agent-suite`, a set of extensions for Pi. Pi dem
 
 Glyph provides an independently owned Go platform whose host, agent core, Glyph clients, and extension contracts can evolve without depending on Pi.
 
+Reasoning models do not share one control contract. A model can expose effort levels, support only on and off, always reason without user control, or return provider-owned encrypted reasoning context. Treating these behaviors as one reasoning-level list creates ineffective controls, unsupported request fields, lost visible reasoning content, and lost provider context.
+
 ## Goal
 
 Deliver an independent Go agent platform with a UI-free agent core, a plugin-managing host, a standard TUI, and programmatic control.
@@ -65,6 +72,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - A programmatic controller runs and controls a headless Glyph agent without loading the standard TUI.
 - A user gives the standard terminal coding agent a task. The agent inspects the project, invokes tools, changes files, runs commands, reports the result, and continues the conversation.
 - A user authenticates with OpenAI Codex or configures one or more OpenAI-compatible provider instances, selects a model, and changes the model without leaving the session.
+- A user selects only the reasoning choices supported by the active model, inspects visible reasoning content, and continues a conversation whose compatible provider reasoning context is replayed without client exposure.
 - A user resumes a saved session, navigates its tree, and continues from an earlier point without deleting another branch.
 - A Go developer installs a compatible extension without rebuilding Glyph. Its core capabilities work headlessly, and its terminal capabilities activate only with the standard TUI.
 - An extension requests interaction or sends a notification through the Glyph host to a Glyph client.
@@ -178,19 +186,34 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - An OpenAI-compatible provider instance API key shall be a literal value, an environment-variable reference, or a local credential-file entry reference. API-key resolution shall not execute a command.
 - The OpenAI-compatible provider type shall support OpenAI Chat Completions and OpenAI Responses.
 - Provider configuration shall select the OpenAI wire API through an explicit `api` field, and a model configuration shall be able to override it.
+- Settings shall explicitly declare each model's reasoning capability, available reasoning choices, and default reasoning choice without runtime capability probing.
+- Settings loading shall reject incomplete or contradictory reasoning configuration.
+- A model without reasoning capability shall expose no reasoning control; an on/off model shall expose only `off` and `on`; an effort model shall expose only its configured efforts and `off` when reasoning can be disabled; and fixed reasoning shall expose no selectable alternative.
+- TUI and Programmatic Control shall use one Host-owned reasoning capability model and shall expose only choices that affect the selected model.
+- Selecting an unsupported reasoning choice shall fail without changing the active model selection.
+- Model switching shall preserve a semantically compatible reasoning choice and otherwise use the target model's explicit default reasoning choice.
+- Visible reasoning content shall remain typed model content in conversation history and client events and shall remain in model-visible history for later requests.
+- A provider driver shall replay visible reasoning through a native reasoning field when the target wire format supports it and shall otherwise convert the visible reasoning to ordinary assistant text.
+- Provider reasoning context shall not be exposed to Glyph clients. A provider driver may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged and shall be replayed only to a compatible model request.
+- Provider reasoning context replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
+- A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier.
+- PHS-03 reasoning wire support shall cover OpenAI Codex Responses, OpenAI-compatible Responses, OpenAI-style reasoning effort, and Ollama Ornith reasoning through Chat Completions.
+- OpenRouter, Together, DeepSeek, Qwen, chat-template reasoning controls, and thinking token budgets shall remain unsupported until a later feature adds and verifies their wire formats.
+- PHS-03 documentation shall state these reasoning-format limits and describe the deferred provider-specific formats.
 - An OpenAI-compatible provider instance without an API key shall remain available and shall use no request authorization.
-- Selecting a model whose referenced API key cannot be resolved shall fail immediately, preserve the active provider, model, and reasoning selection, and produce an error.
+- Selecting a model whose referenced API key cannot be resolved shall fail immediately, preserve the active provider, model, and reasoning choice, and produce an error.
 
 #### Programmatic Control
 
 - The Glyph host shall support a programmatically controlled headless agent in addition to the standard TUI.
+- Programmatic Control shall expose reasoning capability, available reasoning choices, and the active reasoning choice for the selected model without exposing provider reasoning context.
 - Each programmatic command shall carry a correlation identifier.
 - The host shall accept or reject a programmatic command independently from its later execution outcome.
 - Asynchronous events caused by an accepted command shall be attributable to the controlled operation.
 - The programmatic control contract shall not depend on the standard TUI or a selected transport technology.
 - The current `glyph` application's headless composition shall expose the programmatic control contract through bidirectional gRPC over a Unix socket.
 - The `glyph` application shall host the Programmatic Control transport in its own process and shall not create a separate Host daemon.
-- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model and reasoning selection, queue modes, compaction, retry control, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
+- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model selection and adaptive reasoning control, queue modes, compaction, retry control, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
 - Queue mode `all` shall deliver every queued `steer` or `followUp` message at its defined delivery point; `one-at-a-time` shall deliver one queued message at each respective point.
 - A headless agent shall execute its available tools itself.
 
@@ -289,6 +312,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - For every user-invokable action, the standard TUI shall send a Host command and render Host events or results. It shall not execute agent behavior.
 - The standard TUI shall satisfy the transcript, viewport, editor, completion, clipboard, selector, and terminal-lifecycle requirements in `docs/specs/features/initial/standard-tui.md`.
 - The standard TUI shall render model output incrementally and keep tool progress visible while a tool runs.
+- The standard TUI shall render visible reasoning content as reasoning blocks that are collapsed by default.
+- One display action shall expand or collapse all reasoning blocks in the session without changing the active reasoning choice or provider request.
 - The user shall be able to stop the active run through the standard TUI.
 - The standard TUI shall expose model selection, model cycling, environment reload, context compaction, and session operations through user-invokable actions.
 - Every TUI key binding shall be user-configurable.

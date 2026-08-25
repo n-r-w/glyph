@@ -2,169 +2,182 @@
 
 ## Problem Statement
 
-- PRB-01: Glyph constructs one OpenAI Codex provider, one model descriptor, and one reasoning level at startup. The agent core uses that fixed selection for every model request.
-- PRB-02: Settings cannot describe multiple provider instances or explicit model catalogues. Glyph has no OpenAI-compatible adapter for Chat Completions or Responses.
-- PRB-03: Programmatic Control and the standard TUI cannot list configured models or change the active provider instance, model, or reasoning level.
-- PRB-04: Runtime selection must preserve conversation history and keep the agent core independent of settings, credentials, protobuf, gRPC, provider SDKs, and TUI packages.
+- PRB-01: `model.ReasoningLevel` represents model capability, user control, request mapping, and active selection as one effort list. It cannot represent toggle reasoning or fixed reasoning without ineffective choices.
+- PRB-02: OpenAI-compatible Chat Completions sends `reasoning_effort` for every non-`none` value but does not map streamed reasoning fields into typed reasoning content.
+- PRB-03: Provider reasoning context is scoped only by provider instance. Replay can therefore cross an API or model boundary that does not accept the source context.
+- PRB-04: The standard TUI maps reasoning content to an unspecified presentation kind and cannot retain or display reasoning blocks.
+- PRB-05: The solution must retain visible reasoning in model-visible history while keeping Agent Core independent of settings, credentials, protobuf, gRPC, provider SDKs, persistence adapters, and TUI packages.
 
 ## Proposed Solution
 
 ### Solution overview
 
-- SOL-01: Replace the one-entry startup catalogue with a concurrency-safe Host provider catalogue built from strict settings.
-- SOL-02: Configure one OpenAI Codex provider instance and any number of provider instances whose type is `openai-compatible`.
-- SOL-03: Add provider-neutral reasoning capabilities and model selection to the model domain. The agent core reads one catalogue snapshot immediately before each model request.
-- SOL-04: Add an OpenAI-compatible adapter with Chat Completions and Responses request paths selected by provider configuration and optional model overrides.
-- SOL-05: Expose catalogue queries, model selection, and reasoning selection through Programmatic Control and the standard TUI.
-- SOL-06: Preserve conversation history when selection changes. Provider adapters include opaque provider context only when its provider instance identifier matches the request model.
+- SOL-01: Replace `ReasoningLevel` with provider-neutral `ReasoningChoice` and `ReasoningCapabilities` throughout settings, the model domain, runtime selection, Programmatic Control, and the UI plugin contract.
+- SOL-02: Require every configured model to declare its reasoning capability, effective choices, explicit default, and one reasoning wire format when reasoning is supported.
+- SOL-03: Keep reasoning wire mapping inside provider drivers. Agent Core receives only capabilities, active choice, typed visible reasoning, and opaque provider context.
+- SOL-04: Retain visible reasoning in every later model request. A target provider driver uses its native reasoning representation or converts the reasoning to ordinary assistant text.
+- SOL-05: Scope provider reasoning context by source provider instance, API, model, and optional compatibility key.
+- SOL-06: Expose `Supported`, ordered `Choices`, `Default`, and the active reasoning choice to both Programmatic Control and the standard TUI.
+- SOL-07: Store reasoning blocks in the TUI transcript, collapse all blocks by default, and control their display through one TUI-local state.
 
 ### Terms and ownership
 
 - ENT-01: A provider type defines shared protocol and authentication behavior. PHS-03 has `openai-codex` and `openai-compatible` provider types.
 - ENT-02: A provider instance is one configured provider with a unique identifier, models, endpoint, and authentication configuration.
-- ENT-03: A model selection contains a provider instance identifier, model identifier, and reasoning level.
-- CMP-01: `host/internal/infra/persistence/settings` parses and validates the settings file shape. It does not construct provider SDK clients.
-- CMP-02: `host/internal/usecase/host/providers` owns the configured provider catalogue, active selection, selection rules, and provider lookup.
-- CMP-03: `host/internal/usecase/agent/run` owns the consumer-side runtime interface used to obtain the selection for a model request.
-- CMP-04: `host/internal/infra/providers/openai/codex` remains the OpenAI Codex adapter.
-- CMP-05: `host/internal/infra/providers/openai/compatible` owns OpenAI-compatible Chat Completions and Responses serialization, streaming, and provider-neutral mapping.
-- CMP-06: `host/internal/app` maps validated settings into provider configurations and wires concrete implementations. It contains no selection or credential-resolution rules.
+- ENT-03: A provider driver implements one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.
+- ENT-04: A model selection contains a provider instance identifier, model identifier, and reasoning choice.
+- ENT-05: `ReasoningChoice` has the closed values `off`, `on`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`.
+- ENT-06: `ReasoningCapabilities` contains `Supported`, ordered `Choices`, and `Default`.
+- ENT-07: A reasoning compatibility key is an optional nonempty model setting that adds cross-model provider reasoning context compatibility within one provider instance and API.
+- ENT-08: A reasoning wire format selects one provider-driver implementation for reasoning request fields, response fields, and native history replay.
+- CMP-01: `host/internal/infra/persistence/settings` parses and validates the public settings shape. It does not construct SDK clients or map wire fields.
+- CMP-02: `host/internal/usecase/host/providers` owns the provider catalogue, active selection, capability validation, fallback choice, and provider lookup.
+- CMP-03: `host/internal/usecase/agent/run` owns the consumer-side `ModelRuntime` and `ModelProvider` interfaces.
+- CMP-04: `host/internal/infra/providers/openai/codex` owns the Codex provider driver.
+- CMP-05: `host/internal/infra/providers/openai/compatible` owns one OpenAI-compatible provider driver per configured provider instance.
+- CMP-06: `host/internal/app` maps validated settings into model descriptors and private provider-driver configurations.
 
 ### Settings contract
 
-- APC-01: The settings file requires `defaultProvider`, `defaultModel`, and `defaultReasoningLevel`; retains optional `activeUI`; replaces `defaultThinkingLevel`; and adds a required `providers` map keyed by provider instance identifier.
-- APC-02: Provider instance identifiers and model identifiers must be nonempty after trimming. Provider instance identifiers must be unique by map construction, and model identifiers must be unique within one instance.
-- APC-03: `type` is required for every provider instance. Its PHS-03 values are `openai-codex` and `openai-compatible`.
-- APC-04: Exactly one provider instance has type `openai-codex`, and its identifier is `openai-codex`. It has an explicit nonempty model list.
-- APC-05: Each `openai-compatible` instance requires `baseURL`, `api`, and a nonempty model list. `api` is `chat-completions` or `responses`.
-- APC-06: A model entry requires `id` and a nonempty `reasoningLevels` list. It can override its provider instance `api` with `chat-completions` or `responses`.
-- APC-07: Reasoning levels use the closed set `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Duplicate configured levels are invalid.
-- APC-08: `defaultProvider` and `defaultModel` must identify a configured model. `defaultReasoningLevel` must be listed by that model. Invalid defaults fail settings loading.
-- APC-09: An `openai-compatible` instance can omit `apiKey`. When present, `apiKey` is a mapping with exactly one nonempty field from `literal`, `environment`, or `credential`.
-- APC-10: Unknown provider types, unknown APIs, unknown fields, empty API-key values, unsupported reasoning levels, invalid absolute HTTP or HTTPS base URLs, and provider-specific fields on the wrong provider type fail settings loading.
+- APC-01: The settings file requires `defaultProvider`, `defaultModel`, and a nonempty `providers` map. `defaultReasoningLevel` is removed because each model owns its reasoning default.
+- APC-02: Every model entry requires `id` and a `reasoning` mapping with `supported`, `choices`, and `default`.
+- APC-03: A model with `supported: false` requires `choices: [off]`, `default: off`, no `compatibilityKey`, and no `wireFormat`.
+- APC-04: Fixed reasoning requires `supported: true`, `choices: [on]`, and `default: on`.
+- APC-05: Toggle reasoning requires `supported: true`, exactly the choices `off` and `on`, and a default from those choices.
+- APC-06: Effort reasoning requires `supported: true`, at least one effort choice, no `on`, an optional `off`, and a default from the configured choices.
+- APC-07: A reasoning model requires `wireFormat`. Its PHS-03 values are `openai-responses`, `openai-chat-effort`, and `ollama-ornith`.
+- APC-08: `openai-responses` requires the Responses API. `openai-chat-effort` and `ollama-ornith` require Chat Completions. `ollama-ornith` also requires fixed reasoning from APC-04.
+- APC-09: A present `compatibilityKey` must be nonempty after trimming. It is valid only when `supported` is true.
+- APC-10: Duplicate choices, unknown choices, a default outside `choices`, an invalid capability shape, and an API or wire-format mismatch fail settings loading.
+- APC-11: Provider instance identifiers and model identifiers must be nonempty after trimming. Model identifiers must be unique within one provider instance.
+- APC-12: An `openai-compatible` instance requires `baseURL`, an API, and a nonempty model list. A nonempty model API overrides its provider instance API.
+- APC-13: An `openai-compatible` instance can omit `apiKey`. A present `apiKey` contains exactly one nonempty `literal`, `environment`, or `credential` value.
+- APC-14: Unknown fields, provider types, APIs, and reasoning wire formats fail settings loading.
 
 Example:
 
 ```yaml
 defaultProvider: openai-codex
 defaultModel: gpt-5.6-luna
-defaultReasoningLevel: high
 activeUI: standard-tui
 
 providers:
   openai-codex:
     type: openai-codex
+    api: responses
     models:
       - id: gpt-5.6-luna
-        reasoningLevels: [none, low, medium, high, xhigh]
-
-  openrouter:
-    type: openai-compatible
-    baseURL: https://openrouter.ai/api/v1
-    api: chat-completions
-    apiKey:
-      environment: OPENROUTER_API_KEY
-    models:
-      - id: anthropic/claude-sonnet-4
-        reasoningLevels: [none, low, medium, high]
-      - id: openai/gpt-5
-        api: responses
-        reasoningLevels: [none, low, medium, high]
+        reasoning:
+          supported: true
+          choices: [off, low, medium, high, xhigh]
+          default: high
+          wireFormat: openai-responses
 
   ollama:
     type: openai-compatible
     baseURL: http://localhost:11434/v1
     api: chat-completions
     models:
-      - id: qwen3-coder
-        reasoningLevels: [none]
+      - id: smtek/ornith-1.5:35b
+        reasoning:
+          supported: true
+          choices: [on]
+          default: on
+          compatibilityKey: ornith-1.5
+          wireFormat: ollama-ornith
 ```
 
 ### API-key resolution
 
-- DEC-01: `apiKey.literal` is used as the API key. Literal values are permitted in settings by explicit product decision.
+- DEC-01: `apiKey.literal` is the API key. Values beginning with `!` have no special behavior.
 - DEC-02: `apiKey.environment` names one process environment variable. A missing or empty variable is a resolution error.
-- DEC-03: `apiKey.credential` names one entry in the local credential file. The entry payload is `{"type":"api_key","key":"..."}`. A missing entry, another credential type, or an empty key is a resolution error.
-- DEC-04: An omitted `apiKey` resolves to no key. The adapter sends no `Authorization` header and keeps the provider instance available for selection.
-- DEC-05: API-key resolution never executes a command. Values beginning with `!` have no special behavior when stored in `literal`.
-- DEC-06: A referenced API key is resolved before model selection commits and again before each provider request. A selection-time failure preserves the complete active selection. A request-time failure starts no HTTP request and leaves the active selection unchanged.
-- CNS-01: Settings parse errors, logs, Programmatic Control responses, UI frames, and provider diagnostics must not contain literal keys, resolved environment values, credential-file key values, OAuth tokens, or request authorization headers.
+- DEC-03: `apiKey.credential` names one local credential-file entry whose payload is `{"type":"api_key","key":"..."}`. A missing entry, another credential type, or an empty key is a resolution error.
+- DEC-04: An omitted `apiKey` resolves to no key. The provider driver sends no `Authorization` header.
+- DEC-05: A referenced API key is resolved before model selection commits and again before each provider request. A failure starts no HTTP request and preserves the active selection.
+- CNS-01: Settings errors, logs, Programmatic Control responses, UI frames, and provider diagnostics must not contain literal keys, resolved environment values, credential-file key values, OAuth tokens, or authorization headers.
 
-### Provider and model catalogue
+### Model domain and provider catalogue
 
-- ENT-04: `model.Descriptor` continues to carry provider instance ID, model ID, and tool capabilities. It adds the model's supported reasoning levels.
-- ENT-05: `model.ReasoningLevel` owns the closed reasoning-level values. Persistence and transport layers map their strings and enums to this domain type.
-- ENT-06: The catalogue stores immutable configured entries plus one mutex-protected active selection. Catalogue query results are defensive copies ordered by provider instance identifier and then by model configuration order.
-- APC-11: `Catalog.Models` returns every configured model with supported reasoning levels. `Catalog.Selection` returns the active selection.
-- APC-12: `Catalog.SelectModel` accepts provider instance ID and model ID. It validates the target and resolves a referenced OpenAI-compatible API key before committing the new selection.
-- APC-13: Model selection preserves the active reasoning level when the target model supports it. Otherwise, the catalogue chooses the greatest supported level below the active level. When no supported level is below it, the catalogue chooses the target model's lowest supported level.
-- APC-14: `Catalog.SelectReasoningLevel` requires the requested level to be supported by the active model. Unsupported direct selection returns an error and preserves the active selection.
-- DEC-07: Model and reasoning selection can commit while an agent run is active. A provider request that already obtained its catalogue snapshot continues with that snapshot. The next provider request whose snapshot starts after the commit uses the new selection.
-- DEC-08: Selection does not clear, rewrite, or partition agent history. Each provider adapter excludes opaque provider context whose provider instance identifier differs from the selected provider instance.
+- ENT-09: `model.Descriptor` contains provider instance ID, model ID, `ReasoningCapabilities`, and tool capabilities. It does not contain a reasoning wire format.
+- ENT-10: `model.Selection` contains provider instance ID, model ID, and active `ReasoningChoice`.
+- ENT-11: A `ContentReasoning` value contains visible text and an optional `ProviderContext`. The separate `ContentProviderContext` kind is removed so one reasoning block owns its opaque replay data.
+- ENT-12: `ProviderContext` contains a source snapshot with provider instance ID, API, model ID, compatibility key, and an opaque provider-driver payload.
+- APC-15: Catalogue query results are defensive copies ordered by provider instance identifier and model configuration order.
+- APC-16: `Catalog.SelectReasoningChoice` accepts only a choice listed by the active model. Rejection preserves the complete active selection.
+- APC-17: Model selection first preserves an exact active choice.
+- APC-18: When exact preservation is impossible, effort choices use the ordered ranks `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. The catalogue chooses the minimum absolute rank distance and chooses the lower rank on a tie.
+- APC-19: An effort maps to `on` for a toggle or fixed target. `on` maps to the explicit default of an effort target. `off` is preserved only when the target lists `off`. Every other case uses the target default.
+- DEC-06: Selection can commit while an agent run is active. An in-progress provider request retains its snapshot, and the next request reads the committed selection.
+- DEC-07: Selection does not clear, rewrite, or partition conversation history.
 
-### Agent core boundary
+### Agent Core boundary
 
-- APC-15: `host/internal/usecase/agent/run` replaces its constructor parameters for one descriptor and one provider with a consumer-owned `ModelRuntime` interface.
-- APC-16: `ModelRuntime.Current` returns one immutable runtime selection containing `model.Descriptor`, `model.ReasoningLevel`, and the `ModelProvider` required for that request.
-- APC-17: `ModelRequest` adds `ReasoningLevel`. Immediately before every `ModelProvider.Stream` call, the agent core reads `ModelRuntime.Current` and copies its descriptor and reasoning level into the request.
-- CNS-02: The agent core does not list models, resolve credentials, parse settings, select an OpenAI API, or import Host, protobuf, gRPC, provider SDK, persistence, or TUI packages.
-- CNS-03: Selection changes cannot mutate the in-progress stream handler or partial response. They affect only later model requests as defined by DEC-07.
+- APC-20: `ModelRuntime.Current` returns one immutable runtime selection with `model.Descriptor`, active `ReasoningChoice`, and the `ModelProvider` for that request.
+- APC-21: `ModelRequest` carries the selected descriptor, active reasoning choice, conversation history, instructions, and tools.
+- APC-22: Agent Core reads `ModelRuntime.Current` immediately before every `ModelProvider.Stream` call.
+- APC-23: Agent Core stores visible reasoning and opaque provider context as model-domain content without interpreting provider context or choosing wire fields.
+- CNS-02: Agent Core does not list models, resolve credentials, parse settings, select an OpenAI API, or import Host, protobuf, gRPC, provider SDK, persistence, or TUI packages.
+- CNS-03: Selection changes cannot mutate an in-progress stream handler or partial response.
 
-### OpenAI Codex adapter
+### Provider drivers
 
-- CMP-07: Codex request construction reads model and reasoning level from `ModelRequest` instead of constructor configuration. Static Codex endpoint, OAuth, streaming, and response mapping behavior remain provider-owned.
-- APC-18: Codex rejects a request whose provider instance ID is not `openai-codex` or whose model is absent from the configured Codex catalogue.
-- APC-19: Codex selection does not start OAuth or require stored credentials. The next Codex request uses the existing provider-owned credential classification, refresh, and standard TUI authentication-retry flow. Programmatic Control receives the existing terminal authentication failure when interaction is unavailable.
+- DEC-08: Concrete `compatible.Service` and `codex.Service` types become `compatible.Driver` and `codex.Driver`. No rename is applied to `run.ModelProvider`, provider package names, or provider directory names.
+- CMP-07: Each provider driver receives private per-model configuration containing API, reasoning wire format, and reasoning compatibility key. Only `ReasoningCapabilities` enters the model descriptor.
+- APC-24: A provider driver rejects a request whose provider instance or model does not match its configuration.
+- APC-25: A provider driver owns reasoning request mapping, streamed reasoning parsing, final response mapping, native visible-reasoning replay, provider-context replay, and text fallback.
+- APC-26: Visible reasoning always remains in model-visible history. A target provider driver uses native reasoning input when its wire format accepts the source block and otherwise converts visible reasoning to ordinary assistant text.
+- APC-27: Opaque provider context is compatible only when source and target provider instance IDs and APIs match and either model IDs match or both models have the same nonempty reasoning compatibility key.
+- APC-28: An exact model match remains compatible when the configured reasoning compatibility key changes. A key only adds cross-model compatibility.
+- APC-29: Incompatible opaque context is omitted from the request. Its visible reasoning remains subject to APC-26.
+- APC-30: A provider driver does not validate the semantic contents of encrypted provider data. A remote rejection returns a provider request error and leaves the active selection unchanged.
 
-### OpenAI-compatible adapter
+| ID | Wire format | Request mapping | Response and history mapping |
+|---|---|---|---|
+| WFM-01 | `openai-responses` | `off` sends `reasoning.effort: "none"`; an effort sends its value; `on` omits effort and uses the provider default | Reasoning summary becomes visible reasoning. A stable reasoning ID and encrypted content become opaque provider context. Compatible context becomes a Responses reasoning input item |
+| WFM-02 | `openai-chat-effort` | `off` sends `reasoning_effort: "none"`; an effort sends its value; `on` omits effort and uses the provider default | Streamed `delta.reasoning` becomes visible reasoning. Native history uses the assistant `reasoning` field |
+| WFM-03 | `ollama-ornith` | No reasoning control field is sent; the only choice is `on` | Streamed `delta.reasoning` becomes visible reasoning. Native history uses the assistant `reasoning` field |
 
-- CMP-08: One `compatible.Service` instance is constructed for each configured `openai-compatible` provider instance. Its immutable configuration contains provider instance ID, base URL, provider API, per-model API overrides, API-key configuration, and credential resolver.
-- APC-20: `Service.Stream` rejects provider or model mismatches, resolves the API key, selects the configured API, maps provider-neutral history and tools, and emits the existing `run.StreamEvent` sequence.
-- APC-21: The Chat Completions path maps user text and images, assistant text and tool calls, tool results, tool definitions, streaming text, refusal, tool-call deltas, usage, terminal outcomes, and safe errors.
-- APC-22: The Responses path maps the same provider-neutral behavior through the Responses API and preserves provider-context items only for the exact provider instance ID.
-- APC-23: For non-`none` reasoning, both paths send the selected reasoning level through the API's reasoning-effort field. For `none`, they omit that field.
-- APC-24: The adapter adds `Authorization: Bearer <key>` only when API-key resolution returns a key. It does not read an SDK default key or process environment variable that is not named by configuration.
-- DEC-09: PHS-03 uses the existing `github.com/openai/openai-go/v3` dependency. It adds no provider framework, compatibility registry, model download, catalogue refresh, or provider middleware.
+- APC-31: The OpenAI-compatible Chat Completions driver reads `delta.reasoning` through the OpenAI SDK response extra fields and writes assistant `reasoning` through a provider-driver request override.
+- APC-32: The Responses drivers retain the stable response item ID, encrypted content, and summary values without interpreting encrypted content. Driver-owned serialization reconstructs the Responses reasoning input item, and its JSON key order and escaping are not part of provider reasoning context.
+- APC-33: Provider rejection of replayed reasoning produces the provider driver's terminal request failure and does not alter the active model selection.
 
 ### Programmatic Control contract
 
-- APC-25: `OpenRequest.command` adds `GetModels get_models = 6`, `SelectModel select_model = 7`, and `SelectReasoningLevel select_reasoning_level = 8`.
-- APC-26: `SelectModel` contains `provider_id = 1` and `model_id = 2`. `SelectReasoningLevel` contains `ReasoningLevel level = 1`.
-- APC-27: `CommandResponse.result` adds `ModelsResult models = 6` and `ModelSelectionResult model_selection = 7`.
-- APC-28: `ModelsResult` contains every configured `ConfiguredModel` and the active `ModelSelection`. `ConfiguredModel` contains provider ID, model ID, and supported reasoning levels. `ModelSelectionResult` contains the committed selection.
-- APC-29: `CommandType` appends `GET_MODELS = 5`, `SELECT_MODEL = 6`, and `SELECT_REASONING_LEVEL = 7`. `ReasoningLevel` uses an unspecified zero value followed by the seven domain values.
-- APC-30: `RejectionCode` appends `NOT_FOUND = 6`, `REASONING_UNSUPPORTED = 7`, and `CREDENTIAL_UNAVAILABLE = 8`. Empty identifiers and unspecified reasoning use `INVALID_ARGUMENT`.
-- DEC-10: `GetModels` is allowed in every run state. Selection commands are also allowed during an active run and follow DEC-07. Each command produces one correlated response and no agent event.
-- DEC-11: Programmatic Control keeps its own protobuf DTOs and mappings. It does not reuse UI plugin protobuf messages.
+- APC-34: `ReasoningLevel` becomes `ReasoningChoice` with an unspecified zero value followed by `OFF`, `ON`, `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, and `MAX`.
+- APC-35: `ConfiguredModel` contains provider ID, model ID, and one `ReasoningCapabilities` message with `supported`, ordered `choices`, and `default_choice`.
+- APC-36: `ModelSelection` contains provider ID, model ID, and `reasoning_choice`.
+- APC-37: `SelectReasoningLevel` becomes `SelectReasoningChoice`. Unsupported and unspecified choices return `REJECTION_CODE_REASONING_UNSUPPORTED` and preserve selection.
+- APC-38: Programmatic Control exposes visible reasoning through typed model content and never serializes `ProviderContext`.
+- DEC-09: Old reasoning-level protobuf fields, enums, commands, mappings, and translation paths are removed. PHS-03 adds no compatibility layer.
 
 ### Standard TUI contract and behavior
 
-- APC-31: UI `Initialization` appends configured models and the active model selection. Host-to-UI frames add `ModelSelectionChanged`, which contains the committed selection.
-- APC-32: UI-to-Host commands add `SelectModelCommand` with provider and model IDs and `SelectReasoningLevelCommand` with a reasoning enum.
-- APC-33: `host/internal/domain/ui` adds transport-independent configured-model and selection values. `host/internal/usecase/host/ui.Session` maps UI commands to the shared catalogue and sends a changed frame only after a successful commit.
-- FLR-01: A failed TUI selection sends a safe error frame and no changed frame. The TUI therefore keeps displaying the Host-confirmed selection.
-- EVC-01: `/model` and Ctrl+L open the standard TUI model selector. Ctrl+P and Shift+Ctrl+P select the next or previous configured model. Shift+Tab selects the next supported reasoning level.
-- EVC-02: The selector lists provider instance ID and model ID. It supports selection, confirmation, and cancellation required by PHS-03 without implementing the later transcript, search, mouse, or extension selector scope.
-- EVC-03: The status area displays the Host-confirmed provider instance, model, and reasoning level. It updates only from initialization or `ModelSelectionChanged`.
-- DEC-12: Selection commands remain available while a run is active. The input editor and conversation transcript are not cleared when a selection succeeds or fails.
+- APC-39: The UI plugin protobuf exposes `ReasoningChoice`, `ReasoningCapabilities.supported`, ordered `choices`, `default_choice`, and `ModelSelection.reasoning_choice` with the values defined by APC-34 through APC-36.
+- APC-40: The standard TUI maps reasoning frames to a presentation reasoning kind and retains every reasoning block in transcript state.
+- APC-41: One TUI-local boolean controls all reasoning blocks. Its initial value is collapsed.
+- APC-42: The local display action changes only the boolean from APC-41. It sends no Host command and does not change active reasoning choice or provider requests.
+- APC-43: Expanded reasoning uses the transcript's terminal-width-aware wrapping. Collapsed reasoning renders one block marker without reasoning text.
+- APC-44: The TUI hides reasoning selection when the selected model has one effective choice. This covers non-reasoning and fixed-reasoning models.
+- APC-45: Model and reasoning selectors update only from Host-confirmed initialization or selection-change frames.
 
 ### Application composition
 
 - STP-01: Load and strictly validate settings.
-- STP-02: Create the generic credential-file reader and environment resolver.
-- STP-03: Construct the configured Codex instance and every configured OpenAI-compatible instance.
-- STP-04: Construct the provider catalogue with the validated default selection.
-- STP-05: Pass the catalogue through the agent-core `ModelRuntime` interface and through client-specific minimal interfaces owned by Programmatic Control and UI consumers.
-- STP-06: Keep one-shot headless mode on the configured default selection. It gains the new catalogue and adapters but no runtime selection command.
+- STP-02: Resolve API-key configuration through the generic credential and environment readers.
+- STP-03: Construct one Codex provider driver and one OpenAI-compatible provider driver for each configured provider instance.
+- STP-04: Build model descriptors from public capabilities and build separate private driver model configurations with API, wire format, and compatibility key.
+- STP-05: Construct the provider catalogue with the default model and that model's explicit default reasoning choice.
+- STP-06: Pass the catalogue through Agent Core, Programmatic Control, and UI consumer-owned interfaces without sharing transport DTOs.
 
 ### Failure behavior
 
-- FLR-02: Invalid settings fail application startup before a UI process, Programmatic Control socket, provider request, or agent run starts.
-- FLR-03: Unknown provider-model pairs return `NOT_FOUND` through Programmatic Control and a safe UI error.
-- FLR-04: Unsupported direct reasoning selection returns `REASONING_UNSUPPORTED` and preserves the active selection.
-- FLR-05: A missing or invalid referenced API key returns `CREDENTIAL_UNAVAILABLE`, contains only the source name and safe reason, and preserves the active selection.
-- FLR-06: An OpenAI-compatible instance with omitted `apiKey` is not a credential error. Provider HTTP authentication failures follow normal provider error mapping.
-- FLR-07: API-key resolution failure immediately before a request produces a terminal provider failure without opening an HTTP request or changing history beyond the already accepted user message under existing agent-run rules.
+- FLR-01: Invalid settings fail startup before a UI process, Programmatic Control socket, provider request, or agent run starts.
+- FLR-02: An unknown provider-model pair returns `NOT_FOUND` through Programmatic Control and sends the TUI an error frame without a selection-change frame.
+- FLR-03: An unsupported reasoning choice returns the reasoning rejection category and preserves provider, model, and reasoning choice.
+- FLR-04: A missing or invalid referenced API key returns `CREDENTIAL_UNAVAILABLE`, identifies the configured source name without a resolved credential value, and preserves selection.
+- FLR-05: An omitted API key is not a credential error. Remote authentication failures follow provider error mapping.
+- FLR-06: Incompatible provider reasoning context is omitted while visible reasoning remains in the request under APC-26.
+- FLR-07: Remote rejection of provider reasoning context produces a terminal provider failure. Glyph does not retry the request without that context.
 
 ### Test strategy
 
@@ -172,25 +185,26 @@ Implementation follows RED, GREEN, REFACTOR, and VERIFY. Generated protobuf code
 
 | ID | Purpose | Inputs and expected outputs | Edge cases | Dependencies |
 |---|---|---|---|---|
-| TSK-01 | Prove strict settings and catalogue construction | Load settings with Codex and multiple compatible instances; expect deterministic models and the configured active selection | Duplicate models, bad default, unknown type or API, invalid URL, malformed API-key union, unsupported default reasoning | Settings fixtures only |
-| TSK-02 | Prove API-key resolution and secret safety | Resolve literal, named environment, and credential-file keys; expect exact internal key or a safe typed error | Omitted key, missing or empty environment, missing entry, wrong credential type, empty file key, no secret in errors | Temporary settings and credential files |
-| TSK-03 | Prove OpenAI-compatible protocol behavior | Send one request to `httptest.Server` through Chat Completions and Responses; expect mapped history, tools, reasoning, stream events, response, and usage | Model API override, tool-call deltas, refusal, cancellation, HTTP failure, absent key with no `Authorization`, present key with bearer authorization | Existing OpenAI SDK and provider-neutral fixtures |
-| TSK-04 | Prove runtime switching without history loss | Start a run, switch selection while its request is active, complete a tool call, and expect the next model request to use the new provider, model, and reasoning with preceding history | Failed credential preflight, unsupported reasoning, provider-context filtering, selection race around request snapshot | Generated mocks for `ModelRuntime` and providers |
-| TSK-05 | Prove Programmatic Control commands | Query models, select model, select reasoning, and submit correlated user requests; expect one response per command and model events from the selected runtime | Invalid fields, unknown model, unresolved credential, selection during active run, repeated correlations | Generated protobuf and Programmatic Control fixture |
-| TSK-06 | Prove standard TUI selection | Initialize with models, invoke `/model`, Ctrl+L, model cycling, and reasoning cycling; expect Host commands and Host-confirmed status updates | Cancel selector, failed selection, active run, one model, one reasoning level | UI protobuf generation and existing TUI harness |
-| TSK-07 | Prove application composition | Start programmatic and UI compositions with Codex, authenticated compatible, and keyless Ollama-style settings; expect the selected provider request and unchanged history | Startup validation failure, multiple compatible instances, Codex OAuth selection, UI-free programmatic startup | Real application composition with local test servers |
-| TSK-08 | Verify repository health | Run generation twice and the repository checks; expect no second-generation diff and all commands to pass | Generated mocks and protobuf files are committed and deterministic | All GREEN and REFACTOR slices |
+| TSK-01 | Prove settings capability validation | Load fixed, toggle, effort, and non-reasoning models; expect exact capabilities and per-model defaults | Duplicate choices, default outside choices, key on non-reasoning model, missing or incompatible wire format | Settings fixtures only |
+| TSK-02 | Prove catalogue fallback and atomic selection | Switch between capability shapes; expect exact preservation or the APC-18 and APC-19 result | Equal-distance effort tie, target without `off`, unsupported direct choice, credential preflight failure | Provider catalogue fixture |
+| TSK-03 | Prove OpenAI Responses reasoning behavior | Send each effective choice and replay history through an `httptest.Server`; expect exact reasoning request fields, visible summaries, and compatible encrypted context | `off`, `on`, effort, same model, shared key, different API, different provider instance | OpenAI SDK and provider-neutral fixtures |
+| TSK-04 | Prove Chat Completions and Ornith reasoning behavior | Stream `delta.reasoning`; expect typed visible reasoning and assistant `reasoning` in later history | Empty reasoning chunks, final text after reasoning, fixed choice, native replay | OpenAI SDK response extra fields and request override |
+| TSK-05 | Prove model-visible fallback | Send reasoning history to a driver that cannot use its native representation; expect ordinary assistant text and no opaque context | Empty visible text, incompatible encrypted context, multiple reasoning blocks | Driver history fixtures |
+| TSK-06 | Prove client capability projection | Query and select through Programmatic Control and UI mappings; expect identical capabilities and active choice with no provider context | Fixed and non-reasoning selectors, unspecified choice, unsupported choice | Generated protobuf code |
+| TSK-07 | Prove TUI reasoning display | Stream reasoning while collapsed, toggle display, and resize; expect retained hidden text, one global state, and wrapped expanded text | Multiple blocks, empty block, narrow terminal, selection change while expanded | Existing TUI harness |
+| TSK-08 | Prove integrated runtime behavior | Switch models during a run and continue; expect the next request to use the new selection with all visible reasoning history | Provider error during context replay, keyless provider, selection race around request snapshot | Application composition and local test servers |
 
-- DEC-13: Each behavioral slice starts with a focused test that compiles and fails on its expected assertion. Missing generated symbols are resolved only through the smallest protobuf or mock generation setup before RED.
-- DEC-14: After every GREEN slice, run its package tests without cache. Final verification runs `task generate` twice, `go mod tidy -diff`, `task lint`, `task test`, `task build`, `task test-coverage`, and `git diff --check`.
+- DEC-10: Each behavioral slice starts with a focused test that compiles and fails on its expected assertion. Missing generated symbols use only the smallest protobuf or mock generation setup before RED.
+- DEC-11: New tests use `testify/suite`, `t.Context()`, and generated `go.uber.org/mock` mocks when an interface mock is required.
+- DEC-12: Final verification runs `task generate` twice, `go mod tidy -diff`, `task lint`, `task test`, `task build`, `task test-coverage`, and `git diff --check`.
 
 ## Overengineering and Overspecification Considerations
 
-- TRD-01: The provider catalogue supports multiple configured instances because the approved requirements include OpenRouter, OpenCode, ZAI, Ollama, and similar endpoints. It does not add extension provider registration, which remains PHS-12 scope.
-- TRD-02: One OpenAI-compatible adapter contains two required API paths. It does not add a generic wire-protocol plugin layer or compatibility option catalogue.
-- TRD-03: API-key configuration supports the three approved forms and omits `!command`, caching, stale-key reuse, secret-manager SDKs, and background refresh.
-- TRD-04: The standard TUI adds only the model selector, cycling, reasoning cycling, and status needed by PHS-03. Later standard TUI interaction tickets retain their scope.
-- TRD-05: Runtime selection uses one catalogue snapshot per model request. It adds no session partitioning, provider-specific history store, or migration layer.
+- TRD-01: The solution implements three closed reasoning wire formats. It does not add a generic compatibility registry, runtime probing, or arbitrary request-field configuration.
+- TRD-02: Reasoning compatibility uses one optional key and exact provider instance, API, and model metadata. It does not infer compatibility from model names or endpoints.
+- TRD-03: Agent Core stores opaque provider context but does not import provider SDK types or interpret encrypted data.
+- TRD-04: The standard TUI uses one display state for all reasoning blocks. It does not add per-block persistence or per-provider rendering policy.
+- TRD-05: The project requires no backwards compatibility. The solution removes old settings and protobuf reasoning-level contracts instead of adding adapters or aliases.
 
 ## Open Questions
 
@@ -201,9 +215,12 @@ None.
 - REF-01: `docs/specs/features/initial/delivery-plan/03-providers-models-runtime-selection.md` - owning ticket and acceptance criteria.
 - REF-02: `docs/specs/features/initial/prd.md` - product behavior and component boundaries.
 - REF-03: `docs/terms.md` - domain terminology.
-- REF-04: `docs/specs/features/initial/phs-02-programmatic-control_solution.md` - existing Programmatic Control ownership and transport boundaries.
-- REF-05: `api/programmatic/v1/programmatic.proto` - current Programmatic Control wire contract.
-- REF-06: `api/plugins/ui/v1/ui.proto` - current UI plugin wire contract.
-- REF-07: `host/internal/usecase/host/providers/catalog.go` - current one-entry provider catalogue.
-- REF-08: `host/internal/usecase/agent/run/service.go` - current fixed model runtime and history ownership.
-- REF-09: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md` - Pi feature comparison for configured providers, APIs, credentials, and reasoning capabilities.
+- REF-04: `host/internal/domain/model/model.go` - model selection, typed reasoning content, and provider context domain types.
+- REF-05: `host/internal/usecase/host/providers/catalog.go` - catalogue selection and fallback behavior.
+- REF-06: `host/internal/infra/persistence/settings/service.go` - strict settings schema and validation.
+- REF-07: `host/internal/infra/providers/openai/compatible/chat.go` - Chat Completions request, history, and stream mapping.
+- REF-08: `host/internal/infra/providers/openai/compatible/responses.go` - Responses reasoning and encrypted context mapping.
+- REF-09: `api/programmatic/v1/programmatic.proto` - Programmatic Control model-selection contract.
+- REF-10: `api/plugins/ui/v1/ui.proto` - UI plugin model-selection and model-content contract.
+- REF-11: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js` - Pi same-model reasoning replay and cross-model visible-text fallback reference.
+- REF-12: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js` - Pi OpenAI Responses reasoning effort and encrypted-content reference.
