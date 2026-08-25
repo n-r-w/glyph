@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/mo"
+
 	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
@@ -24,43 +26,51 @@ func shellQuote(value string) string {
 func New(projectReader ProjectReader) *Service { return &Service{projectReader: projectReader} }
 
 // Read returns text or typed image content.
-func (s *Service) Read(ctx context.Context, path string, offset, limit uint) (extensioncontroller.ReadResult, error) {
+func (s *Service) Read(
+	ctx context.Context,
+	path string,
+	offset, limit mo.Option[uint],
+) (extensioncontroller.ReadResult, error) {
 	content, err := s.projectReader.ReadFile(ctx, path, offset, limit)
 	if err != nil {
-		return extensioncontroller.ReadResult{Text: "", Image: nil}, fmt.Errorf("read project file %q: %w", path, err)
+		return extensioncontroller.ReadResult{}, fmt.Errorf("read project file %q: %w", path, err)
 	}
-	if content.Image != nil {
+	if image, ok := content.Image.Get(); ok {
 		return extensioncontroller.ReadResult{
-			Text: "",
-			Image: &extensioncontroller.ReadImage{
-				MediaType: content.Image.MediaType,
-				Data:      content.Image.Data,
-			},
+			Text: mo.None[string](),
+			Image: mo.Some(extensioncontroller.ReadImage{
+				MediaType: image.MediaType,
+				Data:      image.Data,
+			}),
 		}, nil
 	}
-	if content.OversizedSize > 0 {
+	if oversizedSize, ok := content.OversizedSize.Get(); ok {
+		start := content.Start.OrEmpty()
 		command := fmt.Sprintf(
 			"sed -n '%dp' %s | head -c %d",
-			content.Start, shellQuote(path), textbudget.MaximumBytes,
+			start, shellQuote(path), textbudget.MaximumBytes,
 		)
 		message := fmt.Sprintf(
 			"[Line %d is %d bytes and exceeds the %d byte limit. Use `%s` to inspect that line.]",
-			content.Start, content.OversizedSize, textbudget.MaximumBytes, command,
+			start, oversizedSize, textbudget.MaximumBytes, command,
 		)
-		if content.Next > 0 {
+		if next, hasNext := content.Next.Get(); hasNext {
 			message = fmt.Sprintf(
 				"[Line %d is %d bytes and leaves no room for the required continuation notice. "+
 					"Use `%s` to inspect that line. Use offset=%d to continue.]",
-				content.Start, content.OversizedSize, command, content.Next,
+				start, oversizedSize, command, next,
 			)
 		}
-		return extensioncontroller.ReadResult{Text: message, Image: nil}, nil
+		return extensioncontroller.ReadResult{Text: mo.Some(message), Image: mo.None[extensioncontroller.ReadImage]()}, nil
 	}
-	text := content.Text
-	if content.Next > 0 {
+	text := content.Text.OrEmpty()
+	if next, ok := content.Next.Get(); ok {
+		start := content.Start.OrEmpty()
+		end := content.End.OrEmpty()
+		total := content.Total.OrEmpty()
 		notice := fmt.Sprintf(
 			"[Showing lines %d-%d of %d. Use offset=%d to continue.]",
-			content.Start, content.End, content.Total, content.Next,
+			start, end, total, next,
 		)
 		if strings.HasSuffix(text, "\n") {
 			text += notice
@@ -68,5 +78,5 @@ func (s *Service) Read(ctx context.Context, path string, offset, limit uint) (ex
 			text += "\n" + notice
 		}
 	}
-	return extensioncontroller.ReadResult{Text: text, Image: nil}, nil
+	return extensioncontroller.ReadResult{Text: mo.Some(text), Image: mo.None[extensioncontroller.ReadImage]()}, nil
 }

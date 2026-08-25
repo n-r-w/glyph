@@ -1,7 +1,11 @@
 // Package search implements bounded project discovery tools.
 package search
 
-import "context"
+import (
+	"context"
+
+	"github.com/samber/mo"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=search
 
@@ -20,7 +24,7 @@ type GrepCommand struct {
 	IgnoreCase bool
 	Literal    bool
 	Context    uint
-	Limit      uint
+	Limit      mo.Option[uint]
 }
 
 // GrepResult contains formatted grep output.
@@ -30,7 +34,7 @@ type GrepResult struct{ Text string }
 type FindCommand struct {
 	Pattern string
 	Path    string
-	Limit   uint
+	Limit   mo.Option[uint]
 }
 
 // FindResult contains formatted find output.
@@ -39,7 +43,7 @@ type FindResult struct{ Text string }
 // ListCommand contains directory-listing options.
 type ListCommand struct {
 	Path  string
-	Limit uint
+	Limit mo.Option[uint]
 }
 
 // ListResult contains formatted directory-listing output.

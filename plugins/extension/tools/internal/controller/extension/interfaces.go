@@ -3,6 +3,8 @@ package extension
 import (
 	"context"
 
+	"github.com/samber/mo"
+
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
@@ -22,13 +24,13 @@ type ReadImage struct {
 
 // ReadResult contains a text or image read result.
 type ReadResult struct {
-	Text  string
-	Image *ReadImage
+	Text  mo.Option[string]
+	Image mo.Option[ReadImage]
 }
 
 // ReadTool executes bounded reads.
 type ReadTool interface {
-	Read(context.Context, string, uint, uint) (ReadResult, error)
+	Read(context.Context, string, mo.Option[uint], mo.Option[uint]) (ReadResult, error)
 }
 
 // WriteTool replaces one project file.
@@ -85,20 +87,20 @@ type GrepArguments struct {
 	IgnoreCase bool
 	Literal    bool
 	Context    uint
-	Limit      uint
+	Limit      mo.Option[uint]
 }
 
 // FindArguments contains validated find input.
 type FindArguments struct {
 	Pattern string
 	Path    string
-	Limit   uint
+	Limit   mo.Option[uint]
 }
 
 // ListArguments contains validated ls input.
 type ListArguments struct {
 	Path  string
-	Limit uint
+	Limit mo.Option[uint]
 }
 
 // SearchTool executes the project discovery tools.

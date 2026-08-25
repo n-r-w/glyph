@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -16,6 +17,10 @@ import (
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
+
+func someUint(value uint) mo.Option[uint] { return mo.Some(value) }
+
+func noUint() mo.Option[uint] { return mo.None[uint]() }
 
 // TestServiceListTools verifies the complete standard-extension catalog.
 func TestServiceListTools(t *testing.T) {
@@ -61,13 +66,15 @@ func TestServiceExecuteRead(t *testing.T) {
 
 	// Arrange: require the read use case to receive the validated path.
 	readTool := NewMockReadTool(gomock.NewController(t))
-	readTool.EXPECT().Read(gomock.Any(), "notes.txt", uint(0), uint(0)).Return(ReadResult{Text: "first\nsecond\n", Image: nil}, nil)
+	readTool.EXPECT().Read(gomock.Any(), "notes.txt", someUint(2), someUint(3)).Return(
+		ReadResult{Text: mo.Some("first\nsecond\n"), Image: mo.None[ReadImage]()}, nil,
+	)
 	client := newTestClient(t, readTool)
 
 	// Act: execute read through the generated server-streaming contract.
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
 		ToolName:      new("read"),
-		ArgumentsJson: []byte(`{"path":"notes.txt"}`),
+		ArgumentsJson: []byte(`{"path":"notes.txt","offset":2,"limit":3}`),
 	}.Build())
 
 	// Assert: emit exactly one terminal result and preserve the complete file text.
@@ -85,7 +92,7 @@ func TestServiceExecuteGrepDispatchesValidatedArguments(t *testing.T) {
 	t.Parallel()
 
 	searchTool := NewMockSearchTool(gomock.NewController(t))
-	searchTool.EXPECT().Grep(gomock.Any(), GrepArguments{Pattern: "needle", Path: "src", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: 2}).Return("src/a.go:1:needle\n", nil)
+	searchTool.EXPECT().Grep(gomock.Any(), GrepArguments{Pattern: "needle", Path: "src", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: someUint(2)}).Return("src/a.go:1:needle\n", nil)
 	client := newTestClientWithTools(t, NewMockReadTool(gomock.NewController(t)), NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), searchTool)
 
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
@@ -104,8 +111,8 @@ func TestServiceExecuteReadImage(t *testing.T) {
 
 	image := []byte{1, 2, 3}
 	readTool := NewMockReadTool(gomock.NewController(t))
-	readTool.EXPECT().Read(gomock.Any(), "image.unknown", uint(0), uint(0)).Return(
-		ReadResult{Text: "", Image: &ReadImage{MediaType: "image/png", Data: image}}, nil,
+	readTool.EXPECT().Read(gomock.Any(), "image.unknown", noUint(), noUint()).Return(
+		ReadResult{Text: mo.None[string](), Image: mo.Some(ReadImage{MediaType: "image/png", Data: image})}, nil,
 	)
 
 	events, err := receiveExecution(t, newTestClient(t, readTool), extensionv1.ExecuteRequest_builder{
@@ -147,7 +154,9 @@ func TestServiceExecuteReadError(t *testing.T) {
 
 	// Arrange: make the read use case reject the requested file.
 	readTool := NewMockReadTool(gomock.NewController(t))
-	readTool.EXPECT().Read(gomock.Any(), "missing.txt", uint(0), uint(0)).Return(ReadResult{Text: "", Image: nil}, errors.New("file does not exist"))
+	readTool.EXPECT().Read(gomock.Any(), "missing.txt", noUint(), noUint()).Return(
+		ReadResult{Text: mo.None[string](), Image: mo.None[ReadImage]()}, errors.New("file does not exist"),
+	)
 	client := newTestClient(t, readTool)
 
 	// Act: execute read for the missing file.

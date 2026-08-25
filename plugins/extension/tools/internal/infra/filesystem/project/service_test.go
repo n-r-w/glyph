@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
+
 	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 	edittool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/edit"
@@ -24,11 +26,13 @@ func TestServiceReadFileBoundsRequestedLines(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, "first\nsecond\nthird\n"))
 
-	content, err := New().ReadFile(t.Context(), filePath, 2, 1)
+	content, err := New().ReadFile(t.Context(), filePath, optionUint(2), optionUint(1))
 
 	require.NoError(t, err)
 	assert.Equal(t, readtool.Content{
-		Text: "second\n", Image: nil, Start: 2, End: 2, Total: 3, Next: 3, OversizedSize: 0,
+		Text: mo.Some("second\n"), Image: mo.None[readtool.Image](), Start: mo.Some(uint(2)),
+		End: mo.Some(uint(2)), Total: mo.Some(uint(3)), Next: mo.Some(uint(3)),
+		OversizedSize: mo.None[int64](),
 	}, content)
 }
 
@@ -40,12 +44,12 @@ func TestServiceReadFileReturnsCompleteExactByteBudget(t *testing.T) {
 	content := strings.Repeat("x", textbudget.MaximumBytes)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := New().ReadFile(t.Context(), filePath, 1, 0)
+	result, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
 
 	require.NoError(t, err)
-	assert.Equal(t, content, result.Text)
-	assert.Equal(t, uint(1), result.End)
-	assert.Zero(t, result.Next)
+	assert.Equal(t, mo.Some(content), result.Text)
+	assert.Equal(t, mo.Some(uint(1)), result.End)
+	assert.True(t, result.Next.IsNone())
 }
 
 // TestServiceReadFileReturnsCompleteExactLineBudget verifies an exact complete line budget has no continuation.
@@ -56,12 +60,12 @@ func TestServiceReadFileReturnsCompleteExactLineBudget(t *testing.T) {
 	content := strings.Repeat("x\n", textbudget.MaximumLines)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := New().ReadFile(t.Context(), filePath, 1, 0)
+	result, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
 
 	require.NoError(t, err)
-	assert.Equal(t, content, result.Text)
-	assert.Equal(t, uint(textbudget.MaximumLines), result.End)
-	assert.Zero(t, result.Next)
+	assert.Equal(t, mo.Some(content), result.Text)
+	assert.Equal(t, mo.Some(uint(textbudget.MaximumLines)), result.End)
+	assert.True(t, result.Next.IsNone())
 }
 
 // TestServiceReadFileReservesLineForContinuationNotice verifies partial results reserve one notice line.
@@ -75,11 +79,11 @@ func TestServiceReadFileReservesLineForContinuationNotice(t *testing.T) {
 	}
 	require.NoError(t, writeTestFile(filePath, source.String()))
 
-	content, err := New().ReadFile(t.Context(), filePath, 1, 0)
+	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
 
 	require.NoError(t, err)
-	assert.Equal(t, uint(textbudget.MaximumLines-1), content.End)
-	assert.Equal(t, uint(textbudget.MaximumLines), content.Next)
+	assert.Equal(t, mo.Some(uint(textbudget.MaximumLines-1)), content.End)
+	assert.Equal(t, mo.Some(uint(textbudget.MaximumLines)), content.Next)
 }
 
 // TestServiceReadFileKeepsPartialResultWithinCompleteBudget verifies text plus notice fits both budgets.
@@ -90,12 +94,13 @@ func TestServiceReadFileKeepsPartialResultWithinCompleteBudget(t *testing.T) {
 	content := strings.Repeat("x\n", textbudget.MaximumLines+1)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, 1, 0)
+	result, err := readtool.New(New()).Read(t.Context(), filePath, optionUint(1), optionUint(0))
 
 	require.NoError(t, err)
-	assert.LessOrEqual(t, len(result.Text), textbudget.MaximumBytes)
-	assert.LessOrEqual(t, strings.Count(result.Text, "\n")+1, textbudget.MaximumLines)
-	assert.Contains(t, result.Text, "Use offset=2000 to continue.")
+	text := result.Text.OrEmpty()
+	assert.LessOrEqual(t, len(text), textbudget.MaximumBytes)
+	assert.LessOrEqual(t, strings.Count(text, "\n")+1, textbudget.MaximumLines)
+	assert.Contains(t, text, "Use offset=2000 to continue.")
 }
 
 // TestIsAnimatedPNGRejectsNonChunkMarker verifies raw bytes do not masquerade as an animation chunk.
@@ -115,14 +120,15 @@ func TestServiceReadFileReturnsBoundedNoticeWhenFirstLineLeavesNoContinuationRoo
 	content := strings.Repeat("x", textbudget.MaximumBytes-1) + "\nsecond\n"
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, 1, 0)
+	result, err := readtool.New(New()).Read(t.Context(), filePath, optionUint(1), optionUint(0))
 
 	require.NoError(t, err)
-	assert.NotContains(t, result.Text, strings.Repeat("x", textbudget.MaximumBytes-1))
-	assert.Contains(t, result.Text, "Line 1")
-	assert.Contains(t, result.Text, "head -c 51200")
-	assert.Contains(t, result.Text, "Use offset=2 to continue.")
-	assert.LessOrEqual(t, len(result.Text), textbudget.MaximumBytes)
+	text := result.Text.OrEmpty()
+	assert.NotContains(t, text, strings.Repeat("x", textbudget.MaximumBytes-1))
+	assert.Contains(t, text, "Line 1")
+	assert.Contains(t, text, "head -c 51200")
+	assert.Contains(t, text, "Use offset=2 to continue.")
+	assert.LessOrEqual(t, len(text), textbudget.MaximumBytes)
 }
 
 // TestServiceReadFileReadsEmptyFileAtFirstOffset returns empty content at the first line.
@@ -135,15 +141,17 @@ func TestServiceReadFileReadsEmptyFileAtFirstOffset(t *testing.T) {
 	for name, offset := range map[string]uint{"default": 0, "explicit": 1} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			content, err := New().ReadFile(t.Context(), filePath, offset, 0)
+			content, err := New().ReadFile(t.Context(), filePath, optionUint(offset), optionUint(0))
 
 			require.NoError(t, err)
-			assert.Empty(t, content.Text)
-			assert.Zero(t, content.Next)
+			assert.Equal(t, mo.Some(""), content.Text)
+			assert.Equal(t, mo.Some(uint(0)), content.End)
+			assert.Equal(t, mo.Some(uint(0)), content.Total)
+			assert.True(t, content.Next.IsNone())
 		})
 	}
 
-	_, err := New().ReadFile(t.Context(), filePath, 2, 0)
+	_, err := New().ReadFile(t.Context(), filePath, optionUint(2), optionUint(0))
 	require.Error(t, err)
 }
 
@@ -155,10 +163,10 @@ func TestServiceReadFileRejectsAnimatedPNG(t *testing.T) {
 	apng := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte{0, 0, 0, 8, 'a', 'c', 'T', 'L'}...)
 	require.NoError(t, os.WriteFile(filePath, apng, 0o600))
 
-	content, err := New().ReadFile(t.Context(), filePath, 1, 1)
+	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
 
 	require.NoError(t, err)
-	assert.Nil(t, content.Image)
+	assert.True(t, content.Image.IsNone())
 }
 
 // TestServiceReadFileDetectsImageBytes verifies extension-independent static image detection.
@@ -182,12 +190,16 @@ func TestServiceReadFileDetectsImageBytes(t *testing.T) {
 			filePath := t.TempDir() + "/image.data"
 			require.NoError(t, os.WriteFile(filePath, testCase.image, 0o600))
 
-			content, err := New().ReadFile(t.Context(), filePath, 1, 1)
+			content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
 
 			require.NoError(t, err)
-			require.NotNil(t, content.Image)
-			assert.Equal(t, testCase.contentType, content.Image.MediaType)
-			assert.Equal(t, testCase.image, content.Image.Data)
+			image, ok := content.Image.Get()
+			require.True(t, ok)
+			assert.Equal(t, testCase.contentType, image.MediaType)
+			assert.Equal(t, testCase.image, image.Data)
+			assert.True(t, content.Start.IsNone())
+			assert.True(t, content.End.IsNone())
+			assert.True(t, content.Total.IsNone())
 		})
 	}
 }
@@ -200,10 +212,10 @@ func TestServiceReadFileRetainsLineAcrossReaderFragments(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, line+"\n"))
 
-	content, err := New().ReadFile(t.Context(), filePath, 1, 1)
+	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
 
 	require.NoError(t, err)
-	assert.Equal(t, line+"\n", content.Text)
+	assert.Equal(t, mo.Some(line+"\n"), content.Text)
 }
 
 // TestServiceReadFileReportsOversizedFirstLine verifies first-line oversize metadata.
@@ -213,12 +225,13 @@ func TestServiceReadFileReportsOversizedFirstLine(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, string(make([]byte, textbudget.MaximumBytes+1))))
 
-	content, err := New().ReadFile(t.Context(), filePath, 1, 1)
+	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
 
 	require.NoError(t, err)
-	assert.Equal(t, uint(1), content.Start)
-	assert.Equal(t, int64(textbudget.MaximumBytes+1), content.OversizedSize)
-	assert.Empty(t, content.Text)
+	assert.Equal(t, mo.Some(uint(1)), content.Start)
+	assert.True(t, content.End.IsNone())
+	assert.Equal(t, mo.Some(int64(textbudget.MaximumBytes+1)), content.OversizedSize)
+	assert.Equal(t, mo.Some(""), content.Text)
 }
 
 // TestServiceWriteFileCreatesParentDirectories verifies writes create missing parents.
@@ -336,7 +349,7 @@ func TestServiceReadFileCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	content, err := New().ReadFile(ctx, t.TempDir()+"/notes.txt", 1, 1)
+	content, err := New().ReadFile(ctx, t.TempDir()+"/notes.txt", optionUint(1), optionUint(1))
 
 	assert.Empty(t, content)
 	require.ErrorIs(t, err, context.Canceled)

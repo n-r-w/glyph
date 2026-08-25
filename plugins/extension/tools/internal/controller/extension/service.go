@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/status"
 
@@ -74,9 +75,9 @@ var _ extensionv1.ExtensionServiceServer = (*Service)(nil)
 
 // readArguments is the transport-local read input.
 type readArguments struct {
-	Path   string `json:"path"`
-	Offset uint   `json:"offset"`
-	Limit  uint   `json:"limit"`
+	Path   string          `json:"path"`
+	Offset mo.Option[uint] `json:"offset"`
+	Limit  mo.Option[uint] `json:"limit"`
 }
 
 // writeArguments is the transport-local write input.
@@ -93,8 +94,8 @@ type editArguments struct {
 
 // bashArguments is the transport-local bash input.
 type bashArguments struct {
-	Command string   `json:"command"`
-	Timeout *float64 `json:"timeout"`
+	Command string             `json:"command"`
+	Timeout mo.Option[float64] `json:"timeout"`
 }
 
 // bashTimeoutError distinguishes a tool timeout from caller cancellation.
@@ -107,26 +108,26 @@ func (e bashTimeoutError) Error() string {
 
 // grepArguments is the transport-local grep input.
 type grepArguments struct {
-	Pattern    string `json:"pattern"`
-	Path       string `json:"path"`
-	Glob       string `json:"glob"`
-	IgnoreCase bool   `json:"ignoreCase"`
-	Literal    bool   `json:"literal"`
-	Context    uint   `json:"context"`
-	Limit      uint   `json:"limit"`
+	Pattern    string          `json:"pattern"`
+	Path       string          `json:"path"`
+	Glob       string          `json:"glob"`
+	IgnoreCase bool            `json:"ignoreCase"`
+	Literal    bool            `json:"literal"`
+	Context    uint            `json:"context"`
+	Limit      mo.Option[uint] `json:"limit"`
 }
 
 // findArguments is the transport-local find input.
 type findArguments struct {
-	Pattern string `json:"pattern"`
-	Path    string `json:"path"`
-	Limit   uint   `json:"limit"`
+	Pattern string          `json:"pattern"`
+	Path    string          `json:"path"`
+	Limit   mo.Option[uint] `json:"limit"`
 }
 
 // listArguments is the transport-local ls input.
 type listArguments struct {
-	Path  string `json:"path"`
-	Limit uint   `json:"limit"`
+	Path  string          `json:"path"`
+	Limit mo.Option[uint] `json:"limit"`
 }
 
 // New creates an extension controller for the standard tools.
@@ -256,10 +257,10 @@ func (s *Service) executeRead(arguments []byte, stream extensionv1.ExtensionServ
 	if err != nil {
 		return operationResult(stream, "", err)
 	}
-	if result.Image != nil {
-		return sendImageResult(stream, result.Image.MediaType, result.Image.Data)
+	if image, ok := result.Image.Get(); ok {
+		return sendImageResult(stream, image.MediaType, image.Data)
 	}
-	return operationResult(stream, result.Text, nil)
+	return operationResult(stream, result.Text.OrEmpty(), nil)
 }
 
 // executeWrite decodes and executes write.
@@ -361,24 +362,25 @@ func removeBashOutput(path string) error {
 }
 
 // bashExecutionContext cancels one command with a timeout-specific cause.
-func bashExecutionContext(parent context.Context, seconds *float64) (context.Context, func(), error) {
-	if seconds == nil {
+func bashExecutionContext(parent context.Context, timeout mo.Option[float64]) (context.Context, func(), error) {
+	seconds, ok := timeout.Get()
+	if !ok {
 		return parent, func() {}, nil
 	}
-	if *seconds <= 0 {
+	if seconds <= 0 {
 		return nil, nil, errors.New("bash timeout must be positive")
 	}
 	maximumSeconds := float64(math.MaxInt64) / float64(time.Second)
-	if *seconds > maximumSeconds {
+	if seconds > maximumSeconds {
 		return nil, nil, errors.New("bash timeout exceeds supported duration")
 	}
-	duration := time.Duration(*seconds * float64(time.Second))
+	duration := time.Duration(seconds * float64(time.Second))
 	if duration == 0 {
 		duration = time.Nanosecond
 	}
 	ctx, cancel := context.WithCancelCause(parent)
 	timer := time.AfterFunc(duration, func() {
-		cancel(bashTimeoutError{seconds: *seconds})
+		cancel(bashTimeoutError{seconds: seconds})
 	})
 	stop := func() {
 		timer.Stop()

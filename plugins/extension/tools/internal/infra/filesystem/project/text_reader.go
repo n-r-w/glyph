@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
 )
@@ -28,15 +30,9 @@ type textReadState struct {
 }
 
 // newTextReadState initializes a bounded line-selection state.
-func newTextReadState(offset, limit uint) *textReadState {
-	start := offset
-	if start == 0 {
-		start = 1
-	}
-	maxLines := uint(textbudget.MaximumLines)
-	if limit > 0 && limit < maxLines {
-		maxLines = limit
-	}
+func newTextReadState(offset, limit mo.Option[uint]) *textReadState {
+	start := offset.OrElse(1)
+	maxLines := min(limit.OrElse(uint(textbudget.MaximumLines)), uint(textbudget.MaximumLines))
 	return &textReadState{
 		start:         start,
 		maxLines:      maxLines,
@@ -57,7 +53,7 @@ func readTextContent(
 	ctx context.Context,
 	reader *bufio.Reader,
 	path string,
-	offset, limit uint,
+	offset, limit mo.Option[uint],
 ) (readtool.Content, error) {
 	state := newTextReadState(offset, limit)
 	for {
@@ -128,7 +124,8 @@ func (s *textReadState) finish() {
 func (s *textReadState) content(path string) (readtool.Content, error) {
 	if s.line == 0 && s.start == 1 {
 		return readtool.Content{
-			Text: "", Image: nil, Start: s.start, End: 0, Total: 0, Next: 0, OversizedSize: 0,
+			Text: mo.Some(""), Image: mo.None[readtool.Image](), Start: mo.Some(s.start),
+			End: mo.Some(uint(0)), Total: mo.Some(uint(0)), Next: mo.None[uint](), OversizedSize: mo.None[int64](),
 		}, nil
 	}
 	if s.start > s.line {
@@ -136,13 +133,13 @@ func (s *textReadState) content(path string) (readtool.Content, error) {
 	}
 	if s.oversizedSize > 0 {
 		return readtool.Content{
-			Text:          "",
-			Image:         nil,
-			Start:         s.start,
-			End:           0,
-			Total:         s.line,
-			Next:          0,
-			OversizedSize: s.oversizedSize,
+			Text:          mo.Some(""),
+			Image:         mo.None[readtool.Image](),
+			Start:         mo.Some(s.start),
+			End:           mo.None[uint](),
+			Total:         mo.Some(s.line),
+			Next:          mo.None[uint](),
+			OversizedSize: mo.Some(s.oversizedSize),
 		}, nil
 	}
 	if s.end < s.line {
@@ -156,22 +153,23 @@ func (s *textReadState) content(path string) (readtool.Content, error) {
 		}
 		if len(s.selectedLines) == 0 {
 			return readtool.Content{
-				Text: "", Image: nil, Start: s.start, End: 0, Total: s.line, Next: s.start + 1,
-				OversizedSize: int64(firstLineSize),
+				Text: mo.Some(""), Image: mo.None[readtool.Image](), Start: mo.Some(s.start),
+				End: mo.None[uint](), Total: mo.Some(s.line), Next: mo.Some(s.start + 1),
+				OversizedSize: mo.Some(int64(firstLineSize)),
 			}, nil
 		}
 	}
 	result := readtool.Content{
-		Text:          strings.Join(s.selectedLines, ""),
-		Image:         nil,
-		Start:         s.start,
-		End:           s.end,
-		Total:         s.line,
-		Next:          0,
-		OversizedSize: 0,
+		Text:          mo.Some(strings.Join(s.selectedLines, "")),
+		Image:         mo.None[readtool.Image](),
+		Start:         mo.Some(s.start),
+		End:           mo.Some(s.end),
+		Total:         mo.Some(s.line),
+		Next:          mo.None[uint](),
+		OversizedSize: mo.None[int64](),
 	}
 	if s.end < s.line {
-		result.Next = s.end + 1
+		result.Next = mo.Some(s.end + 1)
 	}
 	return result, nil
 }

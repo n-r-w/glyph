@@ -1,6 +1,10 @@
 package read
 
-import "context"
+import (
+	"context"
+
+	"github.com/samber/mo"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=read
 
@@ -12,13 +16,16 @@ type Image struct {
 
 // Content contains one bounded file read.
 type Content struct {
-	Text                    string
-	Image                   *Image
-	Start, End, Total, Next uint
-	OversizedSize           int64
+	Text          mo.Option[string]
+	Image         mo.Option[Image]
+	Start         mo.Option[uint]
+	End           mo.Option[uint]
+	Total         mo.Option[uint]
+	Next          mo.Option[uint]
+	OversizedSize mo.Option[int64]
 }
 
 // ProjectReader reads bounded content from the working project.
 type ProjectReader interface {
-	ReadFile(context.Context, string, uint, uint) (Content, error)
+	ReadFile(context.Context, string, mo.Option[uint], mo.Option[uint]) (Content, error)
 }

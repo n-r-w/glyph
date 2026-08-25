@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/samber/mo"
+
 	edittool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/edit"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
 	writetool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/write"
@@ -77,18 +79,18 @@ func New() *Service {
 }
 
 // ReadFile returns bounded project-file content.
-func (s *Service) ReadFile(ctx context.Context, path string, offset, limit uint) (readtool.Content, error) {
+func (s *Service) ReadFile(
+	ctx context.Context,
+	path string,
+	offset, limit mo.Option[uint],
+) (readtool.Content, error) {
 	if err := ctx.Err(); err != nil {
-		return readtool.Content{
-			Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-		}, fmt.Errorf("read project file %q: %w", path, err)
+		return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, err)
 	}
 	cleanPath := filepath.Clean(path)
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return readtool.Content{
-			Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-		}, fmt.Errorf("read project file %q: %w", path, err)
+		return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
 	header := make([]byte, contentTypeHeaderSize)
@@ -96,32 +98,25 @@ func (s *Service) ReadFile(ctx context.Context, path string, offset, limit uint)
 	mediaType := http.DetectContentType(header[:n])
 	if isSupportedImage(mediaType) {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return readtool.Content{
-				Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-			}, fmt.Errorf("read project file %q: %w", path, ctxErr)
+			return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, ctxErr)
 		}
 		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
-			return readtool.Content{
-				Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-			}, fmt.Errorf("seek project file %q: %w", path, seekErr)
+			return readtool.Content{}, fmt.Errorf("seek project file %q: %w", path, seekErr)
 		}
 		data, readErr := readImageData(ctx, file)
 		if readErr != nil {
-			return readtool.Content{
-				Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-			}, fmt.Errorf("read project file %q: %w", path, readErr)
+			return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, readErr)
 		}
 		if mediaType != "image/png" || !isAnimatedPNG(data) {
 			return readtool.Content{
-				Text: "", Image: &readtool.Image{MediaType: mediaType, Data: data},
-				Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
+				Text: mo.None[string](), Image: mo.Some(readtool.Image{MediaType: mediaType, Data: data}),
+				Start: mo.None[uint](), End: mo.None[uint](), Total: mo.None[uint](),
+				Next: mo.None[uint](), OversizedSize: mo.None[int64](),
 			}, nil
 		}
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
-		return readtool.Content{
-			Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0,
-		}, fmt.Errorf("seek project file %q: %w", path, err)
+		return readtool.Content{}, fmt.Errorf("seek project file %q: %w", path, err)
 	}
 	return readTextContent(ctx, bufio.NewReader(file), path, offset, limit)
 }

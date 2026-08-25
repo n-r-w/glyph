@@ -24,6 +24,9 @@ import (
 const (
 	grepLineCharacters = 500
 	directoryBatchSize = 128
+	grepDefaultLimit   = 100
+	findDefaultLimit   = 1000
+	listDefaultLimit   = 500
 )
 
 var _ searchtool.ProjectFiles = (*Service)(nil)
@@ -163,10 +166,7 @@ func newGrepSearch(ctx context.Context, cmd searchtool.GrepCommand) (*grepSearch
 	if root == "" {
 		root = "."
 	}
-	limit := cmd.Limit
-	if limit == 0 {
-		limit = 100
-	}
+	limit := cmd.Limit.OrElse(grepDefaultLimit)
 	contextLines := min(cmd.Context, uint(textbudget.MaximumLines-1))
 	return &grepSearch{
 		ctx: ctx, command: cmd, matcher: matcher, root: root, limit: limit,
@@ -462,10 +462,7 @@ func (s *Service) Find(ctx context.Context, cmd searchtool.FindCommand) (searcht
 	if root == "" {
 		root = "."
 	}
-	limit := cmd.Limit
-	if limit == 0 {
-		limit = 1000
-	}
+	limit := cmd.Limit.OrElse(findDefaultLimit)
 	output := newSearchOutput()
 	count, limited := uint(0), false
 	walkErr := walkProject(ctx, root, func(path string, entry fs.DirEntry) error {
@@ -512,10 +509,7 @@ func (s *Service) List(ctx context.Context, cmd searchtool.ListCommand) (searcht
 	if path == "" {
 		path = "."
 	}
-	limit := cmd.Limit
-	if limit == 0 {
-		limit = 500
-	}
+	limit := cmd.Limit.OrElse(listDefaultLimit)
 	output := newSearchOutput()
 	// #nosec G304 -- the caller selects a project directory.
 	dir, openErr := os.Open(path)

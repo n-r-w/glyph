@@ -13,8 +13,8 @@ import (
 func TestServiceExecuteFindAndListDispatch(t *testing.T) {
 	t.Parallel()
 	search := NewMockSearchTool(gomock.NewController(t))
-	search.EXPECT().Find(gomock.Any(), FindArguments{Pattern: "**/*.go", Path: "src", Limit: 2}).Return("src/a.go\n", nil)
-	search.EXPECT().List(gomock.Any(), ListArguments{Path: "src", Limit: 2}).Return("a.go\n", nil)
+	search.EXPECT().Find(gomock.Any(), FindArguments{Pattern: "**/*.go", Path: "src", Limit: someUint(2)}).Return("src/a.go\n", nil)
+	search.EXPECT().List(gomock.Any(), ListArguments{Path: "src", Limit: someUint(2)}).Return("a.go\n", nil)
 	client := newTestClientWithTools(t, NewMockReadTool(gomock.NewController(t)), NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), search)
 	for _, request := range []*extensionv1.ExecuteRequest{
 		extensionv1.ExecuteRequest_builder{ToolName: new("find"), ArgumentsJson: []byte(`{"pattern":"**/*.go","path":"src","limit":2}`)}.Build(),
@@ -67,11 +67,11 @@ func TestServiceReturnsSearchOperationErrorsToModel(t *testing.T) {
 	t.Parallel()
 	search := NewMockSearchTool(gomock.NewController(t))
 	search.EXPECT().Grep(gomock.Any(), GrepArguments{
-		Pattern: "x", Path: "", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: 0,
+		Pattern: "x", Path: "", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: noUint(),
 	}).Return("", errors.New("grep failed"))
-	search.EXPECT().Find(gomock.Any(), FindArguments{Pattern: "*", Path: "", Limit: 0}).
+	search.EXPECT().Find(gomock.Any(), FindArguments{Pattern: "*", Path: "", Limit: noUint()}).
 		Return("", errors.New("find failed"))
-	search.EXPECT().List(gomock.Any(), ListArguments{Path: "", Limit: 0}).Return("", errors.New("ls failed"))
+	search.EXPECT().List(gomock.Any(), ListArguments{Path: "", Limit: noUint()}).Return("", errors.New("ls failed"))
 	client := newTestClientWithTools(t, NewMockReadTool(gomock.NewController(t)), NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), search)
 	cases := []struct {
 		tool      string

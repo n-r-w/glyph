@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,7 +42,7 @@ func (m *MockProjectReader) EXPECT() *MockProjectReaderMockRecorder {
 }
 
 // ReadFile mocks base method.
-func (m *MockProjectReader) ReadFile(arg0 context.Context, arg1 string, arg2, arg3 uint) (Content, error) {
+func (m *MockProjectReader) ReadFile(arg0 context.Context, arg1 string, arg2, arg3 mo.Option[uint]) (Content, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadFile", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(Content)

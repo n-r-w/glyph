@@ -4,10 +4,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
@@ -16,14 +18,39 @@ func TestServiceRead(t *testing.T) {
 	t.Parallel()
 
 	reader := NewMockProjectReader(gomock.NewController(t))
-	reader.EXPECT().ReadFile(t.Context(), "notes.txt", uint(2), uint(3)).Return(
-		Content{Text: "second\nthird", Image: nil, Start: 2, End: 3, Total: 4, Next: 4, OversizedSize: 0}, nil,
+	reader.EXPECT().ReadFile(t.Context(), "notes.txt", mo.Some(uint(2)), mo.Some(uint(3))).Return(
+		Content{
+			Text: mo.Some("second\nthird"), Image: mo.None[Image](), Start: mo.Some(uint(2)),
+			End: mo.Some(uint(3)), Total: mo.Some(uint(4)), Next: mo.Some(uint(4)),
+			OversizedSize: mo.None[int64](),
+		}, nil,
 	)
 
-	result, err := New(reader).Read(t.Context(), "notes.txt", 2, 3)
+	result, err := New(reader).Read(t.Context(), "notes.txt", mo.Some(uint(2)), mo.Some(uint(3)))
 
 	require.NoError(t, err)
-	assert.Equal(t, "second\nthird\n[Showing lines 2-3 of 4. Use offset=4 to continue.]", result.Text)
+	assert.Equal(t, mo.Some("second\nthird\n[Showing lines 2-3 of 4. Use offset=4 to continue.]"), result.Text)
+	assert.True(t, result.Image.IsNone())
+}
+
+// TestServiceReadImage maps the image alternative without a text alternative.
+func TestServiceReadImage(t *testing.T) {
+	t.Parallel()
+
+	image := Image{MediaType: "image/png", Data: []byte{1, 2, 3}}
+	reader := NewMockProjectReader(gomock.NewController(t))
+	reader.EXPECT().ReadFile(t.Context(), "image.data", mo.None[uint](), mo.None[uint]()).Return(
+		Content{
+			Text: mo.None[string](), Image: mo.Some(image), Start: mo.None[uint](),
+			End: mo.None[uint](), Total: mo.None[uint](), Next: mo.None[uint](), OversizedSize: mo.None[int64](),
+		}, nil,
+	)
+
+	result, err := New(reader).Read(t.Context(), "image.data", mo.None[uint](), mo.None[uint]())
+
+	require.NoError(t, err)
+	assert.True(t, result.Text.IsNone())
+	assert.Equal(t, mo.Some(extensioncontroller.ReadImage{MediaType: image.MediaType, Data: image.Data}), result.Image)
 }
 
 // TestServiceReadOversizedLineProvidesBoundedCommand verifies safe shell quoting and a byte bound.
@@ -31,18 +58,54 @@ func TestServiceReadOversizedLineProvidesBoundedCommand(t *testing.T) {
 	t.Parallel()
 
 	reader := NewMockProjectReader(gomock.NewController(t))
-	reader.EXPECT().ReadFile(t.Context(), "dir/a'b.txt", uint(7), uint(1)).Return(
-		Content{Text: "", Image: nil, Start: 7, End: 0, Total: 0, Next: 0, OversizedSize: textbudget.MaximumBytes + 1}, nil,
+	reader.EXPECT().ReadFile(t.Context(), "dir/a'b.txt", mo.Some(uint(7)), mo.Some(uint(1))).Return(
+		Content{
+			Text: mo.Some(""), Image: mo.None[Image](), Start: mo.Some(uint(7)),
+			End: mo.None[uint](), Total: mo.Some(uint(1)), Next: mo.None[uint](),
+			OversizedSize: mo.Some(int64(textbudget.MaximumBytes + 1)),
+		}, nil,
 	)
 
-	result, err := New(reader).Read(t.Context(), "dir/a'b.txt", 7, 1)
+	result, err := New(reader).Read(t.Context(), "dir/a'b.txt", mo.Some(uint(7)), mo.Some(uint(1)))
 
 	require.NoError(t, err)
 	assert.Equal(
 		t,
 		"[Line 7 is 51201 bytes and exceeds the 51200 byte limit. Use `sed -n '7p' 'dir/a'\\''b.txt' | head -c 51200` to inspect that line.]",
-		result.Text,
+		result.Text.OrEmpty(),
 	)
+}
+
+// TestServiceReadPreservesMissingOversizedMetadataFallback keeps the prior zero-value line fallback.
+func TestServiceReadPreservesMissingOversizedMetadataFallback(t *testing.T) {
+	t.Parallel()
+
+	reader := NewMockProjectReader(gomock.NewController(t))
+	reader.EXPECT().ReadFile(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]()).Return(Content{
+		Text: mo.Some(""), Image: mo.None[Image](), Start: mo.None[uint](), End: mo.None[uint](),
+		Total: mo.None[uint](), Next: mo.None[uint](), OversizedSize: mo.Some(int64(textbudget.MaximumBytes + 1)),
+	}, nil)
+
+	result, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
+
+	require.NoError(t, err)
+	assert.Contains(t, result.Text.OrEmpty(), "Line 0 is 51201 bytes")
+}
+
+// TestServiceReadPreservesMissingPartialMetadataFallback keeps prior zero-value notice fields.
+func TestServiceReadPreservesMissingPartialMetadataFallback(t *testing.T) {
+	t.Parallel()
+
+	reader := NewMockProjectReader(gomock.NewController(t))
+	reader.EXPECT().ReadFile(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]()).Return(Content{
+		Text: mo.Some("text"), Image: mo.None[Image](), Start: mo.None[uint](), End: mo.None[uint](),
+		Total: mo.None[uint](), Next: mo.Some(uint(2)), OversizedSize: mo.None[int64](),
+	}, nil)
+
+	result, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
+
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some("text\n[Showing lines 0-0 of 0. Use offset=2 to continue.]"), result.Text)
 }
 
 // TestServiceReadError preserves project-reader failures.
@@ -51,9 +114,12 @@ func TestServiceReadError(t *testing.T) {
 
 	readErr := errors.New("file is unavailable")
 	reader := NewMockProjectReader(gomock.NewController(t))
-	reader.EXPECT().ReadFile(t.Context(), "missing.txt", uint(1), uint(0)).Return(Content{Text: "", Image: nil, Start: 0, End: 0, Total: 0, Next: 0, OversizedSize: 0}, readErr)
+	reader.EXPECT().ReadFile(t.Context(), "missing.txt", mo.Some(uint(1)), mo.None[uint]()).Return(Content{
+		Text: mo.None[string](), Image: mo.None[Image](), Start: mo.None[uint](),
+		End: mo.None[uint](), Total: mo.None[uint](), Next: mo.None[uint](), OversizedSize: mo.None[int64](),
+	}, readErr)
 
-	result, err := New(reader).Read(t.Context(), "missing.txt", 1, 0)
+	result, err := New(reader).Read(t.Context(), "missing.txt", mo.Some(uint(1)), mo.None[uint]())
 
 	assert.Empty(t, result)
 	require.ErrorIs(t, err, readErr)

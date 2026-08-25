@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -39,7 +40,7 @@ func TestBashExecutionContextClampsSubNanosecondTimeout(t *testing.T) {
 	t.Parallel()
 
 	seconds := 1e-10
-	ctx, stop, err := bashExecutionContext(t.Context(), &seconds)
+	ctx, stop, err := bashExecutionContext(t.Context(), mo.Some(seconds))
 	require.NoError(t, err)
 	defer stop()
 	select {

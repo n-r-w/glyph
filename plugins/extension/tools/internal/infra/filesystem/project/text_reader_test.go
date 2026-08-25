@@ -17,7 +17,9 @@ func TestReadTextContentCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	content, err := readTextContent(ctx, bufio.NewReader(strings.NewReader("line\n")), "notes.txt", 1, 1)
+	content, err := readTextContent(
+		ctx, bufio.NewReader(strings.NewReader("line\n")), "notes.txt", optionUint(1), optionUint(1),
+	)
 
 	assert.Empty(t, content)
 	require.ErrorIs(t, err, context.Canceled)

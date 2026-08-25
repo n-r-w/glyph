@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -80,7 +81,7 @@ func (m *MockReadTool) EXPECT() *MockReadToolMockRecorder {
 }
 
 // Read mocks base method.
-func (m *MockReadTool) Read(arg0 context.Context, arg1 string, arg2, arg3 uint) (ReadResult, error) {
+func (m *MockReadTool) Read(arg0 context.Context, arg1 string, arg2, arg3 mo.Option[uint]) (ReadResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Read", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(ReadResult)
