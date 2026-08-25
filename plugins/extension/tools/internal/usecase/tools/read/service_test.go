@@ -76,8 +76,8 @@ func TestServiceReadOversizedLineProvidesBoundedCommand(t *testing.T) {
 	)
 }
 
-// TestServiceReadPreservesMissingOversizedMetadataFallback keeps the prior zero-value line fallback.
-func TestServiceReadPreservesMissingOversizedMetadataFallback(t *testing.T) {
+// TestServiceReadRejectsMissingOversizedMetadata verifies an oversized line requires its start position.
+func TestServiceReadRejectsMissingOversizedMetadata(t *testing.T) {
 	t.Parallel()
 
 	reader := NewMockProjectReader(gomock.NewController(t))
@@ -86,14 +86,13 @@ func TestServiceReadPreservesMissingOversizedMetadataFallback(t *testing.T) {
 		Total: mo.None[uint](), Next: mo.None[uint](), OversizedSize: mo.Some(int64(textbudget.MaximumBytes + 1)),
 	}, nil)
 
-	result, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
+	_, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
 
-	require.NoError(t, err)
-	assert.Contains(t, result.Text.OrEmpty(), "Line 0 is 51201 bytes")
+	require.ErrorContains(t, err, "oversized content has no start line")
 }
 
-// TestServiceReadPreservesMissingPartialMetadataFallback keeps prior zero-value notice fields.
-func TestServiceReadPreservesMissingPartialMetadataFallback(t *testing.T) {
+// TestServiceReadRejectsMissingPartialMetadata verifies continuation output requires its line range.
+func TestServiceReadRejectsMissingPartialMetadata(t *testing.T) {
 	t.Parallel()
 
 	reader := NewMockProjectReader(gomock.NewController(t))
@@ -102,10 +101,9 @@ func TestServiceReadPreservesMissingPartialMetadataFallback(t *testing.T) {
 		Total: mo.None[uint](), Next: mo.Some(uint(2)), OversizedSize: mo.None[int64](),
 	}, nil)
 
-	result, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
+	_, err := New(reader).Read(t.Context(), "notes.txt", mo.None[uint](), mo.None[uint]())
 
-	require.NoError(t, err)
-	assert.Equal(t, mo.Some("text\n[Showing lines 0-0 of 0. Use offset=2 to continue.]"), result.Text)
+	require.ErrorContains(t, err, "continuation metadata is incomplete")
 }
 
 // TestServiceReadError preserves project-reader failures.

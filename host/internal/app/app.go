@@ -281,7 +281,7 @@ func runUIWithPaths(
 	selection, err := selector.Select(ctx, hostui.SelectionRequest{
 		Directory:  domainui.Directory{Path: uiDirectory},
 		ExplicitUI: command.UIID,
-		ActiveUI:   configured.ActiveUI.OrEmpty(),
+		ActiveUI:   configured.ActiveUI,
 	})
 	if err != nil {
 		return errors.Join(fmt.Errorf("select UI plugin: %w", err), writeSelectionWarnings(stderr, selection.Issues))
@@ -471,7 +471,7 @@ func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCap
 func apiKeySource(configured mo.Option[settingstore.APIKey]) credentialstore.APIKeySource {
 	apiKey, present := configured.Get()
 	if !present {
-		return credentialstore.APIKeySource{Kind: "", Value: ""}
+		return credentialstore.APIKeySource{}
 	}
 	if literal, selected := apiKey.Literal.Get(); selected {
 		return credentialstore.APIKeySource{
@@ -483,7 +483,11 @@ func apiKeySource(configured mo.Option[settingstore.APIKey]) credentialstore.API
 			Kind: credentialstore.APIKeySourceEnvironment, Value: environment,
 		}
 	}
+	credential, selected := apiKey.Credential.Get()
+	if !selected {
+		return credentialstore.APIKeySource{}
+	}
 	return credentialstore.APIKeySource{
-		Kind: credentialstore.APIKeySourceCredential, Value: apiKey.Credential.OrEmpty(),
+		Kind: credentialstore.APIKeySourceCredential, Value: credential,
 	}
 }

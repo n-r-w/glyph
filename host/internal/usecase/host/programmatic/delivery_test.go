@@ -733,6 +733,32 @@ func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 	delivery.finish(active, nil)
 }
 
+// TestDeliveryRejectsMissingSelectedPayload verifies malformed variants do not reach Programmatic Control.
+func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	delivery := NewDelivery()
+	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	require.True(t, delivery.reserve(active))
+
+	err := delivery.DeliverAgent(t.Context(), run.Event{
+		Type:       run.EventMessageEnd,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+	})
+
+	require.ErrorContains(t, err, "requires model response")
+	delivery.finish(active, nil)
+}
+
 func newTestActiveRun(
 	ctx context.Context,
 	delivery *Delivery,

@@ -182,7 +182,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		} else {
 			err = errors.New(strings.TrimSuffix(message, "."))
 		}
-		if response.Outcome.OrEmpty() == 0 {
+		if responseOutcome, present := response.Outcome.Get(); !present || responseOutcome == 0 {
 			response = failureResponse(outcome, message)
 		}
 		response.Provider = mo.Some(s.providerID)

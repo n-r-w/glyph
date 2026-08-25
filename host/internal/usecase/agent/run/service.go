@@ -77,21 +77,21 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 	deliveryErr := s.deliver(ctx, newEvent(EventAgentStart, request.RunID))
 	if deliveryErr != nil {
 		return s.finish(
-			ctx, request.RunID, startIndex, agent.RunOutcomeFailed, deliveryErr.Error(), deliveryErr,
+			ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr,
 		)
 	}
 
 	for {
 		if contextErr := ctx.Err(); contextErr != nil {
 			return s.finish(
-				ctx, request.RunID, startIndex, agent.RunOutcomeAborted, abortedModelMessage, contextErr,
+				ctx, request.RunID, startIndex, agent.RunOutcomeAborted, mo.Some(abortedModelMessage), contextErr,
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
 		if next {
 			continue
 		}
-		return s.finish(ctx, request.RunID, startIndex, turnResult.Outcome, turnResult.ErrorMessage.OrEmpty(), runErr)
+		return s.finish(ctx, request.RunID, startIndex, turnResult.Outcome, turnResult.ErrorMessage, runErr)
 	}
 }
 
@@ -99,7 +99,8 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 func (s *Service) Settle(runID string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.state.Status != StatusAwaitingSettlement || s.state.RunID.OrEmpty() != runID {
+	activeRunID, present := s.state.RunID.Get()
+	if s.state.Status != StatusAwaitingSettlement || !present || activeRunID != runID {
 		return fmt.Errorf("%w: %q", ErrSettlement, runID)
 	}
 	s.state = State{
@@ -187,10 +188,12 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		History:         projectedContext.History,
 		Tools:           tools,
 	}, func(streamEvent StreamEvent) error {
+		var terminal model.Response
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
-			terminal := cloneModelResponse(streamEvent.Response.OrEmpty())
-			if len(terminal.Content) == 0 {
-				terminal.Content = s.State().PartialResponse.OrEmpty().Content
+			var terminalErr error
+			terminal, terminalErr = mergeTerminalResponse(streamEvent.Response, s.State().PartialResponse)
+			if terminalErr != nil {
+				return terminalErr
 			}
 			streamEvent.Response = mo.Some(terminal)
 		}
@@ -198,7 +201,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 			return err
 		}
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
-			response = cloneModelResponse(streamEvent.Response.OrEmpty())
+			response = cloneModelResponse(terminal)
 			return nil
 		}
 		event := newEvent(EventContentStart, runID)
@@ -226,12 +229,14 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		event.Position = streamEvent.Position
 		if streamEvent.Kind == StreamEventContentStart || streamEvent.Kind == StreamEventTextDelta ||
 			streamEvent.Kind == StreamEventContentEnd {
-			event.Content = mo.Some(model.Content{
-				Kind:            streamEvent.Content.OrEmpty().Kind,
-				Text:            mo.Some(streamEvent.Delta.OrEmpty()),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
+			event.Content = streamEvent.Content.MapValue(func(content model.Content) model.Content {
+				return model.Content{
+					Kind:            content.Kind,
+					Text:            streamEvent.Delta,
+					Final:           false,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				}
 			})
 		}
 		eventErr := s.deliver(ctx, event)
@@ -249,7 +254,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if providerErr != nil {
 		return s.finalizeProviderError(ctx, runID, response, providerErr)
 	}
-	if response.Outcome.OrEmpty() == 0 {
+	if outcome, present := response.Outcome.Get(); !present || outcome == 0 {
 		return s.finalizeProviderError(ctx, runID, response, errors.New("model stream ended without a terminal event"))
 	}
 
@@ -283,11 +288,31 @@ func internalHookFailureResponse(stage hooks.Stage) model.Response {
 }
 
 // normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
+// mergeTerminalResponse validates and completes one terminal response with streamed content.
+func mergeTerminalResponse(
+	responseOption mo.Option[model.Response],
+	partialOption mo.Option[model.Response],
+) (model.Response, error) {
+	terminal, present := responseOption.Get()
+	if !present {
+		return model.Response{}, errors.New("terminal model stream event has no response")
+	}
+	terminal = cloneModelResponse(terminal)
+	if partial, hasPartial := partialOption.Get(); len(terminal.Content) == 0 && hasPartial {
+		terminal.Content = partial.Content
+	}
+	return terminal, nil
+}
+
 func normalizeTerminalResponse(response model.Response) model.Response {
-	if response.ErrorMessage.OrEmpty() != "" {
+	if errorMessage, present := response.ErrorMessage.Get(); present && errorMessage != "" {
 		return response
 	}
-	switch response.Outcome.OrEmpty() {
+	outcome, present := response.Outcome.Get()
+	if !present {
+		return response
+	}
+	switch outcome {
 	case model.OutcomeAborted:
 		response.ErrorMessage = mo.Some(abortedModelMessage)
 	case model.OutcomeFailed:
@@ -305,15 +330,15 @@ func (s *Service) finalizeProviderError(
 	providerErr error,
 ) (Result, bool, error) {
 	response = cloneModelResponse(response)
-	if len(response.Content) == 0 {
-		response.Content = s.State().PartialResponse.OrEmpty().Content
+	if partial, present := s.State().PartialResponse.Get(); len(response.Content) == 0 && present {
+		response.Content = partial.Content
 	}
 	outcome := model.OutcomeFailed
 	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
 		outcome = model.OutcomeAborted
 	}
-	errorMessage := response.ErrorMessage.OrEmpty()
-	if errorMessage == "" {
+	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
+	if !hasErrorMessage || errorMessage == "" {
 		errorMessage = failedModelMessage
 		if outcome == model.OutcomeAborted {
 			errorMessage = abortedModelMessage
@@ -346,7 +371,12 @@ func (s *Service) applyOutcome(
 	runID string,
 	response model.Response,
 ) (Result, bool, error) {
-	switch response.Outcome.OrEmpty() {
+	outcome, present := response.Outcome.Get()
+	if !present {
+		err := errors.New("model response has no outcome")
+		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeFailed, err.Error(), err)
+	}
+	switch outcome {
 	case model.OutcomeStop:
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
 	case model.OutcomeToolUse:
@@ -372,17 +402,25 @@ func (s *Service) applyOutcome(
 		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
 		return Result{}, err == nil, err
 	case model.OutcomeAborted:
+		errorMessage, hasErrorMessage := response.ErrorMessage.Get()
+		if !hasErrorMessage || errorMessage == "" {
+			errorMessage = abortedModelMessage
+		}
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeAborted,
-			response.ErrorMessage.OrEmpty(), errors.New(response.ErrorMessage.OrEmpty()),
+			errorMessage, errors.New(errorMessage),
 		)
 	case model.OutcomeFailed:
+		errorMessage, hasErrorMessage := response.ErrorMessage.Get()
+		if !hasErrorMessage || errorMessage == "" {
+			errorMessage = failedModelMessage
+		}
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeFailed,
-			response.ErrorMessage.OrEmpty(), errors.New(response.ErrorMessage.OrEmpty()),
+			errorMessage, errors.New(errorMessage),
 		)
 	default:
-		err := fmt.Errorf("unknown model response outcome %d", response.Outcome.OrEmpty())
+		err := fmt.Errorf("unknown model response outcome %d", outcome)
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeFailed, err.Error(), err)
 	}
 }
@@ -495,7 +533,7 @@ func (s *Service) finish(
 	runID string,
 	startIndex int,
 	outcome agent.RunOutcome,
-	errorMessage string,
+	errorMessage mo.Option[string],
 	runErr error,
 ) (Result, error) {
 	s.mutex.Lock()
@@ -507,11 +545,10 @@ func (s *Service) finish(
 		ToolPreviews:    nil,
 	}
 	s.mutex.Unlock()
-	errorMessageOption := mo.EmptyableToOption(errorMessage)
-	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessageOption}
+	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
 	agentEnd := newEvent(EventAgentEnd, runID)
 	agentEnd.Agent = mo.Some(AgentSummary{
-		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessageOption,
+		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage,
 	})
 	eventErr := s.deliver(context.WithoutCancel(ctx), agentEnd)
 	return result, errors.Join(runErr, eventErr)
@@ -528,7 +565,10 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
 		clear(s.state.ToolPreviews)
 	}
-	partial := s.state.PartialResponse.OrEmpty()
+	partial, present := s.state.PartialResponse.Get()
+	if !present {
+		partial = model.Response{}
+	}
 	if err := applyStreamEvent(&partial, event); err != nil {
 		return err
 	}

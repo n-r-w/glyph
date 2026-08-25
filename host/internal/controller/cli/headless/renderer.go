@@ -2,6 +2,7 @@ package headless
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -42,15 +43,7 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeF
 func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	switch event.Type {
 	case run.EventTextDelta:
-		if event.Content.OrEmpty().Kind != model.ContentText && event.Content.OrEmpty().Kind != model.ContentRefusal {
-			return nil
-		}
-		text := event.Content.OrEmpty().Text.OrEmpty()
-		writeErr := writeText(r.stdout, text)
-		if writeErr == nil && text != "" {
-			r.modelLineOpen = true
-		}
-		return writeErr
+		return r.renderTextDelta(event)
 	case run.EventMessageEnd:
 		if !r.modelLineOpen {
 			return nil
@@ -61,17 +54,13 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 		r.modelLineOpen = false
 		return nil
 	case run.EventToolExecutionStart:
-		return writePrefixed(r.stderr, "[tool:start] ", event.ToolCall.OrEmpty().Name)
+		return r.renderToolExecutionStart(event)
 	case run.EventToolExecutionUpdate:
-		return r.writeProgress(event.Progress.OrEmpty())
+		return r.renderToolExecutionUpdate(event)
 	case run.EventToolExecutionEnd:
-		status := "ok"
-		if event.ToolResult.OrEmpty().IsError {
-			status = "error"
-		}
-		return writePrefixed(r.stderr, "[tool:end] ", event.ToolCall.OrEmpty().Name+": "+status)
+		return r.renderToolExecutionEnd(event)
 	case run.EventToolResult:
-		return r.writeToolResult(event.ToolResult.OrEmpty().Contents)
+		return r.renderToolResult(event)
 	case run.EventAgentStart,
 		run.EventTurnStart,
 		run.EventMessageStart,
@@ -86,6 +75,67 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	default:
 		return fmt.Errorf("render unknown Agent Core event type %d", event.Type)
 	}
+}
+
+// renderTextDelta writes visible model text after validating its selected payload.
+func (r *Renderer) renderTextDelta(event run.Event) error {
+	content, present := event.Content.Get()
+	if !present {
+		return errors.New("render text delta event: content is required")
+	}
+	if content.Kind != model.ContentText && content.Kind != model.ContentRefusal {
+		return nil
+	}
+	text, present := content.Text.Get()
+	if !present {
+		return errors.New("render text delta event: text is required")
+	}
+	writeErr := writeText(r.stdout, text)
+	if writeErr == nil && text != "" {
+		r.modelLineOpen = true
+	}
+	return writeErr
+}
+
+// renderToolExecutionStart writes the selected tool name.
+func (r *Renderer) renderToolExecutionStart(event run.Event) error {
+	call, present := event.ToolCall.Get()
+	if !present {
+		return errors.New("render tool execution start event: tool call is required")
+	}
+	return writePrefixed(r.stderr, "[tool:start] ", call.Name)
+}
+
+// renderToolExecutionUpdate writes one selected progress payload.
+func (r *Renderer) renderToolExecutionUpdate(event run.Event) error {
+	progress, present := event.Progress.Get()
+	if !present {
+		return errors.New("render tool execution update event: progress is required")
+	}
+	return r.writeProgress(progress)
+}
+
+// renderToolExecutionEnd writes the selected tool and terminal status.
+func (r *Renderer) renderToolExecutionEnd(event run.Event) error {
+	call, hasCall := event.ToolCall.Get()
+	result, hasResult := event.ToolResult.Get()
+	if !hasCall || !hasResult {
+		return errors.New("render tool execution end event: tool call and result are required")
+	}
+	status := "ok"
+	if result.IsError {
+		status = "error"
+	}
+	return writePrefixed(r.stderr, "[tool:end] ", call.Name+": "+status)
+}
+
+// renderToolResult writes each selected tool result content block.
+func (r *Renderer) renderToolResult(event run.Event) error {
+	result, present := event.ToolResult.Get()
+	if !present {
+		return errors.New("render tool result event: requires tool result")
+	}
+	return r.writeToolResult(result.Contents)
 }
 
 // DeliverSettled receives the Host terminal settlement event without adding output.
@@ -138,11 +188,19 @@ func (r *Renderer) writeToolResult(contents []tool.ResultContent) error {
 	for _, content := range contents {
 		switch content.Kind {
 		case tool.ResultContentText:
-			if err := writePrefixed(r.stderr, "[tool:result] ", content.Text.OrEmpty()); err != nil {
+			text, present := content.Text.Get()
+			if !present {
+				return errors.New("render tool result text: text is required")
+			}
+			if err := writePrefixed(r.stderr, "[tool:result] ", text); err != nil {
 				return err
 			}
 		case tool.ResultContentImage:
-			message := "image omitted: " + content.Image.OrEmpty().MediaType
+			image, present := content.Image.Get()
+			if !present {
+				return errors.New("render tool result image: image is required")
+			}
+			message := "image omitted: " + image.MediaType
 			if err := writePrefixed(r.stderr, "[tool:result] ", message); err != nil {
 				return err
 			}

@@ -53,7 +53,13 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 
 	for _, event := range []run.Event{
 		{
-			Content:    mo.None[model.Content](),
+			Content: mo.Some(model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.None[string](),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}),
 			Message:    mo.None[model.Response](),
 			Preview:    mo.None[model.ToolCallPreview](),
 			ToolCall:   mo.None[model.ToolCall](),
@@ -85,7 +91,13 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 			}),
 		},
 		{
-			Content:    mo.None[model.Content](),
+			Content: mo.Some(model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.None[string](),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}),
 			Message:    mo.None[model.Response](),
 			Preview:    mo.None[model.ToolCallPreview](),
 			ToolCall:   mo.None[model.ToolCall](),
@@ -351,4 +363,27 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	image.Data[0] = 9
 
 	assert.Equal(t, byte(1), original[0].Image.OrEmpty().Data[0])
+}
+
+// TestDeliveryRejectsMissingSelectedPayload verifies malformed lifecycle variants do not reach the UI channel.
+func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	channel := NewMockChannel(gomock.NewController(t))
+	delivery := NewDelivery(channel)
+	err := delivery.DeliverAgent(t.Context(), run.Event{
+		Type:       run.EventContentStart,
+		RunID:      "run",
+		Position:   mo.Some(0),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+	})
+
+	require.ErrorContains(t, err, "requires content")
 }

@@ -114,8 +114,8 @@ func (s *Driver) streamResponses(
 			content.ProviderContext = mo.Some(providerContext)
 		}
 	}
-	if state.terminal.Outcome.OrEmpty() == model.OutcomeFailed {
-		return *state.terminal, errors.New("responses request failed")
+	if terminalErr := responsesTerminalError(*state.terminal); terminalErr != nil {
+		return *state.terminal, terminalErr
 	}
 	return *state.terminal, nil
 }
@@ -183,6 +183,18 @@ func responsesParams(
 	return params, nil
 }
 
+// responsesTerminalError validates the terminal outcome returned by the Responses API.
+func responsesTerminalError(response model.Response) error {
+	outcome, present := response.Outcome.Get()
+	if !present || outcome == 0 {
+		return errors.New("responses request has no terminal outcome")
+	}
+	if outcome == model.OutcomeFailed {
+		return errors.New("responses request failed")
+	}
+	return nil
+}
+
 func responsesInput(
 	history []agent.HistoryEntry,
 	target model.ProviderContextSource,
@@ -192,19 +204,30 @@ func responsesInput(
 		entry := &history[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			message, err := responsesUserMessage(entry.User.OrEmpty())
+			messageValue, present := entry.User.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no user payload", entryIndex)
+			}
+			message, err := responsesUserMessage(messageValue)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			items, err := responsesModelItems(entry.Model.OrEmpty(), target)
+			response, present := entry.Model.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no model payload", entryIndex)
+			}
+			items, err := responsesModelItems(response, target)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, items...)
 		case agent.HistoryEntryToolResult:
-			result := entry.ToolResult.OrEmpty()
+			result, present := entry.ToolResult.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no tool result payload", entryIndex)
+			}
 			output, err := responsesToolOutput(result.Contents)
 			if err != nil {
 				return nil, err
@@ -222,11 +245,15 @@ func responsesUserMessage(message model.Message) (responses.ResponseInputItemUni
 	for index, item := range message.Content {
 		switch item.Kind {
 		case model.InputContentText:
-			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text.OrEmpty()))
+			text, present := item.Text.Get()
+			if !present {
+				return responses.ResponseInputItemUnionParam{}, fmt.Errorf("user text %d has no text", index)
+			}
+			content = append(content, responses.ResponseInputContentParamOfInputText(text))
 		case model.InputContentImage:
-			mediaType := item.MediaType.OrEmpty()
-			data := item.Data.OrEmpty()
-			if mediaType == "" || len(data) == 0 {
+			mediaType, hasMediaType := item.MediaType.Get()
+			data, hasData := item.Data.Get()
+			if !hasMediaType || !hasData || mediaType == "" || len(data) == 0 {
 				return responses.ResponseInputItemUnionParam{}, fmt.Errorf("user image %d requires media type and data", index)
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
@@ -250,7 +277,11 @@ func responsesModelItems(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
-			message := responses.ResponseInputItemParamOfMessage(item.Text.OrEmpty(), responses.EasyInputMessageRoleAssistant)
+			text, present := item.Text.Get()
+			if !present {
+				return nil, fmt.Errorf("model content %d has no text", index)
+			}
+			message := responses.ResponseInputItemParamOfMessage(text, responses.EasyInputMessageRoleAssistant)
 			message.OfMessage.Type = responses.EasyInputMessageTypeMessage
 			items = append(items, message)
 		case model.ContentReasoning:
@@ -262,13 +293,16 @@ func responsesModelItems(
 					return nil, err
 				}
 				items = append(items, reasoning)
-			} else if item.Text.OrEmpty() != "" {
-				message := responses.ResponseInputItemParamOfMessage(item.Text.OrEmpty(), responses.EasyInputMessageRoleAssistant)
+			} else if text, present := item.Text.Get(); present && text != "" {
+				message := responses.ResponseInputItemParamOfMessage(text, responses.EasyInputMessageRoleAssistant)
 				message.OfMessage.Type = responses.EasyInputMessageTypeMessage
 				items = append(items, message)
 			}
 		case model.ContentToolCall:
-			call := item.ToolCall.OrEmpty()
+			call, present := item.ToolCall.Get()
+			if !present {
+				return nil, fmt.Errorf("model content %d has no tool call", index)
+			}
 			arguments, err := json.Marshal(call.Arguments)
 			if err != nil {
 				return nil, fmt.Errorf("encode tool-call arguments: %w", err)
@@ -319,9 +353,18 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
 			switch content.Kind {
 			case tool.ResultContentText:
-				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
+				text, present := content.Text.Get()
+				if !present {
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result text %d has no text", index)
+				}
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(text), nil
 			case tool.ResultContentImage:
-				image := content.Image.OrEmpty()
+				image, present := content.Image.Get()
+				if !present {
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result image %d has no image", index)
+				}
 				if image.MediaType == "" || len(image.Data) == 0 {
 					return responses.ResponseFunctionCallOutputItemUnionParam{},
 						fmt.Errorf("tool result image %d requires media type and data", index)

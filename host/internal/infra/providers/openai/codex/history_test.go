@@ -12,22 +12,19 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
-// TestUserMessageInputPreservesAbsentPayloadBehavior verifies Option absence keeps prior zero-value mapping and validation.
-func TestUserMessageInputPreservesAbsentPayloadBehavior(t *testing.T) {
+// TestUserMessageInputRejectsMissingSelectedPayload verifies selected content requires its matching payload.
+func TestUserMessageInputRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
-	textInput, err := userMessageInput(model.Message{Content: []model.InputContent{{
+	_, err := userMessageInput(model.Message{Content: []model.InputContent{{
 		Kind: model.InputContentText, Text: mo.None[string](), MediaType: mo.None[string](), Data: mo.None[[]byte](),
 	}}})
-	require.NoError(t, err)
-	payload, err := json.Marshal(textInput)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"type":"message","role":"user","content":[{"type":"input_text","text":""}]}`, string(payload))
+	require.EqualError(t, err, "codex text content 0 has no text")
 
 	_, err = userMessageInput(model.Message{Content: []model.InputContent{{
 		Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.None[string](), Data: mo.None[[]byte](),
 	}}})
-	assert.EqualError(t, err, "codex image media type and data are required")
+	require.EqualError(t, err, "codex image media type and data are required")
 }
 
 // TestFunctionOutputContentsPreservesTextImageOrder verifies Codex typed output encoding.
@@ -48,6 +45,11 @@ func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {
 		{"type":"input_image","image_url":"data:image/png;base64,AAEC"},
 		{"type":"input_text","text":"last"}
 	]`, string(payload))
+
+	_, err = functionOutputContents([]tool.ResultContent{{
+		Kind: tool.ResultContentText, Text: mo.None[string](), Image: mo.None[tool.ResultImage](),
+	}})
+	require.EqualError(t, err, "tool result text 0 has no text")
 }
 
 // TestCustomOutputContentsPreservesTextImageOrder verifies constrained-tool output encoding.
@@ -68,4 +70,9 @@ func TestCustomOutputContentsPreservesTextImageOrder(t *testing.T) {
 		{"type":"input_image","image_url":"data:image/png;base64,AAEC"},
 		{"type":"input_text","text":"last"}
 	]`, string(payload))
+
+	_, err = customOutputContents([]tool.ResultContent{{
+		Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.None[tool.ResultImage](),
+	}})
+	require.EqualError(t, err, "tool result image 0 has no image")
 }

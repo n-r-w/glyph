@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
@@ -79,4 +80,18 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 	assert.Equal(t, "first", original.Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
 	assert.True(t, cloned.Content[0].ToolCall.IsNone())
 	assert.True(t, cloned.Content[1].ProviderContext.IsNone())
+}
+
+// TestProjectHistorySkipsMissingSelectedPayload verifies malformed history variants do not become zero entries.
+func TestProjectHistorySkipsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	projected := projectHistory([]agent.HistoryEntry{{
+		Kind:       agent.HistoryEntryModel,
+		User:       mo.None[model.Message](),
+		Model:      mo.None[model.Response](),
+		ToolResult: mo.None[agent.ToolResult](),
+	}})
+
+	assert.Empty(t, projected)
 }

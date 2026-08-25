@@ -203,10 +203,13 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	correlationID := active.correlationID
 	d.mutex.Unlock()
 
-	mapped := mapAgentEvent(event)
-	mapped.CorrelationID = correlationID
-	if err := d.emit(ctx, active, mapped); err != nil {
+	mapped, err := mapAgentEvent(event)
+	if err != nil {
 		return fmt.Errorf("deliver Programmatic Control agent event: %w", err)
+	}
+	mapped.CorrelationID = correlationID
+	if emitErr := d.emit(ctx, active, mapped); emitErr != nil {
+		return fmt.Errorf("deliver Programmatic Control agent event: %w", emitErr)
 	}
 	return nil
 }
@@ -243,7 +246,7 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 	return nil
 }
 
-func mapAgentEvent(event run.Event) controller.AgentEvent {
+func mapAgentEvent(event run.Event) (controller.AgentEvent, error) {
 	mapped := controller.AgentEvent{
 		CorrelationID:   "",
 		Type:            mapAgentEventType(event.Type),
@@ -258,55 +261,131 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 		Turn:            controller.TurnSummary{},
 		Agent:           controller.AgentSummary{},
 	}
+	var err error
 	switch event.Type {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
+	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd, run.EventMessageEnd:
+		err = mapProgrammaticModelEvent(event, &mapped)
+	case run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
+		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd, run.EventToolResult:
+		err = mapProgrammaticToolEvent(event, &mapped)
+	case run.EventTurnEnd, run.EventAgentEnd:
+		err = mapProgrammaticTerminalEvent(event, &mapped)
+	}
+	if err != nil {
+		return controller.AgentEvent{}, err
+	}
+	return mapped, nil
+}
+
+// mapProgrammaticModelEvent maps selected model payloads to Programmatic Control.
+func mapProgrammaticModelEvent(event run.Event, mapped *controller.AgentEvent) error {
+	switch event.Type {
 	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd:
+		content, hasContent := event.Content.Get()
+		position, hasPosition := event.Position.Get()
+		if !hasContent || !hasPosition {
+			return fmt.Errorf("event type %d requires content and position", event.Type)
+		}
 		mapped.ModelContent = controller.ModelContent{
-			Kind:     mapModelContentKind(event.Content.OrEmpty().Kind),
-			Position: event.Position.OrEmpty(),
-			Text:     "",
+			Kind: mapModelContentKind(content.Kind), Position: position, Text: "",
 		}
 		if event.Type == run.EventTextDelta {
-			mapped.ModelContent.Text = event.Content.OrEmpty().Text.OrEmpty()
-		}
-	case run.EventToolCallStart, run.EventToolCallDelta:
-		mapped.ToolCallPreview = mapToolCallPreview(event.Preview.OrEmpty())
-	case run.EventToolCallEnd:
-		mapped.FinalToolCall = controller.FinalToolCall{
-			CallID:    event.ToolCall.OrEmpty().ID,
-			Name:      event.ToolCall.OrEmpty().Name,
-			Position:  event.Position.OrEmpty(),
-			Arguments: cloneArguments(event.ToolCall.OrEmpty().Arguments),
+			text, present := content.Text.Get()
+			if !present {
+				return errors.New("text delta event requires text")
+			}
+			mapped.ModelContent.Text = text
 		}
 	case run.EventMessageEnd:
-		mapped.ModelResponse = mapModelResponse(event.Message.OrEmpty())
-	case run.EventToolExecutionStart:
-		mapped.ToolExecution = controller.ToolExecution{
-			CallID:   event.ToolCall.OrEmpty().ID,
-			ToolName: event.ToolCall.OrEmpty().Name,
+		message, present := event.Message.Get()
+		if !present {
+			return errors.New("message end event requires model response")
 		}
+		mapped.ModelResponse = mapModelResponse(message)
+	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
+		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
+		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
+		run.EventToolResult, run.EventTurnEnd, run.EventAgentEnd:
+		return fmt.Errorf("unsupported Programmatic Control model event type %d", event.Type)
+	}
+	return nil
+}
+
+// mapProgrammaticToolEvent maps selected tool payloads to Programmatic Control.
+func mapProgrammaticToolEvent(event run.Event, mapped *controller.AgentEvent) error {
+	switch event.Type {
+	case run.EventToolCallStart, run.EventToolCallDelta:
+		preview, present := event.Preview.Get()
+		if !present {
+			return fmt.Errorf("event type %d requires tool call preview", event.Type)
+		}
+		mapped.ToolCallPreview = mapToolCallPreview(preview)
+	case run.EventToolCallEnd:
+		call, hasCall := event.ToolCall.Get()
+		position, hasPosition := event.Position.Get()
+		if !hasCall || !hasPosition {
+			return errors.New("tool call end event requires tool call and position")
+		}
+		mapped.FinalToolCall = controller.FinalToolCall{
+			CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+		}
+	case run.EventToolExecutionStart:
+		call, present := event.ToolCall.Get()
+		if !present {
+			return errors.New("tool execution start event requires tool call")
+		}
+		mapped.ToolExecution = controller.ToolExecution{CallID: call.ID, ToolName: call.Name}
 	case run.EventToolExecutionUpdate:
+		progress, present := event.Progress.Get()
+		if !present {
+			return errors.New("tool execution update event requires progress")
+		}
 		mapped.ToolProgress = controller.ToolProgress{
-			Channel: mapProgressChannel(event.Progress.OrEmpty().Channel),
-			Content: event.Progress.OrEmpty().Content,
+			Channel: mapProgressChannel(progress.Channel), Content: progress.Content,
 		}
 	case run.EventToolExecutionEnd, run.EventToolResult:
-		mapped.ToolResult = mapToolResult(event.ToolResult.OrEmpty())
+		result, present := event.ToolResult.Get()
+		if !present {
+			return fmt.Errorf("event type %d requires tool result", event.Type)
+		}
+		mapped.ToolResult = mapToolResult(result)
+	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
+		run.EventContentStart, run.EventTextDelta, run.EventContentEnd, run.EventMessageEnd,
+		run.EventTurnEnd, run.EventAgentEnd:
+		return fmt.Errorf("unsupported Programmatic Control tool event type %d", event.Type)
+	}
+	return nil
+}
+
+// mapProgrammaticTerminalEvent maps selected terminal summaries to Programmatic Control.
+func mapProgrammaticTerminalEvent(event run.Event, mapped *controller.AgentEvent) error {
+	switch event.Type {
 	case run.EventTurnEnd:
-		toolResults := lo.Map(event.Turn.OrEmpty().ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
+		turn, present := event.Turn.Get()
+		if !present {
+			return errors.New("turn end event requires turn summary")
+		}
+		toolResults := lo.Map(turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
 			return mapToolResult(result)
 		})
-		mapped.Turn = controller.TurnSummary{
-			Response:    mapModelResponse(event.Turn.OrEmpty().Response),
-			ToolResults: toolResults,
-		}
+		mapped.Turn = controller.TurnSummary{Response: mapModelResponse(turn.Response), ToolResults: toolResults}
 	case run.EventAgentEnd:
-		mapped.Agent = controller.AgentSummary{
-			Outcome:      mapRunOutcome(event.Agent.OrEmpty().Outcome),
-			ErrorMessage: event.Agent.OrEmpty().ErrorMessage.OrEmpty(),
+		summary, present := event.Agent.Get()
+		if !present {
+			return errors.New("agent end event requires agent summary")
 		}
+		mapped.Agent = controller.AgentSummary{Outcome: mapRunOutcome(summary.Outcome), ErrorMessage: ""}
+		if errorMessage, hasErrorMessage := summary.ErrorMessage.Get(); hasErrorMessage {
+			mapped.Agent.ErrorMessage = errorMessage
+		}
+	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
+		run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
+		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd, run.EventMessageEnd,
+		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd, run.EventToolResult:
+		return fmt.Errorf("unsupported Programmatic Control terminal event type %d", event.Type)
 	}
-	return mapped
+	return nil
 }
 
 func mapAgentEventType(eventType run.EventType) controller.AgentEventType {

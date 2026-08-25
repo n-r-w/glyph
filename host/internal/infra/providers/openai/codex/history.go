@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
@@ -37,19 +38,30 @@ func buildInput(
 		entry := &history[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			message, err := userMessageInput(entry.User.OrEmpty())
+			messageValue, present := entry.User.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no user payload", entryIndex)
+			}
+			message, err := userMessageInput(messageValue)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			modelInput, err := buildModelInput(entry.Model.OrEmpty(), grammarInputProperties, target)
+			response, present := entry.Model.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no model payload", entryIndex)
+			}
+			modelInput, err := buildModelInput(response, grammarInputProperties, target)
 			if err != nil {
 				return nil, err
 			}
 			input = append(input, modelInput...)
 		case agent.HistoryEntryToolResult:
-			result := entry.ToolResult.OrEmpty()
+			result, present := entry.ToolResult.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no tool result payload", entryIndex)
+			}
 			if _, custom := grammarInputProperties[result.ToolName]; custom {
 				contents, err := customOutputContents(result.Contents)
 				if err != nil {
@@ -75,9 +87,18 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 		func(content tool.ResultContent, index int) (responses.ResponseFunctionCallOutputItemUnionParam, error) {
 			switch content.Kind {
 			case tool.ResultContentText:
-				return responses.ResponseFunctionCallOutputItemParamOfInputText(content.Text.OrEmpty()), nil
+				text, present := content.Text.Get()
+				if !present {
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result text %d has no text", index)
+				}
+				return responses.ResponseFunctionCallOutputItemParamOfInputText(text), nil
 			case tool.ResultContentImage:
-				image := content.Image.OrEmpty()
+				image, present := content.Image.Get()
+				if !present {
+					return responses.ResponseFunctionCallOutputItemUnionParam{},
+						fmt.Errorf("tool result image %d has no image", index)
+				}
 				if image.MediaType == "" {
 					return responses.ResponseFunctionCallOutputItemUnionParam{},
 						fmt.Errorf("tool result image %d has no media type", index)
@@ -111,16 +132,25 @@ func customOutputContents(
 	) {
 		switch content.Kind {
 		case tool.ResultContentText:
+			text, present := content.Text.Get()
+			if !present {
+				return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
+					fmt.Errorf("tool result text %d has no text", index)
+			}
 			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputText is active.
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputText: &responses.ResponseInputTextParam{
-					Text:                  content.Text.OrEmpty(),
+					Text:                  text,
 					PromptCacheBreakpoint: responses.ResponseInputTextPromptCacheBreakpointParam{},
 					Type:                  "",
 				},
 			}, nil
 		case tool.ResultContentImage:
-			image := content.Image.OrEmpty()
+			image, present := content.Image.Get()
+			if !present {
+				return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
+					fmt.Errorf("tool result image %d has no image", index)
+			}
 			if image.MediaType == "" {
 				return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
 					fmt.Errorf("tool result image %d has no media type", index)
@@ -154,21 +184,22 @@ func buildModelInput(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
-			input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text.OrEmpty()))
-		case model.ContentReasoning:
-			providerContext, hasProviderContext := item.ProviderContext.Get()
-			if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
-				len(providerContext.Payload) != 0 {
-				reasoning, err := reasoningInput(providerContext.Payload)
-				if err != nil {
-					return nil, err
-				}
-				input = append(input, reasoning)
-			} else if item.Text.OrEmpty() != "" {
-				input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text.OrEmpty()))
+			message, err := codexAssistantMessage(*item, index)
+			if err != nil {
+				return nil, err
 			}
+			input = append(input, message)
+		case model.ContentReasoning:
+			reasoning, err := codexReasoningInput(*item, target)
+			if err != nil {
+				return nil, err
+			}
+			input = append(input, reasoning...)
 		case model.ContentToolCall:
-			call := item.ToolCall.OrEmpty()
+			call, present := item.ToolCall.Get()
+			if !present {
+				return nil, fmt.Errorf("model content %d has no tool call", index)
+			}
 			if property, custom := grammarInputProperties[call.Name]; custom {
 				value, ok := call.Arguments[property].(string)
 				if !ok {
@@ -192,6 +223,35 @@ func buildModelInput(
 }
 
 // providerContextCompatible applies exact-model and additive compatibility-key replay rules.
+// codexReasoningInput maps replayable or visible reasoning to Codex SDK input.
+func codexReasoningInput(
+	item model.Content,
+	target model.ProviderContextSource,
+) (responses.ResponseInputParam, error) {
+	providerContext, hasProviderContext := item.ProviderContext.Get()
+	if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
+		len(providerContext.Payload) != 0 {
+		reasoning, err := reasoningInput(providerContext.Payload)
+		if err != nil {
+			return nil, err
+		}
+		return responses.ResponseInputParam{reasoning}, nil
+	}
+	if text, present := item.Text.Get(); present && text != "" {
+		return responses.ResponseInputParam{messageInput(responses.EasyInputMessageRoleAssistant, text)}, nil
+	}
+	return nil, nil
+}
+
+// codexAssistantMessage maps selected assistant text to one Codex SDK message.
+func codexAssistantMessage(item model.Content, index int) (responses.ResponseInputItemUnionParam, error) {
+	text, present := item.Text.Get()
+	if !present {
+		return responses.ResponseInputItemUnionParam{}, fmt.Errorf("model content %d has no text", index)
+	}
+	return messageInput(responses.EasyInputMessageRoleAssistant, text), nil
+}
+
 func providerContextCompatible(source, target model.ProviderContextSource) bool {
 	if source.ProviderID != target.ProviderID || source.API != target.API {
 		return false
@@ -229,14 +289,18 @@ func reasoningInput(payload []byte) (responses.ResponseInputItemUnionParam, erro
 // userMessageInput serializes ordered text and inline image content without string shorthand.
 func userMessageInput(message model.Message) (responses.ResponseInputItemUnionParam, error) {
 	content := make(responses.ResponseInputMessageContentListParam, 0, len(message.Content))
-	for _, item := range message.Content {
+	for index, item := range message.Content {
 		switch item.Kind {
 		case model.InputContentText:
-			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text.OrEmpty()))
+			text, present := item.Text.Get()
+			if !present {
+				return responses.ResponseInputItemUnionParam{}, fmt.Errorf("codex text content %d has no text", index)
+			}
+			content = append(content, responses.ResponseInputContentParamOfInputText(text))
 		case model.InputContentImage:
-			mediaType := item.MediaType.OrEmpty()
-			data := item.Data.OrEmpty()
-			if mediaType == "" || len(data) == 0 {
+			mediaType, hasMediaType := item.MediaType.Get()
+			data, hasData := item.Data.Get()
+			if !hasMediaType || !hasData || mediaType == "" || len(data) == 0 {
 				return responses.ResponseInputItemUnionParam{}, errors.New("codex image media type and data are required")
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
@@ -269,15 +333,29 @@ type toolCapabilities struct {
 // buildTools maps provider-neutral schemas into Codex tool request types.
 func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([]responses.ToolUnionParam, error) {
 	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, _ int) (responses.ToolUnionParam, error) {
-		constraint := descriptor.ConstrainedSampling.OrEmpty()
-		if constraint.Kind == tool.ConstrainedSamplingGrammar {
+		constraint, constrained := descriptor.ConstrainedSampling.Get()
+		if constrained && constraint.Kind == tool.ConstrainedSamplingGrammar {
 			if !capabilities.lark && !capabilities.regex {
 				return responses.ToolUnionParam{}, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but the selected Codex model does not support it",
 					descriptor.Name,
 				)
 			}
-			definition, syntax := preferredGrammar(constraint.Grammar.OrEmpty(), capabilities)
+			grammar, present := constraint.Grammar.Get()
+			if !present {
+				return responses.ToolUnionParam{}, fmt.Errorf(
+					"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
+					descriptor.Name,
+				)
+			}
+			property, hasProperty := constraint.GrammarInputProperty.Get()
+			if !hasProperty || property == "" {
+				return responses.ToolUnionParam{}, fmt.Errorf(
+					"tool %q requires grammar constrained sampling, but no grammar input property was provided",
+					descriptor.Name,
+				)
+			}
+			definition, syntax := preferredGrammar(grammar, capabilities)
 			if definition == "" {
 				return responses.ToolUnionParam{}, fmt.Errorf(
 					"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
@@ -301,7 +379,7 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
 			return responses.ToolUnionParam{}, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
 		}
-		strict, err := codexStrict(schema, constraint, capabilities, descriptor.Name)
+		strict, err := codexStrict(schema, descriptor.ConstrainedSampling, capabilities, descriptor.Name)
 		if err != nil {
 			return responses.ToolUnionParam{}, err
 		}
@@ -324,19 +402,24 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 // codexStrict selects provider strictness without changing the Glyph-owned schema.
 func codexStrict(
 	schema map[string]any,
-	constraint tool.ConstrainedSampling,
+	constraintOption mo.Option[tool.ConstrainedSampling],
 	capabilities toolCapabilities,
 	toolName string,
 ) (bool, error) {
 	compatible := codexStrictSchemaCompatible(schema)
 	strict := capabilities.strict && compatible
-	if constraint.Kind == 0 {
+	constraint, constrained := constraintOption.Get()
+	if !constrained {
 		return strict, nil
 	}
 	if constraint.Kind != tool.ConstrainedSamplingJSONSchema {
 		return false, fmt.Errorf("tool %q has invalid constrained sampling kind", toolName)
 	}
-	switch constraint.JSONSchemaStrictness.OrEmpty() {
+	strictness, present := constraint.JSONSchemaStrictness.Get()
+	if !present {
+		return false, fmt.Errorf("tool %q has invalid JSON Schema strictness", toolName)
+	}
+	switch strictness {
 	case tool.JSONSchemaStrictPrefer:
 		return strict, nil
 	case tool.JSONSchemaStrictRequire:
@@ -425,9 +508,13 @@ func grammarInputProperties(descriptors []tool.Descriptor) map[string]string {
 	properties := make(map[string]string)
 	for index := range descriptors {
 		descriptor := &descriptors[index]
-		constraint := descriptor.ConstrainedSampling.OrEmpty()
-		if constraint.Kind == tool.ConstrainedSamplingGrammar {
-			properties[descriptor.Name] = constraint.GrammarInputProperty.OrEmpty()
+		constraint, constrained := descriptor.ConstrainedSampling.Get()
+		if !constrained || constraint.Kind != tool.ConstrainedSamplingGrammar {
+			continue
+		}
+		property, present := constraint.GrammarInputProperty.Get()
+		if present {
+			properties[descriptor.Name] = property
 		}
 	}
 	return properties

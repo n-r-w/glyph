@@ -273,7 +273,11 @@ func (s *Service) executeRead(arguments []byte, stream extensionv1.ExtensionServ
 	if image, ok := result.Image.Get(); ok {
 		return sendImageResult(stream, image.MediaType, image.Data)
 	}
-	return operationResult(stream, result.Text.OrEmpty(), nil)
+	text, present := result.Text.Get()
+	if !present {
+		return operationResult(stream, "", errors.New("read result has no payload"))
+	}
+	return operationResult(stream, text, nil)
 }
 
 // executeWrite decodes and executes write.

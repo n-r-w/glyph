@@ -3,6 +3,7 @@ package read
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -45,7 +46,10 @@ func (s *Service) Read(
 		}, nil
 	}
 	if oversizedSize, ok := content.OversizedSize.Get(); ok {
-		start := content.Start.OrEmpty()
+		start, present := content.Start.Get()
+		if !present {
+			return extensioncontroller.ReadResult{}, errors.New("oversized content has no start line")
+		}
 		command := fmt.Sprintf(
 			"sed -n '%dp' %s | head -c %d",
 			start, shellQuote(path), textbudget.MaximumBytes,
@@ -63,11 +67,17 @@ func (s *Service) Read(
 		}
 		return extensioncontroller.ReadResult{Text: mo.Some(message), Image: mo.None[extensioncontroller.ReadImage]()}, nil
 	}
-	text := content.Text.OrEmpty()
+	text, present := content.Text.Get()
+	if !present {
+		return extensioncontroller.ReadResult{}, errors.New("text content has no text")
+	}
 	if next, ok := content.Next.Get(); ok {
-		start := content.Start.OrEmpty()
-		end := content.End.OrEmpty()
-		total := content.Total.OrEmpty()
+		start, hasStart := content.Start.Get()
+		end, hasEnd := content.End.Get()
+		total, hasTotal := content.Total.Get()
+		if !hasStart || !hasEnd || !hasTotal {
+			return extensioncontroller.ReadResult{}, errors.New("continuation metadata is incomplete")
+		}
 		notice := fmt.Sprintf(
 			"[Showing lines %d-%d of %d. Use offset=%d to continue.]",
 			start, end, total, next,

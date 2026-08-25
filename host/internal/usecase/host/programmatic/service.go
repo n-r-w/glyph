@@ -80,7 +80,10 @@ func (s *Service) Handle(
 		return s.runPreparationRejected(command)
 	}
 
-	userText, _ := command.UserText.Get()
+	userText, present := command.UserText.Get()
+	if !present {
+		return s.rejection(command, controller.RejectionInvalidArgument, "user text is required"), nil, nil
+	}
 	runContext, cancel := context.WithCancel(ctx)
 	operation := &activeRun{
 		delivery:      s.delivery,
@@ -154,8 +157,11 @@ func (s *Service) models(correlationID string) controller.Response {
 }
 
 func (s *Service) selectModel(ctx context.Context, command controller.Command) controller.Response {
-	providerID, _ := command.ProviderID.Get()
-	modelID, _ := command.ModelID.Get()
+	providerID, hasProvider := command.ProviderID.Get()
+	modelID, hasModel := command.ModelID.Get()
+	if !hasProvider || !hasModel {
+		return s.rejection(command, controller.RejectionInvalidArgument, "provider and model are required")
+	}
 	selection, err := s.modelCatalog.SelectModel(ctx, providerID, modelID)
 	if err != nil {
 		return s.selectionRejected(command, err)
@@ -166,7 +172,10 @@ func (s *Service) selectModel(ctx context.Context, command controller.Command) c
 }
 
 func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
-	reasoningChoice, _ := command.ReasoningChoice.Get()
+	reasoningChoice, present := command.ReasoningChoice.Get()
+	if !present {
+		return s.rejection(command, controller.RejectionInvalidArgument, "reasoning choice is required")
+	}
 	selection, err := s.modelCatalog.SelectReasoningChoice(reasoningChoice)
 	if err != nil {
 		return s.selectionRejected(command, err)

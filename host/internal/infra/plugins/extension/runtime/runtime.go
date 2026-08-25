@@ -313,7 +313,9 @@ func mapGrammarSampling(
 	if config.HasRegex() {
 		regex = mo.Some(config.GetRegex())
 	}
-	if strings.TrimSpace(lark.OrEmpty()) == "" && strings.TrimSpace(regex.OrEmpty()) == "" {
+	larkValue, hasLark := lark.Get()
+	regexValue, hasRegex := regex.Get()
+	if (!hasLark || strings.TrimSpace(larkValue) == "") && (!hasRegex || strings.TrimSpace(regexValue) == "") {
 		return tool.ConstrainedSampling{}, errors.New("grammar requires at least one nonempty grammar variant")
 	}
 	var schema struct {

@@ -73,7 +73,7 @@ type StreamHandler func(event StreamEvent) error
 
 // applyStreamEvent applies one semantic stream transition to partial response state.
 func applyStreamEvent(partial *model.Response, event StreamEvent) error {
-	if partial.Outcome.OrEmpty() != 0 {
+	if outcome, present := partial.Outcome.Get(); present && outcome != 0 {
 		return errors.New("model stream already terminated")
 	}
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
@@ -99,7 +99,11 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 // applyTerminalStreamEvent replaces partial state only after all streamed content is closed.
 func applyTerminalStreamEvent(partial *model.Response, responseOption mo.Option[model.Response]) error {
 	response, hasResponse := responseOption.Get()
-	if !hasResponse || response.Outcome.OrEmpty() == 0 {
+	if !hasResponse {
+		return errors.New("terminal model stream event requires an outcome")
+	}
+	outcome, hasOutcome := response.Outcome.Get()
+	if !hasOutcome || outcome == 0 {
 		return errors.New("terminal model stream event requires an outcome")
 	}
 	for position := range partial.Content {
@@ -164,7 +168,11 @@ func applyContentUpdate(partial *model.Response, position int, event StreamEvent
 	if !hasDelta {
 		return fmt.Errorf("model content %d has no text delta", position)
 	}
-	content.Text = mo.Some(content.Text.OrEmpty() + delta)
+	text, hasText := content.Text.Get()
+	if !hasText {
+		return fmt.Errorf("model content %d has no accumulated text", position)
+	}
+	content.Text = mo.Some(text + delta)
 	return nil
 }
 

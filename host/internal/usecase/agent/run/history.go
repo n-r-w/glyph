@@ -138,9 +138,13 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			index++
 			continue
 		}
-		response := entry.Model.OrEmpty()
-		outcome := response.Outcome.OrEmpty()
-		if outcome == model.OutcomeAborted || outcome == model.OutcomeFailed {
+		response, present := entry.Model.Get()
+		if !present {
+			index++
+			continue
+		}
+		outcome, terminal := response.Outcome.Get()
+		if terminal && (outcome == model.OutcomeAborted || outcome == model.OutcomeFailed) {
 			index++
 			continue
 		}
@@ -149,9 +153,11 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 		results := make(map[string]agent.ToolResult)
 		next := index + 1
 		for next < len(history) && history[next].Kind == agent.HistoryEntryToolResult {
-			result := history[next].ToolResult.OrEmpty()
-			results[result.CallID] = result
-			projected = append(projected, cloneHistoryEntry(history[next]))
+			result, hasResult := history[next].ToolResult.Get()
+			if hasResult {
+				results[result.CallID] = result
+				projected = append(projected, cloneHistoryEntry(history[next]))
+			}
 			next++
 		}
 		for _, call := range modelToolCalls(response) {
@@ -175,6 +181,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 // modelToolCalls returns finalized calls in model-provided order.
 func modelToolCalls(response model.Response) []model.ToolCall {
 	return lo.FilterMap(response.Content, func(item model.Content, _ int) (model.ToolCall, bool) {
-		return item.ToolCall.OrEmpty(), item.Kind == model.ContentToolCall
+		call, present := item.ToolCall.Get()
+		return call, item.Kind == model.ContentToolCall && present
 	})
 }

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
@@ -15,7 +17,7 @@ import (
 type SelectionRequest struct {
 	Directory  domainui.Directory
 	ExplicitUI string
-	ActiveUI   string
+	ActiveUI   mo.Option[string]
 }
 
 // SelectionIssue describes one automatically excluded UI candidate.
@@ -56,7 +58,10 @@ func NewSelector(catalog Catalog, factory RuntimeFactory) *Selector {
 // Select discovers candidates and applies explicit, active, or sole-compatible priority.
 func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Selection, error) {
 	explicitID := pluginid.Normalize(request.ExplicitUI)
-	activeID := pluginid.Normalize(request.ActiveUI)
+	activeID := ""
+	if configuredActiveID, present := request.ActiveUI.Get(); present {
+		activeID = pluginid.Normalize(configuredActiveID)
+	}
 	slog.InfoContext(ctx, "loading UI plugins",
 		"directory", request.Directory.Path,
 		"explicit_ui", explicitID,

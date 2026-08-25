@@ -516,3 +516,25 @@ func TestRendererPropagatesWriterFailure(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+// TestRendererRejectsMissingSelectedPayload verifies malformed events do not render zero values.
+func TestRendererRejectsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	renderer := NewRenderer(&bytes.Buffer{}, &bytes.Buffer{})
+	err := renderer.DeliverAgent(t.Context(), run.Event{
+		Type:       run.EventToolResult,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+	})
+
+	require.ErrorContains(t, err, "requires tool result")
+}

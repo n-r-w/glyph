@@ -442,13 +442,19 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 	return lo.FilterMap(contents, func(content tool.ResultContent, _ int) (*uipb.ToolResultContent, bool) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			text := content.Text.OrEmpty()
+			text, present := content.Text.Get()
+			if !present {
+				return nil, false
+			}
 			//nolint:exhaustruct // uipb.ToolResultContent_builder sets only the active Text field.
 			return uipb.ToolResultContent_builder{
 				Text: &text,
 			}.Build(), true
 		case tool.ResultContentImage:
-			image := content.Image.OrEmpty()
+			image, present := content.Image.Get()
+			if !present {
+				return nil, false
+			}
 			//nolint:exhaustruct // uipb.ToolResultContent_builder sets only the active Image field.
 			return uipb.ToolResultContent_builder{
 				Image: uipb.ToolResultImage_builder{

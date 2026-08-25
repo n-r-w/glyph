@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -27,7 +28,7 @@ func TestSelectorUsesExplicitSelectionWithoutFallback(t *testing.T) {
 
 	// Act: select using a value that requires shared normalization.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: " Second ", ActiveUI: "first",
+		Directory: directory, ExplicitUI: " Second ", ActiveUI: mo.Some("first"),
 	})
 
 	// Assert: only the explicit candidate starts and the same connected runtime is returned.
@@ -54,7 +55,7 @@ func TestSelectorUsesActiveSelectionWhenExplicitIsAbsent(t *testing.T) {
 	selectedRuntime.EXPECT().Capabilities().Return(domainui.Capabilities{ControlsTerminal: false})
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "", ActiveUI: " Active_UI ",
+		Directory: directory, ExplicitUI: "", ActiveUI: mo.Some(" Active_UI "),
 	})
 
 	require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestSelectorRejectsAbsentExplicitSelectionWithoutProbing(t *testing.T) {
 	}, nil)
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "missing", ActiveUI: "other",
+		Directory: directory, ExplicitUI: "missing", ActiveUI: mo.Some("other"),
 	})
 
 	require.Error(t, err)
@@ -94,7 +95,7 @@ func TestSelectorDoesNotFallbackWhenExplicitStartFails(t *testing.T) {
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(nil, errors.New("startup failed"))
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "selected", ActiveUI: "",
+		Directory: directory, ExplicitUI: "selected", ActiveUI: mo.None[string](),
 	})
 
 	require.Error(t, err)
@@ -125,7 +126,7 @@ func TestSelectorProbesEveryCandidateAndRestartsSoleCompatible(t *testing.T) {
 
 	// Act: select without explicit or active preference.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "", ActiveUI: "",
+		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
 	// Assert: all probes completed, the successful probe was stopped, and its candidate restarted once.
@@ -152,7 +153,7 @@ func TestSelectorReportsEveryExcludedCandidateWhenNoCompatible(t *testing.T) {
 	factory.EXPECT().Start(gomock.Any(), second).Return(nil, errors.New("second incompatible"))
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "", ActiveUI: "",
+		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
 	require.Error(t, err)
@@ -185,7 +186,7 @@ func TestSelectorRetainsProbeIssuesWhenSelectedRestartFails(t *testing.T) {
 	)
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "", ActiveUI: "",
+		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
 	require.Error(t, err)
@@ -217,7 +218,7 @@ func TestSelectorRejectsMultipleCompatibleCandidates(t *testing.T) {
 	)
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
-		Directory: directory, ExplicitUI: "", ActiveUI: "",
+		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
 	require.Error(t, err)

@@ -182,13 +182,21 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 		entry := &request.History[entryIndex]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			content, err := chatUserContent(entry.User.OrEmpty())
+			message, present := entry.User.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no user payload", entryIndex)
+			}
+			content, err := chatUserContent(message)
 			if err != nil {
 				return nil, err
 			}
 			messages = append(messages, openai.UserMessage(content))
 		case agent.HistoryEntryModel:
-			message, ok, err := chatAssistantMessage(entry.Model.OrEmpty(), nativeReasoning)
+			response, present := entry.Model.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no model payload", entryIndex)
+			}
+			message, ok, err := chatAssistantMessage(response, nativeReasoning)
 			if err != nil {
 				return nil, err
 			}
@@ -196,7 +204,10 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 				messages = append(messages, message)
 			}
 		case agent.HistoryEntryToolResult:
-			result := entry.ToolResult.OrEmpty()
+			result, present := entry.ToolResult.Get()
+			if !present {
+				return nil, fmt.Errorf("history entry %d has no tool result payload", entryIndex)
+			}
 			content, err := chatToolResult(result.Contents)
 			if err != nil {
 				return nil, err
@@ -215,11 +226,15 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 		func(item model.InputContent, index int) (openai.ChatCompletionContentPartUnionParam, error) {
 			switch item.Kind {
 			case model.InputContentText:
-				return openai.TextContentPart(item.Text.OrEmpty()), nil
+				text, present := item.Text.Get()
+				if !present {
+					return openai.ChatCompletionContentPartUnionParam{}, fmt.Errorf("user text %d has no text", index)
+				}
+				return openai.TextContentPart(text), nil
 			case model.InputContentImage:
-				mediaType := item.MediaType.OrEmpty()
-				data := item.Data.OrEmpty()
-				if mediaType == "" || len(data) == 0 {
+				mediaType, hasMediaType := item.MediaType.Get()
+				data, hasData := item.Data.Get()
+				if !hasMediaType || !hasData || mediaType == "" || len(data) == 0 {
 					return openai.ChatCompletionContentPartUnionParam{},
 						fmt.Errorf("user image %d requires media type and data", index)
 				}
@@ -246,12 +261,20 @@ func chatAssistantMessage(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText:
-			text.WriteString(item.Text.OrEmpty())
+			value, present := item.Text.Get()
+			if !present {
+				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("model content %d has no text", index)
+			}
+			text.WriteString(value)
 		case model.ContentRefusal:
-			refusal += item.Text.OrEmpty()
+			value, present := item.Text.Get()
+			if !present {
+				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("model content %d has no text", index)
+			}
+			refusal += value
 		case model.ContentReasoning:
-			visibleText := item.Text.OrEmpty()
-			if visibleText == "" {
+			visibleText, present := item.Text.Get()
+			if !present || visibleText == "" {
 				continue
 			}
 			if nativeReasoning {
@@ -260,33 +283,32 @@ func chatAssistantMessage(
 				text.WriteString(visibleText)
 			}
 		case model.ContentToolCall:
-			call := item.ToolCall.OrEmpty()
-			arguments, err := json.Marshal(call.Arguments)
+			call, err := chatToolCallParam(*item, index)
 			if err != nil {
-				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("encode tool-call arguments: %w", err)
+				return openai.ChatCompletionMessageParamUnion{}, false, err
 			}
-			calls = append(calls, openai.ChatCompletionMessageToolCallUnionParam{
-				OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-					ID: call.ID,
-					Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-						Arguments: string(arguments),
-						Name:      call.Name,
-					},
-					Type: "",
-				},
-				OfCustom: nil,
-			})
+			calls = append(calls, call)
 		default:
 			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
 		}
 	}
-	if text.Len() == 0 && reasoning.Len() == 0 && refusal == "" && len(calls) == 0 {
+	return buildChatAssistantMessage(text.String(), reasoning.String(), refusal, calls)
+}
+
+// buildChatAssistantMessage creates the external assistant union from accumulated content.
+func buildChatAssistantMessage(
+	text string,
+	reasoning string,
+	refusal string,
+	calls []openai.ChatCompletionMessageToolCallUnionParam,
+) (openai.ChatCompletionMessageParamUnion, bool, error) {
+	if text == "" && reasoning == "" && refusal == "" && len(calls) == 0 {
 		return openai.ChatCompletionMessageParamUnion{}, false, nil
 	}
-	message := openai.AssistantMessage(text.String())
+	message := openai.AssistantMessage(text)
 	message.OfAssistant.ToolCalls = calls
-	if reasoning.Len() > 0 {
-		message.OfAssistant.SetExtraFields(map[string]any{"reasoning": reasoning.String()})
+	if reasoning != "" {
+		message.OfAssistant.SetExtraFields(map[string]any{"reasoning": reasoning})
 	}
 	if refusal != "" {
 		message.OfAssistant.Refusal = param.NewOpt(refusal)
@@ -294,13 +316,43 @@ func chatAssistantMessage(
 	return message, true, nil
 }
 
+// chatToolCallParam maps one selected tool call to the external Chat Completions union.
+func chatToolCallParam(item model.Content, index int) (openai.ChatCompletionMessageToolCallUnionParam, error) {
+	call, present := item.ToolCall.Get()
+	if !present {
+		return openai.ChatCompletionMessageToolCallUnionParam{}, fmt.Errorf("model content %d has no tool call", index)
+	}
+	arguments, err := json.Marshal(call.Arguments)
+	if err != nil {
+		return openai.ChatCompletionMessageToolCallUnionParam{}, fmt.Errorf("encode tool-call arguments: %w", err)
+	}
+	return openai.ChatCompletionMessageToolCallUnionParam{
+		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+			ID: call.ID,
+			Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+				Arguments: string(arguments),
+				Name:      call.Name,
+			},
+			Type: "",
+		},
+		OfCustom: nil,
+	}, nil
+}
+
 func chatToolResult(contents []tool.ResultContent) (string, error) {
 	parts, err := lo.MapErr(contents, func(content tool.ResultContent, index int) (string, error) {
 		switch content.Kind {
 		case tool.ResultContentText:
-			return content.Text.OrEmpty(), nil
+			text, present := content.Text.Get()
+			if !present {
+				return "", fmt.Errorf("tool result text %d has no text", index)
+			}
+			return text, nil
 		case tool.ResultContentImage:
-			image := content.Image.OrEmpty()
+			image, present := content.Image.Get()
+			if !present {
+				return "", fmt.Errorf("tool result image %d has no image", index)
+			}
 			if image.MediaType == "" || len(image.Data) == 0 {
 				return "", fmt.Errorf("tool result image %d requires media type and data", index)
 			}
@@ -455,7 +507,11 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 			return handleErr
 		}
 	}
-	state.content[*position].Text = mo.Some(state.content[*position].Text.OrEmpty() + delta)
+	text, present := state.content[*position].Text.Get()
+	if !present {
+		return fmt.Errorf("model content %d has no accumulated text", *position)
+	}
+	state.content[*position].Text = mo.Some(text + delta)
 	return handle(run.StreamEvent{
 		Kind:     run.StreamEventTextDelta,
 		Position: mo.PointerToOption(position),
