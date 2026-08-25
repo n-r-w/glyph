@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -288,8 +289,8 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 		func() agentrun.State {
 			return agentrun.State{
 				Status:          agentrun.StatusIdle,
-				RunID:           "",
-				PartialResponse: model.Response{},
+				RunID:           mo.None[string](),
+				PartialResponse: mo.None[model.Response](),
 				ToolPreviews:    nil,
 			}
 		},
@@ -318,8 +319,8 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 		func() agentrun.State {
 			return agentrun.State{
 				Status:          agentrun.StatusIdle,
-				RunID:           "",
-				PartialResponse: model.Response{},
+				RunID:           mo.None[string](),
+				PartialResponse: mo.None[model.Response](),
 				ToolPreviews:    nil,
 			}
 		},

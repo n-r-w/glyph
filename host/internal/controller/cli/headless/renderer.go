@@ -42,10 +42,10 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeF
 func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 	switch event.Type {
 	case run.EventTextDelta:
-		if event.Content.Kind != model.ContentText && event.Content.Kind != model.ContentRefusal {
+		if event.Content.OrEmpty().Kind != model.ContentText && event.Content.OrEmpty().Kind != model.ContentRefusal {
 			return nil
 		}
-		text := event.Content.Text.OrEmpty()
+		text := event.Content.OrEmpty().Text.OrEmpty()
 		writeErr := writeText(r.stdout, text)
 		if writeErr == nil && text != "" {
 			r.modelLineOpen = true
@@ -61,17 +61,17 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 		r.modelLineOpen = false
 		return nil
 	case run.EventToolExecutionStart:
-		return writePrefixed(r.stderr, "[tool:start] ", event.ToolCall.Name)
+		return writePrefixed(r.stderr, "[tool:start] ", event.ToolCall.OrEmpty().Name)
 	case run.EventToolExecutionUpdate:
-		return r.writeProgress(event.Progress)
+		return r.writeProgress(event.Progress.OrEmpty())
 	case run.EventToolExecutionEnd:
 		status := "ok"
-		if event.ToolResult.IsError {
+		if event.ToolResult.OrEmpty().IsError {
 			status = "error"
 		}
-		return writePrefixed(r.stderr, "[tool:end] ", event.ToolCall.Name+": "+status)
+		return writePrefixed(r.stderr, "[tool:end] ", event.ToolCall.OrEmpty().Name+": "+status)
 	case run.EventToolResult:
-		return r.writeToolResult(event.ToolResult.Contents)
+		return r.writeToolResult(event.ToolResult.OrEmpty().Contents)
 	case run.EventAgentStart,
 		run.EventTurnStart,
 		run.EventMessageStart,

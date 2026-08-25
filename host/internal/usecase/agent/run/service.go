@@ -60,8 +60,8 @@ func New(
 		mutex:        sync.RWMutex{},
 		state: State{
 			Status:          StatusIdle,
-			RunID:           "",
-			PartialResponse: model.Response{},
+			RunID:           mo.None[string](),
+			PartialResponse: mo.None[model.Response](),
 			ToolPreviews:    nil,
 		},
 		history: nil,
@@ -91,7 +91,7 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 		if next {
 			continue
 		}
-		return s.finish(ctx, request.RunID, startIndex, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+		return s.finish(ctx, request.RunID, startIndex, turnResult.Outcome, turnResult.ErrorMessage.OrEmpty(), runErr)
 	}
 }
 
@@ -99,13 +99,13 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 func (s *Service) Settle(runID string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.state.Status != StatusAwaitingSettlement || s.state.RunID != runID {
+	if s.state.Status != StatusAwaitingSettlement || s.state.RunID.OrEmpty() != runID {
 		return fmt.Errorf("%w: %q", ErrSettlement, runID)
 	}
 	s.state = State{
 		Status:          StatusIdle,
-		RunID:           "",
-		PartialResponse: model.Response{},
+		RunID:           mo.None[string](),
+		PartialResponse: mo.None[model.Response](),
 		ToolPreviews:    nil,
 	}
 	return nil
@@ -118,7 +118,7 @@ func (s *Service) State() State {
 	return State{
 		Status:          s.state.Status,
 		RunID:           s.state.RunID,
-		PartialResponse: cloneModelResponse(s.state.PartialResponse),
+		PartialResponse: s.state.PartialResponse.MapValue(cloneModelResponse),
 		ToolPreviews:    cloneToolPreviews(s.state.ToolPreviews),
 	}
 }
@@ -153,8 +153,8 @@ func (s *Service) begin(request Request) (int, error) {
 	})
 	s.state = State{
 		Status:          StatusRunning,
-		RunID:           request.RunID,
-		PartialResponse: model.Response{},
+		RunID:           mo.Some(request.RunID),
+		PartialResponse: mo.Some(model.Response{}),
 		ToolPreviews:    make(map[string]model.ToolCallPreview),
 	}
 	return startIndex, nil
@@ -165,10 +165,10 @@ func (s *Service) begin(request Request) (int, error) {
 //nolint:gocyclo // The branches preserve explicit stream, delivery, and terminal failure paths.
 func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, error) {
 	if err := s.deliver(ctx, newEvent(EventTurnStart, runID)); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 	}
 	if err := s.deliver(ctx, newEvent(EventMessageStart, runID)); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 	}
 
 	projectedContext, hookErr := s.hooks.TransformContext(ctx, hooks.Context{History: s.ProjectHistory()})
@@ -188,17 +188,17 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		Tools:           tools,
 	}, func(streamEvent StreamEvent) error {
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
-			terminal := cloneModelResponse(streamEvent.Response)
+			terminal := cloneModelResponse(streamEvent.Response.OrEmpty())
 			if len(terminal.Content) == 0 {
-				terminal.Content = s.State().PartialResponse.Content
+				terminal.Content = s.State().PartialResponse.OrEmpty().Content
 			}
-			streamEvent.Response = terminal
+			streamEvent.Response = mo.Some(terminal)
 		}
 		if err := s.applyStreamEvent(streamEvent); err != nil {
 			return err
 		}
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
-			response = cloneModelResponse(streamEvent.Response)
+			response = cloneModelResponse(streamEvent.Response.OrEmpty())
 			return nil
 		}
 		event := newEvent(EventContentStart, runID)
@@ -226,13 +226,13 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		event.Position = streamEvent.Position
 		if streamEvent.Kind == StreamEventContentStart || streamEvent.Kind == StreamEventTextDelta ||
 			streamEvent.Kind == StreamEventContentEnd {
-			event.Content = model.Content{
-				Kind:            streamEvent.Content.Kind,
-				Text:            mo.Some(streamEvent.Delta),
+			event.Content = mo.Some(model.Content{
+				Kind:            streamEvent.Content.OrEmpty().Kind,
+				Text:            mo.Some(streamEvent.Delta.OrEmpty()),
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
-			}
+			})
 		}
 		eventErr := s.deliver(ctx, event)
 		if eventErr != nil {
@@ -243,7 +243,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if deliveryErr != nil {
 		s.clearPartial()
 		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: deliveryErr.Error(),
+			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(deliveryErr.Error()),
 		}, false, deliveryErr
 	}
 	if providerErr != nil {
@@ -257,9 +257,9 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	s.clearPartial()
 	s.appendModel(response)
 	messageEnd := newEvent(EventMessageEnd, runID)
-	messageEnd.Message = response
+	messageEnd.Message = mo.Some(response)
 	if err := s.deliver(context.WithoutCancel(ctx), messageEnd); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 	}
 	return s.applyOutcome(ctx, runID, response)
 }
@@ -306,7 +306,7 @@ func (s *Service) finalizeProviderError(
 ) (Result, bool, error) {
 	response = cloneModelResponse(response)
 	if len(response.Content) == 0 {
-		response.Content = s.State().PartialResponse.Content
+		response.Content = s.State().PartialResponse.OrEmpty().Content
 	}
 	outcome := model.OutcomeFailed
 	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
@@ -325,18 +325,18 @@ func (s *Service) finalizeProviderError(
 	s.appendModel(response)
 	terminalContext := context.WithoutCancel(ctx)
 	messageEnd := newEvent(EventMessageEnd, runID)
-	messageEnd.Message = response
+	messageEnd.Message = mo.Some(response)
 	deliveryErr := s.deliver(terminalContext, messageEnd)
 	turn := TurnSummary{Response: response, ToolResults: nil}
 	turnEnd := newEvent(EventTurnEnd, runID)
-	turnEnd.Turn = turn
+	turnEnd.Turn = mo.Some(turn)
 	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
 	runOutcome := agent.RunOutcomeFailed
 	if outcome == model.OutcomeAborted {
 		runOutcome = agent.RunOutcomeAborted
 	}
 	return Result{
-		Outcome: runOutcome, AddedHistory: nil, ErrorMessage: errorMessage,
+		Outcome: runOutcome, AddedHistory: nil, ErrorMessage: mo.EmptyableToOption(errorMessage),
 	}, false, errors.Join(providerErr, deliveryErr)
 }
 
@@ -364,9 +364,9 @@ func (s *Service) applyOutcome(
 			s.appendToolResult(result)
 			results = append(results, result)
 			toolResult := newEvent(EventToolResult, runID)
-			toolResult.ToolResult = result
+			toolResult.ToolResult = mo.Some(result)
 			if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-				return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+				return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 			}
 		}
 		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
@@ -399,15 +399,15 @@ func (s *Service) executeCalls(
 			return s.endTurn(ctx, runID, response, results, agent.RunOutcomeAborted, abortedModelMessage, err)
 		}
 		toolStart := newEvent(EventToolExecutionStart, runID)
-		toolStart.ToolCall = call
+		toolStart.ToolCall = mo.Some(call)
 		if err := s.deliver(ctx, toolStart); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 		}
 		var progressDeliveryErr error
 		result, executeErr := s.tools.Execute(ctx, call, func(progress tool.Progress) error {
 			toolUpdate := newEvent(EventToolExecutionUpdate, runID)
-			toolUpdate.ToolCall = call
-			toolUpdate.Progress = progress
+			toolUpdate.ToolCall = mo.Some(call)
+			toolUpdate.Progress = mo.Some(progress)
 			deliveryErr := s.deliver(ctx, toolUpdate)
 			if deliveryErr != nil && progressDeliveryErr == nil {
 				progressDeliveryErr = deliveryErr
@@ -424,15 +424,15 @@ func (s *Service) executeCalls(
 		s.appendToolResult(result)
 		results = append(results, result)
 		toolEnd := newEvent(EventToolExecutionEnd, runID)
-		toolEnd.ToolCall = call
-		toolEnd.ToolResult = result
+		toolEnd.ToolCall = mo.Some(call)
+		toolEnd.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolEnd); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 		}
 		toolResult := newEvent(EventToolResult, runID)
-		toolResult.ToolResult = result
+		toolResult.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error()}, false, err
+			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
 		}
 		if progressDeliveryErr != nil {
 			return s.endTurn(
@@ -475,16 +475,18 @@ func (s *Service) endTurn(
 ) (Result, bool, error) {
 	turn := TurnSummary{Response: cloneModelResponse(response), ToolResults: slices.Clone(results)}
 	turnEnd := newEvent(EventTurnEnd, runID)
-	turnEnd.Turn = turn
+	turnEnd.Turn = mo.Some(turn)
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {
 		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: err.Error(),
+			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error()),
 		}, false, errors.Join(runErr, err)
 	}
 	if outcome == 0 {
 		return Result{}, true, runErr
 	}
-	return Result{Outcome: outcome, AddedHistory: nil, ErrorMessage: errorMessage}, false, runErr
+	return Result{
+		Outcome: outcome, AddedHistory: nil, ErrorMessage: mo.EmptyableToOption(errorMessage),
+	}, false, runErr
 }
 
 // finish emits agent_end and leaves the run awaiting explicit Host settlement.
@@ -500,14 +502,17 @@ func (s *Service) finish(
 	added := cloneHistory(s.history[startIndex:])
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
-		RunID:           runID,
-		PartialResponse: model.Response{},
+		RunID:           mo.Some(runID),
+		PartialResponse: mo.None[model.Response](),
 		ToolPreviews:    nil,
 	}
 	s.mutex.Unlock()
-	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
+	errorMessageOption := mo.EmptyableToOption(errorMessage)
+	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessageOption}
 	agentEnd := newEvent(EventAgentEnd, runID)
-	agentEnd.Agent = AgentSummary{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
+	agentEnd.Agent = mo.Some(AgentSummary{
+		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessageOption,
+	})
 	eventErr := s.deliver(context.WithoutCancel(ctx), agentEnd)
 	return result, errors.Join(runErr, eventErr)
 }
@@ -523,13 +528,18 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
 		clear(s.state.ToolPreviews)
 	}
-	return applyStreamEvent(&s.state.PartialResponse, event)
+	partial := s.state.PartialResponse.OrEmpty()
+	if err := applyStreamEvent(&partial, event); err != nil {
+		return err
+	}
+	s.state.PartialResponse = mo.Some(partial)
+	return nil
 }
 
 // clearPartial removes provider streaming scratch data.
 func (s *Service) clearPartial() {
 	s.mutex.Lock()
-	s.state.PartialResponse = model.Response{}
+	s.state.PartialResponse = mo.None[model.Response]()
 	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
 }

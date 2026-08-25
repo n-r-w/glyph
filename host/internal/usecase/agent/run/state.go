@@ -1,6 +1,8 @@
 package run
 
 import (
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
@@ -20,8 +22,8 @@ const (
 // State is an immutable Agent Core state snapshot.
 type State struct {
 	Status          Status
-	RunID           string
-	PartialResponse model.Response
+	RunID           mo.Option[string]
+	PartialResponse mo.Option[model.Response]
 	ToolPreviews    map[string]model.ToolCallPreview
 }
 
@@ -35,5 +37,5 @@ type Request struct {
 type Result struct {
 	Outcome      agent.RunOutcome
 	AddedHistory []agent.HistoryEntry
-	ErrorMessage string
+	ErrorMessage mo.Option[string]
 }

@@ -398,18 +398,18 @@ func (state *responsesAccumulator) consume(
 			state.tools[call.CallID] = toolState
 			return state.handle(run.StreamEvent{
 				Kind:     run.StreamEventToolCallStart,
-				Position: position,
-				Content:  model.Content{},
-				Delta:    "",
-				Preview: model.ToolCallPreview{
+				Position: mo.Some(position),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview: mo.Some(model.ToolCallPreview{
 					CallID:      call.CallID,
 					Name:        call.Name,
 					Position:    position,
 					Provisional: true,
 					Fields:      nil,
-				},
-				ToolCall: model.ToolCall{},
-				Response: model.Response{},
+				}),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
 			})
 		}
 	case "response.function_call_arguments.delta":
@@ -421,18 +421,18 @@ func (state *responsesAccumulator) consume(
 		toolState.arguments.WriteString(delta.Delta)
 		return state.handle(run.StreamEvent{
 			Kind:     run.StreamEventToolCallDelta,
-			Position: toolState.position,
-			Content:  model.Content{},
-			Delta:    "",
-			Preview: model.ToolCallPreview{
+			Position: mo.Some(toolState.position),
+			Content:  mo.None[model.Content](),
+			Delta:    mo.None[string](),
+			Preview: mo.Some(model.ToolCallPreview{
 				CallID:      toolState.callID,
 				Name:        toolState.name,
 				Position:    toolState.position,
 				Provisional: true,
 				Fields:      nil,
-			},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			}),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 		})
 	case "response.function_call_arguments.done":
 		done := event.AsResponseFunctionCallArgumentsDone()
@@ -465,39 +465,15 @@ func (state *responsesAccumulator) contentDelta(key string, kind model.ContentKi
 	if !ok {
 		position = state.allocate(key)
 		state.active[position] = kind
-		if err := state.handle(run.StreamEvent{
-			Kind:     run.StreamEventContentStart,
-			Position: position,
-			Content: model.Content{
-				Kind:            kind,
-				Text:            mo.Some(""),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-			},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
-		}); err != nil {
+		if err := state.handle(newResponsesContentEvent(
+			run.StreamEventContentStart, position, kind, "", mo.None[string](),
+		)); err != nil {
 			return err
 		}
 	}
-	return state.handle(run.StreamEvent{
-		Kind:     run.StreamEventTextDelta,
-		Position: position,
-		Content: model.Content{
-			Kind:            kind,
-			Text:            mo.Some(delta),
-			Final:           false,
-			ProviderContext: mo.None[model.ProviderContext](),
-			ToolCall:        mo.None[model.ToolCall](),
-		},
-		Delta:    delta,
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
-		Response: model.Response{},
-	})
+	return state.handle(newResponsesContentEvent(
+		run.StreamEventTextDelta, position, kind, delta, mo.Some(delta),
+	))
 }
 
 func (state *responsesAccumulator) allocate(key string) int {
@@ -535,12 +511,12 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 	toolState.started = false
 	return state.handle(run.StreamEvent{
 		Kind:     run.StreamEventToolCallEnd,
-		Position: toolState.position,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: call,
-		Response: model.Response{},
+		Position: mo.Some(toolState.position),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.Some(call),
+		Response: mo.None[model.Response](),
 	})
 }
 
@@ -567,26 +543,39 @@ func (state *responsesAccumulator) finishContent() error {
 		if !active {
 			continue
 		}
-		if err := state.handle(run.StreamEvent{
-			Kind:     run.StreamEventContentEnd,
-			Position: position,
-			Content: model.Content{
-				Kind:            kind,
-				Text:            mo.Some(""),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-			},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
-		}); err != nil {
+		if err := state.handle(newResponsesContentEvent(
+			run.StreamEventContentEnd, position, kind, "", mo.None[string](),
+		)); err != nil {
 			return err
 		}
 		delete(state.active, position)
 	}
 	return nil
+}
+
+// newResponsesContentEvent constructs one active text payload without unrelated union values.
+func newResponsesContentEvent(
+	kind run.StreamEventKind,
+	position int,
+	contentKind model.ContentKind,
+	text string,
+	delta mo.Option[string],
+) run.StreamEvent {
+	return run.StreamEvent{
+		Kind:     kind,
+		Position: mo.Some(position),
+		Content: mo.Some(model.Content{
+			Kind:            contentKind,
+			Text:            mo.Some(text),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		}),
+		Delta:    delta,
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
+	}
 }
 
 func responseContentKey(kind string, outputIndex, contentIndex int64) string {

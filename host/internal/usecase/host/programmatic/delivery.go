@@ -262,48 +262,48 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
 	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd:
 		mapped.ModelContent = controller.ModelContent{
-			Kind:     mapModelContentKind(event.Content.Kind),
-			Position: event.Position,
+			Kind:     mapModelContentKind(event.Content.OrEmpty().Kind),
+			Position: event.Position.OrEmpty(),
 			Text:     "",
 		}
 		if event.Type == run.EventTextDelta {
-			mapped.ModelContent.Text = event.Content.Text.OrEmpty()
+			mapped.ModelContent.Text = event.Content.OrEmpty().Text.OrEmpty()
 		}
 	case run.EventToolCallStart, run.EventToolCallDelta:
-		mapped.ToolCallPreview = mapToolCallPreview(event.Preview)
+		mapped.ToolCallPreview = mapToolCallPreview(event.Preview.OrEmpty())
 	case run.EventToolCallEnd:
 		mapped.FinalToolCall = controller.FinalToolCall{
-			CallID:    event.ToolCall.ID,
-			Name:      event.ToolCall.Name,
-			Position:  event.Position,
-			Arguments: cloneArguments(event.ToolCall.Arguments),
+			CallID:    event.ToolCall.OrEmpty().ID,
+			Name:      event.ToolCall.OrEmpty().Name,
+			Position:  event.Position.OrEmpty(),
+			Arguments: cloneArguments(event.ToolCall.OrEmpty().Arguments),
 		}
 	case run.EventMessageEnd:
-		mapped.ModelResponse = mapModelResponse(event.Message)
+		mapped.ModelResponse = mapModelResponse(event.Message.OrEmpty())
 	case run.EventToolExecutionStart:
 		mapped.ToolExecution = controller.ToolExecution{
-			CallID:   event.ToolCall.ID,
-			ToolName: event.ToolCall.Name,
+			CallID:   event.ToolCall.OrEmpty().ID,
+			ToolName: event.ToolCall.OrEmpty().Name,
 		}
 	case run.EventToolExecutionUpdate:
 		mapped.ToolProgress = controller.ToolProgress{
-			Channel: mapProgressChannel(event.Progress.Channel),
-			Content: event.Progress.Content,
+			Channel: mapProgressChannel(event.Progress.OrEmpty().Channel),
+			Content: event.Progress.OrEmpty().Content,
 		}
 	case run.EventToolExecutionEnd, run.EventToolResult:
-		mapped.ToolResult = mapToolResult(event.ToolResult)
+		mapped.ToolResult = mapToolResult(event.ToolResult.OrEmpty())
 	case run.EventTurnEnd:
-		toolResults := lo.Map(event.Turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
+		toolResults := lo.Map(event.Turn.OrEmpty().ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
 			return mapToolResult(result)
 		})
 		mapped.Turn = controller.TurnSummary{
-			Response:    mapModelResponse(event.Turn.Response),
+			Response:    mapModelResponse(event.Turn.OrEmpty().Response),
 			ToolResults: toolResults,
 		}
 	case run.EventAgentEnd:
 		mapped.Agent = controller.AgentSummary{
-			Outcome:      mapRunOutcome(event.Agent.Outcome),
-			ErrorMessage: event.Agent.ErrorMessage,
+			Outcome:      mapRunOutcome(event.Agent.OrEmpty().Outcome),
+			ErrorMessage: event.Agent.OrEmpty().ErrorMessage.OrEmpty(),
 		}
 	}
 	return mapped

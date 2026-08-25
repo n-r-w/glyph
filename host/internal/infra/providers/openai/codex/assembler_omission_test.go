@@ -31,7 +31,7 @@ func TestDriverStreamRecoversFunctionCallFromTerminalOutput(t *testing.T) {
 		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
 		run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.Arguments)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput verifies terminal identity creates both events.
@@ -46,8 +46,8 @@ func TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput(t *testi
 	require.Equal(t, []run.StreamEventKind{
 		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, "call-1", events[0].Preview.CallID)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[1].ToolCall.Arguments)
+	assert.Equal(t, "call-1", events[0].Preview.OrEmpty().CallID)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, events[1].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamAcceptsFunctionDoneWithoutIdentity verifies output index closes the active call.
@@ -66,7 +66,7 @@ func TestDriverStreamAcceptsFunctionDoneWithoutIdentity(t *testing.T) {
 		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
 		run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.Arguments)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments verifies decoded values define equality.
@@ -83,7 +83,7 @@ func TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments(t *
 	require.Equal(t, []run.StreamEventKind{
 		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
 
 // TestDriverStreamRejectsConflictingFinalizedFunctionArguments verifies terminal output cannot replace finalized values.
@@ -98,8 +98,8 @@ func TestDriverStreamRejectsConflictingFinalizedFunctionArguments(t *testing.T) 
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
-	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.OrEmpty().ErrorMessage.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
 }
 
@@ -116,8 +116,8 @@ func TestDriverStreamRejectsConflictingFinalizedCustomInput(t *testing.T) {
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
-	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.OrEmpty().ErrorMessage.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
 }
 
@@ -132,7 +132,7 @@ func TestDriverStreamRejectsConflictingFunctionDeltaIdentity(t *testing.T) {
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 
@@ -163,7 +163,7 @@ func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 	require.Equal(t, []run.StreamEventKind{
 		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[1].ToolCall.Arguments)
+	assert.Equal(t, map[string]any{"payload": "abc"}, events[1].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamRecoversCustomCallFromTerminalOutput verifies terminal custom input closes an active call once.
@@ -182,8 +182,8 @@ func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
 		run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, "ab", events[1].Preview.Fields[0].Prefix)
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.Arguments)
+	assert.Equal(t, "ab", events[1].Preview.OrEmpty().Fields[0].Prefix)
+	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
 }
 
 func streamOmittedToolEvents(

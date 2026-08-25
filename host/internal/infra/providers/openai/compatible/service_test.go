@@ -69,9 +69,9 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	require.NotEmpty(t, events)
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventDone, terminal.Kind)
-	assert.Equal(t, model.OutcomeToolUse, terminal.Response.Outcome.OrEmpty())
-	assert.Equal(t, model.Usage{InputTokens: 12, OutputTokens: 7, CachedInputTokens: 3, ReasoningTokens: 2, TotalTokens: 19, CacheWriteTokens: 0}, terminal.Response.Usage.OrEmpty())
-	assert.Equal(t, "actual-model", string(terminal.Response.ResponseModel.OrEmpty()))
+	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, model.Usage{InputTokens: 12, OutputTokens: 7, CachedInputTokens: 3, ReasoningTokens: 2, TotalTokens: 19, CacheWriteTokens: 0}, terminal.Response.OrEmpty().Usage.OrEmpty())
+	assert.Equal(t, "actual-model", string(terminal.Response.OrEmpty().ResponseModel.OrEmpty()))
 	assert.Equal(t, "high", body["reasoning_effort"])
 	assert.Equal(t, false, body["parallel_tool_calls"])
 	messages := body["messages"].([]any)
@@ -82,11 +82,11 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Len(t, body["tools"], 1)
 	assert.Contains(t, eventKinds(events), run.StreamEventTextDelta)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
-	require.GreaterOrEqual(t, len(terminal.Response.Content), 2)
-	assert.Equal(t, model.Content{Kind: model.ContentReasoning, Text: mo.Some("think "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.Content[0])
-	assert.Equal(t, model.Content{Kind: model.ContentText, Text: mo.Some("hello "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.Content[1])
-	assert.Contains(t, terminal.Response.Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("no"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
-	assert.Contains(t, terminal.Response.Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
+	require.GreaterOrEqual(t, len(terminal.Response.OrEmpty().Content), 2)
+	assert.Equal(t, model.Content{Kind: model.ContentReasoning, Text: mo.Some("think "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.OrEmpty().Content[0])
+	assert.Equal(t, model.Content{Kind: model.ContentText, Text: mo.Some("hello "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.OrEmpty().Content[1])
+	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("no"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
+	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
 }
 
 // TestChatEffortMapsChoices verifies the closed choice-to-field mapping for Chat Completions.
@@ -234,23 +234,23 @@ func (s *serviceSuite) TestOrnithUsesFixedNativeReasoning() {
 
 	s.Require().GreaterOrEqual(len(events), 7)
 	s.Equal(run.StreamEventContentStart, events[0].Kind)
-	s.Equal(model.ContentReasoning, events[0].Content.Kind)
+	s.Equal(model.ContentReasoning, events[0].Content.OrEmpty().Kind)
 	s.Equal(run.StreamEventTextDelta, events[1].Kind)
-	s.Equal("think ", events[1].Delta)
+	s.Equal("think ", events[1].Delta.OrEmpty())
 	s.Equal(run.StreamEventContentStart, events[2].Kind)
-	s.Equal(model.ContentText, events[2].Content.Kind)
+	s.Equal(model.ContentText, events[2].Content.OrEmpty().Kind)
 	s.Equal(run.StreamEventTextDelta, events[3].Kind)
-	s.Equal("answer", events[3].Delta)
+	s.Equal("answer", events[3].Delta.OrEmpty())
 	s.Equal(run.StreamEventContentEnd, events[4].Kind)
-	s.Equal(model.ContentReasoning, events[4].Content.Kind)
+	s.Equal(model.ContentReasoning, events[4].Content.OrEmpty().Kind)
 	s.Equal(run.StreamEventContentEnd, events[5].Kind)
-	s.Equal(model.ContentText, events[5].Content.Kind)
+	s.Equal(model.ContentText, events[5].Content.OrEmpty().Kind)
 	terminal := events[len(events)-1]
 	s.Equal(run.StreamEventDone, terminal.Kind)
 	s.Equal([]model.Content{
 		{Kind: model.ContentReasoning, Text: mo.Some("think "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 		{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-	}, terminal.Response.Content)
+	}, terminal.Response.OrEmpty().Content)
 	s.NotContains(body, "reasoning_effort")
 	s.NotContains(body, "reasoning")
 	assistant := body["messages"].([]any)[2].(map[string]any)
@@ -302,7 +302,7 @@ func (s *serviceSuite) TestChatCompletionsRequiresFinishReason() {
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
 	assert.Equal(t, run.StreamEventError, events[len(events)-1].Kind)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
 
 func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
@@ -320,11 +320,11 @@ func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
 	terminal := events[len(events)-1]
-	assert.Contains(t, terminal.Response.Content, model.Content{
+	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{
 		Kind: model.ContentReasoning, Text: mo.Some("visible reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
 	})
-	require.Len(t, terminal.Response.Content, 1)
-	assert.Empty(t, terminal.Response.Content[0].ProviderContext.OrEmpty().Payload)
+	require.Len(t, terminal.Response.OrEmpty().Content, 1)
+	assert.Empty(t, terminal.Response.OrEmpty().Content[0].ProviderContext.OrEmpty().Payload)
 }
 
 func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
@@ -358,7 +358,7 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 	events := streamEvents(t, service, request)
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventDone, terminal.Kind)
-	assert.Equal(t, model.OutcomeStop, terminal.Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeStop, terminal.Response.OrEmpty().Outcome.OrEmpty())
 	input := body["input"].([]any)
 	encoded, err := json.Marshal(input)
 	require.NoError(t, err)
@@ -482,8 +482,8 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallEnd)
 	terminal := events[len(events)-1]
-	assert.Equal(t, model.OutcomeToolUse, terminal.Response.Outcome.OrEmpty())
-	assert.Contains(t, terminal.Response.Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("blocked"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
+	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
+	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("blocked"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
 }
 
 func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
@@ -534,8 +534,8 @@ func (s *serviceSuite) TestResolverFailureStartsNoRequestAndIsSafe() {
 	assert.Zero(t, calls.Load())
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventError, terminal.Kind)
-	assert.NotContains(t, terminal.Response.ErrorMessage.OrEmpty(), "top-secret")
-	assert.NotContains(t, terminal.Response.ErrorMessage.OrEmpty(), "credential source unavailable")
+	assert.NotContains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), "top-secret")
+	assert.NotContains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), "credential source unavailable")
 }
 
 func (s *serviceSuite) TestConstructionAndRequestValidation() {
@@ -679,7 +679,7 @@ func (s *serviceSuite) TestResponsesFailedEventIsTerminalError() {
 	events := streamEvents(t, service, richRequest("local", "demo"))
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventError, terminal.Kind)
-	assert.Equal(t, model.OutcomeFailed, terminal.Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, terminal.Response.OrEmpty().Outcome.OrEmpty())
 }
 
 // TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
@@ -792,7 +792,7 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	})
 	require.ErrorIs(t, err, context.Canceled)
 	require.Len(t, canceled, 1)
-	assert.Equal(t, model.OutcomeAborted, canceled[0].Response.Outcome.OrEmpty())
+	assert.Equal(t, model.OutcomeAborted, canceled[0].Response.OrEmpty().Outcome.OrEmpty())
 	assert.Zero(t, calls.Load())
 
 	var failed []run.StreamEvent
@@ -803,8 +803,8 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "provider-secret-detail")
 	require.Len(t, failed, 1)
-	assert.Equal(t, model.OutcomeFailed, failed[0].Response.Outcome.OrEmpty())
-	assert.NotContains(t, failed[0].Response.ErrorMessage.OrEmpty(), "provider-secret-detail")
+	assert.Equal(t, model.OutcomeFailed, failed[0].Response.OrEmpty().Outcome.OrEmpty())
+	assert.NotContains(t, failed[0].Response.OrEmpty().ErrorMessage.OrEmpty(), "provider-secret-detail")
 	assert.Equal(t, int64(1), calls.Load())
 }
 

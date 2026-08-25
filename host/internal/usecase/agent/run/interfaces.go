@@ -60,73 +60,34 @@ const (
 // StreamEvent is one ordered provider-neutral model stream transition.
 type StreamEvent struct {
 	Kind     StreamEventKind
-	Position int
-	Content  model.Content
-	Delta    string
-	Preview  model.ToolCallPreview
-	ToolCall model.ToolCall
-	Response model.Response
+	Position mo.Option[int]
+	Content  mo.Option[model.Content]
+	Delta    mo.Option[string]
+	Preview  mo.Option[model.ToolCallPreview]
+	ToolCall mo.Option[model.ToolCall]
+	Response mo.Option[model.Response]
 }
 
 // StreamHandler consumes model stream transitions in provider order.
 type StreamHandler func(event StreamEvent) error
 
 // applyStreamEvent applies one semantic stream transition to partial response state.
-//
-//nolint:gocyclo // The branches enforce the finite semantic stream state machine.
 func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 	if partial.Outcome.OrEmpty() != 0 {
 		return errors.New("model stream already terminated")
 	}
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
-		if event.Response.Outcome.OrEmpty() == 0 {
-			return errors.New("terminal model stream event requires an outcome")
-		}
-		for position := range partial.Content {
-			content := &partial.Content[position]
-			if isStreamedContent(content.Kind) && !content.Final {
-				return fmt.Errorf("model content %d is still active", position)
-			}
-		}
-		*partial = event.Response
-		return nil
+		return applyTerminalStreamEvent(partial, event.Response)
 	}
-	if event.Position < 0 {
-		return fmt.Errorf("model stream position %d is invalid", event.Position)
+	position, hasPosition := event.Position.Get()
+	if !hasPosition || position < 0 {
+		return fmt.Errorf("model stream position %d is invalid", position)
 	}
 	switch event.Kind {
 	case StreamEventContentStart:
-		for len(partial.Content) <= event.Position {
-			partial.Content = append(partial.Content, model.Content{})
-		}
-		content := &partial.Content[event.Position]
-		if content.Kind != 0 {
-			return fmt.Errorf("model content %d already started", event.Position)
-		}
-		if !isStreamedContent(event.Content.Kind) {
-			return fmt.Errorf("model content %d has unsupported stream kind %d", event.Position, event.Content.Kind)
-		}
-		*content = model.Content{
-			Kind:            event.Content.Kind,
-			Text:            mo.Some(""),
-			Final:           false,
-			ProviderContext: mo.None[model.ProviderContext](),
-			ToolCall:        mo.None[model.ToolCall](),
-		}
+		return applyContentStart(partial, position, event.Content)
 	case StreamEventTextDelta, StreamEventContentEnd:
-		if event.Position >= len(partial.Content) {
-			return fmt.Errorf("model content %d is not active", event.Position)
-		}
-		content := &partial.Content[event.Position]
-		if !isStreamedContent(content.Kind) || content.Final ||
-			(event.Content.Kind != 0 && event.Content.Kind != content.Kind) {
-			return fmt.Errorf("model content %d is not active", event.Position)
-		}
-		if event.Kind == StreamEventTextDelta {
-			content.Text = mo.Some(content.Text.OrEmpty() + event.Delta)
-		} else {
-			content.Final = true
-		}
+		return applyContentUpdate(partial, position, event)
 	case StreamEventDone, StreamEventError:
 		return errors.New("terminal model stream event reached content handling")
 	case StreamEventToolCallStart, StreamEventToolCallDelta, StreamEventToolCallEnd:
@@ -135,12 +96,86 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 	return nil
 }
 
+// applyTerminalStreamEvent replaces partial state only after all streamed content is closed.
+func applyTerminalStreamEvent(partial *model.Response, responseOption mo.Option[model.Response]) error {
+	response, hasResponse := responseOption.Get()
+	if !hasResponse || response.Outcome.OrEmpty() == 0 {
+		return errors.New("terminal model stream event requires an outcome")
+	}
+	for position := range partial.Content {
+		content := &partial.Content[position]
+		if isStreamedContent(content.Kind) && !content.Final {
+			return fmt.Errorf("model content %d is still active", position)
+		}
+	}
+	*partial = response
+	return nil
+}
+
+// applyContentStart allocates and starts one typed streamed content position.
+func applyContentStart(
+	partial *model.Response,
+	position int,
+	contentOption mo.Option[model.Content],
+) error {
+	eventContent, hasContent := contentOption.Get()
+	if !hasContent {
+		return fmt.Errorf("model content %d has no start payload", position)
+	}
+	for len(partial.Content) <= position {
+		partial.Content = append(partial.Content, model.Content{})
+	}
+	content := &partial.Content[position]
+	if content.Kind != 0 {
+		return fmt.Errorf("model content %d already started", position)
+	}
+	if !isStreamedContent(eventContent.Kind) {
+		return fmt.Errorf("model content %d has unsupported stream kind %d", position, eventContent.Kind)
+	}
+	*content = model.Content{
+		Kind:            eventContent.Kind,
+		Text:            mo.Some(""),
+		Final:           false,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
+	}
+	return nil
+}
+
+// applyContentUpdate appends one present delta or closes one active content position.
+func applyContentUpdate(partial *model.Response, position int, event StreamEvent) error {
+	eventContent, hasContent := event.Content.Get()
+	if !hasContent {
+		return fmt.Errorf("model content %d has no stream payload", position)
+	}
+	if position >= len(partial.Content) {
+		return fmt.Errorf("model content %d is not active", position)
+	}
+	content := &partial.Content[position]
+	if !isStreamedContent(content.Kind) || content.Final ||
+		(eventContent.Kind != 0 && eventContent.Kind != content.Kind) {
+		return fmt.Errorf("model content %d is not active", position)
+	}
+	if event.Kind == StreamEventContentEnd {
+		content.Final = true
+		return nil
+	}
+	delta, hasDelta := event.Delta.Get()
+	if !hasDelta {
+		return fmt.Errorf("model content %d has no text delta", position)
+	}
+	content.Text = mo.Some(content.Text.OrEmpty() + delta)
+	return nil
+}
+
 //nolint:gocyclo // The explicit branches validate the closed tool-call event lifecycle.
 func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event StreamEvent) error {
 	switch event.Kind {
 	case StreamEventToolCallStart:
-		preview := event.Preview
-		if preview.CallID == "" || preview.Name == "" || preview.Position < 0 || !preview.Provisional {
+		preview, hasPreview := event.Preview.Get()
+		position, hasPosition := event.Position.Get()
+		if !hasPreview || !hasPosition || position != preview.Position || preview.CallID == "" || preview.Name == "" ||
+			preview.Position < 0 || !preview.Provisional {
 			return errors.New("tool-call start requires provisional identity")
 		}
 		if _, exists := previews[preview.CallID]; exists {
@@ -149,19 +184,23 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 		preview.Fields = clonePreviewFields(preview.Fields)
 		previews[preview.CallID] = preview
 	case StreamEventToolCallDelta:
-		preview := event.Preview
+		preview, hasPreview := event.Preview.Get()
+		position, hasPosition := event.Position.Get()
 		active, exists := previews[preview.CallID]
-		if !exists || preview.Name != active.Name || preview.Position != active.Position || !preview.Provisional {
+		if !hasPreview || !hasPosition || position != preview.Position || !exists || preview.Name != active.Name ||
+			preview.Position != active.Position || !preview.Provisional {
 			return fmt.Errorf("tool call %q is not active", preview.CallID)
 		}
 		preview.Fields = clonePreviewFields(preview.Fields)
 		previews[preview.CallID] = preview
 	case StreamEventToolCallEnd:
-		active, exists := previews[event.ToolCall.ID]
-		if !exists || event.ToolCall.Name != active.Name || event.Position != active.Position {
-			return fmt.Errorf("tool call %q is not active", event.ToolCall.ID)
+		toolCall, hasToolCall := event.ToolCall.Get()
+		position, hasPosition := event.Position.Get()
+		active, exists := previews[toolCall.ID]
+		if !hasToolCall || !hasPosition || !exists || toolCall.Name != active.Name || position != active.Position {
+			return fmt.Errorf("tool call %q is not active", toolCall.ID)
 		}
-		delete(previews, event.ToolCall.ID)
+		delete(previews, toolCall.ID)
 	case StreamEventContentStart, StreamEventTextDelta, StreamEventContentEnd,
 		StreamEventDone, StreamEventError:
 		return fmt.Errorf("event kind %d is not a tool-call stream event", event.Kind)

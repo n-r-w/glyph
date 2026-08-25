@@ -68,9 +68,12 @@ func TestServiceRunStop(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
+	assert.True(t, result.ErrorMessage.IsNone())
 	require.Len(t, service.History(), 2)
 	assert.Equal(t, mo.Some(response), service.History()[1].Model)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+	assert.Equal(t, mo.Some("run-1"), service.State().RunID)
+	assert.True(t, service.State().PartialResponse.IsNone())
 	for _, event := range delivered {
 		assert.Equal(t, "run-1", event.RunID)
 	}
@@ -82,13 +85,15 @@ func TestServiceRunStop(t *testing.T) {
 	}, eventTypes(delivered))
 	update := delivered[4]
 	expectedUpdate := newEvent(EventTextDelta, "run-1")
-	expectedUpdate.Position = 0
-	expectedUpdate.Content = model.Content{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
+	expectedUpdate.Position = mo.Some(0)
+	expectedUpdate.Content = mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
 	assert.Equal(t, expectedUpdate, update)
 	_, err = service.Run(t.Context(), Request{RunID: "run-2", UserText: "blocked"})
 	require.ErrorIs(t, err, ErrRunActive)
 	require.NoError(t, service.Settle("run-1"))
 	assert.Equal(t, StatusIdle, service.State().Status)
+	assert.True(t, service.State().RunID.IsNone())
+	assert.True(t, service.State().PartialResponse.IsNone())
 }
 
 // TestServiceRunToolUse executes calls sequentially and stores results before the next provider request.
@@ -125,16 +130,16 @@ func TestServiceRunToolUse(t *testing.T) {
 						Provisional: true, Fields: nil,
 					}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallStart, Position: position, Preview: preview, Content: model.Content{}, Delta: "", ToolCall: model.ToolCall{}, Response: model.Response{},
+						Kind: StreamEventToolCallStart, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 					}))
 					preview.Fields = []model.ToolCallPreviewField{{
 						Name: "value", Kind: model.ToolCallPreviewFieldPrefix, Prefix: "1", Value: nil,
 					}}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallDelta, Position: position, Preview: preview, Content: model.Content{}, Delta: "", ToolCall: model.ToolCall{}, Response: model.Response{},
+						Kind: StreamEventToolCallDelta, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 					}))
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallEnd, Position: position, ToolCall: call, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, Response: model.Response{},
+						Kind: StreamEventToolCallEnd, Position: mo.Some(position), ToolCall: mo.Some(call), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), Response: mo.None[model.Response](),
 					}))
 				}
 				return emitStream(update, firstResponse, nil)
@@ -419,7 +424,7 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	result, err := service.Run(t.Context(), Request{RunID: "run-safe-error", UserText: "go"})
 
 	require.Error(t, err)
-	assert.Equal(t, safeMessage, result.ErrorMessage)
+	assert.Equal(t, safeMessage, result.ErrorMessage.OrEmpty())
 	history := service.History()
 	require.Len(t, history, 2)
 	assert.Equal(t, safeMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
@@ -445,8 +450,8 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 			agentEnd = event
 		}
 	}
-	assert.Equal(t, safeMessage, messageEnd.Message.ErrorMessage.OrEmpty())
-	assert.Equal(t, safeMessage, agentEnd.Agent.ErrorMessage)
+	assert.Equal(t, safeMessage, messageEnd.Message.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, safeMessage, agentEnd.Agent.OrEmpty().ErrorMessage.OrEmpty())
 }
 
 // TestServiceRunProviderFailure exposes partial state, stores failed safe content, and excludes it from projection.
@@ -485,8 +490,8 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		case <-streamed:
 			state := service.State()
 			assert.Equal(t, StatusRunning, state.Status)
-			require.Len(t, state.PartialResponse.Content, 1)
-			assert.Equal(t, "partial", state.PartialResponse.Content[0].Text.OrEmpty())
+			require.Len(t, state.PartialResponse.OrEmpty().Content, 1)
+			assert.Equal(t, "partial", state.PartialResponse.OrEmpty().Content[0].Text.OrEmpty())
 			historyBefore := service.History()
 			_, secondErr := service.Run(t.Context(), Request{RunID: "blocked", UserText: "no"})
 			require.ErrorIs(t, secondErr, ErrRunActive)
@@ -496,7 +501,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			require.Error(t, <-outcome)
 		}
 		assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
-		assert.Empty(t, service.State().PartialResponse.Content)
+		assert.Empty(t, service.State().PartialResponse.OrEmpty().Content)
 		history := service.History()
 		require.Len(t, history, 2)
 		assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
@@ -545,7 +550,7 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		require.Len(t, history, 2)
 		assert.Equal(t, model.OutcomeAborted, history[1].Model.OrEmpty().Outcome.OrEmpty())
 		assert.Equal(t, "Model request was canceled.", history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
-		assert.Empty(t, service.State().PartialResponse.Content)
+		assert.Empty(t, service.State().PartialResponse.OrEmpty().Content)
 	})
 }
 
@@ -652,7 +657,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Equal(t, testCase.runOutcome, result.Outcome)
-			assert.Equal(t, testCase.errorMessage, result.ErrorMessage)
+			assert.Equal(t, testCase.errorMessage, result.ErrorMessage.OrEmpty())
 			history := service.History()
 			require.Len(t, history, 2)
 			assert.Equal(t, testCase.errorMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
@@ -769,20 +774,20 @@ func streamResult(response model.Response, streamErr error) func(context.Context
 // emitText emits one complete text block.
 func emitText(handle StreamHandler, position int, text string) error {
 	if err := handle(StreamEvent{
-		Kind: StreamEventContentStart, Position: position,
-		Content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
+		Kind: StreamEventContentStart, Position: mo.Some(position),
+		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 	}); err != nil {
 		return err
 	}
 	if err := handle(StreamEvent{
-		Kind: StreamEventTextDelta, Position: position,
-		Content: model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: text, Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
+		Kind: StreamEventTextDelta, Position: mo.Some(position),
+		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.Some(text), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 	}); err != nil {
 		return err
 	}
 	return handle(StreamEvent{
-		Kind: StreamEventContentEnd, Position: position,
-		Content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
+		Kind: StreamEventContentEnd, Position: mo.Some(position),
+		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 	})
 }
 
@@ -792,7 +797,7 @@ func emitStream(handle StreamHandler, response model.Response, streamErr error) 
 	if streamErr != nil {
 		kind = StreamEventError
 	}
-	if err := handle(StreamEvent{Kind: kind, Response: response, Position: 0, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}}); err != nil {
+	if err := handle(StreamEvent{Kind: kind, Response: mo.Some(response), Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall]()}); err != nil {
 		return err
 	}
 	return streamErr
@@ -822,7 +827,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
 			assert.Equal(t, "final transformation", request.History[0].User.OrEmpty().Content[0].Text.OrEmpty())
-			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: mo.Some(model.OutcomeStop), Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, Position: 0, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}})
+			return handle(StreamEvent{Kind: StreamEventDone, Response: mo.Some(model.Response{Outcome: mo.Some(model.OutcomeStop), Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}), Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall]()})
 		},
 	)
 	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookRunner, tools, events)
@@ -863,7 +868,7 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "secret")
 	assert.Equal(t, agent.RunOutcomeFailed, result.Outcome)
-	assert.Equal(t, failedModelMessage, result.ErrorMessage)
+	assert.Equal(t, failedModelMessage, result.ErrorMessage.OrEmpty())
 	assert.Zero(t, laterCalls)
 	history := service.History()
 	require.Len(t, history, 2)

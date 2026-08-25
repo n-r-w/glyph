@@ -210,34 +210,34 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 		t,
 		[]run.StreamEvent{
 			{
-				Preview:  model.ToolCallPreview{},
-				ToolCall: model.ToolCall{},
-				Response: model.Response{},
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
 				Kind:     run.StreamEventTextDelta,
-				Position: 1,
-				Content: model.Content{
+				Position: mo.Some(1),
+				Content: mo.Some(model.Content{
 					Final:           false,
 					ProviderContext: mo.None[model.ProviderContext](),
 					ToolCall:        mo.None[model.ToolCall](),
 					Kind:            model.ContentText,
 					Text:            mo.Some("ans"),
-				},
-				Delta: "ans",
+				}),
+				Delta: mo.Some("ans"),
 			},
 			{
-				Preview:  model.ToolCallPreview{},
-				ToolCall: model.ToolCall{},
-				Response: model.Response{},
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
 				Kind:     run.StreamEventTextDelta,
-				Position: 1,
-				Content: model.Content{
+				Position: mo.Some(1),
+				Content: mo.Some(model.Content{
 					Final:           false,
 					ProviderContext: mo.None[model.ProviderContext](),
 					ToolCall:        mo.None[model.ToolCall](),
 					Kind:            model.ContentText,
 					Text:            mo.Some("wer"),
-				},
-				Delta: "wer",
+				}),
+				Delta: mo.Some("wer"),
 			},
 		},
 		updates,
@@ -434,13 +434,13 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
 		run.StreamEventToolCallDelta, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	require.Equal(t, "read", events[0].Preview.Name)
-	require.True(t, events[0].Preview.Provisional)
-	require.Equal(t, "hel", events[1].Preview.Fields[1].Prefix)
+	require.Equal(t, "read", events[0].Preview.OrEmpty().Name)
+	require.True(t, events[0].Preview.OrEmpty().Provisional)
+	require.Equal(t, "hel", events[1].Preview.OrEmpty().Fields[1].Prefix)
 	require.Equal(
 		t,
 		map[string]any{"path": "file.txt", "query": "hello"},
-		events[3].ToolCall.Arguments,
+		events[3].ToolCall.OrEmpty().Arguments,
 	)
 }
 
@@ -496,13 +496,13 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	require.Equal(t, []run.StreamEventKind{
 		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, "call-1", events[0].Preview.CallID)
-	assert.Equal(t, "read", events[0].Preview.Name)
+	assert.Equal(t, "call-1", events[0].Preview.OrEmpty().CallID)
+	assert.Equal(t, "read", events[0].Preview.OrEmpty().Name)
 	assert.Equal(t, model.ToolCall{
 		ID:        "call-1",
 		Name:      "read",
 		Arguments: map[string]any{"path": "file.txt"},
-	}, events[1].ToolCall)
+	}, events[1].ToolCall.OrEmpty())
 }
 
 func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
@@ -548,7 +548,7 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		return nil
 	})
 	require.Error(t, err)
-	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
+	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 
@@ -618,34 +618,34 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []run.StreamEvent{
 		{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     run.StreamEventTextDelta,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some("final "),
-			},
-			Delta: "final ",
+			}),
+			Delta: mo.Some("final "),
 		},
 		{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     run.StreamEventTextDelta,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some("answer"),
-			},
-			Delta: "answer",
+			}),
+			Delta: mo.Some("answer"),
 		},
 	}, updates)
 	assert.Equal(t, model.OutcomeToolUse, response.Outcome.OrEmpty())
@@ -723,12 +723,12 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 		run.StreamEventContentStart, run.StreamEventTextDelta, run.StreamEventContentEnd,
 		run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, model.ContentReasoning, events[0].Content.Kind)
-	assert.Equal(t, 0, events[0].Position)
-	assert.Equal(t, "why", events[1].Delta)
-	assert.Equal(t, model.ContentText, events[3].Content.Kind)
-	assert.Equal(t, 2, events[3].Position)
-	terminal := events[len(events)-1].Response
+	assert.Equal(t, model.ContentReasoning, events[0].Content.OrEmpty().Kind)
+	assert.Equal(t, 0, events[0].Position.OrEmpty())
+	assert.Equal(t, "why", events[1].Delta.OrEmpty())
+	assert.Equal(t, model.ContentText, events[3].Content.OrEmpty().Kind)
+	assert.Equal(t, 2, events[3].Position.OrEmpty())
+	terminal := events[len(events)-1].Response.OrEmpty()
 	require.Len(t, terminal.Content, 2)
 	assert.Equal(t, model.ContentReasoning, terminal.Content[0].Kind)
 	assert.Equal(t, "why", terminal.Content[0].Text.OrEmpty())
@@ -893,42 +893,42 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	assert.Equal(
 		t,
 		run.StreamEvent{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     run.StreamEventTextDelta,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentRefusal,
 				Text:            mo.Some("I can"),
-			},
-			Delta: "I can",
+			}),
+			Delta: mo.Some("I can"),
 		},
 		events[1],
 	)
 	assert.Equal(
 		t,
 		run.StreamEvent{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     run.StreamEventTextDelta,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentRefusal,
 				Text:            mo.Some("not help"),
-			},
-			Delta: "not help",
+			}),
+			Delta: mo.Some("not help"),
 		},
 		events[2],
 	)
-	response := events[4].Response
+	response := events[4].Response.OrEmpty()
 	require.Len(t, response.Content, 2)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
 	assert.NotEmpty(t, response.Content[0].ProviderContext.OrEmpty().Payload)
@@ -1723,5 +1723,5 @@ func terminalResponse(events []run.StreamEvent) model.Response {
 	if len(events) == 0 {
 		return model.Response{}
 	}
-	return events[len(events)-1].Response
+	return events[len(events)-1].Response.OrEmpty()
 }

@@ -438,18 +438,18 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 		})
 		startEvent := run.StreamEvent{
 			Kind:     run.StreamEventContentStart,
-			Position: *position,
-			Content: model.Content{
+			Position: mo.PointerToOption(position),
+			Content: mo.Some(model.Content{
 				Kind:            kind,
 				Text:            mo.Some(""),
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
-			},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			}),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 		}
 		if handleErr := handle(startEvent); handleErr != nil {
 			return handleErr
@@ -458,18 +458,18 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 	state.content[*position].Text = mo.Some(state.content[*position].Text.OrEmpty() + delta)
 	return handle(run.StreamEvent{
 		Kind:     run.StreamEventTextDelta,
-		Position: *position,
-		Content: model.Content{
+		Position: mo.PointerToOption(position),
+		Content: mo.Some(model.Content{
 			Kind:            kind,
 			Text:            mo.Some(delta),
 			Final:           false,
 			ProviderContext: mo.None[model.ProviderContext](),
 			ToolCall:        mo.None[model.ToolCall](),
-		},
-		Delta:    delta,
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
-		Response: model.Response{},
+		}),
+		Delta:    mo.Some(delta),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 	})
 }
 
@@ -533,12 +533,12 @@ func (state *chatAccumulator) toolDelta(
 	}
 	return handle(run.StreamEvent{
 		Kind:     kind,
-		Position: toolState.position,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  preview,
-		ToolCall: model.ToolCall{},
-		Response: model.Response{},
+		Position: mo.Some(toolState.position),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.Some(preview),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 	})
 }
 
@@ -569,12 +569,12 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 		}
 		if err := handle(run.StreamEvent{
 			Kind:     run.StreamEventToolCallEnd,
-			Position: toolState.position,
-			Content:  model.Content{},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: call,
-			Response: model.Response{},
+			Position: mo.Some(toolState.position),
+			Content:  mo.None[model.Content](),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.Some(call),
+			Response: mo.None[model.Response](),
 		}); err != nil {
 			return err
 		}
@@ -593,18 +593,18 @@ func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 		state.content[position].Final = true
 		if err := handle(run.StreamEvent{
 			Kind:     run.StreamEventContentEnd,
-			Position: position,
-			Content: model.Content{
+			Position: mo.Some(position),
+			Content: mo.Some(model.Content{
 				Kind:            kind,
 				Text:            mo.Some(""),
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
-			},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			}),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 		}); err != nil {
 			return err
 		}

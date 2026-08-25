@@ -18,46 +18,64 @@ func TestApplyStreamEventBuildsOrderedTextState(t *testing.T) {
 	partial := model.Response{}
 	for _, event := range []StreamEvent{
 		{
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentStart,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some(""),
-			},
+			}),
 		},
 		{
-			Content:  model.Content{},
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Content: mo.Some(model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some("Hel"),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventTextDelta,
-			Position: 1,
-			Delta:    "Hel",
+			Position: mo.Some(1),
+			Delta:    mo.Some("Hel"),
 		},
 		{
-			Content:  model.Content{},
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Content: mo.Some(model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some("lo"),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventTextDelta,
-			Position: 1,
-			Delta:    "lo",
+			Position: mo.Some(1),
+			Delta:    mo.Some("lo"),
 		},
 		{
-			Content:  model.Content{},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Content: mo.Some(model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentEnd,
-			Position: 1,
+			Position: mo.Some(1),
 		},
 	} {
 		require.NoError(t, applyStreamEvent(&partial, event))
@@ -85,94 +103,94 @@ func TestApplyStreamEventBuildsOrderedReasoningState(t *testing.T) {
 	partial := model.Response{}
 	for _, event := range []StreamEvent{
 		{
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentStart,
-			Position: 0,
-			Content: model.Content{
+			Position: mo.Some(0),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentReasoning,
 				Text:            mo.Some(""),
-			},
+			}),
 		},
 		{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventTextDelta,
-			Position: 0,
-			Content: model.Content{
+			Position: mo.Some(0),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentReasoning,
 				Text:            mo.Some("why"),
-			},
-			Delta: "why",
+			}),
+			Delta: mo.Some("why"),
 		},
 		{
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentEnd,
-			Position: 0,
-			Content: model.Content{
+			Position: mo.Some(0),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentReasoning,
 				Text:            mo.Some(""),
-			},
+			}),
 		},
 		{
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentStart,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some(""),
-			},
+			}),
 		},
 		{
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventTextDelta,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some("answer"),
-			},
-			Delta: "answer",
+			}),
+			Delta: mo.Some("answer"),
 		},
 		{
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: model.Response{},
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.None[model.Response](),
 			Kind:     StreamEventContentEnd,
-			Position: 1,
-			Content: model.Content{
+			Position: mo.Some(1),
+			Content: mo.Some(model.Content{
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),
 				ToolCall:        mo.None[model.ToolCall](),
 				Kind:            model.ContentText,
 				Text:            mo.Some(""),
-			},
+			}),
 		},
 	} {
 		require.NoError(t, applyStreamEvent(&partial, event))
@@ -192,46 +210,52 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 
 	previews := make(map[string]model.ToolCallPreview)
 	start := StreamEvent{
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		ToolCall: model.ToolCall{},
-		Response: model.Response{},
+		Position: mo.Some(0),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 		Kind:     StreamEventToolCallStart,
-		Preview: model.ToolCallPreview{
+		Preview: mo.Some(model.ToolCallPreview{
 			CallID:      "call-1",
 			Name:        "read",
-			Position:    2,
+			Position:    0,
 			Provisional: true,
 			Fields:      nil,
-		},
+		}),
 	}
+	missingPosition := start
+	missingPosition.Position = mo.None[int]()
+	require.Error(t, applyToolCallStreamEvent(previews, missingPosition))
+	require.Empty(t, previews)
 	require.NoError(t, applyToolCallStreamEvent(previews, start))
-	require.Equal(t, start.Preview, previews["call-1"])
+	require.Equal(t, start.Preview.OrEmpty(), previews["call-1"])
 
 	delta := start
 	delta.Kind = StreamEventToolCallDelta
-	delta.Preview.Fields = []model.ToolCallPreviewField{{
+	deltaPreview := delta.Preview.OrEmpty()
+	deltaPreview.Fields = []model.ToolCallPreviewField{{
 		Name:   "path",
 		Kind:   model.ToolCallPreviewFieldPrefix,
 		Value:  nil,
 		Prefix: "fi",
 	}}
+	delta.Preview = mo.Some(deltaPreview)
 	require.NoError(t, applyToolCallStreamEvent(previews, delta))
-	require.Equal(t, delta.Preview, previews["call-1"])
+	require.Equal(t, delta.Preview.OrEmpty(), previews["call-1"])
 
 	end := StreamEvent{
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		Response: model.Response{},
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		Response: mo.None[model.Response](),
 		Kind:     StreamEventToolCallEnd,
-		Position: 2,
-		ToolCall: model.ToolCall{
+		Position: mo.Some(0),
+		ToolCall: mo.Some(model.ToolCall{
 			ID:        "call-1",
 			Name:      "read",
 			Arguments: map[string]any{"path": "file.txt"},
-		},
+		}),
 	}
 	require.NoError(t, applyToolCallStreamEvent(previews, end))
 	require.NotContains(t, previews, "call-1")
@@ -295,22 +319,22 @@ func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {
 		Fields:      nil,
 	}
 	require.NoError(t, service.applyStreamEvent(StreamEvent{
-		Content:  model.Content{},
-		Delta:    "",
-		ToolCall: model.ToolCall{},
-		Response: model.Response{},
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 		Kind:     StreamEventToolCallStart,
-		Position: 0,
-		Preview:  preview,
+		Position: mo.Some(0),
+		Preview:  mo.Some(preview),
 	}))
 	require.NoError(t, service.applyStreamEvent(StreamEvent{
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
 		Kind:     StreamEventDone,
-		Response: model.Response{
+		Response: mo.Some(model.Response{
 			Content:       nil,
 			ErrorMessage:  mo.None[string](),
 			Provider:      mo.None[model.ProviderID](),
@@ -320,24 +344,51 @@ func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {
 			Usage:         mo.None[model.Usage](),
 			Diagnostics:   nil,
 			Outcome:       mo.Some(model.OutcomeLength),
-		},
+		}),
 	}))
 	require.Empty(t, service.State().ToolPreviews)
 }
 
 // TestApplyStreamEventRequiresNonzeroTerminalOutcome preserves zero-outcome validation.
+func TestApplyStreamEventRequiresTextDeltaPresence(t *testing.T) {
+	t.Parallel()
+
+	partial := model.Response{}
+	start := StreamEvent{
+		Kind:     StreamEventContentStart,
+		Position: mo.Some(0),
+		Content: mo.Some(model.Content{
+			Kind:            model.ContentText,
+			Text:            mo.Some(""),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		}),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
+	}
+	require.NoError(t, applyStreamEvent(&partial, start))
+
+	missingDelta := start
+	missingDelta.Kind = StreamEventTextDelta
+	require.Error(t, applyStreamEvent(&partial, missingDelta))
+	assert.Empty(t, partial.Content[0].Text.OrEmpty())
+}
+
 func TestApplyStreamEventRequiresNonzeroTerminalOutcome(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
 	err := applyStreamEvent(&partial, StreamEvent{
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
 		Kind:     StreamEventDone,
-		Response: model.Response{},
+		Response: mo.None[model.Response](),
 	})
 
 	require.ErrorContains(t, err, "requires an outcome")
@@ -349,13 +400,13 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 
 	partial := model.Response{}
 	require.NoError(t, applyStreamEvent(&partial, StreamEvent{
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
 		Kind:     StreamEventDone,
-		Response: model.Response{
+		Response: mo.Some(model.Response{
 			Content:       nil,
 			ErrorMessage:  mo.None[string](),
 			Provider:      mo.None[model.ProviderID](),
@@ -365,17 +416,17 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 			Usage:         mo.None[model.Usage](),
 			Diagnostics:   nil,
 			Outcome:       mo.Some(model.OutcomeStop),
-		},
+		}),
 	}))
 
 	err := applyStreamEvent(&partial, StreamEvent{
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
 		Kind:     StreamEventError,
-		Response: model.Response{
+		Response: mo.Some(model.Response{
 			Content:       nil,
 			Provider:      mo.None[model.ProviderID](),
 			Model:         mo.None[model.ID](),
@@ -385,7 +436,7 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 			Diagnostics:   nil,
 			Outcome:       mo.Some(model.OutcomeFailed),
 			ErrorMessage:  mo.Some("failed"),
-		},
+		}),
 	})
 
 	require.ErrorContains(t, err, "already terminated")

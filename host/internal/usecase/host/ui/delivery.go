@@ -53,46 +53,46 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
 	case run.EventContentStart:
 		lifecycle.ModelContent = domainui.ModelContent{
-			Type: domainui.ModelContentStart, Kind: modelContentKind(event.Content.Kind),
-			Position: event.Position, Text: "",
+			Type: domainui.ModelContentStart, Kind: modelContentKind(event.Content.OrEmpty().Kind),
+			Position: event.Position.OrEmpty(), Text: "",
 		}
 	case run.EventTextDelta:
 		lifecycle.ModelContent = domainui.ModelContent{
-			Type: domainui.ModelContentTextDelta, Kind: modelContentKind(event.Content.Kind),
-			Position: event.Position, Text: event.Content.Text.OrEmpty(),
+			Type: domainui.ModelContentTextDelta, Kind: modelContentKind(event.Content.OrEmpty().Kind),
+			Position: event.Position.OrEmpty(), Text: event.Content.OrEmpty().Text.OrEmpty(),
 		}
 	case run.EventContentEnd:
 		lifecycle.ModelContent = domainui.ModelContent{
-			Type: domainui.ModelContentEnd, Kind: modelContentKind(event.Content.Kind),
-			Position: event.Position, Text: "",
+			Type: domainui.ModelContentEnd, Kind: modelContentKind(event.Content.OrEmpty().Kind),
+			Position: event.Position.OrEmpty(), Text: "",
 		}
 	case run.EventToolCallStart, run.EventToolCallDelta:
-		lifecycle.ToolCallPreview = mapToolCallPreview(event.Preview)
+		lifecycle.ToolCallPreview = mapToolCallPreview(event.Preview.OrEmpty())
 	case run.EventToolCallEnd:
 		lifecycle.FinalToolCall = domainui.FinalToolCall{
-			CallID: event.ToolCall.ID, Name: event.ToolCall.Name, Position: event.Position,
-			Arguments: maps.Clone(event.ToolCall.Arguments),
+			CallID: event.ToolCall.OrEmpty().ID, Name: event.ToolCall.OrEmpty().Name, Position: event.Position.OrEmpty(),
+			Arguments: maps.Clone(event.ToolCall.OrEmpty().Arguments),
 		}
 	case run.EventMessageEnd:
-		lifecycle.ModelResponse = mapModelResponse(event.Message)
+		lifecycle.ModelResponse = mapModelResponse(event.Message.OrEmpty())
 	case run.EventToolExecutionStart:
-		lifecycle.ToolCallID = event.ToolCall.ID
-		lifecycle.ToolName = event.ToolCall.Name
+		lifecycle.ToolCallID = event.ToolCall.OrEmpty().ID
+		lifecycle.ToolName = event.ToolCall.OrEmpty().Name
 	case run.EventToolExecutionUpdate:
-		lifecycle.Text = event.Progress.Content
-		lifecycle.ProgressChannel = progressChannel(event.Progress.Channel)
+		lifecycle.Text = event.Progress.OrEmpty().Content
+		lifecycle.ProgressChannel = progressChannel(event.Progress.OrEmpty().Channel)
 	case run.EventToolExecutionEnd, run.EventToolResult:
-		lifecycle.ToolCallID = event.ToolResult.CallID
-		lifecycle.ToolName = event.ToolResult.ToolName
-		lifecycle.ToolResultContents = cloneResultContents(event.ToolResult.Contents)
-		lifecycle.IsError = event.ToolResult.IsError
+		lifecycle.ToolCallID = event.ToolResult.OrEmpty().CallID
+		lifecycle.ToolName = event.ToolResult.OrEmpty().ToolName
+		lifecycle.ToolResultContents = cloneResultContents(event.ToolResult.OrEmpty().Contents)
+		lifecycle.IsError = event.ToolResult.OrEmpty().IsError
 	case run.EventTurnEnd:
-		lifecycle.Text = responseText(event.Turn.Response)
-		lifecycle.Outcome = modelOutcome(event.Turn.Response.Outcome.OrEmpty())
-		lifecycle.ErrorMessage = event.Turn.Response.ErrorMessage.OrEmpty()
+		lifecycle.Text = responseText(event.Turn.OrEmpty().Response)
+		lifecycle.Outcome = modelOutcome(event.Turn.OrEmpty().Response.Outcome.OrEmpty())
+		lifecycle.ErrorMessage = event.Turn.OrEmpty().Response.ErrorMessage.OrEmpty()
 	case run.EventAgentEnd:
-		lifecycle.Outcome = runOutcome(event.Agent.Outcome)
-		lifecycle.ErrorMessage = event.Agent.ErrorMessage
+		lifecycle.Outcome = runOutcome(event.Agent.OrEmpty().Outcome)
+		lifecycle.ErrorMessage = event.Agent.OrEmpty().ErrorMessage.OrEmpty()
 	}
 	if err := d.channel.Send(lifecycleFrame(lifecycle)); err != nil {
 		return fmt.Errorf("deliver UI agent event: %w", err)

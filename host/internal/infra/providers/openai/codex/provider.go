@@ -65,7 +65,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		terminalKind = run.StreamEventError
 	}
 	terminalEvent := semanticStreamEvent(terminalKind, 0, 0, "")
-	terminalEvent.Response = response
+	terminalEvent.Response = mo.Some(response)
 	if err := handle(terminalEvent); err != nil {
 		return err
 	}

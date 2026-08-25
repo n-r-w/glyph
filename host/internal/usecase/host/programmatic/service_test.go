@@ -55,7 +55,7 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
 				close(started)
-				if err := delivery.DeliverAgent(ctx, run.Event{Type: run.EventAgentStart, RunID: "run-1", Position: 0, Content: model.Content{}, Message: model.Response{}, Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Progress: tool.Progress{}, ToolResult: agent.ToolResult{}, Turn: run.TurnSummary{}, Agent: run.AgentSummary{}}); err != nil {
+				if err := delivery.DeliverAgent(ctx, run.Event{Type: run.EventAgentStart, RunID: "run-1", Position: mo.None[int](), Content: mo.None[model.Content](), Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](), ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary]()}); err != nil {
 					return agent.RunOutcomeFailed, err
 				}
 				close(delivered)
@@ -476,8 +476,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	coordinator := NewMockCoordinator(ctrl)
 	delivery := NewDelivery()
 	state := run.State{
-		Status: run.StatusRunning, RunID: "run-active",
-		PartialResponse: model.Response{Content: []model.Content{{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil},
+		Status: run.StatusRunning, RunID: mo.Some("run-active"),
+		PartialResponse: mo.Some(model.Response{Content: []model.Content{{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}),
 		ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview", Name: "", Position: 0, Provisional: false, Fields: nil}},
 	}
 	var history []agent.HistoryEntry
@@ -681,7 +681,7 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
 				close(started)
 				deliveryErr := delivery.DeliverAgent(context.WithoutCancel(ctx), run.Event{
-					Type: run.EventAgentStart, RunID: "run-active", Position: 0, Content: model.Content{}, Message: model.Response{}, Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Progress: tool.Progress{}, ToolResult: agent.ToolResult{}, Turn: run.TurnSummary{}, Agent: run.AgentSummary{},
+					Type: run.EventAgentStart, RunID: "run-active", Position: mo.None[int](), Content: mo.None[model.Content](), Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](), ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary](),
 				})
 				runContextErr = ctx.Err()
 				return agent.RunOutcomeAborted, errors.Join(context.Canceled, deliveryErr)

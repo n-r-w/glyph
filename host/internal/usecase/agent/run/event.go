@@ -1,6 +1,8 @@
 package run
 
 import (
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -48,15 +50,15 @@ const (
 type Event struct {
 	Type       EventType
 	RunID      string
-	Position   int
-	Content    model.Content
-	Message    model.Response
-	Preview    model.ToolCallPreview
-	ToolCall   model.ToolCall
-	Progress   tool.Progress
-	ToolResult agent.ToolResult
-	Turn       TurnSummary
-	Agent      AgentSummary
+	Position   mo.Option[int]
+	Content    mo.Option[model.Content]
+	Message    mo.Option[model.Response]
+	Preview    mo.Option[model.ToolCallPreview]
+	ToolCall   mo.Option[model.ToolCall]
+	Progress   mo.Option[tool.Progress]
+	ToolResult mo.Option[agent.ToolResult]
+	Turn       mo.Option[TurnSummary]
+	Agent      mo.Option[AgentSummary]
 }
 
 // TurnSummary is the self-contained terminal turn payload.
@@ -69,21 +71,21 @@ type TurnSummary struct {
 type AgentSummary struct {
 	Outcome      agent.RunOutcome
 	AddedHistory []agent.HistoryEntry
-	ErrorMessage string
+	ErrorMessage mo.Option[string]
 }
 
 func newEvent(eventType EventType, runID string) Event {
 	return Event{
 		Type:       eventType,
 		RunID:      runID,
-		Position:   0,
-		Content:    model.Content{},
-		Message:    model.Response{},
-		Preview:    model.ToolCallPreview{},
-		ToolCall:   model.ToolCall{},
-		Progress:   tool.Progress{},
-		ToolResult: agent.ToolResult{},
-		Turn:       TurnSummary{},
-		Agent:      AgentSummary{},
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[TurnSummary](),
+		Agent:      mo.None[AgentSummary](),
 	}
 }

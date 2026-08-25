@@ -100,20 +100,21 @@ func New(config Config) (*Driver, error) {
 // configuredModels validates and snapshots each model-specific API and reasoning configuration.
 func configuredModels(config Config) (map[model.ID]modelConfig, error) {
 	return lo.MapEntriesErr(config.Models, func(modelID model.ID, override API) (model.ID, modelConfig, error) {
-		var empty modelConfig
 		if strings.TrimSpace(string(modelID)) == "" {
-			return "", empty, errors.New("OpenAI-compatible model ID is required")
+			return "", modelConfig{}, errors.New("OpenAI-compatible model ID is required")
 		}
 		selectedAPI := config.API
 		if override != "" {
 			if err := validateAPI(override); err != nil {
-				return "", empty, fmt.Errorf("model %q API override: %w", modelID, err)
+				return "", modelConfig{}, fmt.Errorf("model %q API override: %w", modelID, err)
 			}
 			selectedAPI = override
 		}
 		reasoningWireFormat := config.ReasoningWireFormats[modelID]
 		if !reasoningWireFormatMatchesAPI(reasoningWireFormat, selectedAPI) {
-			return "", empty, fmt.Errorf("model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI)
+			return "", modelConfig{}, fmt.Errorf(
+				"model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI,
+			)
 		}
 		return modelID, modelConfig{
 			api: selectedAPI, reasoningWireFormat: reasoningWireFormat,
@@ -188,12 +189,12 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		response.Model = mo.Some(request.Model.Model)
 		if handleErr := handle(run.StreamEvent{
 			Kind:     run.StreamEventError,
-			Position: 0,
-			Content:  model.Content{},
-			Delta:    "",
-			Preview:  model.ToolCallPreview{},
-			ToolCall: model.ToolCall{},
-			Response: response,
+			Position: mo.None[int](),
+			Content:  mo.None[model.Content](),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+			Response: mo.Some(response),
 		}); handleErr != nil {
 			return handleErr
 		}
@@ -203,12 +204,12 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	response.Model = mo.Some(request.Model.Model)
 	if handleErr := handle(run.StreamEvent{
 		Kind:     run.StreamEventDone,
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
-		Response: response,
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.Some(response),
 	}); handleErr != nil {
 		return handleErr
 	}
@@ -238,12 +239,12 @@ func (s *Driver) emitFailure(
 	response.Model = mo.Some(request.Model.Model)
 	if handleErr := handle(run.StreamEvent{
 		Kind:     run.StreamEventError,
-		Position: 0,
-		Content:  model.Content{},
-		Delta:    "",
-		Preview:  model.ToolCallPreview{},
-		ToolCall: model.ToolCall{},
-		Response: response,
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.Some(response),
 	}); handleErr != nil {
 		return handleErr
 	}
