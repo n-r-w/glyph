@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only active event-union fields.
 package headless
 
 import (
@@ -29,12 +28,17 @@ func TestRendererReportsRuntimeFailure(t *testing.T) {
 	renderer := NewRenderer(&stdout, &stderr)
 
 	err := renderer.ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
-		PluginID: "crashed-plugin", Condition: tool.RuntimeUnavailableProcessExited,
+		PluginID:  "crashed-plugin",
+		Condition: tool.RuntimeUnavailableProcessExited,
 	})
 
 	require.NoError(t, err)
 	assert.Empty(t, stdout.String())
-	assert.Equal(t, "[extension:error] extension crashed-plugin unavailable: extension process exited\n", stderr.String())
+	assert.Equal(
+		t,
+		"[extension:error] extension crashed-plugin unavailable: extension process exited\n",
+		stderr.String(),
+	)
 }
 
 // TestRendererPrintsRefusalDeltasOnce verifies message finalization does not repeat streamed refusal text.
@@ -44,11 +48,73 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	for _, event := range []run.Event{
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("I can")}},
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("not help")}},
-		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
-			Content: []model.Content{{Kind: model.ContentRefusal, Text: mo.Some("I cannot help")}},
-		}},
+		{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   1,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentRefusal,
+				Text:            mo.Some("I can"),
+			},
+		},
+		{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   1,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentRefusal,
+				Text:            mo.Some("not help"),
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventMessageEnd,
+			RunID:      "run",
+			Message: model.Response{
+				Outcome:       mo.None[model.Outcome](),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
+				Content: []model.Content{{
+					Final:           false,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+					Kind:            model.ContentRefusal,
+					Text:            mo.Some("I cannot help"),
+				}},
+			},
+		},
 	} {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
 	}
@@ -62,13 +128,46 @@ func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
 
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
-	require.NoError(t, renderer.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventMessageEnd, RunID: "run",
-		Message: model.Response{Content: []model.Content{{
-			Kind:     model.ContentToolCall,
-			ToolCall: mo.Some(model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}}),
-		}}},
-	}))
+	require.NoError(
+		t,
+		renderer.DeliverAgent(t.Context(), run.Event{
+			Position:   0,
+			Content:    model.Content{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventMessageEnd,
+			RunID:      "run",
+			Message: model.Response{
+				Outcome:       mo.None[model.Outcome](),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
+				Content: []model.Content{
+					{
+						Text:            mo.None[string](),
+						Final:           false,
+						ProviderContext: mo.None[model.ProviderContext](),
+						Kind:            model.ContentToolCall,
+						ToolCall: mo.Some(
+							model.ToolCall{
+								ID:        "call",
+								Name:      "read",
+								Arguments: map[string]any{},
+							},
+						),
+					},
+				},
+			},
+		}),
+	)
 
 	assert.Empty(t, stdout.String())
 }
@@ -81,17 +180,177 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
 	events := []run.Event{
-		{Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentReasoning, Text: mo.Some("hidden reasoning")}},
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("hello")}},
-		{Type: run.EventToolExecutionStart, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}},
-		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"}},
-		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStdout, Content: "output"}},
-		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStderr, Content: "warning"}},
-		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Contents: tool.TextContents("done"), IsError: false}},
-		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
-			Content:     []model.Content{{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "openai-codex"}, Payload: []byte("encrypted-secret")})}},
-			Diagnostics: []model.Diagnostic{{Code: "provider_recovery", Message: "hidden diagnostic"}},
-		}},
+		{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   0,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentReasoning,
+				Text:            mo.Some("hidden reasoning"),
+			},
+		},
+		{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   1,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentText,
+				Text:            mo.Some("hello"),
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventToolExecutionStart,
+			RunID:      "run",
+			ToolCall: model.ToolCall{
+				ID:        "call",
+				Name:      "bash",
+				Arguments: map[string]any{},
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventToolExecutionUpdate,
+			RunID:      "run",
+			Progress: tool.Progress{
+				Channel: tool.ProgressChannelStatus,
+				Content: "working",
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventToolExecutionUpdate,
+			RunID:      "run",
+			Progress: tool.Progress{
+				Channel: tool.ProgressChannelStdout,
+				Content: "output",
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventToolExecutionUpdate,
+			RunID:      "run",
+			Progress: tool.Progress{
+				Channel: tool.ProgressChannelStderr,
+				Content: "warning",
+			},
+		},
+		{
+			Position: 0,
+			Content:  model.Content{},
+			Message:  model.Response{},
+			Preview:  model.ToolCallPreview{},
+			Progress: tool.Progress{},
+			Turn:     run.TurnSummary{},
+			Agent:    run.AgentSummary{},
+			Type:     run.EventToolExecutionEnd,
+			RunID:    "run",
+			ToolCall: model.ToolCall{
+				ID:        "call",
+				Name:      "bash",
+				Arguments: map[string]any{},
+			},
+			ToolResult: agent.ToolResult{
+				CallID:   "call",
+				ToolName: "bash",
+				Contents: tool.TextContents("done"),
+				IsError:  false,
+			},
+		},
+		{
+			Position:   0,
+			Content:    model.Content{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventMessageEnd,
+			RunID:      "run",
+			Message: model.Response{
+				Outcome:       mo.None[model.Outcome](),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Content: []model.Content{
+					{
+						Text:     mo.None[string](),
+						Final:    false,
+						ToolCall: mo.None[model.ToolCall](),
+						Kind:     model.ContentReasoning,
+						ProviderContext: mo.Some(
+							model.ProviderContext{
+								Source: model.ProviderContextSource{
+									API:              "",
+									Model:            "",
+									CompatibilityKey: mo.None[string](),
+									ProviderID:       "openai-codex",
+								},
+								Payload: []byte("encrypted-secret"),
+							},
+						),
+					},
+				},
+				Diagnostics: []model.Diagnostic{
+					{
+						Code:    "provider_recovery",
+						Message: "hidden diagnostic",
+					},
+				},
+			},
+		},
 	}
 	for _, event := range events {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
@@ -99,7 +358,11 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	require.NoError(t, renderer.DeliverSettled(t.Context(), "run"))
 
 	assert.Equal(t, "hello\n", stdout.String())
-	assert.Equal(t, "[tool:start] bash\n[tool:status] working\n[tool:stdout] output\n[tool:stderr] warning\n[tool:end] bash: ok\n", stderr.String())
+	assert.Equal(
+		t,
+		"[tool:start] bash\n[tool:status] working\n[tool:stdout] output\n[tool:stderr] warning\n[tool:end] bash: ok\n",
+		stderr.String(),
+	)
 	assert.NotContains(t, stdout.String(), "hidden reasoning")
 	assert.NotContains(t, stderr.String(), "encrypted-secret")
 	assert.NotContains(t, stderr.String(), "hidden diagnostic")
@@ -111,15 +374,54 @@ func TestRendererRendersTypedToolResultContents(t *testing.T) {
 
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
-	err := renderer.DeliverAgent(t.Context(), run.Event{Type: run.EventToolResult, ToolResult: agent.ToolResult{
-		Contents: []tool.ResultContent{
-			{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
-			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1}})},
-			{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
+	err := renderer.DeliverAgent(
+		t.Context(),
+		run.Event{
+			RunID:    "",
+			Position: 0,
+			Content:  model.Content{},
+			Message:  model.Response{},
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Progress: tool.Progress{},
+			Turn:     run.TurnSummary{},
+			Agent:    run.AgentSummary{},
+			Type:     run.EventToolResult,
+			ToolResult: agent.ToolResult{
+				CallID:   "",
+				ToolName: "",
+				IsError:  false,
+				Contents: []tool.ResultContent{
+					{
+						Kind:  tool.ResultContentText,
+						Text:  mo.Some("first"),
+						Image: mo.None[tool.ResultImage](),
+					},
+					{
+						Kind: tool.ResultContentImage,
+						Text: mo.None[string](),
+						Image: mo.Some(
+							tool.ResultImage{
+								MediaType: "image/png",
+								Data:      []byte{0, 1},
+							},
+						),
+					},
+					{
+						Kind:  tool.ResultContentText,
+						Text:  mo.Some("last"),
+						Image: mo.None[tool.ResultImage](),
+					},
+				},
+			},
 		},
-	}})
+	)
 	require.NoError(t, err)
-	assert.Equal(t, "[tool:result] first\n[tool:result] image omitted: image/png\n[tool:result] last\n", stderr.String())
+	assert.Equal(
+		t,
+		"[tool:result] first\n[tool:result] image omitted: image/png\n[tool:result] last\n",
+		stderr.String(),
+	)
 }
 
 // TestRendererWritesStartupInformationAndFailures verifies distinct informational and failure prefixes.
@@ -128,16 +430,44 @@ func TestRendererWritesStartupInformationAndFailures(t *testing.T) {
 
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
-	issue := toolservice.Issue{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("handshake failed")}
-	report := toolservice.LoadReport{Issues: []toolservice.Issue{issue}, Extensions: []toolservice.LoadedExtension{{
-		ID: "tools", Tools: []tool.Descriptor{{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)}, {Name: "bash", Description: "bash", InputSchemaJSON: []byte(`{}`)}},
-	}}}
+	issue := toolservice.Issue{
+		PluginIDs: []string{"broken"},
+		Path:      "/plugins/broken",
+		Err:       errors.New("handshake failed"),
+	}
+	report := toolservice.LoadReport{
+		Issues: []toolservice.Issue{issue},
+		Extensions: []toolservice.LoadedExtension{
+			{
+				Path: "",
+				ID:   "tools",
+				Tools: []tool.Descriptor{
+					{
+						ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+						Name:                "read",
+						Description:         "read",
+						InputSchemaJSON:     []byte(`{}`),
+					},
+					{
+						ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+						Name:                "bash",
+						Description:         "bash",
+						InputSchemaJSON:     []byte(`{}`),
+					},
+				},
+			},
+		},
+	}
 
 	require.NoError(t, renderer.ReportIssue(t.Context(), issue))
 	require.NoError(t, renderer.ReportSummary(t.Context(), report))
 	require.NoError(t, renderer.WriteError(errors.New("provider failed")))
 
-	assert.Equal(t, "[extension:error] broken (/plugins/broken): handshake failed\n[info] headless\n[info] extension tools: read, bash\n[error] provider failed\n", stderr.String())
+	assert.Equal(
+		t,
+		"[extension:error] broken (/plugins/broken): handshake failed\n[info] headless\n[info] extension tools: read, bash\n[error] provider failed\n",
+		stderr.String(),
+	)
 }
 
 // TestRendererReportsEmptyExtensionCatalogAsInformation verifies empty startup is not a warning.
@@ -161,9 +491,28 @@ func TestRendererPropagatesWriterFailure(t *testing.T) {
 	require.NoError(t, closedWriter.Close())
 	renderer := NewRenderer(closedWriter, &bytes.Buffer{})
 
-	err = renderer.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentText, Text: mo.Some("text")},
-	})
+	err = renderer.DeliverAgent(
+		t.Context(),
+		run.Event{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   0,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentText,
+				Text:            mo.Some("text"),
+			},
+		},
+	)
 
 	require.Error(t, err)
 }

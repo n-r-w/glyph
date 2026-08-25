@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields relevant to each presentation event and writer.
 package tui
 
 import (
@@ -25,7 +24,27 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 	output := newNotifyingWriter()
 	emitted := make(chan presentationdomain.Command, 1)
 	program := factory.New(
-		presentationdomain.Event{Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle},
+		presentationdomain.Event{
+			Kind:                 presentationdomain.EventInitialization,
+			Availability:         presentationdomain.AvailabilityIdle,
+			Startup:              nil,
+			Extensions:           nil,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 "",
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
+		},
 		input, output,
 		func(command presentationdomain.Command) error {
 			emitted <- command
@@ -43,7 +62,13 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 	require.NoError(t, err)
 	select {
 	case command := <-emitted:
-		assert.Equal(t, presentationdomain.Command{Kind: presentationdomain.CommandSubmit, Text: "héllo🙂"}, command)
+		assert.Equal(t, presentationdomain.Command{
+			Kind:            presentationdomain.CommandSubmit,
+			Text:            "héllo🙂",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		}, command)
 	case <-t.Context().Done():
 		t.Fatal("Bubble Tea did not emit submitted input")
 	}
@@ -59,7 +84,27 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 	factory := NewFactory(service.Apply)
 	output := newNotifyingWriter()
 	program := factory.New(
-		presentationdomain.Event{Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle},
+		presentationdomain.Event{
+			Kind:                 presentationdomain.EventInitialization,
+			Availability:         presentationdomain.AvailabilityIdle,
+			Startup:              nil,
+			Extensions:           nil,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 "",
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
+		},
 		bytes.NewBuffer(nil), output,
 		func(presentationdomain.Command) error { return nil },
 	)
@@ -71,7 +116,27 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 	case <-t.Context().Done():
 		t.Fatal("Bubble Tea did not write to the supplied terminal output")
 	}
-	program.Send(presentationdomain.Event{Kind: presentationdomain.EventInformation, Text: "stream event"})
+	program.Send(presentationdomain.Event{
+		Kind:                 presentationdomain.EventInformation,
+		Text:                 "stream event",
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         0,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           "",
+		ToolName:             "",
+		Status:               "",
+		Stream:               0,
+		ToolResultContents:   nil,
+		ErrorText:            "",
+		ExitCode:             0,
+		Failure:              false,
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               nil,
+		ModelSelection:       presentationdomain.ModelSelection{},
+	})
 	program.Quit()
 	require.NoError(t, <-runResult)
 	assert.NotEmpty(t, output.String())
@@ -86,7 +151,11 @@ type notifyingWriter struct {
 
 // newNotifyingWriter creates an output recorder with a first-write signal.
 func newNotifyingWriter() *notifyingWriter {
-	return &notifyingWriter{written: make(chan struct{}, 1)}
+	return &notifyingWriter{
+		written: make(chan struct{}, 1),
+		mutex:   sync.Mutex{},
+		buffer:  bytes.Buffer{},
+	}
 }
 
 // Write records rendered bytes and closes the first-write signal once.

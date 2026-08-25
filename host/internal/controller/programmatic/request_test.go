@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf oneof builders set only the active command field.
 package programmatic
 
 import (
@@ -22,60 +21,140 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		want    Command
 	}{
 		"missing command": {
-			request: programmaticv1.OpenRequest_builder{CorrelationId: proto.String("missing")}.Build(),
-			want:    Command{CorrelationID: "missing", Kind: CommandUnspecified, UserText: ""},
+
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId:         proto.String("missing"),
+				UserRequest:           nil,
+				Abort:                 nil,
+				GetRunState:           nil,
+				GetMessages:           nil,
+				GetModels:             nil,
+				SelectModel:           nil,
+				SelectReasoningChoice: nil,
+			}.Build(),
+			want: Command{
+				CorrelationID:   "missing",
+				Kind:            CommandUnspecified,
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
 		},
 		"user request": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 			request: programmaticv1.OpenRequest_builder{
 				CorrelationId: proto.String("user"),
-				UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("  exact text  ")}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "user", Kind: CommandUserRequest, UserText: "  exact text  "},
-		},
-		"invalid user request": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("invalid"),
-				UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String(" \t\n")}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "invalid", Kind: CommandUserRequest, UserText: " \t\n"},
-		},
-		"abort": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("abort"), Abort: programmaticv1.Abort_builder{}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "abort", Kind: CommandAbort, UserText: ""},
-		},
-		"get run state": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("state"), GetRunState: programmaticv1.GetRunState_builder{}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "state", Kind: CommandGetRunState, UserText: ""},
-		},
-		"get messages": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("messages"), GetMessages: programmaticv1.GetMessages_builder{}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "messages", Kind: CommandGetMessages, UserText: ""},
-		},
-		"get models": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("models"), GetModels: programmaticv1.GetModels_builder{}.Build(),
-			}.Build(),
-			want: Command{CorrelationID: "models", Kind: CommandGetModels},
-		},
-		"select model": {
-			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("select-model"),
-				SelectModel: programmaticv1.SelectModel_builder{
-					ProviderId: proto.String("provider"), ModelId: proto.String("model"),
+				UserRequest: programmaticv1.UserRequest_builder{
+					Text: proto.String("  exact text  "),
 				}.Build(),
 			}.Build(),
 			want: Command{
-				CorrelationID: "select-model", Kind: CommandSelectModel,
-				ProviderID: "provider", ModelID: "model",
+				CorrelationID:   "user",
+				Kind:            CommandUserRequest,
+				UserText:        "  exact text  ",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"invalid user request": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("invalid"),
+				UserRequest: programmaticv1.UserRequest_builder{
+					Text: proto.String(" \t\n"),
+				}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "invalid",
+				Kind:            CommandUserRequest,
+				UserText:        " \t\n",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"abort": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("abort"),
+				Abort:         programmaticv1.Abort_builder{}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "abort",
+				Kind:            CommandAbort,
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"get run state": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("state"),
+				GetRunState:   programmaticv1.GetRunState_builder{}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "state",
+				Kind:            CommandGetRunState,
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"get messages": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("messages"),
+				GetMessages:   programmaticv1.GetMessages_builder{}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "messages",
+				Kind:            CommandGetMessages,
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"get models": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("models"),
+				GetModels:     programmaticv1.GetModels_builder{}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "models",
+				Kind:            CommandGetModels,
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: "",
+			},
+		},
+		"select model": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
+			request: programmaticv1.OpenRequest_builder{
+				CorrelationId: proto.String("select-model"),
+				SelectModel: programmaticv1.SelectModel_builder{
+					ProviderId: proto.String("provider"),
+					ModelId:    proto.String("model"),
+				}.Build(),
+			}.Build(),
+			want: Command{
+				CorrelationID:   "select-model",
+				Kind:            CommandSelectModel,
+				ProviderID:      "provider",
+				ModelID:         "model",
+				UserText:        "",
+				ReasoningChoice: "",
 			},
 		},
 		"select reasoning": {
+			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 			request: programmaticv1.OpenRequest_builder{
 				CorrelationId: proto.String("select-reasoning"),
 				SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
@@ -83,7 +162,12 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				}.Build(),
 			}.Build(),
 			want: Command{
-				CorrelationID: "select-reasoning", Kind: CommandSelectReasoningChoice, ReasoningChoice: "max",
+				CorrelationID:   "select-reasoning",
+				Kind:            CommandSelectReasoningChoice,
+				ReasoningChoice: "max",
+				UserText:        "",
+				ProviderID:      "",
+				ModelID:         "",
 			},
 		},
 	}
@@ -115,6 +199,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 		programmaticv1.ReasoningChoice(99):                          "",
 	}
 	for level, want := range tests {
+		//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 		request := programmaticv1.OpenRequest_builder{
 			CorrelationId: proto.String(level.String()),
 			SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
@@ -131,7 +216,10 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 	t.Parallel()
 
-	request := programmaticv1.OpenRequest_builder{Abort: programmaticv1.Abort_builder{}.Build()}.Build()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+	request := programmaticv1.OpenRequest_builder{
+		Abort: programmaticv1.Abort_builder{}.Build(),
+	}.Build()
 	_, err := mapOpenRequest(request)
 	require.Error(t, err)
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))

@@ -1,4 +1,3 @@
-//nolint:exhaustruct // PTY frames set only fields used by each active protobuf payload.
 package app
 
 import (
@@ -137,23 +136,32 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	t.Cleanup(client.Close)
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Initialization: uiv1.Initialization_builder{
-		SelectedUiId: new("glyph-tui"),
-		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
-			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
-			Text:     new("Glyph session initialized."),
-		}.Build()},
-		Extensions:   []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{PluginId: new("glyph-tools"), Tools: []string{"read"}}.Build()},
-		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
-		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-		}.Build()},
-		ModelSelection: uiv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Initialization field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Initialization: uiv1.Initialization_builder{
+			SelectedUiId: new("glyph-tui"),
+			StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
+				Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
+				Text:     new("Glyph session initialized."),
+			}.Build()},
+			Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
+				PluginId: new("glyph-tools"),
+				Tools:    []string{"read"},
+				Path:     nil,
+			}.Build()},
+			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+			Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+				ProviderId: new("openai-codex"),
+				ModelId:    new("gpt"),
+				Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			}.Build()},
+			ModelSelection: uiv1.ModelSelection_builder{
+				ProviderId:      new("openai-codex"),
+				ModelId:         new("gpt"),
+				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			}.Build(),
 		}.Build(),
-	}.Build()}.Build()))
+	}.Build()))
 	setTerminalSize(t, terminalFile, 100, 40)
 
 	response, err := stream.Recv()
@@ -163,55 +171,196 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		ModelContent: uiv1.ModelContent_builder{
-			Type: new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA), Position: new(int32(0)), Text: new("streaming response"),
+			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+			Position: new(int32(0)),
+			Text:     new("streaming response"),
+			Kind:     nil,
 		}.Build(),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	assert.NotNil(t, response.GetStop())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
-		ToolCallId: new("call-1"), ToolName: new("read"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
+		ToolCallId:         new("call-1"),
+		ToolName:           new("read"),
+		RunId:              nil,
+		Text:               nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
-		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS), Text: new("working"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS),
+		Text:               new("working"),
+		RunId:              nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
-		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT), Text: new("content"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT),
+		Text:               new("content"),
+		RunId:              nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
-		ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR), Text: new("warning"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR),
+		Text:               new("warning"),
+		RunId:              nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END),
-		ToolCallId: new("call-1"), ToolName: new("read"), Text: new("done"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END),
+		ToolCallId:         new("call-1"),
+		ToolName:           new("read"),
+		Text:               new("done"),
+		RunId:              nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-		ToolCallId: new("call-1"), ToolName: new("read"),
+		ToolCallId: new("call-1"),
+		ToolName:   new("read"),
 		ToolResultContents: []*uiv1.ToolResultContent{
-			uiv1.ToolResultContent_builder{Text: new("result")}.Build(),
+			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+			uiv1.ToolResultContent_builder{
+				Text: new("result"),
+			}.Build(),
 		},
+		RunId:           nil,
+		Text:            nil,
+		ProgressChannel: nil,
+		IsError:         nil,
+		Outcome:         nil,
+		ErrorMessage:    nil,
+		Availability:    nil,
+		ModelContent:    nil,
+		ModelResponse:   nil,
+		ToolCallPreview: nil,
+		FinalToolCall:   nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
-		ModelResponse: uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
-			Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new("complete response"),
-		}.Build()}}.Build(),
+		ModelResponse: uiv1.ModelResponse_builder{
+			Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+				Text: new("complete response"),
+			}.Build()},
+			Text:          nil,
+			Outcome:       nil,
+			ErrorMessage:  nil,
+			Provider:      nil,
+			Model:         nil,
+			ResponseId:    nil,
+			Usage:         nil,
+			Diagnostics:   nil,
+			ResponseModel: nil,
+		}.Build(),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED), Outcome: new("completed"),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED),
+		Outcome:            new("completed"),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_IDLE)
 
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "second request", response.GetSubmit().GetText())
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Error: uiv1.Error_builder{Text: new("Authentication failed safely."), RetryAuthentication: new(true)}.Build()}.Build()))
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Error: uiv1.Error_builder{
+			Text:                new("Authentication failed safely."),
+			RetryAuthentication: new(true),
+		}.Build(),
+	}.Build()))
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED)
 
 	response, err = stream.Recv()
@@ -249,13 +398,30 @@ func sendAvailability(
 	sendLifecycle(t, stream, uiv1.LifecycleEvent_builder{
 		Type:         new(uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED),
 		Availability: new(availability),
+		RunId:        nil,
+		Text:         nil,
+
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 }
 
 // sendLifecycle writes one lifecycle fixture and requires successful delivery.
 func sendLifecycle(t *testing.T, stream uiv1.UIService_OpenClient, lifecycle *uiv1.LifecycleEvent) {
 	t.Helper()
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Lifecycle: proto.ValueOrDefault(lifecycle)}.Build()))
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Lifecycle: proto.ValueOrDefault(lifecycle),
+	}.Build()))
 }
 
 // terminalSettings reads the current terminal mode for restoration comparison.
@@ -315,7 +481,13 @@ var _ io.Writer = (*outputObserver)(nil)
 
 // newOutputObserver creates an ordered PTY output cursor bound to the test context.
 func newOutputObserver(ctx context.Context) *outputObserver {
-	return &outputObserver{context: ctx, notification: make(chan struct{}, 1)}
+	return &outputObserver{
+		context:      ctx,
+		notification: make(chan struct{}, 1),
+		mutex:        sync.Mutex{},
+		content:      bytes.Buffer{},
+		cursor:       0,
+	}
 }
 
 // Write records new PTY bytes and wakes blocked rendering assertions.
@@ -367,7 +539,10 @@ type commandWaiter struct {
 
 // newCommandWaiter begins waiting for the isolated TUI subprocess.
 func newCommandWaiter(command *exec.Cmd) *commandWaiter {
-	waiter := &commandWaiter{done: make(chan struct{})}
+	waiter := &commandWaiter{
+		done:   make(chan struct{}),
+		result: nil,
+	}
 	go func() {
 		waiter.result = command.Wait()
 		close(waiter.done)
@@ -382,5 +557,9 @@ func (waiter *commandWaiter) Wait() error {
 }
 
 func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
-	return uiv1.ReasoningCapabilities_builder{Supported: new(true), Choices: choices, DefaultChoice: new(choices[len(choices)-1])}.Build()
+	return uiv1.ReasoningCapabilities_builder{
+		Supported:     new(true),
+		Choices:       choices,
+		DefaultChoice: new(choices[len(choices)-1]),
+	}.Build()
 }

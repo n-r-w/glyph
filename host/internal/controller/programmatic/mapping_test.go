@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields used by each union variant.
 package programmatic
 
 import (
@@ -18,29 +17,84 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 
 	responseModel := ""
 	tests := map[string]Response{
-		"accepted": {CorrelationID: "accepted", Kind: ResponseUserRequestAccepted},
-		"aborted":  {CorrelationID: "aborted", Kind: ResponseAbortCompleted},
+		"accepted": {
+			CorrelationID: "accepted",
+			Kind:          ResponseUserRequestAccepted,
+			State:         RunStateResult{},
+			Messages:      nil,
+			Models:        ModelsResult{},
+			Selection:     model.Selection{},
+			Rejection:     Rejection{},
+		},
+		"aborted": {
+			CorrelationID: "aborted",
+			Kind:          ResponseAbortCompleted,
+			State:         RunStateResult{},
+			Messages:      nil,
+			Models:        ModelsResult{},
+			Selection:     model.Selection{},
+			Rejection:     Rejection{},
+		},
 		"state": {
-			CorrelationID: "state", Kind: ResponseRunState,
-			State: RunStateResult{State: RunStateRunning, ActiveCorrelationID: "active"},
+			CorrelationID: "state",
+			Kind:          ResponseRunState,
+			State: RunStateResult{
+				State:               RunStateRunning,
+				ActiveCorrelationID: "active",
+			},
+			Messages:  nil,
+			Models:    ModelsResult{},
+			Selection: model.Selection{},
+			Rejection: Rejection{},
 		},
 		"messages": {
-			CorrelationID: "messages", Kind: ResponseMessages,
+			CorrelationID: "messages",
+			Kind:          ResponseMessages,
 			Messages: []HistoryEntry{
-				{Kind: HistoryEntryUser, UserText: "user"},
-				{Kind: HistoryEntryModel, Model: maximalModelResponse(&responseModel)},
-				{Kind: HistoryEntryToolResult, ToolResult: maximalToolResult()},
+				{
+					Kind:       HistoryEntryUser,
+					UserText:   "user",
+					Model:      ModelResponse{},
+					ToolResult: ToolResult{},
+				},
+				{
+					Kind:       HistoryEntryModel,
+					Model:      maximalModelResponse(&responseModel),
+					UserText:   "",
+					ToolResult: ToolResult{},
+				},
+				{
+					Kind:       HistoryEntryToolResult,
+					ToolResult: maximalToolResult(),
+					UserText:   "",
+					Model:      ModelResponse{},
+				},
 			},
+			State:     RunStateResult{},
+			Models:    ModelsResult{},
+			Selection: model.Selection{},
+			Rejection: Rejection{},
 		},
 		"rejected": {
-			CorrelationID: "rejected", Kind: ResponseRejected,
-			Rejection: Rejection{Command: CommandUnspecified, Code: RejectionInvalidArgument, Message: "invalid"},
+			CorrelationID: "rejected",
+			Kind:          ResponseRejected,
+			Rejection: Rejection{
+				Command: CommandUnspecified,
+				Code:    RejectionInvalidArgument,
+				Message: "invalid",
+			},
+			State:     RunStateResult{},
+			Messages:  nil,
+			Models:    ModelsResult{},
+			Selection: model.Selection{},
 		},
 		"models": {
-			CorrelationID: "models", Kind: ResponseModels,
+			CorrelationID: "models",
+			Kind:          ResponseModels,
 			Models: ModelsResult{
 				Models: []model.Descriptor{{
-					Provider: "provider", Model: "model",
+					Provider: "provider",
+					Model:    "model",
 					ReasoningCapabilities: model.ReasoningCapabilities{
 						Supported: true,
 						Choices: []model.ReasoningChoice{
@@ -50,23 +104,40 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 						},
 						Default: model.ReasoningChoiceHigh,
 					},
+					ToolCapabilities: model.ToolCapabilities{},
 				}, {
-					Provider: "ollama", Model: "ornith",
+					Provider: "ollama",
+					Model:    "ornith",
 					ReasoningCapabilities: model.ReasoningCapabilities{
-						Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceOn},
-						Default: model.ReasoningChoiceOn,
+						Supported: true,
+						Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
+						Default:   model.ReasoningChoiceOn,
 					},
+					ToolCapabilities: model.ToolCapabilities{},
 				}},
 				ActiveSelection: model.Selection{
-					Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh,
+					Provider:        "provider",
+					Model:           "model",
+					ReasoningChoice: model.ReasoningChoiceHigh,
 				},
 			},
+			State:     RunStateResult{},
+			Messages:  nil,
+			Selection: model.Selection{},
+			Rejection: Rejection{},
 		},
 		"model selection": {
-			CorrelationID: "selection", Kind: ResponseModelSelection,
+			CorrelationID: "selection",
+			Kind:          ResponseModelSelection,
 			Selection: model.Selection{
-				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceMax,
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceMax,
 			},
+			State:     RunStateResult{},
+			Messages:  nil,
+			Models:    ModelsResult{},
+			Rejection: Rejection{},
 		},
 	}
 
@@ -132,8 +203,29 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 	}
 
 	mapped, err := mapResponse(Response{
-		CorrelationID: "absent", Kind: ResponseMessages,
-		Messages: []HistoryEntry{{Kind: HistoryEntryModel, Model: ModelResponse{Outcome: ModelOutcomeStop}}},
+		CorrelationID: "absent",
+		Kind:          ResponseMessages,
+		Messages: []HistoryEntry{{
+			Kind: HistoryEntryModel,
+			Model: ModelResponse{
+				Outcome:       ModelOutcomeStop,
+				Text:          "",
+				ErrorMessage:  "",
+				Provider:      "",
+				Model:         "",
+				ResponseModel: nil,
+				ResponseID:    "",
+				Usage:         ModelUsage{},
+				Diagnostics:   nil,
+				Content:       nil,
+			},
+			UserText:   "",
+			ToolResult: ToolResult{},
+		}},
+		State:     RunStateResult{},
+		Models:    ModelsResult{},
+		Selection: model.Selection{},
+		Rejection: Rejection{},
 	})
 	require.NoError(t, err)
 	assert.False(t, mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel().HasResponseModel())
@@ -149,23 +241,284 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 		payload   string
 		event     AgentEvent
 	}{
-		{typeValue: AgentEventAgentStart},
-		{typeValue: AgentEventTurnStart},
-		{typeValue: AgentEventMessageStart},
-		{typeValue: AgentEventModelContentStart, payload: "model_content", event: AgentEvent{ModelContent: ModelContent{Kind: ModelContentReasoning, Position: 2}}},
-		{typeValue: AgentEventModelTextDelta, payload: "model_content", event: AgentEvent{ModelContent: ModelContent{Kind: ModelContentText, Position: 1, Text: "delta"}}},
-		{typeValue: AgentEventModelContentEnd, payload: "model_content", event: AgentEvent{ModelContent: ModelContent{Kind: ModelContentRefusal, Position: 3}}},
-		{typeValue: AgentEventToolCallStart, payload: "tool_call_preview", event: AgentEvent{ToolCallPreview: maximalToolCallPreview()}},
-		{typeValue: AgentEventToolCallDelta, payload: "tool_call_preview", event: AgentEvent{ToolCallPreview: maximalToolCallPreview()}},
-		{typeValue: AgentEventToolCallEnd, payload: "final_tool_call", event: AgentEvent{FinalToolCall: maximalFinalToolCall()}},
-		{typeValue: AgentEventMessageEnd, payload: "model_response", event: AgentEvent{ModelResponse: maximalModelResponse(&responseModel)}},
-		{typeValue: AgentEventToolExecutionStart, payload: "tool_execution", event: AgentEvent{ToolExecution: ToolExecution{CallID: "call", ToolName: "tool"}}},
-		{typeValue: AgentEventToolExecutionUpdate, payload: "tool_progress", event: AgentEvent{ToolProgress: ToolProgress{Channel: ProgressChannelStderr, Content: "progress"}}},
-		{typeValue: AgentEventToolExecutionEnd, payload: "tool_result", event: AgentEvent{ToolResult: maximalToolResult()}},
-		{typeValue: AgentEventToolResult, payload: "tool_result", event: AgentEvent{ToolResult: maximalToolResult()}},
-		{typeValue: AgentEventTurnEnd, payload: "turn", event: AgentEvent{Turn: TurnSummary{Response: maximalModelResponse(&responseModel), ToolResults: []ToolResult{maximalToolResult()}}}},
-		{typeValue: AgentEventAgentEnd, payload: "agent", event: AgentEvent{Agent: AgentSummary{Outcome: RunOutcomeFailed, ErrorMessage: "failed"}}},
-		{typeValue: AgentEventAgentSettled},
+		{
+			typeValue: AgentEventAgentStart,
+			payload:   "",
+			event:     AgentEvent{},
+		},
+		{
+			typeValue: AgentEventTurnStart,
+			payload:   "",
+			event:     AgentEvent{},
+		},
+		{
+			typeValue: AgentEventMessageStart,
+			payload:   "",
+			event:     AgentEvent{},
+		},
+		{
+			typeValue: AgentEventModelContentStart,
+			payload:   "model_content",
+			event: AgentEvent{
+				ModelContent: ModelContent{
+					Kind:     ModelContentReasoning,
+					Position: 2,
+					Text:     "",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventModelTextDelta,
+			payload:   "model_content",
+			event: AgentEvent{
+				ModelContent: ModelContent{
+					Kind:     ModelContentText,
+					Position: 1,
+					Text:     "delta",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventModelContentEnd,
+			payload:   "model_content",
+			event: AgentEvent{
+				ModelContent: ModelContent{
+					Kind:     ModelContentRefusal,
+					Position: 3,
+					Text:     "",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolCallStart,
+			payload:   "tool_call_preview",
+			event: AgentEvent{
+				ToolCallPreview: maximalToolCallPreview(),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolCallDelta,
+			payload:   "tool_call_preview",
+			event: AgentEvent{
+				ToolCallPreview: maximalToolCallPreview(),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolCallEnd,
+			payload:   "final_tool_call",
+			event: AgentEvent{
+				FinalToolCall:   maximalFinalToolCall(),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventMessageEnd,
+			payload:   "model_response",
+			event: AgentEvent{
+				ModelResponse:   maximalModelResponse(&responseModel),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolExecutionStart,
+			payload:   "tool_execution",
+			event: AgentEvent{
+				ToolExecution: ToolExecution{
+					CallID:   "call",
+					ToolName: "tool",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolExecutionUpdate,
+			payload:   "tool_progress",
+			event: AgentEvent{
+				ToolProgress: ToolProgress{
+					Channel: ProgressChannelStderr,
+					Content: "progress",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolExecutionEnd,
+			payload:   "tool_result",
+			event: AgentEvent{
+				ToolResult:      maximalToolResult(),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventToolResult,
+			payload:   "tool_result",
+			event: AgentEvent{
+				ToolResult:      maximalToolResult(),
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventTurnEnd,
+			payload:   "turn",
+			event: AgentEvent{
+				Turn: TurnSummary{
+					Response:    maximalModelResponse(&responseModel),
+					ToolResults: []ToolResult{maximalToolResult()},
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Agent:           AgentSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventAgentEnd,
+			payload:   "agent",
+			event: AgentEvent{
+				Agent: AgentSummary{
+					Outcome:      RunOutcomeFailed,
+					ErrorMessage: "failed",
+				},
+				CorrelationID:   "",
+				Type:            0,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+			},
+		},
+		{
+			typeValue: AgentEventAgentSettled,
+			payload:   "",
+			event:     AgentEvent{},
+		},
 	}
 
 	for _, test := range tests {
@@ -195,42 +548,253 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]func() error{
-		"response": func() error { _, err := mapResponse(Response{Kind: ResponseUnspecified}); return err },
-		"history": func() error {
-			_, err := mapResponse(Response{Kind: ResponseMessages, Messages: []HistoryEntry{{Kind: HistoryEntryUnspecified}}})
+		"response": func() error {
+			_, err := mapResponse(Response{
+				Kind:          ResponseUnspecified,
+				CorrelationID: "",
+				State:         RunStateResult{},
+				Messages:      nil,
+				Models:        ModelsResult{},
+				Selection:     model.Selection{},
+				Rejection:     Rejection{},
+			})
 			return err
 		},
-		"event": func() error { _, err := mapEvent(AgentEvent{Type: AgentEventUnspecified}); return err },
+		"history": func() error {
+			_, err := mapResponse(Response{
+				Kind: ResponseMessages,
+				Messages: []HistoryEntry{{
+					Kind:       HistoryEntryUnspecified,
+					UserText:   "",
+					Model:      ModelResponse{},
+					ToolResult: ToolResult{},
+				}},
+				CorrelationID: "",
+				State:         RunStateResult{},
+				Models:        ModelsResult{},
+				Selection:     model.Selection{},
+				Rejection:     Rejection{},
+			})
+			return err
+		},
+		"event": func() error {
+			_, err := mapEvent(AgentEvent{
+				Type:            AgentEventUnspecified,
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
+			return err
+		},
 		"content": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventModelContentStart, ModelContent: ModelContent{Kind: ModelContentUnspecified}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventModelContentStart,
+				ModelContent: ModelContent{
+					Kind:     ModelContentUnspecified,
+					Position: 0,
+					Text:     "",
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
 			return err
 		},
 		"preview kind": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventToolCallStart, ToolCallPreview: ToolCallPreview{Fields: []ToolCallPreviewField{{Kind: ToolCallPreviewFieldUnspecified}}}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventToolCallStart,
+				ToolCallPreview: ToolCallPreview{
+					Fields: []ToolCallPreviewField{{
+						Kind:   ToolCallPreviewFieldUnspecified,
+						Name:   "",
+						Value:  nil,
+						Prefix: "",
+					}},
+					CallID:      "",
+					Name:        "",
+					Position:    0,
+					Provisional: false,
+				},
+				CorrelationID: "",
+				RunID:         "",
+				ModelContent:  ModelContent{},
+				FinalToolCall: FinalToolCall{},
+				ToolExecution: ToolExecution{},
+				ToolProgress:  ToolProgress{},
+				ToolResult:    ToolResult{},
+				ModelResponse: ModelResponse{},
+				Turn:          TurnSummary{},
+				Agent:         AgentSummary{},
+			})
 			return err
 		},
 		"preview JSON": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventToolCallStart, ToolCallPreview: ToolCallPreview{Fields: []ToolCallPreviewField{{Kind: ToolCallPreviewFieldComplete, Value: make(chan int)}}}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventToolCallStart,
+				ToolCallPreview: ToolCallPreview{
+					Fields: []ToolCallPreviewField{{
+						Kind:   ToolCallPreviewFieldComplete,
+						Value:  make(chan int),
+						Name:   "",
+						Prefix: "",
+					}},
+					CallID:      "",
+					Name:        "",
+					Position:    0,
+					Provisional: false,
+				},
+				CorrelationID: "",
+				RunID:         "",
+				ModelContent:  ModelContent{},
+				FinalToolCall: FinalToolCall{},
+				ToolExecution: ToolExecution{},
+				ToolProgress:  ToolProgress{},
+				ToolResult:    ToolResult{},
+				ModelResponse: ModelResponse{},
+				Turn:          TurnSummary{},
+				Agent:         AgentSummary{},
+			})
 			return err
 		},
 		"progress": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventToolExecutionUpdate, ToolProgress: ToolProgress{Channel: ProgressChannelUnspecified}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventToolExecutionUpdate,
+				ToolProgress: ToolProgress{
+					Channel: ProgressChannelUnspecified,
+					Content: "",
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
 			return err
 		},
 		"tool result": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventToolResult, ToolResult: ToolResult{Contents: []ToolResultContent{{Kind: ToolResultContentUnspecified}}}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventToolResult,
+				ToolResult: ToolResult{
+					Contents: []ToolResultContent{{
+						Kind:  ToolResultContentUnspecified,
+						Text:  "",
+						Image: ToolResultImage{},
+					}},
+					CallID:   "",
+					ToolName: "",
+					IsError:  false,
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
 			return err
 		},
 		"model outcome": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventMessageEnd, ModelResponse: ModelResponse{Outcome: ModelOutcomeUnspecified}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventMessageEnd,
+				ModelResponse: ModelResponse{
+					Outcome:       ModelOutcomeUnspecified,
+					Text:          "",
+					ErrorMessage:  "",
+					Provider:      "",
+					Model:         "",
+					ResponseModel: nil,
+					ResponseID:    "",
+					Usage:         ModelUsage{},
+					Diagnostics:   nil,
+					Content:       nil,
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
 			return err
 		},
 		"model content": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventMessageEnd, ModelResponse: ModelResponse{Outcome: ModelOutcomeStop, Content: []ModelResponseContent{{Kind: ModelResponseContentUnspecified}}}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventMessageEnd,
+				ModelResponse: ModelResponse{
+					Outcome: ModelOutcomeStop,
+					Content: []ModelResponseContent{{
+						Kind:     ModelResponseContentUnspecified,
+						Text:     "",
+						ToolCall: FinalToolCall{},
+					}},
+					Text:          "",
+					ErrorMessage:  "",
+					Provider:      "",
+					Model:         "",
+					ResponseModel: nil,
+					ResponseID:    "",
+					Usage:         ModelUsage{},
+					Diagnostics:   nil,
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			})
 			return err
 		},
 		"run outcome": func() error {
-			_, err := mapEvent(AgentEvent{Type: AgentEventAgentEnd, Agent: AgentSummary{Outcome: RunOutcomeUnspecified}})
+			_, err := mapEvent(AgentEvent{
+				Type: AgentEventAgentEnd,
+				Agent: AgentSummary{
+					Outcome:      RunOutcomeUnspecified,
+					ErrorMessage: "",
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+			})
 			return err
 		},
 	}
@@ -291,42 +855,101 @@ func TestApprovedEnumValuesMapExactly(t *testing.T) {
 
 func maximalToolCallPreview() ToolCallPreview {
 	return ToolCallPreview{
-		CallID: "call", Name: "tool", Position: 4, Provisional: true,
+		CallID:      "call",
+		Name:        "tool",
+		Position:    4,
+		Provisional: true,
 		Fields: []ToolCallPreviewField{
-			{Name: "null", Kind: ToolCallPreviewFieldComplete, Value: nil},
-			{Name: "prefix", Kind: ToolCallPreviewFieldPrefix, Prefix: ""},
+			{
+				Name:   "null",
+				Kind:   ToolCallPreviewFieldComplete,
+				Value:  nil,
+				Prefix: "",
+			},
+			{
+				Name:   "prefix",
+				Kind:   ToolCallPreviewFieldPrefix,
+				Prefix: "",
+				Value:  nil,
+			},
 		},
 	}
 }
 
 func maximalFinalToolCall() FinalToolCall {
 	return FinalToolCall{
-		CallID: "call", Name: "tool", Position: 4,
+		CallID:    "call",
+		Name:      "tool",
+		Position:  4,
 		Arguments: map[string]any{"null": nil, "array": []any{"value", float64(2)}},
 	}
 }
 
 func maximalToolResult() ToolResult {
 	return ToolResult{
-		CallID: "call", ToolName: "tool", IsError: true,
+		CallID:   "call",
+		ToolName: "tool",
+		IsError:  true,
 		Contents: []ToolResultContent{
-			{Kind: ToolResultContentText, Text: ""},
-			{Kind: ToolResultContentImage, Image: ToolResultImage{MediaType: "image/png", Data: []byte{0, 1, 255}}},
+			{
+				Kind:  ToolResultContentText,
+				Text:  "",
+				Image: ToolResultImage{},
+			},
+			{
+				Kind: ToolResultContentImage,
+				Image: ToolResultImage{
+					MediaType: "image/png",
+					Data:      []byte{0, 1, 255},
+				},
+				Text: "",
+			},
 		},
 	}
 }
 
 func maximalModelResponse(responseModel *string) ModelResponse {
 	return ModelResponse{
-		Text: "text", Outcome: ModelOutcomeToolUse, ErrorMessage: "error", Provider: "provider", Model: "model",
-		ResponseModel: responseModel, ResponseID: "response",
-		Usage:       ModelUsage{InputTokens: 1, OutputTokens: 2, CachedInputTokens: 3, CacheWriteTokens: 4, ReasoningTokens: 5, TotalTokens: 6},
-		Diagnostics: []ModelDiagnostic{{Code: "code", Message: "message"}},
+		Text:          "text",
+		Outcome:       ModelOutcomeToolUse,
+		ErrorMessage:  "error",
+		Provider:      "provider",
+		Model:         "model",
+		ResponseModel: responseModel,
+		ResponseID:    "response",
+		Usage: ModelUsage{
+			InputTokens:       1,
+			OutputTokens:      2,
+			CachedInputTokens: 3,
+			CacheWriteTokens:  4,
+			ReasoningTokens:   5,
+			TotalTokens:       6,
+		},
+		Diagnostics: []ModelDiagnostic{{
+			Code:    "code",
+			Message: "message",
+		}},
 		Content: []ModelResponseContent{
-			{Kind: ModelResponseContentText, Text: "text"},
-			{Kind: ModelResponseContentRefusal, Text: "refusal"},
-			{Kind: ModelResponseContentReasoning, Text: "reasoning"},
-			{Kind: ModelResponseContentToolCall, ToolCall: maximalFinalToolCall()},
+			{
+				Kind:     ModelResponseContentText,
+				Text:     "text",
+				ToolCall: FinalToolCall{},
+			},
+			{
+				Kind:     ModelResponseContentRefusal,
+				Text:     "refusal",
+				ToolCall: FinalToolCall{},
+			},
+			{
+				Kind:     ModelResponseContentReasoning,
+				Text:     "reasoning",
+				ToolCall: FinalToolCall{},
+			},
+			{
+				Kind:     ModelResponseContentToolCall,
+				ToolCall: maximalFinalToolCall(),
+				Text:     "",
+			},
 		},
 	}
 }

@@ -1,6 +1,4 @@
 // Package tui owns the standard terminal presentation and Bubble Tea event loop.
-//
-//nolint:exhaustruct // The root model emits partial presentation events and commands for one active kind.
 package tui
 
 import (
@@ -54,7 +52,19 @@ type emissionResultMsg struct {
 
 // NewModel creates the root model from the initialization event.
 func NewModel(initial presentationdomain.Event, apply Apply, emit Emit) Model {
-	return Model{state: apply(presentationdomain.State{}, initial), apply: apply, emit: emit}
+	return Model{
+		state:             apply(presentationdomain.State{}, initial),
+		input:             nil,
+		cursor:            0,
+		width:             0,
+		height:            0,
+		emitting:          false,
+		selectorOpen:      false,
+		selectorRow:       0,
+		reasoningExpanded: false,
+		apply:             apply,
+		emit:              emit,
+	}
 }
 
 // Init starts no background presentation work.
@@ -86,8 +96,25 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 	model.emitting = false
 	if message.err != nil {
 		model.state = model.apply(model.state, presentationdomain.Event{
-			Kind: presentationdomain.EventError,
-			Text: "Could not send command: " + message.err.Error(),
+			Kind:                 presentationdomain.EventError,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 "Could not send command: " + message.err.Error(),
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
 		})
 		return model, nil
 	}
@@ -95,8 +122,25 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 	switch message.command.Kind {
 	case presentationdomain.CommandSubmit:
 		model.state = model.apply(model.state, presentationdomain.Event{
-			Kind: presentationdomain.EventUserSubmitted,
-			Text: message.command.Text,
+			Kind:                 presentationdomain.EventUserSubmitted,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 message.command.Text,
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
 		})
 		model.input = nil
 		model.cursor = 0
@@ -152,7 +196,13 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 			model.cursor = 0
 			return model.openSelector()
 		}
-		return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandSubmit, Text: text})
+		return model.emitCommand(presentationdomain.Command{
+			Kind:            presentationdomain.CommandSubmit,
+			Text:            text,
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		})
 	case tea.KeyLeft:
 		if model.cursor > 0 {
 			model.cursor--
@@ -200,14 +250,32 @@ func selectionAvailable(availability presentationdomain.Availability) bool {
 func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 	switch code {
 	case 'q':
-		return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandQuit})
+		return model.emitCommand(presentationdomain.Command{
+			Kind:            presentationdomain.CommandQuit,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		})
 	case 'c':
 		if model.state.Availability == presentationdomain.AvailabilityRunning {
-			return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandStop})
+			return model.emitCommand(presentationdomain.Command{
+				Kind:            presentationdomain.CommandStop,
+				Text:            "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: 0,
+			})
 		}
 	case 'r':
 		if model.state.Availability == presentationdomain.AvailabilityAuthenticationFailed {
-			return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandRetryAuthentication})
+			return model.emitCommand(presentationdomain.Command{
+				Kind:            presentationdomain.CommandRetryAuthentication,
+				Text:            "",
+				ProviderID:      "",
+				ModelID:         "",
+				ReasoningChoice: 0,
+			})
 		}
 	case 'l':
 		return model.openSelector()
@@ -238,7 +306,11 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 		selected := model.state.Models[model.selectorRow]
 		model.selectorOpen = false
 		return model.emitCommand(presentationdomain.Command{
-			Kind: presentationdomain.CommandSelectModel, ProviderID: selected.ProviderID, ModelID: selected.ModelID,
+			Kind:            presentationdomain.CommandSelectModel,
+			Text:            "",
+			ProviderID:      selected.ProviderID,
+			ModelID:         selected.ModelID,
+			ReasoningChoice: 0,
 		})
 	case tea.KeyEscape:
 		model.selectorOpen = false
@@ -254,7 +326,11 @@ func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
 	index := (model.currentModelIndex() + direction + len(model.state.Models)) % len(model.state.Models)
 	selected := model.state.Models[index]
 	return model.emitCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectModel, ProviderID: selected.ProviderID, ModelID: selected.ModelID,
+		Kind:            presentationdomain.CommandSelectModel,
+		Text:            "",
+		ProviderID:      selected.ProviderID,
+		ModelID:         selected.ModelID,
+		ReasoningChoice: 0,
 	})
 }
 
@@ -275,7 +351,11 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 		}
 	}
 	return model.emitCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectReasoningChoice, ReasoningChoice: configured.Reasoning.Choices[index],
+		Kind:            presentationdomain.CommandSelectReasoningChoice,
+		Text:            "",
+		ProviderID:      "",
+		ModelID:         "",
+		ReasoningChoice: configured.Reasoning.Choices[index],
 	})
 }
 
@@ -296,7 +376,10 @@ func (model Model) emitCommand(command presentationdomain.Command) (tea.Model, t
 	model.emitting = true
 
 	return model, func() tea.Msg {
-		return emissionResultMsg{command: command, err: model.emit(command)}
+		return emissionResultMsg{
+			command: command,
+			err:     model.emit(command),
+		}
 	}
 }
 
@@ -409,7 +492,17 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 			lines = appendWrappedBodyLine(lines, "Reasoning: [collapsed]", model.width)
 			continue
 		}
-		lines = appendWrappedBodyLine(lines, renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}), model.width)
+		lines = appendWrappedBodyLine(
+			lines,
+			renderLine(presentationdomain.Line{
+				Kind:               kind,
+				Text:               content.Text,
+				ToolName:           "",
+				Status:             "",
+				ToolResultContents: nil,
+			}),
+			model.width,
+		)
 	}
 	calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
 	for _, call := range model.state.ActiveToolCalls {

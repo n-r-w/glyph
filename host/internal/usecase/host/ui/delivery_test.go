@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields relevant to each event union.
 package ui
 
 import (
@@ -23,6 +22,7 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 
 	channel := NewMockChannel(gomock.NewController(t))
 	channel.EXPECT().Send(domainui.Frame{
+		ModelSelection:      domainui.ModelSelection{},
 		Kind:                domainui.FrameError,
 		Initialization:      domainui.Initialization{},
 		Lifecycle:           domainui.Lifecycle{},
@@ -32,7 +32,8 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
-		PluginID: "crashed-plugin", Condition: tool.RuntimeUnavailableProcessExited,
+		PluginID:  "crashed-plugin",
+		Condition: tool.RuntimeUnavailableProcessExited,
 	})
 
 	require.NoError(t, err)
@@ -51,9 +52,51 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	service := NewDelivery(channel)
 
 	for _, event := range []run.Event{
-		{Type: run.EventContentStart, RunID: "run", Position: 2},
-		{Type: run.EventTextDelta, RunID: "run", Position: 2, Content: model.Content{Kind: model.ContentText, Text: mo.Some("delta")}},
-		{Type: run.EventContentEnd, RunID: "run", Position: 2},
+		{
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventContentStart,
+			RunID:      "run",
+			Position:   2,
+		},
+		{
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventTextDelta,
+			RunID:      "run",
+			Position:   2,
+			Content: model.Content{
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+				Kind:            model.ContentText,
+				Text:            mo.Some("delta"),
+			},
+		},
+		{
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventContentEnd,
+			RunID:      "run",
+			Position:   2,
+		},
 	} {
 		require.NoError(t, service.DeliverAgent(t.Context(), event))
 	}
@@ -76,20 +119,66 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 	}).Times(2)
 	service := NewDelivery(channel)
 	preview := model.ToolCallPreview{
-		CallID: "call-1", Name: "read", Position: 2, Provisional: true,
-		Fields: []model.ToolCallPreviewField{{Name: "path", Kind: model.ToolCallPreviewFieldPrefix, Prefix: "fi"}},
+		CallID:      "call-1",
+		Name:        "read",
+		Position:    2,
+		Provisional: true,
+		Fields: []model.ToolCallPreviewField{
+			{
+				Value:  nil,
+				Name:   "path",
+				Kind:   model.ToolCallPreviewFieldPrefix,
+				Prefix: "fi",
+			},
+		},
 	}
-	require.NoError(t, service.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventToolCallDelta, RunID: "run", Position: 2, Preview: preview,
-	}))
-	require.NoError(t, service.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventToolCallEnd, RunID: "run", Position: 2,
-		ToolCall: model.ToolCall{ID: "call-1", Name: "read", Arguments: map[string]any{"path": "file.txt"}},
-	}))
+	require.NoError(
+		t,
+		service.DeliverAgent(
+			t.Context(),
+			run.Event{
+				Content:    model.Content{},
+				Message:    model.Response{},
+				ToolCall:   model.ToolCall{},
+				Progress:   tool.Progress{},
+				ToolResult: agent.ToolResult{},
+				Turn:       run.TurnSummary{},
+				Agent:      run.AgentSummary{},
+				Type:       run.EventToolCallDelta,
+				RunID:      "run",
+				Position:   2,
+				Preview:    preview,
+			},
+		),
+	)
+	require.NoError(
+		t,
+		service.DeliverAgent(t.Context(), run.Event{
+			Content:    model.Content{},
+			Message:    model.Response{},
+			Preview:    model.ToolCallPreview{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent:      run.AgentSummary{},
+			Type:       run.EventToolCallEnd,
+			RunID:      "run",
+			Position:   2,
+			ToolCall: model.ToolCall{
+				ID:        "call-1",
+				Name:      "read",
+				Arguments: map[string]any{"path": "file.txt"},
+			},
+		}),
+	)
 
 	require.Equal(t, "fi", delivered[0].Lifecycle.ToolCallPreview.Fields[0].Prefix)
 	require.True(t, delivered[0].Lifecycle.ToolCallPreview.Provisional)
-	require.Equal(t, map[string]any{"path": "file.txt"}, delivered[1].Lifecycle.FinalToolCall.Arguments)
+	require.Equal(
+		t,
+		map[string]any{"path": "file.txt"},
+		delivered[1].Lifecycle.FinalToolCall.Arguments,
+	)
 }
 
 // TestDeliveryFiltersProviderContextFromMessageEnd verifies opaque provider data cannot cross the UI boundary.
@@ -104,25 +193,65 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 		return nil
 	})
 	event := run.Event{
-		Type: run.EventMessageEnd, RunID: "run-1",
+		Position: 0,
+		Content:  model.Content{},
+		Preview:  model.ToolCallPreview{},
+		Type:     run.EventMessageEnd,
+		RunID:    "run-1",
 		Message: model.Response{
+			ErrorMessage: mo.None[string](),
 			Content: []model.Content{
 				{
-					Kind: model.ContentReasoning, Text: mo.Some("hidden reasoning"), Final: true,
-					ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "secret-provider"}, Payload: []byte("encrypted-secret")}),
+					ToolCall: mo.None[model.ToolCall](),
+					Kind:     model.ContentReasoning,
+					Text:     mo.Some("hidden reasoning"),
+					Final:    true,
+					ProviderContext: mo.Some(
+						model.ProviderContext{
+							Source: model.ProviderContextSource{
+								API:              "",
+								Model:            "",
+								CompatibilityKey: mo.None[string](),
+								ProviderID:       "secret-provider",
+							},
+							Payload: []byte("encrypted-secret"),
+						},
+					),
 				},
 				{
-					Kind: model.ContentText, Text: mo.Some("visible text"),
+					Final:           false,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+					Kind:            model.ContentText,
+					Text:            mo.Some("visible text"),
 				},
-				{Kind: model.ContentRefusal, Text: mo.Some("cannot help"), Final: true},
+				{
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+					Kind:            model.ContentRefusal,
+					Text:            mo.Some("cannot help"),
+					Final:           true,
+				},
 			},
-			Outcome:  mo.Some(model.OutcomeStop),
-			Provider: mo.Some(model.ProviderID("openai-codex")), Model: mo.Some(model.ID("gpt-test")), ResponseModel: mo.Some(actualModel), ResponseID: mo.Some("resp-1"),
+			Outcome: mo.Some(model.OutcomeStop),
+			Provider: mo.Some(
+				model.ProviderID("openai-codex"),
+			),
+			Model:         mo.Some(model.ID("gpt-test")),
+			ResponseModel: mo.Some(actualModel),
+			ResponseID:    mo.Some("resp-1"),
 			Usage: mo.Some(model.Usage{
-				InputTokens: 10, OutputTokens: 7, CachedInputTokens: 4,
-				CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 17,
+				InputTokens:       10,
+				OutputTokens:      7,
+				CachedInputTokens: 4,
+				CacheWriteTokens:  1,
+				ReasoningTokens:   3,
+				TotalTokens:       17,
 			}),
-			Diagnostics: []model.Diagnostic{{Code: "recovered_output", Message: "safe diagnostic"}},
+			Diagnostics: []model.Diagnostic{{
+				Code:    "recovered_output",
+				Message: "safe diagnostic",
+			}},
 		},
 		ToolCall:   model.ToolCall{},
 		Progress:   tool.Progress{},
@@ -145,12 +274,22 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 	assert.Equal(t, "resp-1", delivered.Lifecycle.ModelResponse.ResponseID)
 	assert.Equal(t, int64(17), delivered.Lifecycle.ModelResponse.Usage.TotalTokens)
 	assert.Equal(t, []domainui.ModelResponseContent{
-		{Kind: domainui.ModelContentKindReasoning, Text: "hidden reasoning"},
-		{Kind: domainui.ModelContentKindText, Text: "visible text"},
-		{Kind: domainui.ModelContentKindRefusal, Text: "cannot help"},
+		{
+			Kind: domainui.ModelContentKindReasoning,
+			Text: "hidden reasoning",
+		},
+		{
+			Kind: domainui.ModelContentKindText,
+			Text: "visible text",
+		},
+		{
+			Kind: domainui.ModelContentKindRefusal,
+			Text: "cannot help",
+		},
 	}, delivered.Lifecycle.ModelResponse.Content)
 	assert.Equal(t, []domainui.ModelDiagnostic{{
-		Code: "recovered_output", Message: "safe diagnostic",
+		Code:    "recovered_output",
+		Message: "safe diagnostic",
 	}}, delivered.Lifecycle.ModelResponse.Diagnostics)
 	assert.Empty(t, delivered.Lifecycle.Outcome)
 }
@@ -167,15 +306,26 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 	}).Times(2)
 	delivery := NewDelivery(channel)
 
-	require.NoError(t, delivery.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventAgentEnd, RunID: "run-1",
-		Message:    model.Response{},
-		ToolCall:   model.ToolCall{},
-		Progress:   tool.Progress{},
-		ToolResult: agent.ToolResult{},
-		Turn:       run.TurnSummary{},
-		Agent:      run.AgentSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: ""},
-	}))
+	require.NoError(
+		t,
+		delivery.DeliverAgent(t.Context(), run.Event{
+			Position:   0,
+			Content:    model.Content{},
+			Preview:    model.ToolCallPreview{},
+			Type:       run.EventAgentEnd,
+			RunID:      "run-1",
+			Message:    model.Response{},
+			ToolCall:   model.ToolCall{},
+			Progress:   tool.Progress{},
+			ToolResult: agent.ToolResult{},
+			Turn:       run.TurnSummary{},
+			Agent: run.AgentSummary{
+				Outcome:      agent.RunOutcomeCompleted,
+				AddedHistory: nil,
+				ErrorMessage: "",
+			},
+		}),
+	)
 	require.NoError(t, delivery.DeliverSettled(t.Context(), "run-1"))
 
 	require.Len(t, frames, 2)
@@ -188,9 +338,12 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	t.Parallel()
 
 	original := []tool.ResultContent{{
-		Kind:  tool.ResultContentImage,
-		Text:  mo.None[string](),
-		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
+		Kind: tool.ResultContentImage,
+		Text: mo.None[string](),
+		Image: mo.Some(tool.ResultImage{
+			MediaType: "image/png",
+			Data:      []byte{1, 2, 3},
+		}),
 	}}
 	cloned := cloneResultContents(original)
 	image, ok := cloned[0].Image.Get()

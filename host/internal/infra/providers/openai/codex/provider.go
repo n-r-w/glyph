@@ -46,7 +46,9 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	response.Model = mo.Some(request.Model.Model)
 	if configured, ok := s.models[request.Model.Model]; ok {
 		source := model.ProviderContextSource{
-			ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
+			ProviderID:       request.Model.Provider,
+			API:              configured.api,
+			Model:            request.Model.Model,
 			CompatibilityKey: configured.reasoningCompatibilityKey,
 		}
 		for index := range response.Content {
@@ -91,8 +93,10 @@ func (s *Driver) generateResponse(
 		baseTransport = http.DefaultTransport
 	}
 	hookedTransport := &hookTransport{
-		base: baseTransport, runner: s.hooks,
-		provider: request.Model.Provider, model: request.Model.Model,
+		base:     baseTransport,
+		runner:   s.hooks,
+		provider: request.Model.Provider,
+		model:    request.Model.Model,
 	}
 	errorTransport := newErrorCaptureTransport(hookedTransport)
 	httpClient := &http.Client{
@@ -152,14 +156,15 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 		return responses.ResponseNewParams{}, errors.New("OpenAI Codex selected model is not configured")
 	}
 	target := model.ProviderContextSource{
-		ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
+		ProviderID:       request.Model.Provider,
+		API:              configured.api,
+		Model:            request.Model.Model,
 		CompatibilityKey: configured.reasoningCompatibilityKey,
 	}
 	input, err := buildInput(request.History, grammarInputProperties(request.Tools), target)
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
-	//nolint:exhaustruct // Optional SDK request fields intentionally use zero values.
 	params := responses.ResponseNewParams{
 		Model:             string(request.Model.Model),
 		Instructions:      param.NewOpt(request.Instructions),
@@ -168,13 +173,40 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 		Include: []responses.ResponseIncludable{
 			responses.ResponseIncludableReasoningEncryptedContent,
 		},
-		Input: responses.ResponseNewParamsInputUnion{ //nolint:exhaustruct // Ordered input excludes string shorthand.
+		//nolint:exhaustruct // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
+		Input: responses.ResponseNewParamsInputUnion{
 			OfInputItemList: input,
 		},
-		Reasoning: shared.ReasoningParam{ //nolint:exhaustruct // Optional SDK reasoning fields use zero values.
-			Summary: shared.ReasoningSummaryAuto,
+		Reasoning: shared.ReasoningParam{
+			Summary:         shared.ReasoningSummaryAuto,
+			Context:         "",
+			Effort:          "",
+			GenerateSummary: "",
+			Mode:            "",
 		},
-		Tools: tools,
+		Tools:                tools,
+		Background:           param.Opt[bool]{},
+		MaxOutputTokens:      param.Opt[int64]{},
+		MaxToolCalls:         param.Opt[int64]{},
+		PreviousResponseID:   param.Opt[string]{},
+		PromptCacheKey:       param.Opt[string]{},
+		SafetyIdentifier:     param.Opt[string]{},
+		Temperature:          param.Opt[float64]{},
+		TopLogprobs:          param.Opt[int64]{},
+		TopP:                 param.Opt[float64]{},
+		User:                 param.Opt[string]{},
+		ContextManagement:    nil,
+		Conversation:         responses.ResponseNewParamsConversationUnion{},
+		Metadata:             nil,
+		Moderation:           responses.ResponseNewParamsModeration{},
+		Prompt:               responses.ResponsePromptParam{},
+		PromptCacheRetention: "",
+		ServiceTier:          "",
+		StreamOptions:        responses.ResponseNewParamsStreamOptions{},
+		Truncation:           "",
+		PromptCacheOptions:   responses.ResponseNewParamsPromptCacheOptions{},
+		Text:                 responses.ResponseTextConfigParam{},
+		ToolChoice:           responses.ResponseNewParamsToolChoiceUnion{},
 	}
 	switch request.ReasoningChoice {
 	case model.ReasoningChoiceOff:
@@ -332,7 +364,9 @@ func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Con
 		return visible, nil
 	}
 	payload, err := json.Marshal(reasoningContext{
-		ID: reasoning.ID, EncryptedContent: reasoning.EncryptedContent, Summary: summary,
+		ID:               reasoning.ID,
+		EncryptedContent: reasoning.EncryptedContent,
+		Summary:          summary,
 	})
 	if err != nil {
 		return model.Content{}, fmt.Errorf("encode Codex reasoning context: %w", err)

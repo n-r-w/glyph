@@ -66,7 +66,9 @@ func (s *Driver) streamResponses(
 ) (model.Response, error) {
 	configured := s.models[request.Model.Model]
 	target := model.ProviderContextSource{
-		ProviderID: s.providerID, API: string(configured.api), Model: request.Model.Model,
+		ProviderID:       s.providerID,
+		API:              string(configured.api),
+		Model:            request.Model.Model,
 		CompatibilityKey: configured.reasoningCompatibilityKey,
 	}
 	params, err := responsesParams(request, target, configured.reasoningWireFormat)
@@ -131,15 +133,40 @@ func responsesParams(
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
-	//nolint:exhaustruct // Optional SDK request fields intentionally use zero values.
 	params := responses.ResponseNewParams{
 		Model:             string(request.Model.Model),
 		Instructions:      param.NewOpt(request.Instructions),
 		Store:             param.NewOpt(false),
 		ParallelToolCalls: param.NewOpt(false),
 		Include:           []responses.ResponseIncludable{responses.ResponseIncludableReasoningEncryptedContent},
-		Input:             responses.ResponseNewParamsInputUnion{OfInputItemList: input},
-		Tools:             tools,
+		//nolint:exhaustruct // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
+		Input: responses.ResponseNewParamsInputUnion{
+			OfInputItemList: input,
+		},
+		Tools:                tools,
+		Background:           param.Opt[bool]{},
+		MaxOutputTokens:      param.Opt[int64]{},
+		MaxToolCalls:         param.Opt[int64]{},
+		PreviousResponseID:   param.Opt[string]{},
+		PromptCacheKey:       param.Opt[string]{},
+		SafetyIdentifier:     param.Opt[string]{},
+		Temperature:          param.Opt[float64]{},
+		TopLogprobs:          param.Opt[int64]{},
+		TopP:                 param.Opt[float64]{},
+		User:                 param.Opt[string]{},
+		ContextManagement:    nil,
+		Conversation:         responses.ResponseNewParamsConversationUnion{},
+		Metadata:             nil,
+		Moderation:           responses.ResponseNewParamsModeration{},
+		Prompt:               responses.ResponsePromptParam{},
+		PromptCacheRetention: "",
+		ServiceTier:          "",
+		StreamOptions:        responses.ResponseNewParamsStreamOptions{},
+		Truncation:           "",
+		PromptCacheOptions:   responses.ResponseNewParamsPromptCacheOptions{},
+		Reasoning:            shared.ReasoningParam{},
+		Text:                 responses.ResponseTextConfigParam{},
+		ToolChoice:           responses.ResponseNewParamsToolChoiceUnion{},
 	}
 	if reasoningWireFormat == reasoningWireFormatOpenAIResponses {
 		switch request.ReasoningChoice {
@@ -275,7 +302,10 @@ func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionPar
 		return responses.ResponseInputItemUnionParam{}, errors.New("OpenAI-compatible provider context is malformed")
 	}
 	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
-		return responses.ResponseReasoningItemSummaryParam{Text: text, Type: ""}
+		return responses.ResponseReasoningItemSummaryParam{
+			Text: text,
+			Type: "",
+		}
 	})
 	item := responses.ResponseInputItemParamOfReasoning(contextValue.ID, summary)
 	item.OfReasoning.EncryptedContent = param.NewOpt(contextValue.EncryptedContent)
@@ -296,7 +326,7 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 					return empty, fmt.Errorf("tool result image %d requires media type and data", index)
 				}
 				imageURL := dataURL(image.MediaType, image.Data)
-				//nolint:exhaustruct // SDK union sets only the active image variant.
+				//nolint:exhaustruct // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{
 						FileID:                param.Opt[string]{},
@@ -495,7 +525,11 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 	if err := json.Unmarshal([]byte(arguments), &decoded); err != nil {
 		return errors.New("responses returned invalid tool-call arguments")
 	}
-	call := model.ToolCall{ID: toolState.callID, Name: name, Arguments: decoded}
+	call := model.ToolCall{
+		ID:        toolState.callID,
+		Name:      name,
+		Arguments: decoded,
+	}
 	toolState.started = false
 	return state.handle(run.StreamEvent{
 		Kind:     run.StreamEventToolCallEnd,
@@ -608,7 +642,9 @@ func responsesModelResponse(
 			// Only encrypted items with stable IDs can be replayed on the next stateless request.
 			if reasoning.ID != "" && reasoning.EncryptedContent != "" {
 				payload, err := json.Marshal(responseContext{
-					ID: reasoning.ID, EncryptedContent: reasoning.EncryptedContent, Summary: summary,
+					ID:               reasoning.ID,
+					EncryptedContent: reasoning.EncryptedContent,
+					Summary:          summary,
 				})
 				if err != nil {
 					return model.Response{}, fmt.Errorf("encode provider context: %w", err)

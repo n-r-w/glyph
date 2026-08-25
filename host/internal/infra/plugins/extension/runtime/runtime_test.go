@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package runtime
 
 import (
@@ -64,7 +63,10 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	)
 	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o700))
 	startupContext, cancelStartup := context.WithCancel(t.Context())
-	runtime, err := NewFactory().Start(startupContext, toolservice.Candidate{ID: "test", Path: scriptPath})
+	runtime, err := NewFactory().Start(startupContext, toolservice.Candidate{
+		ID:   "test",
+		Path: scriptPath,
+	})
 	require.NoError(t, err)
 	cancelStartup()
 
@@ -134,7 +136,10 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 
 	// Assert: preserve complete text in exactly one terminal successful result.
 	require.NoError(t, err)
-	assert.Equal(t, tool.Result{Contents: tool.TextContents("first\nsecond\n"), IsError: false}, result)
+	assert.Equal(t, tool.Result{
+		Contents: tool.TextContents("first\nsecond\n"),
+		IsError:  false,
+	}, result)
 
 	// Act: replace one unique fragment through the production edit tool.
 	editResult, err := runtime.Execute(
@@ -192,14 +197,20 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 			[]byte(`{"path":"blocking-input"}`),
 			discardProgress,
 		)
-		executionChannel <- executionOutcome{result: executionResult, err: executionErr}
+		executionChannel <- executionOutcome{
+			result: executionResult,
+			err:    executionErr,
+		}
 	}()
 
 	// Act: opening the writer proves glyph-tools reached the blocking read before cancellation.
 	fifoChannel := make(chan fifoOpenOutcome, 1)
 	go func() {
 		fifo, fifoErr := os.OpenFile(fifoPath, os.O_WRONLY, 0o600)
-		fifoChannel <- fifoOpenOutcome{file: fifo, err: fifoErr}
+		fifoChannel <- fifoOpenOutcome{
+			file: fifo,
+			err:  fifoErr,
+		}
 	}()
 	var fifo *os.File
 	select {
@@ -214,7 +225,10 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Assert: active cancellation crosses the real process boundary without stopping the runtime.
 	select {
 	case execution := <-executionChannel:
-		assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
+		assert.Equal(t, tool.Result{
+			Contents: nil,
+			IsError:  false,
+		}, execution.result)
 		require.ErrorIs(t, execution.err, context.Canceled)
 	case <-time.After(processOperationTimeout):
 		require.FailNow(t, "glyph-tools did not return after cancellation")
@@ -268,17 +282,42 @@ func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 	t.Parallel()
 
 	contents, err := mapResultContents([]*extensionpb.ToolResultContent{
-		extensionpb.ToolResultContent_builder{Text: new("first")}.Build(),
-		extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
-			MediaType: new("image/png"), Data: []byte{0, 1, 2, 3},
-		}.Build()}.Build(),
-		extensionpb.ToolResultContent_builder{Text: new("last")}.Build(),
+		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+		extensionpb.ToolResultContent_builder{
+			Text: new("first"),
+		}.Build(),
+		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+		extensionpb.ToolResultContent_builder{
+			Image: extensionpb.ToolResultImage_builder{
+				MediaType: new("image/png"),
+				Data:      []byte{0, 1, 2, 3},
+			}.Build(),
+		}.Build(),
+		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+		extensionpb.ToolResultContent_builder{
+			Text: new("last"),
+		}.Build(),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, []tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
-		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2, 3}})},
-		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
+		{
+			Kind:  tool.ResultContentText,
+			Text:  mo.Some("first"),
+			Image: mo.None[tool.ResultImage](),
+		},
+		{
+			Kind: tool.ResultContentImage,
+			Text: mo.None[string](),
+			Image: mo.Some(tool.ResultImage{
+				MediaType: "image/png",
+				Data:      []byte{0, 1, 2, 3},
+			}),
+		},
+		{
+			Kind:  tool.ResultContentText,
+			Text:  mo.Some("last"),
+			Image: mo.None[tool.ResultImage](),
+		},
 	}, contents)
 }
 
@@ -295,9 +334,13 @@ func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
 	t.Parallel()
 
 	_, err := mapResultContents([]*extensionpb.ToolResultContent{
-		extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
-			MediaType: new("image/png"), Data: nil,
-		}.Build()}.Build(),
+		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+		extensionpb.ToolResultContent_builder{
+			Image: extensionpb.ToolResultImage_builder{
+				MediaType: new("image/png"),
+				Data:      nil,
+			}.Build(),
+		}.Build(),
 	})
 	require.ErrorContains(t, err, "result image 0 is invalid")
 }
@@ -349,7 +392,10 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 			close(started)
 			return nil
 		})
-		outcome <- executionOutcome{result: result, err: executeErr}
+		outcome <- executionOutcome{
+			result: result,
+			err:    executeErr,
+		}
 	}()
 	<-started
 	cancel()
@@ -357,7 +403,10 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 
 	// Assert: cancellation remains identifiable and does not become a protocol violation.
 	require.ErrorIs(t, execution.err, context.Canceled)
-	assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
+	assert.Equal(t, tool.Result{
+		Contents: nil,
+		IsError:  false,
+	}, execution.result)
 	assertRuntimeRunning(t, runtime)
 }
 
@@ -383,7 +432,10 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			)
 
 			// Assert: fail the call, stop the violating process, and return no terminal payload.
-			assert.Equal(t, tool.Result{Contents: nil, IsError: false}, result)
+			assert.Equal(t, tool.Result{
+				Contents: nil,
+				IsError:  false,
+			}, result)
 			require.Error(t, err)
 			require.ErrorIs(t, err, toolservice.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, "extension protocol violation")
@@ -439,7 +491,10 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 
 	result, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
 	require.NoError(t, err)
-	assert.Equal(t, tool.Result{Contents: tool.TextContents("done"), IsError: false}, result)
+	assert.Equal(t, tool.Result{
+		Contents: tool.TextContents("done"),
+		IsError:  false,
+	}, result)
 }
 
 // TestRuntimeClassifiesTransportFailure marks the closed runtime unavailable.
@@ -479,8 +534,14 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 
 	// Assert: deliver progress before returning the one terminal result.
 	require.NoError(t, err)
-	assert.Equal(t, []tool.Progress{{Channel: tool.ProgressChannelStatus, Content: "working"}}, progress)
-	assert.Equal(t, tool.Result{Contents: tool.TextContents("done"), IsError: false}, result)
+	assert.Equal(t, []tool.Progress{{
+		Channel: tool.ProgressChannelStatus,
+		Content: "working",
+	}}, progress)
+	assert.Equal(t, tool.Result{
+		Contents: tool.TextContents("done"),
+		IsError:  false,
+	}, result)
 }
 
 // ListTools returns a valid or deliberately invalid catalog selected by the helper mode.
@@ -494,7 +555,9 @@ func (s *protocolService) ListTools(
 		InputSchemaJson:     []byte(validSchemaJSON),
 		ConstrainedSampling: nil,
 	}.Build()
-	response := extensionpb.ListToolsResponse_builder{Tools: []*extensionpb.ToolDescriptor{descriptor}}.Build()
+	response := extensionpb.ListToolsResponse_builder{
+		Tools: []*extensionpb.ToolDescriptor{descriptor},
+	}.Build()
 
 	switch s.mode {
 	case "empty-name":
@@ -527,14 +590,24 @@ func (s *protocolService) Execute(
 			return err
 		}
 	}
+	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Progress field.
 	progress := extensionpb.ExecuteResponse_builder{
 		Progress: extensionpb.ToolProgress_builder{
 			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
 			Content: new("working"),
 		}.Build(),
 	}.Build()
+	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Result field.
 	result := extensionpb.ExecuteResponse_builder{
-		Result: extensionpb.ToolResult_builder{Contents: []*extensionpb.ToolResultContent{extensionpb.ToolResultContent_builder{Text: new("done")}.Build()}, IsError: new(false)}.Build(),
+		Result: extensionpb.ToolResult_builder{
+			Contents: []*extensionpb.ToolResultContent{
+				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+				extensionpb.ToolResultContent_builder{
+					Text: new("done"),
+				}.Build(),
+			},
+			IsError: new(false),
+		}.Build(),
 	}.Build()
 
 	switch s.mode {

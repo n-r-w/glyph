@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only active event and history union fields.
 package events
 
 import (
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -38,8 +38,44 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		require.Equal(t, "run-fixed", request.RunID)
 		require.Equal(t, "request", request.UserText)
-		require.NoError(t, dispatcher.Deliver(ctx, run.Event{Type: run.EventAgentStart, RunID: request.RunID}))
-		require.NoError(t, dispatcher.Deliver(ctx, run.Event{Type: run.EventAgentEnd, RunID: request.RunID}))
+		require.NoError(
+			t,
+			dispatcher.Deliver(
+				ctx,
+				run.Event{
+					Position:   0,
+					Content:    model.Content{},
+					Message:    model.Response{},
+					Preview:    model.ToolCallPreview{},
+					ToolCall:   model.ToolCall{},
+					Progress:   tool.Progress{},
+					ToolResult: agent.ToolResult{},
+					Turn:       run.TurnSummary{},
+					Agent:      run.AgentSummary{},
+					Type:       run.EventAgentStart,
+					RunID:      request.RunID,
+				},
+			),
+		)
+		require.NoError(
+			t,
+			dispatcher.Deliver(
+				ctx,
+				run.Event{
+					Position:   0,
+					Content:    model.Content{},
+					Message:    model.Response{},
+					Preview:    model.ToolCallPreview{},
+					ToolCall:   model.ToolCall{},
+					Progress:   tool.Progress{},
+					ToolResult: agent.ToolResult{},
+					Turn:       run.TurnSummary{},
+					Agent:      run.AgentSummary{},
+					Type:       run.EventAgentEnd,
+					RunID:      request.RunID,
+				},
+			),
+		)
 		return completedResult(), nil
 	}
 	settle := func(runID string) error {
@@ -47,7 +83,12 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 		seenRunIDs = append(seenRunIDs, runID)
 		return nil
 	}
-	coordinator := newCoordinator(execute, settle, dispatcher, func() (string, error) { return "run-fixed", nil })
+	coordinator := newCoordinator(
+		execute,
+		settle,
+		dispatcher,
+		func() (string, error) { return "run-fixed", nil },
+	)
 
 	outcome, err := coordinator.Run(t.Context(), "request")
 
@@ -77,18 +118,60 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 		func(context.Context, string) error { return settledErr },
 	)
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
-		updateErr := dispatcher.Deliver(ctx, run.Event{
-			Type: run.EventTextDelta, RunID: request.RunID, Position: 0, Content: model.Content{Kind: model.ContentText, Text: mo.Some("partial")},
-		})
+		updateErr := dispatcher.Deliver(
+			ctx,
+			run.Event{
+				Message:    model.Response{},
+				Preview:    model.ToolCallPreview{},
+				ToolCall:   model.ToolCall{},
+				Progress:   tool.Progress{},
+				ToolResult: agent.ToolResult{},
+				Turn:       run.TurnSummary{},
+				Agent:      run.AgentSummary{},
+				Type:       run.EventTextDelta,
+				RunID:      request.RunID,
+				Position:   0,
+				Content: model.Content{
+					Final:           false,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+					Kind:            model.ContentText,
+					Text:            mo.Some("partial"),
+				},
+			},
+		)
 		require.ErrorIs(t, updateErr, deliveryErr)
-		require.NoError(t, dispatcher.Deliver(ctx, run.Event{Type: run.EventAgentEnd, RunID: request.RunID}))
+		require.NoError(
+			t,
+			dispatcher.Deliver(
+				ctx,
+				run.Event{
+					Position:   0,
+					Content:    model.Content{},
+					Message:    model.Response{},
+					Preview:    model.ToolCallPreview{},
+					ToolCall:   model.ToolCall{},
+					Progress:   tool.Progress{},
+					ToolResult: agent.ToolResult{},
+					Turn:       run.TurnSummary{},
+					Agent:      run.AgentSummary{},
+					Type:       run.EventAgentEnd,
+					RunID:      request.RunID,
+				},
+			),
+		)
 		return failedResult(), updateErr
 	}
 	settle := func(string) error {
 		settlements++
 		return settleErr
 	}
-	coordinator := newCoordinator(execute, settle, dispatcher, func() (string, error) { return "run", nil })
+	coordinator := newCoordinator(
+		execute,
+		settle,
+		dispatcher,
+		func() (string, error) { return "run", nil },
+	)
 
 	outcome, err := coordinator.Run(t.Context(), "request")
 
@@ -182,8 +265,15 @@ func TestGenerateRunIDProducesUniqueNonemptyValues(t *testing.T) {
 // completedResult identifies a run that entered Agent Core and completed.
 func completedResult() run.Result {
 	return run.Result{
-		Outcome:      agent.RunOutcomeCompleted,
-		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
+		Outcome: agent.RunOutcomeCompleted,
+		AddedHistory: []agent.HistoryEntry{
+			{
+				Model:      model.Response{},
+				ToolResult: agent.ToolResult{},
+				Kind:       agent.HistoryEntryUser,
+				User:       model.TextMessage("request"),
+			},
+		},
 		ErrorMessage: "",
 	}
 }
@@ -191,8 +281,15 @@ func completedResult() run.Result {
 // failedResult identifies a run that entered Agent Core and failed.
 func failedResult() run.Result {
 	return run.Result{
-		Outcome:      agent.RunOutcomeFailed,
-		AddedHistory: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
+		Outcome: agent.RunOutcomeFailed,
+		AddedHistory: []agent.HistoryEntry{
+			{
+				Model:      model.Response{},
+				ToolResult: agent.ToolResult{},
+				Kind:       agent.HistoryEntryUser,
+				User:       model.TextMessage("request"),
+			},
+		},
 		ErrorMessage: "recipient failed",
 	}
 }

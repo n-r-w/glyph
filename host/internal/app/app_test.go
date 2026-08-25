@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package app
 
 import (
@@ -60,36 +59,70 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 			"openai-codex": {
 				Type: settingstore.ProviderTypeOpenAICodex,
 				Models: []settingstore.Model{
-					{ID: "codex-first", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff)},
-					{ID: "codex-second", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow)},
+					{
+						ID:        "codex-first",
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
+						API:       "",
+					},
+					{
+						ID:        "codex-second",
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow),
+						API:       "",
+					},
 				},
+				BaseURL: "",
+				API:     "",
+				APIKey:  mo.None[settingstore.APIKey](),
 			},
 			"z-compatible": {
-				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "http://localhost:11434/v1",
-				API: settingstore.APIChatCompletions,
+				Type:    settingstore.ProviderTypeOpenAICompatible,
+				BaseURL: "http://localhost:11434/v1",
+				API:     settingstore.APIChatCompletions,
 				Models: []settingstore.Model{{
-					ID: "z-model", Reasoning: settingstore.Reasoning{
-						Supported:  true,
-						Choices:    []settingstore.ReasoningChoice{settingstore.ReasoningChoiceOn},
-						Default:    settingstore.ReasoningChoiceOn,
-						WireFormat: settingstore.ReasoningWireFormatOllamaOrnith,
+					ID: "z-model",
+					Reasoning: settingstore.Reasoning{
+						Supported:        true,
+						Choices:          []settingstore.ReasoningChoice{settingstore.ReasoningChoiceOn},
+						Default:          settingstore.ReasoningChoiceOn,
+						WireFormat:       settingstore.ReasoningWireFormatOllamaOrnith,
+						CompatibilityKey: mo.None[string](),
 					},
+					API: "",
 				}},
+				APIKey: mo.None[settingstore.APIKey](),
 			},
 			"a-compatible": {
-				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "https://example.com/v1",
-				API: settingstore.APIChatCompletions,
+				Type:    settingstore.ProviderTypeOpenAICompatible,
+				BaseURL: "https://example.com/v1",
+				API:     settingstore.APIChatCompletions,
 				APIKey: mo.Some(settingstore.APIKey{
-					Literal: mo.None[string](), Environment: mo.Some("COMPATIBLE_API_KEY"), Credential: mo.None[string](),
+					Literal:     mo.None[string](),
+					Environment: mo.Some("COMPATIBLE_API_KEY"),
+					Credential:  mo.None[string](),
 				}),
 				Models: []settingstore.Model{
-					{ID: "a-first", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff)},
-					{ID: "a-second", API: settingstore.APIResponses, Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh)},
+					{
+						ID:        "a-first",
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
+						API:       "",
+					},
+					{
+						ID:        "a-second",
+						API:       settingstore.APIResponses,
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh),
+					},
 				},
 			},
 		},
+		ActiveUI: mo.None[string](),
 	}
-	paths := persistence.Paths{CredentialsFile: filepath.Join(t.TempDir(), "credentials.json")}
+	paths := persistence.Paths{
+		CredentialsFile: filepath.Join(t.TempDir(), "credentials.json"),
+		Directory:       "",
+		SettingsFile:    "",
+		LogsDirectory:   "",
+		LogFile:         "",
+	}
 
 	catalog, err := newProviderCatalog(configured, paths, interactions.New(), hookrunner.New(nil, nil, nil))
 
@@ -107,7 +140,9 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		string(models[4].Provider) + "/" + string(models[4].Model),
 	})
 	assert.Equal(t, model.Selection{
-		Provider: "a-compatible", Model: "a-second", ReasoningChoice: model.ReasoningChoiceHigh,
+		Provider:        "a-compatible",
+		Model:           "a-second",
+		ReasoningChoice: model.ReasoningChoiceHigh,
 	}, catalog.Selection())
 	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
 	assert.Equal(t, model.ReasoningCapabilities{
@@ -142,7 +177,9 @@ func (*appUIService) GetCapabilities(
 	if os.Getenv(appUIBehaviorEnvironment) == "snapshot" {
 		_ = os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(strconv.Itoa(os.Getpid())), 0o600)
 	}
-	return uipb.GetCapabilitiesResponse_builder{ControlsTerminal: new(controlsTerminal)}.Build(), nil
+	return uipb.GetCapabilitiesResponse_builder{
+		ControlsTerminal: new(controlsTerminal),
+	}.Build(), nil
 }
 
 // Open records the first frame and sends the authoritative quit command.
@@ -201,12 +238,20 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600); err != nil {
 				return err
 			}
-			return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+			//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+			return stream.Send(uipb.OpenResponse_builder{
+				Quit: &uipb.QuitCommand{},
+			}.Build())
 		}
 	}
 	//nolint:nestif // The helper serves one explicit lifecycle mode for this process fixture.
 	if os.Getenv(appUIBehaviorEnvironment) == "semantic" {
-		if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("read input.txt")}.Build()}.Build()); err != nil {
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+		if err := stream.Send(uipb.OpenResponse_builder{
+			Submit: uipb.SubmitCommand_builder{
+				Text: new("read input.txt"),
+			}.Build(),
+		}.Build()); err != nil {
 			return err
 		}
 		file, err := os.OpenFile(os.Getenv(appUITraceEnvironment), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
@@ -243,12 +288,18 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 					settled = true
 				}
 				if settled && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
-					return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+					//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+					return stream.Send(uipb.OpenResponse_builder{
+						Quit: &uipb.QuitCommand{},
+					}.Build())
 				}
 			}
 		}
 	}
-	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{
+		Quit: &uipb.QuitCommand{},
+	}.Build())
 }
 
 // semanticToolResultContents keeps typed result blocks stable in the shared lifecycle fixture.
@@ -308,8 +359,15 @@ providers:
 	var stdout, stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeHeadless, Headless: headless.Command{UserText: "request", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: "", UIID: "",
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "request",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
 	}, &stdout, &stderr)
 
 	require.NoError(t, err)
@@ -323,8 +381,15 @@ func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
 
 	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: codex-model\n")
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: t.TempDir(), UIID: "",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        t.TempDir(),
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.ErrorContains(t, err, "load Glyph settings")
@@ -342,8 +407,15 @@ func TestRunWithPathsUICodexDefaultKeepsProviderAuthentication(t *testing.T) {
 	t.Setenv(appUIBehaviorEnvironment, "authentication")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "codex-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "codex-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.NoError(t, err)
@@ -383,8 +455,15 @@ providers:
 	t.Setenv(appUIBehaviorEnvironment, "authentication")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "compatible-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "compatible-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.NoError(t, err)
@@ -402,9 +481,15 @@ func TestRunWithPathsIgnoresActiveUIAndFailsWithoutCredentials(t *testing.T) {
 	var stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:               cli.ModeHeadless,
-		Headless:           headless.Command{UserText: "request", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: "", UIID: "",
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "request",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
 	}, &stdout, &stderr)
 
 	require.ErrorContains(t, err, "sign-in required")
@@ -422,9 +507,15 @@ func TestRunWithPathsRejectsInvalidExplicitExtensionDirectory(t *testing.T) {
 	missingDirectory := filepath.Join(t.TempDir(), "missing-extensions")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:               cli.ModeHeadless,
-		Headless:           headless.Command{UserText: "request", ExtensionDirectory: missingDirectory},
-		ExtensionDirectory: "", UIDirectory: "", UIID: "",
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "request",
+			ExtensionDirectory: missingDirectory,
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.Error(t, err)
@@ -443,9 +534,15 @@ func TestRunWithPathsReportsUnreadableDefaultDirectory(t *testing.T) {
 	var stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:               cli.ModeHeadless,
-		Headless:           headless.Command{UserText: "request", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: "", UIID: "",
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "request",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &stderr)
 
 	require.ErrorContains(t, err, "sign-in required")
@@ -464,9 +561,15 @@ func TestRunWithPathsUIReportsAutomaticSelectionWarnings(t *testing.T) {
 	var stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:     cli.ModeUI,
-		Headless: headless.Command{UserText: "", ExtensionDirectory: ""}, ExtensionDirectory: "",
-		UIDirectory: uiDirectory, UIID: "",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &stderr)
 
 	require.ErrorContains(t, err, "no compatible UI plugin is available")
@@ -487,9 +590,15 @@ func TestRunWithPathsUIReportsSelectionWarningsBeforeExtensionStartupFailure(t *
 	var stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:               cli.ModeUI,
-		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: missingExtensionDirectory, UIDirectory: uiDirectory, UIID: "",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: missingExtensionDirectory,
+		UIDirectory:        uiDirectory,
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &stderr)
 
 	require.ErrorContains(t, err, "explicit extension directory")
@@ -510,9 +619,15 @@ func TestRunWithPathsUIKeepsSelectionWarningsInInitialization(t *testing.T) {
 	var stderr bytes.Buffer
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:               cli.ModeUI,
-		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &stderr)
 
 	require.NoError(t, err)
@@ -532,9 +647,15 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 	t.Setenv(appUITraceEnvironment, tracePath)
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:     cli.ModeUI,
-		Headless: headless.Command{UserText: "", ExtensionDirectory: ""}, ExtensionDirectory: "",
-		UIDirectory: uiDirectory, UIID: "fake-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "fake-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.NoError(t, err)
@@ -569,9 +690,15 @@ func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
 	t.Setenv(appUIBehaviorEnvironment, "snapshot")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:     cli.ModeUI,
-		Headless: headless.Command{UserText: "", ExtensionDirectory: ""}, ExtensionDirectory: "",
-		UIDirectory: uiDirectory, UIID: "terminal-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "terminal-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.Error(t, err)
@@ -593,9 +720,15 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 	t.Setenv(appUIBehaviorEnvironment, "crash")
 
 	err := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:     cli.ModeUI,
-		Headless: headless.Command{UserText: "", ExtensionDirectory: ""}, ExtensionDirectory: "",
-		UIDirectory: uiDirectory, UIID: "crash-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "crash-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	require.Error(t, err)
@@ -614,18 +747,37 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken)), 0o600))
 	requestCount := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount}
+	http.DefaultTransport = deterministicCodexTransport{
+		requestCount: requestCount,
+	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	extensionDirectory := buildToolsExecutable(t)
 	var headlessStdout, headlessStderr bytes.Buffer
 	headlessErr := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeHeadless, Headless: headless.Command{UserText: "read input.txt", ExtensionDirectory: extensionDirectory},
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "read input.txt",
+			ExtensionDirectory: extensionDirectory,
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
 	}, &headlessStdout, &headlessStderr)
 	require.NoError(t, headlessErr)
 	assert.Equal(t, int32(2), requestCount.Load())
 	headlessObservation := parseHeadlessOutcome(headlessStdout.String(), headlessStderr.String(), headlessErr)
-	expected := sharedOutcome{FinalText: "Request complete.", ToolName: "bash", ToolStartName: "bash", ToolEndName: "bash", ToolStatus: "ok", ToolStarted: true, ToolEnded: true, CommandSucceeded: true}
+	expected := sharedOutcome{
+		FinalText:        "Request complete.",
+		ToolName:         "bash",
+		ToolStartName:    "bash",
+		ToolEndName:      "bash",
+		ToolStatus:       "ok",
+		ToolStarted:      true,
+		ToolEnded:        true,
+		CommandSucceeded: true,
+	}
 	assert.Equal(t, expected, headlessObservation)
 
 	requestCount.Store(0)
@@ -635,8 +787,15 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	t.Setenv(appUITraceEnvironment, tracePath)
 	writeUIExecutable(t, uiDirectory, "Semantic_UI")
 	uiErr := runWithPaths(t.Context(), paths, cli.Command{
-		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: extensionDirectory},
-		ExtensionDirectory: extensionDirectory, UIDirectory: uiDirectory, UIID: "semantic-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: extensionDirectory,
+		},
+		ExtensionDirectory: extensionDirectory,
+		UIDirectory:        uiDirectory,
+		UIID:               "semantic-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 	require.NoError(t, uiErr)
 	assert.Equal(t, int32(2), requestCount.Load())
@@ -674,7 +833,16 @@ type uiObservation struct {
 
 // parseHeadlessOutcome reads shared fields from the one-shot public output.
 func parseHeadlessOutcome(stdout, stderr string, err error) sharedOutcome {
-	observation := sharedOutcome{FinalText: strings.TrimSpace(stdout), CommandSucceeded: err == nil}
+	observation := sharedOutcome{
+		FinalText:        strings.TrimSpace(stdout),
+		CommandSucceeded: err == nil,
+		ToolName:         "",
+		ToolStatus:       "",
+		ToolStartName:    "",
+		ToolEndName:      "",
+		ToolStarted:      false,
+		ToolEnded:        false,
+	}
 	for _, line := range strings.Split(stderr, "\n") {
 		switch {
 		case strings.HasPrefix(line, "[tool:start] "):
@@ -714,7 +882,16 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 			ToolResultContents json.RawMessage    `json:"tool_result_contents"`
 		}
 		require.NoError(t, json.Unmarshal([]byte(line), &item))
-		record := semanticLifecycleRecord{}
+		record := semanticLifecycleRecord{
+			Type:               "",
+			ToolName:           "",
+			ToolStatus:         "",
+			Text:               "",
+			ToolResultContents: nil,
+			ModelText:          "",
+			Outcome:            "",
+			Availability:       "",
+		}
 		//nolint:exhaustive // The fixture keeps only lifecycle fields used by the semantic consumer.
 		switch item.Type {
 		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START:
@@ -758,11 +935,19 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 			toolName = item.ToolName
 		}
 	}
-	return uiObservation{Records: records, Shared: sharedOutcome{
-		FinalText: finalText, ToolName: toolName, ToolStatus: toolStatus,
-		ToolStartName: toolStartName, ToolEndName: toolEndName,
-		ToolStarted: toolStarted, ToolEnded: toolEnded, CommandSucceeded: agentCompleted && settled,
-	}}
+	return uiObservation{
+		Records: records,
+		Shared: sharedOutcome{
+			FinalText:        finalText,
+			ToolName:         toolName,
+			ToolStatus:       toolStatus,
+			ToolStartName:    toolStartName,
+			ToolEndName:      toolEndName,
+			ToolStarted:      toolStarted,
+			ToolEnded:        toolEnded,
+			CommandSucceeded: agentCompleted && settled,
+		},
+	}
 }
 
 // loadSemanticLifecycle provides the exact sequence consumed by the TUI mapping test.
@@ -782,9 +967,39 @@ func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Res
 	requestNumber := transport.requestCount.Add(1)
 	switch requestNumber {
 	case 1:
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(toolResponseSSE)), Header: make(http.Header)}, nil
+		return &http.Response{
+			StatusCode:       http.StatusOK,
+			Body:             io.NopCloser(strings.NewReader(toolResponseSSE)),
+			Header:           make(http.Header),
+			Status:           "",
+			Proto:            "",
+			ProtoMajor:       0,
+			ProtoMinor:       0,
+			ContentLength:    0,
+			TransferEncoding: nil,
+			Close:            false,
+			Uncompressed:     false,
+			Trailer:          nil,
+			Request:          nil,
+			TLS:              nil,
+		}, nil
 	case 2:
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(finalResponseSSE)), Header: make(http.Header)}, nil
+		return &http.Response{
+			StatusCode:       http.StatusOK,
+			Body:             io.NopCloser(strings.NewReader(finalResponseSSE)),
+			Header:           make(http.Header),
+			Status:           "",
+			Proto:            "",
+			ProtoMajor:       0,
+			ProtoMinor:       0,
+			ContentLength:    0,
+			TransferEncoding: nil,
+			Close:            false,
+			Uncompressed:     false,
+			Trailer:          nil,
+			Request:          nil,
+			TLS:              nil,
+		}, nil
 	default:
 		return nil, errors.New("deterministic Codex transport received more than two requests")
 	}
@@ -876,9 +1091,15 @@ func TestTerminalRecoveryPTYInner(t *testing.T) {
 	writeConfiguredUIExecutable(t, uiDirectory, "Terminal_UI", tracePath, mode)
 
 	runErr := runWithPaths(t.Context(), paths, cli.Command{
-		Mode:     cli.ModeUI,
-		Headless: headless.Command{UserText: "", ExtensionDirectory: ""}, ExtensionDirectory: "",
-		UIDirectory: uiDirectory, UIID: "terminal-ui",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        uiDirectory,
+		UIID:               "terminal-ui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 	if mode == "crash" {
 		require.Error(t, runErr)
@@ -966,9 +1187,11 @@ func testPaths(t *testing.T, settingsContent string) persistence.Paths {
 	require.NoError(t, os.WriteFile(settingsPath, []byte(settingsContent), 0o600))
 	logsDirectory := filepath.Join(directory, "logs")
 	return persistence.Paths{
-		Directory: directory, SettingsFile: settingsPath,
+		Directory:       directory,
+		SettingsFile:    settingsPath,
 		CredentialsFile: filepath.Join(directory, "credentials.json"),
-		LogsDirectory:   logsDirectory, LogFile: filepath.Join(logsDirectory, "glyph.log"),
+		LogsDirectory:   logsDirectory,
+		LogFile:         filepath.Join(logsDirectory, "glyph.log"),
 	}
 }
 
@@ -979,6 +1202,10 @@ func testSettingsReasoning(choices ...settingstore.ReasoningChoice) settingstore
 		wireFormat = settingstore.ReasoningWireFormatOpenAIResponses
 	}
 	return settingstore.Reasoning{
-		Supported: supported, Choices: choices, Default: choices[len(choices)-1], WireFormat: wireFormat,
+		Supported:        supported,
+		Choices:          choices,
+		Default:          choices[len(choices)-1],
+		WireFormat:       wireFormat,
+		CompatibilityKey: mo.None[string](),
 	}
 }

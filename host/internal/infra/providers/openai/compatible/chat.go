@@ -116,13 +116,46 @@ func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.Ch
 	if err != nil {
 		return openai.ChatCompletionNewParams{}, err
 	}
-	//nolint:exhaustruct // Optional SDK request fields intentionally use zero values.
 	params := openai.ChatCompletionNewParams{
 		Messages:          messages,
 		Model:             shared.ChatModel(request.Model.Model),
 		ParallelToolCalls: param.NewOpt(false),
-		StreamOptions:     openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
-		Tools:             tools,
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage:       param.NewOpt(true),
+			IncludeObfuscation: param.Opt[bool]{},
+		},
+		Tools:                tools,
+		FrequencyPenalty:     param.Opt[float64]{},
+		Logprobs:             param.Opt[bool]{},
+		MaxCompletionTokens:  param.Opt[int64]{},
+		MaxTokens:            param.Opt[int64]{},
+		N:                    param.Opt[int64]{},
+		PresencePenalty:      param.Opt[float64]{},
+		PromptCacheKey:       param.Opt[string]{},
+		SafetyIdentifier:     param.Opt[string]{},
+		Seed:                 param.Opt[int64]{},
+		Store:                param.Opt[bool]{},
+		Temperature:          param.Opt[float64]{},
+		TopLogprobs:          param.Opt[int64]{},
+		TopP:                 param.Opt[float64]{},
+		User:                 param.Opt[string]{},
+		Audio:                openai.ChatCompletionAudioParam{},
+		LogitBias:            nil,
+		Metadata:             nil,
+		Modalities:           nil,
+		Moderation:           openai.ChatCompletionNewParamsModeration{},
+		PromptCacheRetention: "",
+		ReasoningEffort:      "",
+		ServiceTier:          "",
+		Stop:                 openai.ChatCompletionNewParamsStopUnion{},
+		Verbosity:            "",
+		FunctionCall:         openai.ChatCompletionNewParamsFunctionCallUnion{},
+		Functions:            nil,
+		Prediction:           openai.ChatCompletionPredictionContentParam{},
+		PromptCacheOptions:   openai.ChatCompletionNewParamsPromptCacheOptions{},
+		ResponseFormat:       openai.ChatCompletionNewParamsResponseFormatUnion{},
+		ToolChoice:           openai.ChatCompletionToolChoiceOptionUnionParam{},
+		WebSearchOptions:     openai.ChatCompletionNewParamsWebSearchOptions{},
 	}
 	if reasoningWireFormat == reasoningWireFormatOpenAIChatEffort {
 		switch request.ReasoningChoice {
@@ -521,7 +554,11 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 		if err := json.Unmarshal([]byte(toolState.arguments.String()), &arguments); err != nil {
 			return errors.New("chat Completions returned invalid tool-call arguments")
 		}
-		call := model.ToolCall{ID: toolState.id, Name: toolState.name, Arguments: arguments}
+		call := model.ToolCall{
+			ID:        toolState.id,
+			Name:      toolState.name,
+			Arguments: arguments,
+		}
 		state.content[toolState.position] = model.Content{
 			Kind:            model.ContentToolCall,
 			Text:            mo.None[string](),

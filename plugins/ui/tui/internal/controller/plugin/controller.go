@@ -1,6 +1,4 @@
 // Package plugin maps the public UI contract to the standard terminal presentation.
-//
-//nolint:exhaustruct // Contract frames and presentation events set only fields used by their active kind.
 package plugin
 
 import (
@@ -33,7 +31,11 @@ var _ uiv1.UIServiceServer = (*Controller)(nil)
 
 // New creates the standard TUI plugin controller.
 func New(terminal Terminal, programs ProgramFactory) *Controller {
-	return &Controller{terminal: terminal, programs: programs}
+	return &Controller{
+		UnimplementedUIServiceServer: uiv1.UnimplementedUIServiceServer{},
+		terminal:                     terminal,
+		programs:                     programs,
+	}
 }
 
 // GetCapabilities returns immutable capabilities without opening the terminal.
@@ -41,7 +43,9 @@ func (*Controller) GetCapabilities(
 	context.Context,
 	*uiv1.GetCapabilitiesRequest,
 ) (*uiv1.GetCapabilitiesResponse, error) {
-	return uiv1.GetCapabilitiesResponse_builder{ControlsTerminal: new(true)}.Build(), nil
+	return uiv1.GetCapabilitiesResponse_builder{
+		ControlsTerminal: new(true),
+	}.Build(), nil
 }
 
 // Open runs one initialized Host-to-TUI stream until either side completes.
@@ -152,18 +156,72 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 	}
 	if authorization := request.GetAuthorization(); authorization != nil {
 		return presentationdomain.Event{
-			Kind: presentationdomain.EventAuthorization,
-			Text: authorization.GetUrl(),
+			Kind:                 presentationdomain.EventAuthorization,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 authorization.GetUrl(),
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
 		}, nil
 	}
 	if information := request.GetInformation(); information != nil {
 		return presentationdomain.Event{
-			Kind: presentationdomain.EventInformation,
-			Text: information.GetText(),
+			Kind:                 presentationdomain.EventInformation,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 information.GetText(),
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
 		}, nil
 	}
 	if safeError := request.GetError(); safeError != nil {
-		event := presentationdomain.Event{Kind: presentationdomain.EventError, Text: safeError.GetText()}
+		event := presentationdomain.Event{
+			Kind:                 presentationdomain.EventError,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 safeError.GetText(),
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       presentationdomain.ModelSelection{},
+		}
 		if safeError.GetRetryAuthentication() {
 			event.Availability = presentationdomain.AvailabilityAuthenticationFailed
 		}
@@ -175,7 +233,25 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			return presentationdomain.Event{}, err
 		}
 		return presentationdomain.Event{
-			Kind: presentationdomain.EventModelSelectionChanged, ModelSelection: selection,
+			Kind:                 presentationdomain.EventModelSelectionChanged,
+			Startup:              nil,
+			Extensions:           nil,
+			Availability:         0,
+			Position:             0,
+			ModelContentKind:     0,
+			ModelResponseContent: nil,
+			ToolCallID:           "",
+			ToolName:             "",
+			Status:               "",
+			Stream:               0,
+			Text:                 "",
+			ToolResultContents:   nil,
+			ErrorText:            "",
+			ExitCode:             0,
+			Failure:              false,
+			ToolCall:             presentationdomain.ToolCallState{},
+			Models:               nil,
+			ModelSelection:       selection,
 		}, nil
 	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
@@ -207,7 +283,13 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 			default:
 				return presentationdomain.Line{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
 			}
-			return presentationdomain.Line{Kind: kind, Text: content.GetText()}, nil
+			return presentationdomain.Line{
+				Kind:               kind,
+				Text:               content.GetText(),
+				ToolName:           "",
+				Status:             "",
+				ToolResultContents: nil,
+			}, nil
 		},
 	)
 	if err != nil {
@@ -217,7 +299,8 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		initialization.GetExtensions(),
 		func(extension *uiv1.ExtensionAvailability, _ int) presentationdomain.Extension {
 			return presentationdomain.Extension{
-				ID: extension.GetPluginId(), Path: extension.GetPath(),
+				ID:    extension.GetPluginId(),
+				Path:  extension.GetPath(),
 				Tools: slices.Clone(extension.GetTools()),
 			}
 		},
@@ -243,9 +326,12 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 				return presentationdomain.ConfiguredModel{}, mapErr
 			}
 			return presentationdomain.ConfiguredModel{
-				ProviderID: configured.GetProviderId(), ModelID: configured.GetModelId(),
+				ProviderID: configured.GetProviderId(),
+				ModelID:    configured.GetModelId(),
 				Reasoning: presentationdomain.ReasoningCapabilities{
-					Supported: reasoning.GetSupported(), Choices: choices, Default: defaultChoice,
+					Supported: reasoning.GetSupported(),
+					Choices:   choices,
+					Default:   defaultChoice,
 				},
 			}, nil
 		},
@@ -254,8 +340,25 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		return presentationdomain.Event{}, err
 	}
 	event := presentationdomain.Event{
-		Kind: presentationdomain.EventInitialization, Availability: availability,
-		Startup: startup, Extensions: extensions, Models: models, ModelSelection: selection,
+		Kind:                 presentationdomain.EventInitialization,
+		Startup:              startup,
+		Extensions:           extensions,
+		Availability:         availability,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           "",
+		ToolName:             "",
+		Status:               "",
+		Stream:               0,
+		Text:                 "",
+		ToolResultContents:   nil,
+		ErrorText:            "",
+		ExitCode:             0,
+		Failure:              false,
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               models,
+		ModelSelection:       selection,
 	}
 	return event, nil
 }
@@ -270,7 +373,9 @@ func mapModelSelection(selection *uiv1.ModelSelection) (presentationdomain.Model
 		return presentationdomain.ModelSelection{}, err
 	}
 	return presentationdomain.ModelSelection{
-		ProviderID: selection.GetProviderId(), ModelID: selection.GetModelId(), ReasoningChoice: level,
+		ProviderID:      selection.GetProviderId(),
+		ModelID:         selection.GetModelId(),
+		ReasoningChoice: level,
 	}, nil
 }
 
@@ -303,13 +408,25 @@ func mapReasoningChoice(level uiv1.ReasoningChoice) (presentationdomain.Reasonin
 //nolint:gocyclo // The explicit flat switch mirrors the finite lifecycle enum.
 func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, error) {
 	event := presentationdomain.Event{
-		Position:   0,
-		ToolCallID: lifecycle.GetToolCallId(),
-		ToolName:   lifecycle.GetToolName(),
-		Text:       lifecycle.GetText(),
-		ErrorText:  lifecycle.GetErrorMessage(),
-		Status:     lifecycle.GetOutcome(),
-		Failure:    lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "",
+		Kind:                 0,
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         0,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           lifecycle.GetToolCallId(),
+		ToolName:             lifecycle.GetToolName(),
+		Status:               lifecycle.GetOutcome(),
+		Stream:               0,
+		Text:                 lifecycle.GetText(),
+		ToolResultContents:   nil,
+		ErrorText:            lifecycle.GetErrorMessage(),
+		ExitCode:             0,
+		Failure:              lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "",
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               nil,
+		ModelSelection:       presentationdomain.ModelSelection{},
 	}
 
 	switch lifecycle.GetType() {
@@ -339,8 +456,12 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		event.Kind = presentationdomain.EventToolCallFinal
 		call := lifecycle.GetFinalToolCall()
 		event.ToolCall = presentationdomain.ToolCallState{
-			CallID: call.GetCallId(), Name: call.GetName(), Position: int(call.GetPosition()),
-			Provisional: false, Fields: nil, Arguments: call.GetArguments().AsMap(),
+			CallID:      call.GetCallId(),
+			Name:        call.GetName(),
+			Position:    int(call.GetPosition()),
+			Provisional: false,
+			Fields:      nil,
+			Arguments:   call.GetArguments().AsMap(),
 		}
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
 		event.Kind = presentationdomain.EventModelEnd
@@ -409,14 +530,20 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 			}
 			switch content.WhichContent() {
 			case uiv1.ToolResultContent_Text_case:
-				return presentationdomain.ToolResultContent{Text: content.GetText()}, nil
+				return presentationdomain.ToolResultContent{
+					Text:      content.GetText(),
+					MediaType: "",
+					Data:      nil,
+				}, nil
 			case uiv1.ToolResultContent_Image_case:
 				image := content.GetImage()
 				if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
 					return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result image %d is invalid", index)
 				}
 				return presentationdomain.ToolResultContent{
-					MediaType: image.GetMediaType(), Data: bytes.Clone(image.GetData()),
+					MediaType: image.GetMediaType(),
+					Data:      bytes.Clone(image.GetData()),
+					Text:      "",
 				}, nil
 			case uiv1.ToolResultContent_Content_not_set_case:
 				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
@@ -433,7 +560,10 @@ func mapModelResponseContent(content []*uiv1.ModelResponseContent) []presentatio
 		content,
 		func(item *uiv1.ModelResponseContent, _ int) (presentationdomain.ModelResponseContent, bool) {
 			kind := mapModelContentKind(item.GetKind())
-			return presentationdomain.ModelResponseContent{Kind: kind, Text: item.GetText()},
+			return presentationdomain.ModelResponseContent{
+					Kind: kind,
+					Text: item.GetText(),
+				},
 				kind != presentationdomain.ModelContentUnspecified
 		},
 	)
@@ -457,7 +587,12 @@ func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelCon
 
 func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCallState {
 	fields := lo.Map(preview.GetFields(), func(field *uiv1.ToolCallPreviewField, _ int) presentationdomain.ToolCallField {
-		mapped := presentationdomain.ToolCallField{Name: field.GetName(), Value: nil, Prefix: "", Complete: false}
+		mapped := presentationdomain.ToolCallField{
+			Name:     field.GetName(),
+			Value:    nil,
+			Prefix:   "",
+			Complete: false,
+		}
 		switch field.WhichContent() {
 		case uiv1.ToolCallPreviewField_Value_case:
 			mapped.Value = field.GetValue().AsInterface()
@@ -469,8 +604,12 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCa
 		return mapped
 	})
 	return presentationdomain.ToolCallState{
-		CallID: preview.GetCallId(), Name: preview.GetName(), Position: int(preview.GetPosition()),
-		Provisional: preview.GetProvisional(), Fields: fields, Arguments: nil,
+		CallID:      preview.GetCallId(),
+		Name:        preview.GetName(),
+		Position:    int(preview.GetPosition()),
+		Provisional: preview.GetProvisional(),
+		Fields:      fields,
+		Arguments:   nil,
 	}
 }
 
@@ -518,25 +657,46 @@ func mapAvailability(availability uiv1.Availability) (presentationdomain.Availab
 func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
 	switch command.Kind {
 	case presentationdomain.CommandSubmit:
-		return uiv1.OpenResponse_builder{Submit: uiv1.SubmitCommand_builder{Text: new(command.Text)}.Build()}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Submit field.
+		return uiv1.OpenResponse_builder{
+			Submit: uiv1.SubmitCommand_builder{
+				Text: new(command.Text),
+			}.Build(),
+		}.Build(), nil
 	case presentationdomain.CommandStop:
-		return uiv1.OpenResponse_builder{Stop: &uiv1.StopCommand{}}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Stop field.
+		return uiv1.OpenResponse_builder{
+			Stop: &uiv1.StopCommand{},
+		}.Build(), nil
 	case presentationdomain.CommandRetryAuthentication:
-		return uiv1.OpenResponse_builder{RetryAuthentication: &uiv1.RetryAuthenticationCommand{}}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active RetryAuthentication field.
+		return uiv1.OpenResponse_builder{
+			RetryAuthentication: &uiv1.RetryAuthenticationCommand{},
+		}.Build(), nil
 	case presentationdomain.CommandQuit:
-		return uiv1.OpenResponse_builder{Quit: &uiv1.QuitCommand{}}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Quit field.
+		return uiv1.OpenResponse_builder{
+			Quit: &uiv1.QuitCommand{},
+		}.Build(), nil
 	case presentationdomain.CommandSelectModel:
-		return uiv1.OpenResponse_builder{SelectModel: uiv1.SelectModelCommand_builder{
-			ProviderId: new(command.ProviderID), ModelId: new(command.ModelID),
-		}.Build()}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SelectModel field.
+		return uiv1.OpenResponse_builder{
+			SelectModel: uiv1.SelectModelCommand_builder{
+				ProviderId: new(command.ProviderID),
+				ModelId:    new(command.ModelID),
+			}.Build(),
+		}.Build(), nil
 	case presentationdomain.CommandSelectReasoningChoice:
 		level := mapReasoningChoiceToProto(command.ReasoningChoice)
 		if level == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
 			return nil, errors.New("UI reasoning choice is unspecified")
 		}
-		return uiv1.OpenResponse_builder{SelectReasoningChoice: uiv1.SelectReasoningChoiceCommand_builder{
-			Choice: new(level),
-		}.Build()}.Build(), nil
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SelectReasoningChoice field.
+		return uiv1.OpenResponse_builder{
+			SelectReasoningChoice: uiv1.SelectReasoningChoiceCommand_builder{
+				Choice: new(level),
+			}.Build(),
+		}.Build(), nil
 	case presentationdomain.CommandUnspecified:
 		return nil, errors.New("UI command is unspecified")
 	default:

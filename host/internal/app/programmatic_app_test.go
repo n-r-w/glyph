@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf builders and test fixtures set only fields relevant to each scenario.
 package app
 
 import (
@@ -27,8 +26,10 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
+	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -66,6 +67,9 @@ func TestRunWithPathsRPCPublishesSocketAndCleansUp(t *testing.T) {
 		Mode:               cli.ModeRPC,
 		ExtensionDirectory: extensionDirectory,
 		SocketPath:         socketPath,
+		Headless:           headless.Command{},
+		UIDirectory:        "",
+		UIID:               "",
 	}, writer, &stderr)
 	require.NoError(t, writer.Close())
 	line := <-lineResult
@@ -140,7 +144,9 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = programmaticTransport{requestCount: requestCount}
+	http.DefaultTransport = programmaticTransport{
+		requestCount: requestCount,
+	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	fixture := startProgrammaticFixtureWithExtension(t, paths, buildToolsExecutable(t))
@@ -207,7 +213,9 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = programmaticTransport{requestCount: requestCount}
+	http.DefaultTransport = programmaticTransport{
+		requestCount: requestCount,
+	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	fixture := startProgrammaticFixture(t, paths)
@@ -229,7 +237,9 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = programmaticTransport{requestCount: requestCount}
+	http.DefaultTransport = programmaticTransport{
+		requestCount: requestCount,
+	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	fixture := startProgrammaticFixture(t, paths)
@@ -253,8 +263,11 @@ func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 	t := testSuite.T()
 	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixture(t, paths)
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	invalid := programmaticv1.OpenRequest_builder{
-		UserRequest: programmaticv1.UserRequest_builder{Text: proto.String("missing correlation")}.Build(),
+		UserRequest: programmaticv1.UserRequest_builder{
+			Text: proto.String("missing correlation"),
+		}.Build(),
 	}.Build()
 	require.NoError(t, fixture.stream.Send(invalid))
 	_, receiveErr := fixture.stream.Recv()
@@ -272,7 +285,14 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
 	session := hostprogrammatic.New(
 		coordinator, nil,
-		func() agentrun.State { return agentrun.State{Status: agentrun.StatusIdle} },
+		func() agentrun.State {
+			return agentrun.State{
+				Status:          agentrun.StatusIdle,
+				RunID:           "",
+				PartialResponse: model.Response{},
+				ToolPreviews:    nil,
+			}
+		},
 		func() []agent.HistoryEntry { return nil },
 		delivery,
 	)
@@ -295,7 +315,14 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
 	session := hostprogrammatic.New(
 		coordinator, nil,
-		func() agentrun.State { return agentrun.State{Status: agentrun.StatusIdle} },
+		func() agentrun.State {
+			return agentrun.State{
+				Status:          agentrun.StatusIdle,
+				RunID:           "",
+				PartialResponse: model.Response{},
+				ToolPreviews:    nil,
+			}
+		},
 		func() []agent.HistoryEntry { return nil },
 		delivery,
 	)
@@ -318,8 +345,9 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 		require.True(t, connection.WaitForStateChange(t.Context(), state))
 	}
 	completions <- controllerprogrammatic.SessionCompletion{
-		Cause: controllerprogrammatic.SessionCompletionTransportFailure,
-		Err:   sendErr,
+		Cause:      controllerprogrammatic.SessionCompletionTransportFailure,
+		Err:        sendErr,
+		CleanupErr: nil,
 	}
 
 	runErr := <-results
@@ -411,6 +439,7 @@ func startProgrammaticFixtureAtPath(
 			UIDirectory:        unusedUIDirectory,
 			UIID:               "must-not-load",
 			SocketPath:         socketPath,
+			Headless:           headless.Command{},
 		}, writer, io.Discard)
 		_ = writer.Close()
 	}()
@@ -434,8 +463,12 @@ func startProgrammaticFixtureAtPath(
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
 	return &programmaticFixture{
-		cancel: cancel, connection: connection, stream: stream,
-		result: results, stdoutReader: stdoutReader, socketPath: announcement.Socket,
+		cancel:       cancel,
+		connection:   connection,
+		stream:       stream,
+		result:       results,
+		stdoutReader: stdoutReader,
+		socketPath:   announcement.Socket,
 	}
 }
 
@@ -478,9 +511,20 @@ func (transport programmaticTransport) RoundTrip(request *http.Request) (*http.R
 		return nil, request.Context().Err()
 	case 2:
 		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewBufferString(finalResponseSSE)),
-			Header:     make(http.Header),
+			StatusCode:       http.StatusOK,
+			Body:             io.NopCloser(bytes.NewBufferString(finalResponseSSE)),
+			Header:           make(http.Header),
+			Status:           "",
+			Proto:            "",
+			ProtoMajor:       0,
+			ProtoMinor:       0,
+			ContentLength:    0,
+			TransferEncoding: nil,
+			Close:            false,
+			Uncompressed:     false,
+			Trailer:          nil,
+			Request:          nil,
+			TLS:              nil,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unexpected programmatic provider request")
@@ -497,39 +541,50 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 
 // userRequest builds a generated user-request frame.
 func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String(correlationID),
-		UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String(text)}.Build(),
+		UserRequest: programmaticv1.UserRequest_builder{
+			Text: proto.String(text),
+		}.Build(),
 	}.Build()
 }
 
 // abortRequest builds a generated abort frame.
 func abortRequest(correlationID string) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID), Abort: programmaticv1.Abort_builder{}.Build(),
+		CorrelationId: proto.String(correlationID),
+		Abort:         programmaticv1.Abort_builder{}.Build(),
 	}.Build()
 }
 
 // runStateRequest builds a generated run-state frame.
 func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID), GetRunState: programmaticv1.GetRunState_builder{}.Build(),
+		CorrelationId: proto.String(correlationID),
+		GetRunState:   programmaticv1.GetRunState_builder{}.Build(),
 	}.Build()
 }
 
 // getModelsRequest builds a generated model-catalog frame.
 func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID), GetModels: programmaticv1.GetModels_builder{}.Build(),
+		CorrelationId: proto.String(correlationID),
+		GetModels:     programmaticv1.GetModels_builder{}.Build(),
 	}.Build()
 }
 
 // selectModelRequest builds a generated model-selection frame.
 func selectModelRequest(correlationID, providerID, modelID string) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String(correlationID),
 		SelectModel: programmaticv1.SelectModel_builder{
-			ProviderId: proto.String(providerID), ModelId: proto.String(modelID),
+			ProviderId: proto.String(providerID),
+			ModelId:    proto.String(modelID),
 		}.Build(),
 	}.Build()
 }
@@ -539,8 +594,11 @@ func selectReasoningRequest(
 	correlationID string,
 	level programmaticv1.ReasoningChoice,
 ) *programmaticv1.OpenRequest {
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId:         proto.String(correlationID),
-		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{Choice: level.Enum()}.Build(),
+		CorrelationId: proto.String(correlationID),
+		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
+			Choice: level.Enum(),
+		}.Build(),
 	}.Build()
 }

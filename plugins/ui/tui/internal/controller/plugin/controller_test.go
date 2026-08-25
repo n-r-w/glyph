@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields used by the active contract or presentation event kind.
 package plugin
 
 import (
@@ -53,7 +52,12 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 	))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Information: uiv1.Information_builder{Text: new("too early")}.Build()}.Build()))
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Information field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Information: uiv1.Information_builder{
+			Text: new("too early"),
+		}.Build(),
+	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
 	_, err = stream.Recv()
@@ -81,17 +85,43 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	factory.EXPECT().New(gomock.Any(), input, output, gomock.Any()).DoAndReturn(
 		func(initial presentationdomain.Event, _ io.Reader, _ io.Writer, _ Emit) Program {
 			assert.Equal(t, presentationdomain.Event{
-				Kind:         presentationdomain.EventInitialization,
-				Startup:      []presentationdomain.Line{{Kind: presentationdomain.LineInformation, Text: "ready"}},
+				Kind: presentationdomain.EventInitialization,
+				Startup: []presentationdomain.Line{{
+					Kind:               presentationdomain.LineInformation,
+					Text:               "ready",
+					ToolName:           "",
+					Status:             "",
+					ToolResultContents: nil,
+				}},
 				Availability: presentationdomain.AvailabilityIdle,
-				Extensions:   []presentationdomain.Extension{{ID: "tools", Tools: []string{"read"}}},
+				Extensions: []presentationdomain.Extension{{
+					ID:    "tools",
+					Tools: []string{"read"},
+					Path:  "",
+				}},
 				Models: []presentationdomain.ConfiguredModel{{
-					ProviderID: "openai-codex", ModelID: "gpt",
-					Reasoning: testReasoning(presentationdomain.ReasoningChoiceHigh),
+					ProviderID: "openai-codex",
+					ModelID:    "gpt",
+					Reasoning:  testReasoning(presentationdomain.ReasoningChoiceHigh),
 				}},
 				ModelSelection: presentationdomain.ModelSelection{
-					ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
+					ProviderID:      "openai-codex",
+					ModelID:         "gpt",
+					ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 				},
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				ToolCallID:           "",
+				ToolName:             "",
+				Status:               "",
+				Stream:               0,
+				Text:                 "",
+				ToolResultContents:   nil,
+				ErrorText:            "",
+				ExitCode:             0,
+				Failure:              false,
+				ToolCall:             presentationdomain.ToolCallState{},
 			}, initial)
 			return program
 		},
@@ -101,7 +131,27 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		<-runDone
 		return nil
 	})
-	program.EXPECT().Send(presentationdomain.Event{Kind: presentationdomain.EventInformation, Text: "information"})
+	program.EXPECT().Send(presentationdomain.Event{
+		Kind:                 presentationdomain.EventInformation,
+		Text:                 "information",
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         0,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           "",
+		ToolName:             "",
+		Status:               "",
+		Stream:               0,
+		ToolResultContents:   nil,
+		ErrorText:            "",
+		ExitCode:             0,
+		Failure:              false,
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               nil,
+		ModelSelection:       presentationdomain.ModelSelection{},
+	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		switch event.ModelContentKind {
 		case presentationdomain.ModelContentReasoning:
@@ -124,23 +174,63 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(initializationRequest()))
 	<-started
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Information: uiv1.Information_builder{Text: new("information")}.Build()}.Build()))
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Lifecycle: uiv1.LifecycleEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-		ModelContent: uiv1.ModelContent_builder{
-			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
-			Position: new(int32(1)), Text: new("hidden reasoning"),
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Information field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Information: uiv1.Information_builder{
+			Text: new("information"),
 		}.Build(),
-	}.Build()}.Build()))
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{Lifecycle: uiv1.LifecycleEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-		ModelContent: uiv1.ModelContent_builder{
-			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-			Position: new(int32(2)), Text: new("delta"),
+	}.Build()))
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Lifecycle: uiv1.LifecycleEvent_builder{
+			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+			ModelContent: uiv1.ModelContent_builder{
+				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
+				Position: new(int32(1)),
+				Text:     new("hidden reasoning"),
+			}.Build(),
+			RunId:              nil,
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelResponse:      nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
 		}.Build(),
-	}.Build()}.Build()))
+	}.Build()))
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		Lifecycle: uiv1.LifecycleEvent_builder{
+			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+			ModelContent: uiv1.ModelContent_builder{
+				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+				Position: new(int32(2)),
+				Text:     new("delta"),
+			}.Build(),
+			RunId:           nil,
+			Text:            nil,
+			ToolCallId:      nil,
+			ToolName:        nil,
+			ProgressChannel: nil,
+			IsError:         nil,
+			Outcome:         nil,
+			ErrorMessage:    nil,
+			Availability:    nil,
+
+			ModelResponse:      nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
+		}.Build(),
+	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
 	_, err = stream.Recv()
@@ -154,43 +244,63 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 	initial, err := mapInitialization(uiv1.Initialization_builder{
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-			ProviderId: new("openrouter"), ModelId: new("sonnet"),
+			ProviderId: new("openrouter"),
+			ModelId:    new("sonnet"),
 			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_OFF,
 				uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
-			ProviderId: new("openrouter"), ModelId: new("sonnet"),
+			ProviderId:      new("openrouter"),
+			ModelId:         new("sonnet"),
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
+		SelectedUiId:   nil,
+		StartupContent: nil,
+		Extensions:     nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ConfiguredModel{{
-		ProviderID: "openrouter", ModelID: "sonnet",
-		Reasoning: testReasoning(presentationdomain.ReasoningChoiceOff, presentationdomain.ReasoningChoiceHigh),
+		ProviderID: "openrouter",
+		ModelID:    "sonnet",
+		Reasoning:  testReasoning(presentationdomain.ReasoningChoiceOff, presentationdomain.ReasoningChoiceHigh),
 	}}, initial.Models)
 	assert.Equal(t, presentationdomain.ModelSelection{
-		ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
+		ProviderID:      "openrouter",
+		ModelID:         "sonnet",
+		ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 	}, initial.ModelSelection)
 
-	changed, err := mapRequest(uiv1.OpenRequest_builder{ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
-		Selection: uiv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active ModelSelectionChanged field.
+	changed, err := mapRequest(uiv1.OpenRequest_builder{
+		ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
+			Selection: uiv1.ModelSelection_builder{
+				ProviderId:      new("openai-codex"),
+				ModelId:         new("gpt"),
+				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
+			}.Build(),
 		}.Build(),
-	}.Build()}.Build())
+	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
 	assert.Equal(t, presentationdomain.ReasoningChoiceXHigh, changed.ModelSelection.ReasoningChoice)
 
 	modelCommand, err := mapCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectModel, ProviderID: "openai-codex", ModelID: "gpt",
+		Kind:            presentationdomain.CommandSelectModel,
+		ProviderID:      "openai-codex",
+		ModelID:         "gpt",
+		Text:            "",
+		ReasoningChoice: 0,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
 	assert.Equal(t, "gpt", modelCommand.GetSelectModel().GetModelId())
 
 	reasoningCommand, err := mapCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectReasoningChoice, ReasoningChoice: presentationdomain.ReasoningChoiceMax,
+		Kind:            presentationdomain.CommandSelectReasoningChoice,
+		ReasoningChoice: presentationdomain.ReasoningChoiceMax,
+		Text:            "",
+		ProviderID:      "",
+		ModelID:         "",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
@@ -245,11 +355,30 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 
 	assert.True(t, state.Settled)
 	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
-	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineModel, Text: "Request complete."})
-	assert.Contains(t, state.Transcript, presentationdomain.Line{Kind: presentationdomain.LineToolDone, ToolName: "bash", Status: "completed"})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
-		Kind: presentationdomain.LineToolDone, ToolName: "bash", Text: "tool-ok\n\n[Exit code: 0]\n",
-		ToolResultContents: []presentationdomain.ToolResultContent{{Text: "tool-ok\n\n[Exit code: 0]\n"}},
+		Kind:               presentationdomain.LineModel,
+		Text:               "Request complete.",
+		ToolName:           "",
+		Status:             "",
+		ToolResultContents: nil,
+	})
+	assert.Contains(t, state.Transcript, presentationdomain.Line{
+		Kind:               presentationdomain.LineToolDone,
+		ToolName:           "bash",
+		Status:             "completed",
+		Text:               "",
+		ToolResultContents: nil,
+	})
+	assert.Contains(t, state.Transcript, presentationdomain.Line{
+		Kind:     presentationdomain.LineToolDone,
+		ToolName: "bash",
+		Text:     "tool-ok\n\n[Exit code: 0]\n",
+		ToolResultContents: []presentationdomain.ToolResultContent{{
+			Text:      "tool-ok\n\n[Exit code: 0]\n",
+			MediaType: "",
+			Data:      nil,
+		}},
+		Status: "",
 	})
 	assert.Empty(t, state.ActiveTools)
 }
@@ -289,14 +418,47 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	case "availability":
 		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED
 	}
-	lifecycle := uiv1.LifecycleEvent_builder{Type: new(typeValue), ToolName: new(frame.ToolName), Text: new(frame.Text), Outcome: new(frame.Outcome)}.Build()
+	lifecycle := uiv1.LifecycleEvent_builder{
+		Type:               new(typeValue),
+		ToolName:           new(frame.ToolName),
+		Text:               new(frame.Text),
+		Outcome:            new(frame.Outcome),
+		RunId:              nil,
+		ToolCallId:         nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
+	}.Build()
 	if frame.Type == "message_end" && frame.ModelText != "" {
-		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new(frame.ModelText)}.Build()}}.Build())
+		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
+			Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+				Text: new(frame.ModelText),
+			}.Build()},
+			Text:          nil,
+			Outcome:       nil,
+			ErrorMessage:  nil,
+			Provider:      nil,
+			Model:         nil,
+			ResponseId:    nil,
+			Usage:         nil,
+			Diagnostics:   nil,
+			ResponseModel: nil,
+		}.Build())
 	}
 	if frame.Type == "tool_result" {
 		contents := make([]*uiv1.ToolResultContent, 0, len(frame.ToolResultContents))
 		for _, content := range frame.ToolResultContents {
-			contents = append(contents, uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build())
+			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+			contents = append(contents, uiv1.ToolResultContent_builder{
+				Text: new(content.Text),
+			}.Build())
 		}
 		lifecycle.SetToolResultContents(contents)
 	}
@@ -306,7 +468,10 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	if frame.Type == "availability" {
 		lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
 	}
-	return uiv1.OpenRequest_builder{Lifecycle: lifecycle}.Build()
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	return uiv1.OpenRequest_builder{
+		Lifecycle: lifecycle,
+	}.Build()
 }
 
 // repositoryRoot resolves shared testdata from the source file location.
@@ -326,8 +491,22 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL),
-			Position: new(int32(3)), Text: new("cannot help"),
+			Position: new(int32(3)),
+			Text:     new("cannot help"),
 		}.Build(),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 
 	require.NoError(t, err)
@@ -342,18 +521,60 @@ func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 
 	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
-		ModelResponse: uiv1.ModelResponse_builder{Content: []*uiv1.ModelResponseContent{
-			uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING), Text: new("hidden")}.Build(),
-			uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new("answer")}.Build(),
-			uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL), Text: new("cannot help")}.Build(),
-		}}.Build(),
+		ModelResponse: uiv1.ModelResponse_builder{
+			Content: []*uiv1.ModelResponseContent{
+				uiv1.ModelResponseContent_builder{
+					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
+					Text: new("hidden"),
+				}.Build(),
+				uiv1.ModelResponseContent_builder{
+					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+					Text: new("answer"),
+				}.Build(),
+				uiv1.ModelResponseContent_builder{
+					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL),
+					Text: new("cannot help"),
+				}.Build(),
+			},
+			Text:          nil,
+			Outcome:       nil,
+			ErrorMessage:  nil,
+			Provider:      nil,
+			Model:         nil,
+			ResponseId:    nil,
+			Usage:         nil,
+			Diagnostics:   nil,
+			ResponseModel: nil,
+		}.Build(),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ModelResponseContent{
-		{Kind: presentationdomain.ModelContentReasoning, Text: "hidden"},
-		{Kind: presentationdomain.ModelContentText, Text: "answer"},
-		{Kind: presentationdomain.ModelContentRefusal, Text: "cannot help"},
+		{
+			Kind: presentationdomain.ModelContentReasoning,
+			Text: "hidden",
+		},
+		{
+			Kind: presentationdomain.ModelContentText,
+			Text: "answer",
+		},
+		{
+			Kind: presentationdomain.ModelContentRefusal,
+			Text: "cannot help",
+		},
 	}, event.ModelResponseContent)
 }
 
@@ -389,10 +610,34 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 	emit := <-emitter
 
 	commands := []presentationdomain.Command{
-		{Kind: presentationdomain.CommandSubmit, Text: "hello"},
-		{Kind: presentationdomain.CommandStop},
-		{Kind: presentationdomain.CommandRetryAuthentication},
-		{Kind: presentationdomain.CommandQuit},
+		{
+			Kind:            presentationdomain.CommandSubmit,
+			Text:            "hello",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            presentationdomain.CommandStop,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            presentationdomain.CommandRetryAuthentication,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            presentationdomain.CommandQuit,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
 	}
 	for _, command := range commands {
 		emitResult := make(chan error, 1)
@@ -458,25 +703,35 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 			Text:     new("excluded optional UI"),
 		}.Build()},
 		Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
-			PluginId: new("glyph-tools"), Tools: []string{"read"}, Path: new("/plugins/glyph-tools"),
+			PluginId: new("glyph-tools"),
+			Tools:    []string{"read"},
+			Path:     new("/plugins/glyph-tools"),
 		}.Build()},
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			ProviderId: new("openai-codex"),
+			ModelId:    new("gpt"),
+			Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ProviderId:      new("openai-codex"),
+			ModelId:         new("gpt"),
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 	}.Build())
 
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.Line{{
-		Kind: presentationdomain.LineWarning, ToolName: "", Status: "", Text: "excluded optional UI",
+		Kind:               presentationdomain.LineWarning,
+		ToolName:           "",
+		Status:             "",
+		Text:               "excluded optional UI",
+		ToolResultContents: nil,
 	}}, event.Startup)
 	assert.Equal(t, []presentationdomain.Extension{{
-		ID: "glyph-tools", Path: "/plugins/glyph-tools", Tools: []string{"read"},
+		ID:    "glyph-tools",
+		Path:  "/plugins/glyph-tools",
+		Tools: []string{"read"},
 	}}, event.Extensions)
 }
 
@@ -484,12 +739,41 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	t.Parallel()
 
-	_, err := mapRequest(uiv1.OpenRequest_builder{Lifecycle: &uiv1.LifecycleEvent{}}.Build())
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	_, err := mapRequest(uiv1.OpenRequest_builder{
+		Lifecycle: &uiv1.LifecycleEvent{},
+	}.Build())
 	require.Error(t, err)
 
-	event, err := mapRequest(uiv1.OpenRequest_builder{Error: uiv1.Error_builder{Text: new("safe error")}.Build()}.Build())
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	event, err := mapRequest(uiv1.OpenRequest_builder{
+		Error: uiv1.Error_builder{
+			Text:                new("safe error"),
+			RetryAuthentication: nil,
+		}.Build(),
+	}.Build())
 	require.NoError(t, err)
-	assert.Equal(t, presentationdomain.Event{Kind: presentationdomain.EventError, Text: "safe error"}, event)
+	assert.Equal(t, presentationdomain.Event{
+		Kind:                 presentationdomain.EventError,
+		Text:                 "safe error",
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         0,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           "",
+		ToolName:             "",
+		Status:               "",
+		Stream:               0,
+		ToolResultContents:   nil,
+		ErrorText:            "",
+		ExitCode:             0,
+		Failure:              false,
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               nil,
+		ModelSelection:       presentationdomain.ModelSelection{},
+	}, event)
 }
 
 // TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.
@@ -497,7 +781,21 @@ func TestMapLifecycleRejectsEmptyToolResultContents(t *testing.T) {
 	t.Parallel()
 
 	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		RunId:              nil,
+		Text:               nil,
+		ToolCallId:         nil,
+		ToolName:           nil,
+		ProgressChannel:    nil,
+		IsError:            nil,
+		Outcome:            nil,
+		ErrorMessage:       nil,
+		Availability:       nil,
+		ModelContent:       nil,
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
 	}.Build())
 	require.ErrorContains(t, err, "tool result contents are empty")
 }
@@ -511,6 +809,19 @@ func TestMapLifecycleRejectsMissingToolResultContent(t *testing.T) {
 		ToolResultContents: []*uiv1.ToolResultContent{
 			uiv1.ToolResultContent_builder{}.Build(),
 		},
+		RunId:           nil,
+		Text:            nil,
+		ToolCallId:      nil,
+		ToolName:        nil,
+		ProgressChannel: nil,
+		IsError:         nil,
+		Outcome:         nil,
+		ErrorMessage:    nil,
+		Availability:    nil,
+		ModelContent:    nil,
+		ModelResponse:   nil,
+		ToolCallPreview: nil,
+		FinalToolCall:   nil,
 	}.Build())
 	require.ErrorContains(t, err, "tool result content 0 is missing")
 }
@@ -522,10 +833,27 @@ func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
-			uiv1.ToolResultContent_builder{Image: uiv1.ToolResultImage_builder{
-				MediaType: new("image/png"), Data: nil,
-			}.Build()}.Build(),
+			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Image field.
+			uiv1.ToolResultContent_builder{
+				Image: uiv1.ToolResultImage_builder{
+					MediaType: new("image/png"),
+					Data:      nil,
+				}.Build(),
+			}.Build(),
 		},
+		RunId:           nil,
+		Text:            nil,
+		ToolCallId:      nil,
+		ToolName:        nil,
+		ProgressChannel: nil,
+		IsError:         nil,
+		Outcome:         nil,
+		ErrorMessage:    nil,
+		Availability:    nil,
+		ModelContent:    nil,
+		ModelResponse:   nil,
+		ToolCallPreview: nil,
+		FinalToolCall:   nil,
 	}.Build())
 	require.ErrorContains(t, err, "tool result image 0 is invalid")
 }
@@ -538,36 +866,116 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	state := presentationdomain.State{}
 	frames := []*uiv1.LifecycleEvent{
 		uiv1.LifecycleEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START),
+			Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START),
+			RunId:              nil,
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelContent:       nil,
+			ModelResponse:      nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
 		}.Build(),
 		uiv1.LifecycleEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 			ModelContent: uiv1.ModelContent_builder{
-				Type: new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA), Position: new(int32(1)), Text: new("complete answer"),
+				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+				Position: new(int32(1)),
+				Text:     new("complete answer"),
+				Kind:     nil,
 			}.Build(),
+			RunId:              nil,
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelResponse:      nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
 		}.Build(),
 		uiv1.LifecycleEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 			ModelResponse: uiv1.ModelResponse_builder{
-				Text: new("complete answer"), Provider: new("openai-codex"), Model: new("gpt-test"), ResponseId: new("resp-1"),
-				Usage:       uiv1.ModelUsage_builder{InputTokens: new(int64(3)), OutputTokens: new(int64(2)), TotalTokens: new(int64(5))}.Build(),
-				Diagnostics: []*uiv1.ModelDiagnostic{uiv1.ModelDiagnostic_builder{Code: new("recovered_output"), Message: new("hidden diagnostic")}.Build()},
+				Text:       new("complete answer"),
+				Provider:   new("openai-codex"),
+				Model:      new("gpt-test"),
+				ResponseId: new("resp-1"),
+				Usage: uiv1.ModelUsage_builder{
+					InputTokens:       new(int64(3)),
+					OutputTokens:      new(int64(2)),
+					TotalTokens:       new(int64(5)),
+					CachedInputTokens: nil,
+					CacheWriteTokens:  nil,
+					ReasoningTokens:   nil,
+				}.Build(),
+				Diagnostics: []*uiv1.ModelDiagnostic{uiv1.ModelDiagnostic_builder{
+					Code:    new("recovered_output"),
+					Message: new("hidden diagnostic"),
+				}.Build()},
 				Content: []*uiv1.ModelResponseContent{
-					uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING), Text: new("hidden reasoning")}.Build(),
-					uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new("complete answer")}.Build(),
+					uiv1.ModelResponseContent_builder{
+						Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
+						Text: new("hidden reasoning"),
+					}.Build(),
+					uiv1.ModelResponseContent_builder{
+						Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+						Text: new("complete answer"),
+					}.Build(),
 				},
+				Outcome:       nil,
+				ErrorMessage:  nil,
+				ResponseModel: nil,
 			}.Build(),
+			RunId:              nil,
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelContent:       nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
 		}.Build(),
 	}
 	for _, lifecycle := range frames {
-		event, err := mapRequest(uiv1.OpenRequest_builder{Lifecycle: proto.ValueOrDefault(lifecycle)}.Build())
+		//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+		event, err := mapRequest(uiv1.OpenRequest_builder{
+			Lifecycle: proto.ValueOrDefault(lifecycle),
+		}.Build())
 		require.NoError(t, err)
 		state = projection.Apply(state, event)
 	}
 
 	assert.Equal(t, []presentationdomain.Line{
-		{Kind: presentationdomain.LineReasoning, Text: "hidden reasoning"},
-		{Kind: presentationdomain.LineModel, Text: "complete answer"},
+		{
+			Kind:               presentationdomain.LineReasoning,
+			Text:               "hidden reasoning",
+			ToolName:           "",
+			Status:             "",
+			ToolResultContents: nil,
+		},
+		{
+			Kind:               presentationdomain.LineModel,
+			Text:               "complete answer",
+			ToolName:           "",
+			Status:             "",
+			ToolResultContents: nil,
+		},
 	}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
 }
@@ -584,68 +992,261 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "model delta",
 			lifecycle: uiv1.LifecycleEvent_builder{
-				Type:         new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-				ModelContent: uiv1.ModelContent_builder{Type: new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA), Position: new(int32(2)), Text: new("delta")}.Build(),
+				Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+				ModelContent: uiv1.ModelContent_builder{
+					Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+					Position: new(int32(2)),
+					Text:     new("delta"),
+					Kind:     nil,
+				}.Build(),
+				RunId:              nil,
+				Text:               nil,
+				ToolCallId:         nil,
+				ToolName:           nil,
+				ProgressChannel:    nil,
+				IsError:            nil,
+				Outcome:            nil,
+				ErrorMessage:       nil,
+				Availability:       nil,
+				ModelResponse:      nil,
+				ToolCallPreview:    nil,
+				FinalToolCall:      nil,
+				ToolResultContents: nil,
 			}.Build(),
-			expected: presentationdomain.Event{Kind: presentationdomain.EventModelDelta, Position: 2, Text: "delta"},
+			expected: presentationdomain.Event{
+				Kind:                 presentationdomain.EventModelDelta,
+				Position:             2,
+				Text:                 "delta",
+				Startup:              nil,
+				Extensions:           nil,
+				Availability:         0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				ToolCallID:           "",
+				ToolName:             "",
+				Status:               "",
+				Stream:               0,
+				ToolResultContents:   nil,
+				ErrorText:            "",
+				ExitCode:             0,
+				Failure:              false,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
+			},
 		},
 		{
 			name: "tool start",
 			lifecycle: uiv1.LifecycleEvent_builder{
-				Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
-				ToolCallId: new("call-1"), ToolName: new("read"),
+				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
+				ToolCallId:         new("call-1"),
+				ToolName:           new("read"),
+				RunId:              nil,
+				Text:               nil,
+				ProgressChannel:    nil,
+				IsError:            nil,
+				Outcome:            nil,
+				ErrorMessage:       nil,
+				Availability:       nil,
+				ModelContent:       nil,
+				ModelResponse:      nil,
+				ToolCallPreview:    nil,
+				FinalToolCall:      nil,
+				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
-				Kind:       presentationdomain.EventToolStarted,
-				ToolCallID: "call-1", ToolName: "read", Status: "started",
+				Kind:                 presentationdomain.EventToolStarted,
+				ToolCallID:           "call-1",
+				ToolName:             "read",
+				Status:               "started",
+				Startup:              nil,
+				Extensions:           nil,
+				Availability:         0,
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				Stream:               0,
+				Text:                 "",
+				ToolResultContents:   nil,
+				ErrorText:            "",
+				ExitCode:             0,
+				Failure:              false,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
 			},
 		},
 		{
 			name: "tool stderr",
 			lifecycle: uiv1.LifecycleEvent_builder{
-				Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
-				ToolCallId: new("call-1"), ProgressChannel: new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR), Text: new("warning"),
+				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
+				ToolCallId:         new("call-1"),
+				ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR),
+				Text:               new("warning"),
+				RunId:              nil,
+				ToolName:           nil,
+				IsError:            nil,
+				Outcome:            nil,
+				ErrorMessage:       nil,
+				Availability:       nil,
+				ModelContent:       nil,
+				ModelResponse:      nil,
+				ToolCallPreview:    nil,
+				FinalToolCall:      nil,
+				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
-				Kind:       presentationdomain.EventToolOutput,
-				ToolCallID: "call-1", Stream: presentationdomain.OutputStderr, Text: "warning",
+				Kind:                 presentationdomain.EventToolOutput,
+				ToolCallID:           "call-1",
+				Stream:               presentationdomain.OutputStderr,
+				Text:                 "warning",
+				Startup:              nil,
+				Extensions:           nil,
+				Availability:         0,
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				ToolName:             "",
+				Status:               "",
+				ToolResultContents:   nil,
+				ErrorText:            "",
+				ExitCode:             0,
+				Failure:              false,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
 			},
 		},
 		{
 			name: "failed tool result",
 			lifecycle: uiv1.LifecycleEvent_builder{
 				Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-				ToolCallId: new("call-1"), ToolName: new("read"), IsError: new(true),
+				ToolCallId: new("call-1"),
+				ToolName:   new("read"),
+				IsError:    new(true),
 				ToolResultContents: []*uiv1.ToolResultContent{
-					uiv1.ToolResultContent_builder{Text: new("denied")}.Build(),
+					//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+					uiv1.ToolResultContent_builder{
+						Text: new("denied"),
+					}.Build(),
 				},
+				RunId:           nil,
+				Text:            nil,
+				ProgressChannel: nil,
+				Outcome:         nil,
+				ErrorMessage:    nil,
+				Availability:    nil,
+				ModelContent:    nil,
+				ModelResponse:   nil,
+				ToolCallPreview: nil,
+				FinalToolCall:   nil,
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:       presentationdomain.EventToolResult,
-				ToolCallID: "call-1", ToolName: "read", Failure: true,
-				ToolResultContents: []presentationdomain.ToolResultContent{{Text: "denied"}},
+				ToolCallID: "call-1",
+				ToolName:   "read",
+				Failure:    true,
+				ToolResultContents: []presentationdomain.ToolResultContent{{
+					Text:      "denied",
+					MediaType: "",
+					Data:      nil,
+				}},
+				Startup:              nil,
+				Extensions:           nil,
+				Availability:         0,
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				Status:               "",
+				Stream:               0,
+				Text:                 "",
+				ErrorText:            "",
+				ExitCode:             0,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
 			},
 		},
 		{
 			name: "failed settlement",
 			lifecycle: uiv1.LifecycleEvent_builder{
-				Type:    new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED),
-				Outcome: new("error"), ErrorMessage: new("safe failure"),
+				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED),
+				Outcome:            new("error"),
+				ErrorMessage:       new("safe failure"),
+				RunId:              nil,
+				Text:               nil,
+				ToolCallId:         nil,
+				ToolName:           nil,
+				ProgressChannel:    nil,
+				IsError:            nil,
+				Availability:       nil,
+				ModelContent:       nil,
+				ModelResponse:      nil,
+				ToolCallPreview:    nil,
+				FinalToolCall:      nil,
+				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
-				Kind: presentationdomain.EventAgentSettled,
-				Text: "safe failure", ErrorText: "safe failure", Status: "error", Failure: true,
+				Kind:                 presentationdomain.EventAgentSettled,
+				Text:                 "safe failure",
+				ErrorText:            "safe failure",
+				Status:               "error",
+				Failure:              true,
+				Startup:              nil,
+				Extensions:           nil,
+				Availability:         0,
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				ToolCallID:           "",
+				ToolName:             "",
+				Stream:               0,
+				ToolResultContents:   nil,
+				ExitCode:             0,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
 			},
 		},
 		{
 			name: "availability",
 			lifecycle: uiv1.LifecycleEvent_builder{
-				Type:         new(uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED),
-				Availability: new(uiv1.Availability_AVAILABILITY_RUNNING),
+				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED),
+				Availability:       new(uiv1.Availability_AVAILABILITY_RUNNING),
+				RunId:              nil,
+				Text:               nil,
+				ToolCallId:         nil,
+				ToolName:           nil,
+				ProgressChannel:    nil,
+				IsError:            nil,
+				Outcome:            nil,
+				ErrorMessage:       nil,
+				ModelContent:       nil,
+				ModelResponse:      nil,
+				ToolCallPreview:    nil,
+				FinalToolCall:      nil,
+				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
-				Kind:         presentationdomain.EventAvailability,
-				Availability: presentationdomain.AvailabilityRunning,
+				Kind:                 presentationdomain.EventAvailability,
+				Availability:         presentationdomain.AvailabilityRunning,
+				Startup:              nil,
+				Extensions:           nil,
+				Position:             0,
+				ModelContentKind:     0,
+				ModelResponseContent: nil,
+				ToolCallID:           "",
+				ToolName:             "",
+				Status:               "",
+				Stream:               0,
+				Text:                 "",
+				ToolResultContents:   nil,
+				ErrorText:            "",
+				ExitCode:             0,
+				Failure:              false,
+				ToolCall:             presentationdomain.ToolCallState{},
+				Models:               nil,
+				ModelSelection:       presentationdomain.ModelSelection{},
 			},
 		},
 	}
@@ -669,20 +1270,44 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 	})
 	require.NoError(t, err)
 	preview := uiv1.ToolCallPreview_builder{
-		CallId: new("call-17"), Name: new("sample"), Position: new(int32(23)), Provisional: new(true),
+		CallId:      new("call-17"),
+		Name:        new("sample"),
+		Position:    new(int32(23)),
+		Provisional: new(true),
 		Fields: []*uiv1.ToolCallPreviewField{
-			uiv1.ToolCallPreviewField_builder{Name: new("complete"), Value: proto.ValueOrDefault(completeValue)}.Build(),
-			uiv1.ToolCallPreviewField_builder{Name: new("prefix"), Prefix: new(`{"partial":`)}.Build(),
+			uiv1.ToolCallPreviewField_builder{
+				Name:   new("complete"),
+				Value:  proto.ValueOrDefault(completeValue),
+				Prefix: nil,
+			}.Build(),
+			uiv1.ToolCallPreviewField_builder{
+				Name:   new("prefix"),
+				Prefix: new(`{"partial":`),
+				Value:  nil,
+			}.Build(),
 		},
 	}.Build()
 
 	assert.Equal(t, presentationdomain.ToolCallState{
-		CallID: "call-17", Name: "sample", Position: 23, Provisional: true,
+		CallID:      "call-17",
+		Name:        "sample",
+		Position:    23,
+		Provisional: true,
 		Fields: []presentationdomain.ToolCallField{
-			{Name: "complete", Value: map[string]any{
-				"nested": []any{"value", float64(2), true},
-			}, Prefix: "", Complete: true},
-			{Name: "prefix", Value: nil, Prefix: `{"partial":`, Complete: false},
+			{
+				Name: "complete",
+				Value: map[string]any{
+					"nested": []any{"value", float64(2), true},
+				},
+				Prefix:   "",
+				Complete: true,
+			},
+			{
+				Name:     "prefix",
+				Value:    nil,
+				Prefix:   `{"partial":`,
+				Complete: false,
+			},
 		},
 		Arguments: nil,
 	}, mapToolCallPreview(preview))
@@ -692,39 +1317,79 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	t.Parallel()
 
-	event, err := mapRequest(uiv1.OpenRequest_builder{Error: uiv1.Error_builder{Text: new("Authentication failed."), RetryAuthentication: new(true)}.Build()}.Build())
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	event, err := mapRequest(uiv1.OpenRequest_builder{
+		Error: uiv1.Error_builder{
+			Text:                new("Authentication failed."),
+			RetryAuthentication: new(true),
+		}.Build(),
+	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
-		Kind:         presentationdomain.EventError,
-		Text:         "Authentication failed.",
-		Availability: presentationdomain.AvailabilityAuthenticationFailed,
+		Kind:                 presentationdomain.EventError,
+		Text:                 "Authentication failed.",
+		Availability:         presentationdomain.AvailabilityAuthenticationFailed,
+		Startup:              nil,
+		Extensions:           nil,
+		Position:             0,
+		ModelContentKind:     0,
+		ModelResponseContent: nil,
+		ToolCallID:           "",
+		ToolName:             "",
+		Status:               "",
+		Stream:               0,
+		ToolResultContents:   nil,
+		ErrorText:            "",
+		ExitCode:             0,
+		Failure:              false,
+		ToolCall:             presentationdomain.ToolCallState{},
+		Models:               nil,
+		ModelSelection:       presentationdomain.ModelSelection{},
 	}, event)
 }
 
 // initializationRequest builds the first valid Host frame used by stream tests.
 func initializationRequest() *uiv1.OpenRequest {
-	return uiv1.OpenRequest_builder{Initialization: uiv1.Initialization_builder{
-		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
-			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
-			Text:     new("ready"),
-		}.Build()},
-		Extensions:   []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{PluginId: new("tools"), Tools: []string{"read"}}.Build()},
-		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
-		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-		}.Build()},
-		ModelSelection: uiv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Initialization field.
+	return uiv1.OpenRequest_builder{
+		Initialization: uiv1.Initialization_builder{
+			StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
+				Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
+				Text:     new("ready"),
+			}.Build()},
+			Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
+				PluginId: new("tools"),
+				Tools:    []string{"read"},
+				Path:     nil,
+			}.Build()},
+			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+			Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+				ProviderId: new("openai-codex"),
+				ModelId:    new("gpt"),
+				Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			}.Build()},
+			ModelSelection: uiv1.ModelSelection_builder{
+				ProviderId:      new("openai-codex"),
+				ModelId:         new("gpt"),
+				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			}.Build(),
+			SelectedUiId: nil,
 		}.Build(),
-	}.Build()}.Build()
+	}.Build()
 }
 
 func testReasoning(choices ...presentationdomain.ReasoningChoice) presentationdomain.ReasoningCapabilities {
-	return presentationdomain.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
+	return presentationdomain.ReasoningCapabilities{
+		Supported: true,
+		Choices:   choices,
+		Default:   choices[len(choices)-1],
+	}
 }
 
 func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
-	return uiv1.ReasoningCapabilities_builder{Supported: new(true), Choices: choices, DefaultChoice: new(choices[len(choices)-1])}.Build()
+	return uiv1.ReasoningCapabilities_builder{
+		Supported:     new(true),
+		Choices:       choices,
+		DefaultChoice: new(choices[len(choices)-1]),
+	}.Build()
 }

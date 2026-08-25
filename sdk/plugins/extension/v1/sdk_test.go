@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package extensionv1
 
 import (
@@ -111,7 +110,10 @@ func (s *contractService) ListTools(
 ) (*extensionpb.ListToolsResponse, error) {
 	return extensionpb.ListToolsResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
-			Name: new("contract"), Description: new("Contract test tool."), InputSchemaJson: []byte(`{}`),
+			Name:            new("contract"),
+			Description:     new("Contract test tool."),
+			InputSchemaJson: []byte(`{}`),
+			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			ConstrainedSampling: extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
@@ -126,6 +128,7 @@ func (s *contractService) Execute(
 	_ *extensionpb.ExecuteRequest,
 	stream extensionpb.ExtensionService_ExecuteServer,
 ) error {
+	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Progress field.
 	if err := stream.Send(extensionpb.ExecuteResponse_builder{
 		Progress: extensionpb.ToolProgress_builder{
 			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
@@ -134,13 +137,21 @@ func (s *contractService) Execute(
 	}.Build()); err != nil {
 		return err
 	}
+	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Result field.
 	if err := stream.Send(extensionpb.ExecuteResponse_builder{
 		Result: extensionpb.ToolResult_builder{
 			Contents: []*extensionpb.ToolResultContent{
-				extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),
-				extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
-					MediaType: new("image/png"), Data: []byte{0, 1, 2, 3},
-				}.Build()}.Build(),
+				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+				extensionpb.ToolResultContent_builder{
+					Text: new("done"),
+				}.Build(),
+				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+				extensionpb.ToolResultContent_builder{
+					Image: extensionpb.ToolResultImage_builder{
+						MediaType: new("image/png"),
+						Data:      []byte{0, 1, 2, 3},
+					}.Build(),
+				}.Build(),
 			},
 			IsError: new(false),
 		}.Build(),

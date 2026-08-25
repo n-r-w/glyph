@@ -1,6 +1,4 @@
 // Package presentation projects provider-neutral Host events into TUI state.
-//
-//nolint:exhaustruct // Projection lines intentionally set only fields used by their line kind.
 package presentation
 
 import (
@@ -46,8 +44,11 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 		state.ModelSelection = event.ModelSelection
 	case presentationdomain.EventUserSubmitted:
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind: presentationdomain.LineUser,
-			Text: event.Text,
+			Kind:               presentationdomain.LineUser,
+			Text:               event.Text,
+			ToolName:           "",
+			Status:             "",
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventAvailability:
 		state.Availability = event.Availability
@@ -80,8 +81,11 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 		if call, ok := state.ActiveToolCalls[event.ToolCallID]; ok && !call.Provisional {
 			arguments, _ := json.Marshal(call.Arguments)
 			state.Transcript = append(state.Transcript, presentationdomain.Line{
-				Kind: presentationdomain.LineToolStatus, ToolName: call.Name,
-				Status: "arguments", Text: string(arguments),
+				Kind:               presentationdomain.LineToolStatus,
+				ToolName:           call.Name,
+				Status:             "arguments",
+				Text:               string(arguments),
+				ToolResultContents: nil,
 			})
 			delete(state.ActiveToolCalls, event.ToolCallID)
 		}
@@ -89,17 +93,19 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			state.ActiveTools[event.ToolCallID] = event.ToolName
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind:     presentationdomain.LineToolStatus,
-			ToolName: event.ToolName,
-			Status:   event.Status,
-			Text:     event.Text,
+			Kind:               presentationdomain.LineToolStatus,
+			ToolName:           event.ToolName,
+			Status:             event.Status,
+			Text:               event.Text,
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventToolProgress:
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind:     presentationdomain.LineToolStatus,
-			ToolName: toolName(state, event),
-			Status:   event.Status,
-			Text:     event.Text,
+			Kind:               presentationdomain.LineToolStatus,
+			ToolName:           toolName(state, event),
+			Status:             event.Status,
+			Text:               event.Text,
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventToolOutput:
 		kind := presentationdomain.LineToolStdout
@@ -107,9 +113,11 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			kind = presentationdomain.LineToolStderr
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind:     kind,
-			ToolName: toolName(state, event),
-			Text:     event.Text,
+			Kind:               kind,
+			ToolName:           toolName(state, event),
+			Text:               event.Text,
+			Status:             "",
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventToolEnded:
 		kind := presentationdomain.LineToolDone
@@ -117,9 +125,11 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			kind = presentationdomain.LineToolError
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind:     kind,
-			ToolName: event.ToolName,
-			Status:   event.Status,
+			Kind:               kind,
+			ToolName:           event.ToolName,
+			Status:             event.Status,
+			Text:               "",
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventToolResult:
 		kind := presentationdomain.LineToolDone
@@ -127,8 +137,11 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			kind = presentationdomain.LineToolError
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind: kind, ToolName: toolName(state, event), Text: toolResultLineText(event),
+			Kind:               kind,
+			ToolName:           toolName(state, event),
+			Text:               toolResultLineText(event),
 			ToolResultContents: cloneToolResultContents(event.ToolResultContents),
+			Status:             "",
 		})
 		delete(state.ActiveTools, event.ToolCallID)
 	case presentationdomain.EventTurnEnded:
@@ -138,16 +151,22 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 		state.AuthorizationURL = event.Text
 	case presentationdomain.EventInformation:
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind: presentationdomain.LineInformation,
-			Text: event.Text,
+			Kind:               presentationdomain.LineInformation,
+			Text:               event.Text,
+			ToolName:           "",
+			Status:             "",
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventError:
 		if event.Availability != presentationdomain.AvailabilityUnspecified {
 			state.Availability = event.Availability
 		}
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
-			Kind: presentationdomain.LineError,
-			Text: event.Text,
+			Kind:               presentationdomain.LineError,
+			Text:               event.Text,
+			ToolName:           "",
+			Status:             "",
+			ToolResultContents: nil,
 		})
 	case presentationdomain.EventModelSelectionChanged:
 		state.ModelSelection = event.ModelSelection
@@ -174,7 +193,13 @@ func appendFinalModelContent(
 		case presentationdomain.ModelContentUnspecified:
 		}
 		if kind != presentationdomain.LineUnspecified && item.Text != "" {
-			transcript = append(transcript, presentationdomain.Line{Kind: kind, Text: item.Text})
+			transcript = append(transcript, presentationdomain.Line{
+				Kind:               kind,
+				Text:               item.Text,
+				ToolName:           "",
+				Status:             "",
+				ToolResultContents: nil,
+			})
 		}
 	}
 	return transcript

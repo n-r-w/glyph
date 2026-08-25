@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Table cases set only fields used by each source failure.
 package credentials
 
 import (
@@ -27,7 +26,10 @@ func (s *APIKeyResolverSuite) SetupTest() {
 
 // TestLiteralReturnsExactValue verifies that literal values have no command syntax.
 func (s *APIKeyResolverSuite) TestLiteralReturnsExactValue() {
-	resolver := NewAPIKeyResolver(s.path, APIKeySource{Kind: APIKeySourceLiteral, Value: "!echo secret-value"})
+	resolver := NewAPIKeyResolver(s.path, APIKeySource{
+		Kind:  APIKeySourceLiteral,
+		Value: "!echo secret-value",
+	})
 
 	key, err := resolver.ResolveAPIKey(s.T().Context())
 
@@ -39,7 +41,10 @@ func (s *APIKeyResolverSuite) TestLiteralReturnsExactValue() {
 func (s *APIKeyResolverSuite) TestEnvironmentReadsOnlyNamedVariable() {
 	s.T().Setenv("NAMED_GLYPH_KEY", "first-value")
 	s.T().Setenv("OPENAI_API_KEY", "hidden-fallback")
-	resolver := NewAPIKeyResolver(s.path, APIKeySource{Kind: APIKeySourceEnvironment, Value: "NAMED_GLYPH_KEY"})
+	resolver := NewAPIKeyResolver(s.path, APIKeySource{
+		Kind:  APIKeySourceEnvironment,
+		Value: "NAMED_GLYPH_KEY",
+	})
 
 	key, err := resolver.ResolveAPIKey(s.T().Context())
 	s.Require().NoError(err)
@@ -66,7 +71,10 @@ func (s *APIKeyResolverSuite) TestCredentialReadsNamedAPIKeyPayload() {
 		"selected": json.RawMessage(`{"type":"api_key","key":"file-secret"}`),
 		"other":    json.RawMessage(`{"type":"api_key","key":"other-secret"}`),
 	})
-	resolver := NewAPIKeyResolver(s.path, APIKeySource{Kind: APIKeySourceCredential, Value: "selected"})
+	resolver := NewAPIKeyResolver(s.path, APIKeySource{
+		Kind:  APIKeySourceCredential,
+		Value: "selected",
+	})
 
 	key, err := resolver.ResolveAPIKey(s.T().Context())
 
@@ -83,44 +91,76 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 		secret  string
 	}{
 		"missing environment": {
-			source: APIKeySource{Kind: APIKeySourceEnvironment, Value: "MISSING_GLYPH_KEY"},
+			source: APIKeySource{
+				Kind:  APIKeySourceEnvironment,
+				Value: "MISSING_GLYPH_KEY",
+			},
+			entries: nil,
+			secret:  "",
 		},
 		"empty environment": {
-			source: APIKeySource{Kind: APIKeySourceEnvironment, Value: "EMPTY_GLYPH_KEY"},
+			source: APIKeySource{
+				Kind:  APIKeySourceEnvironment,
+				Value: "EMPTY_GLYPH_KEY",
+			},
+			entries: nil,
+			secret:  "",
 		},
 		"missing credential": {
-			source:  APIKeySource{Kind: APIKeySourceCredential, Value: "missing"},
+			source: APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "missing",
+			},
 			entries: map[string]json.RawMessage{},
+			secret:  "",
 		},
 		"wrong credential type": {
-			source: APIKeySource{Kind: APIKeySourceCredential, Value: "selected"},
+			source: APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "selected",
+			},
 			entries: map[string]json.RawMessage{
 				"selected": json.RawMessage(`{"type":"oauth","key":"file-secret"}`),
 			},
 			secret: "file-secret",
 		},
 		"malformed credential": {
-			source: APIKeySource{Kind: APIKeySourceCredential, Value: "selected"},
+			source: APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "selected",
+			},
 			entries: map[string]json.RawMessage{
 				"selected": json.RawMessage(`"malformed"`),
 			},
+			secret: "",
 		},
 		"empty credential key": {
-			source: APIKeySource{Kind: APIKeySourceCredential, Value: "selected"},
+			source: APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "selected",
+			},
 			entries: map[string]json.RawMessage{
 				"selected": json.RawMessage(`{"type":"api_key","key":""}`),
 			},
+			secret: "",
 		},
 		"credential unknown field": {
-			source: APIKeySource{Kind: APIKeySourceCredential, Value: "selected"},
+			source: APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "selected",
+			},
 			entries: map[string]json.RawMessage{
 				"selected": json.RawMessage(`{"type":"api_key","key":"file-secret","extra":true}`),
 			},
 			secret: "file-secret",
 		},
 		"unknown source kind": {
-			source: APIKeySource{Kind: "command", Value: "echo file-secret"},
-			secret: "file-secret",
+			source: APIKeySource{
+				Kind:  "command",
+				Value: "echo file-secret",
+			},
+			secret:  "file-secret",
+			entries: nil,
 		},
 	}
 	for name, test := range testCases {
@@ -144,7 +184,10 @@ func (s *APIKeyResolverSuite) TestCanceledResolutionReturnsTypedSafeError() {
 	cancel()
 
 	_, err := NewAPIKeyResolver(
-		s.path, APIKeySource{Kind: APIKeySourceCredential, Value: "selected"},
+		s.path, APIKeySource{
+			Kind:  APIKeySourceCredential,
+			Value: "selected",
+		},
 	).ResolveAPIKey(ctx)
 
 	var keyErr *APIKeyError
@@ -154,7 +197,10 @@ func (s *APIKeyResolverSuite) TestCanceledResolutionReturnsTypedSafeError() {
 
 func (s *APIKeyResolverSuite) writeEntries(entries map[string]json.RawMessage) {
 	s.T().Helper()
-	data, err := json.Marshal(credentialFixture{Version: credentialStoreVersion, Providers: entries})
+	data, err := json.Marshal(credentialFixture{
+		Version:   credentialStoreVersion,
+		Providers: entries,
+	})
 	s.Require().NoError(err)
 	s.Require().NoError(os.WriteFile(s.path, data, 0o600))
 }

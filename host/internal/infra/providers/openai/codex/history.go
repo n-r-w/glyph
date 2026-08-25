@@ -68,8 +68,6 @@ func buildInput(
 }
 
 // functionOutputContents maps typed result blocks into the Codex function-output format.
-//
-//nolint:exhaustruct // SDK union values set exactly one active variant.
 func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFunctionCallOutputItemListParam, error) {
 	return lo.MapErr(
 		contents,
@@ -85,8 +83,15 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 				}
 				dataURL := "data:" + image.MediaType + ";base64," +
 					base64.StdEncoding.EncodeToString(image.Data)
+				//nolint:exhaustruct // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
-					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(dataURL)},
+					OfInputImage: &responses.ResponseInputImageContentParam{
+						ImageURL:              param.NewOpt(dataURL),
+						FileID:                param.Opt[string]{},
+						Detail:                "",
+						PromptCacheBreakpoint: responses.ResponseInputImageContentPromptCacheBreakpointParam{},
+						Type:                  "",
+					},
 				}, nil
 			default:
 				return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
@@ -96,8 +101,6 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 }
 
 // customOutputContents maps typed blocks into the Codex custom-tool output format.
-//
-//nolint:exhaustruct // SDK union values set exactly one active variant.
 func customOutputContents(
 	contents []tool.ResultContent,
 ) ([]responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam, error) {
@@ -107,8 +110,13 @@ func customOutputContents(
 		var empty responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam
 		switch content.Kind {
 		case tool.ResultContentText:
+			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputText is active.
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
-				OfInputText: &responses.ResponseInputTextParam{Text: content.Text.OrEmpty()},
+				OfInputText: &responses.ResponseInputTextParam{
+					Text:                  content.Text.OrEmpty(),
+					PromptCacheBreakpoint: responses.ResponseInputTextPromptCacheBreakpointParam{},
+					Type:                  "",
+				},
 			}, nil
 		case tool.ResultContentImage:
 			image := content.Image.OrEmpty()
@@ -116,8 +124,15 @@ func customOutputContents(
 				return empty, fmt.Errorf("tool result image %d has no media type", index)
 			}
 			dataURL := "data:" + image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
+			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputImage is active.
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
-				OfInputImage: &responses.ResponseInputImageParam{ImageURL: param.NewOpt(dataURL)},
+				OfInputImage: &responses.ResponseInputImageParam{
+					ImageURL:              param.NewOpt(dataURL),
+					Detail:                "",
+					FileID:                param.Opt[string]{},
+					PromptCacheBreakpoint: responses.ResponseInputImagePromptCacheBreakpointParam{},
+					Type:                  "",
+				},
 			}, nil
 		default:
 			return empty, fmt.Errorf("tool result content %d has unknown kind %d", index, content.Kind)
@@ -198,8 +213,10 @@ func reasoningInput(payload []byte) (responses.ResponseInputItemUnionParam, erro
 		)
 	}
 	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
-		//nolint:exhaustruct // SDK sets the fixed summary type during JSON encoding.
-		return responses.ResponseReasoningItemSummaryParam{Text: text}
+		return responses.ResponseReasoningItemSummaryParam{
+			Text: text,
+			Type: "",
+		}
 	})
 	reasoning := responses.ResponseInputItemParamOfReasoning(contextValue.ID, summary)
 	reasoning.OfReasoning.EncryptedContent = param.NewOpt(contextValue.EncryptedContent)
@@ -265,11 +282,17 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 					descriptor.Name,
 				)
 			}
-			//nolint:exhaustruct // Other SDK tool variants are intentionally omitted.
-			return responses.ToolUnionParam{OfCustom: &responses.CustomToolParam{
-				Name: descriptor.Name, Description: param.NewOpt(descriptor.Description),
-				Format: shared.CustomToolInputFormatParamOfGrammar(definition, syntax),
-			}}, nil
+			//nolint:exhaustruct // responses.ToolUnionParam sets only the active OfCustom field.
+			return responses.ToolUnionParam{
+				OfCustom: &responses.CustomToolParam{
+					Name:           descriptor.Name,
+					Description:    param.NewOpt(descriptor.Description),
+					Format:         shared.CustomToolInputFormatParamOfGrammar(definition, syntax),
+					DeferLoading:   param.Opt[bool]{},
+					AllowedCallers: nil,
+					Type:           "",
+				},
+			}, nil
 		}
 
 		var schema map[string]any
@@ -280,12 +303,17 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 		if err != nil {
 			return empty, err
 		}
-		//nolint:exhaustruct // Other SDK tool variants are intentionally omitted.
+		//nolint:exhaustruct // responses.ToolUnionParam sets only the active OfFunction field.
 		return responses.ToolUnionParam{
-			//nolint:exhaustruct // Optional Codex function fields use SDK zero values.
 			OfFunction: &responses.FunctionToolParam{
-				Name: descriptor.Name, Description: param.NewOpt(descriptor.Description),
-				Parameters: schema, Strict: param.NewOpt(strict),
+				Name:           descriptor.Name,
+				Description:    param.NewOpt(descriptor.Description),
+				Parameters:     schema,
+				Strict:         param.NewOpt(strict),
+				DeferLoading:   param.Opt[bool]{},
+				AllowedCallers: nil,
+				OutputSchema:   nil,
+				Type:           "",
 			},
 		}, nil
 	})

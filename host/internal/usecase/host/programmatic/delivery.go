@@ -1,3 +1,4 @@
+// Package programmatic maps Host operations and events to the Programmatic Control API.
 package programmatic
 
 import (
@@ -60,7 +61,9 @@ type Delivery struct {
 // NewDelivery creates a synchronous Programmatic Control delivery router.
 func NewDelivery() *Delivery {
 	return &Delivery{
-		mutex: sync.Mutex{}, closed: false, active: nil,
+		mutex:      sync.Mutex{},
+		closed:     false,
+		active:     nil,
 		operations: make(map[*activeRun]struct{}),
 	}
 }
@@ -259,7 +262,9 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
 	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd:
 		mapped.ModelContent = controller.ModelContent{
-			Kind: mapModelContentKind(event.Content.Kind), Position: event.Position, Text: "",
+			Kind:     mapModelContentKind(event.Content.Kind),
+			Position: event.Position,
+			Text:     "",
 		}
 		if event.Type == run.EventTextDelta {
 			mapped.ModelContent.Text = event.Content.Text.OrEmpty()
@@ -268,16 +273,22 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 		mapped.ToolCallPreview = mapToolCallPreview(event.Preview)
 	case run.EventToolCallEnd:
 		mapped.FinalToolCall = controller.FinalToolCall{
-			CallID: event.ToolCall.ID, Name: event.ToolCall.Name, Position: event.Position,
+			CallID:    event.ToolCall.ID,
+			Name:      event.ToolCall.Name,
+			Position:  event.Position,
 			Arguments: cloneArguments(event.ToolCall.Arguments),
 		}
 	case run.EventMessageEnd:
 		mapped.ModelResponse = mapModelResponse(event.Message)
 	case run.EventToolExecutionStart:
-		mapped.ToolExecution = controller.ToolExecution{CallID: event.ToolCall.ID, ToolName: event.ToolCall.Name}
+		mapped.ToolExecution = controller.ToolExecution{
+			CallID:   event.ToolCall.ID,
+			ToolName: event.ToolCall.Name,
+		}
 	case run.EventToolExecutionUpdate:
 		mapped.ToolProgress = controller.ToolProgress{
-			Channel: mapProgressChannel(event.Progress.Channel), Content: event.Progress.Content,
+			Channel: mapProgressChannel(event.Progress.Channel),
+			Content: event.Progress.Content,
 		}
 	case run.EventToolExecutionEnd, run.EventToolResult:
 		mapped.ToolResult = mapToolResult(event.ToolResult)
@@ -286,11 +297,13 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 			return mapToolResult(result)
 		})
 		mapped.Turn = controller.TurnSummary{
-			Response: mapModelResponse(event.Turn.Response), ToolResults: toolResults,
+			Response:    mapModelResponse(event.Turn.Response),
+			ToolResults: toolResults,
 		}
 	case run.EventAgentEnd:
 		mapped.Agent = controller.AgentSummary{
-			Outcome: mapRunOutcome(event.Agent.Outcome), ErrorMessage: event.Agent.ErrorMessage,
+			Outcome:      mapRunOutcome(event.Agent.Outcome),
+			ErrorMessage: event.Agent.ErrorMessage,
 		}
 	}
 	return mapped

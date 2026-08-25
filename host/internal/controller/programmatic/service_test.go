@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields relevant to each terminal or stream case.
 package programmatic
 
 import (
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -37,12 +37,17 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	userRequest := programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String("user"),
-		UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+		UserRequest: programmaticv1.UserRequest_builder{
+			Text: proto.String("request"),
+		}.Build(),
 	}.Build()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	stateRequest := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("state"), GetRunState: programmaticv1.GetRunState_builder{}.Build(),
+		CorrelationId: proto.String("state"),
+		GetRunState:   programmaticv1.GetRunState_builder{}.Build(),
 	}.Build()
 	events := make(chan AgentEvent)
 	acceptanceSent := make(chan struct{})
@@ -62,20 +67,46 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(userRequest, nil),
 		session.EXPECT().Handle(gomock.Any(), Command{
-			CorrelationID: "user", Kind: CommandUserRequest, UserText: "request",
-		}).Return(Response{CorrelationID: "user", Kind: ResponseUserRequestAccepted}, operation, nil),
+			CorrelationID:   "user",
+			Kind:            CommandUserRequest,
+			UserText:        "request",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: "",
+		}).Return(Response{
+			CorrelationID: "user",
+			Kind:          ResponseUserRequestAccepted,
+			State:         RunStateResult{},
+			Messages:      nil,
+			Models:        ModelsResult{},
+			Selection:     model.Selection{},
+			Rejection:     Rejection{},
+		}, operation, nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 			<-started
 			<-eventSendEntered
 			return stateRequest, nil
 		}),
 		session.EXPECT().Handle(gomock.Any(), Command{
-			CorrelationID: "state", Kind: CommandGetRunState, UserText: "",
+			CorrelationID:   "state",
+			Kind:            CommandGetRunState,
+			UserText:        "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: "",
 		}).DoAndReturn(func(context.Context, Command) (Response, Operation, error) {
 			close(stateHandled)
 			return Response{
-				CorrelationID: "state", Kind: ResponseRunState,
-				State: RunStateResult{State: RunStateRunning, ActiveCorrelationID: "user"},
+				CorrelationID: "state",
+				Kind:          ResponseRunState,
+				State: RunStateResult{
+					State:               RunStateRunning,
+					ActiveCorrelationID: "user",
+				},
+				Messages:  nil,
+				Models:    ModelsResult{},
+				Selection: model.Selection{},
+				Rejection: Rejection{},
 			}, nil, nil
 		}),
 		stream.EXPECT().Recv().Return(nil, io.EOF),
@@ -104,7 +135,20 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 
 	go func() {
 		<-started
-		events <- AgentEvent{CorrelationID: "user", Type: AgentEventAgentStart, RunID: "run"}
+		events <- AgentEvent{
+			CorrelationID:   "user",
+			Type:            AgentEventAgentStart,
+			RunID:           "run",
+			ModelContent:    ModelContent{},
+			ToolCallPreview: ToolCallPreview{},
+			FinalToolCall:   FinalToolCall{},
+			ToolExecution:   ToolExecution{},
+			ToolProgress:    ToolProgress{},
+			ToolResult:      ToolResult{},
+			ModelResponse:   ModelResponse{},
+			Turn:            TurnSummary{},
+			Agent:           AgentSummary{},
+		}
 		close(events)
 	}()
 	go func() {
@@ -128,14 +172,38 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	request := programmaticv1.OpenRequest_builder{CorrelationId: proto.String("missing")}.Build()
+
+	request := programmaticv1.OpenRequest_builder{
+		CorrelationId:         proto.String("missing"),
+		UserRequest:           nil,
+		Abort:                 nil,
+		GetRunState:           nil,
+		GetMessages:           nil,
+		GetModels:             nil,
+		SelectModel:           nil,
+		SelectReasoningChoice: nil,
+	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), Command{
-			CorrelationID: "missing", Kind: CommandUnspecified, UserText: "",
+			CorrelationID:   "missing",
+			Kind:            CommandUnspecified,
+			UserText:        "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: "",
 		}).Return(Response{
-			CorrelationID: "missing", Kind: ResponseRejected,
-			Rejection: Rejection{Command: CommandUnspecified, Code: RejectionInvalidArgument, Message: "invalid"},
+			CorrelationID: "missing",
+			Kind:          ResponseRejected,
+			Rejection: Rejection{
+				Command: CommandUnspecified,
+				Code:    RejectionInvalidArgument,
+				Message: "invalid",
+			},
+			State:     RunStateResult{},
+			Messages:  nil,
+			Models:    ModelsResult{},
+			Selection: model.Selection{},
 		}, nil, nil),
 		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
 			s.Equal(programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, response.GetCommandResponse().GetRejected().GetCode())
@@ -187,7 +255,10 @@ func (s *ServiceSuite) TestEmptyCorrelationIsTerminal() {
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	request := programmaticv1.OpenRequest_builder{Abort: programmaticv1.Abort_builder{}.Build()}.Build()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+	request := programmaticv1.OpenRequest_builder{
+		Abort: programmaticv1.Abort_builder{}.Build(),
+	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
@@ -208,13 +279,24 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	operation := NewMockOperation(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("state"), GetRunState: programmaticv1.GetRunState_builder{}.Build(),
+		CorrelationId: proto.String("state"),
+		GetRunState:   programmaticv1.GetRunState_builder{}.Build(),
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "state", Kind: ResponseRunState, State: RunStateResult{State: RunStateIdle},
+			CorrelationID: "state",
+			Kind:          ResponseRunState,
+			State: RunStateResult{
+				State:               RunStateIdle,
+				ActiveCorrelationID: "",
+			},
+			Messages:  nil,
+			Models:    ModelsResult{},
+			Selection: model.Selection{},
+			Rejection: Rejection{},
 		}, operation, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -231,14 +313,23 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String("user"),
-		UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+		UserRequest: programmaticv1.UserRequest_builder{
+			Text: proto.String("request"),
+		}.Build(),
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "user", Kind: ResponseUserRequestAccepted,
+			CorrelationID: "user",
+			Kind:          ResponseUserRequestAccepted,
+			State:         RunStateResult{},
+			Messages:      nil,
+			Models:        ModelsResult{},
+			Selection:     model.Selection{},
+			Rejection:     Rejection{},
 		}, nil, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -256,14 +347,23 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	operation := NewMockOperation(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
+	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		CorrelationId: proto.String("user"),
-		UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+		UserRequest: programmaticv1.UserRequest_builder{
+			Text: proto.String("request"),
+		}.Build(),
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "user", Kind: ResponseUserRequestAccepted,
+			CorrelationID: "user",
+			Kind:          ResponseUserRequestAccepted,
+			State:         RunStateResult{},
+			Messages:      nil,
+			Models:        ModelsResult{},
+			Selection:     model.Selection{},
+			Rejection:     Rejection{},
 		}, operation, nil),
 		operation.EXPECT().Events().Return(nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
@@ -290,25 +390,58 @@ func (s *ServiceSuite) TestTerminalCausePrecedence() {
 		wantErr        error
 	}{
 		"application cancellation": {
-			appCanceled: true, recvErr: transportErr, wantCode: codes.Canceled,
-			wantCause: SessionCompletionApplicationCanceled, wantErr: context.Canceled,
+			appCanceled:    true,
+			recvErr:        transportErr,
+			wantCode:       codes.Canceled,
+			wantCause:      SessionCompletionApplicationCanceled,
+			wantErr:        context.Canceled,
+			streamCanceled: false,
+			cleanupErr:     nil,
 		},
 		"stream cancellation": {
-			streamCanceled: true, recvErr: transportErr, wantCode: codes.OK,
-			wantCause: SessionCompletionCleanClientClosure,
+			streamCanceled: true,
+			recvErr:        transportErr,
+			wantCode:       codes.OK,
+			wantCause:      SessionCompletionCleanClientClosure,
+			appCanceled:    false,
+			cleanupErr:     nil,
+			wantErr:        nil,
 		},
-		"eof": {recvErr: io.EOF, wantCode: codes.OK, wantCause: SessionCompletionCleanClientClosure},
+		"eof": {
+			recvErr:        io.EOF,
+			wantCode:       codes.OK,
+			wantCause:      SessionCompletionCleanClientClosure,
+			appCanceled:    false,
+			streamCanceled: false,
+			cleanupErr:     nil,
+			wantErr:        nil,
+		},
 		"status": {
-			recvErr: transportErr, wantCode: codes.Unavailable,
-			wantCause: SessionCompletionTransportFailure, wantErr: transportErr,
+			recvErr:        transportErr,
+			wantCode:       codes.Unavailable,
+			wantCause:      SessionCompletionTransportFailure,
+			wantErr:        transportErr,
+			appCanceled:    false,
+			streamCanceled: false,
+			cleanupErr:     nil,
 		},
 		"plain receive error": {
-			recvErr: plainErr, wantCode: codes.Internal,
-			wantCause: SessionCompletionTransportFailure, wantErr: plainErr,
+			recvErr:        plainErr,
+			wantCode:       codes.Internal,
+			wantCause:      SessionCompletionTransportFailure,
+			wantErr:        plainErr,
+			appCanceled:    false,
+			streamCanceled: false,
+			cleanupErr:     nil,
 		},
 		"cleanup": {
-			recvErr: io.EOF, cleanupErr: cleanupErr, wantCode: codes.Internal,
-			wantCause: SessionCompletionCleanupFailure, wantErr: cleanupErr,
+			recvErr:        io.EOF,
+			cleanupErr:     cleanupErr,
+			wantCode:       codes.Internal,
+			wantCause:      SessionCompletionCleanupFailure,
+			wantErr:        cleanupErr,
+			appCanceled:    false,
+			streamCanceled: false,
 		},
 	}
 	for name, test := range tests {
@@ -415,18 +548,75 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 		wantSendCall bool
 	}{
 		"mapping": {
-			event:    AgentEvent{Type: AgentEventMessageEnd, ModelResponse: ModelResponse{Outcome: ModelOutcomeUnspecified}},
-			wantCode: codes.Internal, wantCause: SessionCompletionProtocolFailure,
+			event: AgentEvent{
+				Type: AgentEventMessageEnd,
+				ModelResponse: ModelResponse{
+					Outcome:       ModelOutcomeUnspecified,
+					Text:          "",
+					ErrorMessage:  "",
+					Provider:      "",
+					Model:         "",
+					ResponseModel: nil,
+					ResponseID:    "",
+					Usage:         ModelUsage{},
+					Diagnostics:   nil,
+					Content:       nil,
+				},
+				CorrelationID:   "",
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+			wantCode:     codes.Internal,
+			wantCause:    SessionCompletionProtocolFailure,
+			sendErr:      nil,
+			wantSendCall: false,
 		},
 		"status send": {
-			event:    AgentEvent{CorrelationID: "user", Type: AgentEventAgentStart},
-			sendErr:  status.Error(codes.ResourceExhausted, "send failed"),
-			wantCode: codes.ResourceExhausted, wantCause: SessionCompletionTransportFailure, wantSendCall: true,
+			event: AgentEvent{
+				CorrelationID:   "user",
+				Type:            AgentEventAgentStart,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+			sendErr:      status.Error(codes.ResourceExhausted, "send failed"),
+			wantCode:     codes.ResourceExhausted,
+			wantCause:    SessionCompletionTransportFailure,
+			wantSendCall: true,
 		},
 		"plain send": {
-			event:    AgentEvent{CorrelationID: "user", Type: AgentEventAgentStart},
-			sendErr:  errors.New("send failed"),
-			wantCode: codes.Internal, wantCause: SessionCompletionTransportFailure, wantSendCall: true,
+			event: AgentEvent{
+				CorrelationID:   "user",
+				Type:            AgentEventAgentStart,
+				RunID:           "",
+				ModelContent:    ModelContent{},
+				ToolCallPreview: ToolCallPreview{},
+				FinalToolCall:   FinalToolCall{},
+				ToolExecution:   ToolExecution{},
+				ToolProgress:    ToolProgress{},
+				ToolResult:      ToolResult{},
+				ModelResponse:   ModelResponse{},
+				Turn:            TurnSummary{},
+				Agent:           AgentSummary{},
+			},
+			sendErr:      errors.New("send failed"),
+			wantCode:     codes.Internal,
+			wantCause:    SessionCompletionTransportFailure,
+			wantSendCall: true,
 		},
 	}
 	for name, test := range tests {
@@ -439,9 +629,12 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				stream := NewMockOpenStream(ctrl)
 				streamContext, cancelStream := context.WithCancel(t.Context())
 				stream.EXPECT().Context().Return(streamContext).AnyTimes()
+				//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 				request := programmaticv1.OpenRequest_builder{
 					CorrelationId: proto.String("user"),
-					UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+					UserRequest: programmaticv1.UserRequest_builder{
+						Text: proto.String("request"),
+					}.Build(),
 				}.Build()
 				events := make(chan AgentEvent)
 				receiveBlocked := make(chan struct{})
@@ -451,7 +644,13 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				gomock.InOrder(
 					stream.EXPECT().Recv().Return(request, nil),
 					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-						CorrelationID: "user", Kind: ResponseUserRequestAccepted,
+						CorrelationID: "user",
+						Kind:          ResponseUserRequestAccepted,
+						State:         RunStateResult{},
+						Messages:      nil,
+						Models:        ModelsResult{},
+						Selection:     model.Selection{},
+						Rejection:     Rejection{},
 					}, operation, nil),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {

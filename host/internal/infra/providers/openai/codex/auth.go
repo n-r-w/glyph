@@ -137,15 +137,17 @@ func (s *Driver) SignOut() error {
 
 // oauthConfig builds the PKCE authorization-code client for one active callback listener.
 func (s *Driver) oauthConfig(redirectURL string) oauth2.Config {
-	return oauth2.Config{ //nolint:exhaustruct // OAuth public-client flow has no client secret.
+	return oauth2.Config{
 		ClientID:    codexClientID,
 		RedirectURL: redirectURL,
 		Scopes:      []string{"openid", "profile", "email", "offline_access"},
-		Endpoint: oauth2.Endpoint{ //nolint:exhaustruct // Device authorization is outside the browser-only prototype.
-			AuthURL:   s.options.authorizationURL,
-			TokenURL:  s.options.tokenURL,
-			AuthStyle: oauth2.AuthStyleInParams,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:       s.options.authorizationURL,
+			TokenURL:      s.options.tokenURL,
+			AuthStyle:     oauth2.AuthStyleInParams,
+			DeviceAuthURL: "",
 		},
+		ClientSecret: "",
 	}
 }
 
@@ -181,12 +183,30 @@ func (s *Driver) startLoopbackServer(state string) (*loopbackServer, string, err
 func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 	results := make(chan callbackResult, 1)
 	mux := http.NewServeMux()
-	//nolint:exhaustruct // The short-lived loopback server needs only its handler and header timeout.
 	server := &http.Server{
-		Handler: mux, ReadHeaderTimeout: callbackHeaderTimeout,
+		Handler:                      mux,
+		ReadHeaderTimeout:            callbackHeaderTimeout,
+		Addr:                         "",
+		DisableGeneralOptionsHandler: false,
+		TLSConfig:                    nil,
+		ReadTimeout:                  0,
+		WriteTimeout:                 0,
+		IdleTimeout:                  0,
+		MaxHeaderBytes:               0,
+		TLSNextProto:                 nil,
+		ConnState:                    nil,
+		ErrorLog:                     nil,
+		BaseContext:                  nil,
+		ConnContext:                  nil,
+		HTTP2:                        nil,
+		Protocols:                    nil,
 	}
 	loopback := &loopbackServer{
-		server: server, listener: listener, results: results, once: sync.Once{}, err: nil,
+		server:   server,
+		listener: listener,
+		results:  results,
+		once:     sync.Once{},
+		err:      nil,
 	}
 	mux.HandleFunc(callbackPath, func(writer http.ResponseWriter, request *http.Request) {
 		if subtle.ConstantTimeCompare([]byte(request.URL.Query().Get("state")), []byte(state)) != 1 {
@@ -194,7 +214,10 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 			return
 		}
 		if request.URL.Query().Get("error") != "" {
-			deliverCallback(results, callbackResult{code: "", err: errors.New("OpenAI authorization failed")})
+			deliverCallback(results, callbackResult{
+				code: "",
+				err:  errors.New("OpenAI authorization failed"),
+			})
 			http.Error(writer, "Authentication failed. Return to Glyph.", http.StatusBadRequest)
 			return
 		}
@@ -203,7 +226,10 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 			http.Error(writer, "Missing authorization code.", http.StatusBadRequest)
 			return
 		}
-		deliverCallback(results, callbackResult{code: code, err: nil})
+		deliverCallback(results, callbackResult{
+			code: code,
+			err:  nil,
+		})
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		writer.Header().Set("Connection", "close")
 		_, _ = io.WriteString(
@@ -213,7 +239,10 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 	})
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			deliverCallback(results, callbackResult{code: "", err: errors.New("OpenAI authorization callback server failed")})
+			deliverCallback(results, callbackResult{
+				code: "",
+				err:  errors.New("OpenAI authorization callback server failed"),
+			})
 		}
 	}()
 	return loopback

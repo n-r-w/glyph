@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package runtime
 
 import (
@@ -36,7 +35,10 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	client := uisdk.TestClient(t, service)
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	transport := &channel{stream: stream, mutex: sync.Mutex{}}
+	transport := &channel{
+		stream: stream,
+		mutex:  sync.Mutex{},
+	}
 	frames := []domainui.Frame{
 		testInitializationFrame(),
 		testLifecycleFrame(),
@@ -53,12 +55,48 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 		assert.NotNil(t, <-service.received)
 	}
 	for _, expected := range []domainui.Command{
-		{Kind: domainui.CommandSubmit, Text: "request"},
-		{Kind: domainui.CommandStop, Text: ""},
-		{Kind: domainui.CommandRetryAuthentication, Text: ""},
-		{Kind: domainui.CommandQuit, Text: ""},
-		{Kind: domainui.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
-		{Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceXHigh},
+		{
+			Kind:            domainui.CommandSubmit,
+			Text:            "request",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            domainui.CommandStop,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            domainui.CommandRetryAuthentication,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            domainui.CommandQuit,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            domainui.CommandSelectModel,
+			ProviderID:      "openrouter",
+			ModelID:         "sonnet",
+			Text:            "",
+			ReasoningChoice: 0,
+		},
+		{
+			Kind:            domainui.CommandSelectReasoningChoice,
+			ReasoningChoice: domainui.ReasoningChoiceXHigh,
+			Text:            "",
+			ProviderID:      "",
+			ModelID:         "",
+		},
 	} {
 		command, receiveErr := transport.Receive()
 		require.NoError(t, receiveErr)
@@ -73,18 +111,24 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	mapped := mapInitialization(domainui.Initialization{
 		SelectedUIID: "ui",
 		StartupContent: []domainui.StartupContent{{
-			Severity: domainui.ContentSeverityWarning, Text: "excluded optional UI",
+			Severity: domainui.ContentSeverityWarning,
+			Text:     "excluded optional UI",
 		}},
 		Extensions: []domainui.ExtensionAvailability{{
-			PluginID: "tools", Path: "/plugins/tools", Tools: []string{"read"},
+			PluginID: "tools",
+			Path:     "/plugins/tools",
+			Tools:    []string{"read"},
 		}},
 		Availability: domainui.AvailabilityCheckingAuthentication,
 		Models: []domainui.ConfiguredModel{{
-			ProviderID: "openrouter", ModelID: "sonnet",
-			Reasoning: testUIReasoningCapabilities(domainui.ReasoningChoiceOff, domainui.ReasoningChoiceXHigh),
+			ProviderID: "openrouter",
+			ModelID:    "sonnet",
+			Reasoning:  testUIReasoningCapabilities(domainui.ReasoningChoiceOff, domainui.ReasoningChoiceXHigh),
 		}},
 		ModelSelection: domainui.ModelSelection{
-			ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: domainui.ReasoningChoiceXHigh,
+			ProviderID:      "openrouter",
+			ModelID:         "sonnet",
+			ReasoningChoice: domainui.ReasoningChoiceXHigh,
 		},
 	})
 
@@ -137,18 +181,39 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	event.Type = domainui.LifecycleMessageEnd
 	actualModel := "gpt-actual"
 	event.ModelResponse = domainui.ModelResponse{
-		Text: "visible", Outcome: "stop", ErrorMessage: "", Provider: "openai-codex",
-		Model: "gpt-test", ResponseModel: &actualModel, ResponseID: "resp-1",
+		Text:          "visible",
+		Outcome:       "stop",
+		ErrorMessage:  "",
+		Provider:      "openai-codex",
+		Model:         "gpt-test",
+		ResponseModel: &actualModel,
+		ResponseID:    "resp-1",
 		Content: []domainui.ModelResponseContent{
-			{Kind: domainui.ModelContentKindReasoning, Text: "hidden"},
-			{Kind: domainui.ModelContentKindText, Text: "visible"},
-			{Kind: domainui.ModelContentKindRefusal, Text: "cannot help"},
+			{
+				Kind: domainui.ModelContentKindReasoning,
+				Text: "hidden",
+			},
+			{
+				Kind: domainui.ModelContentKindText,
+				Text: "visible",
+			},
+			{
+				Kind: domainui.ModelContentKindRefusal,
+				Text: "cannot help",
+			},
 		},
 		Usage: domainui.ModelUsage{
-			InputTokens: 10, OutputTokens: 7, CachedInputTokens: 4,
-			CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 17,
+			InputTokens:       10,
+			OutputTokens:      7,
+			CachedInputTokens: 4,
+			CacheWriteTokens:  1,
+			ReasoningTokens:   3,
+			TotalTokens:       17,
 		},
-		Diagnostics: []domainui.ModelDiagnostic{{Code: "recovered_output", Message: "safe"}},
+		Diagnostics: []domainui.ModelDiagnostic{{
+			Code:    "recovered_output",
+			Message: "safe",
+		}},
 	}
 
 	mapped := mapLifecycle(event).GetModelResponse()
@@ -173,8 +238,19 @@ func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 	event := emptyTestLifecycle()
 	event.Type = domainui.LifecycleToolResult
 	event.ToolResultContents = []tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
-		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}})},
+		{
+			Kind:  tool.ResultContentText,
+			Text:  mo.Some("first"),
+			Image: mo.None[tool.ResultImage](),
+		},
+		{
+			Kind: tool.ResultContentImage,
+			Text: mo.None[string](),
+			Image: mo.Some(tool.ResultImage{
+				MediaType: "image/png",
+				Data:      []byte{1, 2, 3},
+			}),
+		},
 	}
 	mapped := mapLifecycle(event).GetToolResultContents()
 	image := event.ToolResultContents[1].Image.OrEmpty()
@@ -191,8 +267,13 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 	t.Parallel()
 
 	_, err := mapFrame(domainui.Frame{
-		Kind: 0, Initialization: emptyTestInitialization(), Lifecycle: emptyTestLifecycle(),
-		AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		Kind:                0,
+		Initialization:      emptyTestInitialization(),
+		Lifecycle:           emptyTestLifecycle(),
+		AuthorizationURL:    "",
+		Text:                "",
+		RetryAuthentication: false,
+		ModelSelection:      domainui.ModelSelection{},
 	})
 	require.Error(t, err)
 	_, err = mapCommand(&uipb.OpenResponse{})
@@ -204,7 +285,9 @@ func (*runtimeContractService) GetCapabilities(
 	_ context.Context,
 	_ *uipb.GetCapabilitiesRequest,
 ) (*uipb.GetCapabilitiesResponse, error) {
-	return uipb.GetCapabilitiesResponse_builder{ControlsTerminal: new(false)}.Build(), nil
+	return uipb.GetCapabilitiesResponse_builder{
+		ControlsTerminal: new(false),
+	}.Build(), nil
 }
 
 // Open receives every Host frame before returning the complete command set.
@@ -219,16 +302,37 @@ func (s *runtimeContractService) Open(
 		s.received <- request
 	}
 	for _, response := range []*uipb.OpenResponse{
-		uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: new("request")}.Build()}.Build(),
-		uipb.OpenResponse_builder{Stop: &uipb.StopCommand{}}.Build(),
-		uipb.OpenResponse_builder{RetryAuthentication: &uipb.RetryAuthenticationCommand{}}.Build(),
-		uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build(),
-		uipb.OpenResponse_builder{SelectModel: uipb.SelectModelCommand_builder{
-			ProviderId: new("openrouter"), ModelId: new("sonnet"),
-		}.Build()}.Build(),
-		uipb.OpenResponse_builder{SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
-			Choice: new(uipb.ReasoningChoice_REASONING_CHOICE_XHIGH),
-		}.Build()}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+		uipb.OpenResponse_builder{
+			Submit: uipb.SubmitCommand_builder{
+				Text: new("request"),
+			}.Build(),
+		}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Stop field.
+		uipb.OpenResponse_builder{
+			Stop: &uipb.StopCommand{},
+		}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active RetryAuthentication field.
+		uipb.OpenResponse_builder{
+			RetryAuthentication: &uipb.RetryAuthenticationCommand{},
+		}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+		uipb.OpenResponse_builder{
+			Quit: &uipb.QuitCommand{},
+		}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectModel field.
+		uipb.OpenResponse_builder{
+			SelectModel: uipb.SelectModelCommand_builder{
+				ProviderId: new("openrouter"),
+				ModelId:    new("sonnet"),
+			}.Build(),
+		}.Build(),
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
+		uipb.OpenResponse_builder{
+			SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
+				Choice: new(uipb.ReasoningChoice_REASONING_CHOICE_XHIGH),
+			}.Build(),
+		}.Build(),
 	} {
 		if err := stream.Send(response); err != nil {
 			return err
@@ -244,14 +348,23 @@ func testInitializationFrame() domainui.Frame {
 		Initialization: domainui.Initialization{
 			SelectedUIID: "ui",
 			StartupContent: []domainui.StartupContent{{
-				Severity: domainui.ContentSeverityInformation, Text: "ready",
+				Severity: domainui.ContentSeverityInformation,
+				Text:     "ready",
 			}},
 			Extensions: []domainui.ExtensionAvailability{{
-				PluginID: "tools", Path: "/plugins/tools", Tools: []string{"read"},
+				PluginID: "tools",
+				Path:     "/plugins/tools",
+				Tools:    []string{"read"},
 			}},
-			Availability: domainui.AvailabilityCheckingAuthentication,
+			Availability:   domainui.AvailabilityCheckingAuthentication,
+			Models:         nil,
+			ModelSelection: domainui.ModelSelection{},
 		},
-		Lifecycle: emptyTestLifecycle(), AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		Lifecycle:           emptyTestLifecycle(),
+		AuthorizationURL:    "",
+		Text:                "",
+		RetryAuthentication: false,
+		ModelSelection:      domainui.ModelSelection{},
 	}
 }
 
@@ -270,16 +383,26 @@ func testLifecycleFrame() domainui.Frame {
 	lifecycle.ErrorMessage = "safe"
 	lifecycle.Availability = domainui.AvailabilityRunning
 	return domainui.Frame{
-		Kind: domainui.FrameLifecycle, Initialization: emptyTestInitialization(), Lifecycle: lifecycle,
-		AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		Kind:                domainui.FrameLifecycle,
+		Initialization:      emptyTestInitialization(),
+		Lifecycle:           lifecycle,
+		AuthorizationURL:    "",
+		Text:                "",
+		RetryAuthentication: false,
+		ModelSelection:      domainui.ModelSelection{},
 	}
 }
 
 // testSimpleFrame creates one authorization or information mapping fixture.
 func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 	frame := domainui.Frame{
-		Kind: kind, Initialization: emptyTestInitialization(), Lifecycle: emptyTestLifecycle(),
-		AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		Kind:                kind,
+		Initialization:      emptyTestInitialization(),
+		Lifecycle:           emptyTestLifecycle(),
+		AuthorizationURL:    "",
+		Text:                "",
+		RetryAuthentication: false,
+		ModelSelection:      domainui.ModelSelection{},
 	}
 	if kind == domainui.FrameAuthorization {
 		frame.AuthorizationURL = text
@@ -292,8 +415,13 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 // testErrorFrame creates one retryable error mapping fixture.
 func testErrorFrame() domainui.Frame {
 	return domainui.Frame{
-		Kind: domainui.FrameError, Initialization: emptyTestInitialization(), Lifecycle: emptyTestLifecycle(),
-		AuthorizationURL: "", Text: "safe error", RetryAuthentication: true,
+		Kind:                domainui.FrameError,
+		Initialization:      emptyTestInitialization(),
+		Lifecycle:           emptyTestLifecycle(),
+		AuthorizationURL:    "",
+		Text:                "safe error",
+		RetryAuthentication: true,
+		ModelSelection:      domainui.ModelSelection{},
 	}
 }
 
@@ -301,44 +429,90 @@ func testErrorFrame() domainui.Frame {
 func testModelSelectionFrame() domainui.Frame {
 	return domainui.Frame{
 		Kind:           domainui.FrameModelSelectionChanged,
-		Initialization: emptyTestInitialization(), Lifecycle: emptyTestLifecycle(),
+		Initialization: emptyTestInitialization(),
+		Lifecycle:      emptyTestLifecycle(),
 		ModelSelection: domainui.ModelSelection{
-			ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: domainui.ReasoningChoiceHigh,
+			ProviderID:      "openrouter",
+			ModelID:         "sonnet",
+			ReasoningChoice: domainui.ReasoningChoiceHigh,
 		},
+		AuthorizationURL:    "",
+		Text:                "",
+		RetryAuthentication: false,
 	}
 }
 
 // emptyTestInitialization returns explicit zero values for non-initialization fixtures.
 func emptyTestInitialization() domainui.Initialization {
 	return domainui.Initialization{
-		SelectedUIID: "", StartupContent: nil, Extensions: nil, Availability: 0,
-		Models: nil, ModelSelection: domainui.ModelSelection{},
+		SelectedUIID:   "",
+		StartupContent: nil,
+		Extensions:     nil,
+		Availability:   0,
+		Models:         nil,
+		ModelSelection: domainui.ModelSelection{},
 	}
 }
 
 // emptyTestLifecycle returns explicit zero values for non-lifecycle fixtures.
 func emptyTestLifecycle() domainui.Lifecycle {
 	return domainui.Lifecycle{
-		Type: 0, RunID: "", Text: "",
-		ModelContent: domainui.ModelContent{Type: 0, Kind: 0, Position: 0, Text: ""},
+		Type:  0,
+		RunID: "",
+		Text:  "",
+		ModelContent: domainui.ModelContent{
+			Type:     0,
+			Kind:     0,
+			Position: 0,
+			Text:     "",
+		},
 		ModelResponse: domainui.ModelResponse{
-			Text: "", Outcome: "", ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
-			Content: nil,
+			Text:          "",
+			Outcome:       "",
+			ErrorMessage:  "",
+			Provider:      "",
+			Model:         "",
+			ResponseModel: nil,
+			ResponseID:    "",
+			Content:       nil,
 			Usage: domainui.ModelUsage{
-				InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
-				CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+				InputTokens:       0,
+				OutputTokens:      0,
+				CachedInputTokens: 0,
+				CacheWriteTokens:  0,
+				ReasoningTokens:   0,
+				TotalTokens:       0,
 			},
 			Diagnostics: nil,
 		},
 		ToolCallPreview: domainui.ToolCallPreview{
-			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
+			CallID:      "",
+			Name:        "",
+			Position:    0,
+			Provisional: false,
+			Fields:      nil,
 		},
-		FinalToolCall: domainui.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil},
-		ToolCallID:    "", ToolName: "", ProgressChannel: 0, IsError: false,
-		Outcome: "", ErrorMessage: "", Availability: 0,
+		FinalToolCall: domainui.FinalToolCall{
+			CallID:    "",
+			Name:      "",
+			Position:  0,
+			Arguments: nil,
+		},
+		ToolCallID:         "",
+		ToolName:           "",
+		ProgressChannel:    0,
+		IsError:            false,
+		Outcome:            "",
+		ErrorMessage:       "",
+		Availability:       0,
+		ToolResultContents: nil,
 	}
 }
 
 func testUIReasoningCapabilities(choices ...domainui.ReasoningChoice) domainui.ReasoningCapabilities {
-	return domainui.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
+	return domainui.ReasoningCapabilities{
+		Supported: true,
+		Choices:   choices,
+		Default:   choices[len(choices)-1],
+	}
 }

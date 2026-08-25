@@ -1,10 +1,10 @@
-//nolint:exhaustruct // Tests set only fields relevant to initialization behavior.
 package ui
 
 import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -20,13 +20,27 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 	t.Parallel()
 
 	initialization := BuildInitialization("selected", toolservice.LoadReport{
-		Issues: []toolservice.Issue{{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}},
+		Issues: []toolservice.Issue{{
+			PluginIDs: []string{"broken"},
+			Path:      "/broken",
+			Err:       errors.New("failed"),
+		}},
 		Extensions: []toolservice.LoadedExtension{{
-			ID: "tools", Path: "/plugins/tools",
-			Tools: []tool.Descriptor{{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)}},
+			ID:   "tools",
+			Path: "/plugins/tools",
+			Tools: []tool.Descriptor{{
+				Name:                "read",
+				Description:         "read",
+				InputSchemaJSON:     []byte(`{}`),
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+			}},
 		}},
 	}, []SelectionIssue{{
-		Candidate: domainui.Candidate{ID: "excluded", Path: "/excluded"}, Err: errors.New("incompatible"),
+		Candidate: domainui.Candidate{
+			ID:   "excluded",
+			Path: "/excluded",
+		},
+		Err: errors.New("incompatible"),
 	}}, testModelCatalog(t))
 
 	assert.Equal(t, "selected", initialization.SelectedUIID)
@@ -53,7 +67,8 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 
 	catalog := NewMockModelCatalog(gomock.NewController(t))
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
-		Provider: "openai-codex", Model: "gpt",
+		Provider: "openai-codex",
+		Model:    "gpt",
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true,
 			Choices: []model.ReasoningChoice{
@@ -63,15 +78,21 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 			},
 			Default: model.ReasoningChoiceHigh,
 		},
+		ToolCapabilities: model.ToolCapabilities{},
 	}, {
-		Provider: "ollama", Model: "ornith",
+		Provider: "ollama",
+		Model:    "ornith",
 		ReasoningCapabilities: model.ReasoningCapabilities{
-			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceOn},
-			Default: model.ReasoningChoiceOn,
+			Supported: true,
+			Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
+			Default:   model.ReasoningChoiceOn,
 		},
+		ToolCapabilities: model.ToolCapabilities{},
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
-		Provider: "openai-codex", Model: "gpt", ReasoningChoice: model.ReasoningChoiceHigh,
+		Provider:        "openai-codex",
+		Model:           "gpt",
+		ReasoningChoice: model.ReasoningChoiceHigh,
 	})
 
 	initialization := BuildInitialization("selected", toolservice.LoadReport{}, nil, catalog)
@@ -92,7 +113,9 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	assert.True(t, initialization.Models[1].Reasoning.Supported)
 	assert.Equal(t, domainui.ReasoningChoiceOn, initialization.Models[1].Reasoning.Default)
 	assert.Equal(t, domainui.ModelSelection{
-		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: domainui.ReasoningChoiceHigh,
+		ProviderID:      "openai-codex",
+		ModelID:         "gpt",
+		ReasoningChoice: domainui.ReasoningChoiceHigh,
 	}, initialization.ModelSelection)
 }
 
@@ -101,7 +124,8 @@ func TestBuildInitializationTreatsEmptyExtensionsAsNormalInformation(t *testing.
 	t.Parallel()
 
 	initialization := BuildInitialization("selected", toolservice.LoadReport{
-		Issues: nil, Extensions: nil,
+		Issues:     nil,
+		Extensions: nil,
 	}, nil, testModelCatalog(t))
 
 	require.Len(t, initialization.StartupContent, 1)
@@ -115,14 +139,19 @@ func testModelCatalog(t *testing.T) ModelCatalog {
 	t.Helper()
 	catalog := NewMockModelCatalog(gomock.NewController(t))
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
-		Provider: "openai-codex", Model: "gpt",
+		Provider: "openai-codex",
+		Model:    "gpt",
 		ReasoningCapabilities: model.ReasoningCapabilities{
-			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceHigh},
-			Default: model.ReasoningChoiceHigh,
+			Supported: true,
+			Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},
+			Default:   model.ReasoningChoiceHigh,
 		},
+		ToolCapabilities: model.ToolCapabilities{},
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
-		Provider: "openai-codex", Model: "gpt", ReasoningChoice: model.ReasoningChoiceHigh,
+		Provider:        "openai-codex",
+		Model:           "gpt",
+		ReasoningChoice: model.ReasoningChoiceHigh,
 	})
 	return catalog
 }

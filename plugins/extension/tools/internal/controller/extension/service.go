@@ -1,6 +1,4 @@
 // Package extension maps the public extension contract to standard tool use cases.
-//
-//nolint:exhaustruct // Protobuf oneof builders intentionally set only the active field.
 package extension
 
 import (
@@ -170,42 +168,57 @@ func (s *Service) ListTools(
 	_ context.Context,
 	_ *extensionv1.ListToolsRequest,
 ) (*extensionv1.ListToolsResponse, error) {
-	return extensionv1.ListToolsResponse_builder{Tools: []*extensionv1.ToolDescriptor{
-		extensionv1.ToolDescriptor_builder{
-			Name:            new(readToolName),
-			Description:     new("Read bounded text or supported image contents from a file in the working project."),
-			InputSchemaJson: []byte(readInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name: new(writeToolName), Description: new("Create or replace a file in the working project."),
-			InputSchemaJson: []byte(writeInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name: new(editToolName), Description: new("Apply ordered unique exact text replacements to a project file."),
-			InputSchemaJson: []byte(editInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name: new(grepToolName), Description: new("Search project files for matching lines."),
-			InputSchemaJson: []byte(grepInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name: new(findToolName), Description: new("Find project paths matching a glob."),
-			InputSchemaJson: []byte(findInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name: new(listToolName), Description: new("List direct project directory entries."),
-			InputSchemaJson: []byte(listInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-		extensionv1.ToolDescriptor_builder{
-			Name:            new(bashToolName),
-			Description:     new("Execute a bash command with optional timeout and bounded combined output."),
-			InputSchemaJson: []byte(bashInputSchemaJSON), ConstrainedSampling: strictPreferSampling(),
-		}.Build(),
-	}}.Build(), nil
+	return extensionv1.ListToolsResponse_builder{
+		Tools: []*extensionv1.ToolDescriptor{
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(readToolName),
+				Description:         new("Read bounded text or supported image contents from a file in the working project."),
+				InputSchemaJson:     []byte(readInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(writeToolName),
+				Description:         new("Create or replace a file in the working project."),
+				InputSchemaJson:     []byte(writeInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(editToolName),
+				Description:         new("Apply ordered unique exact text replacements to a project file."),
+				InputSchemaJson:     []byte(editInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(grepToolName),
+				Description:         new("Search project files for matching lines."),
+				InputSchemaJson:     []byte(grepInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(findToolName),
+				Description:         new("Find project paths matching a glob."),
+				InputSchemaJson:     []byte(findInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(listToolName),
+				Description:         new("List direct project directory entries."),
+				InputSchemaJson:     []byte(listInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+			extensionv1.ToolDescriptor_builder{
+				Name:                new(bashToolName),
+				Description:         new("Execute a bash command with optional timeout and bounded combined output."),
+				InputSchemaJson:     []byte(bashInputSchemaJSON),
+				ConstrainedSampling: strictPreferSampling(),
+			}.Build(),
+		},
+	}.Build(), nil
 }
 
 // strictPreferSampling requests strict schema generation while permitting provider fallback.
 func strictPreferSampling() *extensionv1.ConstrainedSampling {
+	//nolint:exhaustruct // extensionv1.ConstrainedSampling_builder sets only the active JsonSchema field.
 	return extensionv1.ConstrainedSampling_builder{
 		JsonSchema: extensionv1.JsonSchemaConstrainedSampling_builder{
 			Strictness: new(extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER),
@@ -380,7 +393,9 @@ func bashExecutionContext(parent context.Context, timeout mo.Option[float64]) (c
 	}
 	ctx, cancel := context.WithCancelCause(parent)
 	timer := time.AfterFunc(duration, func() {
-		cancel(bashTimeoutError{seconds: seconds})
+		cancel(bashTimeoutError{
+			seconds: seconds,
+		})
 	})
 	stop := func() {
 		timer.Stop()
@@ -446,8 +461,12 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 	default:
 		return fmt.Errorf("unknown bash progress channel %d", progress.Channel)
 	}
+	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Progress field.
 	response := extensionv1.ExecuteResponse_builder{
-		Progress: extensionv1.ToolProgress_builder{Channel: new(channel), Content: new(progress.Content)}.Build(),
+		Progress: extensionv1.ToolProgress_builder{
+			Channel: new(channel),
+			Content: new(progress.Content),
+		}.Build(),
 	}.Build()
 	if err := stream.Send(response); err != nil {
 		return fmt.Errorf("send tool progress: %w", err)
@@ -457,12 +476,21 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 
 // sendImageResult emits one typed image result.
 func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaType string, data []byte) error {
-	response := extensionv1.ExecuteResponse_builder{Result: extensionv1.ToolResult_builder{
-		Contents: []*extensionv1.ToolResultContent{extensionv1.ToolResultContent_builder{
-			Image: extensionv1.ToolResultImage_builder{MediaType: new(mediaType), Data: data}.Build(),
-		}.Build()},
-		IsError: new(false),
-	}.Build()}.Build()
+	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Result field.
+	response := extensionv1.ExecuteResponse_builder{
+		Result: extensionv1.ToolResult_builder{
+			Contents: []*extensionv1.ToolResultContent{
+				//nolint:exhaustruct // extensionv1.ToolResultContent_builder sets only the active Image field.
+				extensionv1.ToolResultContent_builder{
+					Image: extensionv1.ToolResultImage_builder{
+						MediaType: new(mediaType),
+						Data:      data,
+					}.Build(),
+				}.Build(),
+			},
+			IsError: new(false),
+		}.Build(),
+	}.Build()
 	if err := stream.Send(response); err != nil {
 		return fmt.Errorf("send terminal tool result: %w", err)
 	}
@@ -471,10 +499,14 @@ func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaTyp
 
 // sendResult emits the one terminal event required for every completed tool operation.
 func sendResult(stream ResultSender, content string, isError bool) error {
+	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Result field.
 	response := extensionv1.ExecuteResponse_builder{
 		Result: extensionv1.ToolResult_builder{
 			Contents: []*extensionv1.ToolResultContent{
-				extensionv1.ToolResultContent_builder{Text: new(content)}.Build(),
+				//nolint:exhaustruct // extensionv1.ToolResultContent_builder sets only the active Text field.
+				extensionv1.ToolResultContent_builder{
+					Text: new(content),
+				}.Build(),
 			},
 			IsError: new(isError),
 		}.Build(),
