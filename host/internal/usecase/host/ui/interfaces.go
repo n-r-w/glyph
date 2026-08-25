@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -35,6 +36,14 @@ type Channel interface {
 // AgentRunner starts one user request against the retained Agent Core history.
 type AgentRunner interface {
 	Run(ctx context.Context, userText string) (agent.RunOutcome, error)
+}
+
+// ModelCatalog supplies configured models and commits runtime selection.
+type ModelCatalog interface {
+	Models() []model.Descriptor
+	Selection() model.Selection
+	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
+	SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error)
 }
 
 // Authenticator keeps credential interpretation and refresh inside the provider.

@@ -3,6 +3,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -90,6 +91,208 @@ func TestModelRetainsInputAndShowsErrorWhenEmissionFails(t *testing.T) {
 	assert.Contains(t, model.View().Content, "[error] Could not send command: stream closed")
 }
 
+// TestModelSelectionShortcutsRespectAuthenticationAvailability verifies authentication gates only selection.
+func TestModelSelectionShortcutsRespectAuthenticationAvailability(t *testing.T) {
+	t.Parallel()
+
+	keys := []tea.Key{
+		{Code: 'l', Mod: tea.ModCtrl},
+		{Code: 'p', Mod: tea.ModCtrl},
+		{Code: 'p', Mod: tea.ModShift | tea.ModCtrl},
+		{Code: tea.KeyTab, Mod: tea.ModShift},
+	}
+	for _, availability := range []presentationdomain.Availability{
+		presentationdomain.AvailabilityChecking,
+		presentationdomain.AvailabilityAuthenticating,
+	} {
+		for _, key := range keys {
+			model := newSelectionTestModel(t, availability, nil)
+			next, command := model.Update(tea.KeyPressMsg(key))
+			updated := next.(Model)
+			assert.Nil(t, command)
+			assert.False(t, updated.selectorOpen)
+		}
+	}
+	for _, availability := range []presentationdomain.Availability{
+		presentationdomain.AvailabilityIdle,
+		presentationdomain.AvailabilityRunning,
+		presentationdomain.AvailabilityAuthenticationFailed,
+	} {
+		for _, key := range keys {
+			model := newSelectionTestModel(t, availability, nil)
+			next, command := model.Update(tea.KeyPressMsg(key))
+			updated := next.(Model)
+			if key.Code == 'l' {
+				assert.True(t, updated.selectorOpen)
+				assert.Nil(t, command)
+			} else {
+				require.NotNil(t, command)
+			}
+		}
+	}
+}
+
+// TestModelSingleSelectionCyclesEmitNothing verifies redundant selection commands are suppressed.
+func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
+	t.Parallel()
+
+	service := presentationusecase.New()
+	for _, key := range []tea.Key{
+		{Code: 'p', Mod: tea.ModCtrl},
+		{Code: 'p', Mod: tea.ModShift | tea.ModCtrl},
+		{Code: tea.KeyTab, Mod: tea.ModShift},
+	} {
+		model := NewModel(presentationdomain.Event{
+			Kind:         presentationdomain.EventInitialization,
+			Availability: presentationdomain.AvailabilityIdle,
+			Models: []presentationdomain.ConfiguredModel{{
+				ProviderID: "openai-codex", ModelID: "gpt",
+				ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+			}},
+			ModelSelection: presentationdomain.ModelSelection{
+				ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+			},
+		}, service.Apply, func(presentationdomain.Command) error {
+			t.Fatal("redundant selection command emitted")
+			return nil
+		})
+
+		_, command := model.Update(tea.KeyPressMsg(key))
+		assert.Nil(t, command)
+	}
+}
+
+// TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript verifies modal behavior.
+func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *testing.T) {
+	t.Parallel()
+
+	var commands []presentationdomain.Command
+	model := newSelectionTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
+		commands = append(commands, command)
+		return nil
+	})
+	model.input = []rune("draft")
+	model.cursor = len(model.input)
+	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'l', Mod: tea.ModCtrl}))
+	assert.True(t, model.selectorOpen)
+	assert.Contains(t, model.View().Content, "openai-codex / gpt")
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}))
+	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	assert.False(t, model.selectorOpen)
+	assert.Equal(t, []presentationdomain.Command{{
+		Kind: presentationdomain.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet",
+	}}, commands)
+	assert.Equal(t, "draft", string(model.input))
+	assert.Equal(t, originalTranscript, model.state.Transcript)
+
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'l', Mod: tea.ModCtrl}))
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+	assert.False(t, model.selectorOpen)
+	assert.Len(t, commands, 1)
+	assert.Equal(t, "draft", string(model.input))
+	assert.Equal(t, originalTranscript, model.state.Transcript)
+}
+
+// TestModelSelectorFitsTerminalAndKeepsEveryRowReachable verifies constrained selector rendering.
+func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
+	t.Parallel()
+
+	service := presentationusecase.New()
+	models := make([]presentationdomain.ConfiguredModel, 8)
+	for index := range models {
+		models[index] = presentationdomain.ConfiguredModel{
+			ProviderID: "provider", ModelID: fmt.Sprintf("model-%d", index),
+			ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+		}
+	}
+	model := NewModel(presentationdomain.Event{
+		Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle,
+		Models: models,
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "provider", ModelID: "model-0", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+		},
+	}, service.Apply, nil)
+	model.height = 10
+	model.input = []rune("draft")
+	model.cursor = len(model.input)
+	model.state.Transcript = []presentationdomain.Line{
+		{Kind: presentationdomain.LineModel, Text: "first"},
+		{Kind: presentationdomain.LineModel, Text: "second"},
+	}
+	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'l', Mod: tea.ModCtrl}))
+	view := model.View().Content
+	assert.LessOrEqual(t, len(strings.Split(view, "\n")), model.height)
+	assert.Contains(t, view, "> provider / model-0")
+	assert.Contains(t, view, "Up/Down navigate | Enter confirm | Escape cancel")
+	assert.NotContains(t, view, "provider / model-7")
+
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyUp}))
+	assert.Contains(t, model.View().Content, "> provider / model-7")
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}))
+	assert.Contains(t, model.View().Content, "> provider / model-0")
+	for range 7 {
+		model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}))
+	}
+	view = model.View().Content
+	assert.LessOrEqual(t, len(strings.Split(view, "\n")), model.height)
+	assert.Contains(t, view, "> provider / model-7")
+	assert.Equal(t, "draft", string(model.input))
+	assert.Equal(t, originalTranscript, model.state.Transcript)
+}
+
+// TestTypedModelCommandIsConsumedWhenOpeningSelector verifies the command does not enter transcript.
+func TestTypedModelCommandIsConsumedWhenOpeningSelector(t *testing.T) {
+	t.Parallel()
+
+	model := newSelectionTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	originalTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Text: "/model"}))
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+
+	assert.True(t, model.selectorOpen)
+	assert.Empty(t, model.input)
+	assert.Equal(t, originalTranscript, model.state.Transcript)
+}
+
+// TestModelSelectionCyclingWorksDuringRun verifies modifier data and configured wrap order.
+func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
+	t.Parallel()
+
+	var commands []presentationdomain.Command
+	model := newSelectionTestModel(t, presentationdomain.AvailabilityRunning, func(command presentationdomain.Command) error {
+		commands = append(commands, command)
+		return nil
+	})
+	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{Code: 'p', Mod: tea.ModCtrl}))
+	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{Code: 'p', Mod: tea.ModShift | tea.ModCtrl}))
+	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{Code: tea.KeyTab, Mod: tea.ModShift}))
+
+	assert.Equal(t, []presentationdomain.Command{
+		{Kind: presentationdomain.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
+		{Kind: presentationdomain.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
+		{Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: presentationdomain.ReasoningLevelHigh},
+	}, commands)
+	assert.Equal(t, presentationdomain.ModelSelection{
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+	}, model.state.ModelSelection)
+	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventError, Text: "selection failed",
+	})
+	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventModelSelectionChanged,
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+		},
+	})
+	assert.Contains(t, model.View().Content, "openai-codex / gpt / high")
+}
+
 // TestModelEmitsStopRetryAndQuitFromDocumentedKeys verifies the documented control bindings.
 func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 	t.Parallel()
@@ -170,7 +373,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 	assert.Contains(t, view.Content, "Authorization: https://example.test/oauth")
 	assert.Contains(t, view.Content, "Terminal: 100x40")
 	assert.Contains(t, view.Content, "Request: hello|")
-	assert.Contains(t, view.Content, "Enter submit | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit")
+	assert.Contains(t, view.Content, "Ctrl+P next model | Shift+Ctrl+P previous model | Shift+Tab reasoning")
 }
 
 // TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition verifies terminal model replacement.
@@ -264,6 +467,27 @@ func TestRenderLineDistinguishesRefusal(t *testing.T) {
 }
 
 // newTestModel builds a model with one deterministic presentation service.
+func newSelectionTestModel(t *testing.T, availability presentationdomain.Availability, emit Emit) Model {
+	t.Helper()
+	service := presentationusecase.New()
+	model := NewModel(presentationdomain.Event{
+		Kind: presentationdomain.EventInitialization, Availability: availability,
+		Models: []presentationdomain.ConfiguredModel{
+			{ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevels: []presentationdomain.ReasoningLevel{
+				presentationdomain.ReasoningLevelLow, presentationdomain.ReasoningLevelHigh,
+			}},
+			{ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevels: []presentationdomain.ReasoningLevel{
+				presentationdomain.ReasoningLevelNone,
+			}},
+		},
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+		},
+	}, service.Apply, emit)
+	model.state.Transcript = []presentationdomain.Line{{Kind: presentationdomain.LineModel, Text: "existing"}}
+	return model
+}
+
 func newTestModel(t *testing.T, availability presentationdomain.Availability, emit Emit) Model {
 	t.Helper()
 	service := presentationusecase.New()

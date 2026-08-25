@@ -170,6 +170,15 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 		}
 		return event, nil
 	}
+	if changed := request.GetModelSelectionChanged(); changed != nil {
+		selection, err := mapModelSelection(changed.GetSelection())
+		if err != nil {
+			return presentationdomain.Event{}, err
+		}
+		return presentationdomain.Event{
+			Kind: presentationdomain.EventModelSelectionChanged, ModelSelection: selection,
+		}, nil
+	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
 }
 
@@ -179,11 +188,17 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
+	selection, err := mapModelSelection(initialization.GetModelSelection())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
 	event := presentationdomain.Event{
-		Kind:         presentationdomain.EventInitialization,
-		Availability: availability,
-		Startup:      make([]presentationdomain.Line, 0, len(initialization.GetStartupContent())),
-		Extensions:   make([]presentationdomain.Extension, 0, len(initialization.GetExtensions())),
+		Kind:           presentationdomain.EventInitialization,
+		Availability:   availability,
+		Startup:        make([]presentationdomain.Line, 0, len(initialization.GetStartupContent())),
+		Extensions:     make([]presentationdomain.Extension, 0, len(initialization.GetExtensions())),
+		Models:         make([]presentationdomain.ConfiguredModel, 0, len(initialization.GetModels())),
+		ModelSelection: selection,
 	}
 	for _, content := range initialization.GetStartupContent() {
 		var kind presentationdomain.LineKind
@@ -207,7 +222,58 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 			Tools: append([]string(nil), extension.GetTools()...),
 		})
 	}
+	for _, configured := range initialization.GetModels() {
+		levels := make([]presentationdomain.ReasoningLevel, 0, len(configured.GetReasoningLevels()))
+		for _, level := range configured.GetReasoningLevels() {
+			mapped, mapErr := mapReasoningLevel(level)
+			if mapErr != nil {
+				return presentationdomain.Event{}, mapErr
+			}
+			levels = append(levels, mapped)
+		}
+		event.Models = append(event.Models, presentationdomain.ConfiguredModel{
+			ProviderID: configured.GetProviderId(), ModelID: configured.GetModelId(), ReasoningLevels: levels,
+		})
+	}
 	return event, nil
+}
+
+// mapModelSelection validates one Host-confirmed selection.
+func mapModelSelection(selection *uiv1.ModelSelection) (presentationdomain.ModelSelection, error) {
+	if selection == nil || selection.GetProviderId() == "" || selection.GetModelId() == "" {
+		return presentationdomain.ModelSelection{}, errors.New("model selection is invalid")
+	}
+	level, err := mapReasoningLevel(selection.GetReasoningLevel())
+	if err != nil {
+		return presentationdomain.ModelSelection{}, err
+	}
+	return presentationdomain.ModelSelection{
+		ProviderID: selection.GetProviderId(), ModelID: selection.GetModelId(), ReasoningLevel: level,
+	}, nil
+}
+
+// mapReasoningLevel validates the complete public reasoning enum.
+func mapReasoningLevel(level uiv1.ReasoningLevel) (presentationdomain.ReasoningLevel, error) {
+	switch level {
+	case uiv1.ReasoningLevel_REASONING_LEVEL_NONE:
+		return presentationdomain.ReasoningLevelNone, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_MINIMAL:
+		return presentationdomain.ReasoningLevelMinimal, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_LOW:
+		return presentationdomain.ReasoningLevelLow, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_MEDIUM:
+		return presentationdomain.ReasoningLevelMedium, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_HIGH:
+		return presentationdomain.ReasoningLevelHigh, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH:
+		return presentationdomain.ReasoningLevelXHigh, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_MAX:
+		return presentationdomain.ReasoningLevelMax, nil
+	case uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED:
+		return presentationdomain.ReasoningLevelUnspecified, errors.New("reasoning level is unspecified")
+	default:
+		return presentationdomain.ReasoningLevelUnspecified, fmt.Errorf("unknown reasoning level %d", level)
+	}
 }
 
 //nolint:gocyclo // The explicit flat switch mirrors the finite lifecycle enum.
@@ -436,9 +502,45 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 		return uiv1.OpenResponse_builder{RetryAuthentication: &uiv1.RetryAuthenticationCommand{}}.Build(), nil
 	case presentationdomain.CommandQuit:
 		return uiv1.OpenResponse_builder{Quit: &uiv1.QuitCommand{}}.Build(), nil
+	case presentationdomain.CommandSelectModel:
+		return uiv1.OpenResponse_builder{SelectModel: uiv1.SelectModelCommand_builder{
+			ProviderId: new(command.ProviderID), ModelId: new(command.ModelID),
+		}.Build()}.Build(), nil
+	case presentationdomain.CommandSelectReasoningLevel:
+		level := mapReasoningLevelToProto(command.ReasoningLevel)
+		if level == uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED {
+			return nil, errors.New("UI reasoning level is unspecified")
+		}
+		return uiv1.OpenResponse_builder{SelectReasoningLevel: uiv1.SelectReasoningLevelCommand_builder{
+			Level: new(level),
+		}.Build()}.Build(), nil
 	case presentationdomain.CommandUnspecified:
 		return nil, errors.New("UI command is unspecified")
 	default:
 		return nil, fmt.Errorf("unknown UI command %d", command.Kind)
+	}
+}
+
+// mapReasoningLevelToProto converts one validated presentation reasoning level.
+func mapReasoningLevelToProto(level presentationdomain.ReasoningLevel) uiv1.ReasoningLevel {
+	switch level {
+	case presentationdomain.ReasoningLevelNone:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_NONE
+	case presentationdomain.ReasoningLevelMinimal:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_MINIMAL
+	case presentationdomain.ReasoningLevelLow:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_LOW
+	case presentationdomain.ReasoningLevelMedium:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_MEDIUM
+	case presentationdomain.ReasoningLevelHigh:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_HIGH
+	case presentationdomain.ReasoningLevelXHigh:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH
+	case presentationdomain.ReasoningLevelMax:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_MAX
+	case presentationdomain.ReasoningLevelUnspecified:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+	default:
+		return uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
 	}
 }

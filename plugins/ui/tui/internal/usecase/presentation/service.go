@@ -37,6 +37,8 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 	case presentationdomain.EventInitialization:
 		state.Availability = event.Availability
 		state.Startup = append(state.Startup, event.Startup...)
+		state.Models = cloneModels(event.Models)
+		state.ModelSelection = event.ModelSelection
 	case presentationdomain.EventUserSubmitted:
 		state.Transcript = append(state.Transcript, presentationdomain.Line{
 			Kind: presentationdomain.LineUser,
@@ -142,6 +144,8 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			Kind: presentationdomain.LineError,
 			Text: event.Text,
 		})
+	case presentationdomain.EventModelSelectionChanged:
+		state.ModelSelection = event.ModelSelection
 	case presentationdomain.EventUnspecified:
 	}
 
@@ -173,6 +177,7 @@ func appendFinalModelContent(
 func cloneState(state presentationdomain.State) presentationdomain.State {
 	state.Startup = append([]presentationdomain.Line(nil), state.Startup...)
 	state.Transcript = append([]presentationdomain.Line(nil), state.Transcript...)
+	state.Models = cloneModels(state.Models)
 	activeModel := make(map[int]presentationdomain.ActiveModelContent, len(state.ActiveModel))
 	for position, content := range state.ActiveModel {
 		activeModel[position] = content
@@ -190,6 +195,16 @@ func cloneState(state presentationdomain.State) presentationdomain.State {
 	state.ActiveTools = activeTools
 
 	return state
+}
+
+// cloneModels isolates configured reasoning slices from incoming events.
+func cloneModels(models []presentationdomain.ConfiguredModel) []presentationdomain.ConfiguredModel {
+	cloned := make([]presentationdomain.ConfiguredModel, len(models))
+	for index, configured := range models {
+		cloned[index] = configured
+		cloned[index].ReasoningLevels = append([]presentationdomain.ReasoningLevel(nil), configured.ReasoningLevels...)
+	}
+	return cloned
 }
 
 // toolResultLineText preserves legacy event text only when no typed blocks exist.

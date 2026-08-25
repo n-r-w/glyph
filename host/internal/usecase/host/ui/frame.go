@@ -7,7 +7,7 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 	return domainui.Frame{
 		Kind: domainui.FrameInitialization, Initialization: initialization,
 		Lifecycle: emptyLifecycle(), AuthorizationURL: "", Text: "",
-		RetryAuthentication: false,
+		RetryAuthentication: false, ModelSelection: emptyModelSelection(),
 	}
 }
 
@@ -16,6 +16,7 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 	return domainui.Frame{
 		Kind: domainui.FrameLifecycle, Initialization: emptyInitialization(),
 		Lifecycle: lifecycle, AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		ModelSelection: emptyModelSelection(),
 	}
 }
 
@@ -24,7 +25,7 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 	return domainui.Frame{
 		Kind: domainui.FrameAuthorization, Initialization: emptyInitialization(),
 		Lifecycle: emptyLifecycle(), AuthorizationURL: authorizationURL,
-		Text: "", RetryAuthentication: false,
+		Text: "", RetryAuthentication: false, ModelSelection: emptyModelSelection(),
 	}
 }
 
@@ -33,7 +34,7 @@ func informationFrame(text string) domainui.Frame {
 	return domainui.Frame{
 		Kind: domainui.FrameInformation, Initialization: emptyInitialization(),
 		Lifecycle: emptyLifecycle(), AuthorizationURL: "", Text: text,
-		RetryAuthentication: false,
+		RetryAuthentication: false, ModelSelection: emptyModelSelection(),
 	}
 }
 
@@ -42,7 +43,16 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 	return domainui.Frame{
 		Kind: domainui.FrameError, Initialization: emptyInitialization(),
 		Lifecycle: emptyLifecycle(), AuthorizationURL: "", Text: text,
-		RetryAuthentication: retryAuthentication,
+		RetryAuthentication: retryAuthentication, ModelSelection: emptyModelSelection(),
+	}
+}
+
+// modelSelectionChangedFrame confirms one committed catalog selection.
+func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Frame {
+	return domainui.Frame{
+		Kind: domainui.FrameModelSelectionChanged, Initialization: emptyInitialization(),
+		Lifecycle: emptyLifecycle(), AuthorizationURL: "", Text: "", RetryAuthentication: false,
+		ModelSelection: selection,
 	}
 }
 
@@ -50,7 +60,13 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 func emptyInitialization() domainui.Initialization {
 	return domainui.Initialization{
 		SelectedUIID: "", StartupContent: nil, Extensions: nil, Availability: 0,
+		Models: nil, ModelSelection: emptyModelSelection(),
 	}
+}
+
+// emptyModelSelection returns explicit zero values for non-selection frames.
+func emptyModelSelection() domainui.ModelSelection {
+	return domainui.ModelSelection{ProviderID: "", ModelID: "", ReasoningLevel: 0}
 }
 
 // emptyLifecycle returns explicit zero values for non-lifecycle frames.

@@ -145,6 +145,14 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		}.Build()},
 		Extensions:   []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{PluginId: new("glyph-tools"), Tools: []string{"read"}}.Build()},
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+		}.Build()},
+		ModelSelection: uiv1.ModelSelection_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+		}.Build(),
 	}.Build()}.Build()))
 	setTerminalSize(t, terminalFile, 100, 40)
 

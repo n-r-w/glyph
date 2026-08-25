@@ -19,6 +19,42 @@ const (
 	AvailabilityRunning
 )
 
+// ReasoningLevel identifies one configured reasoning level.
+type ReasoningLevel uint8
+
+const (
+	// ReasoningLevelUnspecified represents a missing reasoning level.
+	ReasoningLevelUnspecified ReasoningLevel = iota
+	// ReasoningLevelNone disables reasoning effort.
+	ReasoningLevelNone
+	// ReasoningLevelMinimal requests minimal reasoning effort.
+	ReasoningLevelMinimal
+	// ReasoningLevelLow requests low reasoning effort.
+	ReasoningLevelLow
+	// ReasoningLevelMedium requests medium reasoning effort.
+	ReasoningLevelMedium
+	// ReasoningLevelHigh requests high reasoning effort.
+	ReasoningLevelHigh
+	// ReasoningLevelXHigh requests extra-high reasoning effort.
+	ReasoningLevelXHigh
+	// ReasoningLevelMax requests maximum reasoning effort.
+	ReasoningLevelMax
+)
+
+// ConfiguredModel identifies one selectable model and its reasoning order.
+type ConfiguredModel struct {
+	ProviderID      string
+	ModelID         string
+	ReasoningLevels []ReasoningLevel
+}
+
+// ModelSelection identifies the Host-confirmed active selection.
+type ModelSelection struct {
+	ProviderID     string
+	ModelID        string
+	ReasoningLevel ReasoningLevel
+}
+
 // EventKind identifies one provider-neutral Host presentation event.
 type EventKind uint8
 
@@ -61,6 +97,8 @@ const (
 	EventInformation
 	// EventError presents safe error text.
 	EventError
+	// EventModelSelectionChanged confirms one committed selection.
+	EventModelSelectionChanged
 )
 
 // ModelContentKind identifies one visible model content block.
@@ -132,6 +170,8 @@ type Event struct {
 	ExitCode             int
 	Failure              bool
 	ToolCall             ToolCallState
+	Models               []ConfiguredModel
+	ModelSelection       ModelSelection
 }
 
 // LineKind controls the plain prefix used to render one transcript line.
@@ -201,6 +241,8 @@ type State struct {
 	Availability     Availability
 	AuthorizationURL string
 	Settled          bool
+	Models           []ConfiguredModel
+	ModelSelection   ModelSelection
 }
 
 // CommandKind identifies one accepted command sent to the Host.
@@ -217,10 +259,17 @@ const (
 	CommandRetryAuthentication
 	// CommandQuit requests UI-mode termination.
 	CommandQuit
+	// CommandSelectModel requests one configured model.
+	CommandSelectModel
+	// CommandSelectReasoningLevel requests one reasoning level.
+	CommandSelectReasoningLevel
 )
 
 // Command is one user request emitted through the UI stream.
 type Command struct {
-	Kind CommandKind
-	Text string
+	Kind           CommandKind
+	Text           string
+	ProviderID     string
+	ModelID        string
+	ReasoningLevel ReasoningLevel
 }

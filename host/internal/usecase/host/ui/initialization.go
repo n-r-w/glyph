@@ -13,6 +13,7 @@ func BuildInitialization(
 	selectedUIID string,
 	report toolservice.LoadReport,
 	selectionIssues []SelectionIssue,
+	modelCatalog ModelCatalog,
 ) domainui.Initialization {
 	content := make([]domainui.StartupContent, 0, len(report.Issues)+len(selectionIssues)+1)
 	for _, issue := range report.Issues {
@@ -54,10 +55,23 @@ func BuildInitialization(
 		Severity: domainui.ContentSeverityInformation,
 		Text:     strings.Join(summaryParts, "; "),
 	})
-	return domainui.Initialization{
+	initialization := domainui.Initialization{
 		SelectedUIID:   selectedUIID,
 		StartupContent: content,
 		Extensions:     extensions,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
+		Models:         nil,
+		ModelSelection: emptyModelSelection(),
 	}
+	for _, descriptor := range modelCatalog.Models() {
+		levels := make([]domainui.ReasoningLevel, 0, len(descriptor.SupportedReasoningLevels))
+		for _, level := range descriptor.SupportedReasoningLevels {
+			levels = append(levels, reasoningLevelToUI(level))
+		}
+		initialization.Models = append(initialization.Models, domainui.ConfiguredModel{
+			ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model), ReasoningLevels: levels,
+		})
+	}
+	initialization.ModelSelection = selectionToUI(modelCatalog.Selection())
+	return initialization
 }

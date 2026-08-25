@@ -32,6 +32,7 @@ message OpenRequest {
     AuthorizationRequest authorization = 3;
     Information information = 4;
     Error error = 5;
+    ModelSelectionChanged model_selection_changed = 6;
   }
 }
 
@@ -45,6 +46,56 @@ message Initialization {
   repeated ExtensionAvailability extensions = 3;
   // The Host availability at initialization time.
   Availability availability = 4;
+  // The configured models in Host catalogue order.
+  repeated ConfiguredModel models = 5;
+  // The active Host-confirmed model selection.
+  ModelSelection model_selection = 6;
+}
+
+// ConfiguredModel describes one selectable model and its reasoning levels.
+message ConfiguredModel {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The supported reasoning levels in configured order.
+  repeated ReasoningLevel reasoning_levels = 3;
+}
+
+// ModelSelection identifies the Host-confirmed active selection.
+message ModelSelection {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The active reasoning level.
+  ReasoningLevel reasoning_level = 3;
+}
+
+// ModelSelectionChanged confirms one selection committed by the Host.
+message ModelSelectionChanged {
+  // The committed model selection.
+  ModelSelection selection = 1;
+}
+
+// ReasoningLevel identifies a configured model reasoning level.
+enum ReasoningLevel {
+  // No reasoning level was provided.
+  REASONING_LEVEL_UNSPECIFIED = 0;
+  // Reasoning is disabled.
+  REASONING_LEVEL_NONE = 1;
+  // Minimal reasoning is enabled.
+  REASONING_LEVEL_MINIMAL = 2;
+  // Low reasoning is enabled.
+  REASONING_LEVEL_LOW = 3;
+  // Medium reasoning is enabled.
+  REASONING_LEVEL_MEDIUM = 4;
+  // High reasoning is enabled.
+  REASONING_LEVEL_HIGH = 5;
+  // Extra-high reasoning is enabled.
+  REASONING_LEVEL_XHIGH = 6;
+  // Maximum reasoning is enabled.
+  REASONING_LEVEL_MAX = 7;
 }
 
 // StartupContent carries one informational, warning, or error startup item.
@@ -357,6 +408,8 @@ message OpenResponse {
     StopCommand stop = 2;
     RetryAuthenticationCommand retry_authentication = 3;
     QuitCommand quit = 4;
+    SelectModelCommand select_model = 5;
+    SelectReasoningLevelCommand select_reasoning_level = 6;
   }
 }
 
@@ -374,3 +427,17 @@ message RetryAuthenticationCommand {}
 
 // QuitCommand terminates the UI session.
 message QuitCommand {}
+
+// SelectModelCommand requests one configured provider and model.
+message SelectModelCommand {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+}
+
+// SelectReasoningLevelCommand requests one reasoning level for the active model.
+message SelectReasoningLevelCommand {
+  // The requested reasoning level.
+  ReasoningLevel level = 1;
+}

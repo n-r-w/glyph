@@ -67,6 +67,38 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 	}, state.Transcript)
 }
 
+// TestServiceUpdatesOnlyHostConfirmedSelection verifies errors preserve the prior status.
+func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
+	t.Parallel()
+
+	service := New()
+	models := []presentationdomain.ConfiguredModel{{
+		ProviderID: "openai-codex", ModelID: "gpt",
+		ReasoningLevels: []presentationdomain.ReasoningLevel{
+			presentationdomain.ReasoningLevelLow, presentationdomain.ReasoningLevelHigh,
+		},
+	}}
+	initial := presentationdomain.ModelSelection{
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+	}
+	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
+		Kind: presentationdomain.EventInitialization, Models: models, ModelSelection: initial,
+	})
+
+	assert.Equal(t, initial, state.ModelSelection)
+	assert.Equal(t, models, state.Models)
+	state = service.Apply(state, presentationdomain.Event{Kind: presentationdomain.EventError, Text: "rejected"})
+	assert.Equal(t, initial, state.ModelSelection)
+
+	confirmed := presentationdomain.ModelSelection{
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+	}
+	state = service.Apply(state, presentationdomain.Event{
+		Kind: presentationdomain.EventModelSelectionChanged, ModelSelection: confirmed,
+	})
+	assert.Equal(t, confirmed, state.ModelSelection)
+}
+
 // TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies one complete terminal model line.
 func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	t.Parallel()

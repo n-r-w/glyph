@@ -85,6 +85,13 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				Startup:      []presentationdomain.Line{{Kind: presentationdomain.LineInformation, Text: "ready"}},
 				Availability: presentationdomain.AvailabilityIdle,
 				Extensions:   []presentationdomain.Extension{{ID: "tools", Tools: []string{"read"}}},
+				Models: []presentationdomain.ConfiguredModel{{
+					ProviderID: "openai-codex", ModelID: "gpt",
+					ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+				}},
+				ModelSelection: presentationdomain.ModelSelection{
+					ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+				},
 			}, initial)
 			return program
 		},
@@ -131,6 +138,87 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+// TestModelSelectionFramesAndCommandsPreserveContract verifies selection transport mappings.
+func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
+	t.Parallel()
+
+	initial, err := mapInitialization(uiv1.Initialization_builder{
+		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+			ProviderId: new("openrouter"), ModelId: new("sonnet"),
+			ReasoningLevels: []uiv1.ReasoningLevel{
+				uiv1.ReasoningLevel_REASONING_LEVEL_NONE,
+				uiv1.ReasoningLevel_REASONING_LEVEL_HIGH,
+			},
+		}.Build()},
+		ModelSelection: uiv1.ModelSelection_builder{
+			ProviderId: new("openrouter"), ModelId: new("sonnet"),
+			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+		}.Build(),
+	}.Build())
+	require.NoError(t, err)
+	assert.Equal(t, []presentationdomain.ConfiguredModel{{
+		ProviderID: "openrouter", ModelID: "sonnet",
+		ReasoningLevels: []presentationdomain.ReasoningLevel{
+			presentationdomain.ReasoningLevelNone, presentationdomain.ReasoningLevelHigh,
+		},
+	}}, initial.Models)
+	assert.Equal(t, presentationdomain.ModelSelection{
+		ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+	}, initial.ModelSelection)
+
+	changed, err := mapRequest(uiv1.OpenRequest_builder{ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
+		Selection: uiv1.ModelSelection_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH),
+		}.Build(),
+	}.Build()}.Build())
+	require.NoError(t, err)
+	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
+	assert.Equal(t, presentationdomain.ReasoningLevelXHigh, changed.ModelSelection.ReasoningLevel)
+
+	modelCommand, err := mapCommand(presentationdomain.Command{
+		Kind: presentationdomain.CommandSelectModel, ProviderID: "openai-codex", ModelID: "gpt",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
+	assert.Equal(t, "gpt", modelCommand.GetSelectModel().GetModelId())
+
+	reasoningCommand, err := mapCommand(presentationdomain.Command{
+		Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: presentationdomain.ReasoningLevelMax,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, uiv1.ReasoningLevel_REASONING_LEVEL_MAX, reasoningCommand.GetSelectReasoningLevel().GetLevel())
+}
+
+// TestReasoningMappingsCoverEveryValue verifies public and presentation enums stay exact.
+func TestReasoningMappingsCoverEveryValue(t *testing.T) {
+	t.Parallel()
+
+	values := []struct {
+		public       uiv1.ReasoningLevel
+		presentation presentationdomain.ReasoningLevel
+	}{
+		{uiv1.ReasoningLevel_REASONING_LEVEL_NONE, presentationdomain.ReasoningLevelNone},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_MINIMAL, presentationdomain.ReasoningLevelMinimal},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_LOW, presentationdomain.ReasoningLevelLow},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_MEDIUM, presentationdomain.ReasoningLevelMedium},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH, presentationdomain.ReasoningLevelHigh},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH, presentationdomain.ReasoningLevelXHigh},
+		{uiv1.ReasoningLevel_REASONING_LEVEL_MAX, presentationdomain.ReasoningLevelMax},
+	}
+	for _, value := range values {
+		mapped, err := mapReasoningLevel(value.public)
+		require.NoError(t, err)
+		assert.Equal(t, value.presentation, mapped)
+		assert.Equal(t, value.public, mapReasoningLevelToProto(value.presentation))
+	}
+	_, err := mapReasoningLevel(uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED)
+	require.Error(t, err)
+	_, err = mapReasoningLevel(uiv1.ReasoningLevel(99))
+	require.Error(t, err)
 }
 
 // TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer mapping.
@@ -317,8 +405,10 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			assert.NotNil(t, response.GetRetryAuthentication())
 		case presentationdomain.CommandQuit:
 			assert.NotNil(t, response.GetQuit())
-		case presentationdomain.CommandUnspecified:
-			t.Fatal("unexpected unspecified command")
+		case presentationdomain.CommandUnspecified,
+			presentationdomain.CommandSelectModel,
+			presentationdomain.CommandSelectReasoningLevel:
+			t.Fatal("unexpected command")
 		}
 	}
 
@@ -367,6 +457,14 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 			PluginId: new("glyph-tools"), Tools: []string{"read"}, Path: new("/plugins/glyph-tools"),
 		}.Build()},
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+		}.Build()},
+		ModelSelection: uiv1.ModelSelection_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+		}.Build(),
 	}.Build())
 
 	require.NoError(t, err)
@@ -608,5 +706,13 @@ func initializationRequest() *uiv1.OpenRequest {
 		}.Build()},
 		Extensions:   []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{PluginId: new("tools"), Tools: []string{"read"}}.Build()},
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+		}.Build()},
+		ModelSelection: uiv1.ModelSelection_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+		}.Build(),
 	}.Build()}.Build()
 }

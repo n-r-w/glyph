@@ -332,12 +332,18 @@ func runUIWithPaths(
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
-	session := hostui.NewSession(channel, coordinator, providerCatalog, func(activationContext context.Context) {
-		selectionWarningsDelivered = true
-		tools.Activate(activationContext)
-	})
+	session := hostui.NewSession(
+		channel,
+		coordinator,
+		providerCatalog,
+		providerCatalog,
+		func(activationContext context.Context) {
+			selectionWarningsDelivered = true
+			tools.Activate(activationContext)
+		},
+	)
 	controller := controllerui.New(session)
-	initialization := hostui.BuildInitialization(selection.ID, report, selection.Issues)
+	initialization := hostui.BuildInitialization(selection.ID, report, selection.Issues, providerCatalog)
 	executionErr := controller.Execute(ctx, initialization)
 
 	// The selected process stops before terminal recovery; extensions stop after recovery.

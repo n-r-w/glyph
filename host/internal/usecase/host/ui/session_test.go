@@ -1,3 +1,4 @@
+//nolint:exhaustruct // Tests set only fields relevant to each session command or frame.
 package ui
 
 import (
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -26,6 +28,7 @@ type SessionSuite struct {
 	channel       *MockChannel
 	runner        *MockAgentRunner
 	authenticator *MockAuthenticator
+	modelCatalog  *MockModelCatalog
 }
 
 // SetupTest creates isolated session boundaries for each lifecycle scenario.
@@ -34,6 +37,7 @@ func (s *SessionSuite) SetupTest() {
 	s.channel = NewMockChannel(controller)
 	s.runner = NewMockAgentRunner(controller)
 	s.authenticator = NewMockAuthenticator(controller)
+	s.modelCatalog = NewMockModelCatalog(controller)
 }
 
 // TestSessionInitializationDeliveryFailureSkipsActivation starts no Host work before initialization succeeds.
@@ -43,7 +47,7 @@ func (s *SessionSuite) TestSessionInitializationDeliveryFailureSkipsActivation()
 	s.channel.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	activated := false
 
-	err := NewSession(s.channel, s.runner, s.authenticator, func(context.Context) {
+	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {
 		activated = true
 	}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "test-ui", StartupContent: nil, Extensions: nil,
@@ -111,7 +115,7 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 	}).Times(2)
 
 	// Act: run the complete UI session.
-	err := NewSession(channel, runner, authenticator, func(ctx context.Context) {
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(ctx context.Context) {
 		mutex.Lock()
 		activationOrder = append(activationOrder, "activated")
 		activationValue = ctx.Value(contextKey)
@@ -179,7 +183,7 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
 		Availability: domainui.AvailabilityCheckingAuthentication,
 	})
@@ -245,7 +249,7 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		}
 	}).Times(4)
 
-	err := NewSession(channel, runner, authenticator, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
 		Availability: domainui.AvailabilityCheckingAuthentication,
 	})
@@ -256,6 +260,177 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 	assert.True(t, containsInformation(frames, "not ready"))
 	assert.True(t, containsAvailability(frames, domainui.AvailabilityRunning))
 	assert.True(t, containsAvailability(frames, domainui.AvailabilityIdle))
+}
+
+// TestSessionSelectionCommandsRejectActiveAuthenticationOperations verifies authentication is not interrupted.
+func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOperations() {
+	t := s.T()
+	tests := []struct {
+		name         string
+		availability domainui.Availability
+		activeKind   operationKind
+		command      domainui.Command
+	}{
+		{
+			name: "authentication check", availability: domainui.AvailabilityCheckingAuthentication,
+			activeKind: operationAuthenticationCheck,
+			command: domainui.Command{
+				Kind: domainui.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet",
+			},
+		},
+		{
+			name: "interactive sign-in", availability: domainui.AvailabilityAuthenticating,
+			activeKind: operationSignIn,
+			command: domainui.Command{
+				Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			channel := NewMockChannel(gomock.NewController(t))
+			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+				assert.Equal(t, domainui.FrameError, frame.Kind)
+				assert.Equal(t, "Could not change model selection.", frame.Text)
+				return nil
+			})
+			canceled := false
+			cancel := func() { canceled = true }
+			session := &Session{
+				channel: channel, runner: s.runner, authenticator: s.authenticator,
+				modelCatalog: s.modelCatalog, afterInitialization: func(context.Context) {},
+			}
+
+			availability, activeCancel, activeKind, err := session.applyCommand(
+				t.Context(), test.availability, cancel, test.activeKind, test.command, make(chan operationResult),
+			)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.availability, availability)
+			assert.Equal(t, test.activeKind, activeKind)
+			assert.NotNil(t, activeCancel)
+			assert.False(t, canceled)
+		})
+	}
+}
+
+// TestSessionSelectionCommandsAllowNonAuthenticationStates verifies availability alone does not block selection.
+func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates() {
+	t := s.T()
+	tests := []struct {
+		name         string
+		availability domainui.Availability
+		command      domainui.Command
+	}{
+		{
+			name: "idle model", availability: domainui.AvailabilityIdle,
+			command: domainui.Command{
+				Kind: domainui.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet",
+			},
+		},
+		{
+			name: "authentication failed reasoning", availability: domainui.AvailabilityAuthenticationFailed,
+			command: domainui.Command{
+				Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := gomock.NewController(t)
+			channel := NewMockChannel(controller)
+			catalog := NewMockModelCatalog(controller)
+			selection := model.Selection{
+				Provider: "openrouter", Model: "sonnet", ReasoningLevel: model.ReasoningLevelHigh,
+			}
+			if test.command.Kind == domainui.CommandSelectModel {
+				catalog.EXPECT().SelectModel(
+					gomock.Any(), model.ProviderID("openrouter"), model.ID("sonnet"),
+				).Return(selection, nil)
+			} else {
+				catalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selection, nil)
+			}
+			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+				assert.Equal(t, domainui.FrameModelSelectionChanged, frame.Kind)
+				return nil
+			})
+			session := &Session{
+				channel: channel, runner: s.runner, authenticator: s.authenticator,
+				modelCatalog: catalog, afterInitialization: func(context.Context) {},
+			}
+
+			availability, activeCancel, activeKind, err := session.applyCommand(
+				t.Context(), test.availability, nil, 0, test.command, make(chan operationResult),
+			)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.availability, availability)
+			assert.Nil(t, activeCancel)
+			assert.Zero(t, activeKind)
+		})
+	}
+}
+
+// TestSessionSelectionCommandsCommitDuringActiveRun verifies selection does not cancel the run.
+func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
+	t := s.T()
+	ctx := context.WithValue(t.Context(), sessionContextKey{}, "selection")
+	canceled := false
+	cancel := func() { canceled = true }
+	selection := model.Selection{Provider: "openrouter", Model: "sonnet", ReasoningLevel: model.ReasoningLevelHigh}
+
+	s.modelCatalog.EXPECT().SelectModel(ctx, model.ProviderID("openrouter"), model.ID("sonnet")).Return(selection, nil)
+	s.modelCatalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selection, nil)
+	s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		assert.Equal(t, domainui.FrameModelSelectionChanged, frame.Kind)
+		assert.Equal(t, domainui.ModelSelection{
+			ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: domainui.ReasoningLevelHigh,
+		}, frame.ModelSelection)
+		return nil
+	}).Times(2)
+	session := &Session{
+		channel: s.channel, runner: s.runner, authenticator: s.authenticator,
+		modelCatalog: s.modelCatalog, afterInitialization: func(context.Context) {},
+	}
+
+	availability, activeCancel, activeKind, err := session.applyCommand(
+		ctx, domainui.AvailabilityRunning, cancel, operationRun, domainui.Command{
+			Kind: domainui.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet",
+		}, make(chan operationResult),
+	)
+	require.NoError(t, err)
+	availability, activeCancel, activeKind, err = session.applyCommand(
+		ctx, availability, activeCancel, activeKind, domainui.Command{
+			Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+		}, make(chan operationResult),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, domainui.AvailabilityRunning, availability)
+	assert.Equal(t, operationRun, activeKind)
+	assert.NotNil(t, activeCancel)
+	assert.False(t, canceled)
+}
+
+// TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation verifies rejected selection preserves status.
+func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation() {
+	t := s.T()
+	s.modelCatalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelMax).Return(model.Selection{}, errors.New("secret detail"))
+	s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		assert.Equal(t, domainui.FrameError, frame.Kind)
+		assert.Equal(t, "Could not change model selection.", frame.Text)
+		assert.NotContains(t, frame.Text, "secret")
+		return nil
+	})
+
+	_, _, _, err := (&Session{
+		channel: s.channel, runner: s.runner, authenticator: s.authenticator,
+		modelCatalog: s.modelCatalog, afterInitialization: func(context.Context) {},
+	}).applyCommand(t.Context(), domainui.AvailabilityRunning, func() {}, operationRun, domainui.Command{
+		Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelMax,
+	}, make(chan operationResult))
+
+	require.NoError(t, err)
 }
 
 // TestSessionRunsMultipleTurnsThroughTheSameRunner verifies retained Agent Core ownership across requests.
@@ -298,7 +473,7 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
 		Availability: domainui.AvailabilityCheckingAuthentication,
 	})
@@ -363,7 +538,7 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
 		Availability: domainui.AvailabilityCheckingAuthentication,
 	})
@@ -396,7 +571,7 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 		return ctx.Err()
 	})
 
-	err := NewSession(channel, s.runner, authenticator, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
@@ -426,7 +601,7 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 	})
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
-	err := NewSession(channel, s.runner, s.authenticator, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
@@ -457,7 +632,7 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 	}).AnyTimes()
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
-	err := NewSession(channel, s.runner, s.authenticator, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
@@ -505,7 +680,7 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 		return domainui.Command{}, io.ErrUnexpectedEOF
 	}).Times(2)
 
-	err := NewSession(channel, runner, authenticator, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID: "ui", StartupContent: nil, Extensions: nil,
 		Availability: domainui.AvailabilityCheckingAuthentication,
 	})

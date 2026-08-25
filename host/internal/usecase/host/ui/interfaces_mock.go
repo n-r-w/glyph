@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	ui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -251,6 +252,88 @@ func (m *MockAgentRunner) Run(ctx context.Context, userText string) (agent.RunOu
 func (mr *MockAgentRunnerMockRecorder) Run(ctx, userText any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockAgentRunner)(nil).Run), ctx, userText)
+}
+
+// MockModelCatalog is a mock of ModelCatalog interface.
+type MockModelCatalog struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelCatalogMockRecorder
+	isgomock struct{}
+}
+
+// MockModelCatalogMockRecorder is the mock recorder for MockModelCatalog.
+type MockModelCatalogMockRecorder struct {
+	mock *MockModelCatalog
+}
+
+// NewMockModelCatalog creates a new mock instance.
+func NewMockModelCatalog(ctrl *gomock.Controller) *MockModelCatalog {
+	mock := &MockModelCatalog{ctrl: ctrl}
+	mock.recorder = &MockModelCatalogMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelCatalog) EXPECT() *MockModelCatalogMockRecorder {
+	return m.recorder
+}
+
+// Models mocks base method.
+func (m *MockModelCatalog) Models() []model.Descriptor {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Models")
+	ret0, _ := ret[0].([]model.Descriptor)
+	return ret0
+}
+
+// Models indicates an expected call of Models.
+func (mr *MockModelCatalogMockRecorder) Models() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Models", reflect.TypeOf((*MockModelCatalog)(nil).Models))
+}
+
+// SelectModel mocks base method.
+func (m *MockModelCatalog) SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectModel", ctx, provider, modelID)
+	ret0, _ := ret[0].(model.Selection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectModel indicates an expected call of SelectModel.
+func (mr *MockModelCatalogMockRecorder) SelectModel(ctx, provider, modelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectModel", reflect.TypeOf((*MockModelCatalog)(nil).SelectModel), ctx, provider, modelID)
+}
+
+// SelectReasoningLevel mocks base method.
+func (m *MockModelCatalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectReasoningLevel", level)
+	ret0, _ := ret[0].(model.Selection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectReasoningLevel indicates an expected call of SelectReasoningLevel.
+func (mr *MockModelCatalogMockRecorder) SelectReasoningLevel(level any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningLevel", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningLevel), level)
+}
+
+// Selection mocks base method.
+func (m *MockModelCatalog) Selection() model.Selection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Selection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// Selection indicates an expected call of Selection.
+func (mr *MockModelCatalogMockRecorder) Selection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCatalog)(nil).Selection))
 }
 
 // MockAuthenticator is a mock of Authenticator interface.

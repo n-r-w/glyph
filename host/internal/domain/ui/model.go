@@ -119,12 +119,48 @@ type ExtensionAvailability struct {
 	Tools    []string
 }
 
+// ReasoningLevel identifies one provider-neutral reasoning level.
+type ReasoningLevel uint8
+
+const (
+	// ReasoningLevelNone disables reasoning effort.
+	ReasoningLevelNone ReasoningLevel = iota + 1
+	// ReasoningLevelMinimal requests minimal reasoning effort.
+	ReasoningLevelMinimal
+	// ReasoningLevelLow requests low reasoning effort.
+	ReasoningLevelLow
+	// ReasoningLevelMedium requests medium reasoning effort.
+	ReasoningLevelMedium
+	// ReasoningLevelHigh requests high reasoning effort.
+	ReasoningLevelHigh
+	// ReasoningLevelXHigh requests extra-high reasoning effort.
+	ReasoningLevelXHigh
+	// ReasoningLevelMax requests maximum reasoning effort.
+	ReasoningLevelMax
+)
+
+// ConfiguredModel identifies one selectable model and its reasoning levels.
+type ConfiguredModel struct {
+	ProviderID      string
+	ModelID         string
+	ReasoningLevels []ReasoningLevel
+}
+
+// ModelSelection identifies one Host-confirmed active selection.
+type ModelSelection struct {
+	ProviderID     string
+	ModelID        string
+	ReasoningLevel ReasoningLevel
+}
+
 // Initialization is the first Host frame sent to a selected UI.
 type Initialization struct {
 	SelectedUIID   string
 	StartupContent []StartupContent
 	Extensions     []ExtensionAvailability
 	Availability   Availability
+	Models         []ConfiguredModel
+	ModelSelection ModelSelection
 }
 
 // ModelContentType identifies one model content transition.
@@ -253,6 +289,8 @@ const (
 	FrameInformation
 	// FrameError carries one safe user-visible failure.
 	FrameError
+	// FrameModelSelectionChanged confirms one committed selection.
+	FrameModelSelectionChanged
 )
 
 // Frame carries exactly one Host-to-UI payload.
@@ -263,6 +301,7 @@ type Frame struct {
 	AuthorizationURL    string
 	Text                string
 	RetryAuthentication bool
+	ModelSelection      ModelSelection
 }
 
 // CommandKind identifies one UI-to-Host command.
@@ -277,10 +316,17 @@ const (
 	CommandRetryAuthentication
 	// CommandQuit terminates the UI session.
 	CommandQuit
+	// CommandSelectModel requests one configured model.
+	CommandSelectModel
+	// CommandSelectReasoningLevel requests one level for the active model.
+	CommandSelectReasoningLevel
 )
 
 // Command carries exactly one UI-to-Host command.
 type Command struct {
-	Kind CommandKind
-	Text string
+	Kind           CommandKind
+	Text           string
+	ProviderID     string
+	ModelID        string
+	ReasoningLevel ReasoningLevel
 }

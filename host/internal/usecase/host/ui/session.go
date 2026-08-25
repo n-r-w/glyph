@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -37,6 +38,7 @@ type Session struct {
 	channel             Channel
 	runner              AgentRunner
 	authenticator       Authenticator
+	modelCatalog        ModelCatalog
 	afterInitialization func(context.Context)
 }
 
@@ -47,11 +49,12 @@ func NewSession(
 	channel Channel,
 	runner AgentRunner,
 	authenticator Authenticator,
+	modelCatalog ModelCatalog,
 	afterInitialization func(context.Context),
 ) *Session {
 	return &Session{
 		channel: channel, runner: runner, authenticator: authenticator,
-		afterInitialization: afterInitialization,
+		modelCatalog: modelCatalog, afterInitialization: afterInitialization,
 	}
 }
 
@@ -197,9 +200,44 @@ func (s *Session) applyCommand(
 		return domainui.AvailabilityAuthenticating, activeCancel, activeKind, nil
 	case domainui.CommandQuit:
 		return availability, activeCancel, activeKind, nil
+	case domainui.CommandSelectModel, domainui.CommandSelectReasoningLevel:
+		if activeKind == operationAuthenticationCheck || activeKind == operationSignIn {
+			return availability, activeCancel, activeKind, s.sendSelectionError()
+		}
+		return availability, activeCancel, activeKind, s.applySelectionCommand(ctx, command)
 	default:
 		return availability, activeCancel, activeKind, s.sendInformation("Unsupported UI command.")
 	}
+}
+
+// applySelectionCommand commits one model or reasoning selection without changing run state.
+func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Command) error {
+	var selection model.Selection
+	var err error
+	switch command.Kind {
+	case domainui.CommandSelectModel:
+		if command.ProviderID == "" || command.ModelID == "" {
+			return s.sendSelectionError()
+		}
+		selection, err = s.modelCatalog.SelectModel(
+			ctx, model.ProviderID(command.ProviderID), model.ID(command.ModelID),
+		)
+	case domainui.CommandSelectReasoningLevel:
+		level, valid := reasoningLevelFromUI(command.ReasoningLevel)
+		if !valid {
+			return s.sendSelectionError()
+		}
+		selection, err = s.modelCatalog.SelectReasoningLevel(level)
+	case domainui.CommandSubmit, domainui.CommandStop,
+		domainui.CommandRetryAuthentication, domainui.CommandQuit:
+		return s.sendSelectionError()
+	default:
+		return s.sendSelectionError()
+	}
+	if err != nil {
+		return s.sendSelectionError()
+	}
+	return s.channel.Send(modelSelectionChangedFrame(selectionToUI(selection)))
 }
 
 // applyResult advances authentication or run availability after one completion.
@@ -332,6 +370,11 @@ func (s *Session) sendAvailability(availability domainui.Availability) error {
 // sendInformation emits one non-terminal command rejection or notification.
 func (s *Session) sendInformation(text string) error {
 	return s.channel.Send(informationFrame(text))
+}
+
+// sendSelectionError emits one fixed error without exposing catalog details.
+func (s *Session) sendSelectionError() error {
+	return s.channel.Send(errorFrame("Could not change model selection.", false))
 }
 
 // sendAuthenticationError emits a safe state that permits explicit retry.

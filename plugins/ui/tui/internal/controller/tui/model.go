@@ -22,19 +22,26 @@ type Emit func(presentationdomain.Command) error
 
 // Model is the single root Bubble Tea presentation and input model.
 type Model struct {
-	state    presentationdomain.State
-	input    []rune
-	cursor   int
-	width    int
-	height   int
-	emitting bool
-	apply    Apply
-	emit     Emit
+	state        presentationdomain.State
+	input        []rune
+	cursor       int
+	width        int
+	height       int
+	emitting     bool
+	selectorOpen bool
+	selectorRow  int
+	apply        Apply
+	emit         Emit
 }
 
 var _ tea.Model = (*Model)(nil)
 
-const fixedViewLineCount = 5
+const (
+	fixedViewLineCount     = 5
+	selectorFixedLineCount = 2
+	maxVisibleSelectorRows = 5
+	selectorCenterDivisor  = 2
+)
 
 // emissionResultMsg returns command-delivery success or failure to the update loop.
 type emissionResultMsg struct {
@@ -94,7 +101,9 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 		return model, tea.Quit
 	case presentationdomain.CommandUnspecified,
 		presentationdomain.CommandStop,
-		presentationdomain.CommandRetryAuthentication:
+		presentationdomain.CommandRetryAuthentication,
+		presentationdomain.CommandSelectModel,
+		presentationdomain.CommandSelectReasoningLevel:
 	}
 
 	return model, nil
@@ -102,24 +111,26 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 
 //nolint:gocyclo // The explicit flat switch mirrors the supported editor and command keys.
 func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
+	if isSelectionShortcut(key) && !selectionAvailable(model.state.Availability) {
+		return model, nil
+	}
+	if model.selectorOpen {
+		return model.updateSelector(key)
+	}
+	if model.emitting {
+		return model, nil
+	}
+	if key.Mod == tea.ModCtrl|tea.ModShift && key.Code == 'p' {
+		return model.cycleModel(-1)
+	}
 	if key.Mod == tea.ModCtrl {
-		switch key.Code {
-		case 'q':
-			return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandQuit})
-		case 'c':
-			if model.state.Availability == presentationdomain.AvailabilityRunning {
-				return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandStop})
-			}
-			return model, nil
-		case 'r':
-			if model.state.Availability == presentationdomain.AvailabilityAuthenticationFailed {
-				return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandRetryAuthentication})
-			}
-			return model, nil
-		}
+		return model.updateControlKey(key.Code)
+	}
+	if key.Mod == tea.ModShift && key.Code == tea.KeyTab {
+		return model.cycleReasoning()
 	}
 
-	if model.state.Availability != presentationdomain.AvailabilityIdle || model.emitting {
+	if model.state.Availability != presentationdomain.AvailabilityIdle {
 		return model, nil
 	}
 
@@ -128,6 +139,11 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 		text := strings.TrimSpace(string(model.input))
 		if text == "" {
 			return model, nil
+		}
+		if text == "/model" {
+			model.input = nil
+			model.cursor = 0
+			return model.openSelector()
 		}
 		return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandSubmit, Text: text})
 	case tea.KeyLeft:
@@ -160,6 +176,113 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
+// isSelectionShortcut matches only the approved selection bindings.
+func isSelectionShortcut(key tea.Key) bool {
+	return key.Mod == tea.ModCtrl && (key.Code == 'l' || key.Code == 'p') ||
+		key.Mod == tea.ModCtrl|tea.ModShift && key.Code == 'p' ||
+		key.Mod == tea.ModShift && key.Code == tea.KeyTab
+}
+
+// selectionAvailable rejects only active authentication availability.
+func selectionAvailable(availability presentationdomain.Availability) bool {
+	return availability != presentationdomain.AvailabilityChecking &&
+		availability != presentationdomain.AvailabilityAuthenticating
+}
+
+// updateControlKey handles the exact control-key bindings.
+func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
+	switch code {
+	case 'q':
+		return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandQuit})
+	case 'c':
+		if model.state.Availability == presentationdomain.AvailabilityRunning {
+			return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandStop})
+		}
+	case 'r':
+		if model.state.Availability == presentationdomain.AvailabilityAuthenticationFailed {
+			return model.emitCommand(presentationdomain.Command{Kind: presentationdomain.CommandRetryAuthentication})
+		}
+	case 'l':
+		return model.openSelector()
+	case 'p':
+		return model.cycleModel(1)
+	}
+	return model, nil
+}
+
+// openSelector highlights the current model without changing editor or transcript state.
+func (model Model) openSelector() (tea.Model, tea.Cmd) {
+	if len(model.state.Models) == 0 {
+		return model, nil
+	}
+	model.selectorOpen = true
+	model.selectorRow = model.currentModelIndex()
+	return model, nil
+}
+
+// updateSelector handles only modal navigation, confirmation, and cancellation.
+func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyUp:
+		model.selectorRow = (model.selectorRow - 1 + len(model.state.Models)) % len(model.state.Models)
+	case tea.KeyDown:
+		model.selectorRow = (model.selectorRow + 1) % len(model.state.Models)
+	case tea.KeyEnter:
+		selected := model.state.Models[model.selectorRow]
+		model.selectorOpen = false
+		return model.emitCommand(presentationdomain.Command{
+			Kind: presentationdomain.CommandSelectModel, ProviderID: selected.ProviderID, ModelID: selected.ModelID,
+		})
+	case tea.KeyEscape:
+		model.selectorOpen = false
+	}
+	return model, nil
+}
+
+// cycleModel emits the configured neighbor of the Host-confirmed model.
+func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
+	if len(model.state.Models) <= 1 {
+		return model, nil
+	}
+	index := (model.currentModelIndex() + direction + len(model.state.Models)) % len(model.state.Models)
+	selected := model.state.Models[index]
+	return model.emitCommand(presentationdomain.Command{
+		Kind: presentationdomain.CommandSelectModel, ProviderID: selected.ProviderID, ModelID: selected.ModelID,
+	})
+}
+
+// cycleReasoning emits the next configured level for the Host-confirmed model.
+func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
+	if len(model.state.Models) == 0 {
+		return model, nil
+	}
+	configured := model.state.Models[model.currentModelIndex()]
+	if len(configured.ReasoningLevels) <= 1 {
+		return model, nil
+	}
+	index := 0
+	for current, level := range configured.ReasoningLevels {
+		if level == model.state.ModelSelection.ReasoningLevel {
+			index = (current + 1) % len(configured.ReasoningLevels)
+			break
+		}
+	}
+	return model.emitCommand(presentationdomain.Command{
+		Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: configured.ReasoningLevels[index],
+	})
+}
+
+// currentModelIndex resolves the Host-confirmed selection in configured order.
+func (model Model) currentModelIndex() int {
+	for index, configured := range model.state.Models {
+		if configured.ProviderID == model.state.ModelSelection.ProviderID &&
+			configured.ModelID == model.state.ModelSelection.ModelID {
+			return index
+		}
+	}
+	return 0
+}
+
 // emitCommand serializes one UI command without blocking the update loop.
 func (model Model) emitCommand(command presentationdomain.Command) (tea.Model, tea.Cmd) {
 	if model.emitting {
@@ -185,19 +308,22 @@ func (model *Model) insertText(text string) {
 
 // View renders the current presentation as plain terminal text.
 func (model Model) View() tea.View {
-	body := model.visibleBodyLines()
-	lines := make([]string, 0, fixedViewLineCount+len(body))
+	selector := model.visibleSelectorLines()
+	body := model.visibleBodyLines(len(selector))
+	lines := make([]string, 0, fixedViewLineCount+len(body)+len(selector))
 	lines = append(
 		lines,
 		"Glyph",
-		"Status: "+availabilityText(model.state.Availability),
+		"Status: "+availabilityText(model.state.Availability)+" | "+selectionText(model.state.ModelSelection),
 	)
 	lines = append(lines, body...)
+	lines = append(lines, selector...)
 	lines = append(
 		lines,
 		"Request: "+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
 		fmt.Sprintf("Terminal: %dx%d", model.width, model.height),
-		"Keys: Enter submit | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
+		"Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model | "+
+			"Shift+Tab reasoning | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
 	)
 
 	view := tea.NewView(strings.Join(lines, "\n"))
@@ -206,8 +332,32 @@ func (model Model) View() tea.View {
 	return view
 }
 
-// visibleBodyLines keeps the latest transcript while preserving the editor and help lines.
-func (model Model) visibleBodyLines() []string {
+// visibleSelectorLines renders a bounded window around the highlighted model.
+func (model Model) visibleSelectorLines() []string {
+	if !model.selectorOpen || len(model.state.Models) == 0 {
+		return nil
+	}
+	capacity := min(maxVisibleSelectorRows, len(model.state.Models))
+	if model.height > 0 {
+		capacity = min(capacity, max(1, model.height-fixedViewLineCount-selectorFixedLineCount))
+	}
+	start := model.selectorRow - capacity/selectorCenterDivisor
+	start = max(0, min(start, len(model.state.Models)-capacity))
+	lines := make([]string, 0, selectorFixedLineCount+capacity)
+	lines = append(lines, "Models:")
+	for index := start; index < start+capacity; index++ {
+		configured := model.state.Models[index]
+		prefix := "  "
+		if index == model.selectorRow {
+			prefix = "> "
+		}
+		lines = append(lines, prefix+configured.ProviderID+" / "+configured.ModelID)
+	}
+	return append(lines, "Selector: Up/Down navigate | Enter confirm | Escape cancel")
+}
+
+// visibleBodyLines keeps the latest transcript after reserving fixed and selector lines.
+func (model Model) visibleBodyLines(reservedLines int) []string {
 	estimatedLines := len(model.state.Startup) + len(model.state.Transcript) +
 		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
 	lines := make([]string, 0, estimatedLines)
@@ -245,7 +395,7 @@ func (model Model) visibleBodyLines() []string {
 	if model.height <= 0 {
 		return lines
 	}
-	capacity := model.height - fixedViewLineCount
+	capacity := model.height - fixedViewLineCount - reservedLines
 	if capacity <= 0 {
 		return nil
 	}
@@ -341,6 +491,38 @@ func renderLine(line presentationdomain.Line) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+// selectionText renders only the Host-confirmed selection.
+func selectionText(selection presentationdomain.ModelSelection) string {
+	if selection.ProviderID == "" || selection.ModelID == "" {
+		return "model unavailable"
+	}
+	return fmt.Sprintf("%s / %s / %s", selection.ProviderID, selection.ModelID, reasoningText(selection.ReasoningLevel))
+}
+
+// reasoningText maps the closed reasoning set to its configured spelling.
+func reasoningText(level presentationdomain.ReasoningLevel) string {
+	switch level {
+	case presentationdomain.ReasoningLevelNone:
+		return "none"
+	case presentationdomain.ReasoningLevelMinimal:
+		return "minimal"
+	case presentationdomain.ReasoningLevelLow:
+		return "low"
+	case presentationdomain.ReasoningLevelMedium:
+		return "medium"
+	case presentationdomain.ReasoningLevelHigh:
+		return "high"
+	case presentationdomain.ReasoningLevelXHigh:
+		return "xhigh"
+	case presentationdomain.ReasoningLevelMax:
+		return "max"
+	case presentationdomain.ReasoningLevelUnspecified:
+		return "unspecified"
+	default:
+		return "unspecified"
+	}
 }
 
 // availabilityText maps Host availability to concise terminal status text.
