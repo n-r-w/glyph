@@ -2,12 +2,13 @@
 package tools
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -131,7 +132,9 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 			})
 		}
 	}
-	sort.Slice(extensions, func(i, j int) bool { return extensions[i].ID < extensions[j].ID })
+	slices.SortFunc(extensions, func(left, right LoadedExtension) int {
+		return cmp.Compare(left.ID, right.ID)
+	})
 
 	s.mutex.Lock()
 	for id, state := range states {
@@ -162,7 +165,9 @@ func (s *Service) Tools() []tool.Descriptor {
 		}
 	}
 	s.mutex.RUnlock()
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	slices.SortFunc(result, func(left, right tool.Descriptor) int {
+		return cmp.Compare(left.Name, right.Name)
+	})
 	return result
 }
 
@@ -310,7 +315,7 @@ func findConflicts(states map[string]*runtimeState) map[string][]string {
 	conflicts := make(map[string][]string)
 	for name, ids := range owners {
 		if len(ids) > 1 {
-			sort.Strings(ids)
+			slices.Sort(ids)
 			conflicts[name] = ids
 		}
 	}
@@ -319,7 +324,10 @@ func findConflicts(states map[string]*runtimeState) map[string][]string {
 
 // sortIssues makes startup diagnostics deterministic.
 func sortIssues(issues []Issue) {
-	sort.Slice(issues, func(i, j int) bool {
-		return fmt.Sprint(issues[i].PluginIDs, issues[i].Path) < fmt.Sprint(issues[j].PluginIDs, issues[j].Path)
+	slices.SortFunc(issues, func(left, right Issue) int {
+		return cmp.Compare(
+			fmt.Sprint(left.PluginIDs, left.Path),
+			fmt.Sprint(right.PluginIDs, right.Path),
+		)
 	})
 }

@@ -2,10 +2,11 @@
 package edit
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	extensioncontroller "github.com/n-r-w/glyph/plugins/extension/tools/internal/controller/extension"
@@ -55,7 +56,9 @@ func (s *Service) Edit(ctx context.Context, path string, replacements []extensio
 			start := strings.Index(content, replacement.OldText)
 			matches = append(matches, match{start: start, end: start + len(replacement.OldText), text: replacement.NewText})
 		}
-		sort.Slice(matches, func(left, right int) bool { return matches[left].start > matches[right].start })
+		slices.SortFunc(matches, func(left, right match) int {
+			return cmp.Compare(right.start, left.start)
+		})
 		for index := 1; index < len(matches); index++ {
 			if matches[index-1].start < matches[index].end {
 				return nil, fmt.Errorf("source fragments overlap in %q", path)

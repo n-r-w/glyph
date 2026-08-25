@@ -2,12 +2,13 @@
 package catalog
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
@@ -67,6 +68,8 @@ func (*Service) Discover(ctx context.Context, directory domainui.Directory) (dom
 	if catalogErr != nil {
 		return domainui.Discovery{}, fmt.Errorf("validate UI catalog: %w", catalogErr)
 	}
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
+	slices.SortFunc(candidates, func(left, right domainui.Candidate) int {
+		return cmp.Compare(left.ID, right.ID)
+	})
 	return domainui.Discovery{Candidates: candidates}, nil
 }

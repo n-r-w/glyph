@@ -2,9 +2,10 @@
 package providers
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -102,8 +103,8 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 		}
 		configured[index] = entry
 	}
-	sort.SliceStable(configured, func(left, right int) bool {
-		return configured[left].Descriptor.Provider < configured[right].Descriptor.Provider
+	slices.SortStableFunc(configured, func(left, right Entry) int {
+		return cmp.Compare(left.Descriptor.Provider, right.Descriptor.Provider)
 	})
 	catalog := &Catalog{entries: configured, mutex: sync.RWMutex{}, selection: selection, active: 0}
 	active, found := catalog.entryIndex(selection.Provider, selection.Model)

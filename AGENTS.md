@@ -17,6 +17,7 @@ NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 3. `github.com/caarlos0/env/v11` for loading configuration from environment variables
 4. `log/slog` for logging (must use structured logging with context). Use global logger with context, instead of passing logger instances around. E.g. `slog.DebugContext`.
 5. `github.com/cenkalti/backoff/v7` for retry strategies
+6. `github.com/samber/lo` for slices/maps/strings/channels/functions (if no standard library functions available)
 
 ## Coding rules
 1. MUST run `task lint`, `task test` to check code before completing changes.

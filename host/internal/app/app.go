@@ -9,7 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
-	"sort"
+	"slices"
 
 	"google.golang.org/grpc"
 
@@ -374,7 +374,7 @@ func newProviderCatalog(
 	for providerID := range configured.Providers {
 		providerIDs = append(providerIDs, providerID)
 	}
-	sort.Strings(providerIDs)
+	slices.Sort(providerIDs)
 
 	entries := make([]providers.Entry, 0)
 	for _, providerID := range providerIDs {

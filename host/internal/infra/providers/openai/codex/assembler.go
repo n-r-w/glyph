@@ -1,11 +1,12 @@
 package codex
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 
 	"github.com/openai/openai-go/v3/responses"
 
@@ -654,7 +655,9 @@ func (a *semanticAssembler) endOutput(outputIndex int64) error {
 			keys = append(keys, key)
 		}
 	}
-	sort.Slice(keys, func(i, j int) bool { return a.slots[keys[i]].position < a.slots[keys[j]].position })
+	slices.SortFunc(keys, func(left, right outputKey) int {
+		return cmp.Compare(a.slots[left].position, a.slots[right].position)
+	})
 	for _, key := range keys {
 		if err := a.end(key); err != nil {
 			return err
@@ -670,7 +673,9 @@ func (a *semanticAssembler) finish() error {
 			keys = append(keys, key)
 		}
 	}
-	sort.Slice(keys, func(i, j int) bool { return a.slots[keys[i]].position < a.slots[keys[j]].position })
+	slices.SortFunc(keys, func(left, right outputKey) int {
+		return cmp.Compare(a.slots[left].position, a.slots[right].position)
+	})
 	for _, key := range keys {
 		if err := a.end(key); err != nil {
 			return err

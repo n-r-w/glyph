@@ -4,9 +4,10 @@
 package tui
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -395,7 +396,7 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for position := range model.state.ActiveModel {
 		positions = append(positions, position)
 	}
-	sort.Ints(positions)
+	slices.Sort(positions)
 	for _, position := range positions {
 		content := model.state.ActiveModel[position]
 		kind := presentationdomain.LineModel
@@ -416,7 +417,9 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for _, call := range model.state.ActiveToolCalls {
 		calls = append(calls, call)
 	}
-	sort.Slice(calls, func(i, j int) bool { return calls[i].Position < calls[j].Position })
+	slices.SortFunc(calls, func(left, right presentationdomain.ToolCallState) int {
+		return cmp.Compare(left.Position, right.Position)
+	})
 	for _, call := range calls {
 		lines = appendWrappedBodyLine(lines, renderToolCall(call), model.width)
 	}

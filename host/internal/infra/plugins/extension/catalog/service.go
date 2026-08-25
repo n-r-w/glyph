@@ -2,12 +2,13 @@
 package catalog
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -83,7 +84,11 @@ func (s *Service) Discover(ctx context.Context, directory toolservice.Directory)
 		}
 		candidates = append(candidates, group[0])
 	}
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
-	sort.Slice(issues, func(i, j int) bool { return issues[i].Path < issues[j].Path })
+	slices.SortFunc(candidates, func(left, right toolservice.Candidate) int {
+		return cmp.Compare(left.ID, right.ID)
+	})
+	slices.SortFunc(issues, func(left, right toolservice.Issue) int {
+		return cmp.Compare(left.Path, right.Path)
+	})
 	return toolservice.Discovery{Candidates: candidates, Issues: issues}, nil
 }

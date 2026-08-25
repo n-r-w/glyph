@@ -2,6 +2,7 @@ package project
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -92,7 +93,9 @@ func walkDirectory(ctx context.Context, path string, visit func(string, fs.DirEn
 			return contextErr
 		}
 		entries, readErr := dir.ReadDir(directoryBatchSize)
-		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+		slices.SortFunc(entries, func(left, right fs.DirEntry) int {
+			return cmp.Compare(left.Name(), right.Name())
+		})
 		for _, entry := range entries {
 			child := filepath.Join(path, entry.Name())
 			if visitErr := visit(child, entry); visitErr != nil {
@@ -526,7 +529,9 @@ func (s *Service) List(ctx context.Context, cmd searchtool.ListCommand) (searcht
 			return searchtool.ListResult{}, contextErr
 		}
 		entries, readErr := dir.ReadDir(directoryBatchSize)
-		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+		slices.SortFunc(entries, func(left, right fs.DirEntry) int {
+			return cmp.Compare(left.Name(), right.Name())
+		})
 		for _, entry := range entries {
 			if count == limit {
 				output.notice("[Entry limit reached.]\n")
