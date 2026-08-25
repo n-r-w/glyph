@@ -23,6 +23,7 @@ NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 ## Coding rules
 1. MUST run `task lint`, `task test` to check code before completing changes.
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
+3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct`.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
