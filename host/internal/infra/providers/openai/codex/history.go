@@ -207,14 +207,16 @@ func userMessageInput(message model.Message) (responses.ResponseInputItemUnionPa
 	for _, item := range message.Content {
 		switch item.Kind {
 		case model.InputContentText:
-			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text))
+			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text.OrEmpty()))
 		case model.InputContentImage:
-			if item.MediaType == "" || len(item.Data) == 0 {
+			mediaType := item.MediaType.OrEmpty()
+			data := item.Data.OrEmpty()
+			if mediaType == "" || len(data) == 0 {
 				return responses.ResponseInputItemUnionParam{}, errors.New("codex image media type and data are required")
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
 			image.OfInputImage.ImageURL = param.NewOpt(
-				"data:" + item.MediaType + ";base64," + base64.StdEncoding.EncodeToString(item.Data),
+				"data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data),
 			)
 			content = append(content, image)
 		default:

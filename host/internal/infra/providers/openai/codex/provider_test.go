@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
@@ -179,8 +180,8 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 		Instructions: "instructions",
 		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-selected"},
 		History: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.Message{Content: []model.InputContent{
-			{Kind: model.InputContentText, Text: "inspect"},
-			{Kind: model.InputContentImage, MediaType: "image/png", Data: []byte{1, 2, 3}},
+			{Kind: model.InputContentText, Text: mo.Some("inspect")},
+			{Kind: model.InputContentImage, MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3})},
 		}}}},
 		Tools: nil,
 	}, func(run.StreamEvent) error { return nil })

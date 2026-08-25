@@ -174,13 +174,15 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 			var empty openai.ChatCompletionContentPartUnionParam
 			switch item.Kind {
 			case model.InputContentText:
-				return openai.TextContentPart(item.Text), nil
+				return openai.TextContentPart(item.Text.OrEmpty()), nil
 			case model.InputContentImage:
-				if item.MediaType == "" || len(item.Data) == 0 {
+				mediaType := item.MediaType.OrEmpty()
+				data := item.Data.OrEmpty()
+				if mediaType == "" || len(data) == 0 {
 					return empty, fmt.Errorf("user image %d requires media type and data", index)
 				}
 				return openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-					URL: dataURL(item.MediaType, item.Data),
+					URL: dataURL(mediaType, data),
 				}), nil
 			default:
 				return empty, fmt.Errorf("unsupported user content kind %d", item.Kind)

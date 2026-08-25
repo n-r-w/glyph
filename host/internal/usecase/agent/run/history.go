@@ -53,7 +53,7 @@ func cloneToolResult(result agent.ToolResult) agent.ToolResult {
 func cloneMessage(message model.Message) model.Message {
 	message.Content = slices.Clone(message.Content)
 	for index := range message.Content {
-		message.Content[index].Data = bytes.Clone(message.Content[index].Data)
+		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
 	}
 	return message
 }

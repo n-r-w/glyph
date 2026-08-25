@@ -8,8 +8,27 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
+
+// TestUserMessageInputPreservesAbsentPayloadBehavior verifies Option absence keeps prior zero-value mapping and validation.
+func TestUserMessageInputPreservesAbsentPayloadBehavior(t *testing.T) {
+	t.Parallel()
+
+	textInput, err := userMessageInput(model.Message{Content: []model.InputContent{{
+		Kind: model.InputContentText, Text: mo.None[string](), MediaType: mo.None[string](), Data: mo.None[[]byte](),
+	}}})
+	require.NoError(t, err)
+	payload, err := json.Marshal(textInput)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"type":"message","role":"user","content":[{"type":"input_text","text":""}]}`, string(payload))
+
+	_, err = userMessageInput(model.Message{Content: []model.InputContent{{
+		Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.None[string](), Data: mo.None[[]byte](),
+	}}})
+	assert.EqualError(t, err, "codex image media type and data are required")
+}
 
 // TestFunctionOutputContentsPreservesTextImageOrder verifies Codex typed output encoding.
 func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {

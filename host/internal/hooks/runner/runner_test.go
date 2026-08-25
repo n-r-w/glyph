@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,12 +25,12 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	runner := New(
 		[]hooks.ContextHandler{
 			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-				value.History[0].User.Content[0].Text = "first-context"
+				value.History[0].User.Content[0].Text = mo.Some("first-context")
 				return value, nil
 			},
 			func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-				contextSeen = value.History[0].User.Content[0].Text
-				value.History[0].User.Content[0].Text = "final-context"
+				contextSeen = value.History[0].User.Content[0].Text.OrEmpty()
+				value.History[0].User.Content[0].Text = mo.Some("final-context")
 				return value, nil
 			},
 		},
@@ -59,7 +60,7 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	)
 	originalContext := hooks.Context{History: []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryUser,
-		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: "original-context"}}},
+		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context")}}},
 	}}}
 	originalRequest := hooks.Request{
 		Provider: "provider", Model: "model", Payload: []byte("abc"),
@@ -77,8 +78,8 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	require.NoError(t, runner.ObserveResponse(t.Context(), originalResponse))
 
 	assert.Equal(t, "first-context", contextSeen)
-	assert.Equal(t, "final-context", transformedContext.History[0].User.Content[0].Text)
-	assert.Equal(t, "original-context", originalContext.History[0].User.Content[0].Text)
+	assert.Equal(t, "final-context", transformedContext.History[0].User.Content[0].Text.OrEmpty())
+	assert.Equal(t, "original-context", originalContext.History[0].User.Content[0].Text.OrEmpty())
 	assert.Equal(t, "1bc:first-request", requestSeen)
 	assert.Equal(t, "2bc", string(transformedRequest.Payload))
 	assert.Equal(t, "final-request", transformedRequest.Headers["X-Test"][0])

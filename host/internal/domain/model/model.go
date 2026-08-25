@@ -1,6 +1,8 @@
 // Package model defines provider-neutral model messages, responses, and streaming content.
 package model
 
+import "github.com/samber/mo"
+
 // ProviderID identifies one model provider.
 type ProviderID string
 
@@ -81,15 +83,15 @@ const (
 // InputContent is one ordered user-message content block.
 type InputContent struct {
 	Kind      InputContentKind
-	Text      string
-	MediaType string
-	Data      []byte
+	Text      mo.Option[string]
+	MediaType mo.Option[string]
+	Data      mo.Option[[]byte]
 }
 
 // TextMessage creates one text-only user message.
 func TextMessage(text string) Message {
 	return Message{Content: []InputContent{{
-		Kind: InputContentText, Text: text, MediaType: "", Data: nil,
+		Kind: InputContentText, Text: mo.Some(text), MediaType: mo.None[string](), Data: mo.None[[]byte](),
 	}}}
 }
 

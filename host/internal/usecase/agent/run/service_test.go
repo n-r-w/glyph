@@ -824,18 +824,18 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	contextSeen := ""
 	hookRunner := hookrunner.New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			value.History[0].User.Content[0].Text = "first transformation"
+			value.History[0].User.Content[0].Text = mo.Some("first transformation")
 			return value, nil
 		},
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			contextSeen = value.History[0].User.Content[0].Text
-			value.History[0].User.Content[0].Text = "final transformation"
+			contextSeen = value.History[0].User.Content[0].Text.OrEmpty()
+			value.History[0].User.Content[0].Text = mo.Some("final transformation")
 			return value, nil
 		},
 	}, nil, nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
-			assert.Equal(t, "final transformation", request.History[0].User.Content[0].Text)
+			assert.Equal(t, "final transformation", request.History[0].User.Content[0].Text.OrEmpty())
 			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: model.OutcomeStop}})
 		},
 	)
@@ -848,7 +848,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	assert.Equal(t, "first transformation", contextSeen)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, "persisted input", history[0].User.Content[0].Text)
+	assert.Equal(t, "persisted input", history[0].User.Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunStopsOnContextHookFailure verifies safe terminal failure before provider invocation.
@@ -862,7 +862,7 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	laterCalls := 0
 	hookRunner := hookrunner.New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
-			value.History[0].User.Content[0].Text = "secret transformed context"
+			value.History[0].User.Content[0].Text = mo.Some("secret transformed context")
 			return hooks.Context{}, errors.New("secret raw hook error")
 		},
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
@@ -881,7 +881,7 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	assert.Zero(t, laterCalls)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, "persisted input", history[0].User.Content[0].Text)
+	assert.Equal(t, "persisted input", history[0].User.Content[0].Text.OrEmpty())
 	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome)
 	assert.Equal(t, failedModelMessage, history[1].Model.ErrorMessage)
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.Diagnostics)

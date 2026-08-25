@@ -42,7 +42,7 @@ func publicInputText(message model.Message) string {
 	var text strings.Builder
 	for _, content := range message.Content {
 		if content.Kind == model.InputContentText {
-			text.WriteString(content.Text)
+			text.WriteString(content.Text.OrEmpty())
 		}
 	}
 	return text.String()

@@ -188,13 +188,15 @@ func responsesUserMessage(message model.Message) (responses.ResponseInputItemUni
 	for index, item := range message.Content {
 		switch item.Kind {
 		case model.InputContentText:
-			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text))
+			content = append(content, responses.ResponseInputContentParamOfInputText(item.Text.OrEmpty()))
 		case model.InputContentImage:
-			if item.MediaType == "" || len(item.Data) == 0 {
+			mediaType := item.MediaType.OrEmpty()
+			data := item.Data.OrEmpty()
+			if mediaType == "" || len(data) == 0 {
 				return responses.ResponseInputItemUnionParam{}, fmt.Errorf("user image %d requires media type and data", index)
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
-			image.OfInputImage.ImageURL = param.NewOpt(dataURL(item.MediaType, item.Data))
+			image.OfInputImage.ImageURL = param.NewOpt(dataURL(mediaType, data))
 			content = append(content, image)
 		default:
 			return responses.ResponseInputItemUnionParam{}, fmt.Errorf("unsupported user content kind %d", item.Kind)

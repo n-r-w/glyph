@@ -845,8 +845,8 @@ func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 			{
 				Kind: agent.HistoryEntryUser,
 				User: model.Message{Content: []model.InputContent{
-					{Kind: model.InputContentText, Text: "look"},
-					{Kind: model.InputContentImage, MediaType: "image/png", Data: []byte{1, 2, 3}},
+					{Kind: model.InputContentText, Text: mo.Some("look")},
+					{Kind: model.InputContentImage, MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3})},
 				}},
 			},
 			{
