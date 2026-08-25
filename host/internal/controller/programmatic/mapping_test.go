@@ -50,6 +50,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 						},
 						Default: model.ReasoningChoiceHigh,
 					},
+				}, {
+					Provider: "ollama", Model: "ornith",
+					ReasoningCapabilities: model.ReasoningCapabilities{
+						Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceOn},
+						Default: model.ReasoningChoiceOn,
+					},
 				}},
 				ActiveSelection: model.Selection{
 					Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh,
@@ -94,7 +100,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assert.Equal(t, "invalid", rejected.GetMessage())
 			case ResponseModels:
 				models := wire.GetModels()
-				require.Len(t, models.GetModels(), 1)
+				require.Len(t, models.GetModels(), 2)
 				assert.Equal(t, "provider", models.GetModels()[0].GetProviderId())
 				assert.Equal(t, "model", models.GetModels()[0].GetModelId())
 				assert.Equal(t, []programmaticv1.ReasoningChoice{
@@ -108,6 +114,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				}, models.GetModels()[0].GetReasoning().GetChoices())
 				assert.True(t, models.GetModels()[0].GetReasoning().GetSupported())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetModels()[0].GetReasoning().GetDefaultChoice())
+				assert.Equal(t, []programmaticv1.ReasoningChoice{
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_ON,
+				}, models.GetModels()[1].GetReasoning().GetChoices())
+				assert.True(t, models.GetModels()[1].GetReasoning().GetSupported())
+				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_ON, models.GetModels()[1].GetReasoning().GetDefaultChoice())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetActiveSelection().GetReasoningChoice())
 			case ResponseModelSelection:
 				selection := wire.GetModelSelection().GetSelection()

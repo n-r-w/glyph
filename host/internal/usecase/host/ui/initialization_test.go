@@ -69,6 +69,12 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 			},
 			Default: model.ReasoningChoiceHigh,
 		},
+	}, {
+		Provider: "ollama", Model: "ornith",
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceOn},
+			Default: model.ReasoningChoiceOn,
+		},
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
 		Provider: "openai-codex", Model: "gpt", ReasoningChoice: model.ReasoningChoiceHigh,
@@ -76,7 +82,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 
 	initialization := BuildInitialization("selected", toolservice.LoadReport{}, nil, catalog)
 
-	require.Len(t, initialization.Models, 1)
+	require.Len(t, initialization.Models, 2)
 	assert.Equal(t, "openai-codex", initialization.Models[0].ProviderID)
 	assert.Equal(t, "gpt", initialization.Models[0].ModelID)
 	assert.Equal(t, []domainui.ReasoningChoice{
@@ -86,6 +92,11 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	}, initialization.Models[0].Reasoning.Choices)
 	assert.True(t, initialization.Models[0].Reasoning.Supported)
 	assert.Equal(t, domainui.ReasoningChoiceHigh, initialization.Models[0].Reasoning.Default)
+	assert.Equal(t, "ollama", initialization.Models[1].ProviderID)
+	assert.Equal(t, "ornith", initialization.Models[1].ModelID)
+	assert.Equal(t, []domainui.ReasoningChoice{domainui.ReasoningChoiceOn}, initialization.Models[1].Reasoning.Choices)
+	assert.True(t, initialization.Models[1].Reasoning.Supported)
+	assert.Equal(t, domainui.ReasoningChoiceOn, initialization.Models[1].Reasoning.Default)
 	assert.Equal(t, domainui.ModelSelection{
 		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: domainui.ReasoningChoiceHigh,
 	}, initialization.ModelSelection)

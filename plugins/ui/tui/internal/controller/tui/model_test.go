@@ -163,6 +163,46 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 	}
 }
 
+// TestModelFixedReasoningHidesSelectionAndKeepsDisplayState verifies fixed-choice selection and local display state.
+func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
+	t.Parallel()
+
+	service := presentationusecase.New()
+	model := NewModel(presentationdomain.Event{
+		Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle,
+		Models: []presentationdomain.ConfiguredModel{{
+			ProviderID: "ollama", ModelID: "ornith",
+			Reasoning: testReasoning(presentationdomain.ReasoningChoiceOn),
+		}},
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "ollama", ModelID: "ornith", ReasoningChoice: presentationdomain.ReasoningChoiceOn,
+		},
+	}, service.Apply, func(presentationdomain.Command) error {
+		t.Fatal("fixed reasoning selection command emitted")
+		return nil
+	})
+
+	assert.NotContains(t, model.View().Content, "Shift+Tab reasoning")
+	next, command := model.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyTab, Mod: tea.ModShift}))
+	model = next.(Model)
+	assert.Nil(t, command)
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventModelSelectionChanged,
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "ollama", ModelID: "ornith", ReasoningChoice: presentationdomain.ReasoningChoiceOn,
+		},
+	})
+	assert.False(t, model.reasoningExpanded)
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 't', Mod: tea.ModCtrl}))
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventModelSelectionChanged,
+		ModelSelection: presentationdomain.ModelSelection{
+			ProviderID: "ollama", ModelID: "ornith", ReasoningChoice: presentationdomain.ReasoningChoiceOn,
+		},
+	})
+	assert.True(t, model.reasoningExpanded)
+}
+
 // TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript verifies modal behavior.
 func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *testing.T) {
 	t.Parallel()

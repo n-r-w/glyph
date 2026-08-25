@@ -64,6 +64,13 @@ providers:
           choices: [off, low, high]
           default: low
           wireFormat: openai-chat-effort
+      - id: ornith
+        api: chat-completions
+        reasoning:
+          supported: true
+          choices: [on]
+          default: on
+          wireFormat: ollama-ornith
       - id: plain
         reasoning:
           supported: false
@@ -78,7 +85,7 @@ providers:
 	s.Equal("effort", loaded.DefaultModel)
 	s.Equal("glyph-tui-plugin", loaded.ActiveUI)
 	models := loaded.Providers["openrouter"].Models
-	s.Require().Len(models, 5)
+	s.Require().Len(models, 6)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceMinimal, ReasoningChoiceMedium, ReasoningChoiceHigh},
 		Default: ReasoningChoiceMedium, CompatibilityKey: "", WireFormat: ReasoningWireFormatOpenAIResponses,
@@ -93,9 +100,13 @@ providers:
 		WireFormat:       ReasoningWireFormatOpenAIChatEffort,
 	}, models[3].Reasoning)
 	s.Equal(Reasoning{
+		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceOn}, Default: ReasoningChoiceOn,
+		CompatibilityKey: "", WireFormat: ReasoningWireFormatOllamaOrnith,
+	}, models[4].Reasoning)
+	s.Equal(Reasoning{
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
 		CompatibilityKey: "", WireFormat: "",
-	}, models[4].Reasoning)
+	}, models[5].Reasoning)
 }
 
 // TestLoadAcceptsEachAPIKeySource verifies the structured union's three valid variants.
@@ -120,7 +131,10 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 		"missing wire format":     withoutLine(validSettings(""), "wireFormat:"),
 		"API mismatch":            replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-effort"),
 		"unknown wire format":     replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: custom"),
-		"future Ollama Ornith":    futureWireFormatSettings("ollama-ornith"),
+		"Ornith off":              ornithSettings("choices: [off]\n          default: off", "api: chat-completions"),
+		"Ornith effort":           ornithSettings("choices: [low]\n          default: low", "api: chat-completions"),
+		"Ornith other default":    ornithSettings("choices: [off, on]\n          default: off", "api: chat-completions"),
+		"Ornith wrong API":        ornithSettings("choices: [on]\n          default: on", "api: responses"),
 		"on mixed with effort":    replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
 		"key on non-reasoning":    replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
 		"old default field":       "defaultProvider: openai-codex\ndefaultModel: codex\ndefaultReasoningLevel: high\nproviders: {}\n",
@@ -229,14 +243,11 @@ providers:
 	return content + extra + "\n"
 }
 
-// futureWireFormatSettings builds a valid future wire shape that current settings must reject.
-func futureWireFormatSettings(format string) string {
-	content := replace(validSettings(""), "api: responses", "api: chat-completions")
-	content = replace(content, "wireFormat: openai-responses\n      - id: plain", "wireFormat: "+format+"\n      - id: plain")
-	if format == "ollama-ornith" {
-		content = replace(content, "choices: [off, high]\n          default: high", "choices: [on]\n          default: on")
-	}
-	return content
+// ornithSettings builds one Ornith capability and API validation fixture.
+func ornithSettings(shape, api string) string {
+	content := replace(validSettings(""), "api: responses", api)
+	content = replace(content, "choices: [off, high]\n          default: high", shape)
+	return replace(content, "wireFormat: openai-responses\n      - id: plain", "wireFormat: ollama-ornith\n      - id: plain")
 }
 
 func withoutLine(content, prefix string) string {

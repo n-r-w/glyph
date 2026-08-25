@@ -195,6 +195,68 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 	}
 }
 
+// TestOrnithUsesFixedNativeReasoning verifies its control-free request, shared stream parser, and native replay.
+func (s *serviceSuite) TestOrnithUsesFixedNativeReasoning() {
+	t := s.T()
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+			return
+		}
+		writer.Header().Set("Content-Type", "text/event-stream")
+		writeSSE(t, writer,
+			`{"id":"ornith","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
+			`{"id":"ornith","choices":[{"index":0,"delta":{"reasoning":"think ","content":"answer"},"finish_reason":"stop"}]}`,
+		)
+	}))
+	t.Cleanup(server.Close)
+	driver, err := New(Config{
+		ProviderID: "ollama", BaseURL: server.URL, API: APIChatCompletions,
+		Models:               map[model.ID]API{"ornith": ""},
+		ReasoningWireFormats: map[model.ID]string{"ornith": reasoningWireFormatOllamaOrnith},
+		APIKey:               expectAPIKey(t, "", nil, 1),
+	})
+	s.Require().NoError(err)
+	request := richRequest("ollama", "ornith")
+	request.ReasoningChoice = model.ReasoningChoiceOn
+	request.History[1].Model.Content = []model.Content{
+		{Kind: model.ContentReasoning, Text: "earlier", Final: true, ProviderContext: model.ProviderContext{
+			Source: model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source"}, Payload: []byte("opaque-secret"),
+		}},
+		{Kind: model.ContentText, Text: "history", Final: true},
+	}
+
+	events := streamEvents(t, driver, request)
+
+	s.Require().GreaterOrEqual(len(events), 7)
+	s.Equal(run.StreamEventContentStart, events[0].Kind)
+	s.Equal(model.ContentReasoning, events[0].Content.Kind)
+	s.Equal(run.StreamEventTextDelta, events[1].Kind)
+	s.Equal("think ", events[1].Delta)
+	s.Equal(run.StreamEventContentStart, events[2].Kind)
+	s.Equal(model.ContentText, events[2].Content.Kind)
+	s.Equal(run.StreamEventTextDelta, events[3].Kind)
+	s.Equal("answer", events[3].Delta)
+	s.Equal(run.StreamEventContentEnd, events[4].Kind)
+	s.Equal(model.ContentReasoning, events[4].Content.Kind)
+	s.Equal(run.StreamEventContentEnd, events[5].Kind)
+	s.Equal(model.ContentText, events[5].Content.Kind)
+	terminal := events[len(events)-1]
+	s.Equal(run.StreamEventDone, terminal.Kind)
+	s.Equal([]model.Content{
+		{Kind: model.ContentReasoning, Text: "think ", Final: true},
+		{Kind: model.ContentText, Text: "answer", Final: true},
+	}, terminal.Response.Content)
+	s.NotContains(body, "reasoning_effort")
+	s.NotContains(body, "reasoning")
+	assistant := body["messages"].([]any)[2].(map[string]any)
+	s.Equal("earlier", assistant["reasoning"])
+	s.Equal("history", assistant["content"])
+	encoded, encodeErr := json.Marshal(body)
+	s.Require().NoError(encodeErr)
+	s.NotContains(string(encoded), "opaque-secret")
+}
+
 func (s *serviceSuite) TestAPIKeyResolvesBeforeEveryRequest() {
 	t := s.T()
 	var authorizations []string
@@ -474,6 +536,9 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 		}},
 		{name: "chat reasoning wire format API mismatch", mutate: func(config *Config) {
 			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-chat-effort"}
+		}},
+		{name: "Ornith reasoning wire format API mismatch", mutate: func(config *Config) {
+			config.ReasoningWireFormats = map[model.ID]string{"demo": reasoningWireFormatOllamaOrnith}
 		}},
 		{name: "no resolver", mutate: func(config *Config) { config.APIKey = nil }},
 	}

@@ -57,8 +57,8 @@ func (s *Driver) streamChatCompletions(
 	key string,
 	handle run.StreamHandler,
 ) (model.Response, error) {
-	chatEffort := configuredModel.reasoningWireFormat == reasoningWireFormatOpenAIChatEffort
-	params, err := chatParams(request, chatEffort)
+	nativeReasoning := chatNativeReasoning(configuredModel.reasoningWireFormat)
+	params, err := chatParams(request, configuredModel.reasoningWireFormat)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -73,7 +73,7 @@ func (s *Driver) streamChatCompletions(
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()
-	state := newChatAccumulator(chatEffort)
+	state := newChatAccumulator(nativeReasoning)
 	for stream.Next() {
 		consumeErr := state.consume(stream.Current(), handle)
 		if consumeErr != nil {
@@ -98,8 +98,8 @@ func (s *Driver) streamChatCompletions(
 	return state.response(), nil
 }
 
-func chatParams(request run.ModelRequest, chatEffort bool) (openai.ChatCompletionNewParams, error) {
-	messages, err := chatMessages(request, chatEffort)
+func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.ChatCompletionNewParams, error) {
+	messages, err := chatMessages(request, chatNativeReasoning(reasoningWireFormat))
 	if err != nil {
 		return openai.ChatCompletionNewParams{}, err
 	}
@@ -115,7 +115,7 @@ func chatParams(request run.ModelRequest, chatEffort bool) (openai.ChatCompletio
 		StreamOptions:     openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
 		Tools:             tools,
 	}
-	if chatEffort {
+	if reasoningWireFormat == reasoningWireFormatOpenAIChatEffort {
 		switch request.ReasoningChoice {
 		case "", model.ReasoningChoiceOn:
 		case model.ReasoningChoiceOff:
@@ -126,6 +126,12 @@ func chatParams(request run.ModelRequest, chatEffort bool) (openai.ChatCompletio
 		}
 	}
 	return params, nil
+}
+
+// chatNativeReasoning identifies formats that share Chat reasoning stream and history fields.
+func chatNativeReasoning(reasoningWireFormat string) bool {
+	return reasoningWireFormat == reasoningWireFormatOpenAIChatEffort ||
+		reasoningWireFormat == reasoningWireFormatOllamaOrnith
 }
 
 func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.ChatCompletionMessageParamUnion, error) {

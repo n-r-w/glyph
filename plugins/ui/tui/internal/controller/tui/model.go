@@ -324,18 +324,30 @@ func (model Model) View() tea.View {
 	)
 	lines = append(lines, body...)
 	lines = append(lines, selector...)
+	selectionKeys := "Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model"
+	if model.reasoningSelectionVisible() {
+		selectionKeys += " | Shift+Tab reasoning"
+	}
 	lines = append(
 		lines,
 		"Request: "+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
 		fmt.Sprintf("Terminal: %dx%d", model.width, model.height),
-		"Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model | "+
-			"Shift+Tab reasoning | Ctrl+T reasoning display | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
+		selectionKeys+" | Ctrl+T reasoning display | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
 	)
 
 	view := tea.NewView(strings.Join(lines, "\n"))
 	view.AltScreen = true
 
 	return view
+}
+
+// reasoningSelectionVisible hides the shortcut when the selected model has no effective alternative.
+func (model Model) reasoningSelectionVisible() bool {
+	if len(model.state.Models) == 0 {
+		return true
+	}
+	configured := model.state.Models[model.currentModelIndex()]
+	return len(configured.Reasoning.Choices) > 1
 }
 
 // visibleSelectorLines renders a bounded window around the highlighted model.

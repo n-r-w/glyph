@@ -65,6 +65,8 @@ const (
 	ReasoningWireFormatOpenAIResponses ReasoningWireFormat = "openai-responses"
 	// ReasoningWireFormatOpenAIChatEffort uses Chat Completions effort and reasoning fields.
 	ReasoningWireFormatOpenAIChatEffort ReasoningWireFormat = "openai-chat-effort"
+	// ReasoningWireFormatOllamaOrnith uses fixed native Chat Completions reasoning without request control.
+	ReasoningWireFormatOllamaOrnith ReasoningWireFormat = "ollama-ornith"
 )
 
 // APIKey identifies one configured API-key source.
@@ -398,6 +400,10 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 	if !wireFormatMatchesAPI(configured.WireFormat, api) {
 		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning wireFormat does not match API", providerID, modelID)
 	}
+	if configured.WireFormat == ReasoningWireFormatOllamaOrnith &&
+		(len(choices) != 1 || choices[0] != ReasoningChoiceOn || configured.Default != ReasoningChoiceOn) {
+		return Reasoning{}, fmt.Errorf("provider %q model %q Ollama Ornith reasoning must be fixed on", providerID, modelID)
+	}
 	return Reasoning{
 		Supported: true, Choices: choices, Default: configured.Default,
 		CompatibilityKey: key, WireFormat: configured.WireFormat,
@@ -434,7 +440,7 @@ func wireFormatMatchesAPI(format ReasoningWireFormat, api API) bool {
 	switch format {
 	case ReasoningWireFormatOpenAIResponses:
 		return api == APIResponses
-	case ReasoningWireFormatOpenAIChatEffort:
+	case ReasoningWireFormatOpenAIChatEffort, ReasoningWireFormatOllamaOrnith:
 		return api == APIChatCompletions
 	default:
 		return false

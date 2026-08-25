@@ -68,12 +68,10 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 				API: settingstore.APIChatCompletions,
 				Models: []settingstore.Model{{
 					ID: "z-model", Reasoning: settingstore.Reasoning{
-						Supported: true,
-						Choices: []settingstore.ReasoningChoice{
-							settingstore.ReasoningChoiceOff, settingstore.ReasoningChoiceLow,
-						},
-						Default:    settingstore.ReasoningChoiceLow,
-						WireFormat: settingstore.ReasoningWireFormatOpenAIChatEffort,
+						Supported:  true,
+						Choices:    []settingstore.ReasoningChoice{settingstore.ReasoningChoiceOn},
+						Default:    settingstore.ReasoningChoiceOn,
+						WireFormat: settingstore.ReasoningWireFormatOllamaOrnith,
 					},
 				}},
 			},
@@ -111,8 +109,8 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
 	assert.Equal(t, model.ReasoningCapabilities{
 		Supported: true,
-		Choices:   []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceLow},
-		Default:   model.ReasoningChoiceLow,
+		Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
+		Default:   model.ReasoningChoiceOn,
 	}, models[4].ReasoningCapabilities)
 }
 

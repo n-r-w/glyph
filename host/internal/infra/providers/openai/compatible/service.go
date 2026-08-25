@@ -32,6 +32,7 @@ const (
 
 	reasoningWireFormatOpenAIResponses  = "openai-responses"
 	reasoningWireFormatOpenAIChatEffort = "openai-chat-effort"
+	reasoningWireFormatOllamaOrnith     = "ollama-ornith"
 )
 
 // Config contains immutable configuration for one provider instance.
@@ -127,7 +128,7 @@ func reasoningWireFormatMatchesAPI(format string, api API) bool {
 		return true
 	case reasoningWireFormatOpenAIResponses:
 		return api == APIResponses
-	case reasoningWireFormatOpenAIChatEffort:
+	case reasoningWireFormatOpenAIChatEffort, reasoningWireFormatOllamaOrnith:
 		return api == APIChatCompletions
 	default:
 		return false
