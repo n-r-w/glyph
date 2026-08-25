@@ -114,6 +114,12 @@ linters:
         - dupImport
         - octalLiteral
         - hugeParam
+    exhaustruct:
+      include: []
+      exclude: []
+      allow-empty: true
+      allow-empty-returns: true
+      allow-empty-declarations: true
 
   exclusions:
     generated: lax
