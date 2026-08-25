@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/openai/openai-go/v3/responses"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -69,11 +70,14 @@ func newSemanticAssembler(
 	grammarProperties map[string]string,
 ) *semanticAssembler {
 	return &semanticAssembler{
-		handle: handle, completedOutputByPosition: make(map[int64]responses.ResponseOutputItemUnion),
-		slots: make(map[outputKey]outputSlot), functionCalls: make(map[int64]*functionOutputSlot),
-		pendingFunctionCalls:   make(map[int64]pendingFunctionOutput),
-		finalizedFunctionCalls: make(map[int64]finalizedFunctionOutput),
-		grammarInputProperties: grammarProperties, next: 0,
+		handle:                    handle,
+		completedOutputByPosition: make(map[int64]responses.ResponseOutputItemUnion),
+		slots:                     make(map[outputKey]outputSlot),
+		functionCalls:             make(map[int64]*functionOutputSlot),
+		pendingFunctionCalls:      make(map[int64]pendingFunctionOutput),
+		finalizedFunctionCalls:    make(map[int64]finalizedFunctionOutput),
+		grammarInputProperties:    grammarProperties,
+		next:                      0,
 	}
 }
 
@@ -190,7 +194,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		message := providerFailureMessage(providerEvent.Message)
 		return failedModelResponse(message), true, safeError(message)
 	}
-	return emptyModelResponse(), false, nil
+	return model.Response{}, false, nil
 }
 
 func (a *semanticAssembler) complete(
@@ -390,22 +394,24 @@ func semanticStreamEvent(
 	contentKind model.ContentKind,
 	delta string,
 ) run.StreamEvent {
+	text := mo.None[string]()
+	if contentKind == model.ContentText || contentKind == model.ContentRefusal || contentKind == model.ContentReasoning {
+		text = mo.Some(delta)
+	}
 	return run.StreamEvent{
-		Kind: kind, Position: position,
+		Kind:     kind,
+		Position: position,
 		Content: model.Content{
-			Kind: contentKind, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{
-				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-				Payload: nil,
-			},
-			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+			Kind:            contentKind,
+			Text:            text,
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
 		},
-		Delta: delta,
-		Preview: model.ToolCallPreview{
-			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
-		},
-		ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
-		Response: emptyModelResponse(),
+		Delta:    delta,
+		Preview:  model.ToolCallPreview{},
+		ToolCall: model.ToolCall{},
+		Response: model.Response{},
 	}
 }
 

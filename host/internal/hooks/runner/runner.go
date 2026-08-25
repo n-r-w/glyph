@@ -7,6 +7,8 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 )
@@ -117,17 +119,18 @@ func cloneMessage(message model.Message) model.Message {
 func cloneModelResponse(response model.Response) model.Response {
 	content := slices.Clone(response.Content)
 	for index := range content {
-		content[index].ProviderContext.Payload = bytes.Clone(content[index].ProviderContext.Payload)
-		content[index].ToolCall.Arguments = cloneArguments(content[index].ToolCall.Arguments)
-	}
-	var responseModel *model.ID
-	if response.ResponseModel != nil {
-		value := *response.ResponseModel
-		responseModel = &value
+		if providerContext, ok := content[index].ProviderContext.Get(); ok {
+			providerContext.Payload = bytes.Clone(providerContext.Payload)
+			content[index].ProviderContext = mo.Some(providerContext)
+		}
+		if call, ok := content[index].ToolCall.Get(); ok {
+			call.Arguments = cloneArguments(call.Arguments)
+			content[index].ToolCall = mo.Some(call)
+		}
 	}
 	return model.Response{
 		Content: content, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
-		Provider: response.Provider, Model: response.Model, ResponseModel: responseModel,
+		Provider: response.Provider, Model: response.Model, ResponseModel: response.ResponseModel,
 		ResponseID: response.ResponseID, Usage: response.Usage,
 		Diagnostics: slices.Clone(response.Diagnostics),
 	}

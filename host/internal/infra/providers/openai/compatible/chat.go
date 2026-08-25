@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Provider mappings set only fields supported by Agent Core.
 package compatible
 
 import (
@@ -14,6 +13,7 @@ import (
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -40,14 +40,22 @@ type chatAccumulator struct {
 	tools             map[int64]*chatToolState
 	responseID        string
 	responseModel     string
-	usage             model.Usage
+	usage             mo.Option[model.Usage]
 	outcome           model.Outcome
 }
 
 func newChatAccumulator(parseReasoning bool) *chatAccumulator {
 	return &chatAccumulator{
-		textPosition: -1, refusalPosition: -1, reasoningPosition: -1,
-		parseReasoning: parseReasoning, tools: make(map[int64]*chatToolState),
+		content:           nil,
+		textPosition:      -1,
+		refusalPosition:   -1,
+		reasoningPosition: -1,
+		parseReasoning:    parseReasoning,
+		tools:             make(map[int64]*chatToolState),
+		responseID:        "",
+		responseModel:     "",
+		usage:             mo.None[model.Usage](),
+		outcome:           0,
 	}
 }
 
@@ -182,7 +190,8 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 					return empty, fmt.Errorf("user image %d requires media type and data", index)
 				}
 				return openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-					URL: dataURL(mediaType, data),
+					URL:    dataURL(mediaType, data),
+					Detail: "",
 				}), nil
 			default:
 				return empty, fmt.Errorf("unsupported user content kind %d", item.Kind)
@@ -203,30 +212,35 @@ func chatAssistantMessage(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText:
-			text.WriteString(item.Text)
+			text.WriteString(item.Text.OrEmpty())
 		case model.ContentRefusal:
-			refusal += item.Text
+			refusal += item.Text.OrEmpty()
 		case model.ContentReasoning:
-			if item.Text == "" {
+			visibleText := item.Text.OrEmpty()
+			if visibleText == "" {
 				continue
 			}
 			if nativeReasoning {
-				reasoning.WriteString(item.Text)
+				reasoning.WriteString(visibleText)
 			} else {
-				text.WriteString(item.Text)
+				text.WriteString(visibleText)
 			}
 		case model.ContentToolCall:
-			arguments, err := json.Marshal(item.ToolCall.Arguments)
+			call := item.ToolCall.OrEmpty()
+			arguments, err := json.Marshal(call.Arguments)
 			if err != nil {
 				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("encode tool-call arguments: %w", err)
 			}
 			calls = append(calls, openai.ChatCompletionMessageToolCallUnionParam{
 				OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-					ID: item.ToolCall.ID,
+					ID: call.ID,
 					Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-						Arguments: string(arguments), Name: item.ToolCall.Name,
+						Arguments: string(arguments),
+						Name:      call.Name,
 					},
+					Type: "",
 				},
+				OfCustom: nil,
 			})
 		default:
 			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
@@ -277,6 +291,7 @@ func chatTools(descriptors []tool.Descriptor, strictSupported bool) ([]openai.Ch
 			}
 			definition := shared.FunctionDefinitionParam{
 				Name:        descriptor.Name,
+				Strict:      param.Opt[bool]{},
 				Description: param.NewOpt(descriptor.Description),
 				Parameters:  schema,
 			}
@@ -300,13 +315,14 @@ func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle r
 		state.responseModel = chunk.Model
 	}
 	if chunk.JSON.Usage.Valid() {
-		state.usage = model.Usage{
+		state.usage = mo.Some(model.Usage{
 			InputTokens:       chunk.Usage.PromptTokens,
 			OutputTokens:      chunk.Usage.CompletionTokens,
 			CachedInputTokens: chunk.Usage.PromptTokensDetails.CachedTokens,
+			CacheWriteTokens:  0,
 			ReasoningTokens:   chunk.Usage.CompletionTokensDetails.ReasoningTokens,
 			TotalTokens:       chunk.Usage.TotalTokens,
-		}
+		})
 	}
 	for choiceIndex := range chunk.Choices {
 		if err := state.consumeChoice(&chunk.Choices[choiceIndex], handle); err != nil {
@@ -379,18 +395,47 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 	}
 	if *position < 0 {
 		*position = len(state.content)
-		state.content = append(state.content, model.Content{Kind: kind})
+		state.content = append(state.content, model.Content{
+			Kind:            kind,
+			Text:            mo.Some(""),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		})
 		startEvent := run.StreamEvent{
-			Kind: run.StreamEventContentStart, Position: *position, Content: model.Content{Kind: kind},
+			Kind:     run.StreamEventContentStart,
+			Position: *position,
+			Content: model.Content{
+				Kind:            kind,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Response: model.Response{},
 		}
 		if handleErr := handle(startEvent); handleErr != nil {
 			return handleErr
 		}
 	}
-	state.content[*position].Text += delta
+	state.content[*position].Text = mo.Some(state.content[*position].Text.OrEmpty() + delta)
 	return handle(run.StreamEvent{
-		Kind: run.StreamEventTextDelta, Position: *position,
-		Content: model.Content{Kind: kind}, Delta: delta,
+		Kind:     run.StreamEventTextDelta,
+		Position: *position,
+		Content: model.Content{
+			Kind:            kind,
+			Text:            mo.Some(delta),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		Delta:    delta,
+		Preview:  model.ToolCallPreview{},
+		ToolCall: model.ToolCall{},
+		Response: model.Response{},
 	})
 }
 
@@ -414,9 +459,21 @@ func (state *chatAccumulator) toolDelta(
 ) error {
 	toolState, ok := state.tools[delta.Index]
 	if !ok {
-		toolState = &chatToolState{position: len(state.content)}
+		toolState = &chatToolState{
+			id:        "",
+			name:      "",
+			arguments: strings.Builder{},
+			position:  len(state.content),
+			started:   false,
+		}
 		state.tools[delta.Index] = toolState
-		state.content = append(state.content, model.Content{Kind: model.ContentToolCall})
+		state.content = append(state.content, model.Content{
+			Kind:            model.ContentToolCall,
+			Text:            mo.None[string](),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		})
 	}
 	if delta.ID != "" {
 		toolState.id = delta.ID
@@ -429,14 +486,26 @@ func (state *chatAccumulator) toolDelta(
 		return nil
 	}
 	preview := model.ToolCallPreview{
-		CallID: toolState.id, Name: toolState.name, Position: toolState.position, Provisional: true,
+		CallID:      toolState.id,
+		Name:        toolState.name,
+		Position:    toolState.position,
+		Provisional: true,
+		Fields:      nil,
 	}
 	kind := run.StreamEventToolCallDelta
 	if !toolState.started {
 		kind = run.StreamEventToolCallStart
 		toolState.started = true
 	}
-	return handle(run.StreamEvent{Kind: kind, Position: toolState.position, Preview: preview})
+	return handle(run.StreamEvent{
+		Kind:     kind,
+		Position: toolState.position,
+		Content:  model.Content{},
+		Delta:    "",
+		Preview:  preview,
+		ToolCall: model.ToolCall{},
+		Response: model.Response{},
+	})
 }
 
 func (state *chatAccumulator) finish(handle run.StreamHandler) error {
@@ -453,9 +522,21 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 			return errors.New("chat Completions returned invalid tool-call arguments")
 		}
 		call := model.ToolCall{ID: toolState.id, Name: toolState.name, Arguments: arguments}
-		state.content[toolState.position] = model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: call}
+		state.content[toolState.position] = model.Content{
+			Kind:            model.ContentToolCall,
+			Text:            mo.None[string](),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.Some(call),
+		}
 		if err := handle(run.StreamEvent{
-			Kind: run.StreamEventToolCallEnd, Position: toolState.position, ToolCall: call,
+			Kind:     run.StreamEventToolCallEnd,
+			Position: toolState.position,
+			Content:  model.Content{},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: call,
+			Response: model.Response{},
 		}); err != nil {
 			return err
 		}
@@ -473,7 +554,19 @@ func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 		}
 		state.content[position].Final = true
 		if err := handle(run.StreamEvent{
-			Kind: run.StreamEventContentEnd, Position: position, Content: model.Content{Kind: kind},
+			Kind:     run.StreamEventContentEnd,
+			Position: position,
+			Content: model.Content{
+				Kind:            kind,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Response: model.Response{},
 		}); err != nil {
 			return err
 		}
@@ -482,13 +575,15 @@ func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 }
 
 func (state *chatAccumulator) response() model.Response {
-	var responseModel *model.ID
-	if state.responseModel != "" {
-		value := model.ID(state.responseModel)
-		responseModel = &value
-	}
 	return model.Response{
-		Content: state.content, Outcome: state.outcome,
-		ResponseModel: responseModel, ResponseID: state.responseID, Usage: state.usage,
+		Content:       state.content,
+		Outcome:       mo.Some(state.outcome),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.EmptyableToOption(model.ID(state.responseModel)),
+		ResponseID:    mo.EmptyableToOption(state.responseID),
+		Usage:         state.usage,
+		Diagnostics:   nil,
 	}
 }

@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields needed by each hook boundary.
 package runner
 
 import (
@@ -60,7 +59,7 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	)
 	originalContext := hooks.Context{History: []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryUser,
-		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context")}}},
+		User: model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context"), MediaType: mo.None[string](), Data: mo.None[[]byte]()}}}, Model: model.Response{}, ToolResult: agent.ToolResult{},
 	}}}
 	originalRequest := hooks.Request{
 		Provider: "provider", Model: "model", Payload: []byte("abc"),
@@ -148,4 +147,38 @@ func TestRunnerStopsAtFirstError(t *testing.T) {
 			assert.Zero(t, laterCalls)
 		})
 	}
+}
+
+// TestRunnerClonesModelOutputOptions verifies hook context copies isolate mutable model output payloads.
+func TestRunnerClonesModelOutputOptions(t *testing.T) {
+	t.Parallel()
+
+	original := hooks.Context{History: []agent.HistoryEntry{{
+		Kind: agent.HistoryEntryModel,
+		Model: model.Response{Content: []model.Content{
+			{
+				Kind: model.ContentReasoning, Text: mo.Some("reason"),
+				ProviderContext: mo.Some(model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}}), Final: false, ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind:     model.ContentToolCall,
+				ToolCall: mo.Some(model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
+			},
+		}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}, User: model.Message{}, ToolResult: agent.ToolResult{},
+	}}}
+	runner := New([]hooks.ContextHandler{
+		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
+			providerContext := value.History[0].Model.Content[0].ProviderContext.OrEmpty()
+			providerContext.Payload[0] = 9
+			call := value.History[0].Model.Content[1].ToolCall.OrEmpty()
+			call.Arguments["items"].([]any)[0] = "changed"
+			return value, nil
+		},
+	}, nil, nil)
+
+	_, err := runner.TransformContext(t.Context(), original)
+	require.NoError(t, err)
+	assert.Equal(t, byte(1), original.History[0].Model.Content[0].ProviderContext.OrEmpty().Payload[0])
+	assert.Equal(t, "first", original.History[0].Model.Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
 }

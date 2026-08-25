@@ -17,6 +17,7 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
@@ -41,17 +42,19 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	if handlerErr != nil {
 		return handlerErr
 	}
-	response.Provider = request.Model.Provider
-	response.Model = request.Model.Model
+	response.Provider = mo.Some(request.Model.Provider)
+	response.Model = mo.Some(request.Model.Model)
 	if configured, ok := s.models[request.Model.Model]; ok {
 		source := model.ProviderContextSource{
 			ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
-			CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
+			CompatibilityKey: configured.reasoningCompatibilityKey,
 		}
 		for index := range response.Content {
 			content := &response.Content[index]
-			if content.Kind == model.ContentReasoning && len(content.ProviderContext.Payload) != 0 {
-				content.ProviderContext.Source = source
+			providerContext, hasProviderContext := content.ProviderContext.Get()
+			if content.Kind == model.ContentReasoning && hasProviderContext && len(providerContext.Payload) != 0 {
+				providerContext.Source = source
+				content.ProviderContext = mo.Some(providerContext)
 			}
 		}
 	}
@@ -150,7 +153,7 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 	}
 	target := model.ProviderContextSource{
 		ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
-		CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
+		CompatibilityKey: configured.reasoningCompatibilityKey,
 	}
 	input, err := buildInput(request.History, grammarInputProperties(request.Tools), target)
 	if err != nil {
@@ -233,12 +236,11 @@ func modelResponse(
 					)
 				}
 				items = append(items, model.Content{
-					Kind: kind, Text: text, Final: true,
-					ProviderContext: model.ProviderContext{
-						Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-						Payload: nil,
-					},
-					ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+					Kind:            kind,
+					Text:            mo.Some(text),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
 				})
 			}
 		case "function_call":
@@ -248,12 +250,15 @@ func modelResponse(
 				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned invalid tool-call arguments")
 			}
 			items = append(items, model.Content{
-				Kind: model.ContentToolCall, Text: "", Final: true,
-				ProviderContext: model.ProviderContext{
-					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-					Payload: nil,
-				},
-				ToolCall: model.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
+				Kind:            model.ContentToolCall,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall: mo.Some(model.ToolCall{
+					ID:        call.CallID,
+					Name:      call.Name,
+					Arguments: arguments,
+				}),
 			})
 			hasToolCall = true
 		case "custom_tool_call":
@@ -263,14 +268,15 @@ func modelResponse(
 				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned an undeclared custom tool call")
 			}
 			items = append(items, model.Content{
-				Kind: model.ContentToolCall, Text: "", Final: true,
-				ProviderContext: model.ProviderContext{
-					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-					Payload: nil,
-				},
-				ToolCall: model.ToolCall{
-					ID: call.CallID, Name: call.Name, Arguments: map[string]any{property: call.Input},
-				},
+				Kind:            model.ContentToolCall,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall: mo.Some(model.ToolCall{
+					ID:        call.CallID,
+					Name:      call.Name,
+					Arguments: map[string]any{property: call.Input},
+				}),
 			})
 			hasToolCall = true
 		default:
@@ -284,11 +290,7 @@ func modelResponse(
 	if defaultOutcome == model.OutcomeStop && hasToolCall {
 		outcome = model.OutcomeToolUse
 	}
-	var responseModel *model.ID
-	if response.Model != "" {
-		actualModel := model.ID(response.Model)
-		responseModel = &actualModel
-	}
+	responseModel := mo.EmptyableToOption(model.ID(response.Model))
 	usage := model.Usage{
 		InputTokens:       response.Usage.InputTokens,
 		OutputTokens:      response.Usage.OutputTokens,
@@ -297,10 +299,20 @@ func modelResponse(
 		ReasoningTokens:   response.Usage.OutputTokensDetails.ReasoningTokens,
 		TotalTokens:       response.Usage.TotalTokens,
 	}
+	responseUsage := mo.None[model.Usage]()
+	if response.JSON.Usage.Valid() {
+		responseUsage = mo.Some(usage)
+	}
 	return model.Response{
-		Content: items, Outcome: outcome, ErrorMessage: "", Provider: "", Model: "",
-		ResponseModel: responseModel, ResponseID: response.ID,
-		Usage: usage, Diagnostics: nil,
+		Content:       items,
+		Outcome:       mo.Some(outcome),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: responseModel,
+		ResponseID:    mo.EmptyableToOption(response.ID),
+		Usage:         responseUsage,
+		Diagnostics:   nil,
 	}, nil
 }
 
@@ -310,12 +322,11 @@ func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Con
 		return item.Text
 	})
 	visible := model.Content{
-		Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
-		ProviderContext: model.ProviderContext{
-			Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-			Payload: nil,
-		},
-		ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+		Kind:            model.ContentReasoning,
+		Text:            mo.Some(strings.Join(summary, "")),
+		Final:           true,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
 	}
 	if reasoning.ID == "" || reasoning.EncryptedContent == "" {
 		return visible, nil
@@ -326,7 +337,10 @@ func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Con
 	if err != nil {
 		return model.Content{}, fmt.Errorf("encode Codex reasoning context: %w", err)
 	}
-	visible.ProviderContext.Payload = payload
+	visible.ProviderContext = mo.Some(model.ProviderContext{
+		Source:  model.ProviderContextSource{},
+		Payload: payload,
+	})
 	return visible, nil
 }
 
@@ -340,8 +354,8 @@ func failedResponseFromSDK(
 	if err != nil {
 		return failedModelResponse(message), errors.Join(safeError(message), err)
 	}
-	converted.Outcome = model.OutcomeFailed
-	converted.ErrorMessage = message
+	converted.Outcome = mo.Some(model.OutcomeFailed)
+	converted.ErrorMessage = mo.Some(message)
 	return converted, safeError(message)
 }
 
@@ -352,10 +366,17 @@ func (s *Driver) streamError(
 	transport *errorCaptureTransport,
 ) (model.Response, error) {
 	if ctx.Err() != nil {
-		response := emptyModelResponse()
-		response.Outcome = model.OutcomeAborted
-		response.ErrorMessage = requestCanceledMessage
-		return response, ctx.Err()
+		return model.Response{
+			Content:       nil,
+			Outcome:       mo.Some(model.OutcomeAborted),
+			ErrorMessage:  mo.Some(requestCanceledMessage),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
+		}, ctx.Err()
 	}
 	var hookFailure internalhooks.HookError
 	if errors.As(streamErr, &hookFailure) {
@@ -403,19 +424,15 @@ func safeErrorMessage(err error) string {
 
 // failedModelResponse creates one terminal provider-neutral failure.
 func failedModelResponse(message string) model.Response {
-	response := emptyModelResponse()
-	response.Outcome = model.OutcomeFailed
-	response.ErrorMessage = message
-	return response
-}
-
-func emptyModelResponse() model.Response {
 	return model.Response{
-		Content: nil, Outcome: 0, ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
-		Usage: model.Usage{
-			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
-			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
-		},
-		Diagnostics: nil,
+		Content:       nil,
+		Outcome:       mo.Some(model.OutcomeFailed),
+		ErrorMessage:  mo.Some(message),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/hooks"
 
@@ -59,7 +61,7 @@ func New(
 		state: State{
 			Status:          StatusIdle,
 			RunID:           "",
-			PartialResponse: emptyModelResponse(),
+			PartialResponse: model.Response{},
 			ToolPreviews:    nil,
 		},
 		history: nil,
@@ -103,7 +105,7 @@ func (s *Service) Settle(runID string) error {
 	s.state = State{
 		Status:          StatusIdle,
 		RunID:           "",
-		PartialResponse: emptyModelResponse(),
+		PartialResponse: model.Response{},
 		ToolPreviews:    nil,
 	}
 	return nil
@@ -146,13 +148,13 @@ func (s *Service) begin(request Request) (int, error) {
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryUser,
 		User:       model.TextMessage(request.UserText),
-		Model:      emptyModelResponse(),
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
+		Model:      model.Response{},
+		ToolResult: agent.ToolResult{},
 	})
 	s.state = State{
 		Status:          StatusRunning,
 		RunID:           request.RunID,
-		PartialResponse: emptyModelResponse(),
+		PartialResponse: model.Response{},
 		ToolPreviews:    make(map[string]model.ToolCallPreview),
 	}
 	return startIndex, nil
@@ -225,12 +227,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		if streamEvent.Kind == StreamEventContentStart || streamEvent.Kind == StreamEventTextDelta ||
 			streamEvent.Kind == StreamEventContentEnd {
 			event.Content = model.Content{
-				Kind: streamEvent.Content.Kind, Text: streamEvent.Delta, Final: false,
-				ProviderContext: model.ProviderContext{
-					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-					Payload: nil,
-				},
-				ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+				Kind:            streamEvent.Content.Kind,
+				Text:            mo.Some(streamEvent.Delta),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
 			}
 		}
 		eventErr := s.deliver(ctx, event)
@@ -248,7 +249,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if providerErr != nil {
 		return s.finalizeProviderError(ctx, runID, response, providerErr)
 	}
-	if response.Outcome == 0 {
+	if response.Outcome.OrEmpty() == 0 {
 		return s.finalizeProviderError(ctx, runID, response, errors.New("model stream ended without a terminal event"))
 	}
 
@@ -265,23 +266,32 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 
 // internalHookFailureResponse creates one safe provider-neutral hook failure.
 func internalHookFailureResponse(stage hooks.Stage) model.Response {
-	response := emptyModelResponse()
-	response.Outcome = model.OutcomeFailed
-	response.ErrorMessage = failedModelMessage
-	response.Diagnostics = []model.Diagnostic{{Code: "internal_hook_failed", Message: string(stage)}}
-	return response
+	return model.Response{
+		Content:       nil,
+		Outcome:       mo.Some(model.OutcomeFailed),
+		ErrorMessage:  mo.Some(failedModelMessage),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics: []model.Diagnostic{{
+			Code:    "internal_hook_failed",
+			Message: string(stage),
+		}},
+	}
 }
 
 // normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
 func normalizeTerminalResponse(response model.Response) model.Response {
-	if response.ErrorMessage != "" {
+	if response.ErrorMessage.OrEmpty() != "" {
 		return response
 	}
-	switch response.Outcome {
+	switch response.Outcome.OrEmpty() {
 	case model.OutcomeAborted:
-		response.ErrorMessage = abortedModelMessage
+		response.ErrorMessage = mo.Some(abortedModelMessage)
 	case model.OutcomeFailed:
-		response.ErrorMessage = failedModelMessage
+		response.ErrorMessage = mo.Some(failedModelMessage)
 	case model.OutcomeStop, model.OutcomeToolUse, model.OutcomeLength:
 	}
 	return response
@@ -302,15 +312,15 @@ func (s *Service) finalizeProviderError(
 	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
 		outcome = model.OutcomeAborted
 	}
-	errorMessage := response.ErrorMessage
+	errorMessage := response.ErrorMessage.OrEmpty()
 	if errorMessage == "" {
 		errorMessage = failedModelMessage
 		if outcome == model.OutcomeAborted {
 			errorMessage = abortedModelMessage
 		}
 	}
-	response.Outcome = outcome
-	response.ErrorMessage = errorMessage
+	response.Outcome = mo.Some(outcome)
+	response.ErrorMessage = mo.Some(errorMessage)
 	s.clearPartial()
 	s.appendModel(response)
 	terminalContext := context.WithoutCancel(ctx)
@@ -336,7 +346,7 @@ func (s *Service) applyOutcome(
 	runID string,
 	response model.Response,
 ) (Result, bool, error) {
-	switch response.Outcome {
+	switch response.Outcome.OrEmpty() {
 	case model.OutcomeStop:
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
 	case model.OutcomeToolUse:
@@ -364,15 +374,15 @@ func (s *Service) applyOutcome(
 	case model.OutcomeAborted:
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeAborted,
-			response.ErrorMessage, errors.New(response.ErrorMessage),
+			response.ErrorMessage.OrEmpty(), errors.New(response.ErrorMessage.OrEmpty()),
 		)
 	case model.OutcomeFailed:
 		return s.endTurn(
 			ctx, runID, response, nil, agent.RunOutcomeFailed,
-			response.ErrorMessage, errors.New(response.ErrorMessage),
+			response.ErrorMessage.OrEmpty(), errors.New(response.ErrorMessage.OrEmpty()),
 		)
 	default:
-		err := fmt.Errorf("unknown model response outcome %d", response.Outcome)
+		err := fmt.Errorf("unknown model response outcome %d", response.Outcome.OrEmpty())
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeFailed, err.Error(), err)
 	}
 }
@@ -491,7 +501,7 @@ func (s *Service) finish(
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           runID,
-		PartialResponse: emptyModelResponse(),
+		PartialResponse: model.Response{},
 		ToolPreviews:    nil,
 	}
 	s.mutex.Unlock()
@@ -519,7 +529,7 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 // clearPartial removes provider streaming scratch data.
 func (s *Service) clearPartial() {
 	s.mutex.Lock()
-	s.state.PartialResponse = emptyModelResponse()
+	s.state.PartialResponse = model.Response{}
 	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
 }
@@ -531,7 +541,7 @@ func (s *Service) appendModel(response model.Response) {
 		Kind:       agent.HistoryEntryModel,
 		User:       model.TextMessage(""),
 		Model:      cloneModelResponse(response),
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
+		ToolResult: agent.ToolResult{},
 	})
 	s.mutex.Unlock()
 }
@@ -542,7 +552,7 @@ func (s *Service) appendToolResult(result agent.ToolResult) {
 	s.history = append(s.history, agent.HistoryEntry{
 		Kind:       agent.HistoryEntryToolResult,
 		User:       model.TextMessage(""),
-		Model:      emptyModelResponse(),
+		Model:      model.Response{},
 		ToolResult: result,
 	})
 	s.mutex.Unlock()

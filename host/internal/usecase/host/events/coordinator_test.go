@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/stretchr/testify/assert"
@@ -76,7 +78,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	)
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		updateErr := dispatcher.Deliver(ctx, run.Event{
-			Type: run.EventTextDelta, RunID: request.RunID, Position: 0, Content: model.Content{Kind: model.ContentText, Text: "partial"},
+			Type: run.EventTextDelta, RunID: request.RunID, Position: 0, Content: model.Content{Kind: model.ContentText, Text: mo.Some("partial")},
 		})
 		require.ErrorIs(t, updateErr, deliveryErr)
 		require.NoError(t, dispatcher.Deliver(ctx, run.Event{Type: run.EventAgentEnd, RunID: request.RunID}))

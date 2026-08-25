@@ -59,7 +59,7 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	case run.EventTextDelta:
 		lifecycle.ModelContent = domainui.ModelContent{
 			Type: domainui.ModelContentTextDelta, Kind: modelContentKind(event.Content.Kind),
-			Position: event.Position, Text: event.Content.Text,
+			Position: event.Position, Text: event.Content.Text.OrEmpty(),
 		}
 	case run.EventContentEnd:
 		lifecycle.ModelContent = domainui.ModelContent{
@@ -88,8 +88,8 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 		lifecycle.IsError = event.ToolResult.IsError
 	case run.EventTurnEnd:
 		lifecycle.Text = responseText(event.Turn.Response)
-		lifecycle.Outcome = modelOutcome(event.Turn.Response.Outcome)
-		lifecycle.ErrorMessage = event.Turn.Response.ErrorMessage
+		lifecycle.Outcome = modelOutcome(event.Turn.Response.Outcome.OrEmpty())
+		lifecycle.ErrorMessage = event.Turn.Response.ErrorMessage.OrEmpty()
 	case run.EventAgentEnd:
 		lifecycle.Outcome = runOutcome(event.Agent.Outcome)
 		lifecycle.ErrorMessage = event.Agent.ErrorMessage
@@ -198,25 +198,27 @@ func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
 func mapModelResponse(response model.Response) domainui.ModelResponse {
 	content := lo.FilterMap(response.Content, func(item model.Content, _ int) (domainui.ModelResponseContent, bool) {
 		kind := modelContentKind(item.Kind)
-		return domainui.ModelResponseContent{Kind: kind, Text: item.Text}, kind != 0
+		return domainui.ModelResponseContent{Kind: kind, Text: item.Text.OrEmpty()}, kind != 0
 	})
 	var responseModel *string
-	if response.ResponseModel != nil {
-		value := string(*response.ResponseModel)
+	if actualModel, ok := response.ResponseModel.Get(); ok {
+		value := string(actualModel)
 		responseModel = &value
 	}
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) domainui.ModelDiagnostic {
 		return domainui.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
 	})
+	usage := response.Usage.OrEmpty()
 	return domainui.ModelResponse{
-		Text: responseText(response), Outcome: modelOutcome(response.Outcome), ErrorMessage: response.ErrorMessage,
-		Provider: string(response.Provider), Model: string(response.Model), ResponseModel: responseModel,
-		ResponseID: response.ResponseID,
-		Content:    content,
+		Text: responseText(response), Outcome: modelOutcome(response.Outcome.OrEmpty()),
+		ErrorMessage: response.ErrorMessage.OrEmpty(),
+		Provider:     string(response.Provider.OrEmpty()), Model: string(response.Model.OrEmpty()),
+		ResponseModel: responseModel, ResponseID: response.ResponseID.OrEmpty(),
+		Content: content,
 		Usage: domainui.ModelUsage{
-			InputTokens: response.Usage.InputTokens, OutputTokens: response.Usage.OutputTokens,
-			CachedInputTokens: response.Usage.CachedInputTokens, CacheWriteTokens: response.Usage.CacheWriteTokens,
-			ReasoningTokens: response.Usage.ReasoningTokens, TotalTokens: response.Usage.TotalTokens,
+			InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens,
+			CachedInputTokens: usage.CachedInputTokens, CacheWriteTokens: usage.CacheWriteTokens,
+			ReasoningTokens: usage.ReasoningTokens, TotalTokens: usage.TotalTokens,
 		},
 		Diagnostics: diagnostics,
 	}
@@ -244,7 +246,7 @@ func responseText(response model.Response) string {
 	for index := range response.Content {
 		item := &response.Content[index]
 		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			builder.WriteString(item.Text)
+			builder.WriteString(item.Text.OrEmpty())
 		}
 	}
 	return builder.String()

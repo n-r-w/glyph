@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
 )
@@ -75,9 +77,18 @@ func headerCopy(header http.Header) internalhooks.Header {
 }
 
 func hookFailureResponse(stage internalhooks.Stage) model.Response {
-	response := emptyModelResponse()
-	response.Outcome = model.OutcomeFailed
-	response.ErrorMessage = "Model request failed."
-	response.Diagnostics = []model.Diagnostic{{Code: "internal_hook_failed", Message: string(stage)}}
-	return response
+	return model.Response{
+		Content:       nil,
+		Outcome:       mo.Some(model.OutcomeFailed),
+		ErrorMessage:  mo.Some("Model request failed."),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics: []model.Diagnostic{{
+			Code:    "internal_hook_failed",
+			Message: string(stage),
+		}},
+	}
 }

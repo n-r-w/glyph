@@ -83,7 +83,7 @@ func TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments(t *
 	require.Equal(t, []run.StreamEventKind{
 		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.Outcome)
+	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.Outcome.OrEmpty())
 }
 
 // TestDriverStreamRejectsConflictingFinalizedFunctionArguments verifies terminal output cannot replace finalized values.
@@ -98,8 +98,8 @@ func TestDriverStreamRejectsConflictingFinalizedFunctionArguments(t *testing.T) 
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome)
-	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage)
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
+	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
 }
 
@@ -116,8 +116,8 @@ func TestDriverStreamRejectsConflictingFinalizedCustomInput(t *testing.T) {
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome)
-	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage)
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
+	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.ErrorMessage.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
 }
 
@@ -132,7 +132,7 @@ func TestDriverStreamRejectsConflictingFunctionDeltaIdentity(t *testing.T) {
 
 	require.Error(t, err)
 	require.NotEmpty(t, events)
-	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome)
+	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
 	assert.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 

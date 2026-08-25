@@ -97,11 +97,11 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("first")},
 		{Kind: agent.HistoryEntryModel, Model: model.Response{
 			Content: []model.Content{
-				{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-request"}, Payload: []byte(`{ "summary" : ["old"], "encrypted_content" : "enc-old", "id" : "r-old" }`)}},
-				{Kind: model.ContentText, Text: "prior"},
-				{Kind: model.ContentToolCall, ToolCall: model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old.txt"}}},
+				{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-request"}, Payload: []byte(`{ "summary" : ["old"], "encrypted_content" : "enc-old", "id" : "r-old" }`)})},
+				{Kind: model.ContentText, Text: mo.Some("prior")},
+				{Kind: model.ContentToolCall, ToolCall: mo.Some(model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old.txt"}})},
 			},
-			Outcome: model.OutcomeToolUse,
+			Outcome: mo.Some(model.OutcomeToolUse),
 		}},
 		{Kind: agent.HistoryEntryToolResult, ToolResult: agent.ToolResult{CallID: "call-old", ToolName: "read", Contents: tool.TextContents("old data"), IsError: false}},
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("next")},
@@ -125,18 +125,25 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, []run.StreamEvent{{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "ans"}, {Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "wer"}}, updates)
-	assert.Equal(t, model.OutcomeToolUse, response.Outcome)
+	assert.Equal(t, []run.StreamEvent{{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("ans")}, Delta: "ans"}, {Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("wer")}, Delta: "wer"}}, updates)
+	assert.Equal(t, model.OutcomeToolUse, response.Outcome.OrEmpty())
+	assert.True(t, response.Outcome.IsSome())
+	assert.Equal(t, model.ProviderID(ProviderID), response.Provider.OrEmpty())
+	assert.Equal(t, model.ID("gpt-request"), response.Model.OrEmpty())
+	assert.True(t, response.ResponseModel.IsNone())
+	assert.Equal(t, "resp", response.ResponseID.OrEmpty())
+	assert.True(t, response.ResponseID.IsSome())
+	assert.True(t, response.Usage.IsNone())
 	require.Len(t, response.Content, 3)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
-	assert.Equal(t, "summary", response.Content[0].Text)
-	assert.Equal(t, model.ProviderID(ProviderID), response.Content[0].ProviderContext.Source.ProviderID)
-	assert.Equal(t, "responses", response.Content[0].ProviderContext.Source.API)
-	assert.Equal(t, model.ID("gpt-request"), response.Content[0].ProviderContext.Source.Model)
+	assert.Equal(t, "summary", response.Content[0].Text.OrEmpty())
+	assert.Equal(t, model.ProviderID(ProviderID), response.Content[0].ProviderContext.OrEmpty().Source.ProviderID)
+	assert.Equal(t, "responses", response.Content[0].ProviderContext.OrEmpty().Source.API)
+	assert.Equal(t, model.ID("gpt-request"), response.Content[0].ProviderContext.OrEmpty().Source.Model)
 	assert.Equal(t, model.ContentText, response.Content[1].Kind)
-	assert.Equal(t, "answer", response.Content[1].Text)
+	assert.Equal(t, "answer", response.Content[1].Text.OrEmpty())
 	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.Arguments)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies rich input and terminal values.
@@ -188,15 +195,19 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, model.ProviderID(ProviderID), response.Provider)
-	assert.Equal(t, model.ID("gpt-selected"), response.Model)
-	require.NotNil(t, response.ResponseModel)
-	assert.Equal(t, model.ID("gpt-actual"), *response.ResponseModel)
-	assert.Equal(t, "resp-rich", response.ResponseID)
+	assert.Equal(t, model.ProviderID(ProviderID), response.Provider.OrEmpty())
+	assert.Equal(t, model.ID("gpt-selected"), response.Model.OrEmpty())
+	require.True(t, response.Provider.IsSome())
+	require.True(t, response.Model.IsSome())
+	require.True(t, response.ResponseModel.IsSome())
+	assert.Equal(t, model.ID("gpt-actual"), response.ResponseModel.OrEmpty())
+	assert.Equal(t, "resp-rich", response.ResponseID.OrEmpty())
+	assert.True(t, response.ResponseID.IsSome())
+	assert.True(t, response.Usage.IsSome())
 	assert.Equal(t, model.Usage{
 		InputTokens: 10, OutputTokens: 7, CachedInputTokens: 4,
 		CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 17,
-	}, response.Usage)
+	}, response.Usage.OrEmpty())
 }
 
 // TestDriverStreamUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty preserves terminal streamed output.
@@ -317,7 +328,7 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		return nil
 	})
 	require.Error(t, err)
-	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome)
+	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.Outcome.OrEmpty())
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 
@@ -362,18 +373,18 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []run.StreamEvent{
-		{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "final "},
-		{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "answer"},
+		{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("final ")}, Delta: "final "},
+		{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("answer")}, Delta: "answer"},
 	}, updates)
-	assert.Equal(t, model.OutcomeToolUse, response.Outcome)
+	assert.Equal(t, model.OutcomeToolUse, response.Outcome.OrEmpty())
 	require.Len(t, response.Content, 3)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
-	assert.NotEmpty(t, response.Content[0].ProviderContext.Payload)
+	assert.NotEmpty(t, response.Content[0].ProviderContext.OrEmpty().Payload)
 	assert.Equal(t, model.ContentText, response.Content[1].Kind)
-	assert.Equal(t, "final answer", response.Content[1].Text)
+	assert.Equal(t, "final answer", response.Content[1].Text.OrEmpty())
 	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
-	assert.Equal(t, "read", response.Content[2].ToolCall.Name)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.Arguments)
+	assert.Equal(t, "read", response.Content[2].ToolCall.OrEmpty().Name)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.OrEmpty().Arguments)
 }
 
 // TestDriverStreamStreamsReasoningInOutputOrder verifies Codex-owned mixed-content assembly.
@@ -427,8 +438,8 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	terminal := events[len(events)-1].Response
 	require.Len(t, terminal.Content, 2)
 	assert.Equal(t, model.ContentReasoning, terminal.Content[0].Kind)
-	assert.Equal(t, "why", terminal.Content[0].Text)
-	assert.NotEmpty(t, terminal.Content[0].ProviderContext.Payload)
+	assert.Equal(t, "why", terminal.Content[0].Text.OrEmpty())
+	assert.NotEmpty(t, terminal.Content[0].ProviderContext.OrEmpty().Payload)
 	assert.Equal(t, model.ContentText, terminal.Content[1].Kind)
 }
 
@@ -469,13 +480,13 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 	firstResponse := terminalResponse(firstEvents)
 	require.Len(t, firstResponse.Content, 1)
 	assert.Equal(t, model.ContentReasoning, firstResponse.Content[0].Kind)
-	assert.Equal(t, "visible summary", firstResponse.Content[0].Text)
-	assert.Empty(t, firstResponse.Content[0].ProviderContext.Payload)
+	assert.Equal(t, "visible summary", firstResponse.Content[0].Text.OrEmpty())
+	assert.Empty(t, firstResponse.Content[0].ProviderContext.OrEmpty().Payload)
 
 	request.History = append(request.History, agent.HistoryEntry{Kind: agent.HistoryEntryModel, Model: firstResponse})
 	secondEvents, err := collectStreamEvents(service, t.Context(), request, func(run.StreamEvent) error { return nil })
 	require.NoError(t, err)
-	assert.Equal(t, model.OutcomeStop, terminalResponse(secondEvents).Outcome)
+	assert.Equal(t, model.OutcomeStop, terminalResponse(secondEvents).Outcome.OrEmpty())
 	require.Equal(t, int32(2), requests.Load())
 	encoded, err := json.Marshal(secondBody["input"])
 	require.NoError(t, err)
@@ -531,18 +542,18 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	}, streamEventKinds(events))
 	assert.Equal(t, run.StreamEvent{
 		Kind: run.StreamEventTextDelta, Position: 1,
-		Content: model.Content{Kind: model.ContentRefusal}, Delta: "I can",
+		Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("I can")}, Delta: "I can",
 	}, events[1])
 	assert.Equal(t, run.StreamEvent{
 		Kind: run.StreamEventTextDelta, Position: 1,
-		Content: model.Content{Kind: model.ContentRefusal}, Delta: "not help",
+		Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("not help")}, Delta: "not help",
 	}, events[2])
 	response := events[4].Response
 	require.Len(t, response.Content, 2)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
-	assert.NotEmpty(t, response.Content[0].ProviderContext.Payload)
+	assert.NotEmpty(t, response.Content[0].ProviderContext.OrEmpty().Payload)
 	assert.Equal(t, model.ContentRefusal, response.Content[1].Kind)
-	assert.Equal(t, "I cannot help", response.Content[1].Text)
+	assert.Equal(t, "I cannot help", response.Content[1].Text.OrEmpty())
 }
 
 // TestDriverStreamRejectsMissingEncryptedReasoning verifies stateless replay fails before HTTP.
@@ -562,7 +573,7 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 		Kind: agent.HistoryEntryModel,
 		Model: model.Response{Content: []model.Content{{
 			Kind:            model.ContentReasoning,
-			ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-test"}, Payload: []byte(`{"id":"r","encrypted_content":"","summary":[]}`)},
+			ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-test"}, Payload: []byte(`{"id":"r","encrypted_content":"","summary":[]}`)}),
 		}}},
 	}}
 
@@ -573,8 +584,8 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.Error(t, err)
-	assert.Equal(t, model.OutcomeFailed, response.Outcome)
-	assert.Contains(t, response.ErrorMessage, "encrypted reasoning")
+	assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "encrypted reasoning")
 	assert.Zero(t, requests.Load())
 }
 
@@ -610,7 +621,7 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, model.OutcomeStop, response.Outcome)
+	assert.Equal(t, model.OutcomeStop, response.Outcome.OrEmpty())
 }
 
 // TestDriverStreamRefreshesAtThresholdAndPersistsRotation verifies fresh request authorization.
@@ -666,7 +677,7 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, model.OutcomeStop, response.Outcome)
+	assert.Equal(t, model.OutcomeStop, response.Outcome.OrEmpty())
 	assert.Equal(t, int32(1), tokenRequests.Load())
 }
 
@@ -723,8 +734,8 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.ErrorIs(t, err, ErrSignInRequired)
-	assert.Equal(t, model.OutcomeFailed, response.Outcome)
-	assert.Equal(t, signInRequiredMessage, response.ErrorMessage)
+	assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
+	assert.Equal(t, signInRequiredMessage, response.ErrorMessage.OrEmpty())
 }
 
 // TestDriverStreamLoadsCredentialsForEveryRequest verifies access data is never cached across model calls.
@@ -816,8 +827,8 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			response := terminalResponse(events)
 
 			require.Error(t, err)
-			assert.Equal(t, model.OutcomeFailed, response.Outcome)
-			assert.Contains(t, response.ErrorMessage, testCase.expectedText)
+			assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
+			assert.Contains(t, response.ErrorMessage.OrEmpty(), testCase.expectedText)
 			assert.Equal(t, int32(1), requests.Load())
 		})
 	}
@@ -868,7 +879,7 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			assert.Equal(t, testCase.expectedOutcome, response.Outcome)
+			assert.Equal(t, testCase.expectedOutcome, response.Outcome.OrEmpty())
 		})
 	}
 }
@@ -915,11 +926,11 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 		cancel()
 		terminal := <-result
 		require.ErrorIs(t, terminal.err, context.Canceled)
-		assert.Equal(t, model.OutcomeAborted, terminal.response.Outcome)
+		assert.Equal(t, model.OutcomeAborted, terminal.response.Outcome.OrEmpty())
 	case terminal := <-result:
 		cancel()
 		require.ErrorIs(t, terminal.err, context.Canceled)
-		assert.Equal(t, model.OutcomeAborted, terminal.response.Outcome)
+		assert.Equal(t, model.OutcomeAborted, terminal.response.Outcome.OrEmpty())
 	}
 }
 

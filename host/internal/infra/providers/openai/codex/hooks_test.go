@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields needed by each HTTP boundary.
 package codex
 
 import (
@@ -74,7 +73,7 @@ func TestDriverStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, model.OutcomeStop, response.Outcome)
+	assert.Equal(t, model.OutcomeStop, response.Outcome.OrEmpty())
 	assert.True(t, firstSeen)
 	assert.True(t, responseSeen)
 	assert.Equal(t, int32(1), requests.Load())
@@ -134,7 +133,7 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	events, err = collectStreamEvents(service, t.Context(), hookModelRequest("second instructions"), nil)
 	response = terminalResponse(events)
 	require.NoError(t, err)
-	assert.Equal(t, model.OutcomeStop, response.Outcome)
+	assert.Equal(t, model.OutcomeStop, response.Outcome.OrEmpty())
 	assert.Equal(t, 1, laterCalls)
 	assert.Equal(t, int32(1), requests.Load())
 }
@@ -143,11 +142,16 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	t.Parallel()
 
-	body := &trackingReadCloser{Reader: bytes.NewBufferString("data: " + completedEvent(`[]`) + "\n\n")}
-	transport := &staticResponseTransport{body: body}
+	body := &trackingReadCloser{Reader: bytes.NewBufferString("data: " + completedEvent(`[]`) + "\n\n"), reads: atomic.Int32{}, closed: atomic.Bool{}}
+	transport := &staticResponseTransport{body: body, requests: atomic.Int32{}}
 	options := defaultDriverOptions()
 	options.modelBaseURL = "https://hooks.invalid"
-	options.httpClient = &http.Client{Transport: transport}
+	options.httpClient = &http.Client{
+		Transport:     transport,
+		CheckRedirect: nil,
+		Jar:           nil,
+		Timeout:       0,
+	}
 	laterCalls := 0
 	runner := hookrunner.New(nil, nil, []hooks.ResponseHandler{
 		func(_ context.Context, value hooks.Response) error {
@@ -190,12 +194,23 @@ type staticResponseTransport struct {
 func (transport *staticResponseTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	transport.requests.Add(1)
 	return &http.Response{
+		Status:     "",
 		StatusCode: http.StatusOK,
+		Proto:      "",
+		ProtoMajor: 0,
+		ProtoMinor: 0,
 		Header: http.Header{
 			"Content-Type": {"text/event-stream"},
 			"X-Response":   {"response-value"},
 		},
-		Body: transport.body,
+		Body:             transport.body,
+		ContentLength:    0,
+		TransferEncoding: nil,
+		Close:            false,
+		Uncompressed:     false,
+		Trailer:          nil,
+		Request:          nil,
+		TLS:              nil,
 	}, nil
 }
 
@@ -226,21 +241,21 @@ func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptio
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	).Times(calls)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	return newDriver(Config{Hooks: runner, Models: testConfig().Models}, credentials, interaction, options)
+	return newDriver(Config{Hooks: runner, Models: testConfig().Models, ReasoningCompatibilityKeys: nil}, credentials, interaction, options)
 }
 
 func hookModelRequest(instructions string) run.ModelRequest {
 	return run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: instructions,
-		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test"},
-		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
+		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
+		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello"), Model: model.Response{}, ToolResult: agent.ToolResult{}}},
 		Tools:        nil,
 	}
 }
 
 func assertHookFailure(t *testing.T, response model.Response, stage hooks.Stage) {
 	t.Helper()
-	assert.Equal(t, model.OutcomeFailed, response.Outcome)
-	assert.Equal(t, "Model request failed.", response.ErrorMessage)
+	assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
+	assert.Equal(t, "Model request failed.", response.ErrorMessage.OrEmpty())
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: string(stage)}}, response.Diagnostics)
 }

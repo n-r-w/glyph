@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Provider mappings set only fields supported by Agent Core.
 package compatible
 
 import (
@@ -14,6 +13,7 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -49,8 +49,12 @@ type responsesAccumulator struct {
 
 func newResponsesAccumulator(handle run.StreamHandler) *responsesAccumulator {
 	return &responsesAccumulator{
-		handle: handle, positions: make(map[string]int), active: make(map[int]model.ContentKind),
-		tools: make(map[string]*responsesToolState),
+		handle:    handle,
+		positions: make(map[string]int),
+		active:    make(map[int]model.ContentKind),
+		tools:     make(map[string]*responsesToolState),
+		next:      0,
+		terminal:  nil,
 	}
 }
 
@@ -63,7 +67,7 @@ func (s *Driver) streamResponses(
 	configured := s.models[request.Model.Model]
 	target := model.ProviderContextSource{
 		ProviderID: s.providerID, API: string(configured.api), Model: request.Model.Model,
-		CompatibilityKey: configured.reasoningCompatibilityKey.OrEmpty(),
+		CompatibilityKey: configured.reasoningCompatibilityKey,
 	}
 	params, err := responsesParams(request, target, configured.reasoningWireFormat)
 	if err != nil {
@@ -102,11 +106,13 @@ func (s *Driver) streamResponses(
 	}
 	for index := range state.terminal.Content {
 		content := &state.terminal.Content[index]
-		if content.Kind == model.ContentReasoning && len(content.ProviderContext.Payload) != 0 {
-			content.ProviderContext.Source = target
+		providerContext, ok := content.ProviderContext.Get()
+		if content.Kind == model.ContentReasoning && ok && len(providerContext.Payload) != 0 {
+			providerContext.Source = target
+			content.ProviderContext = mo.Some(providerContext)
 		}
 	}
-	if state.terminal.Outcome == model.OutcomeFailed {
+	if state.terminal.Outcome.OrEmpty() == model.OutcomeFailed {
 		return *state.terminal, errors.New("responses request failed")
 	}
 	return *state.terminal, nil
@@ -216,28 +222,31 @@ func responsesModelItems(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
-			message := responses.ResponseInputItemParamOfMessage(item.Text, responses.EasyInputMessageRoleAssistant)
+			message := responses.ResponseInputItemParamOfMessage(item.Text.OrEmpty(), responses.EasyInputMessageRoleAssistant)
 			message.OfMessage.Type = responses.EasyInputMessageTypeMessage
 			items = append(items, message)
 		case model.ContentReasoning:
-			if providerContextCompatible(item.ProviderContext.Source, target) && len(item.ProviderContext.Payload) != 0 {
-				reasoning, err := responsesReasoningItem(item.ProviderContext.Payload)
+			providerContext, hasProviderContext := item.ProviderContext.Get()
+			if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
+				len(providerContext.Payload) != 0 {
+				reasoning, err := responsesReasoningItem(providerContext.Payload)
 				if err != nil {
 					return nil, err
 				}
 				items = append(items, reasoning)
-			} else if item.Text != "" {
-				message := responses.ResponseInputItemParamOfMessage(item.Text, responses.EasyInputMessageRoleAssistant)
+			} else if item.Text.OrEmpty() != "" {
+				message := responses.ResponseInputItemParamOfMessage(item.Text.OrEmpty(), responses.EasyInputMessageRoleAssistant)
 				message.OfMessage.Type = responses.EasyInputMessageTypeMessage
 				items = append(items, message)
 			}
 		case model.ContentToolCall:
-			arguments, err := json.Marshal(item.ToolCall.Arguments)
+			call := item.ToolCall.OrEmpty()
+			arguments, err := json.Marshal(call.Arguments)
 			if err != nil {
 				return nil, fmt.Errorf("encode tool-call arguments: %w", err)
 			}
 			items = append(items, responses.ResponseInputItemParamOfFunctionCall(
-				string(arguments), item.ToolCall.ID, item.ToolCall.Name,
+				string(arguments), call.ID, call.Name,
 			))
 		default:
 			return nil, fmt.Errorf("unsupported model content kind %d", item.Kind)
@@ -254,7 +263,9 @@ func providerContextCompatible(source, target model.ProviderContextSource) bool 
 	if source.Model == target.Model {
 		return true
 	}
-	return source.CompatibilityKey != "" && source.CompatibilityKey == target.CompatibilityKey
+	sourceKey, sourceHasKey := source.CompatibilityKey.Get()
+	targetKey, targetHasKey := target.CompatibilityKey.Get()
+	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }
 
 func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionParam, error) {
@@ -264,7 +275,7 @@ func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionPar
 		return responses.ResponseInputItemUnionParam{}, errors.New("OpenAI-compatible provider context is malformed")
 	}
 	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
-		return responses.ResponseReasoningItemSummaryParam{Text: text}
+		return responses.ResponseReasoningItemSummaryParam{Text: text, Type: ""}
 	})
 	item := responses.ResponseInputItemParamOfReasoning(contextValue.ID, summary)
 	item.OfReasoning.EncryptedContent = param.NewOpt(contextValue.EncryptedContent)
@@ -285,8 +296,15 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 					return empty, fmt.Errorf("tool result image %d requires media type and data", index)
 				}
 				imageURL := dataURL(image.MediaType, image.Data)
+				//nolint:exhaustruct // SDK union sets only the active image variant.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
-					OfInputImage: &responses.ResponseInputImageContentParam{ImageURL: param.NewOpt(imageURL)},
+					OfInputImage: &responses.ResponseInputImageContentParam{
+						FileID:                param.Opt[string]{},
+						Detail:                "",
+						ImageURL:              param.NewOpt(imageURL),
+						PromptCacheBreakpoint: responses.ResponseInputImageContentPromptCacheBreakpointParam{},
+						Type:                  "",
+					},
 				}, nil
 			default:
 				return empty, fmt.Errorf("unsupported tool result content kind %d", content.Kind)
@@ -338,12 +356,28 @@ func (state *responsesAccumulator) consume(
 			call := added.Item.AsFunctionCall()
 			position := state.allocate("tool:" + call.CallID)
 			toolState := &responsesToolState{
-				itemID: added.Item.ID, callID: call.CallID, name: call.Name, position: position, started: true,
+				itemID:    added.Item.ID,
+				callID:    call.CallID,
+				name:      call.Name,
+				position:  position,
+				arguments: strings.Builder{},
+				started:   true,
 			}
 			state.tools[call.CallID] = toolState
 			return state.handle(run.StreamEvent{
-				Kind: run.StreamEventToolCallStart, Position: position,
-				Preview: model.ToolCallPreview{CallID: call.CallID, Name: call.Name, Position: position, Provisional: true},
+				Kind:     run.StreamEventToolCallStart,
+				Position: position,
+				Content:  model.Content{},
+				Delta:    "",
+				Preview: model.ToolCallPreview{
+					CallID:      call.CallID,
+					Name:        call.Name,
+					Position:    position,
+					Provisional: true,
+					Fields:      nil,
+				},
+				ToolCall: model.ToolCall{},
+				Response: model.Response{},
 			})
 		}
 	case "response.function_call_arguments.delta":
@@ -354,10 +388,19 @@ func (state *responsesAccumulator) consume(
 		}
 		toolState.arguments.WriteString(delta.Delta)
 		return state.handle(run.StreamEvent{
-			Kind: run.StreamEventToolCallDelta, Position: toolState.position,
+			Kind:     run.StreamEventToolCallDelta,
+			Position: toolState.position,
+			Content:  model.Content{},
+			Delta:    "",
 			Preview: model.ToolCallPreview{
-				CallID: toolState.callID, Name: toolState.name, Position: toolState.position, Provisional: true,
+				CallID:      toolState.callID,
+				Name:        toolState.name,
+				Position:    toolState.position,
+				Provisional: true,
+				Fields:      nil,
 			},
+			ToolCall: model.ToolCall{},
+			Response: model.Response{},
 		})
 	case "response.function_call_arguments.done":
 		done := event.AsResponseFunctionCallArgumentsDone()
@@ -391,13 +434,37 @@ func (state *responsesAccumulator) contentDelta(key string, kind model.ContentKi
 		position = state.allocate(key)
 		state.active[position] = kind
 		if err := state.handle(run.StreamEvent{
-			Kind: run.StreamEventContentStart, Position: position, Content: model.Content{Kind: kind},
+			Kind:     run.StreamEventContentStart,
+			Position: position,
+			Content: model.Content{
+				Kind:            kind,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Response: model.Response{},
 		}); err != nil {
 			return err
 		}
 	}
 	return state.handle(run.StreamEvent{
-		Kind: run.StreamEventTextDelta, Position: position, Content: model.Content{Kind: kind}, Delta: delta,
+		Kind:     run.StreamEventTextDelta,
+		Position: position,
+		Content: model.Content{
+			Kind:            kind,
+			Text:            mo.Some(delta),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		Delta:    delta,
+		Preview:  model.ToolCallPreview{},
+		ToolCall: model.ToolCall{},
+		Response: model.Response{},
 	})
 }
 
@@ -431,7 +498,13 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 	call := model.ToolCall{ID: toolState.callID, Name: name, Arguments: decoded}
 	toolState.started = false
 	return state.handle(run.StreamEvent{
-		Kind: run.StreamEventToolCallEnd, Position: toolState.position, ToolCall: call,
+		Kind:     run.StreamEventToolCallEnd,
+		Position: toolState.position,
+		Content:  model.Content{},
+		Delta:    "",
+		Preview:  model.ToolCallPreview{},
+		ToolCall: call,
+		Response: model.Response{},
 	})
 }
 
@@ -459,7 +532,19 @@ func (state *responsesAccumulator) finishContent() error {
 			continue
 		}
 		if err := state.handle(run.StreamEvent{
-			Kind: run.StreamEventContentEnd, Position: position, Content: model.Content{Kind: kind},
+			Kind:     run.StreamEventContentEnd,
+			Position: position,
+			Content: model.Content{
+				Kind:            kind,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Response: model.Response{},
 		}); err != nil {
 			return err
 		}
@@ -489,9 +574,21 @@ func responsesModelResponse(
 				part := &message.Content[partIndex]
 				switch part.Type {
 				case "output_text":
-					content = append(content, model.Content{Kind: model.ContentText, Text: part.AsOutputText().Text, Final: true})
+					content = append(content, model.Content{
+						Kind:            model.ContentText,
+						Text:            mo.Some(part.AsOutputText().Text),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					})
 				case "refusal":
-					content = append(content, model.Content{Kind: model.ContentRefusal, Text: part.AsRefusal().Refusal, Final: true})
+					content = append(content, model.Content{
+						Kind:            model.ContentRefusal,
+						Text:            mo.Some(part.AsRefusal().Refusal),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					})
 				default:
 					return model.Response{}, fmt.Errorf("responses returned unsupported message content %q", part.Type)
 				}
@@ -501,7 +598,13 @@ func responsesModelResponse(
 			summary := lo.Map(reasoning.Summary, func(item responses.ResponseReasoningItemSummary, _ int) string {
 				return item.Text
 			})
-			visible := model.Content{Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true}
+			visible := model.Content{
+				Kind:            model.ContentReasoning,
+				Text:            mo.Some(strings.Join(summary, "")),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}
 			// Only encrypted items with stable IDs can be replayed on the next stateless request.
 			if reasoning.ID != "" && reasoning.EncryptedContent != "" {
 				payload, err := json.Marshal(responseContext{
@@ -510,13 +613,15 @@ func responsesModelResponse(
 				if err != nil {
 					return model.Response{}, fmt.Errorf("encode provider context: %w", err)
 				}
-				visible.ProviderContext = model.ProviderContext{
+				visible.ProviderContext = mo.Some(model.ProviderContext{
 					Source: model.ProviderContextSource{
-						ProviderID: providerID, API: string(APIResponses), Model: model.ID(response.Model),
-						CompatibilityKey: "",
+						ProviderID:       providerID,
+						API:              string(APIResponses),
+						Model:            model.ID(response.Model),
+						CompatibilityKey: mo.None[string](),
 					},
 					Payload: payload,
-				}
+				})
 			}
 			content = append(content, visible)
 		case "function_call":
@@ -526,8 +631,15 @@ func responsesModelResponse(
 				return model.Response{}, errors.New("responses returned invalid tool-call arguments")
 			}
 			content = append(content, model.Content{
-				Kind: model.ContentToolCall, Final: true,
-				ToolCall: model.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
+				Kind:            model.ContentToolCall,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall: mo.Some(model.ToolCall{
+					ID:        call.CallID,
+					Name:      call.Name,
+					Arguments: arguments,
+				}),
 			})
 			hasToolCall = true
 		default:
@@ -538,20 +650,27 @@ func responsesModelResponse(
 	if outcome == model.OutcomeStop && hasToolCall {
 		outcome = model.OutcomeToolUse
 	}
-	var responseModel *model.ID
-	if response.Model != "" {
-		value := model.ID(response.Model)
-		responseModel = &value
+	usage := model.Usage{
+		InputTokens:       response.Usage.InputTokens,
+		OutputTokens:      response.Usage.OutputTokens,
+		CachedInputTokens: response.Usage.InputTokensDetails.CachedTokens,
+		CacheWriteTokens:  response.Usage.InputTokensDetails.CacheWriteTokens,
+		ReasoningTokens:   response.Usage.OutputTokensDetails.ReasoningTokens,
+		TotalTokens:       response.Usage.TotalTokens,
+	}
+	responseUsage := mo.None[model.Usage]()
+	if response.JSON.Usage.Valid() {
+		responseUsage = mo.Some(usage)
 	}
 	return model.Response{
-		Content: content, Outcome: outcome, ResponseModel: responseModel, ResponseID: response.ID,
-		Usage: model.Usage{
-			InputTokens:       response.Usage.InputTokens,
-			OutputTokens:      response.Usage.OutputTokens,
-			CachedInputTokens: response.Usage.InputTokensDetails.CachedTokens,
-			CacheWriteTokens:  response.Usage.InputTokensDetails.CacheWriteTokens,
-			ReasoningTokens:   response.Usage.OutputTokensDetails.ReasoningTokens,
-			TotalTokens:       response.Usage.TotalTokens,
-		},
+		Content:       content,
+		Outcome:       mo.Some(outcome),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.EmptyableToOption(model.ID(response.Model)),
+		ResponseID:    mo.EmptyableToOption(response.ID),
+		Usage:         responseUsage,
+		Diagnostics:   nil,
 	}, nil
 }

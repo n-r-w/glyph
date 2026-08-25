@@ -85,18 +85,19 @@ func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPre
 func cloneModelResponse(response model.Response) model.Response {
 	items := slices.Clone(response.Content)
 	for index := range items {
-		items[index].ProviderContext.Payload = bytes.Clone(items[index].ProviderContext.Payload)
-		items[index].ToolCall.Arguments = cloneArguments(items[index].ToolCall.Arguments)
-	}
-	var responseModel *model.ID
-	if response.ResponseModel != nil {
-		value := *response.ResponseModel
-		responseModel = &value
+		if context, ok := items[index].ProviderContext.Get(); ok {
+			context.Payload = bytes.Clone(context.Payload)
+			items[index].ProviderContext = mo.Some(context)
+		}
+		if call, ok := items[index].ToolCall.Get(); ok {
+			call.Arguments = cloneArguments(call.Arguments)
+			items[index].ToolCall = mo.Some(call)
+		}
 	}
 	diagnostics := slices.Clone(response.Diagnostics)
 	return model.Response{
 		Content: items, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
-		Provider: response.Provider, Model: response.Model, ResponseModel: responseModel,
+		Provider: response.Provider, Model: response.Model, ResponseModel: response.ResponseModel,
 		ResponseID: response.ResponseID, Usage: response.Usage, Diagnostics: diagnostics,
 	}
 }
@@ -139,7 +140,8 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			index++
 			continue
 		}
-		if entry.Model.Outcome == model.OutcomeAborted || entry.Model.Outcome == model.OutcomeFailed {
+		outcome := entry.Model.Outcome.OrEmpty()
+		if outcome == model.OutcomeAborted || outcome == model.OutcomeFailed {
 			index++
 			continue
 		}
@@ -160,7 +162,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			projected = append(projected, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryToolResult,
 				User:  model.TextMessage(""),
-				Model: emptyModelResponse(),
+				Model: model.Response{},
 				ToolResult: agent.ToolResult{
 					CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(skippedCallError), IsError: true,
 				},
@@ -174,6 +176,6 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 // modelToolCalls returns finalized calls in model-provided order.
 func modelToolCalls(response model.Response) []model.ToolCall {
 	return lo.FilterMap(response.Content, func(item model.Content, _ int) (model.ToolCall, bool) {
-		return item.ToolCall, item.Kind == model.ContentToolCall
+		return item.ToolCall.OrEmpty(), item.Kind == model.ContentToolCall
 	})
 }

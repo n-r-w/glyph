@@ -22,10 +22,10 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 
 	response := model.Response{
 		Content: []model.Content{
-			{Kind: model.ContentText, Text: "answer", Final: true},
-			{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider"}, Payload: []byte("private")}},
+			{Kind: model.ContentText, Text: mo.Some("answer"), Final: true},
+			{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider"}, Payload: []byte("private")})},
 		},
-		Outcome: model.OutcomeStop, Provider: "provider", Model: "model",
+		Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
 	}
 	toolResult := agent.ToolResult{
 		CallID: "call", ToolName: "tool",
@@ -40,15 +40,15 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{name: "turn start", event: run.Event{Type: run.EventTurnStart, RunID: "run"}, expected: controller.AgentEvent{Type: controller.AgentEventTurnStart}},
 		{name: "message start", event: run.Event{Type: run.EventMessageStart, RunID: "run"}, expected: controller.AgentEvent{Type: controller.AgentEventMessageStart}},
 		{
-			name: "content start", event: run.Event{Type: run.EventContentStart, RunID: "run", Position: 2, Content: model.Content{Kind: model.ContentReasoning}},
+			name: "content start", event: run.Event{Type: run.EventContentStart, RunID: "run", Position: 2, Content: model.Content{Kind: model.ContentReasoning, Text: mo.Some("")}},
 			expected: controller.AgentEvent{Type: controller.AgentEventModelContentStart, ModelContent: controller.ModelContent{Kind: controller.ModelContentReasoning, Position: 2}},
 		},
 		{
-			name: "text delta", event: run.Event{Type: run.EventTextDelta, RunID: "run", Position: 3, Content: model.Content{Kind: model.ContentRefusal, Text: "no"}},
+			name: "text delta", event: run.Event{Type: run.EventTextDelta, RunID: "run", Position: 3, Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("no")}},
 			expected: controller.AgentEvent{Type: controller.AgentEventModelTextDelta, ModelContent: controller.ModelContent{Kind: controller.ModelContentRefusal, Position: 3, Text: "no"}},
 		},
 		{
-			name: "content end", event: run.Event{Type: run.EventContentEnd, RunID: "run", Position: 4, Content: model.Content{Kind: model.ContentText}},
+			name: "content end", event: run.Event{Type: run.EventContentEnd, RunID: "run", Position: 4, Content: model.Content{Kind: model.ContentText, Text: mo.Some("")}},
 			expected: controller.AgentEvent{Type: controller.AgentEventModelContentEnd, ModelContent: controller.ModelContent{Kind: controller.ModelContentText, Position: 4}},
 		},
 		{

@@ -45,8 +45,9 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 		if event.Content.Kind != model.ContentText && event.Content.Kind != model.ContentRefusal {
 			return nil
 		}
-		writeErr := writeText(r.stdout, event.Content.Text)
-		if writeErr == nil && event.Content.Text != "" {
+		text := event.Content.Text.OrEmpty()
+		writeErr := writeText(r.stdout, text)
+		if writeErr == nil && text != "" {
 			r.modelLineOpen = true
 		}
 		return writeErr

@@ -128,10 +128,10 @@ const (
 // Content is one ordered response content block.
 type Content struct {
 	Kind            ContentKind
-	Text            string
+	Text            mo.Option[string]
 	Final           bool
-	ProviderContext ProviderContext
-	ToolCall        ToolCall
+	ProviderContext mo.Option[ProviderContext]
+	ToolCall        mo.Option[ToolCall]
 }
 
 // ProviderContextSource identifies the request contract that produced opaque context.
@@ -139,7 +139,7 @@ type ProviderContextSource struct {
 	ProviderID       ProviderID
 	API              string
 	Model            ID
-	CompatibilityKey string
+	CompatibilityKey mo.Option[string]
 }
 
 // ProviderContext preserves an opaque replay payload with its source snapshot.
@@ -201,12 +201,12 @@ type Diagnostic struct {
 // Response is one finalized ordered model response.
 type Response struct {
 	Content       []Content
-	Outcome       Outcome
-	ErrorMessage  string
-	Provider      ProviderID
-	Model         ID
-	ResponseModel *ID
-	ResponseID    string
-	Usage         Usage
+	Outcome       mo.Option[Outcome]
+	ErrorMessage  mo.Option[string]
+	Provider      mo.Option[ProviderID]
+	Model         mo.Option[ID]
+	ResponseModel mo.Option[ID]
+	ResponseID    mo.Option[string]
+	Usage         mo.Option[Usage]
 	Diagnostics   []Diagnostic
 }

@@ -1,4 +1,3 @@
-//nolint:exhaustruct // Tests set only fields relevant to each event or response.
 package run
 
 import (
@@ -25,7 +24,7 @@ import (
 
 const testInstructions = "resolved coding instructions"
 
-var testModelDescriptor = model.Descriptor{Provider: "openai-codex", Model: "gpt-test"}
+var testModelDescriptor = model.Descriptor{Provider: "openai-codex", Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
 
 // TestServiceRunStop preserves ordered history, streaming state, events, run ID, and settlement.
 func TestServiceRunStop(t *testing.T) {
@@ -34,28 +33,18 @@ func TestServiceRunStop(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	descriptor := tool.Descriptor{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`)}
+	descriptor := tool.Descriptor{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`), ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}
 	tools.EXPECT().Tools().Return([]tool.Descriptor{descriptor})
 	response := model.Response{
 		Content: []model.Content{
+			{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			{
-				Kind: model.ContentText, Text: "hello",
-				ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
-				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				Kind: model.ContentReasoning, Text: mo.Some(""),
+				ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "codex", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte{1, 2, 3}}), Final: false, ToolCall: mo.None[model.ToolCall](),
 			},
-			{
-				Kind: model.ContentReasoning, Text: "",
-				ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "codex"}, Payload: []byte{1, 2, 3}},
-				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
-			},
-			{
-				Kind: model.ContentText, Text: " world",
-				ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
-				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
-			},
+			{Kind: model.ContentText, Text: mo.Some(" world"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 		},
-		Outcome:      model.OutcomeStop,
-		ErrorMessage: "",
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
@@ -94,7 +83,7 @@ func TestServiceRunStop(t *testing.T) {
 	update := delivered[4]
 	expectedUpdate := newEvent(EventTextDelta, "run-1")
 	expectedUpdate.Position = 0
-	expectedUpdate.Content = model.Content{Kind: model.ContentText, Text: "hello"}
+	expectedUpdate.Content = model.Content{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
 	assert.Equal(t, expectedUpdate, update)
 	_, err = service.Run(t.Context(), Request{RunID: "run-2", UserText: "blocked"})
 	require.ErrorIs(t, err, ErrRunActive)
@@ -114,14 +103,12 @@ func TestServiceRunToolUse(t *testing.T) {
 		{ID: "call-2", Name: "second", Arguments: map[string]any{"nested": map[string]any{"ok": true}}},
 	}
 	firstResponse := model.Response{
-		Content:      []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-		Outcome:      model.OutcomeToolUse,
-		ErrorMessage: "",
+		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	stopResponse := model.Response{
-		Content:      []model.Content{testTextItem("done")},
-		Outcome:      model.OutcomeStop,
-		ErrorMessage: "",
+		Content: []model.Content{testTextItem("done")},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	order := make([]string, 0, 4)
 	providerCall := 0
@@ -138,16 +125,16 @@ func TestServiceRunToolUse(t *testing.T) {
 						Provisional: true, Fields: nil,
 					}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallStart, Position: position, Preview: preview,
+						Kind: StreamEventToolCallStart, Position: position, Preview: preview, Content: model.Content{}, Delta: "", ToolCall: model.ToolCall{}, Response: model.Response{},
 					}))
 					preview.Fields = []model.ToolCallPreviewField{{
-						Name: "value", Kind: model.ToolCallPreviewFieldPrefix, Prefix: "1",
+						Name: "value", Kind: model.ToolCallPreviewFieldPrefix, Prefix: "1", Value: nil,
 					}}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallDelta, Position: position, Preview: preview,
+						Kind: StreamEventToolCallDelta, Position: position, Preview: preview, Content: model.Content{}, Delta: "", ToolCall: model.ToolCall{}, Response: model.Response{},
 					}))
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallEnd, Position: position, ToolCall: call,
+						Kind: StreamEventToolCallEnd, Position: position, ToolCall: call, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, Response: model.Response{},
 					}))
 				}
 				return emitStream(update, firstResponse, nil)
@@ -213,8 +200,8 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	runtime := NewMockModelRuntime(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model"}
-	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model"}
+	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
+	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
 	committed := false
 	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
 		if committed {
@@ -237,10 +224,10 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			<-releaseRequest
 			return emitStream(update, model.Response{
 				Content: []model.Content{
-					{Kind: model.ContentReasoning, Text: "visible reasoning", Final: true},
+					{Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 					testCallItem(call),
 				},
-				Outcome: model.OutcomeToolUse,
+				Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 			}, nil)
 		},
 	)
@@ -254,10 +241,10 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			assert.Equal(t, agent.HistoryEntryModel, request.History[1].Kind)
 			require.Len(t, request.History[1].Model.Content, 2)
 			assert.Equal(t, model.ContentReasoning, request.History[1].Model.Content[0].Kind)
-			assert.Equal(t, "visible reasoning", request.History[1].Model.Content[0].Text)
+			assert.Equal(t, "visible reasoning", request.History[1].Model.Content[0].Text.OrEmpty())
 			assert.Equal(t, agent.HistoryEntryToolResult, request.History[2].Kind)
 			return emitStream(update, model.Response{
-				Content: []model.Content{testTextItem("done")}, Outcome: model.OutcomeStop,
+				Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 			}, nil)
 		},
 	)
@@ -279,7 +266,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 
 	require.NoError(t, <-result)
 	require.Len(t, service.History(), 4)
-	assert.Equal(t, "done", service.History()[3].Model.Content[0].Text)
+	assert.Equal(t, "done", service.History()[3].Model.Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunToolErrorContinues stores the error result, finishes later calls, and requests the model again.
@@ -294,16 +281,15 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 		{ID: "succeeded", Name: "second", Arguments: map[string]any{}},
 	}
 	toolUse := model.Response{
-		Content:      []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-		Outcome:      model.OutcomeToolUse,
-		ErrorMessage: "",
+		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	stop := model.Response{Content: []model.Content{testTextItem("done")}, Outcome: model.OutcomeStop, ErrorMessage: ""}
+	stop := model.Response{Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(toolUse, nil))
 	toolErr := errors.New("tool operation failed")
 	tools.EXPECT().Execute(gomock.Any(), calls[0], gomock.Any()).Return(
-		agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false}, toolErr,
+		agent.ToolResult{}, toolErr,
 	)
 	tools.EXPECT().Execute(gomock.Any(), calls[1], gomock.Any()).Return(
 		agent.ToolResult{CallID: calls[1].ID, ToolName: calls[1].Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
@@ -337,9 +323,8 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 	events := NewMockEventSink(gomock.NewController(t))
 	call := model.ToolCall{ID: "delivery", Name: "bash", Arguments: map[string]any{}}
 	response := model.Response{
-		Content:      []model.Content{testCallItem(call)},
-		Outcome:      model.OutcomeToolUse,
-		ErrorMessage: "",
+		Content: []model.Content{testCallItem(call)},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
@@ -356,7 +341,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 		func(_ context.Context, _ model.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
 			err := handleProgress(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"})
 			require.ErrorIs(t, err, deliveryErr)
-			return agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
+			return agent.ToolResult{},
 				fmt.Errorf("runtime propagated delivery: %w", err)
 		},
 	)
@@ -384,7 +369,7 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
 			require.NoError(t, emitText(handle, 0, "partial"))
 			return emitStream(handle, model.Response{
-				Content: nil, Outcome: model.OutcomeFailed, ErrorMessage: "Provider failed.",
+				Content: nil, Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some("Provider failed."), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 			}, errors.New("provider transport failed"))
 		},
 	)
@@ -397,7 +382,7 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 	history := service.History()
 	require.Len(t, history, 2)
 	require.Len(t, history[1].Model.Content, 1)
-	assert.Equal(t, "partial", history[1].Model.Content[0].Text)
+	assert.Equal(t, "partial", history[1].Model.Content[0].Text.OrEmpty())
 }
 
 // TestServiceRunProviderFailurePreservesSafeMessage keeps provider-approved detail in every terminal payload.
@@ -413,11 +398,12 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	response := model.Response{
 		Content: []model.Content{
 			testTextItem("partial"),
-			{Kind: model.ContentToolCall, ToolCall: model.ToolCall{ID: "unsafe", Name: "read", Arguments: map[string]any{}}},
+			{Kind: model.ContentToolCall, ToolCall: mo.Some(model.ToolCall{ID: "unsafe", Name: "read", Arguments: map[string]any{}}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext]()},
 		},
-		Outcome: model.OutcomeStop, ErrorMessage: safeMessage,
-		Provider: "openai-codex", Model: "gpt-test", ResponseModel: &actualModel, ResponseID: "resp-failed",
-		Usage:       model.Usage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.Some(safeMessage),
+		Provider: mo.Some(model.ProviderID("openai-codex")), Model: mo.Some(model.ID("gpt-test")),
+		ResponseModel: mo.Some(actualModel), ResponseID: mo.Some("resp-failed"),
+		Usage:       mo.Some(model.Usage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5, CachedInputTokens: 0, CacheWriteTokens: 0, ReasoningTokens: 0}),
 		Diagnostics: []model.Diagnostic{{Code: "provider_error", Message: safeMessage}},
 	}
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, errors.New("provider transport failed")))
@@ -436,16 +422,14 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	assert.Equal(t, safeMessage, result.ErrorMessage)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, safeMessage, history[1].Model.ErrorMessage)
-	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome)
-	assert.Equal(t, "resp-failed", history[1].Model.ResponseID)
-	require.NotNil(t, history[1].Model.ResponseModel)
-	assert.Equal(t, model.ID("gpt-actual"), *history[1].Model.ResponseModel)
-	*history[1].Model.ResponseModel = "mutated"
+	assert.Equal(t, safeMessage, history[1].Model.ErrorMessage.OrEmpty())
+	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
+	assert.Equal(t, "resp-failed", history[1].Model.ResponseID.OrEmpty())
+	assert.Equal(t, model.ID("gpt-actual"), history[1].Model.ResponseModel.OrEmpty())
+	history[1].Model.ResponseModel = mo.Some(model.ID("mutated"))
 	preservedHistory := service.History()
-	require.NotNil(t, preservedHistory[1].Model.ResponseModel)
-	assert.Equal(t, model.ID("gpt-actual"), *preservedHistory[1].Model.ResponseModel)
-	assert.Equal(t, int64(5), history[1].Model.Usage.TotalTokens)
+	assert.Equal(t, model.ID("gpt-actual"), preservedHistory[1].Model.ResponseModel.OrEmpty())
+	assert.Equal(t, int64(5), history[1].Model.Usage.OrEmpty().TotalTokens)
 	assert.Equal(t, []model.Diagnostic{{Code: "provider_error", Message: safeMessage}}, history[1].Model.Diagnostics)
 	assert.Len(t, history[1].Model.Content, 2)
 	assert.Len(t, service.ProjectHistory(), 1)
@@ -459,7 +443,7 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 			agentEnd = event
 		}
 	}
-	assert.Equal(t, safeMessage, messageEnd.Message.ErrorMessage)
+	assert.Equal(t, safeMessage, messageEnd.Message.ErrorMessage.OrEmpty())
 	assert.Equal(t, safeMessage, agentEnd.Agent.ErrorMessage)
 }
 
@@ -475,9 +459,8 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		release := make(chan struct{})
 		tools.EXPECT().Tools().Return(nil)
 		partial := model.Response{
-			Content:      []model.Content{testTextItem("partial")},
-			Outcome:      model.OutcomeStop,
-			ErrorMessage: "",
+			Content: []model.Content{testTextItem("partial")},
+			Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 		}
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, _ ModelRequest, update StreamHandler) error {
@@ -501,7 +484,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			state := service.State()
 			assert.Equal(t, StatusRunning, state.Status)
 			require.Len(t, state.PartialResponse.Content, 1)
-			assert.Equal(t, "partial", state.PartialResponse.Content[0].Text)
+			assert.Equal(t, "partial", state.PartialResponse.Content[0].Text.OrEmpty())
 			historyBefore := service.History()
 			_, secondErr := service.Run(t.Context(), Request{RunID: "blocked", UserText: "no"})
 			require.ErrorIs(t, secondErr, ErrRunActive)
@@ -514,8 +497,8 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		assert.Empty(t, service.State().PartialResponse.Content)
 		history := service.History()
 		require.Len(t, history, 2)
-		assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome)
-		assert.Equal(t, "Model request failed.", history[1].Model.ErrorMessage)
+		assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
+		assert.Equal(t, "Model request failed.", history[1].Model.ErrorMessage.OrEmpty())
 		assert.Len(t, service.ProjectHistory(), 1)
 	})
 }
@@ -532,9 +515,8 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		terminalContextErr := errors.New("terminal event received canceled context")
 		tools.EXPECT().Tools().Return(nil)
 		partial := model.Response{
-			Content:      []model.Content{testTextItem("partial")},
-			Outcome:      model.OutcomeStop,
-			ErrorMessage: "",
+			Content: []model.Content{testTextItem("partial")},
+			Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 		}
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, _ ModelRequest, update StreamHandler) error {
@@ -559,8 +541,8 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		require.NotErrorIs(t, err, terminalContextErr)
 		history := service.History()
 		require.Len(t, history, 2)
-		assert.Equal(t, model.OutcomeAborted, history[1].Model.Outcome)
-		assert.Equal(t, "Model request was canceled.", history[1].Model.ErrorMessage)
+		assert.Equal(t, model.OutcomeAborted, history[1].Model.Outcome.OrEmpty())
+		assert.Equal(t, "Model request was canceled.", history[1].Model.ErrorMessage.OrEmpty())
 		assert.Empty(t, service.State().PartialResponse.Content)
 	})
 }
@@ -575,9 +557,8 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		events := NewMockEventSink(gomock.NewController(t))
 		calls := []model.ToolCall{{ID: "active", Name: "bash", Arguments: map[string]any{}}, {ID: "skipped", Name: "edit", Arguments: map[string]any{}}}
 		response := model.Response{
-			Content:      []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-			Outcome:      model.OutcomeToolUse,
-			ErrorMessage: "",
+			Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
+			Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 		}
 		tools.EXPECT().Tools().Return(nil)
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
@@ -619,6 +600,18 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 	})
 }
 
+// TestNormalizeTerminalResponseTreatsEmptyMessageAsAbsent preserves the prior empty-value fallback.
+func TestNormalizeTerminalResponseTreatsEmptyMessageAsAbsent(t *testing.T) {
+	t.Parallel()
+
+	response := normalizeTerminalResponse(model.Response{
+		Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some(""), Content: nil, Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	})
+
+	assert.Equal(t, failedModelMessage, response.ErrorMessage.OrEmpty())
+	assert.True(t, response.ErrorMessage.IsSome())
+}
+
 // TestServiceRunTerminalProviderOutcomes supplies safe errors and executes no calls.
 func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 	t.Parallel()
@@ -648,7 +641,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 			events := NewMockEventSink(gomock.NewController(t))
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(
-				model.Response{Content: nil, Outcome: testCase.modelOutcome, ErrorMessage: ""}, nil,
+				model.Response{Content: nil, Outcome: mo.Some(testCase.modelOutcome), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, nil,
 			))
 			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
@@ -660,7 +653,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 			assert.Equal(t, testCase.errorMessage, result.ErrorMessage)
 			history := service.History()
 			require.Len(t, history, 2)
-			assert.Equal(t, testCase.errorMessage, history[1].Model.ErrorMessage)
+			assert.Equal(t, testCase.errorMessage, history[1].Model.ErrorMessage.OrEmpty())
 			assert.Len(t, service.ProjectHistory(), 1)
 		})
 	}
@@ -706,11 +699,10 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 	events := NewMockEventSink(gomock.NewController(t))
 	call := model.ToolCall{ID: "length-call", Name: "read", Arguments: map[string]any{"path": "x"}}
 	length := model.Response{
-		Content:      []model.Content{testCallItem(call)},
-		Outcome:      model.OutcomeLength,
-		ErrorMessage: "",
+		Content: []model.Content{testCallItem(call)},
+		Outcome: mo.Some(model.OutcomeLength), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	stop := model.Response{Content: nil, Outcome: model.OutcomeStop, ErrorMessage: ""}
+	stop := model.Response{Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(length, nil))
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -750,22 +742,12 @@ func newTestService(
 
 // testTextItem creates one complete text content item.
 func testTextItem(text string) model.Content {
-	return model.Content{
-		Kind:            model.ContentText,
-		Text:            text,
-		ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
-		ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
-	}
+	return model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
 }
 
 // testCallItem creates one complete tool-call content item.
 func testCallItem(call model.ToolCall) model.Content {
-	return model.Content{
-		Kind:            model.ContentToolCall,
-		Text:            "",
-		ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
-		ToolCall:        call,
-	}
+	return model.Content{Kind: model.ContentToolCall, ToolCall: mo.Some(call), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext]()}
 }
 
 // eventTypes extracts observable event order for compact assertions.
@@ -785,18 +767,20 @@ func streamResult(response model.Response, streamErr error) func(context.Context
 // emitText emits one complete text block.
 func emitText(handle StreamHandler, position int, text string) error {
 	if err := handle(StreamEvent{
-		Kind: StreamEventContentStart, Position: position, Content: model.Content{Kind: model.ContentText},
+		Kind: StreamEventContentStart, Position: position,
+		Content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
 	}); err != nil {
 		return err
 	}
 	if err := handle(StreamEvent{
 		Kind: StreamEventTextDelta, Position: position,
-		Content: model.Content{Kind: model.ContentText}, Delta: text,
+		Content: model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: text, Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
 	}); err != nil {
 		return err
 	}
 	return handle(StreamEvent{
-		Kind: StreamEventContentEnd, Position: position, Content: model.Content{Kind: model.ContentText},
+		Kind: StreamEventContentEnd, Position: position,
+		Content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}, Response: model.Response{},
 	})
 }
 
@@ -806,7 +790,7 @@ func emitStream(handle StreamHandler, response model.Response, streamErr error) 
 	if streamErr != nil {
 		kind = StreamEventError
 	}
-	if err := handle(StreamEvent{Kind: kind, Response: response}); err != nil {
+	if err := handle(StreamEvent{Kind: kind, Response: response, Position: 0, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}}); err != nil {
 		return err
 	}
 	return streamErr
@@ -836,7 +820,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
 			assert.Equal(t, "final transformation", request.History[0].User.Content[0].Text.OrEmpty())
-			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: model.OutcomeStop}})
+			return handle(StreamEvent{Kind: StreamEventDone, Response: model.Response{Outcome: mo.Some(model.OutcomeStop), Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, Position: 0, Content: model.Content{}, Delta: "", Preview: model.ToolCallPreview{}, ToolCall: model.ToolCall{}})
 		},
 	)
 	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookRunner, tools, events)
@@ -882,8 +866,8 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	history := service.History()
 	require.Len(t, history, 2)
 	assert.Equal(t, "persisted input", history[0].User.Content[0].Text.OrEmpty())
-	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome)
-	assert.Equal(t, failedModelMessage, history[1].Model.ErrorMessage)
+	assert.Equal(t, model.OutcomeFailed, history[1].Model.Outcome.OrEmpty())
+	assert.Equal(t, failedModelMessage, history[1].Model.ErrorMessage.OrEmpty())
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.Diagnostics)
 	assert.Equal(t, []agent.HistoryEntry{history[0]}, service.ProjectHistory())
 }
@@ -896,7 +880,8 @@ func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {
 		Kind:  tool.ResultContentImage,
 		Text:  mo.None[string](),
 		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
-	}}}
+	}}, CallID: "", ToolName: "", IsError: false,
+	}
 	cloned := cloneToolResult(original)
 	image, ok := cloned.Contents[0].Image.Get()
 	require.True(t, ok)

@@ -136,33 +136,36 @@ func buildModelInput(
 		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
-			input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text))
+			input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text.OrEmpty()))
 		case model.ContentReasoning:
-			if providerContextCompatible(item.ProviderContext.Source, target) && len(item.ProviderContext.Payload) != 0 {
-				reasoning, err := reasoningInput(item.ProviderContext.Payload)
+			providerContext, hasProviderContext := item.ProviderContext.Get()
+			if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
+				len(providerContext.Payload) != 0 {
+				reasoning, err := reasoningInput(providerContext.Payload)
 				if err != nil {
 					return nil, err
 				}
 				input = append(input, reasoning)
-			} else if item.Text != "" {
-				input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text))
+			} else if item.Text.OrEmpty() != "" {
+				input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text.OrEmpty()))
 			}
 		case model.ContentToolCall:
-			if property, custom := grammarInputProperties[item.ToolCall.Name]; custom {
-				value, ok := item.ToolCall.Arguments[property].(string)
+			call := item.ToolCall.OrEmpty()
+			if property, custom := grammarInputProperties[call.Name]; custom {
+				value, ok := call.Arguments[property].(string)
 				if !ok {
-					return nil, fmt.Errorf("codex grammar tool %q requires string argument %q", item.ToolCall.Name, property)
+					return nil, fmt.Errorf("codex grammar tool %q requires string argument %q", call.Name, property)
 				}
 				input = append(input, responses.ResponseInputItemParamOfCustomToolCall(
-					item.ToolCall.ID, value, item.ToolCall.Name,
+					call.ID, value, call.Name,
 				))
 			} else {
-				arguments, err := json.Marshal(item.ToolCall.Arguments)
+				arguments, err := json.Marshal(call.Arguments)
 				if err != nil {
 					return nil, fmt.Errorf("encode Codex tool-call arguments: %w", err)
 				}
 				input = append(input, responses.ResponseInputItemParamOfFunctionCall(
-					string(arguments), item.ToolCall.ID, item.ToolCall.Name,
+					string(arguments), call.ID, call.Name,
 				))
 			}
 		}
@@ -178,7 +181,9 @@ func providerContextCompatible(source, target model.ProviderContextSource) bool 
 	if source.Model == target.Model {
 		return true
 	}
-	return source.CompatibilityKey != "" && source.CompatibilityKey == target.CompatibilityKey
+	sourceKey, sourceHasKey := source.CompatibilityKey.Get()
+	targetKey, targetHasKey := target.CompatibilityKey.Get()
+	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }
 
 // reasoningInput validates stateless replay data and maps its summaries.

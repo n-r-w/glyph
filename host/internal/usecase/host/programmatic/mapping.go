@@ -20,16 +20,16 @@ func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
 		case agent.HistoryEntryUser:
 			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryUser, UserText: publicInputText(entry.User),
-				Model: emptyModelResponse(), ToolResult: emptyToolResult(),
+				Model: controller.ModelResponse{}, ToolResult: controller.ToolResult{},
 			}, true
 		case agent.HistoryEntryModel:
 			return controller.HistoryEntry{
 				Kind: controller.HistoryEntryModel, UserText: "", Model: mapModelResponse(entry.Model),
-				ToolResult: emptyToolResult(),
+				ToolResult: controller.ToolResult{},
 			}, true
 		case agent.HistoryEntryToolResult:
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryToolResult, UserText: "", Model: emptyModelResponse(),
+				Kind: controller.HistoryEntryToolResult, UserText: "", Model: controller.ModelResponse{},
 				ToolResult: mapToolResult(entry.ToolResult),
 			}, true
 		}
@@ -62,32 +62,33 @@ func mapModelResponse(response model.Response) controller.ModelResponse {
 		}
 		content = append(content, mapped)
 		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			text.WriteString(item.Text)
+			text.WriteString(item.Text.OrEmpty())
 		}
 	}
 	var responseModel *string
-	if response.ResponseModel != nil {
-		value := string(*response.ResponseModel)
+	if actualModel, ok := response.ResponseModel.Get(); ok {
+		value := string(actualModel)
 		responseModel = &value
 	}
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) controller.ModelDiagnostic {
 		return controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
 	})
+	usage := response.Usage.OrEmpty()
 	return controller.ModelResponse{
 		Text:          text.String(),
-		Outcome:       mapModelOutcome(response.Outcome),
-		ErrorMessage:  response.ErrorMessage,
-		Provider:      string(response.Provider),
-		Model:         string(response.Model),
+		Outcome:       mapModelOutcome(response.Outcome.OrEmpty()),
+		ErrorMessage:  response.ErrorMessage.OrEmpty(),
+		Provider:      string(response.Provider.OrEmpty()),
+		Model:         string(response.Model.OrEmpty()),
 		ResponseModel: responseModel,
-		ResponseID:    response.ResponseID,
+		ResponseID:    response.ResponseID.OrEmpty(),
 		Usage: controller.ModelUsage{
-			InputTokens:       response.Usage.InputTokens,
-			OutputTokens:      response.Usage.OutputTokens,
-			CachedInputTokens: response.Usage.CachedInputTokens,
-			CacheWriteTokens:  response.Usage.CacheWriteTokens,
-			ReasoningTokens:   response.Usage.ReasoningTokens,
-			TotalTokens:       response.Usage.TotalTokens,
+			InputTokens:       usage.InputTokens,
+			OutputTokens:      usage.OutputTokens,
+			CachedInputTokens: usage.CachedInputTokens,
+			CacheWriteTokens:  usage.CacheWriteTokens,
+			ReasoningTokens:   usage.ReasoningTokens,
+			TotalTokens:       usage.TotalTokens,
 		},
 		Diagnostics: diagnostics,
 		Content:     content,
@@ -98,26 +99,27 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 	switch content.Kind {
 	case model.ContentText:
 		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentText, Text: content.Text, ToolCall: emptyFinalToolCall(),
+			Kind: controller.ModelResponseContentText, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
 		}, true
 	case model.ContentRefusal:
 		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentRefusal, Text: content.Text, ToolCall: emptyFinalToolCall(),
+			Kind: controller.ModelResponseContentRefusal, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
 		}, true
 	case model.ContentReasoning:
 		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentReasoning, Text: content.Text, ToolCall: emptyFinalToolCall(),
+			Kind: controller.ModelResponseContentReasoning, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
 		}, true
 	case model.ContentToolCall:
+		call := content.ToolCall.OrEmpty()
 		return controller.ModelResponseContent{
 			Kind: controller.ModelResponseContentToolCall, Text: "",
 			ToolCall: controller.FinalToolCall{
-				CallID: content.ToolCall.ID, Name: content.ToolCall.Name, Position: position,
-				Arguments: cloneArguments(content.ToolCall.Arguments),
+				CallID: call.ID, Name: call.Name, Position: position,
+				Arguments: cloneArguments(call.Arguments),
 			},
 		}, true
 	}
-	return emptyModelResponseContent(), false
+	return controller.ModelResponseContent{}, false
 }
 
 func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPreview {
@@ -149,7 +151,7 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 			case tool.ResultContentText:
 				return controller.ToolResultContent{
 					Kind: controller.ToolResultContentText, Text: content.Text.OrEmpty(),
-					Image: controller.ToolResultImage{MediaType: "", Data: nil},
+					Image: controller.ToolResultImage{},
 				}, true
 			case tool.ResultContentImage:
 				image := content.Image.OrEmpty()
@@ -222,32 +224,6 @@ func mapModelOutcome(outcome model.Outcome) controller.ModelOutcome {
 		return controller.ModelOutcomeFailed
 	}
 	return controller.ModelOutcomeUnspecified
-}
-
-func emptyModelResponse() controller.ModelResponse {
-	return controller.ModelResponse{
-		Text: "", Outcome: controller.ModelOutcomeUnspecified, ErrorMessage: "", Provider: "", Model: "",
-		ResponseModel: nil, ResponseID: "",
-		Usage: controller.ModelUsage{
-			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
-			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
-		},
-		Diagnostics: nil, Content: nil,
-	}
-}
-
-func emptyModelResponseContent() controller.ModelResponseContent {
-	return controller.ModelResponseContent{
-		Kind: controller.ModelResponseContentUnspecified, Text: "", ToolCall: emptyFinalToolCall(),
-	}
-}
-
-func emptyFinalToolCall() controller.FinalToolCall {
-	return controller.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil}
-}
-
-func emptyToolResult() controller.ToolResult {
-	return controller.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false}
 }
 
 func cloneArguments(arguments map[string]any) map[string]any {

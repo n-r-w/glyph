@@ -72,42 +72,18 @@ type AgentSummary struct {
 	ErrorMessage string
 }
 
-// newEvent creates a complete event whose optional payloads have explicit zero values.
-func emptyModelResponse() model.Response {
-	return model.Response{
-		Content: nil, Outcome: 0, ErrorMessage: "", Provider: "", Model: "", ResponseModel: nil, ResponseID: "",
-		Usage: model.Usage{
-			InputTokens: 0, OutputTokens: 0, CachedInputTokens: 0,
-			CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
-		},
-		Diagnostics: nil,
-	}
-}
-
 func newEvent(eventType EventType, runID string) Event {
 	return Event{
-		Type:     eventType,
-		RunID:    runID,
-		Position: 0,
-		Content: model.Content{
-			Kind: 0, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{
-				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-				Payload: nil,
-			},
-			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
-		},
-		Message: emptyModelResponse(),
-		Preview: model.ToolCallPreview{
-			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
-		},
-		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
-		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
-		Turn: TurnSummary{
-			Response:    emptyModelResponse(),
-			ToolResults: nil,
-		},
-		Agent: AgentSummary{Outcome: 0, AddedHistory: nil, ErrorMessage: ""},
+		Type:       eventType,
+		RunID:      runID,
+		Position:   0,
+		Content:    model.Content{},
+		Message:    model.Response{},
+		Preview:    model.ToolCallPreview{},
+		ToolCall:   model.ToolCall{},
+		Progress:   tool.Progress{},
+		ToolResult: agent.ToolResult{},
+		Turn:       TurnSummary{},
+		Agent:      AgentSummary{},
 	}
 }

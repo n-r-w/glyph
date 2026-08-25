@@ -23,14 +23,9 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 
 	channel := NewMockChannel(gomock.NewController(t))
 	channel.EXPECT().Send(domainui.Frame{
-		Kind: domainui.FrameError,
-		Initialization: domainui.Initialization{
-			SelectedUIID: "", StartupContent: nil, Extensions: nil, Availability: 0,
-		},
-		Lifecycle: domainui.Lifecycle{
-			Type: 0, RunID: "", Text: "", ToolCallID: "", ToolName: "",
-			ProgressChannel: 0, IsError: false, Outcome: "", ErrorMessage: "", Availability: 0,
-		},
+		Kind:                domainui.FrameError,
+		Initialization:      domainui.Initialization{},
+		Lifecycle:           domainui.Lifecycle{},
 		AuthorizationURL:    "",
 		Text:                "extension crashed-plugin unavailable: extension process exited",
 		RetryAuthentication: false,
@@ -57,7 +52,7 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 
 	for _, event := range []run.Event{
 		{Type: run.EventContentStart, RunID: "run", Position: 2},
-		{Type: run.EventTextDelta, RunID: "run", Position: 2, Content: model.Content{Kind: model.ContentText, Text: "delta"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 2, Content: model.Content{Kind: model.ContentText, Text: mo.Some("delta")}},
 		{Type: run.EventContentEnd, RunID: "run", Position: 2},
 	} {
 		require.NoError(t, service.DeliverAgent(t.Context(), event))
@@ -113,31 +108,27 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 		Message: model.Response{
 			Content: []model.Content{
 				{
-					Kind: model.ContentReasoning, Text: "hidden reasoning", Final: true,
-					ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "secret-provider"}, Payload: []byte("encrypted-secret")},
+					Kind: model.ContentReasoning, Text: mo.Some("hidden reasoning"), Final: true,
+					ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "secret-provider"}, Payload: []byte("encrypted-secret")}),
 				},
 				{
-					Kind: model.ContentText, Text: "visible text",
-					ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
-					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+					Kind: model.ContentText, Text: mo.Some("visible text"),
 				},
-				{Kind: model.ContentRefusal, Text: "cannot help", Final: true},
+				{Kind: model.ContentRefusal, Text: mo.Some("cannot help"), Final: true},
 			},
-			Outcome: model.OutcomeStop, ErrorMessage: "",
-			Provider: "openai-codex", Model: "gpt-test", ResponseModel: &actualModel, ResponseID: "resp-1",
-			Usage: model.Usage{
+			Outcome:  mo.Some(model.OutcomeStop),
+			Provider: mo.Some(model.ProviderID("openai-codex")), Model: mo.Some(model.ID("gpt-test")), ResponseModel: mo.Some(actualModel), ResponseID: mo.Some("resp-1"),
+			Usage: mo.Some(model.Usage{
 				InputTokens: 10, OutputTokens: 7, CachedInputTokens: 4,
 				CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 17,
-			},
+			}),
 			Diagnostics: []model.Diagnostic{{Code: "recovered_output", Message: "safe diagnostic"}},
 		},
-		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
-		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
-		Turn: run.TurnSummary{
-			Response: model.Response{Content: nil, Outcome: 0, ErrorMessage: ""}, ToolResults: nil,
-		},
-		Agent: run.AgentSummary{Outcome: 0, AddedHistory: nil, ErrorMessage: ""},
+		ToolCall:   model.ToolCall{},
+		Progress:   tool.Progress{},
+		ToolResult: agent.ToolResult{},
+		Turn:       run.TurnSummary{},
+		Agent:      run.AgentSummary{},
 	}
 
 	err := NewDelivery(channel).DeliverAgent(t.Context(), event)
@@ -178,11 +169,11 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 
 	require.NoError(t, delivery.DeliverAgent(t.Context(), run.Event{
 		Type: run.EventAgentEnd, RunID: "run-1",
-		Message:    model.Response{Content: nil, Outcome: 0, ErrorMessage: ""},
-		ToolCall:   model.ToolCall{ID: "", Name: "", Arguments: nil},
-		Progress:   tool.Progress{Channel: 0, Content: ""},
-		ToolResult: agent.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
-		Turn:       run.TurnSummary{Response: model.Response{Content: nil, Outcome: 0, ErrorMessage: ""}, ToolResults: nil},
+		Message:    model.Response{},
+		ToolCall:   model.ToolCall{},
+		Progress:   tool.Progress{},
+		ToolResult: agent.ToolResult{},
+		Turn:       run.TurnSummary{},
 		Agent:      run.AgentSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: ""},
 	}))
 	require.NoError(t, delivery.DeliverSettled(t.Context(), "run-1"))

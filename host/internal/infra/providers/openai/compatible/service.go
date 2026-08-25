@@ -1,6 +1,4 @@
 // Package compatible implements OpenAI-compatible Chat Completions and Responses providers.
-//
-//nolint:exhaustruct // Provider mappings set only fields supported by Agent Core.
 package compatible
 
 import (
@@ -183,19 +181,35 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		} else {
 			err = errors.New(strings.TrimSuffix(message, "."))
 		}
-		if response.Outcome == 0 {
+		if response.Outcome.OrEmpty() == 0 {
 			response = failureResponse(outcome, message)
 		}
-		response.Provider = s.providerID
-		response.Model = request.Model.Model
-		if handleErr := handle(run.StreamEvent{Kind: run.StreamEventError, Response: response}); handleErr != nil {
+		response.Provider = mo.Some(s.providerID)
+		response.Model = mo.Some(request.Model.Model)
+		if handleErr := handle(run.StreamEvent{
+			Kind:     run.StreamEventError,
+			Position: 0,
+			Content:  model.Content{},
+			Delta:    "",
+			Preview:  model.ToolCallPreview{},
+			ToolCall: model.ToolCall{},
+			Response: response,
+		}); handleErr != nil {
 			return handleErr
 		}
 		return err
 	}
-	response.Provider = s.providerID
-	response.Model = request.Model.Model
-	if handleErr := handle(run.StreamEvent{Kind: run.StreamEventDone, Response: response}); handleErr != nil {
+	response.Provider = mo.Some(s.providerID)
+	response.Model = mo.Some(request.Model.Model)
+	if handleErr := handle(run.StreamEvent{
+		Kind:     run.StreamEventDone,
+		Position: 0,
+		Content:  model.Content{},
+		Delta:    "",
+		Preview:  model.ToolCallPreview{},
+		ToolCall: model.ToolCall{},
+		Response: response,
+	}); handleErr != nil {
 		return handleErr
 	}
 	return nil
@@ -220,16 +234,34 @@ func (s *Driver) emitFailure(
 	err error,
 ) error {
 	response := failureResponse(outcome, message)
-	response.Provider = s.providerID
-	response.Model = request.Model.Model
-	if handleErr := handle(run.StreamEvent{Kind: run.StreamEventError, Response: response}); handleErr != nil {
+	response.Provider = mo.Some(s.providerID)
+	response.Model = mo.Some(request.Model.Model)
+	if handleErr := handle(run.StreamEvent{
+		Kind:     run.StreamEventError,
+		Position: 0,
+		Content:  model.Content{},
+		Delta:    "",
+		Preview:  model.ToolCallPreview{},
+		ToolCall: model.ToolCall{},
+		Response: response,
+	}); handleErr != nil {
 		return handleErr
 	}
 	return err
 }
 
 func failureResponse(outcome model.Outcome, message string) model.Response {
-	return model.Response{Outcome: outcome, ErrorMessage: message}
+	return model.Response{
+		Content:       nil,
+		Outcome:       mo.Some(outcome),
+		ErrorMessage:  mo.Some(message),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
+	}
 }
 
 type streamHandlerError struct{ err error }

@@ -220,10 +220,20 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 	correlationID := active.correlationID
 	d.mutex.Unlock()
 
-	settled := emptyAgentEvent()
-	settled.CorrelationID = correlationID
-	settled.Type = controller.AgentEventAgentSettled
-	settled.RunID = runID
+	settled := controller.AgentEvent{
+		CorrelationID:   correlationID,
+		Type:            controller.AgentEventAgentSettled,
+		RunID:           runID,
+		ModelContent:    controller.ModelContent{},
+		ToolCallPreview: controller.ToolCallPreview{},
+		FinalToolCall:   controller.FinalToolCall{},
+		ToolExecution:   controller.ToolExecution{},
+		ToolProgress:    controller.ToolProgress{},
+		ToolResult:      controller.ToolResult{},
+		ModelResponse:   controller.ModelResponse{},
+		Turn:            controller.TurnSummary{},
+		Agent:           controller.AgentSummary{},
+	}
 	if err := d.emit(ctx, active, settled); err != nil {
 		return fmt.Errorf("deliver Programmatic Control settlement: %w", err)
 	}
@@ -231,9 +241,20 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 }
 
 func mapAgentEvent(event run.Event) controller.AgentEvent {
-	mapped := emptyAgentEvent()
-	mapped.Type = mapAgentEventType(event.Type)
-	mapped.RunID = event.RunID
+	mapped := controller.AgentEvent{
+		CorrelationID:   "",
+		Type:            mapAgentEventType(event.Type),
+		RunID:           event.RunID,
+		ModelContent:    controller.ModelContent{},
+		ToolCallPreview: controller.ToolCallPreview{},
+		FinalToolCall:   controller.FinalToolCall{},
+		ToolExecution:   controller.ToolExecution{},
+		ToolProgress:    controller.ToolProgress{},
+		ToolResult:      controller.ToolResult{},
+		ModelResponse:   controller.ModelResponse{},
+		Turn:            controller.TurnSummary{},
+		Agent:           controller.AgentSummary{},
+	}
 	switch event.Type {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
 	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd:
@@ -241,7 +262,7 @@ func mapAgentEvent(event run.Event) controller.AgentEvent {
 			Kind: mapModelContentKind(event.Content.Kind), Position: event.Position, Text: "",
 		}
 		if event.Type == run.EventTextDelta {
-			mapped.ModelContent.Text = event.Content.Text
+			mapped.ModelContent.Text = event.Content.Text.OrEmpty()
 		}
 	case run.EventToolCallStart, run.EventToolCallDelta:
 		mapped.ToolCallPreview = mapToolCallPreview(event.Preview)
@@ -336,21 +357,4 @@ func mapTerminalAgentEventType(eventType run.EventType) controller.AgentEventTyp
 		return controller.AgentEventUnspecified
 	}
 	return controller.AgentEventUnspecified
-}
-
-func emptyAgentEvent() controller.AgentEvent {
-	return controller.AgentEvent{
-		CorrelationID: "", Type: controller.AgentEventUnspecified, RunID: "",
-		ModelContent: controller.ModelContent{Kind: controller.ModelContentUnspecified, Position: 0, Text: ""},
-		ToolCallPreview: controller.ToolCallPreview{
-			CallID: "", Name: "", Position: 0, Provisional: false, Fields: nil,
-		},
-		FinalToolCall: controller.FinalToolCall{CallID: "", Name: "", Position: 0, Arguments: nil},
-		ToolExecution: controller.ToolExecution{CallID: "", ToolName: ""},
-		ToolProgress:  controller.ToolProgress{Channel: controller.ProgressChannelUnspecified, Content: ""},
-		ToolResult:    controller.ToolResult{CallID: "", ToolName: "", Contents: nil, IsError: false},
-		ModelResponse: emptyModelResponse(),
-		Turn:          controller.TurnSummary{Response: emptyModelResponse(), ToolResults: nil},
-		Agent:         controller.AgentSummary{Outcome: controller.RunOutcomeUnspecified, ErrorMessage: ""},
-	}
 }

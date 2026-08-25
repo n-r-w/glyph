@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -73,11 +75,11 @@ type StreamHandler func(event StreamEvent) error
 //
 //nolint:gocyclo // The branches enforce the finite semantic stream state machine.
 func applyStreamEvent(partial *model.Response, event StreamEvent) error {
-	if partial.Outcome != 0 {
+	if partial.Outcome.OrEmpty() != 0 {
 		return errors.New("model stream already terminated")
 	}
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
-		if event.Response.Outcome == 0 {
+		if event.Response.Outcome.OrEmpty() == 0 {
 			return errors.New("terminal model stream event requires an outcome")
 		}
 		for position := range partial.Content {
@@ -95,14 +97,7 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 	switch event.Kind {
 	case StreamEventContentStart:
 		for len(partial.Content) <= event.Position {
-			partial.Content = append(partial.Content, model.Content{
-				Kind: 0, Text: "", Final: false,
-				ProviderContext: model.ProviderContext{
-					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-					Payload: nil,
-				},
-				ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
-			})
+			partial.Content = append(partial.Content, model.Content{})
 		}
 		content := &partial.Content[event.Position]
 		if content.Kind != 0 {
@@ -112,12 +107,11 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 			return fmt.Errorf("model content %d has unsupported stream kind %d", event.Position, event.Content.Kind)
 		}
 		*content = model.Content{
-			Kind: event.Content.Kind, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{
-				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
-				Payload: nil,
-			},
-			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+			Kind:            event.Content.Kind,
+			Text:            mo.Some(""),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
 		}
 	case StreamEventTextDelta, StreamEventContentEnd:
 		if event.Position >= len(partial.Content) {
@@ -129,7 +123,7 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 			return fmt.Errorf("model content %d is not active", event.Position)
 		}
 		if event.Kind == StreamEventTextDelta {
-			content.Text += event.Delta
+			content.Text = mo.Some(content.Text.OrEmpty() + event.Delta)
 		} else {
 			content.Final = true
 		}

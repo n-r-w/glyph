@@ -44,10 +44,10 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	for _, event := range []run.Event{
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: "I can"}},
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: "not help"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("I can")}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentRefusal, Text: mo.Some("not help")}},
 		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
-			Content: []model.Content{{Kind: model.ContentRefusal, Text: "I cannot help"}},
+			Content: []model.Content{{Kind: model.ContentRefusal, Text: mo.Some("I cannot help")}},
 		}},
 	} {
 		require.NoError(t, renderer.DeliverAgent(t.Context(), event))
@@ -66,7 +66,7 @@ func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
 		Type: run.EventMessageEnd, RunID: "run",
 		Message: model.Response{Content: []model.Content{{
 			Kind:     model.ContentToolCall,
-			ToolCall: model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}},
+			ToolCall: mo.Some(model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{}}),
 		}}},
 	}))
 
@@ -81,15 +81,15 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
 	events := []run.Event{
-		{Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentReasoning, Text: "hidden reasoning"}},
-		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentText, Text: "hello"}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentReasoning, Text: mo.Some("hidden reasoning")}},
+		{Type: run.EventTextDelta, RunID: "run", Position: 1, Content: model.Content{Kind: model.ContentText, Text: mo.Some("hello")}},
 		{Type: run.EventToolExecutionStart, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStdout, Content: "output"}},
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStderr, Content: "warning"}},
 		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Contents: tool.TextContents("done"), IsError: false}},
 		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
-			Content:     []model.Content{{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "openai-codex"}, Payload: []byte("encrypted-secret")}}},
+			Content:     []model.Content{{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "openai-codex"}, Payload: []byte("encrypted-secret")})}},
 			Diagnostics: []model.Diagnostic{{Code: "provider_recovery", Message: "hidden diagnostic"}},
 		}},
 	}
@@ -147,7 +147,7 @@ func TestRendererReportsEmptyExtensionCatalogAsInformation(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
 
-	require.NoError(t, renderer.ReportSummary(t.Context(), toolservice.LoadReport{Issues: nil, Extensions: nil}))
+	require.NoError(t, renderer.ReportSummary(t.Context(), toolservice.LoadReport{}))
 
 	assert.Equal(t, "[info] headless\n[info] extensions: none\n", stderr.String())
 }
@@ -162,7 +162,7 @@ func TestRendererPropagatesWriterFailure(t *testing.T) {
 	renderer := NewRenderer(closedWriter, &bytes.Buffer{})
 
 	err = renderer.DeliverAgent(t.Context(), run.Event{
-		Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentText, Text: "text"},
+		Type: run.EventTextDelta, RunID: "run", Position: 0, Content: model.Content{Kind: model.ContentText, Text: mo.Some("text")},
 	})
 
 	require.Error(t, err)
