@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
@@ -362,10 +363,10 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
 	lines := make([]string, 0, estimatedLines)
 	for _, line := range model.state.Startup {
-		lines = append(lines, strings.Split(renderLine(line), "\n")...)
+		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
 	}
 	for _, line := range model.state.Transcript {
-		lines = append(lines, strings.Split(renderLine(line), "\n")...)
+		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
 	}
 	positions := make([]int, 0, len(model.state.ActiveModel))
 	for position := range model.state.ActiveModel {
@@ -378,7 +379,11 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 		if content.Kind == presentationdomain.ModelContentRefusal {
 			kind = presentationdomain.LineRefusal
 		}
-		lines = append(lines, strings.Split(renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}), "\n")...)
+		lines = appendWrappedBodyLine(
+			lines,
+			renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}),
+			model.width,
+		)
 	}
 	calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
 	for _, call := range model.state.ActiveToolCalls {
@@ -386,10 +391,10 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	}
 	sort.Slice(calls, func(i, j int) bool { return calls[i].Position < calls[j].Position })
 	for _, call := range calls {
-		lines = append(lines, renderToolCall(call))
+		lines = appendWrappedBodyLine(lines, renderToolCall(call), model.width)
 	}
 	if model.state.AuthorizationURL != "" {
-		lines = append(lines, "Authorization: "+model.state.AuthorizationURL)
+		lines = appendWrappedBodyLine(lines, "Authorization: "+model.state.AuthorizationURL, model.width)
 	}
 
 	if model.height <= 0 {
@@ -403,6 +408,15 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 		return lines[len(lines)-capacity:]
 	}
 	return lines
+}
+
+// appendWrappedBodyLine converts one logical body line into readable terminal-width visual lines.
+func appendWrappedBodyLine(lines []string, line string, width int) []string {
+	if width <= 0 {
+		return append(lines, strings.Split(line, "\n")...)
+	}
+
+	return append(lines, strings.Split(ansi.Wrap(line, width, ""), "\n")...)
 }
 
 func renderToolCall(call presentationdomain.ToolCallState) string {

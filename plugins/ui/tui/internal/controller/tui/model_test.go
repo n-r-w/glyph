@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -416,6 +417,66 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	assert.Contains(t, view, `path="file.txt"`)
 	assert.Contains(t, view, "query=hel")
 	assert.NotContains(t, view, `{"path"`)
+}
+
+// TestModelWrapsCompletedUnicodeContent verifies readable wrapping, display width, and embedded line boundaries.
+// It uses one completed response at width 16 and has no external dependencies.
+func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
+	t.Parallel()
+
+	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind: presentationdomain.EventModelEnd,
+		ModelResponseContent: []presentationdomain.ModelResponseContent{{
+			Kind: presentationdomain.ModelContentText,
+			Text: "readable words wrap cleanly\n你好 世界",
+		}},
+	})
+	model = updateModel(t, model, tea.WindowSizeMsg{Width: 16})
+
+	lines := model.visibleBodyLines(0)
+	assert.Equal(t, []string{"assistant:", "readable words", "wrap cleanly", "你好 世界"}, lines)
+	for _, line := range lines {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
+	}
+}
+
+// TestModelWrapsActiveContent verifies word wrapping and long-token splitting for active streaming text.
+// It uses one active response at width 16 and has no external dependencies.
+func TestModelWrapsActiveContent(t *testing.T) {
+	t.Parallel()
+
+	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind:     presentationdomain.EventModelDelta,
+		Position: 1,
+		Text:     "active words and supercalifragilistic",
+	})
+	model = updateModel(t, model, tea.WindowSizeMsg{Width: 16})
+
+	lines := model.visibleBodyLines(0)
+	assert.Equal(t, []string{"assistant:", "active words and", "supercalifragili", "stic"}, lines)
+	for _, line := range lines {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
+	}
+}
+
+// TestModelClipsAfterWrapping verifies that the height budget selects wrapped visual lines.
+// It uses a four-line wrapped stream with space for two body lines and checks nonpositive width safety.
+func TestModelClipsAfterWrapping(t *testing.T) {
+	t.Parallel()
+
+	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
+	model = updateModel(t, model, presentationdomain.Event{
+		Kind:     presentationdomain.EventModelDelta,
+		Position: 1,
+		Text:     "active words and supercalifragilistic",
+	})
+	model = updateModel(t, model, tea.WindowSizeMsg{Width: 16, Height: fixedViewLineCount + 2})
+	assert.Equal(t, []string{"supercalifragili", "stic"}, model.visibleBodyLines(0))
+
+	model = updateModel(t, model, tea.WindowSizeMsg{Width: 0, Height: 0})
+	assert.Equal(t, []string{"assistant: active words and supercalifragilistic"}, model.visibleBodyLines(0))
 }
 
 // TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight verifies viewport truncation.
