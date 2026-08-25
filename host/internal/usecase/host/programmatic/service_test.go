@@ -67,12 +67,12 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		)
 
 		response, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 
 		require.NoError(t, err)
 		assert.Equal(t, controller.Response{
-			CorrelationID: "c1", Kind: controller.ResponseUserRequestAccepted, State: controller.RunStateResult{}, Messages: nil, Models: controller.ModelsResult{}, Selection: model.Selection{}, Rejection: controller.Rejection{},
+			CorrelationID: "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 		}, response)
 		require.NotNil(t, operation)
 		select {
@@ -138,7 +138,7 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 				},
 			)
 			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID: values.correlationID, Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+				CorrelationID: values.correlationID, Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			})
 			require.NoError(t, err)
 			assert.Equal(t, controller.ResponseUserRequestAccepted, response.Kind)
@@ -166,37 +166,37 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 	}{
 		{
 			name: "missing payload precedes active correlation and busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUnspecified, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUnspecified, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUnspecified, prepareErr: nil,
 		},
 		{
 			name: "blank user request precedes active correlation and busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: " \t", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some(" \t"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
 			name: "unexpected query payload precedes active correlation", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandGetRunState, UserText: "unexpected", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandGetRunState, UserText: mo.Some("unexpected"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandGetRunState, prepareErr: nil,
 		},
 		{
 			name: "active correlation precedes busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "next", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			expectedCode: controller.RejectionCorrelationInUse, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
 			name: "busy state precedes allocation failure", active: true,
-			command:    controller.Command{CorrelationID: "other", Kind: controller.CommandUserRequest, UserText: "next", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:    controller.Command{CorrelationID: "other", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			prepareErr: errors.New("must not allocate"), expectedCode: controller.RejectionBusy,
 			expectedType: controller.CommandUserRequest,
 		},
 		{
-			name: "abort without active run", command: controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			name: "abort without active run", command: controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			expectedCode: controller.RejectionNoActiveRun, expectedType: controller.CommandAbort, active: false, prepareErr: nil,
 		},
 		{
 			name:       "allocation failure after valid idle request",
-			command:    controller.Command{CorrelationID: "request", Kind: controller.CommandUserRequest, UserText: "next", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command:    controller.Command{CorrelationID: "request", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			prepareErr: errors.New("entropy failed"), expectedCode: controller.RejectionInternal,
 			expectedType: controller.CommandUserRequest, active: false,
 		},
@@ -210,7 +210,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 				_, operation, err := service.Handle(s.T().Context(), controller.Command{
-					CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+					CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(operation)
@@ -226,8 +226,8 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			s.Nil(operation)
 			s.Equal(test.command.CorrelationID, response.CorrelationID)
 			s.Equal(controller.ResponseRejected, response.Kind)
-			s.Equal(test.expectedType, response.Rejection.Command)
-			s.Equal(test.expectedCode, response.Rejection.Code)
+			s.Equal(test.expectedType, response.Rejection.OrEmpty().Command)
+			s.Equal(test.expectedCode, response.Rejection.OrEmpty().Code)
 		})
 	}
 }
@@ -240,7 +240,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, activeOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(activeOperation)
@@ -268,27 +268,27 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		want    controller.Response
 	}{
 		{
-			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 			want: controller.Response{
 				CorrelationID: "models", Kind: controller.ResponseModels,
-				Models: controller.ModelsResult{Models: models, ActiveSelection: initial}, State: controller.RunStateResult{}, Messages: nil, Selection: model.Selection{}, Rejection: controller.Rejection{},
+				Models: mo.Some(controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)}), State: mo.None[controller.RunStateResult](), Messages: nil, Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 			},
 		},
 		{
 			command: controller.Command{
-				CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: "other", ModelID: "next", UserText: "", ReasoningChoice: "",
+				CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("other")), ModelID: mo.Some(model.ID("next")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 			want: controller.Response{
-				CorrelationID: "model", Kind: controller.ResponseModelSelection, Selection: selectedModel, State: controller.RunStateResult{}, Messages: nil, Models: controller.ModelsResult{}, Rejection: controller.Rejection{},
+				CorrelationID: "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
 			},
 		},
 		{
 			command: controller.Command{
 				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice,
-				ReasoningChoice: model.ReasoningChoiceHigh, UserText: "", ProviderID: "", ModelID: "",
+				ReasoningChoice: mo.Some(model.ReasoningChoiceHigh), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 			},
 			want: controller.Response{
-				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: selectedReasoning, State: controller.RunStateResult{}, Messages: nil, Models: controller.ModelsResult{}, Rejection: controller.Rejection{},
+				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
 			},
 		},
 	}
@@ -309,17 +309,17 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	)
 
 	commands := []controller.Command{
-		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: "model", UserText: "", ProviderID: "", ReasoningChoice: ""},
-		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: "provider", UserText: "", ModelID: "", ReasoningChoice: ""},
-		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("provider")), UserText: mo.None[string](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 	}
 	for _, command := range commands {
 		response, operation, err := service.Handle(s.T().Context(), command)
 		s.Require().NoError(err)
 		s.Nil(operation)
 		s.Equal(controller.ResponseRejected, response.Kind)
-		s.Equal(controller.RejectionInvalidArgument, response.Rejection.Code)
-		s.Equal(command.Kind, response.Rejection.Command)
+		s.Equal(controller.RejectionInvalidArgument, response.Rejection.OrEmpty().Code)
+		s.Equal(command.Kind, response.Rejection.OrEmpty().Command)
 	}
 }
 
@@ -359,14 +359,14 @@ func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
 
 			response, operation, err := service.Handle(s.T().Context(), controller.Command{
 				CorrelationID: "selection", Kind: controller.CommandSelectModel,
-				ProviderID: "provider", ModelID: "model", UserText: "", ReasoningChoice: "",
+				ProviderID: mo.Some(model.ProviderID("provider")), ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			})
 			s.Require().NoError(err)
 			s.Nil(operation)
 			s.Equal(controller.ResponseRejected, response.Kind)
-			s.Equal(test.code, response.Rejection.Code)
+			s.Equal(test.code, response.Rejection.OrEmpty().Code)
 			if test.code == controller.RejectionInternal {
-				s.NotContains(response.Rejection.Message, "internal details")
+				s.NotContains(response.Rejection.OrEmpty().Message, "internal details")
 			}
 		})
 	}
@@ -402,7 +402,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			defer calls.Done()
 			results[index].response, results[index].operation, results[index].err = service.Handle(
 				s.T().Context(), controller.Command{
-					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 				},
 			)
 		}()
@@ -419,7 +419,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			s.Require().NotNil(result.operation)
 		case controller.ResponseRejected:
 			rejected++
-			s.Equal(controller.RejectionBusy, result.response.Rejection.Code)
+			s.Equal(controller.RejectionBusy, result.response.Rejection.OrEmpty().Code)
 		case controller.ResponseUnspecified,
 			controller.ResponseAbortCompleted,
 			controller.ResponseRunState,
@@ -454,7 +454,7 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	result := make(chan handleResult)
 	go func() {
 		response, operation, err := service.Handle(s.T().Context(), controller.Command{
-			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		result <- handleResult{response: response, operation: operation, err: err}
 	}()
@@ -467,7 +467,7 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	s.Require().NoError(handled.err)
 	s.Nil(handled.operation)
 	s.Equal(controller.ResponseRejected, handled.response.Kind)
-	s.Equal(controller.RejectionBusy, handled.response.Rejection.Code)
+	s.Equal(controller.RejectionBusy, handled.response.Rejection.OrEmpty().Code)
 }
 
 // TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies state correlation and history mapping.
@@ -484,20 +484,20 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
 	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
 
 	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
 		CorrelationID: "state", Kind: controller.ResponseRunState,
-		State: controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: "active"}, Messages: nil, Models: controller.ModelsResult{}, Selection: model.Selection{}, Rejection: controller.Rejection{},
+		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 	}, response)
 
 	responseModel := model.ID("response-model")
@@ -523,18 +523,20 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		},
 	}
 	response, returnedOperation, err = service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "messages", Kind: controller.CommandGetMessages, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "messages", Kind: controller.CommandGetMessages, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.ResponseMessages, response.Kind)
 	s.Require().Len(response.Messages, 3)
-	s.Equal("hello", response.Messages[0].UserText)
-	s.Equal("answer", response.Messages[1].Model.Text)
-	s.Require().Len(response.Messages[1].Model.Content, 2)
-	s.Equal(controller.ModelResponseContentReasoning, response.Messages[1].Model.Content[1].Kind)
-	s.Equal([]byte{1, 2}, response.Messages[2].ToolResult.Contents[1].Image.Data)
-	response.Messages[2].ToolResult.Contents[1].Image.Data[0] = 9
+	s.Equal("hello", response.Messages[0].UserText.OrEmpty())
+	modelResponse := response.Messages[1].Model.OrEmpty()
+	s.Equal("answer", modelResponse.Text)
+	s.Require().Len(modelResponse.Content, 2)
+	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[1].Kind)
+	toolResult := response.Messages[2].ToolResult.OrEmpty()
+	s.Equal([]byte{1, 2}, toolResult.Contents[1].Image.Data)
+	toolResult.Contents[1].Image.Data[0] = 9
 	s.Equal(byte(1), history[2].ToolResult.OrEmpty().Contents[1].Image.OrEmpty().Data[0])
 }
 
@@ -545,12 +547,12 @@ func (s *ServiceSuite) TestAbortCancelsAcceptedOperationWithoutStarting() {
 	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-accepted", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "request", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 	s.Require().NoError(err)
 
 	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "abort", Kind: controller.CommandAbort, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 	})
 
 	s.Require().NoError(err)
@@ -583,7 +585,7 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -601,7 +603,7 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		aborted := make(chan abortResult)
 		go func() {
 			response, _, abortErr := service.Handle(t.Context(), controller.Command{
-				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			})
 			aborted <- abortResult{response: response, err: abortErr}
 		}()
@@ -619,10 +621,10 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		require.ErrorIs(t, runContextErr, context.Canceled)
 
 		state, _, stateErr := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		require.NoError(t, stateErr)
-		assert.Equal(t, controller.RunStateIdle, state.State.State)
+		assert.Equal(t, controller.RunStateIdle, state.State.OrEmpty().State)
 	})
 }
 
@@ -645,7 +647,7 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -653,7 +655,7 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 		aborted := make(chan error)
 		go func() {
 			_, _, abortErr := service.Handle(t.Context(), controller.Command{
-				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: "",
+				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			})
 			aborted <- abortErr
 		}()
@@ -688,7 +690,7 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -725,7 +727,7 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: "first", ProviderID: "", ModelID: "", ReasoningChoice: "",
+			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -752,7 +754,7 @@ func (s *ServiceSuite) TestEmptyCorrelationReturnsTerminalError() {
 	service := New(NewMockCoordinator(ctrl), nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
 
 	response, operation, err := service.Handle(
-		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState, CorrelationID: "", UserText: "", ProviderID: "", ModelID: "", ReasoningChoice: ""},
+		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState, CorrelationID: "", UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
 	)
 
 	s.Require().ErrorIs(err, ErrCorrelationRequired)

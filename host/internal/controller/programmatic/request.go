@@ -3,6 +3,7 @@ package programmatic
 import (
 	"errors"
 
+	"github.com/samber/mo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -22,13 +23,17 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	}
 
 	command := Command{
-		CorrelationID: correlationID, Kind: CommandUnspecified, UserText: "",
-		ProviderID: "", ModelID: "", ReasoningChoice: "",
+		CorrelationID:   correlationID,
+		Kind:            CommandUnspecified,
+		UserText:        mo.None[string](),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
 	}
 	switch request.WhichCommand() {
 	case programmaticv1.OpenRequest_UserRequest_case:
 		command.Kind = CommandUserRequest
-		command.UserText = request.GetUserRequest().GetText()
+		command.UserText = mo.Some(request.GetUserRequest().GetText())
 	case programmaticv1.OpenRequest_Abort_case:
 		command.Kind = CommandAbort
 	case programmaticv1.OpenRequest_GetRunState_case:
@@ -39,11 +44,11 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		command.Kind = CommandGetModels
 	case programmaticv1.OpenRequest_SelectModel_case:
 		command.Kind = CommandSelectModel
-		command.ProviderID = model.ProviderID(request.GetSelectModel().GetProviderId())
-		command.ModelID = model.ID(request.GetSelectModel().GetModelId())
+		command.ProviderID = mo.Some(model.ProviderID(request.GetSelectModel().GetProviderId()))
+		command.ModelID = mo.Some(model.ID(request.GetSelectModel().GetModelId()))
 	case programmaticv1.OpenRequest_SelectReasoningChoice_case:
 		command.Kind = CommandSelectReasoningChoice
-		command.ReasoningChoice = mapRequestReasoningChoice(request.GetSelectReasoningChoice().GetChoice())
+		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(request.GetSelectReasoningChoice().GetChoice()))
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
 	return command, nil

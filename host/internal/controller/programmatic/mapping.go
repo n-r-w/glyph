@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -21,14 +22,9 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 	case ResponseAbortCompleted:
 		wire.SetAbortCompleted(new(programmaticv1.AbortCompleted))
 	case ResponseRunState:
-		state, err := mapRunState(response.State.State)
-		if err != nil {
+		if err := mapRunStateCommandResponse(wire, response.State); err != nil {
 			return nil, err
 		}
-		result := new(programmaticv1.RunStateResult)
-		result.SetState(state)
-		result.SetActiveCorrelationId(response.State.ActiveCorrelationID)
-		wire.SetRunState(result)
 	case ResponseMessages:
 		entries, err := mapHistoryEntries(response.Messages)
 		if err != nil {
@@ -46,19 +42,9 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 			return nil, err
 		}
 	case ResponseRejected:
-		command, err := mapCommandType(response.Rejection.Command)
-		if err != nil {
+		if err := mapRejectionCommandResponse(wire, response.Rejection); err != nil {
 			return nil, err
 		}
-		code, err := mapRejectionCode(response.Rejection.Code)
-		if err != nil {
-			return nil, err
-		}
-		rejected := new(programmaticv1.CommandRejected)
-		rejected.SetCommand(command)
-		rejected.SetCode(code)
-		rejected.SetMessage(response.Rejection.Message)
-		wire.SetRejected(rejected)
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
 	default:
@@ -67,13 +53,46 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 	return wrapCommandResponse(response.CorrelationID, wire), nil
 }
 
-// mapModelsCommandResponse maps the catalog and confirmed selection after response-kind dispatch.
-func mapModelsCommandResponse(wire *programmaticv1.CommandResponse, response ModelsResult) error {
-	models, err := mapConfiguredModels(response.Models)
+// mapRunStateCommandResponse maps one run-state response after response-kind dispatch.
+func mapRunStateCommandResponse(
+	wire *programmaticv1.CommandResponse,
+	response mo.Option[RunStateResult],
+) error {
+	stateResult, ok := response.Get()
+	if !ok {
+		return errors.New("map command response: missing run state")
+	}
+	state, err := mapRunState(stateResult.State)
 	if err != nil {
 		return err
 	}
-	selection, err := mapModelSelection(response.ActiveSelection)
+	result := new(programmaticv1.RunStateResult)
+	result.SetState(state)
+	if activeCorrelationID, present := stateResult.ActiveCorrelationID.Get(); present {
+		result.SetActiveCorrelationId(activeCorrelationID)
+	}
+	wire.SetRunState(result)
+	return nil
+}
+
+// mapModelsCommandResponse maps the catalog and confirmed selection after response-kind dispatch.
+func mapModelsCommandResponse(
+	wire *programmaticv1.CommandResponse,
+	response mo.Option[ModelsResult],
+) error {
+	modelsResult, ok := response.Get()
+	if !ok {
+		return errors.New("map command response: missing models result")
+	}
+	models, err := mapConfiguredModels(modelsResult.Models)
+	if err != nil {
+		return err
+	}
+	activeSelection, ok := modelsResult.ActiveSelection.Get()
+	if !ok {
+		return errors.New("map models response: missing active selection")
+	}
+	selection, err := mapModelSelection(activeSelection)
 	if err != nil {
 		return err
 	}
@@ -87,15 +106,44 @@ func mapModelsCommandResponse(wire *programmaticv1.CommandResponse, response Mod
 // mapModelSelectionCommandResponse maps one confirmed selection after response-kind dispatch.
 func mapModelSelectionCommandResponse(
 	wire *programmaticv1.CommandResponse,
-	selection model.Selection,
+	selection mo.Option[model.Selection],
 ) error {
-	mapped, err := mapModelSelection(selection)
+	selectionValue, ok := selection.Get()
+	if !ok {
+		return errors.New("map command response: missing model selection")
+	}
+	mapped, err := mapModelSelection(selectionValue)
 	if err != nil {
 		return err
 	}
 	result := new(programmaticv1.ModelSelectionResult)
 	result.SetSelection(mapped)
 	wire.SetModelSelection(result)
+	return nil
+}
+
+// mapRejectionCommandResponse maps one rejection after response-kind dispatch.
+func mapRejectionCommandResponse(
+	wire *programmaticv1.CommandResponse,
+	response mo.Option[Rejection],
+) error {
+	rejection, ok := response.Get()
+	if !ok {
+		return errors.New("map command response: missing rejection")
+	}
+	command, err := mapCommandType(rejection.Command)
+	if err != nil {
+		return err
+	}
+	code, err := mapRejectionCode(rejection.Code)
+	if err != nil {
+		return err
+	}
+	rejected := new(programmaticv1.CommandRejected)
+	rejected.SetCommand(command)
+	rejected.SetCode(code)
+	rejected.SetMessage(rejection.Message)
+	wire.SetRejected(rejected)
 	return nil
 }
 
@@ -190,17 +238,29 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 		wire := new(programmaticv1.HistoryEntry)
 		switch entry.Kind {
 		case HistoryEntryUser:
+			userText, ok := entry.UserText.Get()
+			if !ok {
+				return nil, fmt.Errorf("map history entry %d: missing user payload", index)
+			}
 			user := new(programmaticv1.UserMessage)
-			user.SetText(entry.UserText)
+			user.SetText(userText)
 			wire.SetUser(user)
 		case HistoryEntryModel:
-			modelResponse, err := mapModelResponse(entry.Model)
+			modelValue, ok := entry.Model.Get()
+			if !ok {
+				return nil, fmt.Errorf("map history entry %d: missing model payload", index)
+			}
+			modelResponse, err := mapModelResponse(modelValue)
 			if err != nil {
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
 			wire.SetModel(modelResponse)
 		case HistoryEntryToolResult:
-			result, err := mapToolResult(entry.ToolResult)
+			toolResult, ok := entry.ToolResult.Get()
+			if !ok {
+				return nil, fmt.Errorf("map history entry %d: missing tool result payload", index)
+			}
+			result, err := mapToolResult(toolResult)
 			if err != nil {
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
@@ -330,7 +390,7 @@ func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
 }
 
 func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, error) {
-	outcome, err := mapModelOutcome(response.Outcome)
+	outcome, err := mapRequiredModelOutcome(response.Outcome)
 	if err != nil {
 		return nil, err
 	}
@@ -368,13 +428,7 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	if err != nil {
 		return nil, err
 	}
-	usage := new(programmaticv1.ModelUsage)
-	usage.SetInputTokens(response.Usage.InputTokens)
-	usage.SetOutputTokens(response.Usage.OutputTokens)
-	usage.SetCachedInputTokens(response.Usage.CachedInputTokens)
-	usage.SetCacheWriteTokens(response.Usage.CacheWriteTokens)
-	usage.SetReasoningTokens(response.Usage.ReasoningTokens)
-	usage.SetTotalTokens(response.Usage.TotalTokens)
+
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic ModelDiagnostic, _ int) *programmaticv1.ModelDiagnostic {
 		mapped := new(programmaticv1.ModelDiagnostic)
 		mapped.SetCode(diagnostic.Code)
@@ -384,14 +438,31 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	mapped := new(programmaticv1.ModelResponse)
 	mapped.SetText(response.Text)
 	mapped.SetOutcome(outcome)
-	mapped.SetErrorMessage(response.ErrorMessage)
-	mapped.SetProvider(response.Provider)
-	mapped.SetModel(response.Model)
-	if response.ResponseModel != nil {
-		mapped.SetResponseModel(*response.ResponseModel)
+	if errorMessage, ok := response.ErrorMessage.Get(); ok {
+		mapped.SetErrorMessage(errorMessage)
 	}
-	mapped.SetResponseId(response.ResponseID)
-	mapped.SetUsage(usage)
+	if provider, ok := response.Provider.Get(); ok {
+		mapped.SetProvider(provider)
+	}
+	if configuredModel, ok := response.Model.Get(); ok {
+		mapped.SetModel(configuredModel)
+	}
+	if responseModel, ok := response.ResponseModel.Get(); ok {
+		mapped.SetResponseModel(responseModel)
+	}
+	if responseID, ok := response.ResponseID.Get(); ok {
+		mapped.SetResponseId(responseID)
+	}
+	if usageValue, ok := response.Usage.Get(); ok {
+		usage := new(programmaticv1.ModelUsage)
+		usage.SetInputTokens(usageValue.InputTokens)
+		usage.SetOutputTokens(usageValue.OutputTokens)
+		usage.SetCachedInputTokens(usageValue.CachedInputTokens)
+		usage.SetCacheWriteTokens(usageValue.CacheWriteTokens)
+		usage.SetReasoningTokens(usageValue.ReasoningTokens)
+		usage.SetTotalTokens(usageValue.TotalTokens)
+		mapped.SetUsage(usage)
+	}
 	mapped.SetDiagnostics(diagnostics)
 	mapped.SetContent(content)
 	return mapped, nil
@@ -624,6 +695,15 @@ func mapProgressChannel(channel ProgressChannel) (programmaticv1.ProgressChannel
 	default:
 		return 0, fmt.Errorf("map progress channel: unknown value %d", channel)
 	}
+}
+
+// mapRequiredModelOutcome maps the required outcome at the Protobuf boundary.
+func mapRequiredModelOutcome(outcome mo.Option[ModelOutcome]) (programmaticv1.ModelOutcome, error) {
+	outcomeValue, ok := outcome.Get()
+	if !ok {
+		return 0, errors.New("map model response: missing outcome")
+	}
+	return mapModelOutcome(outcomeValue)
 }
 
 func mapModelOutcome(outcome ModelOutcome) (programmaticv1.ModelOutcome, error) {

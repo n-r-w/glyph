@@ -1,6 +1,10 @@
 package programmatic
 
-import "github.com/n-r-w/glyph/host/internal/domain/model"
+import (
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
 
 // CommandKind identifies one Programmatic Control operation.
 type CommandKind uint8
@@ -21,10 +25,10 @@ const (
 type Command struct {
 	CorrelationID   string
 	Kind            CommandKind
-	UserText        string
-	ProviderID      model.ProviderID
-	ModelID         model.ID
-	ReasoningChoice model.ReasoningChoice
+	UserText        mo.Option[string]
+	ProviderID      mo.Option[model.ProviderID]
+	ModelID         mo.Option[model.ID]
+	ReasoningChoice mo.Option[model.ReasoningChoice]
 }
 
 // ResponseKind identifies one command result.
@@ -62,17 +66,17 @@ const (
 type Response struct {
 	CorrelationID string
 	Kind          ResponseKind
-	State         RunStateResult
+	State         mo.Option[RunStateResult]
 	Messages      []HistoryEntry
-	Models        ModelsResult
-	Selection     model.Selection
-	Rejection     Rejection
+	Models        mo.Option[ModelsResult]
+	Selection     mo.Option[model.Selection]
+	Rejection     mo.Option[Rejection]
 }
 
 // ModelsResult contains configured models and the active selection.
 type ModelsResult struct {
 	Models          []model.Descriptor
-	ActiveSelection model.Selection
+	ActiveSelection mo.Option[model.Selection]
 }
 
 // Rejection describes one command failure that keeps the session open.
@@ -95,7 +99,7 @@ const (
 // RunStateResult is a public snapshot without partial provider state.
 type RunStateResult struct {
 	State               RunState
-	ActiveCorrelationID string
+	ActiveCorrelationID mo.Option[string]
 }
 
 // HistoryEntryKind identifies one public history entry.
@@ -112,9 +116,9 @@ const (
 // HistoryEntry is one ordered public conversation entry.
 type HistoryEntry struct {
 	Kind       HistoryEntryKind
-	UserText   string
-	Model      ModelResponse
-	ToolResult ToolResult
+	UserText   mo.Option[string]
+	Model      mo.Option[ModelResponse]
+	ToolResult mo.Option[ToolResult]
 }
 
 // AgentEventType identifies one correlated agent lifecycle event.
@@ -316,13 +320,13 @@ type ModelDiagnostic struct {
 // ModelResponse is one provider-neutral public model response.
 type ModelResponse struct {
 	Text          string
-	Outcome       ModelOutcome
-	ErrorMessage  string
-	Provider      string
-	Model         string
-	ResponseModel *string
-	ResponseID    string
-	Usage         ModelUsage
+	Outcome       mo.Option[ModelOutcome]
+	ErrorMessage  mo.Option[string]
+	Provider      mo.Option[string]
+	Model         mo.Option[string]
+	ResponseModel mo.Option[string]
+	ResponseID    mo.Option[string]
+	Usage         mo.Option[ModelUsage]
 	Diagnostics   []ModelDiagnostic
 	Content       []ModelResponseContent
 }

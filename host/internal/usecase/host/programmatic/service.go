@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -79,13 +80,14 @@ func (s *Service) Handle(
 		return s.runPreparationRejected(command)
 	}
 
+	userText, _ := command.UserText.Get()
 	runContext, cancel := context.WithCancel(ctx)
 	operation := &activeRun{
 		delivery:      s.delivery,
 		correlationID: command.CorrelationID,
 		runID:         runID,
 		coordinator:   s.coordinator,
-		userText:      command.UserText,
+		userText:      userText,
 		runContext:    runContext,
 		cancel:        cancel,
 		events:        make(chan controller.AgentEvent),
@@ -124,12 +126,15 @@ func (s *Service) runState(correlationID string, active *activeRun) controller.R
 	if active != nil || state.Status == run.StatusRunning || state.Status == run.StatusAwaitingSettlement {
 		publicState = controller.RunStateRunning
 	}
-	activeCorrelationID := ""
+	activeCorrelationID := mo.None[string]()
 	if publicState == controller.RunStateRunning && active != nil {
-		activeCorrelationID = active.correlationID
+		activeCorrelationID = mo.Some(active.correlationID)
 	}
 	response := emptyResponse(correlationID, controller.ResponseRunState)
-	response.State = controller.RunStateResult{State: publicState, ActiveCorrelationID: activeCorrelationID}
+	response.State = mo.Some(controller.RunStateResult{
+		State:               publicState,
+		ActiveCorrelationID: activeCorrelationID,
+	})
 	return response
 }
 
@@ -141,29 +146,33 @@ func (s *Service) messages(correlationID string) controller.Response {
 
 func (s *Service) models(correlationID string) controller.Response {
 	response := emptyResponse(correlationID, controller.ResponseModels)
-	response.Models = controller.ModelsResult{
-		Models: s.modelCatalog.Models(), ActiveSelection: s.modelCatalog.Selection(),
-	}
+	response.Models = mo.Some(controller.ModelsResult{
+		Models:          s.modelCatalog.Models(),
+		ActiveSelection: mo.Some(s.modelCatalog.Selection()),
+	})
 	return response
 }
 
 func (s *Service) selectModel(ctx context.Context, command controller.Command) controller.Response {
-	selection, err := s.modelCatalog.SelectModel(ctx, command.ProviderID, command.ModelID)
+	providerID, _ := command.ProviderID.Get()
+	modelID, _ := command.ModelID.Get()
+	selection, err := s.modelCatalog.SelectModel(ctx, providerID, modelID)
 	if err != nil {
 		return s.selectionRejected(command, err)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
-	response.Selection = selection
+	response.Selection = mo.Some(selection)
 	return response
 }
 
 func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
-	selection, err := s.modelCatalog.SelectReasoningChoice(command.ReasoningChoice)
+	reasoningChoice, _ := command.ReasoningChoice.Get()
+	selection, err := s.modelCatalog.SelectReasoningChoice(reasoningChoice)
 	if err != nil {
 		return s.selectionRejected(command, err)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
-	response.Selection = selection
+	response.Selection = mo.Some(selection)
 	return response
 }
 
@@ -214,24 +223,43 @@ func (s *Service) preflight(
 func invalidCommand(command controller.Command) bool {
 	switch command.Kind {
 	case controller.CommandUserRequest:
-		return strings.TrimSpace(command.UserText) == "" || hasModelArguments(command)
+		return invalidUserRequest(command)
 	case controller.CommandAbort, controller.CommandGetRunState,
 		controller.CommandGetMessages, controller.CommandGetModels:
-		return command.UserText != "" || hasModelArguments(command)
+		return command.UserText.IsSome() || hasModelArguments(command)
 	case controller.CommandSelectModel:
-		return command.UserText != "" || command.ProviderID == "" || command.ModelID == "" ||
-			command.ReasoningChoice != ""
+		return invalidModelSelection(command)
 	case controller.CommandSelectReasoningChoice:
-		return command.UserText != "" || command.ProviderID != "" || command.ModelID != "" ||
-			!validReasoningChoice(command.ReasoningChoice)
+		return invalidReasoningSelection(command)
 	case controller.CommandUnspecified:
 		return true
 	}
 	return true
 }
 
+// invalidUserRequest validates the payload selected by a user-request discriminator.
+func invalidUserRequest(command controller.Command) bool {
+	userText, ok := command.UserText.Get()
+	return !ok || strings.TrimSpace(userText) == "" || hasModelArguments(command)
+}
+
+// invalidModelSelection validates the payload selected by a model-selection discriminator.
+func invalidModelSelection(command controller.Command) bool {
+	providerID, providerPresent := command.ProviderID.Get()
+	modelID, modelPresent := command.ModelID.Get()
+	return command.UserText.IsSome() || !providerPresent || providerID == "" ||
+		!modelPresent || modelID == "" || command.ReasoningChoice.IsSome()
+}
+
+// invalidReasoningSelection validates the payload selected by a reasoning-selection discriminator.
+func invalidReasoningSelection(command controller.Command) bool {
+	reasoningChoice, reasoningPresent := command.ReasoningChoice.Get()
+	return command.UserText.IsSome() || command.ProviderID.IsSome() || command.ModelID.IsSome() ||
+		!reasoningPresent || !validReasoningChoice(reasoningChoice)
+}
+
 func hasModelArguments(command controller.Command) bool {
-	return command.ProviderID != "" || command.ModelID != "" || command.ReasoningChoice != ""
+	return command.ProviderID.IsSome() || command.ModelID.IsSome() || command.ReasoningChoice.IsSome()
 }
 
 func validReasoningChoice(level model.ReasoningChoice) bool {
@@ -284,17 +312,11 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 	return controller.Response{
 		CorrelationID: correlationID,
 		Kind:          kind,
-		State: controller.RunStateResult{
-			State: controller.RunStateUnspecified, ActiveCorrelationID: "",
-		},
-		Messages: nil,
-		Models: controller.ModelsResult{
-			Models: nil, ActiveSelection: model.Selection{Provider: "", Model: "", ReasoningChoice: ""},
-		},
-		Selection: model.Selection{Provider: "", Model: "", ReasoningChoice: ""},
-		Rejection: controller.Rejection{
-			Command: controller.CommandUnspecified, Code: controller.RejectionUnspecified, Message: "",
-		},
+		State:         mo.None[controller.RunStateResult](),
+		Messages:      nil,
+		Models:        mo.None[controller.ModelsResult](),
+		Selection:     mo.None[model.Selection](),
+		Rejection:     mo.None[controller.Rejection](),
 	}
 }
 
@@ -313,6 +335,6 @@ func (s *Service) rejection(
 	message string,
 ) controller.Response {
 	response := emptyResponse(command.CorrelationID, controller.ResponseRejected)
-	response.Rejection = controller.Rejection{Command: command.Kind, Code: code, Message: message}
+	response.Rejection = mo.Some(controller.Rejection{Command: command.Kind, Code: code, Message: message})
 	return response
 }

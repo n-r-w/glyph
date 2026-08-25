@@ -8,6 +8,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -69,18 +70,18 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		session.EXPECT().Handle(gomock.Any(), Command{
 			CorrelationID:   "user",
 			Kind:            CommandUserRequest,
-			UserText:        "request",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: "",
+			UserText:        mo.Some("request"),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
 		}).Return(Response{
 			CorrelationID: "user",
 			Kind:          ResponseUserRequestAccepted,
-			State:         RunStateResult{},
+			State:         mo.None[RunStateResult](),
 			Messages:      nil,
-			Models:        ModelsResult{},
-			Selection:     model.Selection{},
-			Rejection:     Rejection{},
+			Models:        mo.None[ModelsResult](),
+			Selection:     mo.None[model.Selection](),
+			Rejection:     mo.None[Rejection](),
 		}, operation, nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 			<-started
@@ -90,23 +91,23 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		session.EXPECT().Handle(gomock.Any(), Command{
 			CorrelationID:   "state",
 			Kind:            CommandGetRunState,
-			UserText:        "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: "",
+			UserText:        mo.None[string](),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
 		}).DoAndReturn(func(context.Context, Command) (Response, Operation, error) {
 			close(stateHandled)
 			return Response{
 				CorrelationID: "state",
 				Kind:          ResponseRunState,
-				State: RunStateResult{
+				State: mo.Some(RunStateResult{
 					State:               RunStateRunning,
-					ActiveCorrelationID: "user",
-				},
+					ActiveCorrelationID: mo.Some("user"),
+				}),
 				Messages:  nil,
-				Models:    ModelsResult{},
-				Selection: model.Selection{},
-				Rejection: Rejection{},
+				Models:    mo.None[ModelsResult](),
+				Selection: mo.None[model.Selection](),
+				Rejection: mo.None[Rejection](),
 			}, nil, nil
 		}),
 		stream.EXPECT().Recv().Return(nil, io.EOF),
@@ -188,22 +189,22 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 		session.EXPECT().Handle(gomock.Any(), Command{
 			CorrelationID:   "missing",
 			Kind:            CommandUnspecified,
-			UserText:        "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: "",
+			UserText:        mo.None[string](),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
 		}).Return(Response{
 			CorrelationID: "missing",
 			Kind:          ResponseRejected,
-			Rejection: Rejection{
+			Rejection: mo.Some(Rejection{
 				Command: CommandUnspecified,
 				Code:    RejectionInvalidArgument,
 				Message: "invalid",
-			},
-			State:     RunStateResult{},
+			}),
+			State:     mo.None[RunStateResult](),
 			Messages:  nil,
-			Models:    ModelsResult{},
-			Selection: model.Selection{},
+			Models:    mo.None[ModelsResult](),
+			Selection: mo.None[model.Selection](),
 		}, nil, nil),
 		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
 			s.Equal(programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, response.GetCommandResponse().GetRejected().GetCode())
@@ -289,14 +290,14 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
 			CorrelationID: "state",
 			Kind:          ResponseRunState,
-			State: RunStateResult{
+			State: mo.Some(RunStateResult{
 				State:               RunStateIdle,
-				ActiveCorrelationID: "",
-			},
+				ActiveCorrelationID: mo.None[string](),
+			}),
 			Messages:  nil,
-			Models:    ModelsResult{},
-			Selection: model.Selection{},
-			Rejection: Rejection{},
+			Models:    mo.None[ModelsResult](),
+			Selection: mo.None[model.Selection](),
+			Rejection: mo.None[Rejection](),
 		}, operation, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -325,11 +326,11 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
 			CorrelationID: "user",
 			Kind:          ResponseUserRequestAccepted,
-			State:         RunStateResult{},
+			State:         mo.None[RunStateResult](),
 			Messages:      nil,
-			Models:        ModelsResult{},
-			Selection:     model.Selection{},
-			Rejection:     Rejection{},
+			Models:        mo.None[ModelsResult](),
+			Selection:     mo.None[model.Selection](),
+			Rejection:     mo.None[Rejection](),
 		}, nil, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -359,11 +360,11 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
 			CorrelationID: "user",
 			Kind:          ResponseUserRequestAccepted,
-			State:         RunStateResult{},
+			State:         mo.None[RunStateResult](),
 			Messages:      nil,
-			Models:        ModelsResult{},
-			Selection:     model.Selection{},
-			Rejection:     Rejection{},
+			Models:        mo.None[ModelsResult](),
+			Selection:     mo.None[model.Selection](),
+			Rejection:     mo.None[Rejection](),
 		}, operation, nil),
 		operation.EXPECT().Events().Return(nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
@@ -551,14 +552,14 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 			event: AgentEvent{
 				Type: AgentEventMessageEnd,
 				ModelResponse: ModelResponse{
-					Outcome:       ModelOutcomeUnspecified,
+					Outcome:       mo.Some(ModelOutcomeUnspecified),
 					Text:          "",
-					ErrorMessage:  "",
-					Provider:      "",
-					Model:         "",
-					ResponseModel: nil,
-					ResponseID:    "",
-					Usage:         ModelUsage{},
+					ErrorMessage:  mo.None[string](),
+					Provider:      mo.None[string](),
+					Model:         mo.None[string](),
+					ResponseModel: mo.None[string](),
+					ResponseID:    mo.None[string](),
+					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
 					Content:       nil,
 				},
@@ -646,11 +647,11 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
 						CorrelationID: "user",
 						Kind:          ResponseUserRequestAccepted,
-						State:         RunStateResult{},
+						State:         mo.None[RunStateResult](),
 						Messages:      nil,
-						Models:        ModelsResult{},
-						Selection:     model.Selection{},
-						Rejection:     Rejection{},
+						Models:        mo.None[ModelsResult](),
+						Selection:     mo.None[model.Selection](),
+						Rejection:     mo.None[Rejection](),
 					}, operation, nil),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {

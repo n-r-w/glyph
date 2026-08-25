@@ -3,12 +3,14 @@ package programmatic
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -35,10 +37,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "missing",
 				Kind:            CommandUnspecified,
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"user request": {
@@ -52,10 +54,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "user",
 				Kind:            CommandUserRequest,
-				UserText:        "  exact text  ",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.Some("  exact text  "),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"invalid user request": {
@@ -69,10 +71,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "invalid",
 				Kind:            CommandUserRequest,
-				UserText:        " \t\n",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.Some(" \t\n"),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"abort": {
@@ -84,10 +86,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "abort",
 				Kind:            CommandAbort,
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"get run state": {
@@ -99,10 +101,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "state",
 				Kind:            CommandGetRunState,
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"get messages": {
@@ -114,10 +116,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "messages",
 				Kind:            CommandGetMessages,
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"get models": {
@@ -129,10 +131,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "models",
 				Kind:            CommandGetModels,
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: "",
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"select model": {
@@ -147,10 +149,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "select-model",
 				Kind:            CommandSelectModel,
-				ProviderID:      "provider",
-				ModelID:         "model",
-				UserText:        "",
-				ReasoningChoice: "",
+				ProviderID:      mo.Some(model.ProviderID("provider")),
+				ModelID:         mo.Some(model.ID("model")),
+				UserText:        mo.None[string](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
 			},
 		},
 		"select reasoning": {
@@ -164,10 +166,10 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			want: Command{
 				CorrelationID:   "select-reasoning",
 				Kind:            CommandSelectReasoningChoice,
-				ReasoningChoice: "max",
-				UserText:        "",
-				ProviderID:      "",
-				ModelID:         "",
+				ReasoningChoice: mo.Some(model.ReasoningChoiceMax),
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
 			},
 		},
 	}
@@ -208,7 +210,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 		}.Build()
 		got, err := mapOpenRequest(request)
 		require.NoError(t, err)
-		assert.Equal(t, want, string(got.ReasoningChoice))
+		assert.Equal(t, want, string(got.ReasoningChoice.OrEmpty()))
 	}
 }
 

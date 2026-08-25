@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -18,19 +19,37 @@ func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
 	return lo.FilterMap(history, func(entry agent.HistoryEntry, _ int) (controller.HistoryEntry, bool) {
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
+			user, ok := entry.User.Get()
+			if !ok {
+				return controller.HistoryEntry{}, false
+			}
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryUser, UserText: publicInputText(entry.User.OrEmpty()),
-				Model: controller.ModelResponse{}, ToolResult: controller.ToolResult{},
+				Kind:       controller.HistoryEntryUser,
+				UserText:   mo.Some(publicInputText(user)),
+				Model:      mo.None[controller.ModelResponse](),
+				ToolResult: mo.None[controller.ToolResult](),
 			}, true
 		case agent.HistoryEntryModel:
+			modelResponse, ok := entry.Model.Get()
+			if !ok {
+				return controller.HistoryEntry{}, false
+			}
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryModel, UserText: "", Model: mapModelResponse(entry.Model.OrEmpty()),
-				ToolResult: controller.ToolResult{},
+				Kind:       controller.HistoryEntryModel,
+				UserText:   mo.None[string](),
+				Model:      mo.Some(mapModelResponse(modelResponse)),
+				ToolResult: mo.None[controller.ToolResult](),
 			}, true
 		case agent.HistoryEntryToolResult:
+			toolResult, ok := entry.ToolResult.Get()
+			if !ok {
+				return controller.HistoryEntry{}, false
+			}
 			return controller.HistoryEntry{
-				Kind: controller.HistoryEntryToolResult, UserText: "", Model: controller.ModelResponse{},
-				ToolResult: mapToolResult(entry.ToolResult.OrEmpty()),
+				Kind:       controller.HistoryEntryToolResult,
+				UserText:   mo.None[string](),
+				Model:      mo.None[controller.ModelResponse](),
+				ToolResult: mo.Some(mapToolResult(toolResult)),
 			}, true
 		}
 		return controller.HistoryEntry{}, false
@@ -40,8 +59,12 @@ func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
 func publicInputText(message model.Message) string {
 	var text strings.Builder
 	for _, content := range message.Content {
-		if content.Kind == model.InputContentText {
-			text.WriteString(content.Text.OrEmpty())
+		if content.Kind != model.InputContentText {
+			continue
+		}
+		contentText, ok := content.Text.Get()
+		if ok {
+			text.WriteString(contentText)
 		}
 	}
 	return text.String()
@@ -61,55 +84,76 @@ func mapModelResponse(response model.Response) controller.ModelResponse {
 		}
 		content = append(content, mapped)
 		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			text.WriteString(item.Text.OrEmpty())
+			text.WriteString(mapped.Text)
 		}
 	}
-	var responseModel *string
+	responseModel := mo.None[string]()
 	if actualModel, ok := response.ResponseModel.Get(); ok {
-		value := string(actualModel)
-		responseModel = &value
+		responseModel = mo.Some(string(actualModel))
+	}
+	provider := mo.None[string]()
+	if providerID, ok := response.Provider.Get(); ok {
+		provider = mo.Some(string(providerID))
+	}
+	configuredModel := mo.None[string]()
+	if modelID, ok := response.Model.Get(); ok {
+		configuredModel = mo.Some(string(modelID))
 	}
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) controller.ModelDiagnostic {
 		return controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
 	})
-	usage := response.Usage.OrEmpty()
+	outcome := mo.None[controller.ModelOutcome]()
+	if modelOutcome, ok := response.Outcome.Get(); ok {
+		outcome = mo.Some(mapModelOutcome(modelOutcome))
+	}
+	usage := mo.None[controller.ModelUsage]()
+	if modelUsage, ok := response.Usage.Get(); ok {
+		usage = mo.Some(controller.ModelUsage{
+			InputTokens:       modelUsage.InputTokens,
+			OutputTokens:      modelUsage.OutputTokens,
+			CachedInputTokens: modelUsage.CachedInputTokens,
+			CacheWriteTokens:  modelUsage.CacheWriteTokens,
+			ReasoningTokens:   modelUsage.ReasoningTokens,
+			TotalTokens:       modelUsage.TotalTokens,
+		})
+	}
 	return controller.ModelResponse{
 		Text:          text.String(),
-		Outcome:       mapModelOutcome(response.Outcome.OrEmpty()),
-		ErrorMessage:  response.ErrorMessage.OrEmpty(),
-		Provider:      string(response.Provider.OrEmpty()),
-		Model:         string(response.Model.OrEmpty()),
+		Outcome:       outcome,
+		ErrorMessage:  response.ErrorMessage,
+		Provider:      provider,
+		Model:         configuredModel,
 		ResponseModel: responseModel,
-		ResponseID:    response.ResponseID.OrEmpty(),
-		Usage: controller.ModelUsage{
-			InputTokens:       usage.InputTokens,
-			OutputTokens:      usage.OutputTokens,
-			CachedInputTokens: usage.CachedInputTokens,
-			CacheWriteTokens:  usage.CacheWriteTokens,
-			ReasoningTokens:   usage.ReasoningTokens,
-			TotalTokens:       usage.TotalTokens,
-		},
-		Diagnostics: diagnostics,
-		Content:     content,
+		ResponseID:    response.ResponseID,
+		Usage:         usage,
+		Diagnostics:   diagnostics,
+		Content:       content,
 	}
 }
 
 func mapModelResponseContent(position int, content model.Content) (controller.ModelResponseContent, bool) {
 	switch content.Kind {
-	case model.ContentText:
+	case model.ContentText, model.ContentRefusal, model.ContentReasoning:
+		text, ok := content.Text.Get()
+		if !ok {
+			return controller.ModelResponseContent{}, false
+		}
+		kind := controller.ModelResponseContentText
+		switch content.Kind {
+		case model.ContentRefusal:
+			kind = controller.ModelResponseContentRefusal
+		case model.ContentReasoning:
+			kind = controller.ModelResponseContentReasoning
+		case model.ContentText, model.ContentToolCall:
+		}
 		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentText, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
-		}, true
-	case model.ContentRefusal:
-		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentRefusal, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
-		}, true
-	case model.ContentReasoning:
-		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentReasoning, Text: content.Text.OrEmpty(), ToolCall: controller.FinalToolCall{},
+			Kind: kind, Text: text, ToolCall: controller.FinalToolCall{},
 		}, true
 	case model.ContentToolCall:
-		call := content.ToolCall.OrEmpty()
+		call, ok := content.ToolCall.Get()
+		if !ok {
+			return controller.ModelResponseContent{}, false
+		}
 		return controller.ModelResponseContent{
 			Kind: controller.ModelResponseContentToolCall, Text: "",
 			ToolCall: controller.FinalToolCall{
@@ -148,12 +192,19 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 		func(content tool.ResultContent, _ int) (controller.ToolResultContent, bool) {
 			switch content.Kind {
 			case tool.ResultContentText:
+				text, ok := content.Text.Get()
+				if !ok {
+					return controller.ToolResultContent{}, false
+				}
 				return controller.ToolResultContent{
-					Kind: controller.ToolResultContentText, Text: content.Text.OrEmpty(),
+					Kind: controller.ToolResultContentText, Text: text,
 					Image: controller.ToolResultImage{},
 				}, true
 			case tool.ResultContentImage:
-				image := content.Image.OrEmpty()
+				image, ok := content.Image.Get()
+				if !ok {
+					return controller.ToolResultContent{}, false
+				}
 				return controller.ToolResultContent{
 					Kind: controller.ToolResultContentImage, Text: "",
 					Image: controller.ToolResultImage{

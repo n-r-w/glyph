@@ -3,6 +3,7 @@ package programmatic
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -15,37 +16,36 @@ import (
 func TestMapResponsePreservesEveryResult(t *testing.T) {
 	t.Parallel()
 
-	responseModel := ""
 	tests := map[string]Response{
 		"accepted": {
 			CorrelationID: "accepted",
 			Kind:          ResponseUserRequestAccepted,
-			State:         RunStateResult{},
+			State:         mo.None[RunStateResult](),
 			Messages:      nil,
-			Models:        ModelsResult{},
-			Selection:     model.Selection{},
-			Rejection:     Rejection{},
+			Models:        mo.None[ModelsResult](),
+			Selection:     mo.None[model.Selection](),
+			Rejection:     mo.None[Rejection](),
 		},
 		"aborted": {
 			CorrelationID: "aborted",
 			Kind:          ResponseAbortCompleted,
-			State:         RunStateResult{},
+			State:         mo.None[RunStateResult](),
 			Messages:      nil,
-			Models:        ModelsResult{},
-			Selection:     model.Selection{},
-			Rejection:     Rejection{},
+			Models:        mo.None[ModelsResult](),
+			Selection:     mo.None[model.Selection](),
+			Rejection:     mo.None[Rejection](),
 		},
 		"state": {
 			CorrelationID: "state",
 			Kind:          ResponseRunState,
-			State: RunStateResult{
+			State: mo.Some(RunStateResult{
 				State:               RunStateRunning,
-				ActiveCorrelationID: "active",
-			},
+				ActiveCorrelationID: mo.Some("active"),
+			}),
 			Messages:  nil,
-			Models:    ModelsResult{},
-			Selection: model.Selection{},
-			Rejection: Rejection{},
+			Models:    mo.None[ModelsResult](),
+			Selection: mo.None[model.Selection](),
+			Rejection: mo.None[Rejection](),
 		},
 		"messages": {
 			CorrelationID: "messages",
@@ -53,45 +53,45 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Messages: []HistoryEntry{
 				{
 					Kind:       HistoryEntryUser,
-					UserText:   "user",
-					Model:      ModelResponse{},
-					ToolResult: ToolResult{},
+					UserText:   mo.Some("user"),
+					Model:      mo.None[ModelResponse](),
+					ToolResult: mo.None[ToolResult](),
 				},
 				{
 					Kind:       HistoryEntryModel,
-					Model:      maximalModelResponse(&responseModel),
-					UserText:   "",
-					ToolResult: ToolResult{},
+					Model:      mo.Some(maximalModelResponse(mo.Some(""))),
+					UserText:   mo.None[string](),
+					ToolResult: mo.None[ToolResult](),
 				},
 				{
 					Kind:       HistoryEntryToolResult,
-					ToolResult: maximalToolResult(),
-					UserText:   "",
-					Model:      ModelResponse{},
+					ToolResult: mo.Some(maximalToolResult()),
+					UserText:   mo.None[string](),
+					Model:      mo.None[ModelResponse](),
 				},
 			},
-			State:     RunStateResult{},
-			Models:    ModelsResult{},
-			Selection: model.Selection{},
-			Rejection: Rejection{},
+			State:     mo.None[RunStateResult](),
+			Models:    mo.None[ModelsResult](),
+			Selection: mo.None[model.Selection](),
+			Rejection: mo.None[Rejection](),
 		},
 		"rejected": {
 			CorrelationID: "rejected",
 			Kind:          ResponseRejected,
-			Rejection: Rejection{
+			Rejection: mo.Some(Rejection{
 				Command: CommandUnspecified,
 				Code:    RejectionInvalidArgument,
 				Message: "invalid",
-			},
-			State:     RunStateResult{},
+			}),
+			State:     mo.None[RunStateResult](),
 			Messages:  nil,
-			Models:    ModelsResult{},
-			Selection: model.Selection{},
+			Models:    mo.None[ModelsResult](),
+			Selection: mo.None[model.Selection](),
 		},
 		"models": {
 			CorrelationID: "models",
 			Kind:          ResponseModels,
-			Models: ModelsResult{
+			Models: mo.Some(ModelsResult{
 				Models: []model.Descriptor{{
 					Provider: "provider",
 					Model:    "model",
@@ -115,29 +115,29 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					},
 					ToolCapabilities: model.ToolCapabilities{},
 				}},
-				ActiveSelection: model.Selection{
+				ActiveSelection: mo.Some(model.Selection{
 					Provider:        "provider",
 					Model:           "model",
 					ReasoningChoice: model.ReasoningChoiceHigh,
-				},
-			},
-			State:     RunStateResult{},
+				}),
+			}),
+			State:     mo.None[RunStateResult](),
 			Messages:  nil,
-			Selection: model.Selection{},
-			Rejection: Rejection{},
+			Selection: mo.None[model.Selection](),
+			Rejection: mo.None[Rejection](),
 		},
 		"model selection": {
 			CorrelationID: "selection",
 			Kind:          ResponseModelSelection,
-			Selection: model.Selection{
+			Selection: mo.Some(model.Selection{
 				Provider:        "provider",
 				Model:           "model",
 				ReasoningChoice: model.ReasoningChoiceMax,
-			},
-			State:     RunStateResult{},
+			}),
+			State:     mo.None[RunStateResult](),
 			Messages:  nil,
-			Models:    ModelsResult{},
-			Rejection: Rejection{},
+			Models:    mo.None[ModelsResult](),
+			Rejection: mo.None[Rejection](),
 		},
 	}
 
@@ -207,35 +207,55 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		Kind:          ResponseMessages,
 		Messages: []HistoryEntry{{
 			Kind: HistoryEntryModel,
-			Model: ModelResponse{
-				Outcome:       ModelOutcomeStop,
+			Model: mo.Some(ModelResponse{
+				Outcome:       mo.Some(ModelOutcomeStop),
 				Text:          "",
-				ErrorMessage:  "",
-				Provider:      "",
-				Model:         "",
-				ResponseModel: nil,
-				ResponseID:    "",
-				Usage:         ModelUsage{},
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[string](),
+				Model:         mo.None[string](),
+				ResponseModel: mo.None[string](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[ModelUsage](),
 				Diagnostics:   nil,
 				Content:       nil,
-			},
-			UserText:   "",
-			ToolResult: ToolResult{},
+			}),
+			UserText:   mo.None[string](),
+			ToolResult: mo.None[ToolResult](),
 		}},
-		State:     RunStateResult{},
-		Models:    ModelsResult{},
-		Selection: model.Selection{},
-		Rejection: Rejection{},
+		State:     mo.None[RunStateResult](),
+		Models:    mo.None[ModelsResult](),
+		Selection: mo.None[model.Selection](),
+		Rejection: mo.None[Rejection](),
 	})
 	require.NoError(t, err)
-	assert.False(t, mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel().HasResponseModel())
+	modelResponse := mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel()
+	assert.False(t, modelResponse.HasErrorMessage())
+	assert.False(t, modelResponse.HasProvider())
+	assert.False(t, modelResponse.HasModel())
+	assert.False(t, modelResponse.HasResponseModel())
+	assert.False(t, modelResponse.HasResponseId())
+	assert.False(t, modelResponse.HasUsage())
+
+	mapped, err = mapResponse(Response{
+		CorrelationID: "idle",
+		Kind:          ResponseRunState,
+		State: mo.Some(RunStateResult{
+			State:               RunStateIdle,
+			ActiveCorrelationID: mo.None[string](),
+		}),
+		Messages:  nil,
+		Models:    mo.None[ModelsResult](),
+		Selection: mo.None[model.Selection](),
+		Rejection: mo.None[Rejection](),
+	})
+	require.NoError(t, err)
+	assert.False(t, mapped.GetCommandResponse().GetRunState().HasActiveCorrelationId())
 }
 
 // TestMapEventPreservesEveryEvent verifies every event enum and payload oneof.
 func TestMapEventPreservesEveryEvent(t *testing.T) {
 	t.Parallel()
 
-	responseModel := ""
 	tests := []struct {
 		typeValue AgentEventType
 		payload   string
@@ -380,7 +400,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			typeValue: AgentEventMessageEnd,
 			payload:   "model_response",
 			event: AgentEvent{
-				ModelResponse:   maximalModelResponse(&responseModel),
+				ModelResponse:   maximalModelResponse(mo.Some("")),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
@@ -477,7 +497,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "turn",
 			event: AgentEvent{
 				Turn: TurnSummary{
-					Response:    maximalModelResponse(&responseModel),
+					Response:    maximalModelResponse(mo.Some("")),
 					ToolResults: []ToolResult{maximalToolResult()},
 				},
 				CorrelationID:   "",
@@ -552,11 +572,11 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			_, err := mapResponse(Response{
 				Kind:          ResponseUnspecified,
 				CorrelationID: "",
-				State:         RunStateResult{},
+				State:         mo.None[RunStateResult](),
 				Messages:      nil,
-				Models:        ModelsResult{},
-				Selection:     model.Selection{},
-				Rejection:     Rejection{},
+				Models:        mo.None[ModelsResult](),
+				Selection:     mo.None[model.Selection](),
+				Rejection:     mo.None[Rejection](),
 			})
 			return err
 		},
@@ -565,15 +585,15 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Kind: ResponseMessages,
 				Messages: []HistoryEntry{{
 					Kind:       HistoryEntryUnspecified,
-					UserText:   "",
-					Model:      ModelResponse{},
-					ToolResult: ToolResult{},
+					UserText:   mo.None[string](),
+					Model:      mo.None[ModelResponse](),
+					ToolResult: mo.None[ToolResult](),
 				}},
 				CorrelationID: "",
-				State:         RunStateResult{},
-				Models:        ModelsResult{},
-				Selection:     model.Selection{},
-				Rejection:     Rejection{},
+				State:         mo.None[RunStateResult](),
+				Models:        mo.None[ModelsResult](),
+				Selection:     mo.None[model.Selection](),
+				Rejection:     mo.None[Rejection](),
 			})
 			return err
 		},
@@ -721,14 +741,14 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventMessageEnd,
 				ModelResponse: ModelResponse{
-					Outcome:       ModelOutcomeUnspecified,
+					Outcome:       mo.Some(ModelOutcomeUnspecified),
 					Text:          "",
-					ErrorMessage:  "",
-					Provider:      "",
-					Model:         "",
-					ResponseModel: nil,
-					ResponseID:    "",
-					Usage:         ModelUsage{},
+					ErrorMessage:  mo.None[string](),
+					Provider:      mo.None[string](),
+					Model:         mo.None[string](),
+					ResponseModel: mo.None[string](),
+					ResponseID:    mo.None[string](),
+					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
 					Content:       nil,
 				},
@@ -749,19 +769,19 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventMessageEnd,
 				ModelResponse: ModelResponse{
-					Outcome: ModelOutcomeStop,
+					Outcome: mo.Some(ModelOutcomeStop),
 					Content: []ModelResponseContent{{
 						Kind:     ModelResponseContentUnspecified,
 						Text:     "",
 						ToolCall: FinalToolCall{},
 					}},
 					Text:          "",
-					ErrorMessage:  "",
-					Provider:      "",
-					Model:         "",
-					ResponseModel: nil,
-					ResponseID:    "",
-					Usage:         ModelUsage{},
+					ErrorMessage:  mo.None[string](),
+					Provider:      mo.None[string](),
+					Model:         mo.None[string](),
+					ResponseModel: mo.None[string](),
+					ResponseID:    mo.None[string](),
+					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
 				},
 				CorrelationID:   "",
@@ -908,23 +928,23 @@ func maximalToolResult() ToolResult {
 	}
 }
 
-func maximalModelResponse(responseModel *string) ModelResponse {
+func maximalModelResponse(responseModel mo.Option[string]) ModelResponse {
 	return ModelResponse{
 		Text:          "text",
-		Outcome:       ModelOutcomeToolUse,
-		ErrorMessage:  "error",
-		Provider:      "provider",
-		Model:         "model",
+		Outcome:       mo.Some(ModelOutcomeToolUse),
+		ErrorMessage:  mo.Some("error"),
+		Provider:      mo.Some("provider"),
+		Model:         mo.Some("model"),
 		ResponseModel: responseModel,
-		ResponseID:    "response",
-		Usage: ModelUsage{
+		ResponseID:    mo.Some("response"),
+		Usage: mo.Some(ModelUsage{
 			InputTokens:       1,
 			OutputTokens:      2,
 			CachedInputTokens: 3,
 			CacheWriteTokens:  4,
 			ReasoningTokens:   5,
 			TotalTokens:       6,
-		},
+		}),
 		Diagnostics: []ModelDiagnostic{{
 			Code:    "code",
 			Message: "message",
@@ -1026,12 +1046,17 @@ func assertModelResponse(t *testing.T, response *programmaticv1.ModelResponse, h
 	t.Helper()
 	assert.Equal(t, "text", response.GetText())
 	assert.Equal(t, programmaticv1.ModelOutcome_MODEL_OUTCOME_TOOL_USE, response.GetOutcome())
+	assert.True(t, response.HasErrorMessage())
 	assert.Equal(t, "error", response.GetErrorMessage())
+	assert.True(t, response.HasProvider())
 	assert.Equal(t, "provider", response.GetProvider())
+	assert.True(t, response.HasModel())
 	assert.Equal(t, "model", response.GetModel())
 	assert.Equal(t, hasResponseModel, response.HasResponseModel())
 	assert.Empty(t, response.GetResponseModel())
+	assert.True(t, response.HasResponseId())
 	assert.Equal(t, "response", response.GetResponseId())
+	assert.True(t, response.HasUsage())
 	assert.Equal(t, int64(1), response.GetUsage().GetInputTokens())
 	assert.Equal(t, int64(2), response.GetUsage().GetOutputTokens())
 	assert.Equal(t, int64(3), response.GetUsage().GetCachedInputTokens())
