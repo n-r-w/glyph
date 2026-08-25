@@ -9,49 +9,53 @@ import (
 func selectionToUI(selection model.Selection) domainui.ModelSelection {
 	return domainui.ModelSelection{
 		ProviderID: string(selection.Provider), ModelID: string(selection.Model),
-		ReasoningLevel: reasoningLevelToUI(selection.ReasoningLevel),
+		ReasoningChoice: reasoningChoiceToUI(selection.ReasoningChoice),
 	}
 }
 
-// reasoningLevelToUI maps the closed model reasoning set into the UI domain.
-func reasoningLevelToUI(level model.ReasoningLevel) domainui.ReasoningLevel {
+// reasoningChoiceToUI maps the closed model reasoning-choice set into the UI domain.
+func reasoningChoiceToUI(level model.ReasoningChoice) domainui.ReasoningChoice {
 	switch level {
-	case model.ReasoningLevelNone:
-		return domainui.ReasoningLevelNone
-	case model.ReasoningLevelMinimal:
-		return domainui.ReasoningLevelMinimal
-	case model.ReasoningLevelLow:
-		return domainui.ReasoningLevelLow
-	case model.ReasoningLevelMedium:
-		return domainui.ReasoningLevelMedium
-	case model.ReasoningLevelHigh:
-		return domainui.ReasoningLevelHigh
-	case model.ReasoningLevelXHigh:
-		return domainui.ReasoningLevelXHigh
-	case model.ReasoningLevelMax:
-		return domainui.ReasoningLevelMax
+	case model.ReasoningChoiceOff:
+		return domainui.ReasoningChoiceOff
+	case model.ReasoningChoiceOn:
+		return domainui.ReasoningChoiceOn
+	case model.ReasoningChoiceMinimal:
+		return domainui.ReasoningChoiceMinimal
+	case model.ReasoningChoiceLow:
+		return domainui.ReasoningChoiceLow
+	case model.ReasoningChoiceMedium:
+		return domainui.ReasoningChoiceMedium
+	case model.ReasoningChoiceHigh:
+		return domainui.ReasoningChoiceHigh
+	case model.ReasoningChoiceXHigh:
+		return domainui.ReasoningChoiceXHigh
+	case model.ReasoningChoiceMax:
+		return domainui.ReasoningChoiceMax
 	default:
 		return 0
 	}
 }
 
-// reasoningLevelFromUI maps a validated UI reasoning command into the model domain.
-func reasoningLevelFromUI(level domainui.ReasoningLevel) (model.ReasoningLevel, bool) {
+// reasoningChoiceFromUI maps a validated UI reasoning-choice command into the model domain.
+func reasoningChoiceFromUI(level domainui.ReasoningChoice) (model.ReasoningChoice, bool) {
 	switch level {
-	case domainui.ReasoningLevelNone:
-		return model.ReasoningLevelNone, true
-	case domainui.ReasoningLevelMinimal:
-		return model.ReasoningLevelMinimal, true
-	case domainui.ReasoningLevelLow:
-		return model.ReasoningLevelLow, true
-	case domainui.ReasoningLevelMedium:
-		return model.ReasoningLevelMedium, true
-	case domainui.ReasoningLevelHigh:
-		return model.ReasoningLevelHigh, true
-	case domainui.ReasoningLevelXHigh:
-		return model.ReasoningLevelXHigh, true
-	case domainui.ReasoningLevelMax:
-		return model.ReasoningLevelMax, true
+	case domainui.ReasoningChoiceOff:
+		return model.ReasoningChoiceOff, true
+	case domainui.ReasoningChoiceOn:
+		return model.ReasoningChoiceOn, true
+	case domainui.ReasoningChoiceMinimal:
+		return model.ReasoningChoiceMinimal, true
+	case domainui.ReasoningChoiceLow:
+		return model.ReasoningChoiceLow, true
+	case domainui.ReasoningChoiceMedium:
+		return model.ReasoningChoiceMedium, true
+	case domainui.ReasoningChoiceHigh:
+		return model.ReasoningChoiceHigh, true
+	case domainui.ReasoningChoiceXHigh:
+		return model.ReasoningChoiceXHigh, true
+	case domainui.ReasoningChoiceMax:
+		return model.ReasoningChoiceMax, true
 	default:
 		return "", false
 	}

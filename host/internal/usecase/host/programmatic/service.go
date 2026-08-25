@@ -65,8 +65,8 @@ func (s *Service) Handle(
 		return s.models(command.CorrelationID), nil, nil
 	case controller.CommandSelectModel:
 		return s.selectModel(ctx, command), nil, nil
-	case controller.CommandSelectReasoningLevel:
-		return s.selectReasoningLevel(command), nil, nil
+	case controller.CommandSelectReasoningChoice:
+		return s.selectReasoningChoice(command), nil, nil
 	case controller.CommandUserRequest:
 	case controller.CommandUnspecified:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), nil, nil
@@ -155,8 +155,8 @@ func (s *Service) selectModel(ctx context.Context, command controller.Command) c
 	return response
 }
 
-func (s *Service) selectReasoningLevel(command controller.Command) controller.Response {
-	selection, err := s.modelCatalog.SelectReasoningLevel(command.ReasoningLevel)
+func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
+	selection, err := s.modelCatalog.SelectReasoningChoice(command.ReasoningChoice)
 	if err != nil {
 		return s.selectionRejected(command, err)
 	}
@@ -218,10 +218,10 @@ func invalidCommand(command controller.Command) bool {
 		return command.UserText != "" || hasModelArguments(command)
 	case controller.CommandSelectModel:
 		return command.UserText != "" || command.ProviderID == "" || command.ModelID == "" ||
-			command.ReasoningLevel != ""
-	case controller.CommandSelectReasoningLevel:
+			command.ReasoningChoice != ""
+	case controller.CommandSelectReasoningChoice:
 		return command.UserText != "" || command.ProviderID != "" || command.ModelID != "" ||
-			!validReasoningLevel(command.ReasoningLevel)
+			!validReasoningChoice(command.ReasoningChoice)
 	case controller.CommandUnspecified:
 		return true
 	}
@@ -229,14 +229,14 @@ func invalidCommand(command controller.Command) bool {
 }
 
 func hasModelArguments(command controller.Command) bool {
-	return command.ProviderID != "" || command.ModelID != "" || command.ReasoningLevel != ""
+	return command.ProviderID != "" || command.ModelID != "" || command.ReasoningChoice != ""
 }
 
-func validReasoningLevel(level model.ReasoningLevel) bool {
+func validReasoningChoice(level model.ReasoningChoice) bool {
 	switch level {
-	case model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-		model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
-		model.ReasoningLevelMax:
+	case model.ReasoningChoiceOff, model.ReasoningChoiceOn, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+		model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+		model.ReasoningChoiceMax:
 		return true
 	default:
 		return false
@@ -289,9 +289,9 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 		},
 		Messages: nil,
 		Models: controller.ModelsResult{
-			Models: nil, ActiveSelection: model.Selection{Provider: "", Model: "", ReasoningLevel: ""},
+			Models: nil, ActiveSelection: model.Selection{Provider: "", Model: "", ReasoningChoice: ""},
 		},
-		Selection: model.Selection{Provider: "", Model: "", ReasoningLevel: ""},
+		Selection: model.Selection{Provider: "", Model: "", ReasoningChoice: ""},
 		Rejection: controller.Rejection{
 			Command: controller.CommandUnspecified, Code: controller.RejectionUnspecified, Message: "",
 		},

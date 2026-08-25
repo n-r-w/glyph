@@ -23,16 +23,17 @@ type Emit func(presentationdomain.Command) error
 
 // Model is the single root Bubble Tea presentation and input model.
 type Model struct {
-	state        presentationdomain.State
-	input        []rune
-	cursor       int
-	width        int
-	height       int
-	emitting     bool
-	selectorOpen bool
-	selectorRow  int
-	apply        Apply
-	emit         Emit
+	state             presentationdomain.State
+	input             []rune
+	cursor            int
+	width             int
+	height            int
+	emitting          bool
+	selectorOpen      bool
+	selectorRow       int
+	reasoningExpanded bool
+	apply             Apply
+	emit              Emit
 }
 
 var _ tea.Model = (*Model)(nil)
@@ -104,7 +105,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 		presentationdomain.CommandStop,
 		presentationdomain.CommandRetryAuthentication,
 		presentationdomain.CommandSelectModel,
-		presentationdomain.CommandSelectReasoningLevel:
+		presentationdomain.CommandSelectReasoningChoice:
 	}
 
 	return model, nil
@@ -113,6 +114,10 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 //nolint:gocyclo // The explicit flat switch mirrors the supported editor and command keys.
 func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	if isSelectionShortcut(key) && !selectionAvailable(model.state.Availability) {
+		return model, nil
+	}
+	if key.Mod == tea.ModCtrl && key.Code == 't' {
+		model.reasoningExpanded = !model.reasoningExpanded
 		return model, nil
 	}
 	if model.selectorOpen {
@@ -258,18 +263,18 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 	configured := model.state.Models[model.currentModelIndex()]
-	if len(configured.ReasoningLevels) <= 1 {
+	if len(configured.Reasoning.Choices) <= 1 {
 		return model, nil
 	}
 	index := 0
-	for current, level := range configured.ReasoningLevels {
-		if level == model.state.ModelSelection.ReasoningLevel {
-			index = (current + 1) % len(configured.ReasoningLevels)
+	for current, level := range configured.Reasoning.Choices {
+		if level == model.state.ModelSelection.ReasoningChoice {
+			index = (current + 1) % len(configured.Reasoning.Choices)
 			break
 		}
 	}
 	return model.emitCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: configured.ReasoningLevels[index],
+		Kind: presentationdomain.CommandSelectReasoningChoice, ReasoningChoice: configured.Reasoning.Choices[index],
 	})
 }
 
@@ -324,7 +329,7 @@ func (model Model) View() tea.View {
 		"Request: "+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
 		fmt.Sprintf("Terminal: %dx%d", model.width, model.height),
 		"Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model | "+
-			"Shift+Tab reasoning | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
+			"Shift+Tab reasoning | Ctrl+T reasoning display | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
 	)
 
 	view := tea.NewView(strings.Join(lines, "\n"))
@@ -358,6 +363,8 @@ func (model Model) visibleSelectorLines() []string {
 }
 
 // visibleBodyLines keeps the latest transcript after reserving fixed and selector lines.
+//
+//nolint:gocyclo // The flat branches preserve transcript order across visible content kinds.
 func (model Model) visibleBodyLines(reservedLines int) []string {
 	estimatedLines := len(model.state.Startup) + len(model.state.Transcript) +
 		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
@@ -366,6 +373,10 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
 	}
 	for _, line := range model.state.Transcript {
+		if line.Kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
+			lines = appendWrappedBodyLine(lines, "Reasoning: [collapsed]", model.width)
+			continue
+		}
 		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
 	}
 	positions := make([]int, 0, len(model.state.ActiveModel))
@@ -376,14 +387,18 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for _, position := range positions {
 		content := model.state.ActiveModel[position]
 		kind := presentationdomain.LineModel
-		if content.Kind == presentationdomain.ModelContentRefusal {
+		switch content.Kind {
+		case presentationdomain.ModelContentRefusal:
 			kind = presentationdomain.LineRefusal
+		case presentationdomain.ModelContentReasoning:
+			kind = presentationdomain.LineReasoning
+		case presentationdomain.ModelContentText, presentationdomain.ModelContentUnspecified:
 		}
-		lines = appendWrappedBodyLine(
-			lines,
-			renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}),
-			model.width,
-		)
+		if kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
+			lines = appendWrappedBodyLine(lines, "Reasoning: [collapsed]", model.width)
+			continue
+		}
+		lines = appendWrappedBodyLine(lines, renderLine(presentationdomain.Line{Kind: kind, Text: content.Text}), model.width)
 	}
 	calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
 	for _, call := range model.state.ActiveToolCalls {
@@ -459,6 +474,8 @@ func linePrefix(kind presentationdomain.LineKind) string {
 		return "assistant:"
 	case presentationdomain.LineRefusal:
 		return "[refusal]"
+	case presentationdomain.LineReasoning:
+		return "reasoning:"
 	case presentationdomain.LineToolStatus, presentationdomain.LineToolStdout,
 		presentationdomain.LineToolStderr, presentationdomain.LineToolDone,
 		presentationdomain.LineToolError:
@@ -483,7 +500,7 @@ func toolLinePrefix(kind presentationdomain.LineKind) string {
 		return "[tool:error]"
 	case presentationdomain.LineUnspecified, presentationdomain.LineInformation,
 		presentationdomain.LineError, presentationdomain.LineWarning, presentationdomain.LineUser,
-		presentationdomain.LineModel, presentationdomain.LineRefusal:
+		presentationdomain.LineModel, presentationdomain.LineRefusal, presentationdomain.LineReasoning:
 		return ""
 	}
 	return ""
@@ -512,27 +529,29 @@ func selectionText(selection presentationdomain.ModelSelection) string {
 	if selection.ProviderID == "" || selection.ModelID == "" {
 		return "model unavailable"
 	}
-	return fmt.Sprintf("%s / %s / %s", selection.ProviderID, selection.ModelID, reasoningText(selection.ReasoningLevel))
+	return fmt.Sprintf("%s / %s / %s", selection.ProviderID, selection.ModelID, reasoningText(selection.ReasoningChoice))
 }
 
 // reasoningText maps the closed reasoning set to its configured spelling.
-func reasoningText(level presentationdomain.ReasoningLevel) string {
+func reasoningText(level presentationdomain.ReasoningChoice) string {
 	switch level {
-	case presentationdomain.ReasoningLevelNone:
-		return "none"
-	case presentationdomain.ReasoningLevelMinimal:
+	case presentationdomain.ReasoningChoiceOff:
+		return "off"
+	case presentationdomain.ReasoningChoiceOn:
+		return "on"
+	case presentationdomain.ReasoningChoiceMinimal:
 		return "minimal"
-	case presentationdomain.ReasoningLevelLow:
+	case presentationdomain.ReasoningChoiceLow:
 		return "low"
-	case presentationdomain.ReasoningLevelMedium:
+	case presentationdomain.ReasoningChoiceMedium:
 		return "medium"
-	case presentationdomain.ReasoningLevelHigh:
+	case presentationdomain.ReasoningChoiceHigh:
 		return "high"
-	case presentationdomain.ReasoningLevelXHigh:
+	case presentationdomain.ReasoningChoiceXHigh:
 		return "xhigh"
-	case presentationdomain.ReasoningLevelMax:
+	case presentationdomain.ReasoningChoiceMax:
 		return "max"
-	case presentationdomain.ReasoningLevelUnspecified:
+	case presentationdomain.ReasoningChoiceUnspecified:
 		return "unspecified"
 	default:
 		return "unspecified"

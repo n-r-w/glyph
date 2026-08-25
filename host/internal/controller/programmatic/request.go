@@ -23,7 +23,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 
 	command := Command{
 		CorrelationID: correlationID, Kind: CommandUnspecified, UserText: "",
-		ProviderID: "", ModelID: "", ReasoningLevel: "",
+		ProviderID: "", ModelID: "", ReasoningChoice: "",
 	}
 	switch request.WhichCommand() {
 	case programmaticv1.OpenRequest_UserRequest_case:
@@ -41,31 +41,33 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		command.Kind = CommandSelectModel
 		command.ProviderID = model.ProviderID(request.GetSelectModel().GetProviderId())
 		command.ModelID = model.ID(request.GetSelectModel().GetModelId())
-	case programmaticv1.OpenRequest_SelectReasoningLevel_case:
-		command.Kind = CommandSelectReasoningLevel
-		command.ReasoningLevel = mapRequestReasoningLevel(request.GetSelectReasoningLevel().GetLevel())
+	case programmaticv1.OpenRequest_SelectReasoningChoice_case:
+		command.Kind = CommandSelectReasoningChoice
+		command.ReasoningChoice = mapRequestReasoningChoice(request.GetSelectReasoningChoice().GetChoice())
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
 	return command, nil
 }
 
-func mapRequestReasoningLevel(level programmaticv1.ReasoningLevel) model.ReasoningLevel {
+func mapRequestReasoningChoice(level programmaticv1.ReasoningChoice) model.ReasoningChoice {
 	switch level {
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE:
-		return model.ReasoningLevelNone
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL:
-		return model.ReasoningLevelMinimal
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW:
-		return model.ReasoningLevelLow
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM:
-		return model.ReasoningLevelMedium
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH:
-		return model.ReasoningLevelHigh
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH:
-		return model.ReasoningLevelXHigh
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX:
-		return model.ReasoningLevelMax
-	case programmaticv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED:
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF:
+		return model.ReasoningChoiceOff
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_ON:
+		return model.ReasoningChoiceOn
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_MINIMAL:
+		return model.ReasoningChoiceMinimal
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_LOW:
+		return model.ReasoningChoiceLow
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_MEDIUM:
+		return model.ReasoningChoiceMedium
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH:
+		return model.ReasoningChoiceHigh
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_XHIGH:
+		return model.ReasoningChoiceXHigh
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX:
+		return model.ReasoningChoiceMax
+	case programmaticv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED:
 		return ""
 	default:
 		return ""

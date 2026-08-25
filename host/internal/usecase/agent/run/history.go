@@ -79,14 +79,15 @@ func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPre
 
 func cloneModelResponse(response model.Response) model.Response {
 	items := make([]model.Content, len(response.Content))
-	for index, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		items[index] = model.Content{
 			Kind:  item.Kind,
 			Text:  item.Text,
 			Final: item.Final,
 			ProviderContext: model.ProviderContext{
-				ProviderID: item.ProviderContext.ProviderID,
-				Payload:    append([]byte(nil), item.ProviderContext.Payload...),
+				Source:  item.ProviderContext.Source,
+				Payload: append([]byte(nil), item.ProviderContext.Payload...),
 			},
 			ToolCall: model.ToolCall{
 				ID:        item.ToolCall.ID,
@@ -181,7 +182,8 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 // modelToolCalls returns finalized calls in model-provided order.
 func modelToolCalls(response model.Response) []model.ToolCall {
 	calls := make([]model.ToolCall, 0)
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		if item.Kind == model.ContentToolCall {
 			calls = append(calls, item.ToolCall)
 		}

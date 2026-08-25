@@ -119,38 +119,47 @@ type ExtensionAvailability struct {
 	Tools    []string
 }
 
-// ReasoningLevel identifies one provider-neutral reasoning level.
-type ReasoningLevel uint8
+// ReasoningChoice identifies one provider-neutral reasoning choice.
+type ReasoningChoice uint8
 
 const (
-	// ReasoningLevelNone disables reasoning effort.
-	ReasoningLevelNone ReasoningLevel = iota + 1
-	// ReasoningLevelMinimal requests minimal reasoning effort.
-	ReasoningLevelMinimal
-	// ReasoningLevelLow requests low reasoning effort.
-	ReasoningLevelLow
-	// ReasoningLevelMedium requests medium reasoning effort.
-	ReasoningLevelMedium
-	// ReasoningLevelHigh requests high reasoning effort.
-	ReasoningLevelHigh
-	// ReasoningLevelXHigh requests extra-high reasoning effort.
-	ReasoningLevelXHigh
-	// ReasoningLevelMax requests maximum reasoning effort.
-	ReasoningLevelMax
+	// ReasoningChoiceOff disables reasoning.
+	ReasoningChoiceOff ReasoningChoice = iota + 1
+	// ReasoningChoiceOn enables reasoning with the provider default.
+	ReasoningChoiceOn
+	// ReasoningChoiceMinimal requests minimal reasoning effort.
+	ReasoningChoiceMinimal
+	// ReasoningChoiceLow requests low reasoning effort.
+	ReasoningChoiceLow
+	// ReasoningChoiceMedium requests medium reasoning effort.
+	ReasoningChoiceMedium
+	// ReasoningChoiceHigh requests high reasoning effort.
+	ReasoningChoiceHigh
+	// ReasoningChoiceXHigh requests extra-high reasoning effort.
+	ReasoningChoiceXHigh
+	// ReasoningChoiceMax requests maximum reasoning effort.
+	ReasoningChoiceMax
 )
 
-// ConfiguredModel identifies one selectable model and its reasoning levels.
+// ReasoningCapabilities describes one model reasoning contract.
+type ReasoningCapabilities struct {
+	Supported bool
+	Choices   []ReasoningChoice
+	Default   ReasoningChoice
+}
+
+// ConfiguredModel identifies one selectable model and its reasoning contract.
 type ConfiguredModel struct {
-	ProviderID      string
-	ModelID         string
-	ReasoningLevels []ReasoningLevel
+	ProviderID string
+	ModelID    string
+	Reasoning  ReasoningCapabilities
 }
 
 // ModelSelection identifies one Host-confirmed active selection.
 type ModelSelection struct {
-	ProviderID     string
-	ModelID        string
-	ReasoningLevel ReasoningLevel
+	ProviderID      string
+	ModelID         string
+	ReasoningChoice ReasoningChoice
 }
 
 // Initialization is the first Host frame sent to a selected UI.
@@ -318,15 +327,15 @@ const (
 	CommandQuit
 	// CommandSelectModel requests one configured model.
 	CommandSelectModel
-	// CommandSelectReasoningLevel requests one level for the active model.
-	CommandSelectReasoningLevel
+	// CommandSelectReasoningChoice requests one reasoning choice for the active model.
+	CommandSelectReasoningChoice
 )
 
 // Command carries exactly one UI-to-Host command.
 type Command struct {
-	Kind           CommandKind
-	Text           string
-	ProviderID     string
-	ModelID        string
-	ReasoningLevel ReasoningLevel
+	Kind            CommandKind
+	Text            string
+	ProviderID      string
+	ModelID         string
+	ReasoningChoice ReasoningChoice
 }

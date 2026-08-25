@@ -200,7 +200,7 @@ func (s *Session) applyCommand(
 		return domainui.AvailabilityAuthenticating, activeCancel, activeKind, nil
 	case domainui.CommandQuit:
 		return availability, activeCancel, activeKind, nil
-	case domainui.CommandSelectModel, domainui.CommandSelectReasoningLevel:
+	case domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
 		if activeKind == operationAuthenticationCheck || activeKind == operationSignIn {
 			return availability, activeCancel, activeKind, s.sendSelectionError()
 		}
@@ -222,12 +222,12 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		selection, err = s.modelCatalog.SelectModel(
 			ctx, model.ProviderID(command.ProviderID), model.ID(command.ModelID),
 		)
-	case domainui.CommandSelectReasoningLevel:
-		level, valid := reasoningLevelFromUI(command.ReasoningLevel)
+	case domainui.CommandSelectReasoningChoice:
+		level, valid := reasoningChoiceFromUI(command.ReasoningChoice)
 		if !valid {
 			return s.sendSelectionError()
 		}
-		selection, err = s.modelCatalog.SelectReasoningLevel(level)
+		selection, err = s.modelCatalog.SelectReasoningChoice(level)
 	case domainui.CommandSubmit, domainui.CommandStop,
 		domainui.CommandRetryAuthentication, domainui.CommandQuit:
 		return s.sendSelectionError()

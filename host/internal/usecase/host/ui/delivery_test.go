@@ -111,15 +111,13 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 		Type: run.EventMessageEnd, RunID: "run-1",
 		Message: model.Response{
 			Content: []model.Content{
-				{Kind: model.ContentReasoning, Text: "hidden reasoning", Final: true},
 				{
-					Kind: model.ContentProviderContext, Text: "",
-					ProviderContext: model.ProviderContext{ProviderID: "secret-provider", Payload: []byte("encrypted-secret")},
-					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+					Kind: model.ContentReasoning, Text: "hidden reasoning", Final: true,
+					ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "secret-provider"}, Payload: []byte("encrypted-secret")},
 				},
 				{
 					Kind: model.ContentText, Text: "visible text",
-					ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+					ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ""}, Payload: nil},
 					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
 				},
 				{Kind: model.ContentRefusal, Text: "cannot help", Final: true},

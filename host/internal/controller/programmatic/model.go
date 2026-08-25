@@ -14,17 +14,17 @@ const (
 	CommandGetMessages
 	CommandGetModels
 	CommandSelectModel
-	CommandSelectReasoningLevel
+	CommandSelectReasoningChoice
 )
 
 // Command is one correlated transport-independent controller operation.
 type Command struct {
-	CorrelationID  string
-	Kind           CommandKind
-	UserText       string
-	ProviderID     model.ProviderID
-	ModelID        model.ID
-	ReasoningLevel model.ReasoningLevel
+	CorrelationID   string
+	Kind            CommandKind
+	UserText        string
+	ProviderID      model.ProviderID
+	ModelID         model.ID
+	ReasoningChoice model.ReasoningChoice
 }
 
 // ResponseKind identifies one command result.

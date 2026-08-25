@@ -24,7 +24,7 @@ message OpenRequest {
     GetMessages get_messages = 5;
     GetModels get_models = 6;
     SelectModel select_model = 7;
-    SelectReasoningLevel select_reasoning_level = 8;
+    SelectReasoningChoice select_reasoning_choice = 8;
   }
 }
 
@@ -54,10 +54,10 @@ message SelectModel {
   string model_id = 2;
 }
 
-// SelectReasoningLevel selects the active model reasoning level.
-message SelectReasoningLevel {
-  // The requested reasoning level.
-  ReasoningLevel level = 1;
+// SelectReasoningChoice selects the active model reasoning choice.
+message SelectReasoningChoice {
+  // The requested reasoning choice.
+  ReasoningChoice choice = 1;
 }
 
 // OpenResponse carries one correlated command response or agent event.
@@ -119,18 +119,28 @@ message ConfiguredModel {
   string provider_id = 1;
   // The configured model identifier.
   string model_id = 2;
-  // The supported reasoning levels.
-  repeated ReasoningLevel supported_reasoning_levels = 3;
+  // The model reasoning capabilities.
+  ReasoningCapabilities reasoning = 3;
 }
 
-// ModelSelection identifies the active provider, model, and reasoning level.
+// ReasoningCapabilities describes one model reasoning contract.
+message ReasoningCapabilities {
+  // Whether the model can produce reasoning.
+  bool supported = 1;
+  // The effective choices in configured order.
+  repeated ReasoningChoice choices = 2;
+  // The model default choice.
+  ReasoningChoice default_choice = 3;
+}
+
+// ModelSelection identifies the active provider, model, and reasoning choice.
 message ModelSelection {
   // The configured provider identifier.
   string provider_id = 1;
   // The configured model identifier.
   string model_id = 2;
-  // The active reasoning level.
-  ReasoningLevel reasoning_level = 3;
+  // The active reasoning choice.
+  ReasoningChoice reasoning_choice = 3;
 }
 
 // ModelSelectionResult contains the committed model selection.
@@ -374,8 +384,8 @@ enum CommandType {
   COMMAND_TYPE_GET_MODELS = 5;
   // A model selection command.
   COMMAND_TYPE_SELECT_MODEL = 6;
-  // A reasoning-level selection command.
-  COMMAND_TYPE_SELECT_REASONING_LEVEL = 7;
+  // A reasoning-choice selection command.
+  COMMAND_TYPE_SELECT_REASONING_CHOICE = 7;
 }
 
 // RejectionCode identifies why a command was rejected.
@@ -394,30 +404,32 @@ enum RejectionCode {
   REJECTION_CODE_INTERNAL = 5;
   // The provider-model pair was not found.
   REJECTION_CODE_NOT_FOUND = 6;
-  // The reasoning level is not supported.
+  // The reasoning choice is not supported.
   REJECTION_CODE_REASONING_UNSUPPORTED = 7;
   // The selected model credential is unavailable.
   REJECTION_CODE_CREDENTIAL_UNAVAILABLE = 8;
 }
 
-// ReasoningLevel identifies provider-neutral reasoning effort.
-enum ReasoningLevel {
-  // No reasoning level was provided.
-  REASONING_LEVEL_UNSPECIFIED = 0;
+// ReasoningChoice identifies provider-neutral reasoning behavior.
+enum ReasoningChoice {
+  // No reasoning choice was provided.
+  REASONING_CHOICE_UNSPECIFIED = 0;
   // Reasoning effort is disabled.
-  REASONING_LEVEL_NONE = 1;
+  REASONING_CHOICE_OFF = 1;
+  // Reasoning is enabled with the provider default.
+  REASONING_CHOICE_ON = 2;
   // Minimal reasoning effort.
-  REASONING_LEVEL_MINIMAL = 2;
+  REASONING_CHOICE_MINIMAL = 3;
   // Low reasoning effort.
-  REASONING_LEVEL_LOW = 3;
+  REASONING_CHOICE_LOW = 4;
   // Medium reasoning effort.
-  REASONING_LEVEL_MEDIUM = 4;
+  REASONING_CHOICE_MEDIUM = 5;
   // High reasoning effort.
-  REASONING_LEVEL_HIGH = 5;
+  REASONING_CHOICE_HIGH = 6;
   // Extra-high reasoning effort.
-  REASONING_LEVEL_XHIGH = 6;
+  REASONING_CHOICE_XHIGH = 7;
   // Maximum reasoning effort.
-  REASONING_LEVEL_MAX = 7;
+  REASONING_CHOICE_MAX = 8;
 }
 
 // RunState identifies whether an agent run is active.

@@ -64,12 +64,17 @@ func BuildInitialization(
 		ModelSelection: emptyModelSelection(),
 	}
 	for _, descriptor := range modelCatalog.Models() {
-		levels := make([]domainui.ReasoningLevel, 0, len(descriptor.SupportedReasoningLevels))
-		for _, level := range descriptor.SupportedReasoningLevels {
-			levels = append(levels, reasoningLevelToUI(level))
+		choices := make([]domainui.ReasoningChoice, 0, len(descriptor.ReasoningCapabilities.Choices))
+		for _, choice := range descriptor.ReasoningCapabilities.Choices {
+			choices = append(choices, reasoningChoiceToUI(choice))
 		}
 		initialization.Models = append(initialization.Models, domainui.ConfiguredModel{
-			ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model), ReasoningLevels: levels,
+			ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model),
+			Reasoning: domainui.ReasoningCapabilities{
+				Supported: descriptor.ReasoningCapabilities.Supported,
+				Choices:   choices,
+				Default:   reasoningChoiceToUI(descriptor.ReasoningCapabilities.Default),
+			},
 		})
 	}
 	initialization.ModelSelection = selectionToUI(modelCatalog.Selection())

@@ -208,7 +208,7 @@ func streamOmittedToolEvents(
 	events := make([]run.StreamEvent, 0)
 	err := service.Stream(t.Context(), run.ModelRequest{
 		Instructions: "test", Model: testModelDescriptor("gpt-test"),
-		ReasoningLevel: model.ReasoningLevelHigh, History: nil, Tools: tools,
+		ReasoningChoice: model.ReasoningChoiceHigh, History: nil, Tools: tools,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil

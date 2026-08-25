@@ -264,7 +264,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		}},
 	}
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{
 			Provider: ProviderID, Model: "gpt-test",
 			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true}},
@@ -307,9 +307,9 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})},
 	}, func(event run.StreamEvent) error {
@@ -353,8 +353,8 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 		writeSSE(writer, completedEvent(`[]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
-	err := service.Stream(t.Context(), run.ModelRequest{
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown"},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})},
 	}, func(run.StreamEvent) error { return nil })
@@ -383,9 +383,9 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		Provider: ProviderID, Model: "gpt-regex-only",
 		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true}},
 	}
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: selectedModel,
 		Tools: []tool.Descriptor{constrainedDescriptor(0, tool.GrammarVariants{Lark: "start: /[a-z]+/"})},
 	}, func(event run.StreamEvent) error {
@@ -417,7 +417,7 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test"},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})},
 	}, func(event run.StreamEvent) error {

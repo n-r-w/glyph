@@ -16,10 +16,14 @@ func ModelDescriptor(modelID model.ID) model.Descriptor {
 	return model.Descriptor{
 		Provider: ProviderID,
 		Model:    modelID,
-		SupportedReasoningLevels: []model.ReasoningLevel{
-			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
-			model.ReasoningLevelMax,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true,
+			Choices: []model.ReasoningChoice{
+				model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+				model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+				model.ReasoningChoiceMax,
+			},
+			Default: model.ReasoningChoiceMedium,
 		},
 		ToolCapabilities: capabilities,
 	}

@@ -21,12 +21,12 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 
 	providerA := agentrun.NewMockModelProvider(gomock.NewController(t))
 	entries := []Entry{
-		{Descriptor: descriptor("z-provider", "z-first", model.ReasoningLevelNone), Provider: providerA},
-		{Descriptor: descriptor("a-provider", "a-first", model.ReasoningLevelLow, model.ReasoningLevelHigh), Provider: providerA},
-		{Descriptor: descriptor("a-provider", "a-second", model.ReasoningLevelNone), Provider: providerA},
+		{Descriptor: descriptor("z-provider", "z-first", model.ReasoningChoiceOff), Provider: providerA},
+		{Descriptor: descriptor("a-provider", "a-first", model.ReasoningChoiceLow, model.ReasoningChoiceHigh), Provider: providerA},
+		{Descriptor: descriptor("a-provider", "a-second", model.ReasoningChoiceOff), Provider: providerA},
 	}
 	selection := model.Selection{
-		Provider: "a-provider", Model: "a-first", ReasoningLevel: model.ReasoningLevelHigh,
+		Provider: "a-provider", Model: "a-first", ReasoningChoice: model.ReasoningChoiceHigh,
 	}
 	catalog, err := New(entries, selection)
 	require.NoError(t, err)
@@ -39,16 +39,16 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	assert.Equal(t, selection, catalog.Selection())
 	current := catalog.Current()
 	require.Equal(t, models[0], current.Model)
-	assert.Equal(t, model.ReasoningLevelHigh, current.ReasoningLevel)
+	assert.Equal(t, model.ReasoningChoiceHigh, current.ReasoningChoice)
 	assert.Equal(t, providerA, current.Provider)
 
 	models[0].Model = "changed"
-	current.Model.SupportedReasoningLevels[0] = model.ReasoningLevelMax
-	models[0].SupportedReasoningLevels[0] = model.ReasoningLevelMax
+	current.Model.ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
+	models[0].ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
 	fresh := catalog.Models()
 	assert.Equal(t, model.ID("a-first"), fresh[0].Model)
-	assert.Equal(t, []model.ReasoningLevel{model.ReasoningLevelLow, model.ReasoningLevelHigh}, fresh[0].SupportedReasoningLevels)
-	assert.Equal(t, model.ReasoningLevelLow, catalog.Current().Model.SupportedReasoningLevels[0])
+	assert.Equal(t, []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, fresh[0].ReasoningCapabilities.Choices)
+	assert.Equal(t, model.ReasoningChoiceLow, catalog.Current().Model.ReasoningCapabilities.Choices[0])
 }
 
 // TestCatalogSelectModelAppliesReasoningFallback verifies model changes preserve or lower reasoning deterministically.
@@ -57,13 +57,16 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		active    model.ReasoningLevel
-		supported []model.ReasoningLevel
-		expected  model.ReasoningLevel
+		active    model.ReasoningChoice
+		supported []model.ReasoningChoice
+		expected  model.ReasoningChoice
 	}{
-		{name: "preserved", active: model.ReasoningLevelHigh, supported: []model.ReasoningLevel{model.ReasoningLevelLow, model.ReasoningLevelHigh}, expected: model.ReasoningLevelHigh},
-		{name: "greatest lower", active: model.ReasoningLevelHigh, supported: []model.ReasoningLevel{model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelMedium}, expected: model.ReasoningLevelMedium},
-		{name: "lowest when no lower", active: model.ReasoningLevelLow, supported: []model.ReasoningLevel{model.ReasoningLevelHigh, model.ReasoningLevelMax}, expected: model.ReasoningLevelHigh},
+		{name: "preserved", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, expected: model.ReasoningChoiceHigh},
+		{name: "greatest lower", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceMedium}, expected: model.ReasoningChoiceMedium},
+		{name: "lowest when no lower", active: model.ReasoningChoiceLow, supported: []model.ReasoningChoice{model.ReasoningChoiceHigh, model.ReasoningChoiceMax}, expected: model.ReasoningChoiceHigh},
+		{name: "lower effort on equal distance", active: model.ReasoningChoiceMedium, supported: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, expected: model.ReasoningChoiceLow},
+		{name: "effort maps to toggle on", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceOn}, expected: model.ReasoningChoiceOn},
+		{name: "on maps to effort default", active: model.ReasoningChoiceOn, supported: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, expected: model.ReasoningChoiceLow},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -72,14 +75,14 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 			catalog, err := New([]Entry{
 				{Descriptor: descriptor("provider", "active", test.active), Provider: provider},
 				{Descriptor: descriptor("provider", "target", test.supported...), Provider: provider},
-			}, model.Selection{Provider: "provider", Model: "active", ReasoningLevel: test.active})
+			}, model.Selection{Provider: "provider", Model: "active", ReasoningChoice: test.active})
 			require.NoError(t, err)
 
 			selected, err := catalog.SelectModel(t.Context(), "provider", "target")
 
 			require.NoError(t, err)
 			assert.Equal(t, model.Selection{
-				Provider: "provider", Model: "target", ReasoningLevel: test.expected,
+				Provider: "provider", Model: "target", ReasoningChoice: test.expected,
 			}, selected)
 			assert.Equal(t, selected, catalog.Selection())
 		})
@@ -91,12 +94,12 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	t.Parallel()
 
 	active := model.Selection{
-		Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelLow,
+		Provider: "provider", Model: "active", ReasoningChoice: model.ReasoningChoiceLow,
 	}
 	provider := agentrun.NewMockModelProvider(gomock.NewController(t))
 	catalog, err := New([]Entry{
 		{Descriptor: descriptor(
-			"provider", "active", model.ReasoningLevelLow, model.ReasoningLevelHigh,
+			"provider", "active", model.ReasoningChoiceLow, model.ReasoningChoiceHigh,
 		), Provider: provider},
 	}, active)
 	require.NoError(t, err)
@@ -107,15 +110,15 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	assert.Equal(t, ErrorCodeNotFound, selectionErr.Code)
 	assert.Equal(t, active, catalog.Selection())
 
-	selected, err := catalog.SelectReasoningLevel(model.ReasoningLevelHigh)
+	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceHigh)
 	require.NoError(t, err)
 	active = model.Selection{
-		Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelHigh,
+		Provider: "provider", Model: "active", ReasoningChoice: model.ReasoningChoiceHigh,
 	}
 	assert.Equal(t, active, selected)
 	assert.Equal(t, active, catalog.Selection())
 
-	_, err = catalog.SelectReasoningLevel(model.ReasoningLevelMax)
+	_, err = catalog.SelectReasoningChoice(model.ReasoningChoiceMax)
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeReasoningUnsupported, selectionErr.Code)
 	assert.Equal(t, active, catalog.Selection())
@@ -126,10 +129,10 @@ func TestCatalogRejectsEntryWithoutProvider(t *testing.T) {
 	t.Parallel()
 
 	selection := model.Selection{
-		Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelNone,
+		Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
 	}
 	_, err := New([]Entry{{
-		Descriptor: descriptor("provider", "model", model.ReasoningLevelNone), Provider: nil,
+		Descriptor: descriptor("provider", "model", model.ReasoningChoiceOff), Provider: nil,
 	}}, selection)
 
 	var selectionErr *SelectionError
@@ -152,9 +155,9 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 		return nil
 	})
 	catalog, err := New([]Entry{
-		{Descriptor: descriptor("provider", "active", model.ReasoningLevelLow, model.ReasoningLevelHigh), Provider: provider},
-		{Descriptor: descriptor("provider", "target", model.ReasoningLevelNone, model.ReasoningLevelLow), Provider: provider, SelectionCredentialValidator: validator},
-	}, model.Selection{Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelHigh})
+		{Descriptor: descriptor("provider", "active", model.ReasoningChoiceLow, model.ReasoningChoiceHigh), Provider: provider},
+		{Descriptor: descriptor("provider", "target", model.ReasoningChoiceOff, model.ReasoningChoiceLow), Provider: provider, SelectionCredentialValidator: validator},
+	}, model.Selection{Provider: "provider", Model: "active", ReasoningChoice: model.ReasoningChoiceHigh})
 	require.NoError(t, err)
 
 	result := make(chan model.Selection, 1)
@@ -178,15 +181,15 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Current blocked during credential resolution")
 	}
-	selected, err := catalog.SelectReasoningLevel(model.ReasoningLevelLow)
+	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceLow)
 	require.NoError(t, err)
-	assert.Equal(t, model.ReasoningLevelLow, selected.ReasoningLevel)
+	assert.Equal(t, model.ReasoningChoiceLow, selected.ReasoningChoice)
 
 	close(release)
 	require.NoError(t, <-selectionErrors)
 	selected = <-result
 	assert.Equal(t, model.Selection{
-		Provider: "provider", Model: "target", ReasoningLevel: model.ReasoningLevelLow,
+		Provider: "provider", Model: "target", ReasoningChoice: model.ReasoningChoiceLow,
 	}, selected)
 	assert.Equal(t, selected, catalog.Selection())
 }
@@ -200,10 +203,10 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 	validator := NewMockSelectionCredentialValidator(controller)
 	safeCause := errors.New(`resolve environment API key "PROVIDER_API_KEY": unavailable`)
 	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).Return(safeCause)
-	active := model.Selection{Provider: "provider", Model: "active", ReasoningLevel: model.ReasoningLevelHigh}
+	active := model.Selection{Provider: "provider", Model: "active", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog, err := New([]Entry{
-		{Descriptor: descriptor("provider", "active", model.ReasoningLevelHigh), Provider: provider},
-		{Descriptor: descriptor("provider", "target", model.ReasoningLevelNone), Provider: provider, SelectionCredentialValidator: validator},
+		{Descriptor: descriptor("provider", "active", model.ReasoningChoiceHigh), Provider: provider},
+		{Descriptor: descriptor("provider", "target", model.ReasoningChoiceOff), Provider: provider, SelectionCredentialValidator: validator},
 	}, active)
 	require.NoError(t, err)
 
@@ -227,9 +230,9 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	provider := agentrun.NewMockModelProvider(controller)
 	authentication := NewMockProviderAuthentication(controller)
 	catalog, err := New([]Entry{
-		{Descriptor: descriptor("compatible", "model", model.ReasoningLevelNone), Provider: provider},
-		{Descriptor: descriptor("openai-codex", "model", model.ReasoningLevelNone), Provider: provider, Authentication: authentication},
-	}, model.Selection{Provider: "compatible", Model: "model", ReasoningLevel: model.ReasoningLevelNone})
+		{Descriptor: descriptor("compatible", "model", model.ReasoningChoiceOff), Provider: provider},
+		{Descriptor: descriptor("openai-codex", "model", model.ReasoningChoiceOff), Provider: provider, Authentication: authentication},
+	}, model.Selection{Provider: "compatible", Model: "model", ReasoningChoice: model.ReasoningChoiceOff})
 	require.NoError(t, err)
 
 	require.NoError(t, catalog.CheckAuthentication(t.Context()))
@@ -247,10 +250,13 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	assert.True(t, catalog.IsSignInRequired(signInRequired))
 }
 
-func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningLevel) model.Descriptor {
+func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningChoice) model.Descriptor {
 	return model.Descriptor{
 		Provider: provider, Model: modelID,
-		SupportedReasoningLevels: levels,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: levels[0] != model.ReasoningChoiceOff || len(levels) > 1,
+			Choices:   append([]model.ReasoningChoice(nil), levels...), Default: levels[0],
+		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false,
 			Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},

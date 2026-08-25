@@ -90,7 +90,7 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 func TestServiceStateIsolatesNestedToolPreviewValues(t *testing.T) {
 	t.Parallel()
 
-	service := newTestService(t, "test", model.Descriptor{}, model.ReasoningLevelNone, nil, hookrunner.New(nil, nil, nil), nil, nil)
+	service := newTestService(t, "test", model.Descriptor{}, model.ReasoningChoiceOff, nil, hookrunner.New(nil, nil, nil), nil, nil)
 	service.state.ToolPreviews = map[string]model.ToolCallPreview{
 		"call-1": {
 			CallID: "call-1", Name: "read", Position: 0, Provisional: true,
@@ -111,7 +111,7 @@ func TestServiceStateIsolatesNestedToolPreviewValues(t *testing.T) {
 func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {
 	t.Parallel()
 
-	service := newTestService(t, "test", model.Descriptor{}, model.ReasoningLevelNone, nil, hookrunner.New(nil, nil, nil), nil, nil)
+	service := newTestService(t, "test", model.Descriptor{}, model.ReasoningChoiceOff, nil, hookrunner.New(nil, nil, nil), nil, nil)
 	service.state.Status = StatusRunning
 	service.state.ToolPreviews = make(map[string]model.ToolCallPreview)
 	preview := model.ToolCallPreview{

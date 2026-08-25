@@ -91,7 +91,8 @@ var (
 func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	configured := make([]Entry, len(entries))
 	seen := make(map[model.ProviderID]map[model.ID]struct{})
-	for index, entry := range entries {
+	for index := range entries {
+		entry := entries[index]
 		entry.Descriptor = cloneDescriptor(entry.Descriptor)
 		if entry.Provider == nil {
 			return nil, invalidConfigurationError()
@@ -109,7 +110,7 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	if !found {
 		return nil, invalidConfigurationError()
 	}
-	if !supports(catalog.entries[active].Descriptor.SupportedReasoningLevels, selection.ReasoningLevel) {
+	if !supports(catalog.entries[active].Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
 		return nil, invalidConfigurationError()
 	}
 	catalog.active = active
@@ -119,8 +120,8 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 // Models returns defensive configured model descriptors.
 func (c *Catalog) Models() []model.Descriptor {
 	models := make([]model.Descriptor, len(c.entries))
-	for index, entry := range c.entries {
-		models[index] = cloneDescriptor(entry.Descriptor)
+	for index := range c.entries {
+		models[index] = cloneDescriptor(c.entries[index].Descriptor)
 	}
 	return models
 }
@@ -139,9 +140,9 @@ func (c *Catalog) Current() agentrun.RuntimeSelection {
 
 	entry := c.entries[c.active]
 	return agentrun.RuntimeSelection{
-		Model:          cloneDescriptor(entry.Descriptor),
-		ReasoningLevel: c.selection.ReasoningLevel,
-		Provider:       entry.Provider,
+		Model:           cloneDescriptor(entry.Descriptor),
+		ReasoningChoice: c.selection.ReasoningChoice,
+		Provider:        entry.Provider,
 	}
 }
 
@@ -164,10 +165,10 @@ func (c *Catalog) SelectModel(
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	level := fallbackReasoningLevel(
-		c.selection.ReasoningLevel, c.entries[target].Descriptor.SupportedReasoningLevels,
+	level := fallbackReasoningChoice(
+		c.selection.ReasoningChoice, c.entries[target].Descriptor.ReasoningCapabilities,
 	)
-	c.selection = model.Selection{Provider: provider, Model: modelID, ReasoningLevel: level}
+	c.selection = model.Selection{Provider: provider, Model: modelID, ReasoningChoice: level}
 	c.active = target
 	return c.selection, nil
 }
@@ -202,20 +203,21 @@ func (c *Catalog) activeAuthentication() ProviderAuthentication {
 	return c.entries[c.active].Authentication
 }
 
-// SelectReasoningLevel commits a supported level for the active model.
-func (c *Catalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error) {
+// SelectReasoningChoice commits a supported choice for the active model.
+func (c *Catalog) SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if !supports(c.entries[c.active].Descriptor.SupportedReasoningLevels, level) {
+	if !supports(c.entries[c.active].Descriptor.ReasoningCapabilities.Choices, level) {
 		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
 	}
-	c.selection.ReasoningLevel = level
+	c.selection.ReasoningChoice = level
 	return c.selection, nil
 }
 
 func (c *Catalog) entryIndex(provider model.ProviderID, modelID model.ID) (int, bool) {
-	for index, entry := range c.entries {
+	for index := range c.entries {
+		entry := &c.entries[index]
 		if entry.Descriptor.Provider == provider && entry.Descriptor.Model == modelID {
 			return index, true
 		}
@@ -228,7 +230,9 @@ func validateDescriptor(
 	descriptor model.Descriptor,
 	seen map[model.ProviderID]map[model.ID]struct{},
 ) error {
-	if descriptor.Provider == "" || descriptor.Model == "" || len(descriptor.SupportedReasoningLevels) == 0 {
+	capabilities := descriptor.ReasoningCapabilities
+	if descriptor.Provider == "" || descriptor.Model == "" || len(capabilities.Choices) == 0 ||
+		!supports(capabilities.Choices, capabilities.Default) {
 		return invalidConfigurationError()
 	}
 	models, exists := seen[descriptor.Provider]
@@ -240,45 +244,58 @@ func validateDescriptor(
 		return invalidConfigurationError()
 	}
 	models[descriptor.Model] = struct{}{}
-	levels := make(map[model.ReasoningLevel]struct{}, len(descriptor.SupportedReasoningLevels))
-	for _, level := range descriptor.SupportedReasoningLevels {
-		if _, valid := reasoningRank(level); !valid {
+	levels := make(map[model.ReasoningChoice]struct{}, len(capabilities.Choices))
+	for _, choice := range capabilities.Choices {
+		if !validReasoningChoice(choice) {
 			return invalidConfigurationError()
 		}
-		if _, duplicate := levels[level]; duplicate {
+		if _, duplicate := levels[choice]; duplicate {
 			return invalidConfigurationError()
 		}
-		levels[level] = struct{}{}
+		levels[choice] = struct{}{}
 	}
 	return nil
 }
 
-// fallbackReasoningLevel preserves active effort or selects the nearest safe lower effort.
-func fallbackReasoningLevel(active model.ReasoningLevel, supported []model.ReasoningLevel) model.ReasoningLevel {
-	if supports(supported, active) {
+// fallbackReasoningChoice preserves exact choices and applies the configured cross-model fallback.
+func fallbackReasoningChoice(active model.ReasoningChoice, target model.ReasoningCapabilities) model.ReasoningChoice {
+	if supports(target.Choices, active) {
 		return active
 	}
-	activeRank, _ := reasoningRank(active)
-	selected := supported[0]
-	selectedRank, _ := reasoningRank(selected)
-	foundLower := false
-	for _, level := range supported {
-		rank, _ := reasoningRank(level)
-		if rank < activeRank && (!foundLower || rank > selectedRank) {
-			selected = level
-			selectedRank = rank
-			foundLower = true
-			continue
-		}
-		if !foundLower && rank < selectedRank {
-			selected = level
-			selectedRank = rank
-		}
+	if active == model.ReasoningChoiceOff {
+		return target.Default
 	}
-	return selected
+	if active == model.ReasoningChoiceOn {
+		return target.Default
+	}
+	if isEffort(active) {
+		if supports(target.Choices, model.ReasoningChoiceOn) {
+			return model.ReasoningChoiceOn
+		}
+		activeRank, _ := reasoningRank(active)
+		selected := target.Default
+		bestDistance := int(^uint(0) >> 1)
+		bestRank := bestDistance
+		for _, choice := range target.Choices {
+			rank, effort := reasoningRank(choice)
+			if !effort {
+				continue
+			}
+			distance := rank - activeRank
+			if distance < 0 {
+				distance = -distance
+			}
+			if distance < bestDistance || distance == bestDistance && rank < bestRank {
+				selected, bestDistance, bestRank = choice, distance, rank
+			}
+		}
+		return selected
+	}
+	return target.Default
 }
 
-func supports(levels []model.ReasoningLevel, target model.ReasoningLevel) bool {
+// supports reports whether one effective choice list contains the target.
+func supports(levels []model.ReasoningChoice, target model.ReasoningChoice) bool {
 	for _, level := range levels {
 		if level == target {
 			return true
@@ -288,31 +305,42 @@ func supports(levels []model.ReasoningLevel, target model.ReasoningLevel) bool {
 }
 
 // reasoningRank defines the product ordering used by model-selection fallback.
-func reasoningRank(level model.ReasoningLevel) (int, bool) {
+func reasoningRank(level model.ReasoningChoice) (int, bool) {
 	switch level {
-	case model.ReasoningLevelNone:
-		return reasoningRankNone, true
-	case model.ReasoningLevelMinimal:
+	case model.ReasoningChoiceOff, model.ReasoningChoiceOn:
+		return 0, false
+	case model.ReasoningChoiceMinimal:
 		return reasoningRankMinimal, true
-	case model.ReasoningLevelLow:
+	case model.ReasoningChoiceLow:
 		return reasoningRankLow, true
-	case model.ReasoningLevelMedium:
+	case model.ReasoningChoiceMedium:
 		return reasoningRankMedium, true
-	case model.ReasoningLevelHigh:
+	case model.ReasoningChoiceHigh:
 		return reasoningRankHigh, true
-	case model.ReasoningLevelXHigh:
+	case model.ReasoningChoiceXHigh:
 		return reasoningRankXHigh, true
-	case model.ReasoningLevelMax:
+	case model.ReasoningChoiceMax:
 		return reasoningRankMax, true
 	default:
 		return 0, false
 	}
 }
 
+// isEffort reports whether a choice belongs to the ordered effort set.
+func isEffort(choice model.ReasoningChoice) bool {
+	_, ok := reasoningRank(choice)
+	return ok
+}
+
+// validReasoningChoice accepts the complete provider-neutral choice set.
+func validReasoningChoice(choice model.ReasoningChoice) bool {
+	return choice == model.ReasoningChoiceOff || choice == model.ReasoningChoiceOn || isEffort(choice)
+}
+
 // cloneDescriptor keeps configured capability slices immutable to catalog callers.
 func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
-	descriptor.SupportedReasoningLevels = append(
-		[]model.ReasoningLevel(nil), descriptor.SupportedReasoningLevels...,
+	descriptor.ReasoningCapabilities.Choices = append(
+		[]model.ReasoningChoice(nil), descriptor.ReasoningCapabilities.Choices...,
 	)
 	return descriptor
 }

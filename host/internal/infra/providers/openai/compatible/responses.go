@@ -59,7 +59,12 @@ func (s *Driver) streamResponses(
 	key string,
 	handle run.StreamHandler,
 ) (model.Response, error) {
-	params, err := responsesParams(request, s.providerID)
+	configured := s.models[request.Model.Model]
+	target := model.ProviderContextSource{
+		ProviderID: s.providerID, API: string(configured.api), Model: request.Model.Model,
+		CompatibilityKey: configured.reasoningCompatibilityKey,
+	}
+	params, err := responsesParams(request, target, configured.reasoningWireFormat)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -94,14 +99,24 @@ func (s *Driver) streamResponses(
 	if finishErr := state.finish(); finishErr != nil {
 		return model.Response{}, handlerError(finishErr)
 	}
+	for index := range state.terminal.Content {
+		content := &state.terminal.Content[index]
+		if content.Kind == model.ContentReasoning && len(content.ProviderContext.Payload) != 0 {
+			content.ProviderContext.Source = target
+		}
+	}
 	if state.terminal.Outcome == model.OutcomeFailed {
 		return *state.terminal, errors.New("responses request failed")
 	}
 	return *state.terminal, nil
 }
 
-func responsesParams(request run.ModelRequest, providerID model.ProviderID) (responses.ResponseNewParams, error) {
-	input, err := responsesInput(request.History, providerID)
+func responsesParams(
+	request run.ModelRequest,
+	target model.ProviderContextSource,
+	reasoningWireFormat string,
+) (responses.ResponseNewParams, error) {
+	input, err := responsesInput(request.History, target)
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
@@ -119,13 +134,25 @@ func responsesParams(request run.ModelRequest, providerID model.ProviderID) (res
 		Input:             responses.ResponseNewParamsInputUnion{OfInputItemList: input},
 		Tools:             tools,
 	}
-	if request.ReasoningLevel != "" && request.ReasoningLevel != model.ReasoningLevelNone {
-		params.Reasoning.Effort = shared.ReasoningEffort(request.ReasoningLevel)
+	if reasoningWireFormat == reasoningWireFormatOpenAIResponses {
+		switch request.ReasoningChoice {
+		case model.ReasoningChoiceOff:
+			params.Reasoning.Effort = shared.ReasoningEffortNone
+		case model.ReasoningChoiceOn:
+		case model.ReasoningChoiceMinimal, model.ReasoningChoiceLow, model.ReasoningChoiceMedium,
+			model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
+			params.Reasoning.Effort = shared.ReasoningEffort(request.ReasoningChoice)
+		default:
+			return responses.ResponseNewParams{}, errors.New("OpenAI-compatible reasoning choice is invalid")
+		}
 	}
 	return params, nil
 }
 
-func responsesInput(history []agent.HistoryEntry, providerID model.ProviderID) (responses.ResponseInputParam, error) {
+func responsesInput(
+	history []agent.HistoryEntry,
+	target model.ProviderContextSource,
+) (responses.ResponseInputParam, error) {
 	input := make(responses.ResponseInputParam, 0, len(history))
 	for entryIndex := range history {
 		entry := &history[entryIndex]
@@ -137,7 +164,7 @@ func responsesInput(history []agent.HistoryEntry, providerID model.ProviderID) (
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			items, err := responsesModelItems(entry.Model, providerID)
+			items, err := responsesModelItems(entry.Model, target)
 			if err != nil {
 				return nil, err
 			}
@@ -177,25 +204,30 @@ func responsesUserMessage(message model.Message) (responses.ResponseInputItemUni
 	return messageItem, nil
 }
 
-func responsesModelItems(response model.Response, providerID model.ProviderID) (responses.ResponseInputParam, error) {
+func responsesModelItems(
+	response model.Response,
+	target model.ProviderContextSource,
+) (responses.ResponseInputParam, error) {
 	items := make(responses.ResponseInputParam, 0, len(response.Content))
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
 			message := responses.ResponseInputItemParamOfMessage(item.Text, responses.EasyInputMessageRoleAssistant)
 			message.OfMessage.Type = responses.EasyInputMessageTypeMessage
 			items = append(items, message)
 		case model.ContentReasoning:
-			continue
-		case model.ContentProviderContext:
-			if item.ProviderContext.ProviderID != providerID {
-				continue
+			if providerContextCompatible(item.ProviderContext.Source, target) && len(item.ProviderContext.Payload) != 0 {
+				reasoning, err := responsesReasoningItem(item.ProviderContext.Payload)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, reasoning)
+			} else if item.Text != "" {
+				message := responses.ResponseInputItemParamOfMessage(item.Text, responses.EasyInputMessageRoleAssistant)
+				message.OfMessage.Type = responses.EasyInputMessageTypeMessage
+				items = append(items, message)
 			}
-			reasoning, err := responsesReasoningItem(item.ProviderContext.Payload)
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, reasoning)
 		case model.ContentToolCall:
 			arguments, err := json.Marshal(item.ToolCall.Arguments)
 			if err != nil {
@@ -209,6 +241,17 @@ func responsesModelItems(response model.Response, providerID model.ProviderID) (
 		}
 	}
 	return items, nil
+}
+
+// providerContextCompatible applies exact-model and additive compatibility-key replay rules.
+func providerContextCompatible(source, target model.ProviderContextSource) bool {
+	if source.ProviderID != target.ProviderID || source.API != target.API {
+		return false
+	}
+	if source.Model == target.Model {
+		return true
+	}
+	return source.CompatibilityKey != "" && source.CompatibilityKey == target.CompatibilityKey
 }
 
 func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionParam, error) {
@@ -458,9 +501,7 @@ func responsesModelResponse(
 			for index := range reasoning.Summary {
 				summary[index] = reasoning.Summary[index].Text
 			}
-			content = append(content, model.Content{
-				Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
-			})
+			visible := model.Content{Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true}
 			// Only encrypted items with stable IDs can be replayed on the next stateless request.
 			if reasoning.ID != "" && reasoning.EncryptedContent != "" {
 				payload, err := json.Marshal(responseContext{
@@ -469,11 +510,15 @@ func responsesModelResponse(
 				if err != nil {
 					return model.Response{}, fmt.Errorf("encode provider context: %w", err)
 				}
-				content = append(content, model.Content{
-					Kind: model.ContentProviderContext, Final: true,
-					ProviderContext: model.ProviderContext{ProviderID: providerID, Payload: payload},
-				})
+				visible.ProviderContext = model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID: providerID, API: string(APIResponses), Model: model.ID(response.Model),
+						CompatibilityKey: "",
+					},
+					Payload: payload,
+				}
 			}
+			content = append(content, visible)
 		case "function_call":
 			call := output.AsFunctionCall()
 			var arguments map[string]any

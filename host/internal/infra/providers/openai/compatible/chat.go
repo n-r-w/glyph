@@ -108,8 +108,8 @@ func chatParams(request run.ModelRequest) (openai.ChatCompletionNewParams, error
 		StreamOptions:     openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)},
 		Tools:             tools,
 	}
-	if request.ReasoningLevel != "" && request.ReasoningLevel != model.ReasoningLevelNone {
-		params.ReasoningEffort = shared.ReasoningEffort(request.ReasoningLevel)
+	if request.ReasoningChoice != "" && request.ReasoningChoice != model.ReasoningChoiceOff {
+		params.ReasoningEffort = shared.ReasoningEffort(request.ReasoningChoice)
 	}
 	return params, nil
 }
@@ -170,13 +170,14 @@ func chatAssistantMessage(response model.Response) (openai.ChatCompletionMessage
 	var text strings.Builder
 	var refusal string
 	calls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText:
 			text.WriteString(item.Text)
 		case model.ContentRefusal:
 			refusal += item.Text
-		case model.ContentReasoning, model.ContentProviderContext:
+		case model.ContentReasoning:
 			continue
 		case model.ContentToolCall:
 			arguments, err := json.Marshal(item.ToolCall.Arguments)

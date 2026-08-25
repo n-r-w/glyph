@@ -152,7 +152,7 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 	return state
 }
 
-// appendFinalModelContent keeps visible text and refusal blocks distinct in the transcript.
+// appendFinalModelContent keeps visible model content blocks distinct in the transcript.
 func appendFinalModelContent(
 	transcript []presentationdomain.Line,
 	content []presentationdomain.ModelResponseContent,
@@ -164,6 +164,8 @@ func appendFinalModelContent(
 			kind = presentationdomain.LineModel
 		case presentationdomain.ModelContentRefusal:
 			kind = presentationdomain.LineRefusal
+		case presentationdomain.ModelContentReasoning:
+			kind = presentationdomain.LineReasoning
 		case presentationdomain.ModelContentUnspecified:
 		}
 		if kind != presentationdomain.LineUnspecified && item.Text != "" {
@@ -202,7 +204,7 @@ func cloneModels(models []presentationdomain.ConfiguredModel) []presentationdoma
 	cloned := make([]presentationdomain.ConfiguredModel, len(models))
 	for index, configured := range models {
 		cloned[index] = configured
-		cloned[index].ReasoningLevels = append([]presentationdomain.ReasoningLevel(nil), configured.ReasoningLevels...)
+		cloned[index].Reasoning.Choices = append([]presentationdomain.ReasoningChoice(nil), configured.Reasoning.Choices...)
 	}
 	return cloned
 }

@@ -307,19 +307,19 @@ func (mr *MockModelCatalogMockRecorder) SelectModel(ctx, provider, modelID any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectModel", reflect.TypeOf((*MockModelCatalog)(nil).SelectModel), ctx, provider, modelID)
 }
 
-// SelectReasoningLevel mocks base method.
-func (m *MockModelCatalog) SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error) {
+// SelectReasoningChoice mocks base method.
+func (m *MockModelCatalog) SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelectReasoningLevel", level)
+	ret := m.ctrl.Call(m, "SelectReasoningChoice", level)
 	ret0, _ := ret[0].(model.Selection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SelectReasoningLevel indicates an expected call of SelectReasoningLevel.
-func (mr *MockModelCatalogMockRecorder) SelectReasoningLevel(level any) *gomock.Call {
+// SelectReasoningChoice indicates an expected call of SelectReasoningChoice.
+func (mr *MockModelCatalogMockRecorder) SelectReasoningChoice(level any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningLevel", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningLevel), level)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningChoice", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningChoice), level)
 }
 
 // Selection mocks base method.

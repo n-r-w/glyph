@@ -52,14 +52,24 @@ message Initialization {
   ModelSelection model_selection = 6;
 }
 
-// ConfiguredModel describes one selectable model and its reasoning levels.
+// ConfiguredModel describes one selectable model and its reasoning choices.
 message ConfiguredModel {
   // The configured provider instance identifier.
   string provider_id = 1;
   // The configured model identifier.
   string model_id = 2;
-  // The supported reasoning levels in configured order.
-  repeated ReasoningLevel reasoning_levels = 3;
+  // The model reasoning capabilities.
+  ReasoningCapabilities reasoning = 3;
+}
+
+// ReasoningCapabilities describes one model reasoning contract.
+message ReasoningCapabilities {
+  // Whether the model can produce reasoning.
+  bool supported = 1;
+  // The effective choices in configured order.
+  repeated ReasoningChoice choices = 2;
+  // The model default choice.
+  ReasoningChoice default_choice = 3;
 }
 
 // ModelSelection identifies the Host-confirmed active selection.
@@ -68,8 +78,8 @@ message ModelSelection {
   string provider_id = 1;
   // The configured model identifier.
   string model_id = 2;
-  // The active reasoning level.
-  ReasoningLevel reasoning_level = 3;
+  // The active reasoning choice.
+  ReasoningChoice reasoning_choice = 3;
 }
 
 // ModelSelectionChanged confirms one selection committed by the Host.
@@ -78,24 +88,26 @@ message ModelSelectionChanged {
   ModelSelection selection = 1;
 }
 
-// ReasoningLevel identifies a configured model reasoning level.
-enum ReasoningLevel {
-  // No reasoning level was provided.
-  REASONING_LEVEL_UNSPECIFIED = 0;
+// ReasoningChoice identifies a configured model reasoning choice.
+enum ReasoningChoice {
+  // No reasoning choice was provided.
+  REASONING_CHOICE_UNSPECIFIED = 0;
   // Reasoning is disabled.
-  REASONING_LEVEL_NONE = 1;
+  REASONING_CHOICE_OFF = 1;
+  // Reasoning is enabled with the provider default.
+  REASONING_CHOICE_ON = 2;
   // Minimal reasoning is enabled.
-  REASONING_LEVEL_MINIMAL = 2;
+  REASONING_CHOICE_MINIMAL = 3;
   // Low reasoning is enabled.
-  REASONING_LEVEL_LOW = 3;
+  REASONING_CHOICE_LOW = 4;
   // Medium reasoning is enabled.
-  REASONING_LEVEL_MEDIUM = 4;
+  REASONING_CHOICE_MEDIUM = 5;
   // High reasoning is enabled.
-  REASONING_LEVEL_HIGH = 5;
+  REASONING_CHOICE_HIGH = 6;
   // Extra-high reasoning is enabled.
-  REASONING_LEVEL_XHIGH = 6;
+  REASONING_CHOICE_XHIGH = 7;
   // Maximum reasoning is enabled.
-  REASONING_LEVEL_MAX = 7;
+  REASONING_CHOICE_MAX = 8;
 }
 
 // StartupContent carries one informational, warning, or error startup item.
@@ -409,7 +421,7 @@ message OpenResponse {
     RetryAuthenticationCommand retry_authentication = 3;
     QuitCommand quit = 4;
     SelectModelCommand select_model = 5;
-    SelectReasoningLevelCommand select_reasoning_level = 6;
+    SelectReasoningChoiceCommand select_reasoning_choice = 6;
   }
 }
 
@@ -436,8 +448,8 @@ message SelectModelCommand {
   string model_id = 2;
 }
 
-// SelectReasoningLevelCommand requests one reasoning level for the active model.
-message SelectReasoningLevelCommand {
-  // The requested reasoning level.
-  ReasoningLevel level = 1;
+// SelectReasoningChoiceCommand requests one reasoning choice for the active model.
+message SelectReasoningChoiceCommand {
+  // The requested reasoning choice.
+  ReasoningChoice choice = 1;
 }

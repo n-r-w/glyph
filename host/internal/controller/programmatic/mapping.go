@@ -327,7 +327,8 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 		return nil, err
 	}
 	content := make([]*programmaticv1.ModelResponseItem, 0, len(response.Content))
-	for index, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		mapped := new(programmaticv1.ModelResponseItem)
 		switch item.Kind {
 		case ModelResponseContentText:
@@ -418,53 +419,63 @@ func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
 func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.ConfiguredModel, error) {
 	mapped := make([]*programmaticv1.ConfiguredModel, 0, len(descriptors))
 	for _, descriptor := range descriptors {
-		levels := make([]programmaticv1.ReasoningLevel, 0, len(descriptor.SupportedReasoningLevels))
-		for _, level := range descriptor.SupportedReasoningLevels {
-			wireLevel, err := mapReasoningLevel(level)
+		choices := make([]programmaticv1.ReasoningChoice, 0, len(descriptor.ReasoningCapabilities.Choices))
+		for _, choice := range descriptor.ReasoningCapabilities.Choices {
+			wireChoice, err := mapReasoningChoice(choice)
 			if err != nil {
 				return nil, err
 			}
-			levels = append(levels, wireLevel)
+			choices = append(choices, wireChoice)
 		}
+		defaultChoice, err := mapReasoningChoice(descriptor.ReasoningCapabilities.Default)
+		if err != nil {
+			return nil, err
+		}
+		capabilities := new(programmaticv1.ReasoningCapabilities)
+		capabilities.SetSupported(descriptor.ReasoningCapabilities.Supported)
+		capabilities.SetChoices(choices)
+		capabilities.SetDefaultChoice(defaultChoice)
 		configured := new(programmaticv1.ConfiguredModel)
 		configured.SetProviderId(string(descriptor.Provider))
 		configured.SetModelId(string(descriptor.Model))
-		configured.SetSupportedReasoningLevels(levels)
+		configured.SetReasoning(capabilities)
 		mapped = append(mapped, configured)
 	}
 	return mapped, nil
 }
 
 func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {
-	level, err := mapReasoningLevel(selection.ReasoningLevel)
+	level, err := mapReasoningChoice(selection.ReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
 	mapped := new(programmaticv1.ModelSelection)
 	mapped.SetProviderId(string(selection.Provider))
 	mapped.SetModelId(string(selection.Model))
-	mapped.SetReasoningLevel(level)
+	mapped.SetReasoningChoice(level)
 	return mapped, nil
 }
 
-func mapReasoningLevel(level model.ReasoningLevel) (programmaticv1.ReasoningLevel, error) {
+func mapReasoningChoice(level model.ReasoningChoice) (programmaticv1.ReasoningChoice, error) {
 	switch level {
-	case model.ReasoningLevelNone:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE, nil
-	case model.ReasoningLevelMinimal:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL, nil
-	case model.ReasoningLevelLow:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW, nil
-	case model.ReasoningLevelMedium:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM, nil
-	case model.ReasoningLevelHigh:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH, nil
-	case model.ReasoningLevelXHigh:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH, nil
-	case model.ReasoningLevelMax:
-		return programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX, nil
+	case model.ReasoningChoiceOff:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF, nil
+	case model.ReasoningChoiceOn:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_ON, nil
+	case model.ReasoningChoiceMinimal:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_MINIMAL, nil
+	case model.ReasoningChoiceLow:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_LOW, nil
+	case model.ReasoningChoiceMedium:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_MEDIUM, nil
+	case model.ReasoningChoiceHigh:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, nil
+	case model.ReasoningChoiceXHigh:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_XHIGH, nil
+	case model.ReasoningChoiceMax:
+		return programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, nil
 	default:
-		return 0, fmt.Errorf("map reasoning level: unknown value %q", level)
+		return 0, fmt.Errorf("map reasoning choice: unknown value %q", level)
 	}
 }
 
@@ -484,8 +495,8 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_MODELS, nil
 	case CommandSelectModel:
 		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_MODEL, nil
-	case CommandSelectReasoningLevel:
-		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_REASONING_LEVEL, nil
+	case CommandSelectReasoningChoice:
+		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_REASONING_CHOICE, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}

@@ -147,11 +147,11 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 	}.Build()}.Build()))
 	setTerminalSize(t, terminalFile, 100, 40)
@@ -379,4 +379,8 @@ func newCommandWaiter(command *exec.Cmd) *commandWaiter {
 func (waiter *commandWaiter) Wait() error {
 	<-waiter.done
 	return waiter.result
+}
+
+func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
+	return uiv1.ReasoningCapabilities_builder{Supported: new(true), Choices: choices, DefaultChoice: new(choices[len(choices)-1])}.Build()
 }

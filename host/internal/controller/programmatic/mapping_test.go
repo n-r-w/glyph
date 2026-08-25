@@ -41,21 +41,25 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Models: ModelsResult{
 				Models: []model.Descriptor{{
 					Provider: "provider", Model: "model",
-					SupportedReasoningLevels: []model.ReasoningLevel{
-						model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-						model.ReasoningLevelMedium, model.ReasoningLevelHigh,
-						model.ReasoningLevelXHigh, model.ReasoningLevelMax,
+					ReasoningCapabilities: model.ReasoningCapabilities{
+						Supported: true,
+						Choices: []model.ReasoningChoice{
+							model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+							model.ReasoningChoiceMedium, model.ReasoningChoiceHigh,
+							model.ReasoningChoiceXHigh, model.ReasoningChoiceMax,
+						},
+						Default: model.ReasoningChoiceHigh,
 					},
 				}},
 				ActiveSelection: model.Selection{
-					Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelHigh,
+					Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh,
 				},
 			},
 		},
 		"model selection": {
 			CorrelationID: "selection", Kind: ResponseModelSelection,
 			Selection: model.Selection{
-				Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelMax,
+				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceMax,
 			},
 		},
 	}
@@ -93,21 +97,23 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				require.Len(t, models.GetModels(), 1)
 				assert.Equal(t, "provider", models.GetModels()[0].GetProviderId())
 				assert.Equal(t, "model", models.GetModels()[0].GetModelId())
-				assert.Equal(t, []programmaticv1.ReasoningLevel{
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_MINIMAL,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_LOW,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_MEDIUM,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_XHIGH,
-					programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX,
-				}, models.GetModels()[0].GetSupportedReasoningLevels())
-				assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_HIGH, models.GetActiveSelection().GetReasoningLevel())
+				assert.Equal(t, []programmaticv1.ReasoningChoice{
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_MINIMAL,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_LOW,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_MEDIUM,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_XHIGH,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX,
+				}, models.GetModels()[0].GetReasoning().GetChoices())
+				assert.True(t, models.GetModels()[0].GetReasoning().GetSupported())
+				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetModels()[0].GetReasoning().GetDefaultChoice())
+				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetActiveSelection().GetReasoningChoice())
 			case ResponseModelSelection:
 				selection := wire.GetModelSelection().GetSelection()
 				assert.Equal(t, "provider", selection.GetProviderId())
 				assert.Equal(t, "model", selection.GetModelId())
-				assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_MAX, selection.GetReasoningLevel())
+				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, selection.GetReasoningChoice())
 			case ResponseUnspecified:
 				require.Fail(t, "unexpected response kind")
 			}
@@ -231,7 +237,7 @@ func TestApprovedEnumValuesMapExactly(t *testing.T) {
 
 	for index, value := range []CommandKind{
 		CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSelectModel, CommandSelectReasoningLevel,
+		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice,
 	} {
 		mapped, err := mapCommandType(value)
 		require.NoError(t, err)

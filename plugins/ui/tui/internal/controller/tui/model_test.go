@@ -148,10 +148,10 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 			Availability: presentationdomain.AvailabilityIdle,
 			Models: []presentationdomain.ConfiguredModel{{
 				ProviderID: "openai-codex", ModelID: "gpt",
-				ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+				Reasoning: testReasoning(presentationdomain.ReasoningChoiceHigh),
 			}},
 			ModelSelection: presentationdomain.ModelSelection{
-				ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+				ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 			},
 		}, service.Apply, func(presentationdomain.Command) error {
 			t.Fatal("redundant selection command emitted")
@@ -205,14 +205,14 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 	for index := range models {
 		models[index] = presentationdomain.ConfiguredModel{
 			ProviderID: "provider", ModelID: fmt.Sprintf("model-%d", index),
-			ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+			Reasoning: testReasoning(presentationdomain.ReasoningChoiceHigh),
 		}
 	}
 	model := NewModel(presentationdomain.Event{
 		Kind: presentationdomain.EventInitialization, Availability: presentationdomain.AvailabilityIdle,
 		Models: models,
 		ModelSelection: presentationdomain.ModelSelection{
-			ProviderID: "provider", ModelID: "model-0", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+			ProviderID: "provider", ModelID: "model-0", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 		},
 	}, service.Apply, nil)
 	model.height = 10
@@ -275,10 +275,10 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	assert.Equal(t, []presentationdomain.Command{
 		{Kind: presentationdomain.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
 		{Kind: presentationdomain.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
-		{Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: presentationdomain.ReasoningLevelHigh},
+		{Kind: presentationdomain.CommandSelectReasoningChoice, ReasoningChoice: presentationdomain.ReasoningChoiceHigh},
 	}, commands)
 	assert.Equal(t, presentationdomain.ModelSelection{
-		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceLow,
 	}, model.state.ModelSelection)
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
 	model = updateModel(t, model, presentationdomain.Event{
@@ -288,7 +288,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	model = updateModel(t, model, presentationdomain.Event{
 		Kind: presentationdomain.EventModelSelectionChanged,
 		ModelSelection: presentationdomain.ModelSelection{
-			ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+			ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 		},
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / high")
@@ -419,6 +419,48 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	assert.NotContains(t, view, `{"path"`)
 }
 
+// TestModelReasoningUsesOneLocalCollapsedToggle verifies ordered markers, one shared toggle, and wrapped expansion.
+func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
+	t.Parallel()
+
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	model.state.Transcript = append(model.state.Transcript,
+		presentationdomain.Line{Kind: presentationdomain.LineReasoning, Text: "first reasoning block"},
+		presentationdomain.Line{Kind: presentationdomain.LineModel, Text: "between blocks"},
+		presentationdomain.Line{Kind: presentationdomain.LineReasoning, Text: "second reasoning block"},
+	)
+	model = updateModel(t, model, tea.WindowSizeMsg{Width: 12})
+	view := model.View().Content
+	assert.Contains(t, view, "Ctrl+T reasoning display")
+	assert.NotContains(t, view, "Ctrl+O reasoning display")
+
+	collapsed := strings.Join(model.visibleBodyLines(0), "\n")
+	assert.Equal(t, 2, strings.Count(collapsed, "[collapsed]"))
+	assert.NotContains(t, collapsed, "first reasoning")
+	firstMarker := strings.Index(collapsed, "[collapsed]")
+	between := strings.Index(collapsed, "between")
+	secondMarker := strings.LastIndex(collapsed, "[collapsed]")
+	assert.Less(t, firstMarker, between)
+	assert.Less(t, between, secondMarker)
+	assert.Len(t, model.state.Transcript, 3)
+
+	model.emitting = true
+	model.selectorOpen = true
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 'o', Mod: tea.ModCtrl}))
+	assert.False(t, model.reasoningExpanded)
+	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{Code: 't', Mod: tea.ModCtrl}))
+	assert.True(t, model.reasoningExpanded)
+	assert.True(t, model.emitting)
+	assert.True(t, model.selectorOpen)
+	expandedLines := model.visibleBodyLines(0)
+	expanded := strings.Join(expandedLines, "\n")
+	assert.Contains(t, expanded, "first")
+	assert.Contains(t, expanded, "second")
+	for _, line := range expandedLines {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 12)
+	}
+}
+
 // TestModelWrapsCompletedUnicodeContent verifies readable wrapping, display width, and embedded line boundaries.
 func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 	t.Parallel()
@@ -531,15 +573,11 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 	model := NewModel(presentationdomain.Event{
 		Kind: presentationdomain.EventInitialization, Availability: availability,
 		Models: []presentationdomain.ConfiguredModel{
-			{ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevels: []presentationdomain.ReasoningLevel{
-				presentationdomain.ReasoningLevelLow, presentationdomain.ReasoningLevelHigh,
-			}},
-			{ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevels: []presentationdomain.ReasoningLevel{
-				presentationdomain.ReasoningLevelNone,
-			}},
+			{ProviderID: "openai-codex", ModelID: "gpt", Reasoning: testReasoning(presentationdomain.ReasoningChoiceLow, presentationdomain.ReasoningChoiceHigh)},
+			{ProviderID: "openrouter", ModelID: "sonnet", Reasoning: testReasoning(presentationdomain.ReasoningChoiceOff)},
 		},
 		ModelSelection: presentationdomain.ModelSelection{
-			ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+			ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceLow,
 		},
 	}, service.Apply, emit)
 	model.state.Transcript = []presentationdomain.Line{{Kind: presentationdomain.LineModel, Text: "existing"}}
@@ -572,4 +610,8 @@ func executeCommand(t *testing.T, model Model, key tea.KeyPressMsg) Model {
 	model = next.(Model)
 	require.NotNil(t, command)
 	return updateModel(t, model, command())
+}
+
+func testReasoning(choices ...presentationdomain.ReasoningChoice) presentationdomain.ReasoningCapabilities {
+	return presentationdomain.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
 }

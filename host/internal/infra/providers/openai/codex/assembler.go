@@ -393,8 +393,11 @@ func semanticStreamEvent(
 		Kind: kind, Position: position,
 		Content: model.Content{
 			Kind: contentKind, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-			ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+			ProviderContext: model.ProviderContext{
+				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+				Payload: nil,
+			},
+			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 		},
 		Delta: delta,
 		Preview: model.ToolCallPreview{

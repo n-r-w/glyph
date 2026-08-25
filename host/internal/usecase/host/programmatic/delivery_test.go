@@ -22,7 +22,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	response := model.Response{
 		Content: []model.Content{
 			{Kind: model.ContentText, Text: "answer", Final: true},
-			{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "provider", Payload: []byte("private")}},
+			{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider"}, Payload: []byte("private")}},
 		},
 		Outcome: model.OutcomeStop, Provider: "provider", Model: "model",
 	}

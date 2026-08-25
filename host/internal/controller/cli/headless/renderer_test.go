@@ -88,7 +88,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 		{Type: run.EventToolExecutionUpdate, RunID: "run", Progress: tool.Progress{Channel: tool.ProgressChannelStderr, Content: "warning"}},
 		{Type: run.EventToolExecutionEnd, RunID: "run", ToolCall: model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, ToolResult: agent.ToolResult{CallID: "call", ToolName: "bash", Contents: tool.TextContents("done"), IsError: false}},
 		{Type: run.EventMessageEnd, RunID: "run", Message: model.Response{
-			Content:     []model.Content{{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "openai-codex", Payload: []byte("encrypted-secret")}}},
+			Content:     []model.Content{{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "openai-codex"}, Payload: []byte("encrypted-secret")}}},
 			Diagnostics: []model.Diagnostic{{Code: "provider_recovery", Message: "hidden diagnostic"}},
 		}},
 	}

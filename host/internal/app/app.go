@@ -383,13 +383,18 @@ func newProviderCatalog(
 		case settingstore.ProviderTypeOpenAICodex:
 			credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
 			modelIDs := make([]model.ID, len(providerConfig.Models))
+			compatibilityKeys := make(map[model.ID]string, len(providerConfig.Models))
 			for index, configuredModel := range providerConfig.Models {
-				modelIDs[index] = model.ID(configuredModel.ID)
+				modelID := model.ID(configuredModel.ID)
+				modelIDs[index] = modelID
+				compatibilityKeys[modelID] = configuredModel.Reasoning.CompatibilityKey
 			}
-			provider := codex.New(codex.Config{Hooks: hookRunner, Models: modelIDs}, credentials, interaction)
+			provider := codex.New(codex.Config{
+				Hooks: hookRunner, Models: modelIDs, ReasoningCompatibilityKeys: compatibilityKeys,
+			}, credentials, interaction)
 			for _, configuredModel := range providerConfig.Models {
 				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
-				descriptor.SupportedReasoningLevels = reasoningLevels(configuredModel.ReasoningLevels)
+				descriptor.ReasoningCapabilities = reasoningCapabilities(configuredModel.Reasoning)
 				entries = append(entries, providers.Entry{
 					Descriptor: descriptor, Provider: provider,
 					SelectionCredentialValidator: nil, Authentication: provider,
@@ -400,12 +405,18 @@ func newProviderCatalog(
 				paths.CredentialsFile, apiKeySource(providerConfig.APIKey),
 			)
 			modelAPIs := make(map[model.ID]compatible.API, len(providerConfig.Models))
+			wireFormats := make(map[model.ID]string, len(providerConfig.Models))
+			compatibilityKeys := make(map[model.ID]string, len(providerConfig.Models))
 			for _, configuredModel := range providerConfig.Models {
-				modelAPIs[model.ID(configuredModel.ID)] = compatible.API(configuredModel.API)
+				modelID := model.ID(configuredModel.ID)
+				modelAPIs[modelID] = compatible.API(configuredModel.API)
+				wireFormats[modelID] = string(configuredModel.Reasoning.WireFormat)
+				compatibilityKeys[modelID] = configuredModel.Reasoning.CompatibilityKey
 			}
 			provider, err := compatible.New(compatible.Config{
 				ProviderID: model.ProviderID(providerID), BaseURL: providerConfig.BaseURL,
-				API: compatible.API(providerConfig.API), Models: modelAPIs, APIKey: resolver,
+				API: compatible.API(providerConfig.API), Models: modelAPIs,
+				ReasoningWireFormats: wireFormats, ReasoningCompatibilityKeys: compatibilityKeys, APIKey: resolver,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("create provider %q: %w", providerID, err)
@@ -414,7 +425,7 @@ func newProviderCatalog(
 				entries = append(entries, providers.Entry{
 					Descriptor: model.Descriptor{
 						Provider: model.ProviderID(providerID), Model: model.ID(configuredModel.ID),
-						SupportedReasoningLevels: reasoningLevels(configuredModel.ReasoningLevels),
+						ReasoningCapabilities: reasoningCapabilities(configuredModel.Reasoning),
 						ToolCapabilities: model.ToolCapabilities{
 							StrictJSONSchema: false,
 							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
@@ -427,19 +438,37 @@ func newProviderCatalog(
 			return nil, fmt.Errorf("unsupported configured provider type %q", providerConfig.Type)
 		}
 	}
+	defaultProvider := configured.Providers[configured.DefaultProvider]
+	defaultModel, _ := configuredModel(defaultProvider.Models, configured.DefaultModel)
 	return providers.New(entries, model.Selection{
 		Provider: model.ProviderID(configured.DefaultProvider), Model: model.ID(configured.DefaultModel),
-		ReasoningLevel: model.ReasoningLevel(configured.DefaultReasoningLevel),
+		ReasoningChoice: model.ReasoningChoice(defaultModel.Reasoning.Default),
 	})
 }
 
-// reasoningLevels maps validated persistence values into an immutable domain slice.
-func reasoningLevels(configured []settingstore.ReasoningLevel) []model.ReasoningLevel {
-	levels := make([]model.ReasoningLevel, len(configured))
-	for index, level := range configured {
-		levels[index] = model.ReasoningLevel(level)
+// configuredModel finds one validated model without exposing persistence details outside assembly.
+func configuredModel(models []settingstore.Model, modelID string) (settingstore.Model, bool) {
+	for _, configured := range models {
+		if configured.ID == modelID {
+			return configured, true
+		}
 	}
-	return levels
+	return settingstore.Model{
+		ID: "", API: "", Reasoning: settingstore.Reasoning{
+			Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
+		},
+	}, false
+}
+
+// reasoningCapabilities maps validated persistence values into the model domain.
+func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCapabilities {
+	choices := make([]model.ReasoningChoice, len(configured.Choices))
+	for index, choice := range configured.Choices {
+		choices[index] = model.ReasoningChoice(choice)
+	}
+	return model.ReasoningCapabilities{
+		Supported: configured.Supported, Choices: choices, Default: model.ReasoningChoice(configured.Default),
+	}
 }
 
 // apiKeySource maps the validated settings union without resolving its secret.

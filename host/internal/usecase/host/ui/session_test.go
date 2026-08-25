@@ -282,7 +282,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 			name: "interactive sign-in", availability: domainui.AvailabilityAuthenticating,
 			activeKind: operationSignIn,
 			command: domainui.Command{
-				Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+				Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceHigh,
 			},
 		},
 	}
@@ -331,7 +331,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 		{
 			name: "authentication failed reasoning", availability: domainui.AvailabilityAuthenticationFailed,
 			command: domainui.Command{
-				Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+				Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceHigh,
 			},
 		},
 	}
@@ -341,14 +341,14 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 			channel := NewMockChannel(controller)
 			catalog := NewMockModelCatalog(controller)
 			selection := model.Selection{
-				Provider: "openrouter", Model: "sonnet", ReasoningLevel: model.ReasoningLevelHigh,
+				Provider: "openrouter", Model: "sonnet", ReasoningChoice: model.ReasoningChoiceHigh,
 			}
 			if test.command.Kind == domainui.CommandSelectModel {
 				catalog.EXPECT().SelectModel(
 					gomock.Any(), model.ProviderID("openrouter"), model.ID("sonnet"),
 				).Return(selection, nil)
 			} else {
-				catalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selection, nil)
+				catalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceHigh).Return(selection, nil)
 			}
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				assert.Equal(t, domainui.FrameModelSelectionChanged, frame.Kind)
@@ -377,14 +377,14 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 	ctx := context.WithValue(t.Context(), sessionContextKey{}, "selection")
 	canceled := false
 	cancel := func() { canceled = true }
-	selection := model.Selection{Provider: "openrouter", Model: "sonnet", ReasoningLevel: model.ReasoningLevelHigh}
+	selection := model.Selection{Provider: "openrouter", Model: "sonnet", ReasoningChoice: model.ReasoningChoiceHigh}
 
 	s.modelCatalog.EXPECT().SelectModel(ctx, model.ProviderID("openrouter"), model.ID("sonnet")).Return(selection, nil)
-	s.modelCatalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selection, nil)
+	s.modelCatalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceHigh).Return(selection, nil)
 	s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		assert.Equal(t, domainui.FrameModelSelectionChanged, frame.Kind)
 		assert.Equal(t, domainui.ModelSelection{
-			ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: domainui.ReasoningLevelHigh,
+			ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: domainui.ReasoningChoiceHigh,
 		}, frame.ModelSelection)
 		return nil
 	}).Times(2)
@@ -401,7 +401,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 	require.NoError(t, err)
 	availability, activeCancel, activeKind, err = session.applyCommand(
 		ctx, availability, activeCancel, activeKind, domainui.Command{
-			Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelHigh,
+			Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceHigh,
 		}, make(chan operationResult),
 	)
 
@@ -415,7 +415,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 // TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation verifies rejected selection preserves status.
 func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation() {
 	t := s.T()
-	s.modelCatalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelMax).Return(model.Selection{}, errors.New("secret detail"))
+	s.modelCatalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceMax).Return(model.Selection{}, errors.New("secret detail"))
 	s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		assert.Equal(t, domainui.FrameError, frame.Kind)
 		assert.Equal(t, "Could not change model selection.", frame.Text)
@@ -427,7 +427,7 @@ func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmat
 		channel: s.channel, runner: s.runner, authenticator: s.authenticator,
 		modelCatalog: s.modelCatalog, afterInitialization: func(context.Context) {},
 	}).applyCommand(t.Context(), domainui.AvailabilityRunning, func() {}, operationRun, domainui.Command{
-		Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelMax,
+		Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceMax,
 	}, make(chan operationResult))
 
 	require.NoError(t, err)

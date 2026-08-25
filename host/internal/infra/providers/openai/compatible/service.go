@@ -29,15 +29,19 @@ const (
 	APIChatCompletions API = "chat-completions"
 	// APIResponses selects the Responses API.
 	APIResponses API = "responses"
+
+	reasoningWireFormatOpenAIResponses = "openai-responses"
 )
 
 // Config contains immutable configuration for one provider instance.
 type Config struct {
-	ProviderID model.ProviderID
-	BaseURL    string
-	API        API
-	Models     map[model.ID]API
-	APIKey     APIKeyResolver
+	ProviderID                 model.ProviderID
+	BaseURL                    string
+	API                        API
+	Models                     map[model.ID]API
+	ReasoningWireFormats       map[model.ID]string
+	ReasoningCompatibilityKeys map[model.ID]string
+	APIKey                     APIKeyResolver
 }
 
 // modelConfig contains provider-owned wire metadata for one configured model.
@@ -77,21 +81,9 @@ func New(config Config) (*Driver, error) {
 	if config.APIKey == nil {
 		return nil, errors.New("OpenAI-compatible API key resolver is required")
 	}
-	models := make(map[model.ID]modelConfig, len(config.Models))
-	for modelID, override := range config.Models {
-		if strings.TrimSpace(string(modelID)) == "" {
-			return nil, errors.New("OpenAI-compatible model ID is required")
-		}
-		selectedAPI := config.API
-		if override != "" {
-			if apiErr := validateAPI(override); apiErr != nil {
-				return nil, fmt.Errorf("model %q API override: %w", modelID, apiErr)
-			}
-			selectedAPI = override
-		}
-		models[modelID] = modelConfig{
-			api: selectedAPI, reasoningWireFormat: "", reasoningCompatibilityKey: "",
-		}
+	models, err := configuredModels(config)
+	if err != nil {
+		return nil, err
 	}
 	return &Driver{
 		providerID: config.ProviderID,
@@ -100,6 +92,33 @@ func New(config Config) (*Driver, error) {
 		apiKey:     config.APIKey,
 		httpClient: &http.Client{},
 	}, nil
+}
+
+// configuredModels validates and snapshots each model-specific API and reasoning configuration.
+func configuredModels(config Config) (map[model.ID]modelConfig, error) {
+	models := make(map[model.ID]modelConfig, len(config.Models))
+	for modelID, override := range config.Models {
+		if strings.TrimSpace(string(modelID)) == "" {
+			return nil, errors.New("OpenAI-compatible model ID is required")
+		}
+		selectedAPI := config.API
+		if override != "" {
+			if err := validateAPI(override); err != nil {
+				return nil, fmt.Errorf("model %q API override: %w", modelID, err)
+			}
+			selectedAPI = override
+		}
+		reasoningWireFormat := config.ReasoningWireFormats[modelID]
+		if reasoningWireFormat != "" &&
+			(reasoningWireFormat != reasoningWireFormatOpenAIResponses || selectedAPI != APIResponses) {
+			return nil, fmt.Errorf("model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI)
+		}
+		models[modelID] = modelConfig{
+			api: selectedAPI, reasoningWireFormat: reasoningWireFormat,
+			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
+		}
+	}
+	return models, nil
 }
 
 func validateAPI(api API) error {

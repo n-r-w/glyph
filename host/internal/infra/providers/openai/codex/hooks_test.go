@@ -226,11 +226,11 @@ func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptio
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	).Times(calls)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	return newDriver(Config{Hooks: runner, Models: nil}, credentials, interaction, options)
+	return newDriver(Config{Hooks: runner, Models: testConfig().Models}, credentials, interaction, options)
 }
 
 func hookModelRequest(instructions string) run.ModelRequest {
-	return run.ModelRequest{
+	return run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: instructions,
 		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test"},
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},

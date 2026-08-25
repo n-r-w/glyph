@@ -15,24 +15,26 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 )
 
-// ReasoningLevel is one configured model reasoning level.
-type ReasoningLevel string
+// ReasoningChoice is one configured model reasoning choice.
+type ReasoningChoice string
 
 const (
-	// ReasoningLevelNone disables model reasoning when the selected model supports it.
-	ReasoningLevelNone ReasoningLevel = "none"
-	// ReasoningLevelMinimal requests minimal model reasoning.
-	ReasoningLevelMinimal ReasoningLevel = "minimal"
-	// ReasoningLevelLow requests low model reasoning.
-	ReasoningLevelLow ReasoningLevel = "low"
-	// ReasoningLevelMedium requests medium model reasoning.
-	ReasoningLevelMedium ReasoningLevel = "medium"
-	// ReasoningLevelHigh requests high model reasoning.
-	ReasoningLevelHigh ReasoningLevel = "high"
-	// ReasoningLevelXHigh requests extra-high model reasoning.
-	ReasoningLevelXHigh ReasoningLevel = "xhigh"
-	// ReasoningLevelMax requests maximum model reasoning.
-	ReasoningLevelMax ReasoningLevel = "max"
+	// ReasoningChoiceOff disables model reasoning.
+	ReasoningChoiceOff ReasoningChoice = "off"
+	// ReasoningChoiceOn enables model reasoning with the provider default.
+	ReasoningChoiceOn ReasoningChoice = "on"
+	// ReasoningChoiceMinimal requests minimal model reasoning.
+	ReasoningChoiceMinimal ReasoningChoice = "minimal"
+	// ReasoningChoiceLow requests low model reasoning.
+	ReasoningChoiceLow ReasoningChoice = "low"
+	// ReasoningChoiceMedium requests medium model reasoning.
+	ReasoningChoiceMedium ReasoningChoice = "medium"
+	// ReasoningChoiceHigh requests high model reasoning.
+	ReasoningChoiceHigh ReasoningChoice = "high"
+	// ReasoningChoiceXHigh requests extra-high model reasoning.
+	ReasoningChoiceXHigh ReasoningChoice = "xhigh"
+	// ReasoningChoiceMax requests maximum model reasoning.
+	ReasoningChoiceMax ReasoningChoice = "max"
 )
 
 // ProviderType identifies one configured provider protocol.
@@ -55,6 +57,14 @@ const (
 	APIResponses API = "responses"
 )
 
+// ReasoningWireFormat identifies a provider-driver reasoning representation.
+type ReasoningWireFormat string
+
+const (
+	// ReasoningWireFormatOpenAIResponses uses OpenAI Responses reasoning fields.
+	ReasoningWireFormatOpenAIResponses ReasoningWireFormat = "openai-responses"
+)
+
 // APIKey identifies one configured API-key source.
 type APIKey struct {
 	Literal     *string
@@ -62,11 +72,20 @@ type APIKey struct {
 	Credential  *string
 }
 
-// Model contains one configured model and its supported reasoning levels.
+// Reasoning contains one validated model reasoning configuration.
+type Reasoning struct {
+	Supported        bool
+	Choices          []ReasoningChoice
+	Default          ReasoningChoice
+	CompatibilityKey string
+	WireFormat       ReasoningWireFormat
+}
+
+// Model contains one configured model and its reasoning configuration.
 type Model struct {
-	ID              string
-	API             API
-	ReasoningLevels []ReasoningLevel
+	ID        string
+	API       API
+	Reasoning Reasoning
 }
 
 // Provider contains one validated provider instance.
@@ -80,11 +99,10 @@ type Provider struct {
 
 // Settings contains the validated startup model and UI selection.
 type Settings struct {
-	DefaultProvider       string
-	DefaultModel          string
-	DefaultReasoningLevel ReasoningLevel
-	Providers             map[string]Provider
-	ActiveUI              string
+	DefaultProvider string
+	DefaultModel    string
+	Providers       map[string]Provider
+	ActiveUI        string
 }
 
 // Service loads one settings file.
@@ -99,11 +117,10 @@ func New(path string) *Service {
 
 // settingsFile is the strict YAML representation owned by Host persistence.
 type settingsFile struct {
-	DefaultProvider       string                  `yaml:"defaultProvider"`
-	DefaultModel          string                  `yaml:"defaultModel"`
-	DefaultReasoningLevel ReasoningLevel          `yaml:"defaultReasoningLevel"`
-	Providers             map[string]providerFile `yaml:"providers"`
-	ActiveUI              *string                 `yaml:"activeUI"`
+	DefaultProvider string                  `yaml:"defaultProvider"`
+	DefaultModel    string                  `yaml:"defaultModel"`
+	Providers       map[string]providerFile `yaml:"providers"`
+	ActiveUI        *string                 `yaml:"activeUI"`
 }
 
 type providerFile struct {
@@ -121,9 +138,17 @@ type apiKeyFile struct {
 }
 
 type modelFile struct {
-	ID              string           `yaml:"id"`
-	API             API              `yaml:"api"`
-	ReasoningLevels []ReasoningLevel `yaml:"reasoningLevels"`
+	ID        string        `yaml:"id"`
+	API       API           `yaml:"api"`
+	Reasoning reasoningFile `yaml:"reasoning"`
+}
+
+type reasoningFile struct {
+	Supported        bool                `yaml:"supported"`
+	Choices          []ReasoningChoice   `yaml:"choices"`
+	Default          ReasoningChoice     `yaml:"default"`
+	CompatibilityKey *string             `yaml:"compatibilityKey"`
+	WireFormat       ReasoningWireFormat `yaml:"wireFormat"`
 }
 
 // Load parses and validates the configured settings file.
@@ -166,23 +191,19 @@ func validate(decoded settingsFile) (Settings, error) {
 	if !found {
 		return Settings{}, errors.New("defaultProvider must identify a configured provider")
 	}
-	defaultModel, found := findModel(defaultProvider.Models, decoded.DefaultModel)
+	_, found = findModel(defaultProvider.Models, decoded.DefaultModel)
 	if !found {
 		return Settings{}, errors.New("defaultModel must identify a model on defaultProvider")
-	}
-	if !supportsReasoningLevel(defaultModel.ReasoningLevels, decoded.DefaultReasoningLevel) {
-		return Settings{}, errors.New("defaultReasoningLevel must be supported by the default model")
 	}
 	activeUI, err := validateActiveUI(decoded.ActiveUI)
 	if err != nil {
 		return Settings{}, err
 	}
 	return Settings{
-		DefaultProvider:       decoded.DefaultProvider,
-		DefaultModel:          decoded.DefaultModel,
-		DefaultReasoningLevel: decoded.DefaultReasoningLevel,
-		Providers:             providers,
-		ActiveUI:              activeUI,
+		DefaultProvider: decoded.DefaultProvider,
+		DefaultModel:    decoded.DefaultModel,
+		Providers:       providers,
+		ActiveUI:        activeUI,
 	}, nil
 }
 
@@ -192,9 +213,6 @@ func validateDefaults(decoded settingsFile) error {
 	}
 	if err := validateIdentifier("defaultModel", decoded.DefaultModel); err != nil {
 		return err
-	}
-	if !isReasoningLevelSupported(decoded.DefaultReasoningLevel) {
-		return fmt.Errorf("defaultReasoningLevel %q is not supported", decoded.DefaultReasoningLevel)
 	}
 	if len(decoded.Providers) == 0 {
 		return errors.New("providers must contain configured provider instances")
@@ -233,7 +251,9 @@ func findModel(models []Model, modelID string) (Model, bool) {
 			return configured, true
 		}
 	}
-	return Model{ID: "", API: "", ReasoningLevels: nil}, false
+	return Model{ID: "", API: "", Reasoning: Reasoning{
+		Supported: false, Choices: nil, Default: "", CompatibilityKey: "", WireFormat: "",
+	}}, false
 }
 
 func validateActiveUI(configured *string) (string, error) {
@@ -274,7 +294,7 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 
 	seenModels := make(map[string]struct{}, len(configured.Models))
 	for _, configuredModel := range configured.Models {
-		model, err := validateModel(providerID, configured.Type, configuredModel)
+		model, err := validateModel(providerID, configured.Type, configured.API, configuredModel)
 		if err != nil {
 			return Provider{}, err
 		}
@@ -297,9 +317,14 @@ func validateCompatibleProvider(providerID string, configured providerFile) (*AP
 	return validateAPIKey(providerID, configured.APIKey)
 }
 
-func validateModel(providerID string, providerType ProviderType, configured modelFile) (Model, error) {
+// validateModel validates one model and resolves its effective API for reasoning validation.
+func validateModel(providerID string, providerType ProviderType, providerAPI API, configured modelFile) (Model, error) {
 	if err := validateIdentifier("model ID", configured.ID); err != nil {
 		return Model{}, fmt.Errorf("provider %q: %w", providerID, err)
+	}
+	api := providerAPI
+	if providerType == ProviderTypeOpenAICodex {
+		api = APIResponses
 	}
 	if configured.API != "" {
 		if providerType != ProviderTypeOpenAICompatible {
@@ -308,29 +333,108 @@ func validateModel(providerID string, providerType ProviderType, configured mode
 		if !isAPISupported(configured.API) {
 			return Model{}, fmt.Errorf("provider %q model %q has unsupported API %q", providerID, configured.ID, configured.API)
 		}
+		api = configured.API
 	}
-	if len(configured.ReasoningLevels) == 0 {
-		return Model{}, fmt.Errorf("provider %q model %q must contain reasoning levels", providerID, configured.ID)
+	reasoning, err := validateReasoning(providerID, configured.ID, api, configured.Reasoning)
+	if err != nil {
+		return Model{}, err
 	}
-	levels := make([]ReasoningLevel, len(configured.ReasoningLevels))
-	seenLevels := make(map[ReasoningLevel]struct{}, len(configured.ReasoningLevels))
-	for index, level := range configured.ReasoningLevels {
-		if !isReasoningLevelSupported(level) {
-			return Model{}, fmt.Errorf(
-				"provider %q model %q has unsupported reasoning level %q",
-				providerID, configured.ID, level,
+	return Model{ID: configured.ID, API: configured.API, Reasoning: reasoning}, nil
+}
+
+// validateReasoning validates one closed capability shape and its provider wire format.
+//
+//nolint:gocyclo // The flat validation mirrors the closed capability and wire-format combinations.
+func validateReasoning(providerID, modelID string, api API, configured reasoningFile) (Reasoning, error) {
+	choices := append([]ReasoningChoice(nil), configured.Choices...)
+	seen := make(map[ReasoningChoice]struct{}, len(choices))
+	for _, choice := range choices {
+		if !isReasoningChoiceSupported(choice) {
+			return Reasoning{}, fmt.Errorf(
+				"provider %q model %q has unsupported reasoning choice %q", providerID, modelID, choice,
 			)
 		}
-		if _, duplicate := seenLevels[level]; duplicate {
-			return Model{}, fmt.Errorf(
-				"provider %q model %q has duplicate reasoning level %q",
-				providerID, configured.ID, level,
+		if _, duplicate := seen[choice]; duplicate {
+			return Reasoning{}, fmt.Errorf("provider %q model %q has duplicate reasoning choice %q", providerID, modelID, choice)
+		}
+		seen[choice] = struct{}{}
+	}
+	if len(choices) == 0 || !supportsReasoningChoice(choices, configured.Default) {
+		return Reasoning{}, fmt.Errorf(
+			"provider %q model %q reasoning default must be listed in choices", providerID, modelID,
+		)
+	}
+	key := ""
+	if configured.CompatibilityKey != nil {
+		key = *configured.CompatibilityKey
+		if key == "" || key != strings.TrimSpace(key) {
+			return Reasoning{}, fmt.Errorf(
+				"provider %q model %q reasoning compatibilityKey must be nonempty without surrounding whitespace",
+				providerID, modelID,
 			)
 		}
-		seenLevels[level] = struct{}{}
-		levels[index] = level
 	}
-	return Model{ID: configured.ID, API: configured.API, ReasoningLevels: levels}, nil
+	if !configured.Supported {
+		invalidShape := len(choices) != 1 || choices[0] != ReasoningChoiceOff ||
+			configured.Default != ReasoningChoiceOff || key != "" || configured.WireFormat != ""
+		if invalidShape {
+			return Reasoning{}, fmt.Errorf(
+				"provider %q model %q has contradictory non-reasoning capabilities", providerID, modelID,
+			)
+		}
+		return Reasoning{
+			Supported: false, Choices: choices, Default: configured.Default,
+			CompatibilityKey: "", WireFormat: "",
+		}, nil
+	}
+	if configured.WireFormat == "" {
+		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning requires wireFormat", providerID, modelID)
+	}
+	if err := validateReasoningShape(choices, configured.Default); err != nil {
+		return Reasoning{}, fmt.Errorf("provider %q model %q: %w", providerID, modelID, err)
+	}
+	if !wireFormatMatchesAPI(configured.WireFormat, api) {
+		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning wireFormat does not match API", providerID, modelID)
+	}
+	return Reasoning{
+		Supported: true, Choices: choices, Default: configured.Default,
+		CompatibilityKey: key, WireFormat: configured.WireFormat,
+	}, nil
+}
+
+// validateReasoningShape accepts fixed, toggle, and effort reasoning shapes.
+func validateReasoningShape(choices []ReasoningChoice, defaultChoice ReasoningChoice) error {
+	if len(choices) == 1 && choices[0] == ReasoningChoiceOn && defaultChoice == ReasoningChoiceOn {
+		return nil
+	}
+	isToggle := len(choices) == 2 && supportsReasoningChoice(choices, ReasoningChoiceOff) &&
+		supportsReasoningChoice(choices, ReasoningChoiceOn)
+	if isToggle {
+		return nil
+	}
+	hasEffort := false
+	for _, choice := range choices {
+		if choice == ReasoningChoiceOn {
+			return errors.New("effort reasoning cannot contain on")
+		}
+		if choice != ReasoningChoiceOff {
+			hasEffort = true
+		}
+	}
+	if !hasEffort {
+		return errors.New("reasoning choices have an invalid capability shape")
+	}
+	return nil
+}
+
+// wireFormatMatchesAPI checks the closed wire-format and API combinations.
+func wireFormatMatchesAPI(format ReasoningWireFormat, api API) bool {
+	switch format {
+	case ReasoningWireFormatOpenAIResponses:
+		return api == APIResponses
+	default:
+		return false
+	}
 }
 
 //nolint:nilnil // A nil key and nil error represent an omitted optional API-key source.
@@ -384,7 +488,7 @@ func isAPISupported(api API) bool {
 	return api == APIChatCompletions || api == APIResponses
 }
 
-func supportsReasoningLevel(levels []ReasoningLevel, target ReasoningLevel) bool {
+func supportsReasoningChoice(levels []ReasoningChoice, target ReasoningChoice) bool {
 	for _, level := range levels {
 		if level == target {
 			return true
@@ -393,16 +497,17 @@ func supportsReasoningLevel(levels []ReasoningLevel, target ReasoningLevel) bool
 	return false
 }
 
-// isReasoningLevelSupported recognizes the complete configured reasoning-level set.
-func isReasoningLevelSupported(level ReasoningLevel) bool {
+// isReasoningChoiceSupported recognizes the complete configured reasoning-choice set.
+func isReasoningChoiceSupported(level ReasoningChoice) bool {
 	switch level {
-	case ReasoningLevelNone,
-		ReasoningLevelMinimal,
-		ReasoningLevelLow,
-		ReasoningLevelMedium,
-		ReasoningLevelHigh,
-		ReasoningLevelXHigh,
-		ReasoningLevelMax:
+	case ReasoningChoiceOff,
+		ReasoningChoiceOn,
+		ReasoningChoiceMinimal,
+		ReasoningChoiceLow,
+		ReasoningChoiceMedium,
+		ReasoningChoiceHigh,
+		ReasoningChoiceXHigh,
+		ReasoningChoiceMax:
 		return true
 	default:
 		return false

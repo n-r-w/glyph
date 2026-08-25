@@ -57,7 +57,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 		{Kind: domainui.CommandRetryAuthentication, Text: ""},
 		{Kind: domainui.CommandQuit, Text: ""},
 		{Kind: domainui.CommandSelectModel, ProviderID: "openrouter", ModelID: "sonnet"},
-		{Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: domainui.ReasoningLevelXHigh},
+		{Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: domainui.ReasoningChoiceXHigh},
 	} {
 		command, receiveErr := transport.Receive()
 		require.NoError(t, receiveErr)
@@ -80,10 +80,10 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 		Availability: domainui.AvailabilityCheckingAuthentication,
 		Models: []domainui.ConfiguredModel{{
 			ProviderID: "openrouter", ModelID: "sonnet",
-			ReasoningLevels: []domainui.ReasoningLevel{domainui.ReasoningLevelNone, domainui.ReasoningLevelXHigh},
+			Reasoning: testUIReasoningCapabilities(domainui.ReasoningChoiceOff, domainui.ReasoningChoiceXHigh),
 		}},
 		ModelSelection: domainui.ModelSelection{
-			ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: domainui.ReasoningLevelXHigh,
+			ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: domainui.ReasoningChoiceXHigh,
 		},
 	})
 
@@ -93,11 +93,11 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	assert.Equal(t, "/plugins/tools", mapped.GetExtensions()[0].GetPath())
 	require.Len(t, mapped.GetModels(), 1)
 	assert.Equal(t, "openrouter", mapped.GetModels()[0].GetProviderId())
-	assert.Equal(t, []uipb.ReasoningLevel{
-		uipb.ReasoningLevel_REASONING_LEVEL_NONE,
-		uipb.ReasoningLevel_REASONING_LEVEL_XHIGH,
-	}, mapped.GetModels()[0].GetReasoningLevels())
-	assert.Equal(t, uipb.ReasoningLevel_REASONING_LEVEL_XHIGH, mapped.GetModelSelection().GetReasoningLevel())
+	assert.Equal(t, []uipb.ReasoningChoice{
+		uipb.ReasoningChoice_REASONING_CHOICE_OFF,
+		uipb.ReasoningChoice_REASONING_CHOICE_XHIGH,
+	}, mapped.GetModels()[0].GetReasoning().GetChoices())
+	assert.Equal(t, uipb.ReasoningChoice_REASONING_CHOICE_XHIGH, mapped.GetModelSelection().GetReasoningChoice())
 }
 
 // TestReasoningMappingsCoverEveryValue verifies the closed UI reasoning contract.
@@ -105,26 +105,26 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 	t.Parallel()
 
 	values := []struct {
-		domain domainui.ReasoningLevel
-		proto  uipb.ReasoningLevel
+		domain domainui.ReasoningChoice
+		proto  uipb.ReasoningChoice
 	}{
-		{domainui.ReasoningLevelNone, uipb.ReasoningLevel_REASONING_LEVEL_NONE},
-		{domainui.ReasoningLevelMinimal, uipb.ReasoningLevel_REASONING_LEVEL_MINIMAL},
-		{domainui.ReasoningLevelLow, uipb.ReasoningLevel_REASONING_LEVEL_LOW},
-		{domainui.ReasoningLevelMedium, uipb.ReasoningLevel_REASONING_LEVEL_MEDIUM},
-		{domainui.ReasoningLevelHigh, uipb.ReasoningLevel_REASONING_LEVEL_HIGH},
-		{domainui.ReasoningLevelXHigh, uipb.ReasoningLevel_REASONING_LEVEL_XHIGH},
-		{domainui.ReasoningLevelMax, uipb.ReasoningLevel_REASONING_LEVEL_MAX},
+		{domainui.ReasoningChoiceOff, uipb.ReasoningChoice_REASONING_CHOICE_OFF},
+		{domainui.ReasoningChoiceMinimal, uipb.ReasoningChoice_REASONING_CHOICE_MINIMAL},
+		{domainui.ReasoningChoiceLow, uipb.ReasoningChoice_REASONING_CHOICE_LOW},
+		{domainui.ReasoningChoiceMedium, uipb.ReasoningChoice_REASONING_CHOICE_MEDIUM},
+		{domainui.ReasoningChoiceHigh, uipb.ReasoningChoice_REASONING_CHOICE_HIGH},
+		{domainui.ReasoningChoiceXHigh, uipb.ReasoningChoice_REASONING_CHOICE_XHIGH},
+		{domainui.ReasoningChoiceMax, uipb.ReasoningChoice_REASONING_CHOICE_MAX},
 	}
 	for _, value := range values {
-		assert.Equal(t, value.proto, mapReasoningLevel(value.domain))
-		mapped, err := mapReasoningLevelFromProto(value.proto)
+		assert.Equal(t, value.proto, mapReasoningChoice(value.domain))
+		mapped, err := mapReasoningChoiceFromProto(value.proto)
 		require.NoError(t, err)
 		assert.Equal(t, value.domain, mapped)
 	}
-	_, err := mapReasoningLevelFromProto(uipb.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED)
+	_, err := mapReasoningChoiceFromProto(uipb.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED)
 	require.Error(t, err)
-	_, err = mapReasoningLevelFromProto(uipb.ReasoningLevel(99))
+	_, err = mapReasoningChoiceFromProto(uipb.ReasoningChoice(99))
 	require.Error(t, err)
 }
 
@@ -224,8 +224,8 @@ func (s *runtimeContractService) Open(
 		uipb.OpenResponse_builder{SelectModel: uipb.SelectModelCommand_builder{
 			ProviderId: new("openrouter"), ModelId: new("sonnet"),
 		}.Build()}.Build(),
-		uipb.OpenResponse_builder{SelectReasoningLevel: uipb.SelectReasoningLevelCommand_builder{
-			Level: new(uipb.ReasoningLevel_REASONING_LEVEL_XHIGH),
+		uipb.OpenResponse_builder{SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
+			Choice: new(uipb.ReasoningChoice_REASONING_CHOICE_XHIGH),
 		}.Build()}.Build(),
 	} {
 		if err := stream.Send(response); err != nil {
@@ -301,7 +301,7 @@ func testModelSelectionFrame() domainui.Frame {
 		Kind:           domainui.FrameModelSelectionChanged,
 		Initialization: emptyTestInitialization(), Lifecycle: emptyTestLifecycle(),
 		ModelSelection: domainui.ModelSelection{
-			ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: domainui.ReasoningLevelHigh,
+			ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: domainui.ReasoningChoiceHigh,
 		},
 	}
 }
@@ -335,4 +335,8 @@ func emptyTestLifecycle() domainui.Lifecycle {
 		ToolCallID:    "", ToolName: "", ProgressChannel: 0, IsError: false,
 		Outcome: "", ErrorMessage: "", Availability: 0,
 	}
+}
+
+func testUIReasoningCapabilities(choices ...domainui.ReasoningChoice) domainui.ReasoningCapabilities {
+	return domainui.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
 }

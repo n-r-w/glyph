@@ -17,10 +17,14 @@ func TestModelDescriptorAdvertisesKnownCapabilities(t *testing.T) {
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna",
-		SupportedReasoningLevels: []model.ReasoningLevel{
-			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
-			model.ReasoningLevelMax,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true,
+			Choices: []model.ReasoningChoice{
+				model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+				model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+				model.ReasoningChoiceMax,
+			},
+			Default: model.ReasoningChoiceMedium,
 		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: true,
@@ -38,10 +42,14 @@ func TestModelDescriptorDoesNotInferUnknownCapabilities(t *testing.T) {
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna-preview",
-		SupportedReasoningLevels: []model.ReasoningLevel{
-			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
-			model.ReasoningLevelMax,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true,
+			Choices: []model.ReasoningChoice{
+				model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+				model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+				model.ReasoningChoiceMax,
+			},
+			Default: model.ReasoningChoiceMedium,
 		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},

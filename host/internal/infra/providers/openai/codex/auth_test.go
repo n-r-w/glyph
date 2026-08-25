@@ -101,7 +101,7 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		),
 		interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(errors.New("browser unavailable")),
 	)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
+	service := newDriver(testConfig(), credentials, interaction, options)
 
 	err := service.SignInProvider(t.Context())
 
@@ -131,7 +131,7 @@ func TestDriverSignInCancellationClosesCallbackServer(t *testing.T) {
 		return listener, err
 	}
 	service := newDriver(
-		Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options,
+		testConfig(), credentials, interaction, options,
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -178,7 +178,7 @@ func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 	)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	service := newDriver(
-		Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options,
+		testConfig(), credentials, interaction, options,
 	)
 
 	err := service.SignInProvider(t.Context())
@@ -194,7 +194,7 @@ func TestDriverSignOutDeletesOnlyProviderPayload(t *testing.T) {
 	credentials := NewMockCredentials(gomock.NewController(t))
 	interaction := NewMockInteraction(gomock.NewController(t))
 	credentials.EXPECT().Delete().Return(nil)
-	service := New(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction)
+	service := New(testConfig(), credentials, interaction)
 
 	require.NoError(t, service.SignOut())
 }

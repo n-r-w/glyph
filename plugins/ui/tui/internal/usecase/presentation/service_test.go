@@ -74,12 +74,10 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	service := New()
 	models := []presentationdomain.ConfiguredModel{{
 		ProviderID: "openai-codex", ModelID: "gpt",
-		ReasoningLevels: []presentationdomain.ReasoningLevel{
-			presentationdomain.ReasoningLevelLow, presentationdomain.ReasoningLevelHigh,
-		},
+		Reasoning: testReasoning(presentationdomain.ReasoningChoiceLow, presentationdomain.ReasoningChoiceHigh),
 	}}
 	initial := presentationdomain.ModelSelection{
-		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelLow,
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceLow,
 	}
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		Kind: presentationdomain.EventInitialization, Models: models, ModelSelection: initial,
@@ -91,7 +89,7 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	assert.Equal(t, initial, state.ModelSelection)
 
 	confirmed := presentationdomain.ModelSelection{
-		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 	}
 	state = service.Apply(state, presentationdomain.Event{
 		Kind: presentationdomain.EventModelSelectionChanged, ModelSelection: confirmed,
@@ -305,4 +303,8 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		{Kind: presentationdomain.LineInformation, Text: "Open the authorization URL."},
 		{Kind: presentationdomain.LineError, Text: "Authentication failed."},
 	}, state.Transcript)
+}
+
+func testReasoning(choices ...presentationdomain.ReasoningChoice) presentationdomain.ReasoningCapabilities {
+	return presentationdomain.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
 }

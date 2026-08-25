@@ -17,7 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
-// reasoningContext is the provider-owned opaque replay payload stored by Agent Core.
+// reasoningContext is the opaque replay value set stored by Agent Core.
 type reasoningContext struct {
 	ID               string   `json:"id"`
 	EncryptedContent string   `json:"encrypted_content"`
@@ -28,6 +28,7 @@ type reasoningContext struct {
 func buildInput(
 	history []agent.HistoryEntry,
 	grammarInputProperties map[string]string,
+	target model.ProviderContextSource,
 ) (responses.ResponseInputParam, error) {
 	input := make(responses.ResponseInputParam, 0, len(history))
 	for entryIndex := range history {
@@ -40,7 +41,7 @@ func buildInput(
 			}
 			input = append(input, message)
 		case agent.HistoryEntryModel:
-			modelInput, err := buildModelInput(entry.Model, grammarInputProperties)
+			modelInput, err := buildModelInput(entry.Model, grammarInputProperties, target)
 			if err != nil {
 				return nil, err
 			}
@@ -120,23 +121,24 @@ func customOutputContents(
 func buildModelInput(
 	response model.Response,
 	grammarInputProperties map[string]string,
+	target model.ProviderContextSource,
 ) (responses.ResponseInputParam, error) {
 	input := make(responses.ResponseInputParam, 0, len(response.Content))
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		switch item.Kind {
 		case model.ContentText, model.ContentRefusal:
 			input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text))
 		case model.ContentReasoning:
-			continue
-		case model.ContentProviderContext:
-			if item.ProviderContext.ProviderID != ProviderID {
-				continue
+			if providerContextCompatible(item.ProviderContext.Source, target) && len(item.ProviderContext.Payload) != 0 {
+				reasoning, err := reasoningInput(item.ProviderContext.Payload)
+				if err != nil {
+					return nil, err
+				}
+				input = append(input, reasoning)
+			} else if item.Text != "" {
+				input = append(input, messageInput(responses.EasyInputMessageRoleAssistant, item.Text))
 			}
-			reasoning, err := reasoningInput(item.ProviderContext.Payload)
-			if err != nil {
-				return nil, err
-			}
-			input = append(input, reasoning)
 		case model.ContentToolCall:
 			if property, custom := grammarInputProperties[item.ToolCall.Name]; custom {
 				value, ok := item.ToolCall.Arguments[property].(string)
@@ -158,6 +160,17 @@ func buildModelInput(
 		}
 	}
 	return input, nil
+}
+
+// providerContextCompatible applies exact-model and additive compatibility-key replay rules.
+func providerContextCompatible(source, target model.ProviderContextSource) bool {
+	if source.ProviderID != target.ProviderID || source.API != target.API {
+		return false
+	}
+	if source.Model == target.Model {
+		return true
+	}
+	return source.CompatibilityKey != "" && source.CompatibilityKey == target.CompatibilityKey
 }
 
 // reasoningInput validates stateless replay data and maps its summaries.

@@ -178,11 +178,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	tools := s.tools.Tools()
 	selection := s.runtime.Current()
 	providerErr := selection.Provider.Stream(ctx, ModelRequest{
-		Instructions:   s.instructions,
-		Model:          selection.Model,
-		ReasoningLevel: selection.ReasoningLevel,
-		History:        projectedContext.History,
-		Tools:          tools,
+		Instructions:    s.instructions,
+		Model:           selection.Model,
+		ReasoningChoice: selection.ReasoningChoice,
+		History:         projectedContext.History,
+		Tools:           tools,
 	}, func(streamEvent StreamEvent) error {
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
 			terminal := cloneModelResponse(streamEvent.Response)
@@ -225,8 +225,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 			streamEvent.Kind == StreamEventContentEnd {
 			event.Content = model.Content{
 				Kind: streamEvent.Content.Kind, Text: streamEvent.Delta, Final: false,
-				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				ProviderContext: model.ProviderContext{
+					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+					Payload: nil,
+				},
+				ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 			}
 		}
 		eventErr := s.deliver(ctx, event)

@@ -199,7 +199,8 @@ func cloneArguments(arguments map[string]any) map[string]any {
 // mapModelResponse copies typed terminal data while excluding opaque provider context.
 func mapModelResponse(response model.Response) domainui.ModelResponse {
 	content := make([]domainui.ModelResponseContent, 0, len(response.Content))
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		kind := modelContentKind(item.Kind)
 		if kind == 0 {
 			continue
@@ -238,17 +239,18 @@ func modelContentKind(kind model.ContentKind) domainui.ModelContentKind {
 		return domainui.ModelContentKindRefusal
 	case model.ContentReasoning:
 		return domainui.ModelContentKindReasoning
-	case model.ContentProviderContext, model.ContentToolCall:
+	case model.ContentToolCall:
 		return 0
 	default:
 		return 0
 	}
 }
 
-// responseText joins only public model text items and drops opaque provider context.
+// responseText joins only public model text items.
 func responseText(response model.Response) string {
 	var builder strings.Builder
-	for _, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
 			builder.WriteString(item.Text)
 		}

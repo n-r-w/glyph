@@ -19,40 +19,49 @@ const (
 	AvailabilityRunning
 )
 
-// ReasoningLevel identifies one configured reasoning level.
-type ReasoningLevel uint8
+// ReasoningChoice identifies one configured reasoning choice.
+type ReasoningChoice uint8
 
 const (
-	// ReasoningLevelUnspecified represents a missing reasoning level.
-	ReasoningLevelUnspecified ReasoningLevel = iota
-	// ReasoningLevelNone disables reasoning effort.
-	ReasoningLevelNone
-	// ReasoningLevelMinimal requests minimal reasoning effort.
-	ReasoningLevelMinimal
-	// ReasoningLevelLow requests low reasoning effort.
-	ReasoningLevelLow
-	// ReasoningLevelMedium requests medium reasoning effort.
-	ReasoningLevelMedium
-	// ReasoningLevelHigh requests high reasoning effort.
-	ReasoningLevelHigh
-	// ReasoningLevelXHigh requests extra-high reasoning effort.
-	ReasoningLevelXHigh
-	// ReasoningLevelMax requests maximum reasoning effort.
-	ReasoningLevelMax
+	// ReasoningChoiceUnspecified represents a missing reasoning choice.
+	ReasoningChoiceUnspecified ReasoningChoice = iota
+	// ReasoningChoiceOff disables reasoning.
+	ReasoningChoiceOff
+	// ReasoningChoiceOn enables reasoning with the provider default.
+	ReasoningChoiceOn
+	// ReasoningChoiceMinimal requests minimal reasoning effort.
+	ReasoningChoiceMinimal
+	// ReasoningChoiceLow requests low reasoning effort.
+	ReasoningChoiceLow
+	// ReasoningChoiceMedium requests medium reasoning effort.
+	ReasoningChoiceMedium
+	// ReasoningChoiceHigh requests high reasoning effort.
+	ReasoningChoiceHigh
+	// ReasoningChoiceXHigh requests extra-high reasoning effort.
+	ReasoningChoiceXHigh
+	// ReasoningChoiceMax requests maximum reasoning effort.
+	ReasoningChoiceMax
 )
 
-// ConfiguredModel identifies one selectable model and its reasoning order.
+// ReasoningCapabilities describes one model reasoning contract.
+type ReasoningCapabilities struct {
+	Supported bool
+	Choices   []ReasoningChoice
+	Default   ReasoningChoice
+}
+
+// ConfiguredModel identifies one selectable model and its reasoning contract.
 type ConfiguredModel struct {
-	ProviderID      string
-	ModelID         string
-	ReasoningLevels []ReasoningLevel
+	ProviderID string
+	ModelID    string
+	Reasoning  ReasoningCapabilities
 }
 
 // ModelSelection identifies the Host-confirmed active selection.
 type ModelSelection struct {
-	ProviderID     string
-	ModelID        string
-	ReasoningLevel ReasoningLevel
+	ProviderID      string
+	ModelID         string
+	ReasoningChoice ReasoningChoice
 }
 
 // EventKind identifies one provider-neutral Host presentation event.
@@ -111,6 +120,8 @@ const (
 	ModelContentText
 	// ModelContentRefusal contains model refusal text.
 	ModelContentRefusal
+	// ModelContentReasoning contains visible model reasoning.
+	ModelContentReasoning
 )
 
 // ModelResponseContent carries one finalized visible model content block.
@@ -192,6 +203,8 @@ const (
 	LineModel
 	// LineRefusal renders model refusal text.
 	LineRefusal
+	// LineReasoning renders visible model reasoning.
+	LineReasoning
 	// LineToolStatus renders tool status text.
 	LineToolStatus
 	// LineToolStdout renders standard tool output.
@@ -261,15 +274,15 @@ const (
 	CommandQuit
 	// CommandSelectModel requests one configured model.
 	CommandSelectModel
-	// CommandSelectReasoningLevel requests one reasoning level.
-	CommandSelectReasoningLevel
+	// CommandSelectReasoningChoice requests one reasoning choice.
+	CommandSelectReasoningChoice
 )
 
 // Command is one user request emitted through the UI stream.
 type Command struct {
-	Kind           CommandKind
-	Text           string
-	ProviderID     string
-	ModelID        string
-	ReasoningLevel ReasoningLevel
+	Kind            CommandKind
+	Text            string
+	ProviderID      string
+	ModelID         string
+	ReasoningChoice ReasoningChoice
 }

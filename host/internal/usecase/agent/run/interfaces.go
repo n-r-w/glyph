@@ -14,18 +14,18 @@ import (
 
 // ModelRequest contains projected history and the available tool catalog.
 type ModelRequest struct {
-	Instructions   string
-	Model          model.Descriptor
-	ReasoningLevel model.ReasoningLevel
-	History        []agent.HistoryEntry
-	Tools          []tool.Descriptor
+	Instructions    string
+	Model           model.Descriptor
+	ReasoningChoice model.ReasoningChoice
+	History         []agent.HistoryEntry
+	Tools           []tool.Descriptor
 }
 
 // RuntimeSelection is one immutable provider request snapshot.
 type RuntimeSelection struct {
-	Model          model.Descriptor
-	ReasoningLevel model.ReasoningLevel
-	Provider       ModelProvider
+	Model           model.Descriptor
+	ReasoningChoice model.ReasoningChoice
+	Provider        ModelProvider
 }
 
 // ModelRuntime supplies the active selection immediately before a provider request.
@@ -80,7 +80,8 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 		if event.Response.Outcome == 0 {
 			return errors.New("terminal model stream event requires an outcome")
 		}
-		for position, content := range partial.Content {
+		for position := range partial.Content {
+			content := &partial.Content[position]
 			if isStreamedContent(content.Kind) && !content.Final {
 				return fmt.Errorf("model content %d is still active", position)
 			}
@@ -96,8 +97,11 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 		for len(partial.Content) <= event.Position {
 			partial.Content = append(partial.Content, model.Content{
 				Kind: 0, Text: "", Final: false,
-				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-				ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+				ProviderContext: model.ProviderContext{
+					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+					Payload: nil,
+				},
+				ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 			})
 		}
 		content := &partial.Content[event.Position]
@@ -109,8 +113,11 @@ func applyStreamEvent(partial *model.Response, event StreamEvent) error {
 		}
 		*content = model.Content{
 			Kind: event.Content.Kind, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-			ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+			ProviderContext: model.ProviderContext{
+				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+				Payload: nil,
+			},
+			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 		}
 	case StreamEventTextDelta, StreamEventContentEnd:
 		if event.Position >= len(partial.Content) {

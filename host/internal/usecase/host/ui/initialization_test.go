@@ -60,14 +60,18 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	catalog := NewMockModelCatalog(gomock.NewController(t))
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
 		Provider: "openai-codex", Model: "gpt",
-		SupportedReasoningLevels: []model.ReasoningLevel{
-			model.ReasoningLevelNone, model.ReasoningLevelMinimal, model.ReasoningLevelLow,
-			model.ReasoningLevelMedium, model.ReasoningLevelHigh, model.ReasoningLevelXHigh,
-			model.ReasoningLevelMax,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true,
+			Choices: []model.ReasoningChoice{
+				model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+				model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+				model.ReasoningChoiceMax,
+			},
+			Default: model.ReasoningChoiceHigh,
 		},
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
-		Provider: "openai-codex", Model: "gpt", ReasoningLevel: model.ReasoningLevelHigh,
+		Provider: "openai-codex", Model: "gpt", ReasoningChoice: model.ReasoningChoiceHigh,
 	})
 
 	initialization := BuildInitialization("selected", toolservice.LoadReport{}, nil, catalog)
@@ -75,13 +79,15 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	require.Len(t, initialization.Models, 1)
 	assert.Equal(t, "openai-codex", initialization.Models[0].ProviderID)
 	assert.Equal(t, "gpt", initialization.Models[0].ModelID)
-	assert.Equal(t, []domainui.ReasoningLevel{
-		domainui.ReasoningLevelNone, domainui.ReasoningLevelMinimal, domainui.ReasoningLevelLow,
-		domainui.ReasoningLevelMedium, domainui.ReasoningLevelHigh, domainui.ReasoningLevelXHigh,
-		domainui.ReasoningLevelMax,
-	}, initialization.Models[0].ReasoningLevels)
+	assert.Equal(t, []domainui.ReasoningChoice{
+		domainui.ReasoningChoiceOff, domainui.ReasoningChoiceMinimal, domainui.ReasoningChoiceLow,
+		domainui.ReasoningChoiceMedium, domainui.ReasoningChoiceHigh, domainui.ReasoningChoiceXHigh,
+		domainui.ReasoningChoiceMax,
+	}, initialization.Models[0].Reasoning.Choices)
+	assert.True(t, initialization.Models[0].Reasoning.Supported)
+	assert.Equal(t, domainui.ReasoningChoiceHigh, initialization.Models[0].Reasoning.Default)
 	assert.Equal(t, domainui.ModelSelection{
-		ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: domainui.ReasoningLevelHigh,
+		ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: domainui.ReasoningChoiceHigh,
 	}, initialization.ModelSelection)
 }
 
@@ -105,10 +111,13 @@ func testModelCatalog(t *testing.T) ModelCatalog {
 	catalog := NewMockModelCatalog(gomock.NewController(t))
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
 		Provider: "openai-codex", Model: "gpt",
-		SupportedReasoningLevels: []model.ReasoningLevel{model.ReasoningLevelHigh},
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceHigh},
+			Default: model.ReasoningChoiceHigh,
+		},
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
-		Provider: "openai-codex", Model: "gpt", ReasoningLevel: model.ReasoningLevelHigh,
+		Provider: "openai-codex", Model: "gpt", ReasoningChoice: model.ReasoningChoiceHigh,
 	})
 	return catalog
 }

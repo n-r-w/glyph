@@ -23,8 +23,9 @@ const (
 
 // Config contains provider-owned Codex configuration.
 type Config struct {
-	Hooks  hooks.ProviderRunner
-	Models []model.ID
+	Hooks                      hooks.ProviderRunner
+	Models                     []model.ID
+	ReasoningCompatibilityKeys map[model.ID]string
 }
 
 // driverOptions contains provider-owned protocol endpoints and deterministic seams.
@@ -68,7 +69,8 @@ func newDriver(config Config, credentials Credentials, interaction Interaction, 
 	models := make(map[model.ID]modelConfig, len(config.Models))
 	for _, modelID := range config.Models {
 		models[modelID] = modelConfig{
-			api: "responses", reasoningWireFormat: "openai-responses", reasoningCompatibilityKey: "",
+			api: "responses", reasoningWireFormat: "openai-responses",
+			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
 		}
 	}
 	return &Driver{

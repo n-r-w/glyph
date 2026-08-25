@@ -106,10 +106,10 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	require.Len(t, models.GetModels(), 1)
 	assert.Equal(t, "openai-codex", models.GetModels()[0].GetProviderId())
 	assert.Equal(t, "gpt-test", models.GetModels()[0].GetModelId())
-	assert.Equal(t, []programmaticv1.ReasoningLevel{
-		programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
-	}, models.GetModels()[0].GetSupportedReasoningLevels())
-	assert.Equal(t, programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE, models.GetActiveSelection().GetReasoningLevel())
+	assert.Equal(t, []programmaticv1.ReasoningChoice{
+		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
+	}, models.GetModels()[0].GetReasoning().GetChoices())
+	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF, models.GetActiveSelection().GetReasoningChoice())
 
 	require.NoError(t, fixture.stream.Send(selectModelRequest("model", "openai-codex", "gpt-test")))
 	modelResponse, err := fixture.stream.Recv()
@@ -120,14 +120,14 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	assert.Equal(t, "gpt-test", modelSelection.GetModelId())
 
 	require.NoError(t, fixture.stream.Send(selectReasoningRequest(
-		"reasoning", programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
+		"reasoning", programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
 	)))
 	reasoningResponse, err := fixture.stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "reasoning", reasoningResponse.GetCorrelationId())
 	assert.Equal(t,
-		programmaticv1.ReasoningLevel_REASONING_LEVEL_NONE,
-		reasoningResponse.GetCommandResponse().GetModelSelection().GetSelection().GetReasoningLevel(),
+		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
+		reasoningResponse.GetCommandResponse().GetModelSelection().GetSelection().GetReasoningChoice(),
 	)
 
 	fixture.closeOwner(t)
@@ -537,10 +537,10 @@ func selectModelRequest(correlationID, providerID, modelID string) *programmatic
 // selectReasoningRequest builds a generated reasoning-selection frame.
 func selectReasoningRequest(
 	correlationID string,
-	level programmaticv1.ReasoningLevel,
+	level programmaticv1.ReasoningChoice,
 ) *programmaticv1.OpenRequest {
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId:        proto.String(correlationID),
-		SelectReasoningLevel: programmaticv1.SelectReasoningLevel_builder{Level: level.Enum()}.Build(),
+		CorrelationId:         proto.String(correlationID),
+		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{Choice: level.Enum()}.Build(),
 	}.Build()
 }

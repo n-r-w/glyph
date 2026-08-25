@@ -66,7 +66,7 @@ func emptyInitialization() domainui.Initialization {
 
 // emptyModelSelection returns explicit zero values for non-selection frames.
 func emptyModelSelection() domainui.ModelSelection {
-	return domainui.ModelSelection{ProviderID: "", ModelID: "", ReasoningLevel: 0}
+	return domainui.ModelSelection{ProviderID: "", ModelID: "", ReasoningChoice: 0}
 }
 
 // emptyLifecycle returns explicit zero values for non-lifecycle frames.

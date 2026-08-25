@@ -87,10 +87,10 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				Extensions:   []presentationdomain.Extension{{ID: "tools", Tools: []string{"read"}}},
 				Models: []presentationdomain.ConfiguredModel{{
 					ProviderID: "openai-codex", ModelID: "gpt",
-					ReasoningLevels: []presentationdomain.ReasoningLevel{presentationdomain.ReasoningLevelHigh},
+					Reasoning: testReasoning(presentationdomain.ReasoningChoiceHigh),
 				}},
 				ModelSelection: presentationdomain.ModelSelection{
-					ProviderID: "openai-codex", ModelID: "gpt", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+					ProviderID: "openai-codex", ModelID: "gpt", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 				},
 			}, initial)
 			return program
@@ -103,12 +103,19 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	})
 	program.EXPECT().Send(presentationdomain.Event{Kind: presentationdomain.EventInformation, Text: "information"})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
-		assert.NotEqual(t, "hidden reasoning", event.Text)
-		assert.Equal(t, presentationdomain.Event{
-			Kind: presentationdomain.EventModelDelta, Position: 2,
-			ModelContentKind: presentationdomain.ModelContentText, Text: "delta",
-		}, event)
-	}).AnyTimes()
+		switch event.ModelContentKind {
+		case presentationdomain.ModelContentReasoning:
+			assert.Equal(t, 1, event.Position)
+			assert.Equal(t, "hidden reasoning", event.Text)
+		case presentationdomain.ModelContentText:
+			assert.Equal(t, 2, event.Position)
+			assert.Equal(t, "delta", event.Text)
+		case presentationdomain.ModelContentUnspecified, presentationdomain.ModelContentRefusal:
+			require.Fail(t, "unexpected model content kind")
+		default:
+			require.Fail(t, "unexpected model content kind")
+		}
+	}).Times(2)
 	program.EXPECT().Quit().Do(func() { close(runDone) })
 	session.EXPECT().Close().Return(nil)
 
@@ -148,36 +155,32 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openrouter"), ModelId: new("sonnet"),
-			ReasoningLevels: []uiv1.ReasoningLevel{
-				uiv1.ReasoningLevel_REASONING_LEVEL_NONE,
-				uiv1.ReasoningLevel_REASONING_LEVEL_HIGH,
-			},
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_OFF,
+				uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId: new("openrouter"), ModelId: new("sonnet"),
-			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ConfiguredModel{{
 		ProviderID: "openrouter", ModelID: "sonnet",
-		ReasoningLevels: []presentationdomain.ReasoningLevel{
-			presentationdomain.ReasoningLevelNone, presentationdomain.ReasoningLevelHigh,
-		},
+		Reasoning: testReasoning(presentationdomain.ReasoningChoiceOff, presentationdomain.ReasoningChoiceHigh),
 	}}, initial.Models)
 	assert.Equal(t, presentationdomain.ModelSelection{
-		ProviderID: "openrouter", ModelID: "sonnet", ReasoningLevel: presentationdomain.ReasoningLevelHigh,
+		ProviderID: "openrouter", ModelID: "sonnet", ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 	}, initial.ModelSelection)
 
 	changed, err := mapRequest(uiv1.OpenRequest_builder{ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
 		Selection: uiv1.ModelSelection_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
 		}.Build(),
 	}.Build()}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
-	assert.Equal(t, presentationdomain.ReasoningLevelXHigh, changed.ModelSelection.ReasoningLevel)
+	assert.Equal(t, presentationdomain.ReasoningChoiceXHigh, changed.ModelSelection.ReasoningChoice)
 
 	modelCommand, err := mapCommand(presentationdomain.Command{
 		Kind: presentationdomain.CommandSelectModel, ProviderID: "openai-codex", ModelID: "gpt",
@@ -187,10 +190,10 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 	assert.Equal(t, "gpt", modelCommand.GetSelectModel().GetModelId())
 
 	reasoningCommand, err := mapCommand(presentationdomain.Command{
-		Kind: presentationdomain.CommandSelectReasoningLevel, ReasoningLevel: presentationdomain.ReasoningLevelMax,
+		Kind: presentationdomain.CommandSelectReasoningChoice, ReasoningChoice: presentationdomain.ReasoningChoiceMax,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, uiv1.ReasoningLevel_REASONING_LEVEL_MAX, reasoningCommand.GetSelectReasoningLevel().GetLevel())
+	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
 }
 
 // TestReasoningMappingsCoverEveryValue verifies public and presentation enums stay exact.
@@ -198,26 +201,26 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 	t.Parallel()
 
 	values := []struct {
-		public       uiv1.ReasoningLevel
-		presentation presentationdomain.ReasoningLevel
+		public       uiv1.ReasoningChoice
+		presentation presentationdomain.ReasoningChoice
 	}{
-		{uiv1.ReasoningLevel_REASONING_LEVEL_NONE, presentationdomain.ReasoningLevelNone},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_MINIMAL, presentationdomain.ReasoningLevelMinimal},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_LOW, presentationdomain.ReasoningLevelLow},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_MEDIUM, presentationdomain.ReasoningLevelMedium},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH, presentationdomain.ReasoningLevelHigh},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_XHIGH, presentationdomain.ReasoningLevelXHigh},
-		{uiv1.ReasoningLevel_REASONING_LEVEL_MAX, presentationdomain.ReasoningLevelMax},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_OFF, presentationdomain.ReasoningChoiceOff},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL, presentationdomain.ReasoningChoiceMinimal},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_LOW, presentationdomain.ReasoningChoiceLow},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM, presentationdomain.ReasoningChoiceMedium},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_HIGH, presentationdomain.ReasoningChoiceHigh},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH, presentationdomain.ReasoningChoiceXHigh},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MAX, presentationdomain.ReasoningChoiceMax},
 	}
 	for _, value := range values {
-		mapped, err := mapReasoningLevel(value.public)
+		mapped, err := mapReasoningChoice(value.public)
 		require.NoError(t, err)
 		assert.Equal(t, value.presentation, mapped)
-		assert.Equal(t, value.public, mapReasoningLevelToProto(value.presentation))
+		assert.Equal(t, value.public, mapReasoningChoiceToProto(value.presentation))
 	}
-	_, err := mapReasoningLevel(uiv1.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED)
+	_, err := mapReasoningChoice(uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED)
 	require.Error(t, err)
-	_, err = mapReasoningLevel(uiv1.ReasoningLevel(99))
+	_, err = mapReasoningChoice(uiv1.ReasoningChoice(99))
 	require.Error(t, err)
 }
 
@@ -333,8 +336,8 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 	assert.Equal(t, "cannot help", event.Text)
 }
 
-// TestMapLifecyclePreservesFinalizedRefusalBlocks verifies mixed visible content reaches presentation state.
-func TestMapLifecyclePreservesFinalizedRefusalBlocks(t *testing.T) {
+// TestMapLifecyclePreservesFinalizedVisibleBlocks verifies mixed visible content reaches presentation state.
+func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 	t.Parallel()
 
 	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
@@ -348,6 +351,7 @@ func TestMapLifecyclePreservesFinalizedRefusalBlocks(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ModelResponseContent{
+		{Kind: presentationdomain.ModelContentReasoning, Text: "hidden"},
 		{Kind: presentationdomain.ModelContentText, Text: "answer"},
 		{Kind: presentationdomain.ModelContentRefusal, Text: "cannot help"},
 	}, event.ModelResponseContent)
@@ -407,7 +411,7 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			assert.NotNil(t, response.GetQuit())
 		case presentationdomain.CommandUnspecified,
 			presentationdomain.CommandSelectModel,
-			presentationdomain.CommandSelectReasoningLevel:
+			presentationdomain.CommandSelectReasoningChoice:
 			t.Fatal("unexpected command")
 		}
 	}
@@ -459,11 +463,11 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 	}.Build())
 
@@ -561,10 +565,10 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 		state = projection.Apply(state, event)
 	}
 
-	assert.Equal(t, []presentationdomain.Line{{
-		Kind: presentationdomain.LineModel,
-		Text: "complete answer",
-	}}, state.Transcript)
+	assert.Equal(t, []presentationdomain.Line{
+		{Kind: presentationdomain.LineReasoning, Text: "hidden reasoning"},
+		{Kind: presentationdomain.LineModel, Text: "complete answer"},
+	}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
 }
 
@@ -708,11 +712,19 @@ func initializationRequest() *uiv1.OpenRequest {
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevels: []uiv1.ReasoningLevel{uiv1.ReasoningLevel_REASONING_LEVEL_HIGH},
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId: new("openai-codex"), ModelId: new("gpt"),
-			ReasoningLevel: new(uiv1.ReasoningLevel_REASONING_LEVEL_HIGH),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 	}.Build()}.Build()
+}
+
+func testReasoning(choices ...presentationdomain.ReasoningChoice) presentationdomain.ReasoningCapabilities {
+	return presentationdomain.ReasoningCapabilities{Supported: true, Choices: choices, Default: choices[len(choices)-1]}
+}
+
+func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
+	return uiv1.ReasoningCapabilities_builder{Supported: new(true), Choices: choices, DefaultChoice: new(choices[len(choices)-1])}.Build()
 }

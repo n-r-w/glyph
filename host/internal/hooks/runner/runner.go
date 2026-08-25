@@ -120,12 +120,13 @@ func cloneMessage(message model.Message) model.Message {
 
 func cloneModelResponse(response model.Response) model.Response {
 	content := make([]model.Content, len(response.Content))
-	for index, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		content[index] = model.Content{
 			Kind: item.Kind, Text: item.Text, Final: item.Final,
 			ProviderContext: model.ProviderContext{
-				ProviderID: item.ProviderContext.ProviderID,
-				Payload:    append([]byte(nil), item.ProviderContext.Payload...),
+				Source:  item.ProviderContext.Source,
+				Payload: append([]byte(nil), item.ProviderContext.Payload...),
 			},
 			ToolCall: model.ToolCall{
 				ID: item.ToolCall.ID, Name: item.ToolCall.Name,

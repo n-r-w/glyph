@@ -38,5 +38,5 @@ type ModelCatalog interface {
 	Models() []model.Descriptor
 	Selection() model.Selection
 	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
-	SelectReasoningLevel(level model.ReasoningLevel) (model.Selection, error)
+	SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error)
 }

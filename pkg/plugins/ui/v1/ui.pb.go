@@ -21,71 +21,75 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ReasoningLevel identifies a configured model reasoning level.
-type ReasoningLevel int32
+// ReasoningChoice identifies a configured model reasoning choice.
+type ReasoningChoice int32
 
 const (
-	// No reasoning level was provided.
-	ReasoningLevel_REASONING_LEVEL_UNSPECIFIED ReasoningLevel = 0
+	// No reasoning choice was provided.
+	ReasoningChoice_REASONING_CHOICE_UNSPECIFIED ReasoningChoice = 0
 	// Reasoning is disabled.
-	ReasoningLevel_REASONING_LEVEL_NONE ReasoningLevel = 1
+	ReasoningChoice_REASONING_CHOICE_OFF ReasoningChoice = 1
+	// Reasoning is enabled with the provider default.
+	ReasoningChoice_REASONING_CHOICE_ON ReasoningChoice = 2
 	// Minimal reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_MINIMAL ReasoningLevel = 2
+	ReasoningChoice_REASONING_CHOICE_MINIMAL ReasoningChoice = 3
 	// Low reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_LOW ReasoningLevel = 3
+	ReasoningChoice_REASONING_CHOICE_LOW ReasoningChoice = 4
 	// Medium reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_MEDIUM ReasoningLevel = 4
+	ReasoningChoice_REASONING_CHOICE_MEDIUM ReasoningChoice = 5
 	// High reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_HIGH ReasoningLevel = 5
+	ReasoningChoice_REASONING_CHOICE_HIGH ReasoningChoice = 6
 	// Extra-high reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_XHIGH ReasoningLevel = 6
+	ReasoningChoice_REASONING_CHOICE_XHIGH ReasoningChoice = 7
 	// Maximum reasoning is enabled.
-	ReasoningLevel_REASONING_LEVEL_MAX ReasoningLevel = 7
+	ReasoningChoice_REASONING_CHOICE_MAX ReasoningChoice = 8
 )
 
-// Enum value maps for ReasoningLevel.
+// Enum value maps for ReasoningChoice.
 var (
-	ReasoningLevel_name = map[int32]string{
-		0: "REASONING_LEVEL_UNSPECIFIED",
-		1: "REASONING_LEVEL_NONE",
-		2: "REASONING_LEVEL_MINIMAL",
-		3: "REASONING_LEVEL_LOW",
-		4: "REASONING_LEVEL_MEDIUM",
-		5: "REASONING_LEVEL_HIGH",
-		6: "REASONING_LEVEL_XHIGH",
-		7: "REASONING_LEVEL_MAX",
+	ReasoningChoice_name = map[int32]string{
+		0: "REASONING_CHOICE_UNSPECIFIED",
+		1: "REASONING_CHOICE_OFF",
+		2: "REASONING_CHOICE_ON",
+		3: "REASONING_CHOICE_MINIMAL",
+		4: "REASONING_CHOICE_LOW",
+		5: "REASONING_CHOICE_MEDIUM",
+		6: "REASONING_CHOICE_HIGH",
+		7: "REASONING_CHOICE_XHIGH",
+		8: "REASONING_CHOICE_MAX",
 	}
-	ReasoningLevel_value = map[string]int32{
-		"REASONING_LEVEL_UNSPECIFIED": 0,
-		"REASONING_LEVEL_NONE":        1,
-		"REASONING_LEVEL_MINIMAL":     2,
-		"REASONING_LEVEL_LOW":         3,
-		"REASONING_LEVEL_MEDIUM":      4,
-		"REASONING_LEVEL_HIGH":        5,
-		"REASONING_LEVEL_XHIGH":       6,
-		"REASONING_LEVEL_MAX":         7,
+	ReasoningChoice_value = map[string]int32{
+		"REASONING_CHOICE_UNSPECIFIED": 0,
+		"REASONING_CHOICE_OFF":         1,
+		"REASONING_CHOICE_ON":          2,
+		"REASONING_CHOICE_MINIMAL":     3,
+		"REASONING_CHOICE_LOW":         4,
+		"REASONING_CHOICE_MEDIUM":      5,
+		"REASONING_CHOICE_HIGH":        6,
+		"REASONING_CHOICE_XHIGH":       7,
+		"REASONING_CHOICE_MAX":         8,
 	}
 )
 
-func (x ReasoningLevel) Enum() *ReasoningLevel {
-	p := new(ReasoningLevel)
+func (x ReasoningChoice) Enum() *ReasoningChoice {
+	p := new(ReasoningChoice)
 	*p = x
 	return p
 }
 
-func (x ReasoningLevel) String() string {
+func (x ReasoningChoice) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ReasoningLevel) Descriptor() protoreflect.EnumDescriptor {
+func (ReasoningChoice) Descriptor() protoreflect.EnumDescriptor {
 	return file_api_plugins_ui_v1_ui_proto_enumTypes[0].Descriptor()
 }
 
-func (ReasoningLevel) Type() protoreflect.EnumType {
+func (ReasoningChoice) Type() protoreflect.EnumType {
 	return &file_api_plugins_ui_v1_ui_proto_enumTypes[0]
 }
 
-func (x ReasoningLevel) Number() protoreflect.EnumNumber {
+func (x ReasoningChoice) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
@@ -1130,16 +1134,16 @@ func (b0 Initialization_builder) Build() *Initialization {
 	return m0
 }
 
-// ConfiguredModel describes one selectable model and its reasoning levels.
+// ConfiguredModel describes one selectable model and its reasoning choices.
 type ConfiguredModel struct {
-	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
-	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
-	xxx_hidden_ReasoningLevels []ReasoningLevel       `protobuf:"varint,3,rep,packed,name=reasoning_levels,json=reasoningLevels,enum=glyph.plugins.ui.v1.ReasoningLevel"`
-	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
-	XXX_presence               [1]uint32
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ProviderId  *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId     *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_Reasoning   *ReasoningCapabilities `protobuf:"bytes,3,opt,name=reasoning"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ConfiguredModel) Reset() {
@@ -1187,9 +1191,9 @@ func (x *ConfiguredModel) GetModelId() string {
 	return ""
 }
 
-func (x *ConfiguredModel) GetReasoningLevels() []ReasoningLevel {
+func (x *ConfiguredModel) GetReasoning() *ReasoningCapabilities {
 	if x != nil {
-		return x.xxx_hidden_ReasoningLevels
+		return x.xxx_hidden_Reasoning
 	}
 	return nil
 }
@@ -1204,8 +1208,8 @@ func (x *ConfiguredModel) SetModelId(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
-func (x *ConfiguredModel) SetReasoningLevels(v []ReasoningLevel) {
-	x.xxx_hidden_ReasoningLevels = v
+func (x *ConfiguredModel) SetReasoning(v *ReasoningCapabilities) {
+	x.xxx_hidden_Reasoning = v
 }
 
 func (x *ConfiguredModel) HasProviderId() bool {
@@ -1222,6 +1226,13 @@ func (x *ConfiguredModel) HasModelId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *ConfiguredModel) HasReasoning() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Reasoning != nil
+}
+
 func (x *ConfiguredModel) ClearProviderId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ProviderId = nil
@@ -1232,6 +1243,10 @@ func (x *ConfiguredModel) ClearModelId() {
 	x.xxx_hidden_ModelId = nil
 }
 
+func (x *ConfiguredModel) ClearReasoning() {
+	x.xxx_hidden_Reasoning = nil
+}
+
 type ConfiguredModel_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1239,8 +1254,8 @@ type ConfiguredModel_builder struct {
 	ProviderId *string
 	// The configured model identifier.
 	ModelId *string
-	// The supported reasoning levels in configured order.
-	ReasoningLevels []ReasoningLevel
+	// The model reasoning capabilities.
+	Reasoning *ReasoningCapabilities
 }
 
 func (b0 ConfiguredModel_builder) Build() *ConfiguredModel {
@@ -1255,25 +1270,150 @@ func (b0 ConfiguredModel_builder) Build() *ConfiguredModel {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ModelId = b.ModelId
 	}
-	x.xxx_hidden_ReasoningLevels = b.ReasoningLevels
+	x.xxx_hidden_Reasoning = b.Reasoning
+	return m0
+}
+
+// ReasoningCapabilities describes one model reasoning contract.
+type ReasoningCapabilities struct {
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Supported     bool                   `protobuf:"varint,1,opt,name=supported"`
+	xxx_hidden_Choices       []ReasoningChoice      `protobuf:"varint,2,rep,packed,name=choices,enum=glyph.plugins.ui.v1.ReasoningChoice"`
+	xxx_hidden_DefaultChoice ReasoningChoice        `protobuf:"varint,3,opt,name=default_choice,json=defaultChoice,enum=glyph.plugins.ui.v1.ReasoningChoice"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *ReasoningCapabilities) Reset() {
+	*x = ReasoningCapabilities{}
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReasoningCapabilities) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReasoningCapabilities) ProtoMessage() {}
+
+func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReasoningCapabilities) GetSupported() bool {
+	if x != nil {
+		return x.xxx_hidden_Supported
+	}
+	return false
+}
+
+func (x *ReasoningCapabilities) GetChoices() []ReasoningChoice {
+	if x != nil {
+		return x.xxx_hidden_Choices
+	}
+	return nil
+}
+
+func (x *ReasoningCapabilities) GetDefaultChoice() ReasoningChoice {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_DefaultChoice
+		}
+	}
+	return ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
+}
+
+func (x *ReasoningCapabilities) SetSupported(v bool) {
+	x.xxx_hidden_Supported = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ReasoningCapabilities) SetChoices(v []ReasoningChoice) {
+	x.xxx_hidden_Choices = v
+}
+
+func (x *ReasoningCapabilities) SetDefaultChoice(v ReasoningChoice) {
+	x.xxx_hidden_DefaultChoice = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *ReasoningCapabilities) HasSupported() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ReasoningCapabilities) HasDefaultChoice() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ReasoningCapabilities) ClearSupported() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Supported = false
+}
+
+func (x *ReasoningCapabilities) ClearDefaultChoice() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_DefaultChoice = ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
+}
+
+type ReasoningCapabilities_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Whether the model can produce reasoning.
+	Supported *bool
+	// The effective choices in configured order.
+	Choices []ReasoningChoice
+	// The model default choice.
+	DefaultChoice *ReasoningChoice
+}
+
+func (b0 ReasoningCapabilities_builder) Build() *ReasoningCapabilities {
+	m0 := &ReasoningCapabilities{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Supported != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Supported = *b.Supported
+	}
+	x.xxx_hidden_Choices = b.Choices
+	if b.DefaultChoice != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_DefaultChoice = *b.DefaultChoice
+	}
 	return m0
 }
 
 // ModelSelection identifies the Host-confirmed active selection.
 type ModelSelection struct {
-	state                     protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId     *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
-	xxx_hidden_ModelId        *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
-	xxx_hidden_ReasoningLevel ReasoningLevel         `protobuf:"varint,3,opt,name=reasoning_level,json=reasoningLevel,enum=glyph.plugins.ui.v1.ReasoningLevel"`
-	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
-	XXX_presence              [1]uint32
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,3,opt,name=reasoning_choice,json=reasoningChoice,enum=glyph.plugins.ui.v1.ReasoningChoice"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *ModelSelection) Reset() {
 	*x = ModelSelection{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1285,7 +1425,7 @@ func (x *ModelSelection) String() string {
 func (*ModelSelection) ProtoMessage() {}
 
 func (x *ModelSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1316,13 +1456,13 @@ func (x *ModelSelection) GetModelId() string {
 	return ""
 }
 
-func (x *ModelSelection) GetReasoningLevel() ReasoningLevel {
+func (x *ModelSelection) GetReasoningChoice() ReasoningChoice {
 	if x != nil {
 		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
-			return x.xxx_hidden_ReasoningLevel
+			return x.xxx_hidden_ReasoningChoice
 		}
 	}
-	return ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+	return ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
 }
 
 func (x *ModelSelection) SetProviderId(v string) {
@@ -1335,8 +1475,8 @@ func (x *ModelSelection) SetModelId(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
-func (x *ModelSelection) SetReasoningLevel(v ReasoningLevel) {
-	x.xxx_hidden_ReasoningLevel = v
+func (x *ModelSelection) SetReasoningChoice(v ReasoningChoice) {
+	x.xxx_hidden_ReasoningChoice = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
@@ -1354,7 +1494,7 @@ func (x *ModelSelection) HasModelId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *ModelSelection) HasReasoningLevel() bool {
+func (x *ModelSelection) HasReasoningChoice() bool {
 	if x == nil {
 		return false
 	}
@@ -1371,9 +1511,9 @@ func (x *ModelSelection) ClearModelId() {
 	x.xxx_hidden_ModelId = nil
 }
 
-func (x *ModelSelection) ClearReasoningLevel() {
+func (x *ModelSelection) ClearReasoningChoice() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_ReasoningLevel = ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+	x.xxx_hidden_ReasoningChoice = ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
 }
 
 type ModelSelection_builder struct {
@@ -1383,8 +1523,8 @@ type ModelSelection_builder struct {
 	ProviderId *string
 	// The configured model identifier.
 	ModelId *string
-	// The active reasoning level.
-	ReasoningLevel *ReasoningLevel
+	// The active reasoning choice.
+	ReasoningChoice *ReasoningChoice
 }
 
 func (b0 ModelSelection_builder) Build() *ModelSelection {
@@ -1399,9 +1539,9 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ModelId = b.ModelId
 	}
-	if b.ReasoningLevel != nil {
+	if b.ReasoningChoice != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_ReasoningLevel = *b.ReasoningLevel
+		x.xxx_hidden_ReasoningChoice = *b.ReasoningChoice
 	}
 	return m0
 }
@@ -1416,7 +1556,7 @@ type ModelSelectionChanged struct {
 
 func (x *ModelSelectionChanged) Reset() {
 	*x = ModelSelectionChanged{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1428,7 +1568,7 @@ func (x *ModelSelectionChanged) String() string {
 func (*ModelSelectionChanged) ProtoMessage() {}
 
 func (x *ModelSelectionChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1489,7 +1629,7 @@ type StartupContent struct {
 
 func (x *StartupContent) Reset() {
 	*x = StartupContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1501,7 +1641,7 @@ func (x *StartupContent) String() string {
 func (*StartupContent) ProtoMessage() {}
 
 func (x *StartupContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1603,7 +1743,7 @@ type ExtensionAvailability struct {
 
 func (x *ExtensionAvailability) Reset() {
 	*x = ExtensionAvailability{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1615,7 +1755,7 @@ func (x *ExtensionAvailability) String() string {
 func (*ExtensionAvailability) ProtoMessage() {}
 
 func (x *ExtensionAvailability) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1744,7 +1884,7 @@ type LifecycleEvent struct {
 
 func (x *LifecycleEvent) Reset() {
 	*x = LifecycleEvent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1756,7 +1896,7 @@ func (x *LifecycleEvent) String() string {
 func (*LifecycleEvent) ProtoMessage() {}
 
 func (x *LifecycleEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2229,7 +2369,7 @@ type ToolResultContent struct {
 
 func (x *ToolResultContent) Reset() {
 	*x = ToolResultContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2241,7 +2381,7 @@ func (x *ToolResultContent) String() string {
 func (*ToolResultContent) ProtoMessage() {}
 
 func (x *ToolResultContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2368,7 +2508,7 @@ func (b0 ToolResultContent_builder) Build() *ToolResultContent {
 type case_ToolResultContent_Content protoreflect.FieldNumber
 
 func (x case_ToolResultContent_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[10].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[11].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2406,7 +2546,7 @@ type ToolResultImage struct {
 
 func (x *ToolResultImage) Reset() {
 	*x = ToolResultImage{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2418,7 +2558,7 @@ func (x *ToolResultImage) String() string {
 func (*ToolResultImage) ProtoMessage() {}
 
 func (x *ToolResultImage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2523,7 +2663,7 @@ type ToolCallPreview struct {
 
 func (x *ToolCallPreview) Reset() {
 	*x = ToolCallPreview{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2535,7 +2675,7 @@ func (x *ToolCallPreview) String() string {
 func (*ToolCallPreview) ProtoMessage() {}
 
 func (x *ToolCallPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2713,7 +2853,7 @@ type ToolCallPreviewField struct {
 
 func (x *ToolCallPreviewField) Reset() {
 	*x = ToolCallPreviewField{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2725,7 +2865,7 @@ func (x *ToolCallPreviewField) String() string {
 func (*ToolCallPreviewField) ProtoMessage() {}
 
 func (x *ToolCallPreviewField) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2883,7 +3023,7 @@ func (b0 ToolCallPreviewField_builder) Build() *ToolCallPreviewField {
 type case_ToolCallPreviewField_Content protoreflect.FieldNumber
 
 func (x case_ToolCallPreviewField_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[13].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[14].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2921,7 +3061,7 @@ type FinalToolCall struct {
 
 func (x *FinalToolCall) Reset() {
 	*x = FinalToolCall{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2933,7 +3073,7 @@ func (x *FinalToolCall) String() string {
 func (*FinalToolCall) ProtoMessage() {}
 
 func (x *FinalToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3092,7 +3232,7 @@ type ModelContent struct {
 
 func (x *ModelContent) Reset() {
 	*x = ModelContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3104,7 +3244,7 @@ func (x *ModelContent) String() string {
 func (*ModelContent) ProtoMessage() {}
 
 func (x *ModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3275,7 +3415,7 @@ type ModelResponse struct {
 
 func (x *ModelResponse) Reset() {
 	*x = ModelResponse{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3287,7 +3427,7 @@ func (x *ModelResponse) String() string {
 func (*ModelResponse) ProtoMessage() {}
 
 func (x *ModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3611,7 +3751,7 @@ type ModelResponseContent struct {
 
 func (x *ModelResponseContent) Reset() {
 	*x = ModelResponseContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3623,7 +3763,7 @@ func (x *ModelResponseContent) String() string {
 func (*ModelResponseContent) ProtoMessage() {}
 
 func (x *ModelResponseContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3728,7 +3868,7 @@ type ModelUsage struct {
 
 func (x *ModelUsage) Reset() {
 	*x = ModelUsage{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3740,7 +3880,7 @@ func (x *ModelUsage) String() string {
 func (*ModelUsage) ProtoMessage() {}
 
 func (x *ModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3956,7 +4096,7 @@ type ModelDiagnostic struct {
 
 func (x *ModelDiagnostic) Reset() {
 	*x = ModelDiagnostic{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3968,7 +4108,7 @@ func (x *ModelDiagnostic) String() string {
 func (*ModelDiagnostic) ProtoMessage() {}
 
 func (x *ModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4069,7 +4209,7 @@ type AuthorizationRequest struct {
 
 func (x *AuthorizationRequest) Reset() {
 	*x = AuthorizationRequest{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4081,7 +4221,7 @@ func (x *AuthorizationRequest) String() string {
 func (*AuthorizationRequest) ProtoMessage() {}
 
 func (x *AuthorizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4149,7 +4289,7 @@ type Information struct {
 
 func (x *Information) Reset() {
 	*x = Information{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4161,7 +4301,7 @@ func (x *Information) String() string {
 func (*Information) ProtoMessage() {}
 
 func (x *Information) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4230,7 +4370,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4242,7 +4382,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4338,7 +4478,7 @@ type OpenResponse struct {
 
 func (x *OpenResponse) Reset() {
 	*x = OpenResponse{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4350,7 +4490,7 @@ func (x *OpenResponse) String() string {
 func (*OpenResponse) ProtoMessage() {}
 
 func (x *OpenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[23]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4406,10 +4546,10 @@ func (x *OpenResponse) GetSelectModel() *SelectModelCommand {
 	return nil
 }
 
-func (x *OpenResponse) GetSelectReasoningLevel() *SelectReasoningLevelCommand {
+func (x *OpenResponse) GetSelectReasoningChoice() *SelectReasoningChoiceCommand {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningLevel); ok {
-			return x.SelectReasoningLevel
+		if x, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningChoice); ok {
+			return x.SelectReasoningChoice
 		}
 	}
 	return nil
@@ -4455,12 +4595,12 @@ func (x *OpenResponse) SetSelectModel(v *SelectModelCommand) {
 	x.xxx_hidden_Content = &openResponse_SelectModel{v}
 }
 
-func (x *OpenResponse) SetSelectReasoningLevel(v *SelectReasoningLevelCommand) {
+func (x *OpenResponse) SetSelectReasoningChoice(v *SelectReasoningChoiceCommand) {
 	if v == nil {
 		x.xxx_hidden_Content = nil
 		return
 	}
-	x.xxx_hidden_Content = &openResponse_SelectReasoningLevel{v}
+	x.xxx_hidden_Content = &openResponse_SelectReasoningChoice{v}
 }
 
 func (x *OpenResponse) HasContent() bool {
@@ -4510,11 +4650,11 @@ func (x *OpenResponse) HasSelectModel() bool {
 	return ok
 }
 
-func (x *OpenResponse) HasSelectReasoningLevel() bool {
+func (x *OpenResponse) HasSelectReasoningChoice() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningLevel)
+	_, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningChoice)
 	return ok
 }
 
@@ -4552,8 +4692,8 @@ func (x *OpenResponse) ClearSelectModel() {
 	}
 }
 
-func (x *OpenResponse) ClearSelectReasoningLevel() {
-	if _, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningLevel); ok {
+func (x *OpenResponse) ClearSelectReasoningChoice() {
+	if _, ok := x.xxx_hidden_Content.(*openResponse_SelectReasoningChoice); ok {
 		x.xxx_hidden_Content = nil
 	}
 }
@@ -4564,7 +4704,7 @@ const OpenResponse_Stop_case case_OpenResponse_Content = 2
 const OpenResponse_RetryAuthentication_case case_OpenResponse_Content = 3
 const OpenResponse_Quit_case case_OpenResponse_Content = 4
 const OpenResponse_SelectModel_case case_OpenResponse_Content = 5
-const OpenResponse_SelectReasoningLevel_case case_OpenResponse_Content = 6
+const OpenResponse_SelectReasoningChoice_case case_OpenResponse_Content = 6
 
 func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 	if x == nil {
@@ -4581,8 +4721,8 @@ func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 		return OpenResponse_Quit_case
 	case *openResponse_SelectModel:
 		return OpenResponse_SelectModel_case
-	case *openResponse_SelectReasoningLevel:
-		return OpenResponse_SelectReasoningLevel_case
+	case *openResponse_SelectReasoningChoice:
+		return OpenResponse_SelectReasoningChoice_case
 	default:
 		return OpenResponse_Content_not_set_case
 	}
@@ -4594,12 +4734,12 @@ type OpenResponse_builder struct {
 	// The UI command payload.
 
 	// Fields of oneof xxx_hidden_Content:
-	Submit               *SubmitCommand
-	Stop                 *StopCommand
-	RetryAuthentication  *RetryAuthenticationCommand
-	Quit                 *QuitCommand
-	SelectModel          *SelectModelCommand
-	SelectReasoningLevel *SelectReasoningLevelCommand
+	Submit                *SubmitCommand
+	Stop                  *StopCommand
+	RetryAuthentication   *RetryAuthenticationCommand
+	Quit                  *QuitCommand
+	SelectModel           *SelectModelCommand
+	SelectReasoningChoice *SelectReasoningChoiceCommand
 	// -- end of xxx_hidden_Content
 }
 
@@ -4622,8 +4762,8 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 	if b.SelectModel != nil {
 		x.xxx_hidden_Content = &openResponse_SelectModel{b.SelectModel}
 	}
-	if b.SelectReasoningLevel != nil {
-		x.xxx_hidden_Content = &openResponse_SelectReasoningLevel{b.SelectReasoningLevel}
+	if b.SelectReasoningChoice != nil {
+		x.xxx_hidden_Content = &openResponse_SelectReasoningChoice{b.SelectReasoningChoice}
 	}
 	return m0
 }
@@ -4631,7 +4771,7 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 type case_OpenResponse_Content protoreflect.FieldNumber
 
 func (x case_OpenResponse_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[23].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[24].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4662,8 +4802,8 @@ type openResponse_SelectModel struct {
 	SelectModel *SelectModelCommand `protobuf:"bytes,5,opt,name=select_model,json=selectModel,oneof"`
 }
 
-type openResponse_SelectReasoningLevel struct {
-	SelectReasoningLevel *SelectReasoningLevelCommand `protobuf:"bytes,6,opt,name=select_reasoning_level,json=selectReasoningLevel,oneof"`
+type openResponse_SelectReasoningChoice struct {
+	SelectReasoningChoice *SelectReasoningChoiceCommand `protobuf:"bytes,6,opt,name=select_reasoning_choice,json=selectReasoningChoice,oneof"`
 }
 
 func (*openResponse_Submit) isOpenResponse_Content() {}
@@ -4676,7 +4816,7 @@ func (*openResponse_Quit) isOpenResponse_Content() {}
 
 func (*openResponse_SelectModel) isOpenResponse_Content() {}
 
-func (*openResponse_SelectReasoningLevel) isOpenResponse_Content() {}
+func (*openResponse_SelectReasoningChoice) isOpenResponse_Content() {}
 
 // SubmitCommand requests one user turn.
 type SubmitCommand struct {
@@ -4690,7 +4830,7 @@ type SubmitCommand struct {
 
 func (x *SubmitCommand) Reset() {
 	*x = SubmitCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4702,7 +4842,7 @@ func (x *SubmitCommand) String() string {
 func (*SubmitCommand) ProtoMessage() {}
 
 func (x *SubmitCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[24]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4767,7 +4907,7 @@ type StopCommand struct {
 
 func (x *StopCommand) Reset() {
 	*x = StopCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[25]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4779,7 +4919,7 @@ func (x *StopCommand) String() string {
 func (*StopCommand) ProtoMessage() {}
 
 func (x *StopCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[25]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4811,7 +4951,7 @@ type RetryAuthenticationCommand struct {
 
 func (x *RetryAuthenticationCommand) Reset() {
 	*x = RetryAuthenticationCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[26]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4823,7 +4963,7 @@ func (x *RetryAuthenticationCommand) String() string {
 func (*RetryAuthenticationCommand) ProtoMessage() {}
 
 func (x *RetryAuthenticationCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[26]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4855,7 +4995,7 @@ type QuitCommand struct {
 
 func (x *QuitCommand) Reset() {
 	*x = QuitCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[27]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4867,7 +5007,7 @@ func (x *QuitCommand) String() string {
 func (*QuitCommand) ProtoMessage() {}
 
 func (x *QuitCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[27]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4903,7 +5043,7 @@ type SelectModelCommand struct {
 
 func (x *SelectModelCommand) Reset() {
 	*x = SelectModelCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[28]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4915,7 +5055,7 @@ func (x *SelectModelCommand) String() string {
 func (*SelectModelCommand) ProtoMessage() {}
 
 func (x *SelectModelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[28]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5004,31 +5144,31 @@ func (b0 SelectModelCommand_builder) Build() *SelectModelCommand {
 	return m0
 }
 
-// SelectReasoningLevelCommand requests one reasoning level for the active model.
-type SelectReasoningLevelCommand struct {
+// SelectReasoningChoiceCommand requests one reasoning choice for the active model.
+type SelectReasoningChoiceCommand struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Level       ReasoningLevel         `protobuf:"varint,1,opt,name=level,enum=glyph.plugins.ui.v1.ReasoningLevel"`
+	xxx_hidden_Choice      ReasoningChoice        `protobuf:"varint,1,opt,name=choice,enum=glyph.plugins.ui.v1.ReasoningChoice"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
 
-func (x *SelectReasoningLevelCommand) Reset() {
-	*x = SelectReasoningLevelCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[29]
+func (x *SelectReasoningChoiceCommand) Reset() {
+	*x = SelectReasoningChoiceCommand{}
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SelectReasoningLevelCommand) String() string {
+func (x *SelectReasoningChoiceCommand) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SelectReasoningLevelCommand) ProtoMessage() {}
+func (*SelectReasoningChoiceCommand) ProtoMessage() {}
 
-func (x *SelectReasoningLevelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[29]
+func (x *SelectReasoningChoiceCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5039,46 +5179,46 @@ func (x *SelectReasoningLevelCommand) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *SelectReasoningLevelCommand) GetLevel() ReasoningLevel {
+func (x *SelectReasoningChoiceCommand) GetChoice() ReasoningChoice {
 	if x != nil {
 		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
-			return x.xxx_hidden_Level
+			return x.xxx_hidden_Choice
 		}
 	}
-	return ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+	return ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
 }
 
-func (x *SelectReasoningLevelCommand) SetLevel(v ReasoningLevel) {
-	x.xxx_hidden_Level = v
+func (x *SelectReasoningChoiceCommand) SetChoice(v ReasoningChoice) {
+	x.xxx_hidden_Choice = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
 }
 
-func (x *SelectReasoningLevelCommand) HasLevel() bool {
+func (x *SelectReasoningChoiceCommand) HasChoice() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *SelectReasoningLevelCommand) ClearLevel() {
+func (x *SelectReasoningChoiceCommand) ClearChoice() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Level = ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+	x.xxx_hidden_Choice = ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
 }
 
-type SelectReasoningLevelCommand_builder struct {
+type SelectReasoningChoiceCommand_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The requested reasoning level.
-	Level *ReasoningLevel
+	// The requested reasoning choice.
+	Choice *ReasoningChoice
 }
 
-func (b0 SelectReasoningLevelCommand_builder) Build() *SelectReasoningLevelCommand {
-	m0 := &SelectReasoningLevelCommand{}
+func (b0 SelectReasoningChoiceCommand_builder) Build() *SelectReasoningChoiceCommand {
+	m0 := &SelectReasoningChoiceCommand{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Level != nil {
+	if b.Choice != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
-		x.xxx_hidden_Level = *b.Level
+		x.xxx_hidden_Choice = *b.Choice
 	}
 	return m0
 }
@@ -5107,17 +5247,21 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"extensions\x12E\n" +
 	"\favailability\x18\x04 \x01(\x0e2!.glyph.plugins.ui.v1.AvailabilityR\favailability\x12<\n" +
 	"\x06models\x18\x05 \x03(\v2$.glyph.plugins.ui.v1.ConfiguredModelR\x06models\x12L\n" +
-	"\x0fmodel_selection\x18\x06 \x01(\v2#.glyph.plugins.ui.v1.ModelSelectionR\x0emodelSelection\"\x9d\x01\n" +
+	"\x0fmodel_selection\x18\x06 \x01(\v2#.glyph.plugins.ui.v1.ModelSelectionR\x0emodelSelection\"\x97\x01\n" +
 	"\x0fConfiguredModel\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
-	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12N\n" +
-	"\x10reasoning_levels\x18\x03 \x03(\x0e2#.glyph.plugins.ui.v1.ReasoningLevelR\x0freasoningLevels\"\x9a\x01\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12H\n" +
+	"\treasoning\x18\x03 \x01(\v2*.glyph.plugins.ui.v1.ReasoningCapabilitiesR\treasoning\"\xc2\x01\n" +
+	"\x15ReasoningCapabilities\x12\x1c\n" +
+	"\tsupported\x18\x01 \x01(\bR\tsupported\x12>\n" +
+	"\achoices\x18\x02 \x03(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\achoices\x12K\n" +
+	"\x0edefault_choice\x18\x03 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\rdefaultChoice\"\x9d\x01\n" +
 	"\x0eModelSelection\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
-	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12L\n" +
-	"\x0freasoning_level\x18\x03 \x01(\x0e2#.glyph.plugins.ui.v1.ReasoningLevelR\x0ereasoningLevel\"Z\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12O\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x0freasoningChoice\"Z\n" +
 	"\x15ModelSelectionChanged\x12A\n" +
 	"\tselection\x18\x01 \x01(\v2#.glyph.plugins.ui.v1.ModelSelectionR\tselection\"f\n" +
 	"\x0eStartupContent\x12@\n" +
@@ -5207,14 +5351,14 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"N\n" +
 	"\x05Error\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x121\n" +
-	"\x14retry_authentication\x18\x02 \x01(\bR\x13retryAuthentication\"\xe5\x03\n" +
+	"\x14retry_authentication\x18\x02 \x01(\bR\x13retryAuthentication\"\xe8\x03\n" +
 	"\fOpenResponse\x12<\n" +
 	"\x06submit\x18\x01 \x01(\v2\".glyph.plugins.ui.v1.SubmitCommandH\x00R\x06submit\x126\n" +
 	"\x04stop\x18\x02 \x01(\v2 .glyph.plugins.ui.v1.StopCommandH\x00R\x04stop\x12d\n" +
 	"\x14retry_authentication\x18\x03 \x01(\v2/.glyph.plugins.ui.v1.RetryAuthenticationCommandH\x00R\x13retryAuthentication\x126\n" +
 	"\x04quit\x18\x04 \x01(\v2 .glyph.plugins.ui.v1.QuitCommandH\x00R\x04quit\x12L\n" +
-	"\fselect_model\x18\x05 \x01(\v2'.glyph.plugins.ui.v1.SelectModelCommandH\x00R\vselectModel\x12h\n" +
-	"\x16select_reasoning_level\x18\x06 \x01(\v20.glyph.plugins.ui.v1.SelectReasoningLevelCommandH\x00R\x14selectReasoningLevelB\t\n" +
+	"\fselect_model\x18\x05 \x01(\v2'.glyph.plugins.ui.v1.SelectModelCommandH\x00R\vselectModel\x12k\n" +
+	"\x17select_reasoning_choice\x18\x06 \x01(\v21.glyph.plugins.ui.v1.SelectReasoningChoiceCommandH\x00R\x15selectReasoningChoiceB\t\n" +
 	"\acontent\"#\n" +
 	"\rSubmitCommand\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"\r\n" +
@@ -5224,18 +5368,19 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x12SelectModelCommand\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
-	"\bmodel_id\x18\x02 \x01(\tR\amodelId\"X\n" +
-	"\x1bSelectReasoningLevelCommand\x129\n" +
-	"\x05level\x18\x01 \x01(\x0e2#.glyph.plugins.ui.v1.ReasoningLevelR\x05level*\xeb\x01\n" +
-	"\x0eReasoningLevel\x12\x1f\n" +
-	"\x1bREASONING_LEVEL_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14REASONING_LEVEL_NONE\x10\x01\x12\x1b\n" +
-	"\x17REASONING_LEVEL_MINIMAL\x10\x02\x12\x17\n" +
-	"\x13REASONING_LEVEL_LOW\x10\x03\x12\x1a\n" +
-	"\x16REASONING_LEVEL_MEDIUM\x10\x04\x12\x18\n" +
-	"\x14REASONING_LEVEL_HIGH\x10\x05\x12\x19\n" +
-	"\x15REASONING_LEVEL_XHIGH\x10\x06\x12\x17\n" +
-	"\x13REASONING_LEVEL_MAX\x10\a*\x8f\x01\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\"\\\n" +
+	"\x1cSelectReasoningChoiceCommand\x12<\n" +
+	"\x06choice\x18\x01 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x06choice*\x8c\x02\n" +
+	"\x0fReasoningChoice\x12 \n" +
+	"\x1cREASONING_CHOICE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14REASONING_CHOICE_OFF\x10\x01\x12\x17\n" +
+	"\x13REASONING_CHOICE_ON\x10\x02\x12\x1c\n" +
+	"\x18REASONING_CHOICE_MINIMAL\x10\x03\x12\x18\n" +
+	"\x14REASONING_CHOICE_LOW\x10\x04\x12\x1b\n" +
+	"\x17REASONING_CHOICE_MEDIUM\x10\x05\x12\x19\n" +
+	"\x15REASONING_CHOICE_HIGH\x10\x06\x12\x1a\n" +
+	"\x16REASONING_CHOICE_XHIGH\x10\a\x12\x18\n" +
+	"\x14REASONING_CHOICE_MAX\x10\b*\x8f\x01\n" +
 	"\x0fContentSeverity\x12 \n" +
 	"\x1cCONTENT_SEVERITY_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cCONTENT_SEVERITY_INFORMATION\x10\x01\x12\x1a\n" +
@@ -5289,98 +5434,101 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x04Open\x12 .glyph.plugins.ui.v1.OpenRequest\x1a!.glyph.plugins.ui.v1.OpenResponse(\x010\x01B/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
 var file_api_plugins_ui_v1_ui_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
-	(ReasoningLevel)(0),                 // 0: glyph.plugins.ui.v1.ReasoningLevel
-	(ContentSeverity)(0),                // 1: glyph.plugins.ui.v1.ContentSeverity
-	(Availability)(0),                   // 2: glyph.plugins.ui.v1.Availability
-	(ModelContentKind)(0),               // 3: glyph.plugins.ui.v1.ModelContentKind
-	(ModelContentType)(0),               // 4: glyph.plugins.ui.v1.ModelContentType
-	(LifecycleType)(0),                  // 5: glyph.plugins.ui.v1.LifecycleType
-	(ProgressChannel)(0),                // 6: glyph.plugins.ui.v1.ProgressChannel
-	(*GetCapabilitiesRequest)(nil),      // 7: glyph.plugins.ui.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil),     // 8: glyph.plugins.ui.v1.GetCapabilitiesResponse
-	(*OpenRequest)(nil),                 // 9: glyph.plugins.ui.v1.OpenRequest
-	(*Initialization)(nil),              // 10: glyph.plugins.ui.v1.Initialization
-	(*ConfiguredModel)(nil),             // 11: glyph.plugins.ui.v1.ConfiguredModel
-	(*ModelSelection)(nil),              // 12: glyph.plugins.ui.v1.ModelSelection
-	(*ModelSelectionChanged)(nil),       // 13: glyph.plugins.ui.v1.ModelSelectionChanged
-	(*StartupContent)(nil),              // 14: glyph.plugins.ui.v1.StartupContent
-	(*ExtensionAvailability)(nil),       // 15: glyph.plugins.ui.v1.ExtensionAvailability
-	(*LifecycleEvent)(nil),              // 16: glyph.plugins.ui.v1.LifecycleEvent
-	(*ToolResultContent)(nil),           // 17: glyph.plugins.ui.v1.ToolResultContent
-	(*ToolResultImage)(nil),             // 18: glyph.plugins.ui.v1.ToolResultImage
-	(*ToolCallPreview)(nil),             // 19: glyph.plugins.ui.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil),        // 20: glyph.plugins.ui.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),               // 21: glyph.plugins.ui.v1.FinalToolCall
-	(*ModelContent)(nil),                // 22: glyph.plugins.ui.v1.ModelContent
-	(*ModelResponse)(nil),               // 23: glyph.plugins.ui.v1.ModelResponse
-	(*ModelResponseContent)(nil),        // 24: glyph.plugins.ui.v1.ModelResponseContent
-	(*ModelUsage)(nil),                  // 25: glyph.plugins.ui.v1.ModelUsage
-	(*ModelDiagnostic)(nil),             // 26: glyph.plugins.ui.v1.ModelDiagnostic
-	(*AuthorizationRequest)(nil),        // 27: glyph.plugins.ui.v1.AuthorizationRequest
-	(*Information)(nil),                 // 28: glyph.plugins.ui.v1.Information
-	(*Error)(nil),                       // 29: glyph.plugins.ui.v1.Error
-	(*OpenResponse)(nil),                // 30: glyph.plugins.ui.v1.OpenResponse
-	(*SubmitCommand)(nil),               // 31: glyph.plugins.ui.v1.SubmitCommand
-	(*StopCommand)(nil),                 // 32: glyph.plugins.ui.v1.StopCommand
-	(*RetryAuthenticationCommand)(nil),  // 33: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*QuitCommand)(nil),                 // 34: glyph.plugins.ui.v1.QuitCommand
-	(*SelectModelCommand)(nil),          // 35: glyph.plugins.ui.v1.SelectModelCommand
-	(*SelectReasoningLevelCommand)(nil), // 36: glyph.plugins.ui.v1.SelectReasoningLevelCommand
-	(*structpb.Value)(nil),              // 37: google.protobuf.Value
-	(*structpb.Struct)(nil),             // 38: google.protobuf.Struct
+	(ReasoningChoice)(0),                 // 0: glyph.plugins.ui.v1.ReasoningChoice
+	(ContentSeverity)(0),                 // 1: glyph.plugins.ui.v1.ContentSeverity
+	(Availability)(0),                    // 2: glyph.plugins.ui.v1.Availability
+	(ModelContentKind)(0),                // 3: glyph.plugins.ui.v1.ModelContentKind
+	(ModelContentType)(0),                // 4: glyph.plugins.ui.v1.ModelContentType
+	(LifecycleType)(0),                   // 5: glyph.plugins.ui.v1.LifecycleType
+	(ProgressChannel)(0),                 // 6: glyph.plugins.ui.v1.ProgressChannel
+	(*GetCapabilitiesRequest)(nil),       // 7: glyph.plugins.ui.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil),      // 8: glyph.plugins.ui.v1.GetCapabilitiesResponse
+	(*OpenRequest)(nil),                  // 9: glyph.plugins.ui.v1.OpenRequest
+	(*Initialization)(nil),               // 10: glyph.plugins.ui.v1.Initialization
+	(*ConfiguredModel)(nil),              // 11: glyph.plugins.ui.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil),        // 12: glyph.plugins.ui.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),               // 13: glyph.plugins.ui.v1.ModelSelection
+	(*ModelSelectionChanged)(nil),        // 14: glyph.plugins.ui.v1.ModelSelectionChanged
+	(*StartupContent)(nil),               // 15: glyph.plugins.ui.v1.StartupContent
+	(*ExtensionAvailability)(nil),        // 16: glyph.plugins.ui.v1.ExtensionAvailability
+	(*LifecycleEvent)(nil),               // 17: glyph.plugins.ui.v1.LifecycleEvent
+	(*ToolResultContent)(nil),            // 18: glyph.plugins.ui.v1.ToolResultContent
+	(*ToolResultImage)(nil),              // 19: glyph.plugins.ui.v1.ToolResultImage
+	(*ToolCallPreview)(nil),              // 20: glyph.plugins.ui.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil),         // 21: glyph.plugins.ui.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),                // 22: glyph.plugins.ui.v1.FinalToolCall
+	(*ModelContent)(nil),                 // 23: glyph.plugins.ui.v1.ModelContent
+	(*ModelResponse)(nil),                // 24: glyph.plugins.ui.v1.ModelResponse
+	(*ModelResponseContent)(nil),         // 25: glyph.plugins.ui.v1.ModelResponseContent
+	(*ModelUsage)(nil),                   // 26: glyph.plugins.ui.v1.ModelUsage
+	(*ModelDiagnostic)(nil),              // 27: glyph.plugins.ui.v1.ModelDiagnostic
+	(*AuthorizationRequest)(nil),         // 28: glyph.plugins.ui.v1.AuthorizationRequest
+	(*Information)(nil),                  // 29: glyph.plugins.ui.v1.Information
+	(*Error)(nil),                        // 30: glyph.plugins.ui.v1.Error
+	(*OpenResponse)(nil),                 // 31: glyph.plugins.ui.v1.OpenResponse
+	(*SubmitCommand)(nil),                // 32: glyph.plugins.ui.v1.SubmitCommand
+	(*StopCommand)(nil),                  // 33: glyph.plugins.ui.v1.StopCommand
+	(*RetryAuthenticationCommand)(nil),   // 34: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*QuitCommand)(nil),                  // 35: glyph.plugins.ui.v1.QuitCommand
+	(*SelectModelCommand)(nil),           // 36: glyph.plugins.ui.v1.SelectModelCommand
+	(*SelectReasoningChoiceCommand)(nil), // 37: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	(*structpb.Value)(nil),               // 38: google.protobuf.Value
+	(*structpb.Struct)(nil),              // 39: google.protobuf.Struct
 }
 var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	10, // 0: glyph.plugins.ui.v1.OpenRequest.initialization:type_name -> glyph.plugins.ui.v1.Initialization
-	16, // 1: glyph.plugins.ui.v1.OpenRequest.lifecycle:type_name -> glyph.plugins.ui.v1.LifecycleEvent
-	27, // 2: glyph.plugins.ui.v1.OpenRequest.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
-	28, // 3: glyph.plugins.ui.v1.OpenRequest.information:type_name -> glyph.plugins.ui.v1.Information
-	29, // 4: glyph.plugins.ui.v1.OpenRequest.error:type_name -> glyph.plugins.ui.v1.Error
-	13, // 5: glyph.plugins.ui.v1.OpenRequest.model_selection_changed:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
-	14, // 6: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
-	15, // 7: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
+	17, // 1: glyph.plugins.ui.v1.OpenRequest.lifecycle:type_name -> glyph.plugins.ui.v1.LifecycleEvent
+	28, // 2: glyph.plugins.ui.v1.OpenRequest.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
+	29, // 3: glyph.plugins.ui.v1.OpenRequest.information:type_name -> glyph.plugins.ui.v1.Information
+	30, // 4: glyph.plugins.ui.v1.OpenRequest.error:type_name -> glyph.plugins.ui.v1.Error
+	14, // 5: glyph.plugins.ui.v1.OpenRequest.model_selection_changed:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
+	15, // 6: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
+	16, // 7: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
 	2,  // 8: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
 	11, // 9: glyph.plugins.ui.v1.Initialization.models:type_name -> glyph.plugins.ui.v1.ConfiguredModel
-	12, // 10: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	0,  // 11: glyph.plugins.ui.v1.ConfiguredModel.reasoning_levels:type_name -> glyph.plugins.ui.v1.ReasoningLevel
-	0,  // 12: glyph.plugins.ui.v1.ModelSelection.reasoning_level:type_name -> glyph.plugins.ui.v1.ReasoningLevel
-	12, // 13: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	1,  // 14: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
-	5,  // 15: glyph.plugins.ui.v1.LifecycleEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
-	6,  // 16: glyph.plugins.ui.v1.LifecycleEvent.progress_channel:type_name -> glyph.plugins.ui.v1.ProgressChannel
-	2,  // 17: glyph.plugins.ui.v1.LifecycleEvent.availability:type_name -> glyph.plugins.ui.v1.Availability
-	22, // 18: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
-	23, // 19: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
-	19, // 20: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
-	21, // 21: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	17, // 22: glyph.plugins.ui.v1.LifecycleEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
-	18, // 23: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
-	20, // 24: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
-	37, // 25: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	38, // 26: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	4,  // 27: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
-	3,  // 28: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	25, // 29: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
-	26, // 30: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
-	24, // 31: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
-	3,  // 32: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	31, // 33: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	32, // 34: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
-	33, // 35: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	34, // 36: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
-	35, // 37: glyph.plugins.ui.v1.OpenResponse.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
-	36, // 38: glyph.plugins.ui.v1.OpenResponse.select_reasoning_level:type_name -> glyph.plugins.ui.v1.SelectReasoningLevelCommand
-	0,  // 39: glyph.plugins.ui.v1.SelectReasoningLevelCommand.level:type_name -> glyph.plugins.ui.v1.ReasoningLevel
-	7,  // 40: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
-	9,  // 41: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	8,  // 42: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
-	30, // 43: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	42, // [42:44] is the sub-list for method output_type
-	40, // [40:42] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	13, // 10: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	12, // 11: glyph.plugins.ui.v1.ConfiguredModel.reasoning:type_name -> glyph.plugins.ui.v1.ReasoningCapabilities
+	0,  // 12: glyph.plugins.ui.v1.ReasoningCapabilities.choices:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	0,  // 13: glyph.plugins.ui.v1.ReasoningCapabilities.default_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	0,  // 14: glyph.plugins.ui.v1.ModelSelection.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	13, // 15: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	1,  // 16: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
+	5,  // 17: glyph.plugins.ui.v1.LifecycleEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
+	6,  // 18: glyph.plugins.ui.v1.LifecycleEvent.progress_channel:type_name -> glyph.plugins.ui.v1.ProgressChannel
+	2,  // 19: glyph.plugins.ui.v1.LifecycleEvent.availability:type_name -> glyph.plugins.ui.v1.Availability
+	23, // 20: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
+	24, // 21: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
+	20, // 22: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
+	22, // 23: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	18, // 24: glyph.plugins.ui.v1.LifecycleEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
+	19, // 25: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
+	21, // 26: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
+	38, // 27: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	39, // 28: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	4,  // 29: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
+	3,  // 30: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	26, // 31: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
+	27, // 32: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
+	25, // 33: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
+	3,  // 34: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	32, // 35: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	33, // 36: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
+	34, // 37: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	35, // 38: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
+	36, // 39: glyph.plugins.ui.v1.OpenResponse.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
+	37, // 40: glyph.plugins.ui.v1.OpenResponse.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	0,  // 41: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	7,  // 42: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
+	9,  // 43: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	8,  // 44: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
+	31, // 45: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	44, // [44:46] is the sub-list for method output_type
+	42, // [42:44] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -5396,21 +5544,21 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*openRequest_Error)(nil),
 		(*openRequest_ModelSelectionChanged)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[10].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[11].OneofWrappers = []any{
 		(*toolResultContent_Text)(nil),
 		(*toolResultContent_Image)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[14].OneofWrappers = []any{
 		(*toolCallPreviewField_Value)(nil),
 		(*toolCallPreviewField_Prefix)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[23].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[24].OneofWrappers = []any{
 		(*openResponse_Submit)(nil),
 		(*openResponse_Stop)(nil),
 		(*openResponse_RetryAuthentication)(nil),
 		(*openResponse_Quit)(nil),
 		(*openResponse_SelectModel)(nil),
-		(*openResponse_SelectReasoningLevel)(nil),
+		(*openResponse_SelectReasoningChoice)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -5418,7 +5566,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_ui_proto_rawDesc), len(file_api_plugins_ui_v1_ui_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   30,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

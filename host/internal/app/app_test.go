@@ -53,22 +53,21 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 
 	environment := "COMPATIBLE_API_KEY"
 	configured := settingstore.Settings{
-		DefaultProvider:       "a-compatible",
-		DefaultModel:          "a-second",
-		DefaultReasoningLevel: settingstore.ReasoningLevelHigh,
+		DefaultProvider: "a-compatible",
+		DefaultModel:    "a-second",
 		Providers: map[string]settingstore.Provider{
 			"openai-codex": {
 				Type: settingstore.ProviderTypeOpenAICodex,
 				Models: []settingstore.Model{
-					{ID: "codex-first", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone}},
-					{ID: "codex-second", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelLow}},
+					{ID: "codex-first", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff)},
+					{ID: "codex-second", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow)},
 				},
 			},
 			"z-compatible": {
 				Type: settingstore.ProviderTypeOpenAICompatible, BaseURL: "http://localhost:11434/v1",
 				API: settingstore.APIChatCompletions,
 				Models: []settingstore.Model{{
-					ID: "z-model", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone},
+					ID: "z-model", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
 				}},
 			},
 			"a-compatible": {
@@ -76,8 +75,8 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 				API:    settingstore.APIChatCompletions,
 				APIKey: &settingstore.APIKey{Environment: &environment},
 				Models: []settingstore.Model{
-					{ID: "a-first", ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelNone}},
-					{ID: "a-second", API: settingstore.APIResponses, ReasoningLevels: []settingstore.ReasoningLevel{settingstore.ReasoningLevelLow, settingstore.ReasoningLevelHigh}},
+					{ID: "a-first", Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff)},
+					{ID: "a-second", API: settingstore.APIResponses, Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh)},
 				},
 			},
 		},
@@ -100,7 +99,7 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		string(models[4].Provider) + "/" + string(models[4].Model),
 	})
 	assert.Equal(t, model.Selection{
-		Provider: "a-compatible", Model: "a-second", ReasoningLevel: model.ReasoningLevelHigh,
+		Provider: "a-compatible", Model: "a-second", ReasoningChoice: model.ReasoningChoiceHigh,
 	}, catalog.Selection())
 	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
 }
@@ -275,20 +274,25 @@ func TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization(t *testing.T) {
 	t.Cleanup(server.Close)
 	paths := testPaths(t, fmt.Sprintf(`defaultProvider: local
 defaultModel: local-model
-defaultReasoningLevel: none
 providers:
   openai-codex:
     type: openai-codex
     models:
       - id: codex-model
-        reasoningLevels: [none]
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
   local:
     type: openai-compatible
     baseURL: %s/v1
     api: chat-completions
     models:
       - id: local-model
-        reasoningLevels: [none]
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
 `, server.URL))
 	var stdout, stderr bytes.Buffer
 
@@ -341,20 +345,25 @@ func TestRunWithPathsUICodexDefaultKeepsProviderAuthentication(t *testing.T) {
 func TestRunWithPathsUICompatibleDefaultSkipsCodexAuthentication(t *testing.T) {
 	paths := testPaths(t, `defaultProvider: local
 defaultModel: local-model
-defaultReasoningLevel: none
 providers:
   openai-codex:
     type: openai-codex
     models:
       - id: codex-model
-        reasoningLevels: [none]
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
   local:
     type: openai-compatible
     baseURL: http://localhost:11434/v1
     api: chat-completions
     models:
       - id: local-model
-        reasoningLevels: [none]
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
 `)
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Compatible_UI")
@@ -925,13 +934,15 @@ func writeConfiguredUIExecutable(t *testing.T, directory, name, tracePath, mode 
 func codexSettings(extra string) string {
 	return `defaultProvider: openai-codex
 defaultModel: gpt-test
-defaultReasoningLevel: none
 ` + extra + `providers:
   openai-codex:
     type: openai-codex
     models:
       - id: gpt-test
-        reasoningLevels: [none]
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
 `
 }
 
@@ -947,5 +958,16 @@ func testPaths(t *testing.T, settingsContent string) persistence.Paths {
 		Directory: directory, SettingsFile: settingsPath,
 		CredentialsFile: filepath.Join(directory, "credentials.json"),
 		LogsDirectory:   logsDirectory, LogFile: filepath.Join(logsDirectory, "glyph.log"),
+	}
+}
+
+func testSettingsReasoning(choices ...settingstore.ReasoningChoice) settingstore.Reasoning {
+	supported := len(choices) != 1 || choices[0] != settingstore.ReasoningChoiceOff
+	wireFormat := settingstore.ReasoningWireFormat("")
+	if supported {
+		wireFormat = settingstore.ReasoningWireFormatOpenAIResponses
+	}
+	return settingstore.Reasoning{
+		Supported: supported, Choices: choices, Default: choices[len(choices)-1], WireFormat: wireFormat,
 	}
 }

@@ -42,6 +42,18 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	}
 	response.Provider = request.Model.Provider
 	response.Model = request.Model.Model
+	if configured, ok := s.models[request.Model.Model]; ok {
+		source := model.ProviderContextSource{
+			ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
+			CompatibilityKey: configured.reasoningCompatibilityKey,
+		}
+		for index := range response.Content {
+			content := &response.Content[index]
+			if content.Kind == model.ContentReasoning && len(content.ProviderContext.Payload) != 0 {
+				content.ProviderContext.Source = source
+			}
+		}
+	}
 	terminalKind := run.StreamEventDone
 	if streamErr != nil {
 		terminalKind = run.StreamEventError
@@ -131,7 +143,15 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
-	input, err := buildInput(request.History, grammarInputProperties(request.Tools))
+	configured, found := s.models[request.Model.Model]
+	if !found {
+		return responses.ResponseNewParams{}, errors.New("OpenAI Codex selected model is not configured")
+	}
+	target := model.ProviderContextSource{
+		ProviderID: request.Model.Provider, API: configured.api, Model: request.Model.Model,
+		CompatibilityKey: configured.reasoningCompatibilityKey,
+	}
+	input, err := buildInput(request.History, grammarInputProperties(request.Tools), target)
 	if err != nil {
 		return responses.ResponseNewParams{}, err
 	}
@@ -152,8 +172,15 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 		},
 		Tools: tools,
 	}
-	if request.ReasoningLevel != "" && request.ReasoningLevel != model.ReasoningLevelNone {
-		params.Reasoning.Effort = shared.ReasoningEffort(request.ReasoningLevel)
+	switch request.ReasoningChoice {
+	case model.ReasoningChoiceOff:
+		params.Reasoning.Effort = shared.ReasoningEffortNone
+	case model.ReasoningChoiceOn:
+	case model.ReasoningChoiceMinimal, model.ReasoningChoiceLow, model.ReasoningChoiceMedium,
+		model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
+		params.Reasoning.Effort = shared.ReasoningEffort(request.ReasoningChoice)
+	default:
+		return responses.ResponseNewParams{}, errors.New("OpenAI Codex reasoning choice is invalid")
 	}
 	return params, nil
 }
@@ -181,29 +208,11 @@ func modelResponse(
 		output := &response.Output[outputIndex]
 		switch output.Type {
 		case "reasoning":
-			reasoning := output.AsReasoning()
-			summary := make([]string, len(reasoning.Summary))
-			for index, item := range reasoning.Summary {
-				summary[index] = item.Text
-			}
-			payload, err := json.Marshal(reasoningContext{
-				ID: reasoning.ID, EncryptedContent: reasoning.EncryptedContent, Summary: summary,
-			})
+			visible, err := modelReasoningContent(output.AsReasoning())
 			if err != nil {
-				return failedModelResponse(requestFailedMessage), fmt.Errorf("encode Codex reasoning context: %w", err)
+				return failedModelResponse(requestFailedMessage), err
 			}
-			items = append(items,
-				model.Content{
-					Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
-					ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
-				},
-				model.Content{
-					Kind: model.ContentProviderContext, Text: "", Final: true,
-					ProviderContext: model.ProviderContext{ProviderID: ProviderID, Payload: payload},
-					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
-				},
-			)
+			items = append(items, visible)
 		case "message":
 			message := output.AsMessage()
 			for contentIndex := range message.Content {
@@ -224,8 +233,11 @@ func modelResponse(
 				}
 				items = append(items, model.Content{
 					Kind: kind, Text: text, Final: true,
-					ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-					ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+					ProviderContext: model.ProviderContext{
+						Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+						Payload: nil,
+					},
+					ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 				})
 			}
 		case "function_call":
@@ -236,8 +248,11 @@ func modelResponse(
 			}
 			items = append(items, model.Content{
 				Kind: model.ContentToolCall, Text: "", Final: true,
-				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-				ToolCall:        model.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
+				ProviderContext: model.ProviderContext{
+					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+					Payload: nil,
+				},
+				ToolCall: model.ToolCall{ID: call.CallID, Name: call.Name, Arguments: arguments},
 			})
 			hasToolCall = true
 		case "custom_tool_call":
@@ -248,7 +263,10 @@ func modelResponse(
 			}
 			items = append(items, model.Content{
 				Kind: model.ContentToolCall, Text: "", Final: true,
-				ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
+				ProviderContext: model.ProviderContext{
+					Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+					Payload: nil,
+				},
 				ToolCall: model.ToolCall{
 					ID: call.CallID, Name: call.Name, Arguments: map[string]any{property: call.Input},
 				},
@@ -283,6 +301,33 @@ func modelResponse(
 		ResponseModel: responseModel, ResponseID: response.ID,
 		Usage: usage, Diagnostics: nil,
 	}, nil
+}
+
+// modelReasoningContent converts visible summary text and attaches only usable replay context.
+func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Content, error) {
+	summary := make([]string, len(reasoning.Summary))
+	for index, item := range reasoning.Summary {
+		summary[index] = item.Text
+	}
+	visible := model.Content{
+		Kind: model.ContentReasoning, Text: strings.Join(summary, ""), Final: true,
+		ProviderContext: model.ProviderContext{
+			Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+			Payload: nil,
+		},
+		ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
+	}
+	if reasoning.ID == "" || reasoning.EncryptedContent == "" {
+		return visible, nil
+	}
+	payload, err := json.Marshal(reasoningContext{
+		ID: reasoning.ID, EncryptedContent: reasoning.EncryptedContent, Summary: summary,
+	})
+	if err != nil {
+		return model.Content{}, fmt.Errorf("encode Codex reasoning context: %w", err)
+	}
+	visible.ProviderContext.Payload = payload
+	return visible, nil
 }
 
 // failedResponseFromSDK preserves finalized safe items while returning a failed outcome.

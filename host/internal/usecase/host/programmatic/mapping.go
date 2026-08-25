@@ -47,11 +47,12 @@ func publicInputText(message model.Message) string {
 func mapModelResponse(response model.Response) controller.ModelResponse {
 	content := make([]controller.ModelResponseContent, 0, len(response.Content))
 	var text strings.Builder
-	for position, item := range response.Content {
+	for position := range response.Content {
+		item := &response.Content[position]
 		if !item.Final {
 			continue
 		}
-		mapped, ok := mapModelResponseContent(position, item)
+		mapped, ok := mapModelResponseContent(position, *item)
 		if !ok {
 			continue
 		}
@@ -112,8 +113,6 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 				Arguments: cloneArguments(content.ToolCall.Arguments),
 			},
 		}, true
-	case model.ContentProviderContext:
-		return emptyModelResponseContent(), false
 	}
 	return emptyModelResponseContent(), false
 }
@@ -171,7 +170,7 @@ func mapModelContentKind(kind model.ContentKind) controller.ModelContentKind {
 		return controller.ModelContentReasoning
 	case model.ContentRefusal:
 		return controller.ModelContentRefusal
-	case model.ContentProviderContext, model.ContentToolCall:
+	case model.ContentToolCall:
 		return controller.ModelContentUnspecified
 	}
 	return controller.ModelContentUnspecified

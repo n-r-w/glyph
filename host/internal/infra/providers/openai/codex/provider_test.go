@@ -88,13 +88,13 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
+	service := newDriver(testConfig(), credentials, interaction, options)
 	updates := make([]run.StreamEvent, 0)
 	history := []agent.HistoryEntry{
 		{Kind: agent.HistoryEntryUser, User: model.TextMessage("first")},
 		{Kind: agent.HistoryEntryModel, Model: model.Response{
 			Content: []model.Content{
-				{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: ProviderID, Payload: []byte(`{"id":"r-old","encrypted_content":"enc-old","summary":["old"]}`)}},
+				{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-request"}, Payload: []byte(`{ "summary" : ["old"], "encrypted_content" : "enc-old", "id" : "r-old" }`)}},
 				{Kind: model.ContentText, Text: "prior"},
 				{Kind: model.ContentToolCall, ToolCall: model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old.txt"}}},
 			},
@@ -105,10 +105,10 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	}
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
-		Instructions:   "request instructions",
-		Model:          testModelDescriptor("gpt-request"),
-		ReasoningLevel: model.ReasoningLevelMedium,
-		History:        history,
+		Instructions:    "request instructions",
+		Model:           testModelDescriptor("gpt-request"),
+		ReasoningChoice: model.ReasoningChoiceMedium,
+		History:         history,
 		Tools: []tool.Descriptor{{
 			Name: "read", Description: "Read a file.",
 			InputSchemaJSON: []byte(`{"type":"object","properties":{"path":{"type":"string","description":"File path."}},"required":["path"],"additionalProperties":false}`),
@@ -124,15 +124,16 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []run.StreamEvent{{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "ans"}, {Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "wer"}}, updates)
 	assert.Equal(t, model.OutcomeToolUse, response.Outcome)
-	require.Len(t, response.Content, 4)
+	require.Len(t, response.Content, 3)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
 	assert.Equal(t, "summary", response.Content[0].Text)
-	assert.Equal(t, model.ContentProviderContext, response.Content[1].Kind)
-	assert.Equal(t, model.ProviderID(ProviderID), response.Content[1].ProviderContext.ProviderID)
-	assert.Equal(t, model.ContentText, response.Content[2].Kind)
-	assert.Equal(t, "answer", response.Content[2].Text)
-	assert.Equal(t, model.ContentToolCall, response.Content[3].Kind)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[3].ToolCall.Arguments)
+	assert.Equal(t, model.ProviderID(ProviderID), response.Content[0].ProviderContext.Source.ProviderID)
+	assert.Equal(t, "responses", response.Content[0].ProviderContext.Source.API)
+	assert.Equal(t, model.ID("gpt-request"), response.Content[0].ProviderContext.Source.Model)
+	assert.Equal(t, model.ContentText, response.Content[1].Kind)
+	assert.Equal(t, "answer", response.Content[1].Text)
+	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.Arguments)
 }
 
 // TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies rich input and terminal values.
@@ -172,7 +173,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-selected"},
 		History: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.Message{Content: []model.InputContent{
@@ -222,7 +223,7 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: testModelDescriptor("gpt-test"),
 		History: nil, Tools: nil,
 	}, func(event run.StreamEvent) error {
@@ -264,7 +265,7 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: testModelDescriptor("gpt-test"),
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
@@ -305,7 +306,7 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: testModelDescriptor("gpt-test"),
 		History: nil, Tools: nil,
 	}, func(event run.StreamEvent) error {
@@ -343,7 +344,7 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	updates := make([]run.StreamEvent, 0, 2)
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("gpt-test"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
@@ -362,14 +363,14 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 		{Kind: run.StreamEventTextDelta, Position: 1, Content: model.Content{Kind: model.ContentText}, Delta: "answer"},
 	}, updates)
 	assert.Equal(t, model.OutcomeToolUse, response.Outcome)
-	require.Len(t, response.Content, 4)
+	require.Len(t, response.Content, 3)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
-	assert.Equal(t, model.ContentProviderContext, response.Content[1].Kind)
-	assert.Equal(t, model.ContentText, response.Content[2].Kind)
-	assert.Equal(t, "final answer", response.Content[2].Text)
-	assert.Equal(t, model.ContentToolCall, response.Content[3].Kind)
-	assert.Equal(t, "read", response.Content[3].ToolCall.Name)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[3].ToolCall.Arguments)
+	assert.NotEmpty(t, response.Content[0].ProviderContext.Payload)
+	assert.Equal(t, model.ContentText, response.Content[1].Kind)
+	assert.Equal(t, "final answer", response.Content[1].Text)
+	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
+	assert.Equal(t, "read", response.Content[2].ToolCall.Name)
+	assert.Equal(t, map[string]any{"path": "file.txt"}, response.Content[2].ToolCall.Arguments)
 }
 
 // TestDriverStreamStreamsReasoningInOutputOrder verifies Codex-owned mixed-content assembly.
@@ -399,7 +400,7 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 7)
 
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("gpt-test"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
@@ -421,11 +422,63 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	assert.Equal(t, model.ContentText, events[3].Content.Kind)
 	assert.Equal(t, 2, events[3].Position)
 	terminal := events[len(events)-1].Response
-	require.Len(t, terminal.Content, 3)
+	require.Len(t, terminal.Content, 2)
 	assert.Equal(t, model.ContentReasoning, terminal.Content[0].Kind)
 	assert.Equal(t, "why", terminal.Content[0].Text)
-	assert.Equal(t, model.ContentProviderContext, terminal.Content[1].Kind)
-	assert.Equal(t, model.ContentText, terminal.Content[2].Kind)
+	assert.NotEmpty(t, terminal.Content[0].ProviderContext.Payload)
+	assert.Equal(t, model.ContentText, terminal.Content[1].Kind)
+}
+
+// TestDriverStreamKeepsVisibleReasoningWithoutReplayContext verifies optional context and assistant-text fallback.
+func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
+	t.Parallel()
+
+	accountID := "account-visible-reasoning"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	).Times(2)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	var requests atomic.Int32
+	var secondBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		current := requests.Add(1)
+		if current == 2 {
+			assert.NoError(t, json.NewDecoder(request.Body).Decode(&secondBody))
+			writeSSE(writer, completedEvent(`[]`))
+			return
+		}
+		writeSSE(writer, completedEvent(`[{"id":"r-visible","type":"reasoning","encrypted_content":"","summary":[{"type":"summary_text","text":"visible summary"}]}]`))
+	}))
+	t.Cleanup(server.Close)
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+	request := run.ModelRequest{
+		Instructions: "instructions", Model: testModelDescriptor("gpt-test"),
+		ReasoningChoice: model.ReasoningChoiceOn,
+		History:         []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
+	}
+
+	firstEvents, err := collectStreamEvents(service, t.Context(), request, func(run.StreamEvent) error { return nil })
+	require.NoError(t, err)
+	firstResponse := terminalResponse(firstEvents)
+	require.Len(t, firstResponse.Content, 1)
+	assert.Equal(t, model.ContentReasoning, firstResponse.Content[0].Kind)
+	assert.Equal(t, "visible summary", firstResponse.Content[0].Text)
+	assert.Empty(t, firstResponse.Content[0].ProviderContext.Payload)
+
+	request.History = append(request.History, agent.HistoryEntry{Kind: agent.HistoryEntryModel, Model: firstResponse})
+	secondEvents, err := collectStreamEvents(service, t.Context(), request, func(run.StreamEvent) error { return nil })
+	require.NoError(t, err)
+	assert.Equal(t, model.OutcomeStop, terminalResponse(secondEvents).Outcome)
+	require.Equal(t, int32(2), requests.Load())
+	encoded, err := json.Marshal(secondBody["input"])
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"role":"assistant"`)
+	assert.Contains(t, string(encoded), "visible summary")
+	assert.NotContains(t, string(encoded), `"type":"reasoning"`)
 }
 
 // TestDriverStreamStreamsRefusalDeltas preserves incremental and finalized refusal text.
@@ -454,7 +507,7 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0, 5)
 
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("gpt-test"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("request")}},
@@ -482,11 +535,11 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 		Content: model.Content{Kind: model.ContentRefusal}, Delta: "not help",
 	}, events[2])
 	response := events[4].Response
-	require.Len(t, response.Content, 3)
+	require.Len(t, response.Content, 2)
 	assert.Equal(t, model.ContentReasoning, response.Content[0].Kind)
-	assert.Equal(t, model.ContentProviderContext, response.Content[1].Kind)
-	assert.Equal(t, model.ContentRefusal, response.Content[2].Kind)
-	assert.Equal(t, "I cannot help", response.Content[2].Text)
+	assert.NotEmpty(t, response.Content[0].ProviderContext.Payload)
+	assert.Equal(t, model.ContentRefusal, response.Content[1].Kind)
+	assert.Equal(t, "I cannot help", response.Content[1].Text)
 }
 
 // TestDriverStreamRejectsMissingEncryptedReasoning verifies stateless replay fails before HTTP.
@@ -501,16 +554,16 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
 	t.Cleanup(server.Close)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	history := []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryModel,
 		Model: model.Response{Content: []model.Content{{
-			Kind:            model.ContentProviderContext,
-			ProviderContext: model.ProviderContext{ProviderID: ProviderID, Payload: []byte(`{"id":"r","encrypted_content":"","summary":[]}`)},
+			Kind:            model.ContentReasoning,
+			ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: ProviderID, API: "responses", Model: "gpt-test"}, Payload: []byte(`{"id":"r","encrypted_content":"","summary":[]}`)},
 		}}},
 	}}
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions", History: history, Tools: nil,
 		Model: testModelDescriptor("gpt-test"),
 	}, func(run.StreamEvent) error { return nil })
@@ -522,8 +575,8 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	assert.Zero(t, requests.Load())
 }
 
-// TestDriverStreamOmitsAbsentReasoning verifies user-only history does not synthesize context.
-func TestDriverStreamOmitsAbsentReasoning(t *testing.T) {
+// TestDriverStreamMapsOffReasoning verifies off uses the Responses none effort.
+func TestDriverStreamMapsOffReasoning(t *testing.T) {
 	t.Parallel()
 
 	accountID := "account"
@@ -536,20 +589,20 @@ func TestDriverStreamOmitsAbsentReasoning(t *testing.T) {
 		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
 		assert.Equal(t, "gpt-request", body["model"])
 		reasoning := body["reasoning"].(map[string]any)
-		assert.NotContains(t, reasoning, "effort")
+		assert.Equal(t, "none", reasoning["effort"])
 		input := body["input"].([]any)
 		assert.Equal(t, []string{"message"}, inputTypes(input))
 		writeSSE(writer, completedEvent(`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`))
 	}))
 	t.Cleanup(server.Close)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
-		Instructions:   "instructions",
-		Model:          testModelDescriptor("gpt-request"),
-		ReasoningLevel: model.ReasoningLevelNone,
-		History:        []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
-		Tools:          nil,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-request"),
+		ReasoningChoice: model.ReasoningChoiceOff,
+		History:         []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
+		Tools:           nil,
 	}, func(run.StreamEvent) error { return nil })
 	response := terminalResponse(events)
 
@@ -599,9 +652,9 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	options := testProviderOptions(server)
 	options.tokenURL = server.URL + "/token"
 	options.now = func() time.Time { return now }
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
+	service := newDriver(testConfig(), credentials, interaction, options)
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("gpt-test"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -631,9 +684,9 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
 	options.now = func() time.Time { return now }
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, options)
+	service := newDriver(testConfig(), credentials, interaction, options)
 
-	_, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	_, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("gpt-test"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -654,7 +707,7 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 
 	events, err := collectStreamEvents(service,
 		t.Context(),
-		run.ModelRequest{
+		run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions: "instructions",
 			Model:        testModelDescriptor("gpt-test"),
 			History: []agent.HistoryEntry{{
@@ -705,7 +758,7 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	service := newDriver(
 		testConfig(), credentials, interaction, testProviderOptions(server),
 	)
-	request := run.ModelRequest{
+	request := run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "instructions",
 		Model:        testModelDescriptor("model"),
 		History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -749,9 +802,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 				_, _ = writer.Write([]byte(testCase.body))
 			}))
 			t.Cleanup(server.Close)
-			service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 				Instructions: "instructions",
 				Model:        testModelDescriptor("gpt-test"),
 				History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -797,9 +850,9 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			interaction := NewMockInteraction(gomock.NewController(t))
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { writeSSE(writer, testCase.event) }))
 			t.Cleanup(server.Close)
-			service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+			events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 				Instructions: "instructions",
 				Model:        testModelDescriptor("gpt-test"),
 				History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -835,14 +888,14 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 		<-request.Context().Done()
 	}))
 	t.Cleanup(server.Close)
-	service := newDriver(Config{Hooks: testProviderHookRunner(), Models: nil}, credentials, interaction, testProviderOptions(server))
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	ctx, cancel := context.WithCancel(t.Context())
 	result := make(chan struct {
 		response model.Response
 		err      error
 	}, 1)
 	go func() {
-		events, err := collectStreamEvents(service, ctx, run.ModelRequest{
+		events, err := collectStreamEvents(service, ctx, run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions: "instructions",
 			Model:        testModelDescriptor("gpt-test"),
 			History:      []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: model.TextMessage("hello")}},
@@ -918,7 +971,9 @@ func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) 
 
 // testConfig creates one provider-owned configuration fixture.
 func testConfig() Config {
-	return Config{Hooks: testProviderHookRunner(), Models: nil}
+	return Config{Hooks: testProviderHookRunner(), Models: []model.ID{
+		"gpt-request", "gpt-test", "gpt-selected", "gpt-unknown", "model", "gpt-5.6-luna",
+	}}
 }
 
 // testModelDescriptor creates an explicitly capable model fixture for adapter tests.

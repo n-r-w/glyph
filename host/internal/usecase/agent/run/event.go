@@ -91,8 +91,11 @@ func newEvent(eventType EventType, runID string) Event {
 		Position: 0,
 		Content: model.Content{
 			Kind: 0, Text: "", Final: false,
-			ProviderContext: model.ProviderContext{ProviderID: "", Payload: nil},
-			ToolCall:        model.ToolCall{ID: "", Name: "", Arguments: nil},
+			ProviderContext: model.ProviderContext{
+				Source:  model.ProviderContextSource{ProviderID: "", API: "", Model: "", CompatibilityKey: ""},
+				Payload: nil,
+			},
+			ToolCall: model.ToolCall{ID: "", Name: "", Arguments: nil},
 		},
 		Message: emptyModelResponse(),
 		Preview: model.ToolCallPreview{

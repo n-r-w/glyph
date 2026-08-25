@@ -161,12 +161,16 @@ func mapInitialization(initialization domainui.Initialization) *uipb.Initializat
 	}
 	models := make([]*uipb.ConfiguredModel, 0, len(initialization.Models))
 	for _, configured := range initialization.Models {
-		levels := make([]uipb.ReasoningLevel, 0, len(configured.ReasoningLevels))
-		for _, level := range configured.ReasoningLevels {
-			levels = append(levels, mapReasoningLevel(level))
+		choices := make([]uipb.ReasoningChoice, 0, len(configured.Reasoning.Choices))
+		for _, choice := range configured.Reasoning.Choices {
+			choices = append(choices, mapReasoningChoice(choice))
 		}
+		reasoning := uipb.ReasoningCapabilities_builder{
+			Supported: new(configured.Reasoning.Supported), Choices: choices,
+			DefaultChoice: new(mapReasoningChoice(configured.Reasoning.Default)),
+		}.Build()
 		models = append(models, uipb.ConfiguredModel_builder{
-			ProviderId: new(configured.ProviderID), ModelId: new(configured.ModelID), ReasoningLevels: levels,
+			ProviderId: new(configured.ProviderID), ModelId: new(configured.ModelID), Reasoning: reasoning,
 		}.Build())
 	}
 	return uipb.Initialization_builder{
@@ -183,7 +187,7 @@ func mapInitialization(initialization domainui.Initialization) *uipb.Initializat
 func mapModelSelection(selection domainui.ModelSelection) *uipb.ModelSelection {
 	return uipb.ModelSelection_builder{
 		ProviderId: new(selection.ProviderID), ModelId: new(selection.ModelID),
-		ReasoningLevel: new(mapReasoningLevel(selection.ReasoningLevel)),
+		ReasoningChoice: new(mapReasoningChoice(selection.ReasoningChoice)),
 	}.Build()
 }
 
@@ -251,60 +255,64 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		return domainui.Command{
 			Kind: domainui.CommandSelectModel, ProviderID: selected.GetProviderId(), ModelID: selected.GetModelId(),
 		}, nil
-	case command.GetSelectReasoningLevel() != nil:
-		level, err := mapReasoningLevelFromProto(command.GetSelectReasoningLevel().GetLevel())
+	case command.GetSelectReasoningChoice() != nil:
+		level, err := mapReasoningChoiceFromProto(command.GetSelectReasoningChoice().GetChoice())
 		if err != nil {
 			return domainui.Command{}, err
 		}
-		return domainui.Command{Kind: domainui.CommandSelectReasoningLevel, ReasoningLevel: level}, nil
+		return domainui.Command{Kind: domainui.CommandSelectReasoningChoice, ReasoningChoice: level}, nil
 	default:
 		return domainui.Command{}, errors.New("receive UI command: payload is required")
 	}
 }
 
-// mapReasoningLevel converts a Host reasoning level to the public contract.
-func mapReasoningLevel(value domainui.ReasoningLevel) uipb.ReasoningLevel {
+// mapReasoningChoice converts a Host reasoning choice to the public contract.
+func mapReasoningChoice(value domainui.ReasoningChoice) uipb.ReasoningChoice {
 	switch value {
-	case domainui.ReasoningLevelNone:
-		return uipb.ReasoningLevel_REASONING_LEVEL_NONE
-	case domainui.ReasoningLevelMinimal:
-		return uipb.ReasoningLevel_REASONING_LEVEL_MINIMAL
-	case domainui.ReasoningLevelLow:
-		return uipb.ReasoningLevel_REASONING_LEVEL_LOW
-	case domainui.ReasoningLevelMedium:
-		return uipb.ReasoningLevel_REASONING_LEVEL_MEDIUM
-	case domainui.ReasoningLevelHigh:
-		return uipb.ReasoningLevel_REASONING_LEVEL_HIGH
-	case domainui.ReasoningLevelXHigh:
-		return uipb.ReasoningLevel_REASONING_LEVEL_XHIGH
-	case domainui.ReasoningLevelMax:
-		return uipb.ReasoningLevel_REASONING_LEVEL_MAX
+	case domainui.ReasoningChoiceOff:
+		return uipb.ReasoningChoice_REASONING_CHOICE_OFF
+	case domainui.ReasoningChoiceOn:
+		return uipb.ReasoningChoice_REASONING_CHOICE_ON
+	case domainui.ReasoningChoiceMinimal:
+		return uipb.ReasoningChoice_REASONING_CHOICE_MINIMAL
+	case domainui.ReasoningChoiceLow:
+		return uipb.ReasoningChoice_REASONING_CHOICE_LOW
+	case domainui.ReasoningChoiceMedium:
+		return uipb.ReasoningChoice_REASONING_CHOICE_MEDIUM
+	case domainui.ReasoningChoiceHigh:
+		return uipb.ReasoningChoice_REASONING_CHOICE_HIGH
+	case domainui.ReasoningChoiceXHigh:
+		return uipb.ReasoningChoice_REASONING_CHOICE_XHIGH
+	case domainui.ReasoningChoiceMax:
+		return uipb.ReasoningChoice_REASONING_CHOICE_MAX
 	default:
-		return uipb.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED
+		return uipb.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
 	}
 }
 
-// mapReasoningLevelFromProto rejects unspecified and unknown public values.
-func mapReasoningLevelFromProto(value uipb.ReasoningLevel) (domainui.ReasoningLevel, error) {
+// mapReasoningChoiceFromProto rejects unspecified and unknown public values.
+func mapReasoningChoiceFromProto(value uipb.ReasoningChoice) (domainui.ReasoningChoice, error) {
 	switch value {
-	case uipb.ReasoningLevel_REASONING_LEVEL_NONE:
-		return domainui.ReasoningLevelNone, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_MINIMAL:
-		return domainui.ReasoningLevelMinimal, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_LOW:
-		return domainui.ReasoningLevelLow, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_MEDIUM:
-		return domainui.ReasoningLevelMedium, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_HIGH:
-		return domainui.ReasoningLevelHigh, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_XHIGH:
-		return domainui.ReasoningLevelXHigh, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_MAX:
-		return domainui.ReasoningLevelMax, nil
-	case uipb.ReasoningLevel_REASONING_LEVEL_UNSPECIFIED:
-		return 0, errors.New("receive UI command: reasoning level is unspecified")
+	case uipb.ReasoningChoice_REASONING_CHOICE_OFF:
+		return domainui.ReasoningChoiceOff, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_ON:
+		return domainui.ReasoningChoiceOn, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_MINIMAL:
+		return domainui.ReasoningChoiceMinimal, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_LOW:
+		return domainui.ReasoningChoiceLow, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_MEDIUM:
+		return domainui.ReasoningChoiceMedium, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_HIGH:
+		return domainui.ReasoningChoiceHigh, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_XHIGH:
+		return domainui.ReasoningChoiceXHigh, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_MAX:
+		return domainui.ReasoningChoiceMax, nil
+	case uipb.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED:
+		return 0, errors.New("receive UI command: reasoning choice is unspecified")
 	default:
-		return 0, fmt.Errorf("receive UI command: unknown reasoning level %d", value)
+		return 0, fmt.Errorf("receive UI command: unknown reasoning choice %d", value)
 	}
 }
 
@@ -410,7 +418,8 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview 
 
 func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
 	content := make([]*uipb.ModelResponseContent, len(response.Content))
-	for index, item := range response.Content {
+	for index := range response.Content {
+		item := &response.Content[index]
 		content[index] = uipb.ModelResponseContent_builder{
 			Kind: new(mapModelContentKind(item.Kind)), Text: new(item.Text),
 		}.Build()

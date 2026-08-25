@@ -7,39 +7,48 @@ type ProviderID string
 // ID identifies one provider model.
 type ID string
 
-// ReasoningLevel controls provider-neutral model reasoning effort.
-type ReasoningLevel string
+// ReasoningChoice selects provider-neutral model reasoning behavior.
+type ReasoningChoice string
 
 const (
-	// ReasoningLevelNone disables reasoning effort.
-	ReasoningLevelNone ReasoningLevel = "none"
-	// ReasoningLevelMinimal requests minimal reasoning effort.
-	ReasoningLevelMinimal ReasoningLevel = "minimal"
-	// ReasoningLevelLow requests low reasoning effort.
-	ReasoningLevelLow ReasoningLevel = "low"
-	// ReasoningLevelMedium requests medium reasoning effort.
-	ReasoningLevelMedium ReasoningLevel = "medium"
-	// ReasoningLevelHigh requests high reasoning effort.
-	ReasoningLevelHigh ReasoningLevel = "high"
-	// ReasoningLevelXHigh requests extra-high reasoning effort.
-	ReasoningLevelXHigh ReasoningLevel = "xhigh"
-	// ReasoningLevelMax requests maximum reasoning effort.
-	ReasoningLevelMax ReasoningLevel = "max"
+	// ReasoningChoiceOff disables reasoning.
+	ReasoningChoiceOff ReasoningChoice = "off"
+	// ReasoningChoiceOn enables reasoning with the provider default.
+	ReasoningChoiceOn ReasoningChoice = "on"
+	// ReasoningChoiceMinimal requests minimal reasoning effort.
+	ReasoningChoiceMinimal ReasoningChoice = "minimal"
+	// ReasoningChoiceLow requests low reasoning effort.
+	ReasoningChoiceLow ReasoningChoice = "low"
+	// ReasoningChoiceMedium requests medium reasoning effort.
+	ReasoningChoiceMedium ReasoningChoice = "medium"
+	// ReasoningChoiceHigh requests high reasoning effort.
+	ReasoningChoiceHigh ReasoningChoice = "high"
+	// ReasoningChoiceXHigh requests extra-high reasoning effort.
+	ReasoningChoiceXHigh ReasoningChoice = "xhigh"
+	// ReasoningChoiceMax requests maximum reasoning effort.
+	ReasoningChoiceMax ReasoningChoice = "max"
 )
 
 // Selection identifies one provider, model, and reasoning combination.
 type Selection struct {
-	Provider       ProviderID
-	Model          ID
-	ReasoningLevel ReasoningLevel
+	Provider        ProviderID
+	Model           ID
+	ReasoningChoice ReasoningChoice
+}
+
+// ReasoningCapabilities describes one model reasoning contract.
+type ReasoningCapabilities struct {
+	Supported bool
+	Choices   []ReasoningChoice
+	Default   ReasoningChoice
 }
 
 // Descriptor describes one configured model and its capabilities.
 type Descriptor struct {
-	Provider                 ProviderID
-	Model                    ID
-	SupportedReasoningLevels []ReasoningLevel
-	ToolCapabilities         ToolCapabilities
+	Provider              ProviderID
+	Model                 ID
+	ReasoningCapabilities ReasoningCapabilities
+	ToolCapabilities      ToolCapabilities
 }
 
 // ToolCapabilities describes provider-neutral constrained tool support.
@@ -108,10 +117,8 @@ const (
 	ContentText ContentKind = iota + 1
 	// ContentRefusal contains provider refusal text.
 	ContentRefusal
-	// ContentReasoning contains a provider-visible reasoning summary.
+	// ContentReasoning contains visible model reasoning and optional replay context.
 	ContentReasoning
-	// ContentProviderContext contains opaque provider-owned bytes.
-	ContentProviderContext
 	// ContentToolCall contains one provider-neutral tool request.
 	ContentToolCall
 )
@@ -125,10 +132,18 @@ type Content struct {
 	ToolCall        ToolCall
 }
 
-// ProviderContext preserves provider-owned bytes without interpretation.
+// ProviderContextSource identifies the request contract that produced opaque context.
+type ProviderContextSource struct {
+	ProviderID       ProviderID
+	API              string
+	Model            ID
+	CompatibilityKey string
+}
+
+// ProviderContext preserves an opaque replay payload with its source snapshot.
 type ProviderContext struct {
-	ProviderID ProviderID
-	Payload    []byte
+	Source  ProviderContextSource
+	Payload []byte
 }
 
 // ToolCall is one provider-neutral model-requested tool invocation.

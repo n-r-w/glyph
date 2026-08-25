@@ -250,15 +250,18 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	commandContext := context.WithValue(s.T().Context(), contextKey{}, "selection")
 	models := []model.Descriptor{{
 		Provider: "provider", Model: "model",
-		SupportedReasoningLevels: []model.ReasoningLevel{model.ReasoningLevelLow, model.ReasoningLevelHigh},
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
+			Default: model.ReasoningChoiceLow,
+		},
 	}}
-	initial := model.Selection{Provider: "provider", Model: "model", ReasoningLevel: model.ReasoningLevelLow}
-	selectedModel := model.Selection{Provider: "other", Model: "next", ReasoningLevel: model.ReasoningLevelLow}
-	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningLevel: model.ReasoningLevelHigh}
+	initial := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
+	selectedModel := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceLow}
+	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog.EXPECT().Models().Return(models)
 	catalog.EXPECT().Selection().Return(initial)
 	catalog.EXPECT().SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).Return(selectedModel, nil)
-	catalog.EXPECT().SelectReasoningLevel(model.ReasoningLevelHigh).Return(selectedReasoning, nil)
+	catalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceHigh).Return(selectedReasoning, nil)
 
 	tests := []struct {
 		command controller.Command
@@ -281,8 +284,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		},
 		{
 			command: controller.Command{
-				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningLevel,
-				ReasoningLevel: model.ReasoningLevelHigh,
+				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice,
+				ReasoningChoice: model.ReasoningChoiceHigh,
 			},
 			want: controller.Response{
 				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: selectedReasoning,
@@ -308,7 +311,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	commands := []controller.Command{
 		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: "model"},
 		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: "provider"},
-		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningLevel},
+		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice},
 	}
 	for _, command := range commands {
 		response, operation, err := service.Handle(s.T().Context(), command)
@@ -504,7 +507,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 			Content: []model.Content{
 				{Kind: model.ContentText, Text: "answer", Final: true},
 				{Kind: model.ContentText, Text: "partial", Final: false},
-				{Kind: model.ContentProviderContext, ProviderContext: model.ProviderContext{ProviderID: "provider", Payload: []byte(`{"secret":true}`)}},
+				{Kind: model.ContentReasoning, ProviderContext: model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider"}, Payload: []byte(`{"secret":true}`)}},
 				{Kind: model.ContentReasoning, Text: "reason", Final: true},
 			},
 			Outcome: model.OutcomeStop, Provider: "provider", Model: "model", ResponseModel: &responseModel,

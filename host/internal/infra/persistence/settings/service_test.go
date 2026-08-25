@@ -9,121 +9,145 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type SettingsSuite struct {
-	suite.Suite
-}
+type SettingsSuite struct{ suite.Suite }
 
 func TestSettingsSuite(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(SettingsSuite))
 }
 
-// TestLoadParsesProviderMap verifies the complete settings contract and configured model order.
-func (s *SettingsSuite) TestLoadParsesProviderMap() {
+// TestLoadParsesReasoningCapabilities verifies each capability shape and its explicit model default.
+func (s *SettingsSuite) TestLoadParsesReasoningCapabilities() {
 	path := writeSettings(s.T(), `defaultProvider: openrouter
-defaultModel: openai/gpt-5
-defaultReasoningLevel: high
+defaultModel: effort
 activeUI: "  Glyph__TUI--Plugin  "
 providers:
   openai-codex:
     type: openai-codex
     models:
-      - id: gpt-5.6-luna
-        reasoningLevels: [none, low, high]
+      - id: codex
+        reasoning:
+          supported: true
+          choices: [off, low, high]
+          default: high
+          compatibilityKey: gpt5
+          wireFormat: openai-responses
   openrouter:
     type: openai-compatible
     baseURL: https://openrouter.ai/api/v1
-    api: chat-completions
+    api: responses
     apiKey:
       environment: OPENROUTER_API_KEY
     models:
-      - id: anthropic/claude-sonnet-4
-        reasoningLevels: [none, medium]
-      - id: openai/gpt-5
-        api: responses
-        reasoningLevels: [low, high]
-  ollama:
-    type: openai-compatible
-    baseURL: http://localhost:11434/v1
-    api: chat-completions
-    models:
-      - id: qwen3-coder
-        reasoningLevels: [none]
+      - id: effort
+        reasoning:
+          supported: true
+          choices: [minimal, medium, high]
+          default: medium
+          wireFormat: openai-responses
+      - id: toggle
+        reasoning:
+          supported: true
+          choices: [off, on]
+          default: on
+          wireFormat: openai-responses
+      - id: fixed
+        reasoning:
+          supported: true
+          choices: [on]
+          default: on
+          wireFormat: openai-responses
+      - id: plain
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
 `)
 
 	loaded, err := New(path).Load()
 
 	s.Require().NoError(err)
 	s.Equal("openrouter", loaded.DefaultProvider)
-	s.Equal("openai/gpt-5", loaded.DefaultModel)
-	s.Equal(ReasoningLevelHigh, loaded.DefaultReasoningLevel)
+	s.Equal("effort", loaded.DefaultModel)
 	s.Equal("glyph-tui-plugin", loaded.ActiveUI)
-	s.Require().Len(loaded.Providers, 3)
-	openrouter := loaded.Providers["openrouter"]
-	s.Equal(ProviderTypeOpenAICompatible, openrouter.Type)
-	s.Equal("https://openrouter.ai/api/v1", openrouter.BaseURL)
-	s.Equal(APIChatCompletions, openrouter.API)
-	s.Require().NotNil(openrouter.APIKey)
-	s.Require().NotNil(openrouter.APIKey.Environment)
-	s.Equal("OPENROUTER_API_KEY", *openrouter.APIKey.Environment)
-	s.Require().Len(openrouter.Models, 2)
-	s.Equal("anthropic/claude-sonnet-4", openrouter.Models[0].ID)
-	s.Equal("openai/gpt-5", openrouter.Models[1].ID)
-	s.Equal(APIResponses, openrouter.Models[1].API)
-	s.Equal([]ReasoningLevel{ReasoningLevelLow, ReasoningLevelHigh}, openrouter.Models[1].ReasoningLevels)
-	s.Nil(loaded.Providers["ollama"].APIKey)
+	models := loaded.Providers["openrouter"].Models
+	s.Require().Len(models, 4)
+	s.Equal(Reasoning{
+		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceMinimal, ReasoningChoiceMedium, ReasoningChoiceHigh},
+		Default: ReasoningChoiceMedium, CompatibilityKey: "", WireFormat: ReasoningWireFormatOpenAIResponses,
+	}, models[0].Reasoning)
+	s.Equal([]ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceOn}, models[1].Reasoning.Choices)
+	s.Equal(ReasoningChoiceOn, models[2].Reasoning.Default)
+	s.Equal(Reasoning{
+		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
+		CompatibilityKey: "", WireFormat: "",
+	}, models[3].Reasoning)
 }
 
 // TestLoadAcceptsEachAPIKeySource verifies the structured union's three valid variants.
 func (s *SettingsSuite) TestLoadAcceptsEachAPIKeySource() {
-	testCases := map[string]string{
-		"literal":     "literal: '!not-a-command'",
-		"environment": "environment: GLYPH_TEST_API_KEY",
-		"credential":  "credential: local-entry",
-	}
-	for name, source := range testCases {
+	for name, source := range map[string]string{
+		"literal": "literal: '!not-a-command'", "environment": "environment: GLYPH_TEST_API_KEY", "credential": "credential: local-entry",
+	} {
 		s.Run(name, func() {
-			content := validSettings("    apiKey:\n      " + source)
-			loaded, err := New(writeSettings(s.T(), content)).Load()
+			loaded, err := New(writeSettings(s.T(), validSettings("    apiKey:\n      "+source))).Load()
 			s.Require().NoError(err)
 			s.NotNil(loaded.Providers["compatible"].APIKey)
 		})
 	}
 }
 
-// TestLoadRejectsInvalidSettings verifies strict parsing and all closed validation rules.
+// TestLoadRejectsInvalidReasoning verifies strict capability and wire-format validation.
+func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
+	testCases := map[string]string{
+		"duplicate choices":       replace(validSettings(""), "choices: [off, high]", "choices: [off, high, high]"),
+		"default outside choices": replace(validSettings(""), "default: high", "default: medium"),
+		"contradictory support":   replace(validSettings(""), "supported: true\n          choices: [off, high]", "supported: false\n          choices: [off, high]"),
+		"missing wire format":     withoutLine(validSettings(""), "wireFormat:"),
+		"API mismatch":            replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-effort"),
+		"unknown wire format":     replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: custom"),
+		"future chat effort":      futureWireFormatSettings("openai-chat-effort"),
+		"future Ollama Ornith":    futureWireFormatSettings("ollama-ornith"),
+		"on mixed with effort":    replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
+		"key on non-reasoning":    replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
+		"old default field":       "defaultProvider: openai-codex\ndefaultModel: codex\ndefaultReasoningLevel: high\nproviders: {}\n",
+		"old choices field":       replace(validSettings(""), "reasoning:\n          supported: true", "reasoningLevels: [off, high]\n        reasoning:\n          supported: true"),
+	}
+	for name, content := range testCases {
+		s.Run(name, func() {
+			_, err := New(writeSettings(s.T(), content)).Load()
+			s.Require().Error(err)
+		})
+	}
+}
+
+// TestLoadRejectsInvalidSettings verifies the remaining closed settings rules.
 func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 	testCases := map[string]string{
 		"unknown root field":          validSettings("extra: value"),
 		"old thinking field":          validSettings("defaultThinkingLevel: high"),
 		"missing default provider":    withoutLine(validSettings(""), "defaultProvider:"),
 		"missing default model":       withoutLine(validSettings(""), "defaultModel:"),
-		"missing default reasoning":   withoutLine(validSettings(""), "defaultReasoningLevel:"),
-		"missing providers":           "defaultProvider: openai-codex\ndefaultModel: codex-model\ndefaultReasoningLevel: none\n",
-		"unknown provider type":       replace(validSettings(""), "type: openai-compatible", "type: other"),
+		"missing providers":           "defaultProvider: openai-codex\ndefaultModel: codex\n",
+		"unknown provider":            replace(validSettings(""), "type: openai-compatible", "type: other"),
 		"missing codex":               replace(validSettings(""), "openai-codex:", "other-codex:"),
-		"second codex":                validSettings("  second-codex:\n    type: openai-codex\n    models:\n      - id: other\n        reasoningLevels: [none]"),
-		"codex wrong identifier":      replace(validSettings(""), "openai-codex:", "codex:"),
+		"second codex":                validSettings("  second-codex:\n    type: openai-codex\n    models:\n      - id: other\n        reasoning:\n          supported: false\n          choices: [off]\n          default: off"),
+		"codex wrong identifier":      replace(validSettings(""), "openai-codex:", "codex-provider:"),
 		"codex base URL":              replace(validSettings(""), "type: openai-codex", "type: openai-codex\n    baseURL: https://example.com"),
 		"codex API":                   replace(validSettings(""), "type: openai-codex", "type: openai-codex\n    api: responses"),
 		"codex API key":               replace(validSettings(""), "type: openai-codex", "type: openai-codex\n    apiKey:\n      literal: secret"),
-		"codex model API":             replace(validSettings(""), "id: codex-model", "id: codex-model\n        api: responses"),
-		"compatible missing URL":      withoutLine(validSettings(""), "baseURL:"),
-		"compatible relative URL":     replace(validSettings(""), "https://example.com/v1", "/v1"),
-		"compatible non-HTTP URL":     replace(validSettings(""), "https://example.com/v1", "file:///tmp/api"),
-		"compatible unknown API":      replace(validSettings(""), "api: chat-completions", "api: completions"),
+		"codex model API":             replace(validSettings(""), "id: codex", "id: codex\n        api: responses"),
+		"missing URL":                 withoutLine(validSettings(""), "baseURL:"),
+		"relative URL":                replace(validSettings(""), "https://example.com/v1", "/v1"),
+		"non-HTTP URL":                replace(validSettings(""), "https://example.com/v1", "file:///tmp/api"),
+		"unknown API":                 replace(validSettings(""), "api: responses", "api: completions"),
 		"provider unknown field":      replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
-		"empty model list":            replace(validSettings(""), "models:\n      - id: compatible-model\n        reasoningLevels: [none, high]", "models: []"),
-		"empty model ID":              replace(validSettings(""), "id: compatible-model", "id: ''"),
-		"duplicate model ID":          replace(validSettings(""), "reasoningLevels: [none, high]", "reasoningLevels: [none, high]\n      - id: compatible-model\n        reasoningLevels: [none]"),
-		"empty reasoning levels":      replace(validSettings(""), "reasoningLevels: [none, high]", "reasoningLevels: []"),
-		"duplicate reasoning level":   replace(validSettings(""), "reasoningLevels: [none, high]", "reasoningLevels: [none, high, none]"),
-		"unknown reasoning level":     replace(validSettings(""), "reasoningLevels: [none, high]", "reasoningLevels: [none, extreme]"),
-		"unknown model API":           replace(validSettings(""), "id: compatible-model", "id: compatible-model\n        api: completions"),
-		"model unknown field":         replace(validSettings(""), "id: compatible-model", "id: compatible-model\n        displayName: Demo"),
+		"empty model ID":              replace(validSettings(""), "id: compatible", "id: ''"),
+		"duplicate model":             replace(validSettings(""), "      - id: compatible", "      - id: compatible\n        reasoning:\n          supported: false\n          choices: [off]\n          default: off\n      - id: compatible"),
+		"unknown model API":           replace(validSettings(""), "id: compatible", "id: compatible\n        api: completions"),
+		"model unknown field":         replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
 		"unknown default provider":    replace(validSettings(""), "defaultProvider: openai-codex", "defaultProvider: missing"),
-		"unknown default model":       replace(validSettings(""), "defaultModel: codex-model", "defaultModel: missing"),
-		"unsupported default level":   replace(validSettings(""), "defaultReasoningLevel: none", "defaultReasoningLevel: high"),
+		"unknown default model":       replace(validSettings(""), "defaultModel: codex", "defaultModel: missing"),
 		"empty API key map":           validSettings("    apiKey: {}"),
 		"multiple API key fields":     validSettings("    apiKey:\n      environment: API_KEY\n      credential: entry"),
 		"empty literal":               validSettings("    apiKey:\n      literal: ''"),
@@ -133,7 +157,7 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 		"empty active UI":             replace(validSettings(""), "providers:", "activeUI: ___---\nproviders:"),
 		"multiple YAML documents":     validSettings("") + "---\n" + validSettings(""),
 		"provider ID whitespace":      replace(validSettings(""), "compatible:", "' compatible ':"),
-		"model ID surrounding spaces": replace(validSettings(""), "id: compatible-model", "id: ' compatible-model '"),
+		"model ID surrounding spaces": replace(validSettings(""), "id: compatible", "id: ' compatible '"),
 	}
 	for name, content := range testCases {
 		s.Run(name, func() {
@@ -146,11 +170,10 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 // TestLoadDecodeErrorsDoNotExposeLiteral verifies initial and trailing YAML failures are secret-free.
 func (s *SettingsSuite) TestLoadDecodeErrorsDoNotExposeLiteral() {
 	const secret = "s3cr3t"
-	contents := []string{
+	for _, content := range []string{
 		validSettings("    apiKey: " + secret),
 		validSettings("") + "---\nvalue: *" + secret + "\n",
-	}
-	for _, content := range contents {
+	} {
 		_, err := New(writeSettings(s.T(), content)).Load()
 		s.Require().Error(err)
 		s.NotContains(err.Error(), secret)
@@ -159,21 +182,33 @@ func (s *SettingsSuite) TestLoadDecodeErrorsDoNotExposeLiteral() {
 
 func validSettings(extra string) string {
 	content := `defaultProvider: openai-codex
-defaultModel: codex-model
-defaultReasoningLevel: none
+defaultModel: codex
 providers:
   openai-codex:
     type: openai-codex
     models:
-      - id: codex-model
-        reasoningLevels: [none]
+      - id: codex
+        reasoning:
+          supported: true
+          choices: [off, low, high]
+          default: high
+          wireFormat: openai-responses
   compatible:
     type: openai-compatible
     baseURL: https://example.com/v1
-    api: chat-completions
+    api: responses
     models:
-      - id: compatible-model
-        reasoningLevels: [none, high]
+      - id: compatible
+        reasoning:
+          supported: true
+          choices: [off, high]
+          default: high
+          wireFormat: openai-responses
+      - id: plain
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
 `
 	if extra == "" {
 		return content
@@ -181,10 +216,19 @@ providers:
 	return content + extra + "\n"
 }
 
+// futureWireFormatSettings builds a valid future wire shape that current settings must reject.
+func futureWireFormatSettings(format string) string {
+	content := replace(validSettings(""), "api: responses", "api: chat-completions")
+	content = replace(content, "wireFormat: openai-responses\n      - id: plain", "wireFormat: "+format+"\n      - id: plain")
+	if format == "ollama-ornith" {
+		content = replace(content, "choices: [off, high]\n          default: high", "choices: [on]\n          default: on")
+	}
+	return content
+}
+
 func withoutLine(content, prefix string) string {
 	lines := []byte(content)
-	start := 0
-	for start < len(lines) {
+	for start := 0; start < len(lines); {
 		end := start
 		for end < len(lines) && lines[end] != '\n' {
 			end++
@@ -206,7 +250,8 @@ func withoutLine(content, prefix string) string {
 }
 
 func replace(content, old, replacement string) string {
-	return string([]byte(content[:index(content, old)])) + replacement + content[index(content, old)+len(old):]
+	position := index(content, old)
+	return content[:position] + replacement + content[position+len(old):]
 }
 
 func index(content, target string) int {
