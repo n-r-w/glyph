@@ -19,6 +19,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	hostproviders "github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
 
 type serviceSuite struct{ suite.Suite }
@@ -409,25 +410,49 @@ func (s *serviceSuite) TestResponsesReplaysExactModelAfterCompatibilityKeyChange
 
 // TestResponsesOmitsIncompatibleContextAndKeepsVisibleReasoning verifies safe text fallback without opaque values.
 func (s *serviceSuite) TestResponsesOmitsIncompatibleContextAndKeepsVisibleReasoning() {
-	t := s.T()
-	request := richRequest("local", "target-model")
-	request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
-		Kind: model.ContentReasoning, Text: "visible reasoning", Final: true,
-		ProviderContext: model.ProviderContext{
-			Source: model.ProviderContextSource{
+	for _, testCase := range []struct {
+		name   string
+		source model.ProviderContextSource
+	}{
+		{
+			name: "model family",
+			source: model.ProviderContextSource{
 				ProviderID: "local", API: "responses", Model: "other-model", CompatibilityKey: "other-family",
 			},
-			Payload: []byte(`{"id":"r-incompatible","encrypted_content":"private-cipher","summary":[]}`),
 		},
-	})
+		{
+			name: "provider instance",
+			source: model.ProviderContextSource{
+				ProviderID: "other", API: "responses", Model: "target-model", CompatibilityKey: "target-family",
+			},
+		},
+		{
+			name: "API",
+			source: model.ProviderContextSource{
+				ProviderID: "local", API: "chat-completions", Model: "target-model", CompatibilityKey: "target-family",
+			},
+		},
+	} {
+		s.Run(testCase.name, func() {
+			t := s.T()
+			request := richRequest("local", "target-model")
+			request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+				Kind: model.ContentReasoning, Text: "visible reasoning", Final: true,
+				ProviderContext: model.ProviderContext{
+					Source:  testCase.source,
+					Payload: []byte(`{"id":"r-incompatible","encrypted_content":"private-cipher","summary":[]}`),
+				},
+			})
 
-	body := runResponsesRequest(t, request, "target-family", "openai-responses")
-	encoded, err := json.Marshal(body["input"])
-	require.NoError(t, err)
-	assert.NotContains(t, string(encoded), "r-incompatible")
-	assert.NotContains(t, string(encoded), "private-cipher")
-	assert.Contains(t, string(encoded), `"role":"assistant"`)
-	assert.Contains(t, string(encoded), "visible reasoning")
+			body := runResponsesRequest(t, request, "target-family", "openai-responses")
+			encoded, err := json.Marshal(body["input"])
+			require.NoError(t, err)
+			assert.NotContains(t, string(encoded), "r-incompatible")
+			assert.NotContains(t, string(encoded), "private-cipher")
+			assert.Contains(t, string(encoded), `"role":"assistant"`)
+			assert.Contains(t, string(encoded), "visible reasoning")
+		})
+	}
 }
 
 func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
@@ -652,6 +677,73 @@ func (s *serviceSuite) TestResponsesFailedEventIsTerminalError() {
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventError, terminal.Kind)
 	assert.Equal(t, model.OutcomeFailed, terminal.Response.Outcome)
+}
+
+// TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
+func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection() {
+	t := s.T()
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls.Add(1)
+		var body map[string]any
+		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+			return
+		}
+		encoded, err := json.Marshal(body)
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.Contains(t, string(encoded), "rejected-cipher")
+		http.Error(writer, "invalid reasoning context", http.StatusBadRequest)
+	}))
+	t.Cleanup(server.Close)
+	driver, err := New(Config{
+		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
+		Models:                     map[model.ID]API{"demo": ""},
+		ReasoningCompatibilityKeys: map[model.ID]string{"demo": "family"},
+		APIKey:                     expectAPIKey(t, "", nil, 1),
+	})
+	require.NoError(t, err)
+	selection := model.Selection{
+		Provider: "local", Model: "demo", ReasoningChoice: model.ReasoningChoiceHigh,
+	}
+	catalog, err := hostproviders.New([]hostproviders.Entry{{
+		Descriptor: model.Descriptor{
+			Provider: "local", Model: "demo",
+			ReasoningCapabilities: model.ReasoningCapabilities{
+				Supported: true,
+				Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},
+				Default:   model.ReasoningChoiceHigh,
+			},
+		},
+		Provider: driver,
+	}}, selection)
+	require.NoError(t, err)
+	runtime := catalog.Current()
+	request := richRequest(runtime.Model.Provider, runtime.Model.Model)
+	request.Model = runtime.Model
+	request.ReasoningChoice = runtime.ReasoningChoice
+	request.History[1].Model.Content = append(request.History[1].Model.Content, model.Content{
+		Kind: model.ContentReasoning, Text: "visible reasoning", Final: true,
+		ProviderContext: model.ProviderContext{
+			Source: model.ProviderContextSource{
+				ProviderID: "local", API: "responses", Model: "demo", CompatibilityKey: "family",
+			},
+			Payload: []byte(`{"id":"reasoning","encrypted_content":"rejected-cipher","summary":[]}`),
+		},
+	})
+	var events []run.StreamEvent
+
+	err = runtime.Provider.Stream(t.Context(), request, func(event run.StreamEvent) error {
+		events = append(events, event)
+		return nil
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, int64(1), calls.Load())
+	require.NotEmpty(t, events)
+	assert.Equal(t, run.StreamEventError, events[len(events)-1].Kind)
+	assert.Equal(t, selection, catalog.Selection())
 }
 
 func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {

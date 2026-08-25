@@ -137,8 +137,6 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 		"Ornith wrong API":        ornithSettings("choices: [on]\n          default: on", "api: responses"),
 		"on mixed with effort":    replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
 		"key on non-reasoning":    replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
-		"old default field":       "defaultProvider: openai-codex\ndefaultModel: codex\ndefaultReasoningLevel: high\nproviders: {}\n",
-		"old choices field":       replace(validSettings(""), "reasoning:\n          supported: true", "reasoningLevels: [off, high]\n        reasoning:\n          supported: true"),
 	}
 	for name, content := range testCases {
 		s.Run(name, func() {

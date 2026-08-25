@@ -229,10 +229,15 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	oldProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			assert.Equal(t, oldModel, request.Model)
+			assert.Equal(t, model.ReasoningChoiceLow, request.ReasoningChoice)
 			close(requestStarted)
 			<-releaseRequest
 			return emitStream(update, model.Response{
-				Content: []model.Content{testCallItem(call)}, Outcome: model.OutcomeToolUse,
+				Content: []model.Content{
+					{Kind: model.ContentReasoning, Text: "visible reasoning", Final: true},
+					testCallItem(call),
+				},
+				Outcome: model.OutcomeToolUse,
 			}, nil)
 		},
 	)
@@ -244,6 +249,9 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			require.Len(t, request.History, 3)
 			assert.Equal(t, agent.HistoryEntryUser, request.History[0].Kind)
 			assert.Equal(t, agent.HistoryEntryModel, request.History[1].Kind)
+			require.Len(t, request.History[1].Model.Content, 2)
+			assert.Equal(t, model.ContentReasoning, request.History[1].Model.Content[0].Kind)
+			assert.Equal(t, "visible reasoning", request.History[1].Model.Content[0].Text)
 			assert.Equal(t, agent.HistoryEntryToolResult, request.History[2].Kind)
 			return emitStream(update, model.Response{
 				Content: []model.Content{testTextItem("done")}, Outcome: model.OutcomeStop,

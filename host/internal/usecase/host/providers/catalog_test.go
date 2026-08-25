@@ -66,7 +66,11 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 		{name: "lowest when no lower", active: model.ReasoningChoiceLow, supported: []model.ReasoningChoice{model.ReasoningChoiceHigh, model.ReasoningChoiceMax}, expected: model.ReasoningChoiceHigh},
 		{name: "lower effort on equal distance", active: model.ReasoningChoiceMedium, supported: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, expected: model.ReasoningChoiceLow},
 		{name: "effort maps to toggle on", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceOn}, expected: model.ReasoningChoiceOn},
+		{name: "effort maps to fixed on", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceOn}, expected: model.ReasoningChoiceOn},
 		{name: "on maps to effort default", active: model.ReasoningChoiceOn, supported: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, expected: model.ReasoningChoiceLow},
+		{name: "off is preserved when available", active: model.ReasoningChoiceOff, supported: []model.ReasoningChoice{model.ReasoningChoiceHigh, model.ReasoningChoiceOff}, expected: model.ReasoningChoiceOff},
+		{name: "off uses target default when unavailable", active: model.ReasoningChoiceOff, supported: []model.ReasoningChoice{model.ReasoningChoiceHigh, model.ReasoningChoiceLow}, expected: model.ReasoningChoiceHigh},
+		{name: "effort uses non-reasoning default", active: model.ReasoningChoiceHigh, supported: []model.ReasoningChoice{model.ReasoningChoiceOff}, expected: model.ReasoningChoiceOff},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

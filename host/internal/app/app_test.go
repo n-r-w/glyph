@@ -320,7 +320,7 @@ providers:
 func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: codex-model\ndefaultReasoningLevel: high\n")
+	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: codex-model\n")
 	err := runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
 		ExtensionDirectory: "", UIDirectory: t.TempDir(), UIID: "",
