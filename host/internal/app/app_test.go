@@ -246,6 +246,23 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	}
 	//nolint:nestif // The helper serves one explicit lifecycle mode for this process fixture.
 	if os.Getenv(appUIBehaviorEnvironment) == "semantic" {
+		// Wait for Host readiness because commands received during authentication are rejected as busy.
+		for {
+			frame, err = stream.Recv()
+			if err != nil {
+				return err
+			}
+			if hostError := frame.GetError(); hostError != nil {
+				return fmt.Errorf("wait for semantic UI Host idle: %s", hostError.GetText())
+			}
+			lifecycle := frame.GetLifecycle()
+			if lifecycle == nil || lifecycle.GetType() != uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED {
+				continue
+			}
+			if lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
+				break
+			}
+		}
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
 		if err := stream.Send(uipb.OpenResponse_builder{
 			Submit: uipb.SubmitCommand_builder{
