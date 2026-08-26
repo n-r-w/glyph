@@ -46,9 +46,9 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Add response-budget accounting and automatic compaction.
+- FRQ-01: Add response-budget and context-window accounting, automatic compaction accounting, and automatic compaction.
 - FRQ-02: Add manual compaction with user instructions and default summary behavior.
-- FRQ-03: Add configurable retry control through Programmatic Control and the standard TUI.
+- FRQ-03: Add configurable retry control and retry accounting through Programmatic Control and the standard TUI.
 - FRQ-04: Provider adapters shall classify provider responses and errors as retryable or non-retryable. Agent Core shall own retry attempts and delay scheduling. The Glyph host shall own retry-policy configuration. Glyph clients shall receive retry events and choose how to present them.
 - FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
 - FRQ-06: A retry shall repeat only the failed model request and shall not repeat any completed tool execution. Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.

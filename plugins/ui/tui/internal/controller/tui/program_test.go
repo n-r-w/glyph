@@ -45,6 +45,8 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		},
 		input, output,
 		func(command presentationdomain.Command) error {
@@ -69,6 +71,8 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, command)
 	case <-t.Context().Done():
 		t.Fatal("Bubble Tea did not emit submitted input")
@@ -105,6 +109,8 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		},
 		bytes.NewBuffer(nil), output,
 		func(presentationdomain.Command) error { return nil },
@@ -137,6 +143,8 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	program.Quit()
 	require.NoError(t, <-runResult)
@@ -176,5 +184,3 @@ func (writer *notifyingWriter) String() string {
 	defer writer.mutex.Unlock()
 	return writer.buffer.String()
 }
-
-var _ io.Writer = (*notifyingWriter)(nil)

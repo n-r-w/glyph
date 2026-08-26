@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.plugins.ui.v1;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
 
@@ -33,6 +34,9 @@ message OpenRequest {
     Information information = 4;
     Error error = 5;
     ModelSelectionChanged model_selection_changed = 6;
+    SessionList session_list = 7;
+    SessionChanged session_changed = 8;
+    SessionInformation session_information = 9;
   }
 }
 
@@ -50,6 +54,8 @@ message Initialization {
   repeated ConfiguredModel models = 5;
   // The active Host-confirmed model selection.
   ModelSelection model_selection = 6;
+  // The empty process-active session.
+  SessionInfo session_info = 7;
 }
 
 // ConfiguredModel describes one selectable model and its reasoning choices.
@@ -86,6 +92,50 @@ message ModelSelection {
 message ModelSelectionChanged {
   // The committed model selection.
   ModelSelection selection = 1;
+}
+
+// SessionInfo contains lifecycle information for one session.
+message SessionInfo {
+  // The opaque session identifier.
+  string id = 1;
+  // The user-assigned name when present.
+  string name = 2;
+  // The canonical project working directory.
+  string working_directory = 3;
+  // The persisted JSONL path when present.
+  string storage_path = 4;
+  // The session creation time.
+  google.protobuf.Timestamp created_time = 5;
+  // The most recent stored update time.
+  google.protobuf.Timestamp update_time = 6;
+}
+
+// SessionSummary contains one stored session selector row.
+message SessionSummary {
+  // The session lifecycle information.
+  SessionInfo info = 1;
+  // The first public user text when present.
+  string first_user_text = 2;
+  // The number of stored public messages.
+  int64 total_messages = 3;
+}
+
+// SessionList carries ordered stored-session summaries.
+message SessionList {
+  // The stored sessions in Host list order.
+  repeated SessionSummary sessions = 1;
+}
+
+// SessionChanged replaces the active session identity and transcript.
+message SessionChanged {
+  // The replacement active-session information.
+  SessionInfo info = 1;
+}
+
+// SessionInformation carries active-session information.
+message SessionInformation {
+  // The active-session information.
+  SessionInfo info = 1;
 }
 
 // ReasoningChoice identifies a configured model reasoning choice.
@@ -422,6 +472,11 @@ message OpenResponse {
     QuitCommand quit = 4;
     SelectModelCommand select_model = 5;
     SelectReasoningChoiceCommand select_reasoning_choice = 6;
+    CreateSessionCommand create_session = 7;
+    ListSessionsCommand list_sessions = 8;
+    ResumeSessionCommand resume_session = 9;
+    SetSessionNameCommand set_session_name = 10;
+    GetSessionInfoCommand get_session_info = 11;
   }
 }
 
@@ -453,3 +508,24 @@ message SelectReasoningChoiceCommand {
   // The requested reasoning choice.
   ReasoningChoice choice = 1;
 }
+
+// CreateSessionCommand requests a new empty active session.
+message CreateSessionCommand {}
+
+// ListSessionsCommand requests stored sessions for the active project.
+message ListSessionsCommand {}
+
+// ResumeSessionCommand requests active-session replacement by opaque identifier.
+message ResumeSessionCommand {
+  // The opaque stored session identifier.
+  string session_id = 1;
+}
+
+// SetSessionNameCommand requests a persisted active-session name.
+message SetSessionNameCommand {
+  // The requested session name before Host normalization.
+  string name = 1;
+}
+
+// GetSessionInfoCommand requests active-session information.
+message GetSessionInfoCommand {}

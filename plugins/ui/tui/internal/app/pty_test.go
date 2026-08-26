@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	testsupporttui "github.com/n-r-w/glyph/internal/testsupport/tui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -162,7 +163,18 @@ func TestStandardTUIPTYInner(t *testing.T) {
 				ModelId:         new("gpt"),
 				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 			}.Build(),
+			SessionInfo: uiv1.SessionInfo_builder{
+				Id:               new("session-1"),
+				Name:             nil,
+				WorkingDirectory: new("/project"),
+				StoragePath:      nil,
+				CreatedTime:      timestamppb.New(time.UnixMilli(1)),
+				UpdateTime:       timestamppb.New(time.UnixMilli(1)),
+			}.Build(),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	testsupporttui.SetTerminalSize(t, terminalFile, 100, 40)
 
@@ -362,6 +374,9 @@ func TestStandardTUIPTYInner(t *testing.T) {
 			Text:                new("Authentication failed safely."),
 			RetryAuthentication: new(true),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED)
 
@@ -422,7 +437,10 @@ func sendLifecycle(t *testing.T, stream uiv1.UIService_OpenClient, lifecycle *ui
 	t.Helper()
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Lifecycle: proto.ValueOrDefault(lifecycle),
+		Lifecycle:          proto.ValueOrDefault(lifecycle),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 }
 

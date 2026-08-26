@@ -35,6 +35,8 @@
 - `context file`: A file containing project instructions contributed by an extension.
 - `resource contribution`: A typed skill, prompt template, or context file supplied by an active extension to the Glyph host.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
+- `session statistics`: Session message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown.
+- `estimated cost`: The persisted USD estimate calculated from normalized token usage and configured provider-model pricing.
 - `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
 - `active leaf`: The session-tree entry from which subsequent entries continue.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.

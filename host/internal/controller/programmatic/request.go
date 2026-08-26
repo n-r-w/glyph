@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -29,7 +30,17 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		ProviderID:      mo.None[model.ProviderID](),
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](),
+		SessionName:     mo.None[string](),
 	}
+	if mapSessionRequest(request, &command) {
+		return command, nil
+	}
+	return mapStandardRequest(request, command)
+}
+
+// mapStandardRequest validates non-session protobuf variants and their required fields.
+func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (Command, error) {
 	switch request.WhichCommand() {
 	case programmaticv1.OpenRequest_UserRequest_case:
 		userRequest := request.GetUserRequest()
@@ -61,9 +72,48 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		}
 		command.Kind = CommandSelectReasoningChoice
 		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(selection.GetChoice()))
+	case programmaticv1.OpenRequest_CreateSession_case,
+		programmaticv1.OpenRequest_ListSessions_case,
+		programmaticv1.OpenRequest_ResumeSession_case,
+		programmaticv1.OpenRequest_SetSessionName_case,
+		programmaticv1.OpenRequest_GetSessionInfo_case:
+		return Command{}, status.Error(codes.Internal, "session command was not mapped")
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
 	return command, nil
+}
+
+// mapSessionRequest preserves optional lifecycle arguments while mapping the protobuf oneof.
+func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bool {
+	switch request.WhichCommand() {
+	case programmaticv1.OpenRequest_CreateSession_case:
+		command.Kind = CommandCreateSession
+	case programmaticv1.OpenRequest_ListSessions_case:
+		command.Kind = CommandListSessions
+	case programmaticv1.OpenRequest_ResumeSession_case:
+		resume := request.GetResumeSession()
+		command.Kind = CommandResumeSession
+		if resume.HasSessionId() {
+			command.SessionID = mo.Some(session.ID(resume.GetSessionId()))
+		}
+	case programmaticv1.OpenRequest_SetSessionName_case:
+		name := request.GetSetSessionName()
+		command.Kind = CommandSetSessionName
+		if name.HasName() {
+			command.SessionName = mo.Some(name.GetName())
+		}
+	case programmaticv1.OpenRequest_GetSessionInfo_case:
+		command.Kind = CommandGetSessionInfo
+	case programmaticv1.OpenRequest_Command_not_set_case,
+		programmaticv1.OpenRequest_UserRequest_case, programmaticv1.OpenRequest_Abort_case,
+		programmaticv1.OpenRequest_GetRunState_case, programmaticv1.OpenRequest_GetMessages_case,
+		programmaticv1.OpenRequest_GetModels_case, programmaticv1.OpenRequest_SelectModel_case,
+		programmaticv1.OpenRequest_SelectReasoningChoice_case:
+		return false
+	default:
+		return false
+	}
+	return true
 }
 
 func mapRequestReasoningChoice(level programmaticv1.ReasoningChoice) model.ReasoningChoice {

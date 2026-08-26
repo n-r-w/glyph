@@ -85,6 +85,10 @@ func runProgrammaticWithPaths(
 	stdout io.Writer,
 ) (returnErr error) {
 	slog.InfoContext(ctx, "starting programmatic Glyph application")
+	sessionServices, err := newSessionComposition(ctx, paths)
+	if err != nil {
+		return fmt.Errorf("initialize Host sessions: %w", err)
+	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -127,8 +131,10 @@ func runProgrammaticWithPaths(
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
-	session := hostprogrammatic.New(coordinator, providerCatalog, agentCore.State, agentCore.History, delivery)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
+	session := hostprogrammatic.New(
+		coordinator, providerCatalog, agentCore.State, agentCore.History, sessionServices.control, delivery,
+	)
 	controller := controllerprogrammatic.New(ctx, session)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)
@@ -212,6 +218,10 @@ func runHeadlessWithPaths(
 	stdout, stderr io.Writer,
 ) error {
 	slog.InfoContext(ctx, "starting headless Glyph application")
+	sessionServices, err := newSessionComposition(ctx, paths)
+	if err != nil {
+		return fmt.Errorf("initialize Host sessions: %w", err)
+	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -239,7 +249,7 @@ func runHeadlessWithPaths(
 	}
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {
@@ -257,6 +267,10 @@ func runUIWithPaths(
 	command cli.Command,
 	stderr io.Writer,
 ) (returnErr error) {
+	sessionServices, err := newSessionComposition(ctx, paths)
+	if err != nil {
+		return fmt.Errorf("initialize Host sessions: %w", err)
+	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -334,12 +348,13 @@ func runUIWithPaths(
 	}
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
 		channel,
 		coordinator,
 		providerCatalog,
 		providerCatalog,
+		sessionServices.control,
 		func(activationContext context.Context) {
 			selectionWarningsDelivered = true
 			tools.Activate(activationContext)
@@ -347,6 +362,7 @@ func runUIWithPaths(
 	)
 	controller := controllerui.New(session)
 	initialization := hostui.BuildInitialization(selection.ID, report, selection.Issues, providerCatalog)
+	initialization.SessionInfo = sessionServices.active.ActiveInfo()
 	executionErr := controller.Execute(ctx, initialization)
 
 	// The selected process stops before terminal recovery; extensions stop after recovery.

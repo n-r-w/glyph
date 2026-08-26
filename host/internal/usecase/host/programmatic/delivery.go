@@ -123,6 +123,9 @@ func (d *Delivery) finishAcceptedLocked(active *activeRun) {
 	if d.active == active {
 		d.active = nil
 	}
+	if active.state == operationAccepted {
+		active.coordinator.CancelPrepared(active.runID)
+	}
 	active.state = operationFinished
 	delete(d.operations, active)
 	active.cancel()

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +69,8 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 		Text:                mo.Some("extension crashed-plugin unavailable: extension process exited"),
 		RetryAuthentication: mo.Some(false),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{

@@ -3,10 +3,12 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +19,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
@@ -42,13 +45,216 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, new(ServiceSuite))
 }
 
+func TestRunPreparationBusyUsesDomainError(t *testing.T) {
+	t.Parallel()
+
+	controllerMock := gomock.NewController(t)
+	coordinator := NewMockCoordinator(controllerMock)
+	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+
+	response, operation, err := service.Handle(t.Context(), controller.Command{
+		CorrelationID: "busy", Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
+		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](), SessionName: mo.None[string](),
+	})
+	require.NoError(t, err)
+	assert.Nil(t, operation)
+	assert.Equal(t, controller.RejectionBusy, response.Rejection.MustGet().Code)
+}
+
+func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
+	t.Parallel()
+
+	commandWithoutArguments := func(correlationID string, kind controller.CommandKind) controller.Command {
+		return controller.Command{
+			CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
+			ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
+			SessionName: mo.None[string](),
+		}
+	}
+	for _, test := range []struct {
+		name string
+		kind controller.CommandKind
+	}{
+		{name: "create", kind: controller.CommandCreateSession},
+		{name: "resume", kind: controller.CommandResumeSession},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			mockController := gomock.NewController(t)
+			coordinator := NewMockCoordinator(mockController)
+			catalog := NewMockModelCatalog(mockController)
+			sessions := NewMockSessionControl(mockController)
+			selection := model.Selection{
+				Provider: "secondary-provider", Model: "secondary-model", ReasoningChoice: model.ReasoningChoiceHigh,
+			}
+			catalog.EXPECT().Models().Return(nil).Times(2)
+			catalog.EXPECT().Selection().Return(selection).Times(2)
+			info := session.Info{
+				ID: "session-id", Name: mo.Some("session"), WorkingDirectory: "/project",
+				StoragePath: mo.Some("/sessions/session.jsonl"), CreatedAt: time.Time{}, UpdatedAt: time.Time{},
+			}
+			if test.kind == controller.CommandCreateSession {
+				sessions.EXPECT().Create(gomock.Any()).Return(info, nil)
+			} else {
+				sessions.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(info, nil)
+			}
+			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, sessions, NewDelivery())
+
+			before, _, err := service.Handle(t.Context(), commandWithoutArguments("before", controller.CommandGetModels))
+			require.NoError(t, err)
+			command := commandWithoutArguments("replace", test.kind)
+			if test.kind == controller.CommandResumeSession {
+				command.SessionID = mo.Some(session.ID("session-id"))
+			}
+			_, _, err = service.Handle(t.Context(), command)
+			require.NoError(t, err)
+			after, _, err := service.Handle(t.Context(), commandWithoutArguments("after", controller.CommandGetModels))
+			require.NoError(t, err)
+			require.Equal(t, mo.Some(selection), before.Models.MustGet().ActiveSelection)
+			require.Equal(t, before.Models.MustGet().ActiveSelection, after.Models.MustGet().ActiveSelection)
+		})
+	}
+}
+
+func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name         string
+		kind         controller.CommandKind
+		sessionID    mo.Option[session.ID]
+		sessionName  mo.Option[string]
+		operationErr error
+		expected     controller.RejectionCode
+	}{
+		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy},
+		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument},
+		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound},
+		{name: "persistence", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("name"), operationErr: errors.New("disk failed"), expected: controller.RejectionInternal},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			control := NewMockSessionControl(gomock.NewController(t))
+			switch test.kind {
+			case controller.CommandCreateSession:
+				control.EXPECT().Create(gomock.Any()).Return(session.Info{}, test.operationErr)
+			case controller.CommandResumeSession:
+				control.EXPECT().Resume(gomock.Any(), test.sessionID.MustGet()).Return(session.Info{}, test.operationErr)
+			case controller.CommandSetSessionName:
+				control.EXPECT().SetName(gomock.Any(), test.sessionName.MustGet()).Return(session.Info{}, test.operationErr)
+			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
+				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
+				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
+				controller.CommandListSessions, controller.CommandGetSessionInfo:
+				t.Fatalf("unsupported command kind %d", test.kind)
+			}
+			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			response, operation, err := service.Handle(t.Context(), controller.Command{
+				CorrelationID: test.name, Kind: test.kind, UserText: mo.None[string](),
+				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: test.sessionID,
+				SessionName: test.sessionName,
+			})
+			require.NoError(t, err)
+			assert.Nil(t, operation)
+			assert.Equal(t, test.expected, response.Rejection.MustGet().Code)
+		})
+	}
+}
+
+func TestSessionLifecycleCommands(t *testing.T) {
+	t.Parallel()
+
+	info := session.Info{
+		ID:               "session-id",
+		Name:             mo.Some("named"),
+		WorkingDirectory: "/project",
+		StoragePath:      mo.Some("/sessions/session-id.jsonl"),
+		CreatedAt:        time.Unix(1, 0),
+		UpdatedAt:        time.Unix(2, 0),
+	}
+	tests := []struct {
+		name         string
+		kind         controller.CommandKind
+		sessionID    mo.Option[session.ID]
+		sessionName  mo.Option[string]
+		expectedKind controller.ResponseKind
+		expect       func(*MockSessionControl)
+	}{
+		{
+			name: "create", kind: controller.CommandCreateSession,
+			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
+			expectedKind: controller.ResponseSessionInfo,
+			expect:       func(control *MockSessionControl) { control.EXPECT().Create(gomock.Any()).Return(info, nil) },
+		},
+		{
+			name: "list", kind: controller.CommandListSessions,
+			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
+			expectedKind: controller.ResponseSessions,
+			expect: func(control *MockSessionControl) {
+				control.EXPECT().List(gomock.Any()).Return([]session.Summary{{
+					Info: info, FirstUserText: mo.None[string](), TotalMessages: 0,
+				}}, nil)
+			},
+		},
+		{
+			name: "resume", kind: controller.CommandResumeSession,
+			sessionID: mo.Some(session.ID("session-id")), sessionName: mo.None[string](),
+			expectedKind: controller.ResponseSessionInfo,
+			expect: func(control *MockSessionControl) {
+				control.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(info, nil)
+			},
+		},
+		{
+			name: "name", kind: controller.CommandSetSessionName,
+			sessionID: mo.None[session.ID](), sessionName: mo.Some("named"),
+			expectedKind: controller.ResponseSessionInfo,
+			expect: func(control *MockSessionControl) {
+				control.EXPECT().SetName(gomock.Any(), "named").Return(info, nil)
+			},
+		},
+		{
+			name: "information", kind: controller.CommandGetSessionInfo,
+			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
+			expectedKind: controller.ResponseSessionInfo,
+			expect:       func(control *MockSessionControl) { control.EXPECT().Info().Return(info) },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			control := NewMockSessionControl(gomock.NewController(t))
+			test.expect(control)
+			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			response, operation, err := service.Handle(t.Context(), controller.Command{
+				CorrelationID:   test.name,
+				Kind:            test.kind,
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       test.sessionID,
+				SessionName:     test.sessionName,
+			})
+			require.NoError(t, err)
+			assert.Nil(t, operation)
+			assert.Equal(t, test.expectedKind, response.Kind)
+		})
+	}
+}
+
 // TestAcceptedOperationStartsExplicitlyAndBackpressures verifies the returned operation contract.
 func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 		started := make(chan struct{})
 		delivered := make(chan struct{})
 		coordinator.EXPECT().PrepareRun().Return("run-1", nil)
@@ -68,11 +274,15 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 
 		response, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 
 		require.NoError(t, err)
 		assert.Equal(t, controller.Response{
 			CorrelationID: "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		}, response)
 		require.NotNil(t, operation)
 		select {
@@ -81,7 +291,6 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		default:
 		}
 
-		operation.Start()
 		operation.Start()
 		synctest.Wait()
 		select {
@@ -118,8 +327,9 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 
 		for index, values := range []struct {
 			correlationID string
@@ -139,6 +349,8 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 			)
 			response, operation, err := service.Handle(t.Context(), controller.Command{
 				CorrelationID: values.correlationID, Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			})
 			require.NoError(t, err)
 			assert.Equal(t, controller.ResponseUserRequestAccepted, response.Kind)
@@ -166,37 +378,51 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 	}{
 		{
 			name: "missing payload precedes active correlation and busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUnspecified, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUnspecified, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUnspecified, prepareErr: nil,
 		},
 		{
 			name: "blank user request precedes active correlation and busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some(" \t"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some(" \t"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
 			name: "unexpected query payload precedes active correlation", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandGetRunState, UserText: mo.Some("unexpected"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "active", Kind: controller.CommandGetRunState, UserText: mo.Some("unexpected"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandGetRunState, prepareErr: nil,
 		},
 		{
 			name: "active correlation precedes busy state", active: true,
-			command:      controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			expectedCode: controller.RejectionCorrelationInUse, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
 			name: "busy state precedes allocation failure", active: true,
-			command:    controller.Command{CorrelationID: "other", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "other", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			prepareErr: errors.New("must not allocate"), expectedCode: controller.RejectionBusy,
 			expectedType: controller.CommandUserRequest,
 		},
 		{
-			name: "abort without active run", command: controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			name: "abort without active run", command: controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			expectedCode: controller.RejectionNoActiveRun, expectedType: controller.CommandAbort, active: false, prepareErr: nil,
 		},
 		{
-			name:       "allocation failure after valid idle request",
-			command:    controller.Command{CorrelationID: "request", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			name: "allocation failure after valid idle request",
+			command: controller.Command{CorrelationID: "request", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			prepareErr: errors.New("entropy failed"), expectedCode: controller.RejectionInternal,
 			expectedType: controller.CommandUserRequest, active: false,
 		},
@@ -206,11 +432,14 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 		s.Run(test.name, func() {
 			ctrl := gomock.NewController(s.T())
 			coordinator := NewMockCoordinator(ctrl)
-			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+			coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
+			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 				_, operation, err := service.Handle(s.T().Context(), controller.Command{
 					CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+					SessionID:   mo.None[session.ID](),
+					SessionName: mo.None[string](),
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(operation)
@@ -236,11 +465,14 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 	catalog := NewMockModelCatalog(ctrl)
-	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, activeOperation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(activeOperation)
@@ -268,27 +500,39 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		want    controller.Response
 	}{
 		{
-			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string]()},
 			want: controller.Response{
 				CorrelationID: "models", Kind: controller.ResponseModels,
 				Models: mo.Some(controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)}), State: mo.None[controller.RunStateResult](), Messages: nil, Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+				SessionInfo: mo.None[session.Info](),
+				Sessions:    nil,
 			},
 		},
 		{
 			command: controller.Command{
 				CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("other")), ModelID: mo.Some(model.ID("next")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			},
 			want: controller.Response{
 				CorrelationID: "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionInfo: mo.None[session.Info](),
+				Sessions:    nil,
 			},
 		},
 		{
 			command: controller.Command{
 				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice,
 				ReasoningChoice: mo.Some(model.ReasoningChoiceHigh), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			},
 			want: controller.Response{
 				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionInfo: mo.None[session.Info](),
+				Sessions:    nil,
 			},
 		},
 	}
@@ -305,13 +549,19 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	ctrl := gomock.NewController(s.T())
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
-		idleStateSnapshot, emptyHistorySnapshot, NewDelivery(),
+		idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery(),
 	)
 
 	commands := []controller.Command{
-		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
-		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("provider")), UserText: mo.None[string](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
-		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string]()},
+		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("provider")), UserText: mo.None[string](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string]()},
+		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string]()},
 	}
 	for _, command := range commands {
 		response, operation, err := service.Handle(s.T().Context(), command)
@@ -353,13 +603,15 @@ func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
 			catalog := NewMockModelCatalog(ctrl)
 			service := New(
 				NewMockCoordinator(ctrl), catalog,
-				idleStateSnapshot, emptyHistorySnapshot, NewDelivery(),
+				idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery(),
 			)
 			catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(model.Selection{}, test.err)
 
 			response, operation, err := service.Handle(s.T().Context(), controller.Command{
 				CorrelationID: "selection", Kind: controller.CommandSelectModel,
 				ProviderID: mo.Some(model.ProviderID("provider")), ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			})
 			s.Require().NoError(err)
 			s.Nil(operation)
@@ -376,7 +628,8 @@ func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
 func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -403,6 +656,8 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			results[index].response, results[index].operation, results[index].err = service.Handle(
 				s.T().Context(), controller.Command{
 					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+					SessionID:   mo.None[session.ID](),
+					SessionName: mo.None[string](),
 				},
 			)
 		}()
@@ -425,7 +680,9 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			controller.ResponseRunState,
 			controller.ResponseMessages,
 			controller.ResponseModels,
-			controller.ResponseModelSelection:
+			controller.ResponseModelSelection,
+			controller.ResponseSessionInfo,
+			controller.ResponseSessions:
 			s.Fail("unexpected response", "kind %d", result.response.Kind)
 		}
 	}
@@ -438,7 +695,8 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	preparing := make(chan struct{})
 	prepared := make(chan struct{})
 	coordinator.EXPECT().PrepareRun().DoAndReturn(func() (string, error) {
@@ -455,6 +713,8 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	go func() {
 		response, operation, err := service.Handle(s.T().Context(), controller.Command{
 			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		result <- handleResult{response: response, operation: operation, err: err}
 	}()
@@ -474,6 +734,7 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 	delivery := NewDelivery()
 	state := run.State{
 		Status: run.StatusRunning, RunID: mo.Some("run-active"),
@@ -481,10 +742,12 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview", Name: "", Position: 0, Provisional: false, Fields: nil}},
 	}
 	var history []agent.HistoryEntry
-	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, delivery)
+	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, nil, delivery)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
@@ -492,12 +755,16 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 
 	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
 		CorrelationID: "state", Kind: controller.ResponseRunState,
 		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+		SessionInfo: mo.None[session.Info](),
+		Sessions:    nil,
 	}, response)
 
 	responseModel := model.ID("response-model")
@@ -524,6 +791,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	}
 	response, returnedOperation, err = service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "messages", Kind: controller.CommandGetMessages, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
@@ -546,15 +815,20 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 func (s *ServiceSuite) TestAbortCancelsAcceptedOperationWithoutStarting() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-accepted", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 	s.Require().NoError(err)
 
 	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:   mo.None[session.ID](),
+		SessionName: mo.None[string](),
 	})
 
 	s.Require().NoError(err)
@@ -570,8 +844,9 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 		started := make(chan struct{})
 		var runContextErr error
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -588,6 +863,8 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -606,6 +883,8 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		go func() {
 			response, _, abortErr := service.Handle(t.Context(), controller.Command{
 				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			})
 			aborted <- abortResult{response: response, err: abortErr}
 		}()
@@ -624,6 +903,8 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 
 		state, _, stateErr := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		require.NoError(t, stateErr)
 		assert.Equal(t, controller.RunStateIdle, state.State.OrEmpty().State)
@@ -635,8 +916,9 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 		cleanupErr := errors.New("settlement delivery failed")
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
@@ -650,6 +932,8 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -658,6 +942,8 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 		go func() {
 			_, _, abortErr := service.Handle(t.Context(), controller.Command{
 				CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:   mo.None[session.ID](),
+				SessionName: mo.None[string](),
 			})
 			aborted <- abortErr
 		}()
@@ -676,8 +962,9 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 		started := make(chan struct{})
 		var runContextErr error
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -693,6 +980,8 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -715,8 +1004,9 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		coordinator := NewMockCoordinator(ctrl)
+		coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 		delivery := NewDelivery()
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, delivery)
+		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 		release := make(chan struct{})
 		coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
@@ -730,6 +1020,8 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -753,10 +1045,12 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 // TestEmptyCorrelationReturnsTerminalError verifies uncorrelated commands produce no response.
 func (s *ServiceSuite) TestEmptyCorrelationReturnsTerminalError() {
 	ctrl := gomock.NewController(s.T())
-	service := New(NewMockCoordinator(ctrl), nil, idleStateSnapshot, emptyHistorySnapshot, NewDelivery())
+	service := New(NewMockCoordinator(ctrl), nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 
 	response, operation, err := service.Handle(
-		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState, CorrelationID: "", UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice]()},
+		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState, CorrelationID: "", UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:   mo.None[session.ID](),
+			SessionName: mo.None[string]()},
 	)
 
 	s.Require().ErrorIs(err, ErrCorrelationRequired)

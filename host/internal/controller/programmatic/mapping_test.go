@@ -2,6 +2,7 @@ package programmatic
 
 import (
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -9,8 +10,42 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
+
+func TestMapResponsePreservesSessionPresence(t *testing.T) {
+	t.Parallel()
+
+	info := session.Info{
+		ID: "stored", Name: mo.None[string](), WorkingDirectory: "/project",
+		StoragePath: mo.None[string](), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(2, 0),
+	}
+	mapped, err := mapResponse(Response{
+		CorrelationID: "information", Kind: ResponseSessionInfo,
+		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
+		Selection: mo.None[model.Selection](), SessionInfo: mo.Some(info), Sessions: nil,
+		Rejection: mo.None[Rejection](),
+	})
+	require.NoError(t, err)
+	wireInfo := mapped.GetCommandResponse().GetSessionInfo().GetInfo()
+	assert.Equal(t, "stored", wireInfo.GetId())
+	assert.False(t, wireInfo.HasName())
+	assert.False(t, wireInfo.HasStoragePath())
+
+	mapped, err = mapResponse(Response{
+		CorrelationID: "list", Kind: ResponseSessions,
+		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
+		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](),
+		Sessions:  []session.Summary{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
+		Rejection: mo.None[Rejection](),
+	})
+	require.NoError(t, err)
+	rows := mapped.GetCommandResponse().GetSessions().GetSessions()
+	require.Len(t, rows, 1)
+	assert.Equal(t, "first", rows[0].GetFirstUserText())
+	assert.Equal(t, int64(2), rows[0].GetTotalMessages())
+}
 
 // TestMapResponsePreservesEveryResult verifies every response and history oneof.
 func TestMapResponsePreservesEveryResult(t *testing.T) {
@@ -25,6 +60,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Models:        mo.None[ModelsResult](),
 			Selection:     mo.None[model.Selection](),
 			Rejection:     mo.None[Rejection](),
+			SessionInfo:   mo.None[session.Info](),
+			Sessions:      nil,
 		},
 		"aborted": {
 			CorrelationID: "aborted",
@@ -34,6 +71,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Models:        mo.None[ModelsResult](),
 			Selection:     mo.None[model.Selection](),
 			Rejection:     mo.None[Rejection](),
+			SessionInfo:   mo.None[session.Info](),
+			Sessions:      nil,
 		},
 		"state": {
 			CorrelationID: "state",
@@ -42,10 +81,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				State:               RunStateRunning,
 				ActiveCorrelationID: mo.Some("active"),
 			}),
-			Messages:  nil,
-			Models:    mo.None[ModelsResult](),
-			Selection: mo.None[model.Selection](),
-			Rejection: mo.None[Rejection](),
+			Messages:    nil,
+			Models:      mo.None[ModelsResult](),
+			Selection:   mo.None[model.Selection](),
+			Rejection:   mo.None[Rejection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		},
 		"messages": {
 			CorrelationID: "messages",
@@ -70,10 +111,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					Model:      mo.None[ModelResponse](),
 				},
 			},
-			State:     mo.None[RunStateResult](),
-			Models:    mo.None[ModelsResult](),
-			Selection: mo.None[model.Selection](),
-			Rejection: mo.None[Rejection](),
+			State:       mo.None[RunStateResult](),
+			Models:      mo.None[ModelsResult](),
+			Selection:   mo.None[model.Selection](),
+			Rejection:   mo.None[Rejection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		},
 		"rejected": {
 			CorrelationID: "rejected",
@@ -83,10 +126,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				Code:    RejectionInvalidArgument,
 				Message: "invalid",
 			}),
-			State:     mo.None[RunStateResult](),
-			Messages:  nil,
-			Models:    mo.None[ModelsResult](),
-			Selection: mo.None[model.Selection](),
+			State:       mo.None[RunStateResult](),
+			Messages:    nil,
+			Models:      mo.None[ModelsResult](),
+			Selection:   mo.None[model.Selection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		},
 		"models": {
 			CorrelationID: "models",
@@ -121,10 +166,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					ReasoningChoice: model.ReasoningChoiceHigh,
 				}),
 			}),
-			State:     mo.None[RunStateResult](),
-			Messages:  nil,
-			Selection: mo.None[model.Selection](),
-			Rejection: mo.None[Rejection](),
+			State:       mo.None[RunStateResult](),
+			Messages:    nil,
+			Selection:   mo.None[model.Selection](),
+			Rejection:   mo.None[Rejection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		},
 		"model selection": {
 			CorrelationID: "selection",
@@ -134,10 +181,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				Model:           "model",
 				ReasoningChoice: model.ReasoningChoiceMax,
 			}),
-			State:     mo.None[RunStateResult](),
-			Messages:  nil,
-			Models:    mo.None[ModelsResult](),
-			Rejection: mo.None[Rejection](),
+			State:       mo.None[RunStateResult](),
+			Messages:    nil,
+			Models:      mo.None[ModelsResult](),
+			Rejection:   mo.None[Rejection](),
+			SessionInfo: mo.None[session.Info](),
+			Sessions:    nil,
 		},
 	}
 
@@ -196,7 +245,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assert.Equal(t, "provider", selection.GetProviderId())
 				assert.Equal(t, "model", selection.GetModelId())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, selection.GetReasoningChoice())
-			case ResponseUnspecified:
+			case ResponseUnspecified, ResponseSessionInfo, ResponseSessions:
 				require.Fail(t, "unexpected response kind")
 			}
 		})
@@ -222,10 +271,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			UserText:   mo.None[string](),
 			ToolResult: mo.None[ToolResult](),
 		}},
-		State:     mo.None[RunStateResult](),
-		Models:    mo.None[ModelsResult](),
-		Selection: mo.None[model.Selection](),
-		Rejection: mo.None[Rejection](),
+		State:       mo.None[RunStateResult](),
+		Models:      mo.None[ModelsResult](),
+		Selection:   mo.None[model.Selection](),
+		Rejection:   mo.None[Rejection](),
+		SessionInfo: mo.None[session.Info](),
+		Sessions:    nil,
 	})
 	require.NoError(t, err)
 	modelResponse := mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel()
@@ -243,10 +294,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			State:               RunStateIdle,
 			ActiveCorrelationID: mo.None[string](),
 		}),
-		Messages:  nil,
-		Models:    mo.None[ModelsResult](),
-		Selection: mo.None[model.Selection](),
-		Rejection: mo.None[Rejection](),
+		Messages:    nil,
+		Models:      mo.None[ModelsResult](),
+		Selection:   mo.None[model.Selection](),
+		Rejection:   mo.None[Rejection](),
+		SessionInfo: mo.None[session.Info](),
+		Sessions:    nil,
 	})
 	require.NoError(t, err)
 	assert.False(t, mapped.GetCommandResponse().GetRunState().HasActiveCorrelationId())
@@ -577,6 +630,8 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Models:        mo.None[ModelsResult](),
 				Selection:     mo.None[model.Selection](),
 				Rejection:     mo.None[Rejection](),
+				SessionInfo:   mo.None[session.Info](),
+				Sessions:      nil,
 			})
 			return err
 		},
@@ -594,6 +649,8 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Models:        mo.None[ModelsResult](),
 				Selection:     mo.None[model.Selection](),
 				Rejection:     mo.None[Rejection](),
+				SessionInfo:   mo.None[session.Info](),
+				Sessions:      nil,
 			})
 			return err
 		},

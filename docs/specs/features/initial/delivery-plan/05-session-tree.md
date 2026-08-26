@@ -47,7 +47,7 @@ Out of scope:
 ### Functional Requirements
 
 - FRQ-01: Add parent-child entry relations, active leaf, fork, clone, switch, tree navigation, labels, and session information.
-- FRQ-02: Add branch summaries with no summary, default summary, and custom-focus summary choices.
+- FRQ-02: Add branch summaries with no summary, default summary, and custom-focus summary choices, including branch-summary usage accounting.
 - FRQ-03: Add complete tree presentation and navigation to the standard TUI and equivalent Programmatic Control commands.
 
 ### Non-Functional Requirements

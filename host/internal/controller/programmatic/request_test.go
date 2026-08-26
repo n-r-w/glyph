@@ -11,8 +11,78 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	domainsession "github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
+
+func TestMapOpenRequestPreservesSessionCommands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		set      func(*programmaticv1.OpenRequest)
+		expected Command
+	}{
+		{
+			name: "create", set: func(request *programmaticv1.OpenRequest) {
+				request.SetCreateSession(new(programmaticv1.CreateSession))
+			},
+			expected: sessionCommand("create", CommandCreateSession),
+		},
+		{
+			name: "list", set: func(request *programmaticv1.OpenRequest) {
+				request.SetListSessions(new(programmaticv1.ListSessions))
+			},
+			expected: sessionCommand("list", CommandListSessions),
+		},
+		{
+			name: "resume", set: func(request *programmaticv1.OpenRequest) {
+				request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new("stored")}.Build())
+			},
+			expected: func() Command {
+				command := sessionCommand("resume", CommandResumeSession)
+				command.SessionID = mo.Some(domainsession.ID("stored"))
+				return command
+			}(),
+		},
+		{
+			name: "name", set: func(request *programmaticv1.OpenRequest) {
+				request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("")}.Build())
+			},
+			expected: func() Command {
+				command := sessionCommand("name", CommandSetSessionName)
+				command.SessionName = mo.Some("")
+				return command
+			}(),
+		},
+		{
+			name: "information", set: func(request *programmaticv1.OpenRequest) {
+				request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+			},
+			expected: sessionCommand("information", CommandGetSessionInfo),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := new(programmaticv1.OpenRequest)
+			request.SetCorrelationId(test.name)
+			test.set(request)
+			actual, err := mapOpenRequest(request)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func sessionCommand(correlationID string, kind CommandKind) Command {
+	return Command{
+		CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
+		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[domainsession.ID](), SessionName: mo.None[string](),
+	}
+}
 
 // TestMapOpenRequestPreservesEveryCommand verifies the complete request oneof mapping.
 func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
@@ -33,6 +103,11 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				GetModels:             nil,
 				SelectModel:           nil,
 				SelectReasoningChoice: nil,
+				CreateSession:         nil,
+				ListSessions:          nil,
+				ResumeSession:         nil,
+				SetSessionName:        nil,
+				GetSessionInfo:        nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "missing",
@@ -41,6 +116,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"user request": {
@@ -50,6 +127,11 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				UserRequest: programmaticv1.UserRequest_builder{
 					Text: proto.String("  exact text  "),
 				}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "user",
@@ -58,6 +140,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"invalid user request": {
@@ -67,6 +151,11 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				UserRequest: programmaticv1.UserRequest_builder{
 					Text: proto.String(" \t\n"),
 				}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "invalid",
@@ -75,13 +164,20 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"abort": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("abort"),
-				Abort:         programmaticv1.Abort_builder{}.Build(),
+				CorrelationId:  proto.String("abort"),
+				Abort:          programmaticv1.Abort_builder{}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "abort",
@@ -90,13 +186,20 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"get run state": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("state"),
-				GetRunState:   programmaticv1.GetRunState_builder{}.Build(),
+				CorrelationId:  proto.String("state"),
+				GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "state",
@@ -105,13 +208,20 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"get messages": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("messages"),
-				GetMessages:   programmaticv1.GetMessages_builder{}.Build(),
+				CorrelationId:  proto.String("messages"),
+				GetMessages:    programmaticv1.GetMessages_builder{}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "messages",
@@ -120,13 +230,20 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"get models": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("models"),
-				GetModels:     programmaticv1.GetModels_builder{}.Build(),
+				CorrelationId:  proto.String("models"),
+				GetModels:      programmaticv1.GetModels_builder{}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "models",
@@ -135,6 +252,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"select model": {
@@ -145,6 +264,11 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 					ProviderId: proto.String("provider"),
 					ModelId:    proto.String("model"),
 				}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "select-model",
@@ -153,6 +277,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ModelID:         mo.Some(model.ID("model")),
 				UserText:        mo.None[string](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		"select reasoning": {
@@ -162,6 +288,11 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
 					Choice: programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX.Enum(),
 				}.Build(),
+				CreateSession:  nil,
+				ListSessions:   nil,
+				ResumeSession:  nil,
+				SetSessionName: nil,
+				GetSessionInfo: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "select-reasoning",
@@ -170,6 +301,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				UserText:        mo.None[string](),
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
+				SessionID:       mo.None[domainsession.ID](),
+				SessionName:     mo.None[string](),
 			},
 		},
 	}
@@ -273,6 +406,11 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 			SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
 				Choice: level.Enum(),
 			}.Build(),
+			CreateSession:  nil,
+			ListSessions:   nil,
+			ResumeSession:  nil,
+			SetSessionName: nil,
+			GetSessionInfo: nil,
 		}.Build()
 		got, err := mapOpenRequest(request)
 		require.NoError(t, err)
@@ -291,6 +429,11 @@ func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
 		GetModels:             nil,
 		SelectModel:           nil,
 		SelectReasoningChoice: nil,
+		CreateSession:         nil,
+		ListSessions:          nil,
+		ResumeSession:         nil,
+		SetSessionName:        nil,
+		GetSessionInfo:        nil,
 	}.Build()
 }
 
@@ -300,7 +443,12 @@ func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	request := programmaticv1.OpenRequest_builder{
-		Abort: programmaticv1.Abort_builder{}.Build(),
+		Abort:          programmaticv1.Abort_builder{}.Build(),
+		CreateSession:  nil,
+		ListSessions:   nil,
+		ResumeSession:  nil,
+		SetSessionName: nil,
+		GetSessionInfo: nil,
 	}.Build()
 	_, err := mapOpenRequest(request)
 	require.Error(t, err)

@@ -17,8 +17,37 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
+
+func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	control := NewMockSessionControl(controller)
+	info := session.Info{}
+	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
+	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		assert.Equal(t, domainui.FrameSessionInformation, frame.Kind)
+		assert.Equal(t, info, frame.SessionInfo.MustGet())
+		return nil
+	})
+	usecase := NewSession(channel, nil, nil, nil, control, nil)
+
+	handled, err := usecase.applySessionCommand(t.Context(), domainui.Command{
+		Kind:            domainui.CommandSetSessionName,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.Some("renamed"),
+	})
+	require.NoError(t, err)
+	assert.True(t, handled)
+}
 
 // sessionContextKey isolates context-propagation evidence within this test package.
 type sessionContextKey struct{}
@@ -49,7 +78,7 @@ func (s *SessionSuite) TestSessionInitializationDeliveryFailureSkipsActivation()
 	s.channel.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	activated := false
 
-	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {
+	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, nil, func(context.Context) {
 		activated = true
 	}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "test-ui",
@@ -58,6 +87,7 @@ func (s *SessionSuite) TestSessionInitializationDeliveryFailureSkipsActivation()
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.ErrorIs(t, err, io.ErrClosedPipe)
@@ -79,6 +109,7 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	}
 	var mutex sync.Mutex
 	var readyOnce sync.Once
@@ -124,6 +155,8 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 		<-idleAfterRun
@@ -133,11 +166,13 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	}).Times(2)
 
 	// Act: run the complete UI session.
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(ctx context.Context) {
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(ctx context.Context) {
 		mutex.Lock()
 		activationOrder = append(activationOrder, "activated")
 		activationValue = ctx.Value(contextKey)
@@ -202,6 +237,8 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		case 2:
 			return domainui.Command{
@@ -210,6 +247,8 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		default:
 			<-ready
@@ -219,17 +258,20 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.NoError(t, err)
@@ -287,6 +329,8 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		case 2:
 			<-runStarted
@@ -296,6 +340,8 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		case 3:
 			return domainui.Command{
@@ -304,6 +350,8 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		default:
 			<-idleAfterStop
@@ -313,17 +361,20 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 	}).Times(4)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.NoError(t, err)
@@ -353,6 +404,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 				ModelID:         mo.Some("sonnet"),
 				Text:            mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		{
@@ -365,6 +418,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 				Text:            mo.None[string](),
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 		},
 	}
@@ -384,6 +439,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 				authenticator:       s.authenticator,
 				modelCatalog:        s.modelCatalog,
 				afterInitialization: func(context.Context) {},
+				sessionControl:      nil,
 			}
 
 			availability, activeCancel, activeKind, err := session.applyCommand(
@@ -416,6 +472,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 			expectedKind: domainui.FrameInformation,
 			expectedText: "A nonempty request is required.",
@@ -428,6 +486,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.Some("sonnet"),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
@@ -440,6 +500,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ProviderID:      mo.Some("openrouter"),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
@@ -452,6 +514,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
@@ -471,6 +535,7 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				authenticator:       s.authenticator,
 				modelCatalog:        s.modelCatalog,
 				afterInitialization: func(context.Context) {},
+				sessionControl:      nil,
 			}
 
 			availability, activeCancel, activeKind, err := session.applyCommand(
@@ -502,6 +567,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 				ModelID:         mo.Some("sonnet"),
 				Text:            mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 		},
 		{
@@ -513,6 +580,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 				Text:            mo.None[string](),
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			},
 		},
 	}
@@ -543,6 +612,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 				authenticator:       s.authenticator,
 				modelCatalog:        catalog,
 				afterInitialization: func(context.Context) {},
+				sessionControl:      nil,
 			}
 
 			availability, activeCancel, activeKind, err := session.applyCommand(
@@ -586,6 +656,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 		authenticator:       s.authenticator,
 		modelCatalog:        s.modelCatalog,
 		afterInitialization: func(context.Context) {},
+		sessionControl:      nil,
 	}
 
 	availability, activeCancel, activeKind, err := session.applyCommand(
@@ -595,6 +666,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 			ModelID:         mo.Some("sonnet"),
 			Text:            mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, make(chan operationResult),
 	)
 	require.NoError(t, err)
@@ -605,6 +678,8 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 			Text:            mo.None[string](),
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, make(chan operationResult),
 	)
 
@@ -665,6 +740,8 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}),
 		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
@@ -675,6 +752,8 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 				ProviderID:      mo.Some("openrouter"),
 				ModelID:         mo.Some("sonnet"),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}),
 		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
@@ -683,7 +762,7 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 		}),
 	)
 
-	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
+	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID:   "ui",
@@ -692,6 +771,7 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
 			ModelSelection: mo.Some(domainui.ModelSelection{}),
+			SessionInfo:    session.Info{},
 		},
 	)
 
@@ -725,12 +805,15 @@ func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmat
 		authenticator:       s.authenticator,
 		modelCatalog:        s.modelCatalog,
 		afterInitialization: func(context.Context) {},
+		sessionControl:      nil,
 	}).applyCommand(t.Context(), domainui.AvailabilityRunning, func() {}, operationRun, domainui.Command{
 		Kind:            domainui.CommandSelectReasoningChoice,
 		ReasoningChoice: mo.Some(domainui.ReasoningChoiceMax),
 		Text:            mo.None[string](),
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	}, make(chan operationResult))
 
 	require.NoError(t, err)
@@ -774,6 +857,8 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		case 1:
 			return domainui.Command{
@@ -782,6 +867,8 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		default:
 			return domainui.Command{
@@ -790,17 +877,20 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.NoError(t, err)
@@ -859,6 +949,8 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		case 2:
 			<-runErrorSent
@@ -868,6 +960,8 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		default:
 			<-terminalReady
@@ -877,17 +971,20 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.NoError(t, err)
@@ -918,13 +1015,15 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	}, nil)
 	authenticator.EXPECT().CheckAuthentication(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
 	})
 
-	err := NewSession(channel, s.runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID:   "ui",
@@ -933,6 +1032,7 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
 			ModelSelection: mo.Some(domainui.ModelSelection{}),
+			SessionInfo:    session.Info{},
 		},
 	)
 
@@ -960,11 +1060,13 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	})
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
-	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID:   "ui",
@@ -973,6 +1075,7 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
 			ModelSelection: mo.Some(domainui.ModelSelection{}),
+			SessionInfo:    session.Info{},
 		},
 	)
 
@@ -1001,11 +1104,13 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	}).AnyTimes()
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
-	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
+	err := NewSession(channel, s.runner, s.authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(
 		t.Context(),
 		domainui.Initialization{
 			SelectedUIID:   "ui",
@@ -1014,6 +1119,7 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
 			ModelSelection: mo.Some(domainui.ModelSelection{}),
+			SessionInfo:    session.Info{},
 		},
 	)
 
@@ -1057,19 +1163,22 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		}
 		<-runStarted
 		return domainui.Command{}, io.ErrUnexpectedEOF
 	}).Times(2)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
@@ -1122,6 +1231,7 @@ func TestSessionSendFailureClosesPendingReceive(t *testing.T) {
 		NewMockAgentRunner(controller),
 		authenticator,
 		NewMockModelCatalog(controller),
+		nil,
 		func(context.Context) {},
 	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
@@ -1130,6 +1240,7 @@ func TestSessionSendFailureClosesPendingReceive(t *testing.T) {
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
 		ModelSelection: mo.Some(domainui.ModelSelection{}),
+		SessionInfo:    session.Info{},
 	})
 
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
@@ -1158,6 +1269,8 @@ func TestReceiveCommandsCancellationUnblocksCompletedHandoff(t *testing.T) {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			}, nil
 		})
 
@@ -1169,6 +1282,7 @@ func TestReceiveCommandsCancellationUnblocksCompletedHandoff(t *testing.T) {
 				authenticator:       nil,
 				modelCatalog:        nil,
 				afterInitialization: nil,
+				sessionControl:      nil,
 			}).receiveCommands(ctx, commands)
 		}()
 		<-receiveCompleted

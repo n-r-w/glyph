@@ -3,7 +3,9 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +21,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
@@ -196,7 +199,11 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 		"%d\n%s\n%s\n",
 		os.Getpid(), initialization.GetSelectedUiId(), strings.Join(startupText, "\n"),
 	)
-	if os.Getenv(appUIBehaviorEnvironment) != "semantic" {
+	behavior := os.Getenv(appUIBehaviorEnvironment)
+	if behavior == "session-restart" {
+		return runSessionRestartUI(stream, initialization)
+	}
+	if behavior != "semantic" {
 		if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
 			return err
 		}
@@ -317,6 +324,191 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	return stream.Send(uipb.OpenResponse_builder{
 		Quit: &uipb.QuitCommand{},
 	}.Build())
+}
+
+type sessionInfoObservation struct {
+	ID                      string `json:"id"`
+	Name                    string `json:"name"`
+	WorkingDirectory        string `json:"working_directory"`
+	StoragePath             string `json:"storage_path"`
+	CreatedTime             string `json:"created_time"`
+	UpdateTime              string `json:"update_time"`
+	IDPresent               bool   `json:"id_present"`
+	NamePresent             bool   `json:"name_present"`
+	WorkingDirectoryPresent bool   `json:"working_directory_present"`
+	StoragePathPresent      bool   `json:"storage_path_present"`
+	CreatedTimePresent      bool   `json:"created_time_present"`
+	UpdateTimePresent       bool   `json:"update_time_present"`
+}
+
+type sessionRestartObservation struct {
+	NamedSession sessionInfoObservation `json:"named_session"`
+	NewStartup   sessionInfoObservation `json:"new_startup"`
+	Complete     bool                   `json:"complete"`
+}
+
+// runSessionRestartUI verifies one persisted session across two independent Host constructions.
+func runSessionRestartUI(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	initialization *uipb.Initialization,
+) error {
+	tracePath := os.Getenv(appUITraceEnvironment)
+	payload, readErr := os.ReadFile(tracePath)
+	if errors.Is(readErr, os.ErrNotExist) {
+		return nameStartupSession(stream, tracePath, initialization.GetSessionInfo())
+	}
+	if readErr != nil {
+		return readErr
+	}
+	var observation sessionRestartObservation
+	if err := json.Unmarshal(payload, &observation); err != nil {
+		return err
+	}
+	startup := observeSessionInfo(initialization.GetSessionInfo())
+	if startup.ID == "" || startup.ID == observation.NamedSession.ID || startup.NamePresent || startup.StoragePathPresent {
+		return errors.New("second Host did not initialize a new unpersisted session")
+	}
+	observation.NewStartup = startup
+
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
+	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
+		return err
+	}
+	listedFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil })
+	if err != nil {
+		return err
+	}
+	listed := listedFrame.GetSessionList().GetSessions()
+	if len(listed) != 1 || observeSessionInfo(listed[0].GetInfo()) != observation.NamedSession {
+		return errors.New("stored session list did not preserve every session information field and presence state")
+	}
+	if listed[0].HasFirstUserText() || listed[0].GetTotalMessages() != 0 {
+		return errors.New("stored named session unexpectedly contained transcript data")
+	}
+
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	if err = stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
+		SessionId: new(observation.NamedSession.ID),
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	changedFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	if err != nil {
+		return err
+	}
+	if observeSessionInfo(changedFrame.GetSessionChanged().GetInfo()) != observation.NamedSession {
+		return errors.New("resumed session did not preserve every session information field and presence state")
+	}
+
+	// A second information query proves that no replay lifecycle frame was inserted after replacement.
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		return err
+	}
+	infoFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	if err != nil {
+		return err
+	}
+	if observeSessionInfo(infoFrame.GetSessionInformation().GetInfo()) != observation.NamedSession {
+		return errors.New("active session information changed after resume")
+	}
+	observation.Complete = true
+	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// nameStartupSession persists the first Host startup session for the restart fixture.
+func nameStartupSession(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	tracePath string,
+	startupInfo *uipb.SessionInfo,
+) error {
+	startup := observeSessionInfo(startupInfo)
+	if startup.ID == "" || startup.NamePresent || startup.StoragePathPresent {
+		return errors.New("first Host did not initialize an unpersisted session")
+	}
+	name := "restart session"
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
+		return err
+	}
+	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	if err != nil {
+		return err
+	}
+	named := observeSessionInfo(frame.GetSessionInformation().GetInfo())
+	if named.ID != startup.ID || !named.NamePresent || named.Name != name || !named.StoragePathPresent {
+		return errors.New("Host did not persist the startup session name")
+	}
+	encoded, err := json.Marshal(sessionRestartObservation{
+		NamedSession: named,
+		NewStartup:   sessionInfoObservation{},
+		Complete:     false,
+	})
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// receiveSessionFrame rejects replay content while waiting for one lifecycle response.
+func receiveSessionFrame(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	matches func(*uipb.OpenRequest) bool,
+) (*uipb.OpenRequest, error) {
+	for {
+		frame, err := stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+		if matches(frame) {
+			return frame, nil
+		}
+		if lifecycle := frame.GetLifecycle(); lifecycle != nil {
+			if lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED {
+				continue
+			}
+			return nil, fmt.Errorf("unexpected transcript lifecycle frame: %s", lifecycle.GetType())
+		}
+		if hostError := frame.GetError(); hostError != nil {
+			return nil, fmt.Errorf("session lifecycle command failed: %s", hostError.GetText())
+		}
+		return nil, errors.New("unexpected Host UI frame during session lifecycle")
+	}
+}
+
+// observeSessionInfo captures every mapped scalar and its explicit presence state.
+func observeSessionInfo(info *uipb.SessionInfo) sessionInfoObservation {
+	observation := sessionInfoObservation{}
+	if info == nil {
+		return observation
+	}
+	createdTime := ""
+	if info.GetCreatedTime() != nil {
+		createdTime = info.GetCreatedTime().AsTime().Format(time.RFC3339Nano)
+	}
+	updateTime := ""
+	if info.GetUpdateTime() != nil {
+		updateTime = info.GetUpdateTime().AsTime().Format(time.RFC3339Nano)
+	}
+	return sessionInfoObservation{
+		ID: info.GetId(), Name: info.GetName(), WorkingDirectory: info.GetWorkingDirectory(),
+		StoragePath: info.GetStoragePath(), CreatedTime: createdTime, UpdateTime: updateTime,
+		IDPresent: info.HasId(), NamePresent: info.HasName(), WorkingDirectoryPresent: info.HasWorkingDirectory(),
+		StoragePathPresent: info.HasStoragePath(), CreatedTimePresent: info.HasCreatedTime(),
+		UpdateTimePresent: info.HasUpdateTime(),
+	}
 }
 
 // semanticToolResultContents keeps typed result blocks stable in the shared lifecycle fixture.
@@ -697,6 +889,107 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 }
 
 // TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.
+func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
+	paths := testPaths(t, `defaultProvider: local
+defaultModel: local-model
+providers:
+  openai-codex:
+    type: openai-codex
+    models:
+      - id: codex-model
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
+  local:
+    type: openai-compatible
+    baseURL: http://localhost:11434/v1
+    api: chat-completions
+    models:
+      - id: local-model
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
+`)
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Session_Restart_UI")
+	tracePath := filepath.Join(t.TempDir(), "session-restart.json")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "session-restart")
+	command := cli.Command{
+		Mode:               cli.ModeUI,
+		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "session-restart-ui", SocketPath: "",
+	}
+
+	for range 2 {
+		require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+	}
+	payload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	var observation sessionRestartObservation
+	require.NoError(t, json.Unmarshal(payload, &observation))
+	require.True(t, observation.Complete)
+	require.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
+	require.Equal(t, observation.NamedSession.WorkingDirectory, observation.NewStartup.WorkingDirectory)
+	require.True(t, observation.NewStartup.IDPresent)
+	require.True(t, observation.NewStartup.WorkingDirectoryPresent)
+	require.True(t, observation.NewStartup.CreatedTimePresent)
+	require.True(t, observation.NewStartup.UpdateTimePresent)
+	require.False(t, observation.NewStartup.NamePresent)
+	require.False(t, observation.NewStartup.StoragePathPresent)
+}
+
+//nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.
+func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing.T) {
+	paths := testPaths(t, codexSettings(""))
+	require.NoError(t, os.WriteFile(filepath.Join(paths.Directory, "sessions"), []byte("blocked"), 0o600))
+	requests := &atomic.Int32{}
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = countingFailureTransport{requests: requests}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	socketPath := filepath.Join(t.TempDir(), "glyph.sock")
+
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeRPC, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: socketPath,
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	require.ErrorContains(t, err, "create session root")
+	require.Zero(t, requests.Load())
+	_, statErr := os.Stat(socketPath)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+}
+
+func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testing.T) {
+	paths := testPaths(t, codexSettings(""))
+	workingDirectory, err := os.Getwd()
+	require.NoError(t, err)
+	canonical, err := filepath.EvalSymlinks(workingDirectory)
+	require.NoError(t, err)
+	digest := sha256.Sum256([]byte(filepath.Clean(canonical)))
+	sessionRoot := filepath.Join(paths.Directory, "sessions")
+	require.NoError(t, os.Mkdir(sessionRoot, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(sessionRoot, hex.EncodeToString(digest[:])), []byte("blocked"), 0o600))
+	requests := &atomic.Int32{}
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = countingFailureTransport{requests: requests}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Must_Not_Start_UI")
+	tracePath := filepath.Join(t.TempDir(), "must-not-exist")
+	t.Setenv(appUITraceEnvironment, tracePath)
+
+	err = runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "must-not-start-ui", SocketPath: "",
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	require.ErrorContains(t, err, "create project session directory")
+	require.Zero(t, requests.Load())
+	_, statErr := os.Stat(tracePath)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+}
+
 func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
 	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
@@ -978,6 +1271,14 @@ func loadSemanticLifecycle(t *testing.T) []semanticLifecycleRecord {
 }
 
 // deterministicCodexTransport returns two fixed responses and never performs network I/O.
+type countingFailureTransport struct{ requests *atomic.Int32 }
+
+// RoundTrip records any provider request that escaped an application-startup failure.
+func (transport countingFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	transport.requests.Add(1)
+	return nil, errors.New("provider request must not start")
+}
+
 type deterministicCodexTransport struct{ requestCount *atomic.Int32 }
 
 func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {

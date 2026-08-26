@@ -298,6 +298,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Manual compaction shall accept user instructions for the summary.
 - Context compaction shall replace an older context prefix with a summary and preserve the remaining suffix unchanged.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
+- Session information shall include message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown. Counts shall remain available independently. Token totals shall be available only when every stored model response has usage. Estimated cost shall be available only when every stored model response has persisted cost.
+- Session-tree branch summaries shall own their usage accounting. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
 - Session entries shall form a tree with parent-child relationships and one active leaf.
 - Continuing from an earlier entry shall create a new branch without deleting existing branches.
 - The session model shall support creation, resumption, tree navigation, forking, cloning, naming, information retrieval, branch summaries, and entry labels.

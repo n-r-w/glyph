@@ -9,6 +9,7 @@ import (
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -39,6 +40,7 @@ type Session struct {
 	runner              AgentRunner
 	authenticator       Authenticator
 	modelCatalog        ModelCatalog
+	sessionControl      SessionControl
 	afterInitialization func(context.Context)
 }
 
@@ -50,11 +52,13 @@ func NewSession(
 	runner AgentRunner,
 	authenticator Authenticator,
 	modelCatalog ModelCatalog,
+	sessionControl SessionControl,
 	afterInitialization func(context.Context),
 ) *Session {
 	return &Session{
 		channel: channel, runner: runner, authenticator: authenticator,
-		modelCatalog: modelCatalog, afterInitialization: afterInitialization,
+		modelCatalog:   modelCatalog,
+		sessionControl: sessionControl, afterInitialization: afterInitialization,
 	}
 }
 
@@ -179,20 +183,13 @@ func (s *Session) applyCommand(
 	command domainui.Command,
 	results chan<- operationResult,
 ) (domainui.Availability, context.CancelFunc, operationKind, error) {
+	if handled, err := s.applySessionCommand(ctx, command); handled {
+		return availability, activeCancel, activeKind, err
+	}
+	if command.Kind == domainui.CommandSubmit {
+		return s.applySubmit(ctx, availability, activeCancel, activeKind, command, results)
+	}
 	switch command.Kind {
-	case domainui.CommandSubmit:
-		if availability != domainui.AvailabilityIdle {
-			return availability, activeCancel, activeKind, s.sendInformation("Glyph is not ready for another request.")
-		}
-		text, present := command.Text.Get()
-		if !present || strings.TrimSpace(text) == "" {
-			return availability, activeCancel, activeKind, s.sendInformation("A nonempty request is required.")
-		}
-		if err := s.sendAvailability(domainui.AvailabilityRunning); err != nil {
-			return availability, activeCancel, activeKind, err
-		}
-		activeCancel, activeKind = s.startRun(ctx, text, results)
-		return domainui.AvailabilityRunning, activeCancel, activeKind, nil
 	case domainui.CommandStop:
 		if activeKind != operationRun {
 			return availability, activeCancel, activeKind, s.sendInformation("No agent run is active.")
@@ -215,8 +212,80 @@ func (s *Session) applyCommand(
 			return availability, activeCancel, activeKind, s.sendSelectionError()
 		}
 		return availability, activeCancel, activeKind, s.applySelectionCommand(ctx, command)
+	case domainui.CommandSubmit, domainui.CommandCreateSession, domainui.CommandListSessions,
+		domainui.CommandResumeSession, domainui.CommandSetSessionName,
+		domainui.CommandGetSessionInfo:
+		return availability, activeCancel, activeKind, s.sendInformation("Session command was not handled.")
 	default:
 		return availability, activeCancel, activeKind, s.sendInformation("Unsupported UI command.")
+	}
+}
+
+// applySubmit publishes running availability before starting work, so clients never observe a run while idle.
+func (s *Session) applySubmit(
+	ctx context.Context,
+	availability domainui.Availability,
+	activeCancel context.CancelFunc,
+	activeKind operationKind,
+	command domainui.Command,
+	results chan<- operationResult,
+) (domainui.Availability, context.CancelFunc, operationKind, error) {
+	if availability != domainui.AvailabilityIdle {
+		return availability, activeCancel, activeKind, s.sendInformation("Glyph is not ready for another request.")
+	}
+	text, present := command.Text.Get()
+	if !present || strings.TrimSpace(text) == "" {
+		return availability, activeCancel, activeKind, s.sendInformation("A nonempty request is required.")
+	}
+	if err := s.sendAvailability(domainui.AvailabilityRunning); err != nil {
+		return availability, activeCancel, activeKind, err
+	}
+	activeCancel, activeKind = s.startRun(ctx, text, results)
+	return domainui.AvailabilityRunning, activeCancel, activeKind, nil
+}
+
+// applySessionCommand maps lifecycle results to frames only after the active-session operation succeeds.
+func (s *Session) applySessionCommand(ctx context.Context, command domainui.Command) (bool, error) {
+	switch command.Kind {
+	case domainui.CommandCreateSession:
+		info, err := s.sessionControl.Create(ctx)
+		if err != nil {
+			return true, s.sendInformation("Session replacement is unavailable.")
+		}
+		return true, s.channel.Send(sessionChangedFrame(info))
+	case domainui.CommandListSessions:
+		listed, err := s.sessionControl.List(ctx)
+		if err != nil {
+			return true, s.sendInformation("Sessions are unavailable.")
+		}
+		return true, s.channel.Send(sessionListFrame(listed))
+	case domainui.CommandResumeSession:
+		id, present := command.SessionID.Get()
+		if !present || id == "" {
+			return true, s.sendInformation("A session ID is required.")
+		}
+		info, err := s.sessionControl.Resume(ctx, session.ID(id))
+		if err != nil {
+			return true, s.sendInformation("Session replacement is unavailable.")
+		}
+		return true, s.channel.Send(sessionChangedFrame(info))
+	case domainui.CommandSetSessionName:
+		name, present := command.SessionName.Get()
+		if !present {
+			return true, s.sendInformation("A session name is required.")
+		}
+		info, err := s.sessionControl.SetName(ctx, name)
+		if err != nil {
+			return true, s.sendInformation("Session naming is unavailable.")
+		}
+		return true, s.channel.Send(sessionInformationFrame(info))
+	case domainui.CommandGetSessionInfo:
+		return true, s.channel.Send(sessionInformationFrame(s.sessionControl.Info()))
+	case domainui.CommandSubmit, domainui.CommandStop, domainui.CommandRetryAuthentication,
+		domainui.CommandQuit, domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
+		return false, nil
+	default:
+		return false, nil
 	}
 }
 
@@ -245,7 +314,10 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		}
 		selection, err = s.modelCatalog.SelectReasoningChoice(level)
 	case domainui.CommandSubmit, domainui.CommandStop,
-		domainui.CommandRetryAuthentication, domainui.CommandQuit:
+		domainui.CommandRetryAuthentication, domainui.CommandQuit,
+		domainui.CommandCreateSession, domainui.CommandListSessions,
+		domainui.CommandResumeSession, domainui.CommandSetSessionName,
+		domainui.CommandGetSessionInfo:
 		return s.sendSelectionError()
 	default:
 		return s.sendSelectionError()

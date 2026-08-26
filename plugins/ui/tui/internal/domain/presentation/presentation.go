@@ -1,7 +1,11 @@
 // Package presentation defines process-local state derived from Host UI frames.
 package presentation
 
-import "github.com/samber/mo"
+import (
+	"time"
+
+	"github.com/samber/mo"
+)
 
 // Availability controls which user commands the presentation may emit.
 type Availability uint8
@@ -110,6 +114,12 @@ const (
 	EventError
 	// EventModelSelectionChanged confirms one committed selection.
 	EventModelSelectionChanged
+	// EventSessionList carries stored sessions.
+	EventSessionList
+	// EventSessionChanged replaces active-session identity.
+	EventSessionChanged
+	// EventSessionInformation carries active-session information.
+	EventSessionInformation
 )
 
 // ModelContentKind identifies one visible model content block.
@@ -164,6 +174,38 @@ type ToolResultContent struct {
 	Data      mo.Option[[]byte]
 }
 
+// SessionInfo contains one session lifecycle snapshot.
+type SessionInfo struct {
+	// ID is the opaque value returned for resume commands.
+	ID string
+	// Name contains the user-assigned value only when NamePresent is true.
+	Name string
+	// NamePresent distinguishes an absent name from an explicit string value.
+	NamePresent bool
+	// WorkingDirectory identifies the canonical project associated with the session.
+	WorkingDirectory string
+	// StoragePath contains the JSONL path only when StoragePresent is true.
+	StoragePath string
+	// StoragePresent is false for a new session that has no persisted entries.
+	StoragePresent bool
+	// CreatedAt is the immutable header time.
+	CreatedAt time.Time
+	// UpdatedAt drives resume-list ordering and display.
+	UpdatedAt time.Time
+}
+
+// SessionSummary contains one selector row.
+type SessionSummary struct {
+	// Info supplies the row identity, name, and update time.
+	Info SessionInfo
+	// FirstUserText is the fallback label only when TextPresent is true.
+	FirstUserText string
+	// TextPresent distinguishes absent fallback text from an empty value.
+	TextPresent bool
+	// TotalMessages is displayed as the session message count.
+	TotalMessages int64
+}
+
 // Event contains the fields used by one presentation update.
 type Event struct {
 	Kind                 EventKind
@@ -185,6 +227,10 @@ type Event struct {
 	ToolCall             mo.Option[ToolCallState]
 	Models               []ConfiguredModel
 	ModelSelection       mo.Option[ModelSelection]
+	// SessionInfo is present on initialization, replacement, and information events.
+	SessionInfo mo.Option[SessionInfo]
+	// Sessions carries ordered selector data on a list event.
+	Sessions []SessionSummary
 }
 
 // LineKind controls the plain prefix used to render one transcript line.
@@ -257,6 +303,10 @@ type State struct {
 	Settled          mo.Option[bool]
 	Models           []ConfiguredModel
 	ModelSelection   mo.Option[ModelSelection]
+	// SessionInfo identifies the transcript owner currently shown by the TUI.
+	SessionInfo mo.Option[SessionInfo]
+	// Sessions retains the latest resume selector result.
+	Sessions []SessionSummary
 }
 
 // CommandKind identifies one accepted command sent to the Host.
@@ -277,6 +327,16 @@ const (
 	CommandSelectModel
 	// CommandSelectReasoningChoice requests one reasoning choice.
 	CommandSelectReasoningChoice
+	// CommandCreateSession requests a new session.
+	CommandCreateSession
+	// CommandListSessions requests stored sessions.
+	CommandListSessions
+	// CommandResumeSession requests active-session replacement.
+	CommandResumeSession
+	// CommandSetSessionName requests a persisted name.
+	CommandSetSessionName
+	// CommandGetSessionInfo requests active-session information.
+	CommandGetSessionInfo
 )
 
 // Command is one user request emitted through the UI stream.
@@ -286,4 +346,8 @@ type Command struct {
 	ProviderID      mo.Option[string]
 	ModelID         mo.Option[string]
 	ReasoningChoice mo.Option[ReasoningChoice]
+	// SessionID is present only when the user confirms a resume row.
+	SessionID mo.Option[string]
+	// SessionName preserves an explicitly empty value for Host validation.
+	SessionName mo.Option[string]
 }

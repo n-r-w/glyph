@@ -5,6 +5,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
@@ -12,7 +13,22 @@ import (
 // Coordinator owns Host run identifiers, execution, and settlement.
 type Coordinator interface {
 	PrepareRun() (string, error)
+	CancelPrepared(runID string)
 	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
+}
+
+// SessionControl provides client session lifecycle operations.
+type SessionControl interface {
+	// Create replaces active state with a new empty session.
+	Create(context.Context) (session.Info, error)
+	// Resume validates and replaces active state by opaque ID.
+	Resume(context.Context, session.ID) (session.Info, error)
+	// SetName persists a normalized active-session name.
+	SetName(context.Context, string) (session.Info, error)
+	// List returns ordered persisted-session summaries.
+	List(context.Context) ([]session.Summary, error)
+	// Info returns the current active-session snapshot.
+	Info() session.Info
 }
 
 // SelectionCode identifies a model catalog selection failure.

@@ -36,6 +36,9 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 	if state.ActiveTools == nil {
 		state.ActiveTools = make(map[string]string)
 	}
+	if applySessionEvent(&state, event) {
+		return state
+	}
 
 	switch event.Kind {
 	case presentationdomain.EventInitialization:
@@ -46,6 +49,9 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 		state.Models = cloneModels(event.Models)
 		if event.ModelSelection.IsSome() {
 			state.ModelSelection = event.ModelSelection
+		}
+		if event.SessionInfo.IsSome() {
+			state.SessionInfo = event.SessionInfo
 		}
 	case presentationdomain.EventUserSubmitted:
 		if event.Text.IsSome() {
@@ -97,10 +103,47 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 		if event.ModelSelection.IsSome() {
 			state.ModelSelection = event.ModelSelection
 		}
+	case presentationdomain.EventSessionList, presentationdomain.EventSessionChanged,
+		presentationdomain.EventSessionInformation:
 	case presentationdomain.EventUnspecified:
 	}
 
 	return state
+}
+
+// applySessionEvent replaces transcript-owned state when the active session changes.
+func applySessionEvent(state *presentationdomain.State, event presentationdomain.Event) bool {
+	switch event.Kind {
+	case presentationdomain.EventSessionList:
+		state.Sessions = append([]presentationdomain.SessionSummary(nil), event.Sessions...)
+	case presentationdomain.EventSessionChanged:
+		if event.SessionInfo.IsSome() {
+			state.SessionInfo = event.SessionInfo
+			// Transcript and in-flight render state belong to the old session and cannot cross replacement.
+			state.Transcript = nil
+			state.ActiveModel = make(map[int]presentationdomain.ActiveModelContent)
+			state.ActiveToolCalls = make(map[string]presentationdomain.ToolCallState)
+			state.ActiveTools = make(map[string]string)
+		}
+	case presentationdomain.EventSessionInformation:
+		if event.SessionInfo.IsSome() {
+			state.SessionInfo = event.SessionInfo
+		}
+	case presentationdomain.EventUnspecified, presentationdomain.EventInitialization,
+		presentationdomain.EventUserSubmitted, presentationdomain.EventAvailability,
+		presentationdomain.EventTurnStarted, presentationdomain.EventModelDelta,
+		presentationdomain.EventModelEnd, presentationdomain.EventToolCallPreview,
+		presentationdomain.EventToolCallFinal, presentationdomain.EventToolStarted,
+		presentationdomain.EventToolProgress, presentationdomain.EventToolOutput,
+		presentationdomain.EventToolEnded, presentationdomain.EventToolResult,
+		presentationdomain.EventTurnEnded, presentationdomain.EventAgentSettled,
+		presentationdomain.EventAuthorization, presentationdomain.EventInformation,
+		presentationdomain.EventError, presentationdomain.EventModelSelectionChanged:
+		return false
+	default:
+		return false
+	}
+	return true
 }
 
 // textLine creates one text variant without activating tool payloads.
@@ -293,6 +336,7 @@ func cloneState(state presentationdomain.State) presentationdomain.State {
 	state.Startup = cloneLines(state.Startup)
 	state.Transcript = cloneLines(state.Transcript)
 	state.Models = cloneModels(state.Models)
+	state.Sessions = append([]presentationdomain.SessionSummary(nil), state.Sessions...)
 	state.ActiveModel = maps.Clone(state.ActiveModel)
 	state.ActiveToolCalls = maps.Clone(state.ActiveToolCalls)
 	for callID, call := range state.ActiveToolCalls {

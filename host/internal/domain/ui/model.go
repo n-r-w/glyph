@@ -4,6 +4,7 @@ package ui
 import (
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
@@ -174,6 +175,8 @@ type Initialization struct {
 	Availability   Availability
 	Models         []ConfiguredModel
 	ModelSelection mo.Option[ModelSelection]
+	// SessionInfo identifies the empty active session created before UI startup.
+	SessionInfo session.Info
 }
 
 // ModelContentType identifies one model content transition.
@@ -304,6 +307,12 @@ const (
 	FrameError
 	// FrameModelSelectionChanged confirms one committed selection.
 	FrameModelSelectionChanged
+	// FrameSessionList carries stored sessions.
+	FrameSessionList
+	// FrameSessionChanged confirms active-session replacement.
+	FrameSessionChanged
+	// FrameSessionInformation carries active-session information.
+	FrameSessionInformation
 )
 
 // Frame carries exactly one Host-to-UI payload.
@@ -315,6 +324,10 @@ type Frame struct {
 	Text                mo.Option[string]
 	RetryAuthentication mo.Option[bool]
 	ModelSelection      mo.Option[ModelSelection]
+	// SessionInfo is present on replacement and information frames.
+	SessionInfo mo.Option[session.Info]
+	// Sessions is populated only by a list frame.
+	Sessions []session.Summary
 }
 
 // CommandKind identifies one UI-to-Host command.
@@ -333,6 +346,16 @@ const (
 	CommandSelectModel
 	// CommandSelectReasoningChoice requests one reasoning choice for the active model.
 	CommandSelectReasoningChoice
+	// CommandCreateSession requests a new active session.
+	CommandCreateSession
+	// CommandListSessions requests stored sessions.
+	CommandListSessions
+	// CommandResumeSession requests active-session replacement.
+	CommandResumeSession
+	// CommandSetSessionName requests a persisted name.
+	CommandSetSessionName
+	// CommandGetSessionInfo requests active-session information.
+	CommandGetSessionInfo
 )
 
 // Command carries exactly one UI-to-Host command.
@@ -342,4 +365,8 @@ type Command struct {
 	ProviderID      mo.Option[string]
 	ModelID         mo.Option[string]
 	ReasoningChoice mo.Option[ReasoningChoice]
+	// SessionID is present only for resume.
+	SessionID mo.Option[string]
+	// SessionName preserves presence so the Host can reject an explicitly empty name.
+	SessionName mo.Option[string]
 }

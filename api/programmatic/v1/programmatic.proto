@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.programmatic.v1;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
 
@@ -25,6 +26,11 @@ message OpenRequest {
     GetModels get_models = 6;
     SelectModel select_model = 7;
     SelectReasoningChoice select_reasoning_choice = 8;
+    CreateSession create_session = 9;
+    ListSessions list_sessions = 10;
+    ResumeSession resume_session = 11;
+    SetSessionName set_session_name = 12;
+    GetSessionInfo get_session_info = 13;
   }
 }
 
@@ -60,6 +66,27 @@ message SelectReasoningChoice {
   ReasoningChoice choice = 1;
 }
 
+// CreateSession requests a new empty active session.
+message CreateSession {}
+
+// ListSessions requests stored sessions for the active project.
+message ListSessions {}
+
+// ResumeSession requests active-session replacement by opaque identifier.
+message ResumeSession {
+  // The opaque stored session identifier.
+  string session_id = 1;
+}
+
+// SetSessionName requests a persisted active-session name.
+message SetSessionName {
+  // The requested session name before Host normalization.
+  string name = 1;
+}
+
+// GetSessionInfo requests active-session information.
+message GetSessionInfo {}
+
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
   // The correlation identifier associated with the response.
@@ -82,6 +109,8 @@ message CommandResponse {
     CommandRejected rejected = 5;
     ModelsResult models = 6;
     ModelSelectionResult model_selection = 7;
+    SessionInfoResult session_info = 8;
+    SessionsResult sessions = 9;
   }
 }
 
@@ -147,6 +176,44 @@ message ModelSelection {
 message ModelSelectionResult {
   // The committed model selection.
   ModelSelection selection = 1;
+}
+
+// SessionInfoResult contains active-session information.
+message SessionInfoResult {
+  // The active session information.
+  SessionInfo info = 1;
+}
+
+// SessionsResult contains stored sessions in display order.
+message SessionsResult {
+  // The stored sessions in Host list order.
+  repeated SessionSummary sessions = 1;
+}
+
+// SessionInfo contains lifecycle information for one session.
+message SessionInfo {
+  // The opaque session identifier.
+  string id = 1;
+  // The user-assigned name when present.
+  string name = 2;
+  // The canonical project working directory.
+  string working_directory = 3;
+  // The persisted JSONL path when present.
+  string storage_path = 4;
+  // The session creation time.
+  google.protobuf.Timestamp created_time = 5;
+  // The most recent stored update time.
+  google.protobuf.Timestamp update_time = 6;
+}
+
+// SessionSummary contains one stored session list row.
+message SessionSummary {
+  // The session lifecycle information.
+  SessionInfo info = 1;
+  // The first public user text when present.
+  string first_user_text = 2;
+  // The number of stored public messages.
+  int64 total_messages = 3;
 }
 
 // CommandRejected describes a command that was not executed.
@@ -386,6 +453,16 @@ enum CommandType {
   COMMAND_TYPE_SELECT_MODEL = 6;
   // A reasoning-choice selection command.
   COMMAND_TYPE_SELECT_REASONING_CHOICE = 7;
+  // A new-session command.
+  COMMAND_TYPE_CREATE_SESSION = 8;
+  // A stored-session query.
+  COMMAND_TYPE_LIST_SESSIONS = 9;
+  // A session-resume command.
+  COMMAND_TYPE_RESUME_SESSION = 10;
+  // A session-name command.
+  COMMAND_TYPE_SET_SESSION_NAME = 11;
+  // An active-session information query.
+  COMMAND_TYPE_GET_SESSION_INFO = 12;
 }
 
 // RejectionCode identifies why a command was rejected.

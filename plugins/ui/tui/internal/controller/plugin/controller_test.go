@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -58,6 +60,9 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 		Information: uiv1.Information_builder{
 			Text: new("too early"),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
@@ -110,6 +115,17 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 					ModelID:         "gpt",
 					ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 				}),
+				SessionInfo: mo.Some(presentationdomain.SessionInfo{
+					ID:               "session",
+					Name:             "",
+					NamePresent:      false,
+					WorkingDirectory: "/project",
+					StoragePath:      "",
+					StoragePresent:   false,
+					CreatedAt:        time.Unix(1, 0).UTC(),
+					UpdatedAt:        time.Unix(1, 0).UTC(),
+				}),
+				Sessions:             nil,
 				Position:             mo.None[int](),
 				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
@@ -152,6 +168,8 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		contentKind, ok := event.ModelContentKind.Get()
@@ -186,6 +204,9 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		Information: uiv1.Information_builder{
 			Text: new("information"),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
@@ -211,6 +232,9 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 			FinalToolCall:      nil,
 			ToolResultContents: nil,
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
@@ -237,6 +261,9 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 			FinalToolCall:      nil,
 			ToolResultContents: nil,
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
@@ -264,6 +291,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		SelectedUiId:   new("glyph-tui"),
 		StartupContent: nil,
 		Extensions:     nil,
+		SessionInfo:    testSessionInfo(),
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ConfiguredModel{{
@@ -286,6 +314,9 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
 			}.Build(),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
@@ -301,6 +332,8 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		ModelID:         mo.Some("gpt"),
 		Text:            mo.None[string](),
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
@@ -312,6 +345,8 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		Text:            mo.None[string](),
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
@@ -329,6 +364,9 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			Information:           nil,
 			Error:                 nil,
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 		"information text": uiv1.OpenRequest_builder{
 			Initialization:        nil,
@@ -337,6 +375,9 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			Information:           uiv1.Information_builder{Text: nil}.Build(),
 			Error:                 nil,
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 		"error text": uiv1.OpenRequest_builder{
 			Initialization: nil,
@@ -348,6 +389,9 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 				RetryAuthentication: new(false),
 			}.Build(),
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 		"error retry authentication": uiv1.OpenRequest_builder{
 			Initialization: nil,
@@ -359,6 +403,9 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 				RetryAuthentication: nil,
 			}.Build(),
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 	}
 
@@ -386,6 +433,9 @@ func TestMapRequestPreservesPresentFalseRetryAuthentication(t *testing.T) {
 			RetryAuthentication: new(false),
 		}.Build(),
 		ModelSelectionChanged: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(""), event.Text)
@@ -404,6 +454,9 @@ func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
 			Information:           nil,
 			Error:                 nil,
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 		"information": uiv1.OpenRequest_builder{
 			Initialization:        nil,
@@ -412,6 +465,9 @@ func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
 			Information:           uiv1.Information_builder{Text: new("")}.Build(),
 			Error:                 nil,
 			ModelSelectionChanged: nil,
+			SessionList:           nil,
+			SessionChanged:        nil,
+			SessionInformation:    nil,
 		}.Build(),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -434,6 +490,8 @@ func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 
 	require.Error(t, err)
@@ -445,6 +503,8 @@ func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 	require.NoError(t, err)
 	assert.True(t, response.GetSubmit().HasText())
@@ -711,7 +771,10 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	}
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	return uiv1.OpenRequest_builder{
-		Lifecycle: lifecycle,
+		Lifecycle:          lifecycle,
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build()
 }
 
@@ -857,6 +920,8 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            presentationdomain.CommandStop,
@@ -864,6 +929,8 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            presentationdomain.CommandRetryAuthentication,
@@ -871,6 +938,8 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            presentationdomain.CommandQuit,
@@ -878,6 +947,38 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
+		},
+		{
+			Kind: presentationdomain.CommandCreateSession, Text: mo.None[string](),
+			ProviderID: mo.None[string](), ModelID: mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](), SessionName: mo.None[string](),
+		},
+		{
+			Kind: presentationdomain.CommandListSessions, Text: mo.None[string](),
+			ProviderID: mo.None[string](), ModelID: mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](), SessionName: mo.None[string](),
+		},
+		{
+			Kind: presentationdomain.CommandResumeSession, Text: mo.None[string](),
+			ProviderID: mo.None[string](), ModelID: mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.Some("stored"), SessionName: mo.None[string](),
+		},
+		{
+			Kind: presentationdomain.CommandSetSessionName, Text: mo.None[string](),
+			ProviderID: mo.None[string](), ModelID: mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](), SessionName: mo.Some("named"),
+		},
+		{
+			Kind: presentationdomain.CommandGetSessionInfo, Text: mo.None[string](),
+			ProviderID: mo.None[string](), ModelID: mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](), SessionName: mo.None[string](),
 		},
 	}
 	for _, command := range commands {
@@ -895,6 +996,16 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			assert.NotNil(t, response.GetRetryAuthentication())
 		case presentationdomain.CommandQuit:
 			assert.NotNil(t, response.GetQuit())
+		case presentationdomain.CommandCreateSession:
+			assert.NotNil(t, response.GetCreateSession())
+		case presentationdomain.CommandListSessions:
+			assert.NotNil(t, response.GetListSessions())
+		case presentationdomain.CommandResumeSession:
+			assert.Equal(t, "stored", response.GetResumeSession().GetSessionId())
+		case presentationdomain.CommandSetSessionName:
+			assert.Equal(t, "named", response.GetSetSessionName().GetName())
+		case presentationdomain.CommandGetSessionInfo:
+			assert.NotNil(t, response.GetGetSessionInfo())
 		case presentationdomain.CommandUnspecified,
 			presentationdomain.CommandSelectModel,
 			presentationdomain.CommandSelectReasoningChoice:
@@ -959,6 +1070,7 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 			ModelId:         new("gpt"),
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
+		SessionInfo: testSessionInfo(),
 	}.Build())
 
 	require.NoError(t, err)
@@ -982,7 +1094,10 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	_, err := mapRequest(uiv1.OpenRequest_builder{
-		Lifecycle: &uiv1.LifecycleEvent{},
+		Lifecycle:          &uiv1.LifecycleEvent{},
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build())
 	require.Error(t, err)
 
@@ -992,6 +1107,9 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 			Text:                new("safe error"),
 			RetryAuthentication: new(false),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
@@ -1014,6 +1132,8 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	}, event)
 }
 
@@ -1196,7 +1316,10 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	for _, lifecycle := range frames {
 		//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 		event, err := mapRequest(uiv1.OpenRequest_builder{
-			Lifecycle: proto.ValueOrDefault(lifecycle),
+			Lifecycle:          proto.ValueOrDefault(lifecycle),
+			SessionList:        nil,
+			SessionChanged:     nil,
+			SessionInformation: nil,
 		}.Build())
 		require.NoError(t, err)
 		state = projection.Apply(state, event)
@@ -1274,6 +1397,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 		{
@@ -1315,6 +1440,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 		{
@@ -1356,6 +1483,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 		{
@@ -1406,6 +1535,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 		{
@@ -1447,6 +1578,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 		{
@@ -1488,6 +1621,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+				Sessions:             nil,
 			},
 		},
 	}
@@ -2108,6 +2243,9 @@ func TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument(t *te
 		Information:           nil,
 		Error:                 nil,
 		ModelSelectionChanged: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
@@ -2196,6 +2334,9 @@ func TestOpenRejectsInactiveModelContentTextAsInvalidArgument(t *testing.T) {
 					"malformed",
 				),
 				Authorization: nil, Information: nil, Error: nil, ModelSelectionChanged: nil,
+				SessionList:        nil,
+				SessionChanged:     nil,
+				SessionInformation: nil,
 			}.Build()))
 			require.NoError(t, stream.CloseSend())
 			_, err = stream.Recv()
@@ -2246,6 +2387,9 @@ func TestOpenRejectsMalformedLifecycleAsInvalidArgument(t *testing.T) {
 		Information:           nil,
 		Error:                 nil,
 		ModelSelectionChanged: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
@@ -2341,6 +2485,9 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 			Text:                new("Authentication failed."),
 			RetryAuthentication: new(true),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
@@ -2363,6 +2510,8 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	}, event)
 }
 
@@ -2392,7 +2541,21 @@ func initializationRequest() *uiv1.OpenRequest {
 				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 			}.Build(),
 			SelectedUiId: new("glyph-tui"),
+			SessionInfo:  testSessionInfo(),
 		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
+	}.Build()
+}
+
+func testSessionInfo() *uiv1.SessionInfo {
+	createdAt := timestamppb.New(time.Unix(1, 0).UTC())
+	return uiv1.SessionInfo_builder{
+		Id:               new("session"),
+		WorkingDirectory: new("/project"),
+		CreatedTime:      createdAt,
+		UpdateTime:       createdAt, Name: nil, StoragePath: nil,
 	}.Build()
 }
 

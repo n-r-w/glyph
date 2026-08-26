@@ -155,43 +155,11 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 	if lifecycle := request.GetLifecycle(); lifecycle != nil {
 		return mapLifecycle(lifecycle)
 	}
-	textKind := presentationdomain.EventUnspecified
-	text := ""
-	if authorization := request.GetAuthorization(); authorization != nil {
-		if !authorization.HasUrl() {
-			return presentationdomain.Event{}, errors.New("authorization URL is required")
-		}
-		textKind = presentationdomain.EventAuthorization
-		text = authorization.GetUrl()
-	} else if information := request.GetInformation(); information != nil {
-		if !information.HasText() {
-			return presentationdomain.Event{}, errors.New("information text is required")
-		}
-		textKind = presentationdomain.EventInformation
-		text = information.GetText()
+	if event, handled, err := mapSessionRequest(request); handled {
+		return event, err
 	}
-	if textKind != presentationdomain.EventUnspecified {
-		return presentationdomain.Event{
-			Kind:                 textKind,
-			Startup:              nil,
-			Extensions:           nil,
-			Availability:         mo.None[presentationdomain.Availability](),
-			Position:             mo.None[int](),
-			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-			ModelResponseContent: nil,
-			ToolCallID:           mo.None[string](),
-			ToolName:             mo.None[string](),
-			Status:               mo.None[string](),
-			Stream:               mo.None[presentationdomain.OutputStream](),
-			Text:                 mo.Some(text),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
-			ErrorText:            mo.None[string](),
-			ExitCode:             mo.None[int](),
-			Failure:              mo.None[bool](),
-			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			Models:               nil,
-			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		}, nil
+	if event, handled, err := mapTextRequest(request); handled {
+		return event, err
 	}
 	if safeError := request.GetError(); safeError != nil {
 		if !safeError.HasText() {
@@ -224,6 +192,8 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		}, nil
 	}
 	if changed := request.GetModelSelectionChanged(); changed != nil {
@@ -251,12 +221,156 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.Some(selection),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		}, nil
 	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
 }
 
-// mapInitialization preserves startup severity, identities, paths, tools, and availability.
+// mapTextRequest maps authorization and information payloads that share text-only presentation state.
+func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, error) {
+	var kind presentationdomain.EventKind
+	var text string
+	if authorization := request.GetAuthorization(); authorization != nil {
+		if !authorization.HasUrl() {
+			return presentationdomain.Event{}, true, errors.New("authorization URL is required")
+		}
+		kind = presentationdomain.EventAuthorization
+		text = authorization.GetUrl()
+	} else if information := request.GetInformation(); information != nil {
+		if !information.HasText() {
+			return presentationdomain.Event{}, true, errors.New("information text is required")
+		}
+		kind = presentationdomain.EventInformation
+		text = information.GetText()
+	} else {
+		return presentationdomain.Event{}, false, nil
+	}
+	return presentationdomain.Event{
+		Kind:                 kind,
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelResponseContent: nil,
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.Some(text),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
+	}, true, nil
+}
+
+// mapSessionRequest validates lifecycle frames before they enter TUI state.
+func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, error) {
+	if listed := request.GetSessionList(); listed != nil {
+		summaries := make([]presentationdomain.SessionSummary, 0, len(listed.GetSessions()))
+		for _, value := range listed.GetSessions() {
+			mapped, err := mapSessionSummary(value)
+			if err != nil {
+				return presentationdomain.Event{}, true, err
+			}
+			summaries = append(summaries, mapped)
+		}
+		return sessionEvent(
+			presentationdomain.EventSessionList, mo.None[presentationdomain.SessionInfo](), summaries,
+		), true, nil
+	}
+	if changed := request.GetSessionChanged(); changed != nil {
+		info, err := mapSessionInfo(changed.GetInfo())
+		if err != nil {
+			return presentationdomain.Event{}, true, err
+		}
+		return sessionEvent(presentationdomain.EventSessionChanged, mo.Some(info), nil), true, nil
+	}
+	if information := request.GetSessionInformation(); information != nil {
+		info, err := mapSessionInfo(information.GetInfo())
+		if err != nil {
+			return presentationdomain.Event{}, true, err
+		}
+		return sessionEvent(presentationdomain.EventSessionInformation, mo.Some(info), nil), true, nil
+	}
+	return presentationdomain.Event{}, false, nil
+}
+
+// sessionEvent initializes fields that are absent from session lifecycle frames.
+func sessionEvent(
+	kind presentationdomain.EventKind,
+	info mo.Option[presentationdomain.SessionInfo],
+	sessions []presentationdomain.SessionSummary,
+) presentationdomain.Event {
+	return presentationdomain.Event{
+		Kind:                 kind,
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelResponseContent: nil,
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.None[string](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          info,
+		Sessions:             sessions,
+	}
+}
+
+// mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
+func mapSessionInfo(value *uiv1.SessionInfo) (presentationdomain.SessionInfo, error) {
+	if value == nil || !value.HasId() || !value.HasWorkingDirectory() ||
+		!value.HasCreatedTime() || !value.HasUpdateTime() {
+		return presentationdomain.SessionInfo{}, errors.New("session information is incomplete")
+	}
+	return presentationdomain.SessionInfo{
+		ID:               value.GetId(),
+		Name:             value.GetName(),
+		NamePresent:      value.HasName(),
+		WorkingDirectory: value.GetWorkingDirectory(),
+		StoragePath:      value.GetStoragePath(),
+		StoragePresent:   value.HasStoragePath(),
+		CreatedAt:        value.GetCreatedTime().AsTime(),
+		UpdatedAt:        value.GetUpdateTime().AsTime(),
+	}, nil
+}
+
+// mapSessionSummary validates one selector row and preserves first-user-text presence.
+func mapSessionSummary(value *uiv1.SessionSummary) (presentationdomain.SessionSummary, error) {
+	if value == nil || !value.HasInfo() || !value.HasTotalMessages() {
+		return presentationdomain.SessionSummary{}, errors.New("session summary is incomplete")
+	}
+	info, err := mapSessionInfo(value.GetInfo())
+	if err != nil {
+		return presentationdomain.SessionSummary{}, err
+	}
+	return presentationdomain.SessionSummary{
+		Info:          info,
+		FirstUserText: value.GetFirstUserText(),
+		TextPresent:   value.HasFirstUserText(),
+		TotalMessages: value.GetTotalMessages(),
+	}, nil
+}
+
+// mapInitialization validates the complete first frame before the TUI takes terminal ownership.
 func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.Event, error) {
 	if !initialization.HasSelectedUiId() {
 		return presentationdomain.Event{}, errors.New("selected UI ID is required")
@@ -284,6 +398,10 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
+	sessionInfo, err := mapSessionInfo(initialization.GetSessionInfo())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
 	event := presentationdomain.Event{
 		Kind:                 presentationdomain.EventInitialization,
 		Startup:              startup,
@@ -304,6 +422,8 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               models,
 		ModelSelection:       mo.Some(selection),
+		SessionInfo:          mo.Some(sessionInfo),
+		Sessions:             nil,
 	}
 	return event, nil
 }
@@ -482,6 +602,8 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	}
 
 	var err error
@@ -1080,6 +1202,9 @@ func mapAvailability(availability uiv1.Availability) (presentationdomain.Availab
 
 // mapCommand validates and projects one presentation command onto the public stream.
 func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
+	if response, handled, err := mapSessionCommand(command); handled {
+		return response, err
+	}
 	switch command.Kind {
 	case presentationdomain.CommandSubmit:
 		text, ok := command.Text.Get()
@@ -1135,10 +1260,56 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 				Choice: new(level),
 			}.Build(),
 		}.Build(), nil
+	case presentationdomain.CommandCreateSession, presentationdomain.CommandListSessions,
+		presentationdomain.CommandResumeSession, presentationdomain.CommandSetSessionName,
+		presentationdomain.CommandGetSessionInfo:
+		return nil, errors.New("UI session command was not mapped")
 	case presentationdomain.CommandUnspecified:
 		return nil, errors.New("UI command is unspecified")
 	default:
 		return nil, fmt.Errorf("unknown UI command %d", command.Kind)
+	}
+}
+
+// mapSessionCommand preserves lifecycle argument presence in the protobuf oneof.
+func mapSessionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, bool, error) {
+	switch command.Kind {
+	case presentationdomain.CommandCreateSession:
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active CreateSession field.
+		return uiv1.OpenResponse_builder{CreateSession: &uiv1.CreateSessionCommand{}}.Build(), true, nil
+	case presentationdomain.CommandListSessions:
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active ListSessions field.
+		return uiv1.OpenResponse_builder{ListSessions: &uiv1.ListSessionsCommand{}}.Build(), true, nil
+	case presentationdomain.CommandGetSessionInfo:
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active GetSessionInfo field.
+		return uiv1.OpenResponse_builder{GetSessionInfo: &uiv1.GetSessionInfoCommand{}}.Build(), true, nil
+	case presentationdomain.CommandResumeSession:
+		id, present := command.SessionID.Get()
+		if !present || id == "" {
+			return nil, true, errors.New("UI session ID is missing")
+		}
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active ResumeSession field.
+		response := uiv1.OpenResponse_builder{
+			ResumeSession: uiv1.ResumeSessionCommand_builder{SessionId: new(id)}.Build(),
+		}.Build()
+		return response, true, nil
+	case presentationdomain.CommandSetSessionName:
+		name, present := command.SessionName.Get()
+		if !present {
+			return nil, true, errors.New("UI session name is missing")
+		}
+		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SetSessionName field.
+		response := uiv1.OpenResponse_builder{
+			SetSessionName: uiv1.SetSessionNameCommand_builder{Name: new(name)}.Build(),
+		}.Build()
+		return response, true, nil
+	case presentationdomain.CommandUnspecified, presentationdomain.CommandSubmit,
+		presentationdomain.CommandStop, presentationdomain.CommandRetryAuthentication,
+		presentationdomain.CommandQuit, presentationdomain.CommandSelectModel,
+		presentationdomain.CommandSelectReasoningChoice:
+		return nil, false, nil
+	default:
+		return nil, false, nil
 	}
 }
 

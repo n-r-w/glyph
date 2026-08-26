@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -23,14 +24,24 @@ type Emit func(presentationdomain.Command) error
 
 // Model is the single root Bubble Tea presentation and input model.
 type Model struct {
-	state             presentationdomain.State
-	input             []rune
-	cursor            int
-	width             int
-	height            int
-	emitting          bool
-	selectorOpen      bool
-	selectorRow       int
+	state  presentationdomain.State
+	input  []rune
+	cursor int
+	width  int
+	height int
+	// emitting prevents overlapping commands until the current stream send returns.
+	emitting bool
+	// selectorOpen routes keys away from the editor into the visible selector.
+	selectorOpen bool
+	// sessionSelector distinguishes resume rows from model rows while reusing navigation state.
+	sessionSelector bool
+	// resumePending keeps one selected session stable until Host accepts or rejects replacement.
+	resumePending bool
+	// resumeStatus shows a Host rejection without adding it to the active transcript.
+	resumeStatus string
+	// selectorRow is the selected model or session row.
+	selectorRow int
+	// reasoningExpanded controls only local display and never changes Host selection.
 	reasoningExpanded bool
 	apply             Apply
 	emit              Emit
@@ -65,6 +76,9 @@ func NewModel(initial presentationdomain.Event, apply Apply, emit Emit) Model {
 		reasoningExpanded: false,
 		apply:             apply,
 		emit:              emit,
+		sessionSelector:   false,
+		resumePending:     false,
+		resumeStatus:      "",
 	}
 }
 
@@ -77,8 +91,7 @@ func (Model) Init() tea.Cmd {
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case presentationdomain.Event:
-		model.state = model.apply(model.state, message)
-		return model, nil
+		return model.applyEvent(message), nil
 	case emissionResultMsg:
 		return model.applyEmissionResult(message)
 	case tea.WindowSizeMsg:
@@ -90,6 +103,57 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return model, nil
 	}
+}
+
+// applyEvent updates presentation state and the editor after one Host event.
+func (model Model) applyEvent(event presentationdomain.Event) Model {
+	preserveRejectedResume := model.selectorOpen && model.sessionSelector && model.resumePending &&
+		event.Kind == presentationdomain.EventInformation
+	if !preserveRejectedResume {
+		model.state = model.apply(model.state, event)
+	}
+	switch event.Kind {
+	case presentationdomain.EventSessionList:
+		// The Host accepted /resume and returned the selector data, so the command draft is now consumed.
+		model.resumePending = false
+		model.resumeStatus = ""
+		model.input = nil
+		model.cursor = 0
+		model.selectorOpen = len(model.state.Sessions) > 0
+		model.sessionSelector = model.selectorOpen
+		model.selectorRow = 0
+	case presentationdomain.EventSessionChanged:
+		// Replacement confirmation owns the point where the editor and selector can discard old-session input.
+		model.resumePending = false
+		model.resumeStatus = ""
+		model.input = nil
+		model.cursor = 0
+		model.selectorOpen = false
+		model.sessionSelector = false
+	case presentationdomain.EventSessionInformation:
+		// Information confirms /session or /name without replacing transcript ownership.
+		if info, present := event.SessionInfo.Get(); present {
+			model.state = model.apply(model.state, sessionInformationEvent(formatSessionInfo(info)))
+		}
+		model.input = nil
+		model.cursor = 0
+	case presentationdomain.EventInformation:
+		if preserveRejectedResume {
+			model.resumePending = false
+			model.resumeStatus, _ = event.Text.Get()
+		}
+	case presentationdomain.EventUnspecified, presentationdomain.EventInitialization,
+		presentationdomain.EventUserSubmitted, presentationdomain.EventAvailability,
+		presentationdomain.EventTurnStarted, presentationdomain.EventModelDelta,
+		presentationdomain.EventModelEnd, presentationdomain.EventToolCallPreview,
+		presentationdomain.EventToolCallFinal, presentationdomain.EventToolStarted,
+		presentationdomain.EventToolProgress, presentationdomain.EventToolOutput,
+		presentationdomain.EventToolEnded, presentationdomain.EventToolResult,
+		presentationdomain.EventTurnEnded, presentationdomain.EventAgentSettled,
+		presentationdomain.EventAuthorization, presentationdomain.EventError,
+		presentationdomain.EventModelSelectionChanged:
+	}
+	return model
 }
 
 // applyEmissionResult clears accepted input or renders a delivery failure.
@@ -116,6 +180,8 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		})
 		return model, nil
 	}
@@ -145,6 +211,8 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		})
 		model.input = nil
 		model.cursor = 0
@@ -154,7 +222,12 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 		presentationdomain.CommandStop,
 		presentationdomain.CommandRetryAuthentication,
 		presentationdomain.CommandSelectModel,
-		presentationdomain.CommandSelectReasoningChoice:
+		presentationdomain.CommandSelectReasoningChoice,
+		presentationdomain.CommandCreateSession,
+		presentationdomain.CommandListSessions,
+		presentationdomain.CommandResumeSession,
+		presentationdomain.CommandSetSessionName,
+		presentationdomain.CommandGetSessionInfo:
 	}
 
 	return model, nil
@@ -189,28 +262,18 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	}
 
 	availability, ok := model.state.Availability.Get()
-	if !ok || availability != presentationdomain.AvailabilityIdle {
+	if !ok || (availability != presentationdomain.AvailabilityIdle &&
+		availability != presentationdomain.AvailabilityRunning) {
+		return model, nil
+	}
+	if availability == presentationdomain.AvailabilityRunning && len(model.input) == 0 &&
+		key.Code != tea.KeyEnter && key.Text != "/" {
 		return model, nil
 	}
 
 	switch key.Code {
 	case tea.KeyEnter:
-		text := strings.TrimSpace(string(model.input))
-		if text == "" {
-			return model, nil
-		}
-		if text == "/model" {
-			model.input = nil
-			model.cursor = 0
-			return model.openSelector()
-		}
-		return model.emitCommand(presentationdomain.Command{
-			Kind:            presentationdomain.CommandSubmit,
-			Text:            mo.Some(text),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-		})
+		return model.updateEnter(availability)
 	case tea.KeyLeft:
 		if model.cursor > 0 {
 			model.cursor--
@@ -241,6 +304,54 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
+// updateEnter interprets session commands before treating input as an agent request.
+func (model Model) updateEnter(availability presentationdomain.Availability) (tea.Model, tea.Cmd) {
+	text := strings.TrimSpace(string(model.input))
+	if text == "" {
+		return model, nil
+	}
+	switch text {
+	case "/model":
+		if availability != presentationdomain.AvailabilityIdle {
+			return model, nil
+		}
+		model.input = nil
+		model.cursor = 0
+		return model.openSelector()
+	case "/new":
+		return model.emitSessionCommand(presentationdomain.CommandCreateSession, "", "")
+	case "/resume":
+		return model.emitSessionCommand(presentationdomain.CommandListSessions, "", "")
+	case "/session":
+		return model.emitSessionCommand(presentationdomain.CommandGetSessionInfo, "", "")
+	case "/name":
+		message := "Usage: /name <value>"
+		if info, present := model.state.SessionInfo.Get(); present && info.NamePresent {
+			message = info.Name
+		}
+		model.state = model.apply(model.state, sessionInformationEvent(message))
+		model.input = nil
+		model.cursor = 0
+		return model, nil
+	}
+	if strings.HasPrefix(text, "/name ") {
+		name := strings.TrimPrefix(text, "/name ")
+		return model.emitSessionCommand(presentationdomain.CommandSetSessionName, "", name)
+	}
+	if availability != presentationdomain.AvailabilityIdle {
+		return model, nil
+	}
+	return model.emitCommand(presentationdomain.Command{
+		Kind:            presentationdomain.CommandSubmit,
+		Text:            mo.Some(text),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
+	})
+}
+
 // isSelectionShortcut matches only the approved selection bindings.
 func isSelectionShortcut(key tea.Key) bool {
 	return key.Mod == tea.ModCtrl && (key.Code == 'l' || key.Code == 'p') ||
@@ -264,6 +375,8 @@ func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		})
 	case 'c':
 		if availability, ok := model.state.Availability.Get(); ok && availability == presentationdomain.AvailabilityRunning {
@@ -273,6 +386,8 @@ func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			})
 		}
 	case 'r':
@@ -284,6 +399,8 @@ func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
 			})
 		}
 	case 'l':
@@ -306,12 +423,41 @@ func (model Model) openSelector() (tea.Model, tea.Cmd) {
 
 // updateSelector handles only modal navigation, confirmation, and cancellation.
 func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
+	rowCount := len(model.state.Models)
+	if model.sessionSelector {
+		rowCount = len(model.state.Sessions)
+	}
+	if rowCount == 0 {
+		if key.Code == tea.KeyEscape {
+			model.selectorOpen = false
+			model.sessionSelector = false
+			model.resumePending = false
+			model.resumeStatus = ""
+		}
+		return model, nil
+	}
+	if model.sessionSelector && model.resumePending {
+		if key.Code == tea.KeyEscape {
+			model.selectorOpen = false
+			model.sessionSelector = false
+			model.resumePending = false
+			model.resumeStatus = ""
+		}
+		return model, nil
+	}
 	switch key.Code {
 	case tea.KeyUp:
-		model.selectorRow = (model.selectorRow - 1 + len(model.state.Models)) % len(model.state.Models)
+		model.selectorRow = (model.selectorRow - 1 + rowCount) % rowCount
 	case tea.KeyDown:
-		model.selectorRow = (model.selectorRow + 1) % len(model.state.Models)
+		model.selectorRow = (model.selectorRow + 1) % rowCount
 	case tea.KeyEnter:
+		if model.sessionSelector {
+			selected := model.state.Sessions[model.selectorRow]
+			// SessionChanged or Escape owns selector closure so a rejected resume preserves user state.
+			model.resumePending = true
+			model.resumeStatus = ""
+			return model.emitSessionCommand(presentationdomain.CommandResumeSession, selected.Info.ID, "")
+		}
 		selected := model.state.Models[model.selectorRow]
 		model.selectorOpen = false
 		return model.emitCommand(presentationdomain.Command{
@@ -320,9 +466,14 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 			ProviderID:      mo.Some(selected.ProviderID),
 			ModelID:         mo.Some(selected.ModelID),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		})
 	case tea.KeyEscape:
 		model.selectorOpen = false
+		model.sessionSelector = false
+		model.resumePending = false
+		model.resumeStatus = ""
 	}
 	return model, nil
 }
@@ -340,6 +491,8 @@ func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
 		ProviderID:      mo.Some(selected.ProviderID),
 		ModelID:         mo.Some(selected.ModelID),
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 }
 
@@ -369,6 +522,8 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.Some(configured.Reasoning.Choices[index]),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	})
 }
 
@@ -396,6 +551,71 @@ func (model Model) emitCommand(command presentationdomain.Command) (tea.Model, t
 			command: command,
 			err:     model.emit(command),
 		}
+	}
+}
+
+// emitSessionCommand preserves the editor until the Host confirms or rejects the lifecycle operation.
+func (model Model) emitSessionCommand(kind presentationdomain.CommandKind, id, name string) (tea.Model, tea.Cmd) {
+	command := presentationdomain.Command{
+		Kind:            kind,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.EmptyableToOption(id),
+		SessionName:     mo.EmptyableToOption(name),
+	}
+	if kind == presentationdomain.CommandSetSessionName {
+		command.SessionName = mo.Some(name)
+	}
+	// Keep the editor unchanged until a Host frame confirms the lifecycle operation.
+	return model.emitCommand(command)
+}
+
+// formatSessionInfo renders lifecycle-only session metadata as safe presentation text.
+func formatSessionInfo(info presentationdomain.SessionInfo) string {
+	name := "<absent>"
+	if info.NamePresent {
+		name = info.Name
+	}
+	storagePath := "<absent>"
+	if info.StoragePresent {
+		storagePath = info.StoragePath
+	}
+	return strings.Join([]string{
+		"Session ID: " + info.ID,
+		"Name: " + name,
+		"Working directory: " + info.WorkingDirectory,
+		"Storage path: " + storagePath,
+		"Created: " + info.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"Updated: " + info.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}, "\n")
+}
+
+// sessionInformationEvent adapts formatted session metadata to a non-session-changing information event.
+func sessionInformationEvent(text string) presentationdomain.Event {
+	return presentationdomain.Event{
+		Kind:                 presentationdomain.EventInformation,
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelResponseContent: nil,
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.Some(text),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	}
 }
 
@@ -450,26 +670,65 @@ func (model Model) reasoningSelectionVisible() bool {
 
 // visibleSelectorLines renders a bounded window around the highlighted model.
 func (model Model) visibleSelectorLines() []string {
-	if !model.selectorOpen || len(model.state.Models) == 0 {
+	rowCount := len(model.state.Models)
+	title := "Models:"
+	if model.sessionSelector {
+		title = "Sessions:"
+		rowCount = len(model.state.Sessions)
+	}
+	if !model.selectorOpen || rowCount == 0 {
 		return nil
 	}
-	capacity := min(maxVisibleSelectorRows, len(model.state.Models))
+	statusLineCount := 0
+	if model.sessionSelector && model.resumeStatus != "" {
+		statusLineCount = 1
+	}
+	capacity := min(maxVisibleSelectorRows, rowCount)
 	if model.height > 0 {
-		capacity = min(capacity, max(1, model.height-fixedViewLineCount-selectorFixedLineCount))
+		capacity = min(capacity, max(1, model.height-fixedViewLineCount-selectorFixedLineCount-statusLineCount))
 	}
 	start := model.selectorRow - capacity/selectorCenterDivisor
-	start = max(0, min(start, len(model.state.Models)-capacity))
-	lines := make([]string, 0, selectorFixedLineCount+capacity)
-	lines = append(lines, "Models:")
+	start = max(0, min(start, rowCount-capacity))
+	lines := make([]string, 0, selectorFixedLineCount+statusLineCount+capacity)
+	lines = append(lines, title)
 	for index := start; index < start+capacity; index++ {
-		configured := model.state.Models[index]
 		prefix := "  "
 		if index == model.selectorRow {
 			prefix = "> "
 		}
+		if model.sessionSelector {
+			summary := model.state.Sessions[index]
+			label := summary.Info.ID
+			if summary.Info.NamePresent {
+				label = summary.Info.Name
+			} else if summary.TextPresent {
+				label = summary.FirstUserText
+			}
+			row := fmt.Sprintf(
+				"%s | %s | %d messages", label, summary.Info.UpdatedAt.Format(time.RFC3339), summary.TotalMessages,
+			)
+			lines = append(lines, prefix+ellipsize(row, max(1, model.width-len(prefix))))
+			continue
+		}
+		configured := model.state.Models[index]
 		lines = append(lines, prefix+configured.ProviderID+" / "+configured.ModelID)
 	}
+	if statusLineCount > 0 {
+		lines = append(lines, ellipsize("Session status: "+model.resumeStatus, max(1, model.width)))
+	}
 	return append(lines, "Selector: Up/Down navigate | Enter confirm | Escape cancel")
+}
+
+// ellipsize keeps selector rows single-line and rune-safe within the available terminal width.
+func ellipsize(value string, width int) string {
+	normalized := strings.Join(strings.Fields(value), " ")
+	if width <= 0 {
+		return ""
+	}
+	if ansi.StringWidth(normalized) <= width {
+		return normalized
+	}
+	return ansi.Truncate(normalized, width, "…")
 }
 
 // visibleBodyLines keeps the latest transcript after reserving fixed and selector lines.

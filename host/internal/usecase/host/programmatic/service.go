@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/samber/lo"
@@ -12,6 +13,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -24,6 +26,7 @@ type Service struct {
 	modelCatalog    ModelCatalog
 	stateSnapshot   func() run.State
 	historySnapshot func() []agent.HistoryEntry
+	sessionControl  SessionControl
 	delivery        *Delivery
 }
 
@@ -35,11 +38,13 @@ func New(
 	modelCatalog ModelCatalog,
 	stateSnapshot func() run.State,
 	historySnapshot func() []agent.HistoryEntry,
+	sessionControl SessionControl,
 	delivery *Delivery,
 ) *Service {
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, stateSnapshot: stateSnapshot,
-		historySnapshot: historySnapshot, delivery: delivery,
+		historySnapshot: historySnapshot,
+		sessionControl:  sessionControl, delivery: delivery,
 	}
 }
 
@@ -56,29 +61,13 @@ func (s *Service) Handle(
 		return *rejection, nil, nil
 	}
 
-	switch command.Kind {
-	case controller.CommandAbort:
-		response, abortErr := s.abort(command.CorrelationID, current)
-		return response, nil, abortErr
-	case controller.CommandGetRunState:
-		return s.runState(command.CorrelationID, current), nil, nil
-	case controller.CommandGetMessages:
-		response, mapErr := s.messages(command.CorrelationID)
-		return response, nil, mapErr
-	case controller.CommandGetModels:
-		return s.models(command.CorrelationID), nil, nil
-	case controller.CommandSelectModel:
-		return s.selectModel(ctx, command), nil, nil
-	case controller.CommandSelectReasoningChoice:
-		return s.selectReasoningChoice(command), nil, nil
-	case controller.CommandUserRequest:
-	case controller.CommandUnspecified:
-		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), nil, nil
+	if response, handled, handleErr := s.handleImmediate(ctx, command, current); handled {
+		return response, nil, handleErr
 	}
 
 	runID, err := s.coordinator.PrepareRun()
 	if err != nil {
-		return s.runPreparationRejected(command)
+		return s.runPreparationRejected(command, err)
 	}
 
 	userText, present := command.UserText.Get()
@@ -102,6 +91,8 @@ func (s *Service) Handle(
 		err:           nil,
 	}
 	if !s.delivery.reserve(operation) {
+		// Delivery did not accept ownership, so this path must release the prepared run reservation.
+		s.coordinator.CancelPrepared(runID)
 		cancel()
 		close(operation.events)
 		close(operation.streamDone)
@@ -110,6 +101,46 @@ func (s *Service) Handle(
 	}
 
 	return emptyResponse(command.CorrelationID, controller.ResponseUserRequestAccepted), operation, nil
+}
+
+// handleImmediate dispatches commands that do not transfer ownership to an asynchronous run.
+func (s *Service) handleImmediate(
+	ctx context.Context,
+	command controller.Command,
+	current *activeRun,
+) (controller.Response, bool, error) {
+	switch command.Kind {
+	case controller.CommandAbort:
+		response, err := s.abort(command.CorrelationID, current)
+		return response, true, err
+	case controller.CommandGetRunState:
+		return s.runState(command.CorrelationID, current), true, nil
+	case controller.CommandGetMessages:
+		response, err := s.messages(command.CorrelationID)
+		return response, true, err
+	case controller.CommandGetModels:
+		return s.models(command.CorrelationID), true, nil
+	case controller.CommandSelectModel:
+		return s.selectModel(ctx, command), true, nil
+	case controller.CommandSelectReasoningChoice:
+		return s.selectReasoningChoice(command), true, nil
+	case controller.CommandCreateSession:
+		return s.createSession(ctx, command), true, nil
+	case controller.CommandListSessions:
+		return s.listSessions(ctx, command), true, nil
+	case controller.CommandResumeSession:
+		return s.resumeSession(ctx, command), true, nil
+	case controller.CommandSetSessionName:
+		return s.setSessionName(ctx, command), true, nil
+	case controller.CommandGetSessionInfo:
+		return s.sessionInfo(command), true, nil
+	case controller.CommandUnspecified:
+		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
+	case controller.CommandUserRequest:
+		return controller.Response{}, false, nil
+	default:
+		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
+	}
 }
 
 // CancelAndWait cancels and joins work owned by the controller connection.
@@ -208,6 +239,78 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 	return s.rejection(command, code, selectionFailure.Error())
 }
 
+// createSession returns replacement information only after the shared gate and active state commit succeed.
+func (s *Service) createSession(ctx context.Context, command controller.Command) controller.Response {
+	info, err := s.sessionControl.Create(ctx)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	return sessionInfoResponse(command.CorrelationID, info)
+}
+
+// listSessions maps the ordered persisted-session view without changing active state.
+func (s *Service) listSessions(ctx context.Context, command controller.Command) controller.Response {
+	listed, err := s.sessionControl.List(ctx)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseSessions)
+	response.Sessions = listed
+	return response
+}
+
+// resumeSession preserves the previous active session when load or replacement fails.
+func (s *Service) resumeSession(ctx context.Context, command controller.Command) controller.Response {
+	id, present := command.SessionID.Get()
+	if !present || id == "" {
+		return s.rejection(command, controller.RejectionInvalidArgument, "session ID is required")
+	}
+	info, err := s.sessionControl.Resume(ctx, id)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	return sessionInfoResponse(command.CorrelationID, info)
+}
+
+// setSessionName returns the information snapshot produced by the durable name append.
+func (s *Service) setSessionName(ctx context.Context, command controller.Command) controller.Response {
+	name, present := command.SessionName.Get()
+	if !present {
+		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	}
+	info, err := s.sessionControl.SetName(ctx, name)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	return sessionInfoResponse(command.CorrelationID, info)
+}
+
+// sessionInfo returns the current active-session snapshot without taking the replacement gate.
+func (s *Service) sessionInfo(command controller.Command) controller.Response {
+	return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info())
+}
+
+// sessionRejection maps domain failures to stable client-safe rejection codes and messages.
+func (s *Service) sessionRejection(command controller.Command, err error) controller.Response {
+	switch {
+	case errors.Is(err, session.ErrBusy):
+		return s.rejection(command, controller.RejectionBusy, "another operation is active")
+	case errors.Is(err, session.ErrInvalidName):
+		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	case errors.Is(err, os.ErrNotExist):
+		return s.rejection(command, controller.RejectionNotFound, "session was not found")
+	default:
+		return s.rejection(command, controller.RejectionInternal, "session operation failed")
+	}
+}
+
+// sessionInfoResponse initializes only the session-information response variant.
+func sessionInfoResponse(correlationID string, info session.Info) controller.Response {
+	response := emptyResponse(correlationID, controller.ResponseSessionInfo)
+	response.SessionInfo = mo.Some(info)
+	return response
+}
+
 func (s *Service) preflight(
 	command controller.Command,
 ) (*activeRun, *controller.Response, error) {
@@ -235,26 +338,56 @@ func (s *Service) preflight(
 }
 
 func invalidCommand(command controller.Command) bool {
+	if invalid, handled := invalidSessionCommand(command); handled {
+		return invalid
+	}
 	switch command.Kind {
 	case controller.CommandUserRequest:
 		return invalidUserRequest(command)
 	case controller.CommandAbort, controller.CommandGetRunState,
 		controller.CommandGetMessages, controller.CommandGetModels:
-		return command.UserText.IsSome() || hasModelArguments(command)
+		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command)
 	case controller.CommandSelectModel:
 		return invalidModelSelection(command)
 	case controller.CommandSelectReasoningChoice:
 		return invalidReasoningSelection(command)
+	case controller.CommandCreateSession, controller.CommandListSessions,
+		controller.CommandResumeSession, controller.CommandSetSessionName,
+		controller.CommandGetSessionInfo:
+		return true
 	case controller.CommandUnspecified:
 		return true
 	}
 	return true
 }
 
+// invalidSessionCommand validates exact argument presence for lifecycle commands.
+func invalidSessionCommand(command controller.Command) (invalid, handled bool) {
+	switch command.Kind {
+	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandGetSessionInfo:
+		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command), true
+	case controller.CommandResumeSession:
+		id, present := command.SessionID.Get()
+		isInvalid := !present || id == "" || command.SessionName.IsSome() ||
+			command.UserText.IsSome() || hasModelArguments(command)
+		return isInvalid, true
+	case controller.CommandSetSessionName:
+		isInvalid := command.SessionName.IsNone() || command.SessionID.IsSome() ||
+			command.UserText.IsSome() || hasModelArguments(command)
+		return isInvalid, true
+	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
+		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
+		return false, false
+	default:
+		return false, false
+	}
+}
+
 // invalidUserRequest validates the payload selected by a user-request discriminator.
 func invalidUserRequest(command controller.Command) bool {
 	userText, ok := command.UserText.Get()
-	return !ok || strings.TrimSpace(userText) == "" || hasModelArguments(command)
+	return !ok || strings.TrimSpace(userText) == "" || hasModelArguments(command) || hasSessionArguments(command)
 }
 
 // invalidModelSelection validates the payload selected by a model-selection discriminator.
@@ -262,18 +395,23 @@ func invalidModelSelection(command controller.Command) bool {
 	providerID, providerPresent := command.ProviderID.Get()
 	modelID, modelPresent := command.ModelID.Get()
 	return command.UserText.IsSome() || !providerPresent || providerID == "" ||
-		!modelPresent || modelID == "" || command.ReasoningChoice.IsSome()
+		!modelPresent || modelID == "" || command.ReasoningChoice.IsSome() || hasSessionArguments(command)
 }
 
 // invalidReasoningSelection validates the payload selected by a reasoning-selection discriminator.
 func invalidReasoningSelection(command controller.Command) bool {
 	reasoningChoice, reasoningPresent := command.ReasoningChoice.Get()
 	return command.UserText.IsSome() || command.ProviderID.IsSome() || command.ModelID.IsSome() ||
-		!reasoningPresent || !validReasoningChoice(reasoningChoice)
+		!reasoningPresent || !validReasoningChoice(reasoningChoice) || hasSessionArguments(command)
 }
 
 func hasModelArguments(command controller.Command) bool {
 	return command.ProviderID.IsSome() || command.ModelID.IsSome() || command.ReasoningChoice.IsSome()
+}
+
+// hasSessionArguments reports arguments that are invalid on non-session commands.
+func hasSessionArguments(command controller.Command) bool {
+	return command.SessionID.IsSome() || command.SessionName.IsSome()
 }
 
 func validReasoningChoice(level model.ReasoningChoice) bool {
@@ -330,6 +468,8 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 		Messages:      nil,
 		Models:        mo.None[controller.ModelsResult](),
 		Selection:     mo.None[model.Selection](),
+		SessionInfo:   mo.None[session.Info](),
+		Sessions:      nil,
 		Rejection:     mo.None[controller.Rejection](),
 	}
 }
@@ -337,7 +477,11 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 // runPreparationRejected keeps run ID allocation failure inside the command response.
 func (s *Service) runPreparationRejected(
 	command controller.Command,
+	prepareErr error,
 ) (controller.Response, controller.Operation, error) {
+	if errors.Is(prepareErr, session.ErrBusy) {
+		return s.rejection(command, controller.RejectionBusy, "another operation is active"), nil, nil
+	}
 	return s.rejection(
 		command, controller.RejectionInternal, "Host run ID allocation failed",
 	), nil, nil

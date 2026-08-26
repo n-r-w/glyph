@@ -8,6 +8,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -85,5 +86,6 @@ func BuildInitialization(
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         models,
 		ModelSelection: mo.Some(selectionToUI(modelCatalog.Selection())),
+		SessionInfo:    session.Info{},
 	}
 }

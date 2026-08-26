@@ -47,7 +47,7 @@ Out of scope:
 ### Functional Requirements
 
 - FRQ-01: Add persistent session storage for user messages, model responses, tool calls, tool results, provider context, and extension entry envelopes.
-- FRQ-02: Add session creation, resume, naming, information queries, entries queries, and statistics.
+- FRQ-02: Add session creation, resume, naming, information queries, entries queries, and statistics with message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown.
 - FRQ-03: Expose session operations through Programmatic Control and the standard TUI.
 
 ### Non-Functional Requirements

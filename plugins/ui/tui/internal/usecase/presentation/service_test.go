@@ -56,6 +56,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	require.Len(t, state.Startup, 2)
@@ -89,6 +91,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventModelDelta,
@@ -110,6 +114,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventModelDelta,
@@ -131,6 +137,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	assert.Equal(t, map[int]presentationdomain.ActiveModelContent{
 		0: {
@@ -166,6 +174,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:           mo.None[presentationdomain.ToolCallState](),
 		Models:             nil,
 		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		Sessions:           nil,
 	})
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:               presentationdomain.LineModel,
@@ -196,6 +206,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolProgress,
@@ -217,6 +229,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolOutput,
@@ -238,6 +252,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolOutput,
@@ -259,6 +275,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolEnded,
@@ -280,6 +298,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolResult,
@@ -305,6 +325,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:       mo.None[presentationdomain.ToolCallState](),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolResult,
@@ -330,6 +352,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		ToolCall:       mo.None[presentationdomain.ToolCallState](),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 
 	assert.Equal(t, []presentationdomain.Line{
@@ -435,6 +459,8 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
@@ -459,6 +485,8 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 
@@ -487,6 +515,8 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		Failure:              mo.None[bool](),
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	assert.Equal(t, mo.Some(confirmed), state.ModelSelection)
 }
@@ -527,6 +557,8 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		Failure:              mo.None[bool](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
 	state = service.Apply(state, presentationdomain.Event{
@@ -556,6 +588,8 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		Failure:              mo.None[bool](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	require.False(t, state.ActiveToolCalls["call-1"].Provisional)
 	state = service.Apply(state, presentationdomain.Event{
@@ -578,6 +612,8 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	require.Contains(t, state.ActiveToolCalls, "call-1")
 	state = service.Apply(state, presentationdomain.Event{
@@ -600,6 +636,8 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	require.Len(t, state.Transcript, 2)
 	require.Equal(t, mo.Some("{\"path\":\"file.txt\"}"), state.Transcript[0].Text)
@@ -630,6 +668,8 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventModelDelta,
@@ -651,6 +691,8 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:     presentationdomain.EventModelEnd,
@@ -676,6 +718,8 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		ToolCall:       mo.None[presentationdomain.ToolCallState](),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 
 	assert.Equal(t, []presentationdomain.Line{{
@@ -713,6 +757,8 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind: presentationdomain.EventModelEnd,
@@ -743,6 +789,8 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 		ToolCall:           mo.None[presentationdomain.ToolCallState](),
 		Models:             nil,
 		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		Sessions:           nil,
 	})
 
 	assert.Equal(t, []presentationdomain.Line{
@@ -789,6 +837,8 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventModelEnd,
@@ -810,6 +860,8 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	assert.Empty(t, state.Transcript)
@@ -841,6 +893,8 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventToolResult,
@@ -866,6 +920,8 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 		ToolCall:       mo.None[presentationdomain.ToolCallState](),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 
 	assert.Equal(t, []presentationdomain.Line{
@@ -915,6 +971,8 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	for _, event := range []presentationdomain.Event{
 		{
@@ -937,6 +995,9 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo: mo.None[presentationdomain.
+				SessionInfo](),
+			Sessions: nil,
 		},
 		{
 			Kind:                 presentationdomain.EventTurnEnded,
@@ -958,6 +1019,9 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo: mo.None[presentationdomain.
+				SessionInfo](),
+			Sessions: nil,
 		},
 		{
 			Kind:                 presentationdomain.EventAgentSettled,
@@ -979,6 +1043,9 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo: mo.None[presentationdomain.
+				SessionInfo](),
+			Sessions: nil,
 		},
 		{
 			Kind:                 presentationdomain.EventError,
@@ -1000,6 +1067,9 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo: mo.None[presentationdomain.
+				SessionInfo](),
+			Sessions: nil,
 		},
 	} {
 		state = service.Apply(state, event)
@@ -1041,6 +1111,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventAvailability,
@@ -1062,6 +1134,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind: presentationdomain.EventModelEnd,
@@ -1086,6 +1160,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:           mo.None[presentationdomain.ToolCallState](),
 		Models:             nil,
 		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		Sessions:           nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventAgentSettled,
@@ -1107,6 +1183,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventAvailability,
@@ -1128,6 +1206,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind: presentationdomain.EventModelEnd,
@@ -1152,6 +1232,8 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		ToolCall:           mo.None[presentationdomain.ToolCallState](),
 		Models:             nil,
 		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		Sessions:           nil,
 	})
 
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
@@ -1205,6 +1287,8 @@ func TestServiceCopiesTypedToolResultImage(t *testing.T) {
 		ToolCall:       mo.None[presentationdomain.ToolCallState](),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 	data, ok := content.Data.Get()
 	require.True(t, ok)
@@ -1243,6 +1327,8 @@ func TestServiceClonesToolResultContentsAcrossStateSnapshots(t *testing.T) {
 		AuthorizationURL: mo.None[string](),
 		Settled:          mo.None[bool](),
 		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
+		Sessions:         nil,
 	}
 	next := New().Apply(previous, presentationdomain.Event{
 		Kind:                 presentationdomain.EventTurnStarted,
@@ -1264,6 +1350,8 @@ func TestServiceClonesToolResultContentsAcrossStateSnapshots(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	for _, lines := range [][]presentationdomain.Line{next.Startup, next.Transcript} {
@@ -1325,6 +1413,8 @@ func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	require.Len(t, state.Transcript, 1)
@@ -1356,6 +1446,8 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventInformation,
@@ -1377,6 +1469,8 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventError,
@@ -1398,6 +1492,8 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		Kind:                 presentationdomain.EventAvailability,
@@ -1419,6 +1515,8 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	assert.Equal(t, mo.Some("https://example.test/oauth"), state.AuthorizationURL)
@@ -1479,6 +1577,8 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		}),
 		Models:         nil,
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 
 	value["nested"].([]any)[0].([]byte)[0] = 9
@@ -1510,6 +1610,8 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	assert.Equal(t, mo.Some(presentationdomain.ModelContentText), state.ActiveModel[0].Kind)
 	assert.True(t, state.ActiveModel[0].Text.IsNone())
@@ -1534,6 +1636,8 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	assert.Equal(t, mo.Some(false), state.Settled)
 }
@@ -1562,6 +1666,8 @@ func TestServiceIgnoresMissingSelectedPayload(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 
 	assert.Empty(t, state.Transcript)

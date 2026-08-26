@@ -4,6 +4,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 // CommandKind identifies one Programmatic Control operation.
@@ -19,6 +20,11 @@ const (
 	CommandGetModels
 	CommandSelectModel
 	CommandSelectReasoningChoice
+	CommandCreateSession
+	CommandListSessions
+	CommandResumeSession
+	CommandSetSessionName
+	CommandGetSessionInfo
 )
 
 // Command is one correlated transport-independent controller operation.
@@ -29,6 +35,10 @@ type Command struct {
 	ProviderID      mo.Option[model.ProviderID]
 	ModelID         mo.Option[model.ID]
 	ReasoningChoice mo.Option[model.ReasoningChoice]
+	// SessionID is present only for resume.
+	SessionID mo.Option[session.ID]
+	// SessionName is present only for naming and preserves an explicitly empty value for validation.
+	SessionName mo.Option[string]
 }
 
 // ResponseKind identifies one command result.
@@ -44,6 +54,8 @@ const (
 	ResponseRejected
 	ResponseModels
 	ResponseModelSelection
+	ResponseSessionInfo
+	ResponseSessions
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -70,7 +82,11 @@ type Response struct {
 	Messages      []HistoryEntry
 	Models        mo.Option[ModelsResult]
 	Selection     mo.Option[model.Selection]
-	Rejection     mo.Option[Rejection]
+	// SessionInfo is present for create, resume, name, and information results.
+	SessionInfo mo.Option[session.Info]
+	// Sessions contains the ordered list result.
+	Sessions  []session.Summary
+	Rejection mo.Option[Rejection]
 }
 
 // ModelsResult contains configured models and the active selection.

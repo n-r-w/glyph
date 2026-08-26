@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -88,6 +89,7 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 		settle,
 		dispatcher,
 		func() (string, error) { return "run-fixed", nil },
+		newAvailableOperationGate(t),
 	)
 
 	outcome, err := coordinator.Run(t.Context(), "request")
@@ -171,6 +173,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 		settle,
 		dispatcher,
 		func() (string, error) { return "run", nil },
+		newAvailableOperationGate(t),
 	)
 
 	outcome, err := coordinator.Run(t.Context(), "request")
@@ -204,6 +207,7 @@ func TestCoordinatorSkipsSettlementWhenRunNeverBegins(t *testing.T) {
 		},
 		dispatcher,
 		func() (string, error) { return "run", nil },
+		newAvailableOperationGate(t),
 	)
 
 	_, err := coordinator.Run(t.Context(), "request")
@@ -237,6 +241,7 @@ func TestCoordinatorRunsPreparedIdentifier(t *testing.T) {
 			allocated++
 			return "prepared-run", nil
 		},
+		newAvailableOperationGate(t),
 	)
 
 	runID, err := coordinator.PrepareRun()
@@ -263,6 +268,13 @@ func TestGenerateRunIDProducesUniqueNonemptyValues(t *testing.T) {
 }
 
 // completedResult identifies a run that entered Agent Core and completed.
+func newAvailableOperationGate(t *testing.T) *MockOperationGate {
+	t.Helper()
+	gate := NewMockOperationGate(gomock.NewController(t))
+	gate.EXPECT().TryAcquire().AnyTimes().Return(func() {}, true)
+	return gate
+}
+
 func completedResult() run.Result {
 	return run.Result{
 		Outcome: agent.RunOutcomeCompleted,

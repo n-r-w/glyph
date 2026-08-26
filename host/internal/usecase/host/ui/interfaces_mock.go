@@ -15,6 +15,7 @@ import (
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	ui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -346,6 +347,104 @@ func (m *MockModelCatalog) Selection() model.Selection {
 func (mr *MockModelCatalogMockRecorder) Selection() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCatalog)(nil).Selection))
+}
+
+// MockSessionControl is a mock of SessionControl interface.
+type MockSessionControl struct {
+	ctrl     *gomock.Controller
+	recorder *MockSessionControlMockRecorder
+	isgomock struct{}
+}
+
+// MockSessionControlMockRecorder is the mock recorder for MockSessionControl.
+type MockSessionControlMockRecorder struct {
+	mock *MockSessionControl
+}
+
+// NewMockSessionControl creates a new mock instance.
+func NewMockSessionControl(ctrl *gomock.Controller) *MockSessionControl {
+	mock := &MockSessionControl{ctrl: ctrl}
+	mock.recorder = &MockSessionControlMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSessionControl) EXPECT() *MockSessionControlMockRecorder {
+	return m.recorder
+}
+
+// Create mocks base method.
+func (m *MockSessionControl) Create(arg0 context.Context) (session.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", arg0)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Create indicates an expected call of Create.
+func (mr *MockSessionControlMockRecorder) Create(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionControl)(nil).Create), arg0)
+}
+
+// Info mocks base method.
+func (m *MockSessionControl) Info() session.Info {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Info")
+	ret0, _ := ret[0].(session.Info)
+	return ret0
+}
+
+// Info indicates an expected call of Info.
+func (mr *MockSessionControlMockRecorder) Info() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockSessionControl)(nil).Info))
+}
+
+// List mocks base method.
+func (m *MockSessionControl) List(arg0 context.Context) ([]session.Summary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0)
+	ret0, _ := ret[0].([]session.Summary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionControl)(nil).List), arg0)
+}
+
+// Resume mocks base method.
+func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Resume", arg0, arg1)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Resume indicates an expected call of Resume.
+func (mr *MockSessionControlMockRecorder) Resume(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockSessionControl)(nil).Resume), arg0, arg1)
+}
+
+// SetName mocks base method.
+func (m *MockSessionControl) SetName(arg0 context.Context, arg1 string) (session.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetName", arg0, arg1)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetName indicates an expected call of SetName.
+func (mr *MockSessionControlMockRecorder) SetName(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetName", reflect.TypeOf((*MockSessionControl)(nil).SetName), arg0, arg1)
 }
 
 // MockAuthenticator is a mock of Authenticator interface.

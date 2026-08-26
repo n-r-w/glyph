@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
@@ -17,6 +18,8 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -30,6 +33,8 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -43,6 +48,8 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -56,6 +63,8 @@ func informationFrame(text string) domainui.Frame {
 		Text:                mo.Some(text),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -69,6 +78,8 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 		Text:                mo.Some(text),
 		RetryAuthentication: mo.Some(retryAuthentication),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -82,6 +93,8 @@ func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Fram
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.Some(selection),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 

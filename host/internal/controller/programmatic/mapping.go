@@ -9,13 +9,21 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
 func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 	wire := new(programmaticv1.CommandResponse)
+	if handled, err := mapSessionOrRejectionResponse(wire, response); handled {
+		if err != nil {
+			return nil, err
+		}
+		return wrapCommandResponse(response.CorrelationID, wire), nil
+	}
 	switch response.Kind {
 	case ResponseUserRequestAccepted:
 		wire.SetUserRequestAccepted(new(programmaticv1.UserRequestAccepted))
@@ -41,10 +49,8 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
 			return nil, err
 		}
-	case ResponseRejected:
-		if err := mapRejectionCommandResponse(wire, response.Rejection); err != nil {
-			return nil, err
-		}
+	case ResponseSessionInfo, ResponseSessions, ResponseRejected:
+		return nil, errors.New("map command response: handled response was not mapped")
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
 	default:
@@ -53,7 +59,62 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 	return wrapCommandResponse(response.CorrelationID, wire), nil
 }
 
+// mapSessionOrRejectionResponse isolates lifecycle and rejection payload mapping from the core response dispatch.
+func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, response Response) (bool, error) {
+	switch response.Kind {
+	case ResponseSessionInfo:
+		info, present := response.SessionInfo.Get()
+		if !present {
+			return true, errors.New("map session information: result is absent")
+		}
+		result := new(programmaticv1.SessionInfoResult)
+		result.SetInfo(mapSessionInfo(info))
+		wire.SetSessionInfo(result)
+		return true, nil
+	case ResponseSessions:
+		result := new(programmaticv1.SessionsResult)
+		result.SetSessions(lo.Map(response.Sessions, func(summary session.Summary, _ int) *programmaticv1.SessionSummary {
+			return mapSessionSummary(summary)
+		}))
+		wire.SetSessions(result)
+		return true, nil
+	case ResponseRejected:
+		return true, mapRejectionCommandResponse(wire, response.Rejection)
+	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
+		ResponseRunState, ResponseMessages, ResponseModels, ResponseModelSelection:
+		return false, nil
+	default:
+		return false, nil
+	}
+}
+
 // mapRunStateCommandResponse maps one run-state response after response-kind dispatch.
+func mapSessionInfo(info session.Info) *programmaticv1.SessionInfo {
+	wire := new(programmaticv1.SessionInfo)
+	wire.SetId(string(info.ID))
+	if name, present := info.Name.Get(); present {
+		wire.SetName(name)
+	}
+	wire.SetWorkingDirectory(info.WorkingDirectory)
+	if path, present := info.StoragePath.Get(); present {
+		wire.SetStoragePath(path)
+	}
+	wire.SetCreatedTime(timestamppb.New(info.CreatedAt))
+	wire.SetUpdateTime(timestamppb.New(info.UpdatedAt))
+	return wire
+}
+
+// mapSessionSummary preserves optional display text and lifecycle information in the public contract.
+func mapSessionSummary(summary session.Summary) *programmaticv1.SessionSummary {
+	wire := new(programmaticv1.SessionSummary)
+	wire.SetInfo(mapSessionInfo(summary.Info))
+	if text, present := summary.FirstUserText.Get(); present {
+		wire.SetFirstUserText(text)
+	}
+	wire.SetTotalMessages(int64(summary.TotalMessages))
+	return wire
+}
+
 func mapRunStateCommandResponse(
 	wire *programmaticv1.CommandResponse,
 	response mo.Option[RunStateResult],
@@ -708,6 +769,16 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_MODEL, nil
 	case CommandSelectReasoningChoice:
 		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_REASONING_CHOICE, nil
+	case CommandCreateSession:
+		return programmaticv1.CommandType_COMMAND_TYPE_CREATE_SESSION, nil
+	case CommandListSessions:
+		return programmaticv1.CommandType_COMMAND_TYPE_LIST_SESSIONS, nil
+	case CommandResumeSession:
+		return programmaticv1.CommandType_COMMAND_TYPE_RESUME_SESSION, nil
+	case CommandSetSessionName:
+		return programmaticv1.CommandType_COMMAND_TYPE_SET_SESSION_NAME, nil
+	case CommandGetSessionInfo:
+		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_INFO, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}

@@ -13,9 +13,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -131,6 +133,9 @@ func (c *channel) Close() {
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.
 func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
+	if request, handled, err := mapSessionFrame(frame); handled {
+		return request, err
+	}
 	switch frame.Kind {
 	case domainui.FrameInitialization:
 		return mapInitializationFrame(frame)
@@ -178,8 +183,39 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 			Selection: mapModelSelection(selection),
 		}.Build())
 		return request, nil
+	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation:
+		return nil, errors.New("map UI frame: session frame was not mapped")
 	default:
 		return nil, errors.New("map UI frame: payload is required")
+	}
+}
+
+// mapSessionFrame maps lifecycle frames to protobuf payloads without losing optional fields.
+func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
+	request := new(uipb.OpenRequest)
+	switch frame.Kind {
+	case domainui.FrameSessionList:
+		mapped := lo.Map(frame.Sessions, func(value session.Summary, _ int) *uipb.SessionSummary {
+			return mapSessionSummary(value)
+		})
+		request.SetSessionList(uipb.SessionList_builder{Sessions: mapped}.Build())
+		return request, true, nil
+	case domainui.FrameSessionChanged, domainui.FrameSessionInformation:
+		info, present := frame.SessionInfo.Get()
+		if !present {
+			return nil, true, errors.New("map UI frame: session information is required")
+		}
+		if frame.Kind == domainui.FrameSessionChanged {
+			request.SetSessionChanged(uipb.SessionChanged_builder{Info: mapSessionInfo(info)}.Build())
+		} else {
+			request.SetSessionInformation(uipb.SessionInformation_builder{Info: mapSessionInfo(info)}.Build())
+		}
+		return request, true, nil
+	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
+		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged:
+		return nil, false, nil
+	default:
+		return nil, false, nil
 	}
 }
 
@@ -257,6 +293,7 @@ func mapInitialization(initialization domainui.Initialization) (*uipb.Initializa
 		Availability:   new(mapAvailability(initialization.Availability)),
 		Models:         models,
 		ModelSelection: mapModelSelection(selection),
+		SessionInfo:    mapSessionInfo(initialization.SessionInfo),
 	}.Build(), nil
 }
 
@@ -469,8 +506,43 @@ func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent)
 	return mapped, nil
 }
 
+// mapSessionInfo preserves absent name and storage path through protobuf scalar presence.
+func mapSessionInfo(info session.Info) *uipb.SessionInfo {
+	wire := uipb.SessionInfo_builder{
+		Id:               new(string(info.ID)),
+		WorkingDirectory: new(info.WorkingDirectory),
+		CreatedTime:      timestamppb.New(info.CreatedAt),
+		UpdateTime:       timestamppb.New(info.UpdatedAt), Name: nil, StoragePath: nil,
+	}.Build()
+	if name, present := info.Name.Get(); present {
+		wire.SetName(name)
+	}
+	if path, present := info.StoragePath.Get(); present {
+		wire.SetStoragePath(path)
+	}
+	return wire
+}
+
+// mapSessionSummary preserves optional row labels while mapping an ordered list entry.
+func mapSessionSummary(summary session.Summary) *uipb.SessionSummary {
+	wire := uipb.SessionSummary_builder{
+		Info:          mapSessionInfo(summary.Info),
+		TotalMessages: new(int64(summary.TotalMessages)), FirstUserText: nil,
+	}.Build()
+	if text, present := summary.FirstUserText.Get(); present {
+		wire.SetFirstUserText(text)
+	}
+	return wire
+}
+
 // mapCommand validates one generated UI command.
 func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
+	if mapped, handled, err := mapSessionCommand(command); handled {
+		return mapped, err
+	}
+	if mapped, handled, err := mapSelectionCommand(command); handled {
+		return mapped, err
+	}
 	switch {
 	case command.GetSubmit() != nil:
 		submit := command.GetSubmit()
@@ -483,6 +555,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	case command.GetStop() != nil:
 		return domainui.Command{
@@ -491,6 +565,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	case command.GetRetryAuthentication() != nil:
 		return domainui.Command{
@@ -499,6 +575,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
 	case command.GetQuit() != nil:
 		return domainui.Command{
@@ -507,12 +585,28 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		}, nil
+	case command.GetSelectModel() != nil, command.GetSelectReasoningChoice() != nil:
+		return domainui.Command{}, errors.New("receive UI command: selection command was not mapped")
+	case command.GetCreateSession() != nil, command.GetListSessions() != nil,
+		command.GetGetSessionInfo() != nil, command.GetResumeSession() != nil,
+		command.GetSetSessionName() != nil:
+		return domainui.Command{}, errors.New("receive UI command: session command was not mapped")
+	default:
+		return domainui.Command{}, errors.New("receive UI command: payload is required")
+	}
+}
+
+// mapSelectionCommand validates model and reasoning payloads before they reach the Host use case.
+func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, error) {
+	switch {
 	case command.GetSelectModel() != nil:
 		selected := command.GetSelectModel()
 		if !selected.HasProviderId() || !selected.HasModelId() ||
 			selected.GetProviderId() == "" || selected.GetModelId() == "" {
-			return domainui.Command{}, errors.New("receive UI command: provider and model are required")
+			return domainui.Command{}, true, errors.New("receive UI command: provider and model are required")
 		}
 		return domainui.Command{
 			Kind:            domainui.CommandSelectModel,
@@ -520,15 +614,17 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ModelID:         mo.Some(selected.GetModelId()),
 			Text:            mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-		}, nil
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
+		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
 		if !selected.HasChoice() {
-			return domainui.Command{}, errors.New("receive UI command: reasoning choice is required")
+			return domainui.Command{}, true, errors.New("receive UI command: reasoning choice is required")
 		}
 		level, err := mapReasoningChoiceFromProto(selected.GetChoice())
 		if err != nil {
-			return domainui.Command{}, err
+			return domainui.Command{}, true, err
 		}
 		return domainui.Command{
 			Kind:            domainui.CommandSelectReasoningChoice,
@@ -536,9 +632,54 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			Text:            mo.None[string](),
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
-		}, nil
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
+		}, true, nil
 	default:
-		return domainui.Command{}, errors.New("receive UI command: payload is required")
+		return domainui.Command{}, false, nil
+	}
+}
+
+// mapSessionCommand validates lifecycle command arguments at the protobuf boundary.
+func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, error) {
+	switch {
+	case command.GetCreateSession() != nil:
+		return emptySessionCommand(domainui.CommandCreateSession), true, nil
+	case command.GetListSessions() != nil:
+		return emptySessionCommand(domainui.CommandListSessions), true, nil
+	case command.GetGetSessionInfo() != nil:
+		return emptySessionCommand(domainui.CommandGetSessionInfo), true, nil
+	case command.GetResumeSession() != nil:
+		resume := command.GetResumeSession()
+		if !resume.HasSessionId() || resume.GetSessionId() == "" {
+			return domainui.Command{}, true, errors.New("receive UI command: session ID is required")
+		}
+		mapped := emptySessionCommand(domainui.CommandResumeSession)
+		mapped.SessionID = mo.Some(resume.GetSessionId())
+		return mapped, true, nil
+	case command.GetSetSessionName() != nil:
+		name := command.GetSetSessionName()
+		if !name.HasName() {
+			return domainui.Command{}, true, errors.New("receive UI command: session name is required")
+		}
+		mapped := emptySessionCommand(domainui.CommandSetSessionName)
+		mapped.SessionName = mo.Some(name.GetName())
+		return mapped, true, nil
+	default:
+		return domainui.Command{}, false, nil
+	}
+}
+
+// emptySessionCommand initializes absent arguments for lifecycle commands without payloads.
+func emptySessionCommand(kind domainui.CommandKind) domainui.Command {
+	return domainui.Command{
+		Kind:            kind,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
 	}
 }
 

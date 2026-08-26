@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -113,6 +114,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandStop,
@@ -120,6 +123,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandRetryAuthentication,
@@ -127,6 +132,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandQuit,
@@ -134,6 +141,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectModel,
@@ -141,6 +150,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ModelID:         mo.Some("sonnet"),
 			Text:            mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectReasoningChoice,
@@ -148,6 +159,8 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			Text:            mo.None[string](),
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 	} {
 		command, receiveErr := transport.Receive()
@@ -157,6 +170,58 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 }
 
 // TestMapCommandRequiresSelectedScalarPresence verifies omission is rejected at the plugin boundary.
+func TestMapSessionCommands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		response *uipb.OpenResponse
+		expected domainui.Command
+	}{
+		{name: "create", response: func() *uipb.OpenResponse {
+			value := new(uipb.OpenResponse)
+			value.SetCreateSession(new(uipb.CreateSessionCommand))
+			return value
+		}(), expected: emptySessionCommand(domainui.CommandCreateSession)},
+		{name: "list", response: func() *uipb.OpenResponse {
+			value := new(uipb.OpenResponse)
+			value.SetListSessions(new(uipb.ListSessionsCommand))
+			return value
+		}(), expected: emptySessionCommand(domainui.CommandListSessions)},
+		{name: "information", response: func() *uipb.OpenResponse {
+			value := new(uipb.OpenResponse)
+			value.SetGetSessionInfo(new(uipb.GetSessionInfoCommand))
+			return value
+		}(), expected: emptySessionCommand(domainui.CommandGetSessionInfo)},
+		{name: "resume", response: func() *uipb.OpenResponse {
+			value := new(uipb.OpenResponse)
+			value.SetResumeSession(uipb.ResumeSessionCommand_builder{SessionId: new("stored")}.Build())
+			return value
+		}(), expected: func() domainui.Command {
+			value := emptySessionCommand(domainui.CommandResumeSession)
+			value.SessionID = mo.Some("stored")
+			return value
+		}()},
+		{name: "name", response: func() *uipb.OpenResponse {
+			value := new(uipb.OpenResponse)
+			value.SetSetSessionName(uipb.SetSessionNameCommand_builder{Name: new("named")}.Build())
+			return value
+		}(), expected: func() domainui.Command {
+			value := emptySessionCommand(domainui.CommandSetSessionName)
+			value.SessionName = mo.Some("named")
+			return value
+		}()},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual, err := mapCommand(test.response)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
 func TestMapCommandRequiresSelectedScalarPresence(t *testing.T) {
 	t.Parallel()
 
@@ -254,6 +319,7 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 			ModelID:         "sonnet",
 			ReasoningChoice: domainui.ReasoningChoiceXHigh,
 		}),
+		SessionInfo: session.Info{},
 	})
 
 	require.NoError(t, err)
@@ -440,6 +506,8 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 			Text:                mo.None[string](),
 			RetryAuthentication: mo.None[bool](),
 			ModelSelection:      mo.None[domainui.ModelSelection](),
+			SessionInfo:         mo.None[session.Info](),
+			Sessions:            nil,
 		})
 		require.Error(t, err)
 	}
@@ -617,12 +685,16 @@ func testInitializationFrame() domainui.Frame {
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
 			ModelSelection: mo.Some(domainui.ModelSelection{}),
+			SessionInfo:    session.Info{},
 		}),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
 		AuthorizationURL:    mo.None[string](),
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		Sessions:            nil,
+		SessionInfo: mo.None[session.
+			Info](),
 	}
 }
 
@@ -652,6 +724,8 @@ func testLifecycleFrame() domainui.Frame {
 		Text:                mo.None[string](),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -666,6 +740,8 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 			Text:                mo.None[string](),
 			RetryAuthentication: mo.None[bool](),
 			ModelSelection:      mo.None[domainui.ModelSelection](),
+			SessionInfo:         mo.None[session.Info](),
+			Sessions:            nil,
 		}
 	}
 	return domainui.Frame{
@@ -676,6 +752,8 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 		Text:                mo.Some(text),
 		RetryAuthentication: mo.None[bool](),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -689,6 +767,8 @@ func testErrorFrame() domainui.Frame {
 		Text:                mo.Some("safe error"),
 		RetryAuthentication: mo.Some(true),
 		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.None[session.Info](),
+		Sessions:            nil,
 	}
 }
 
@@ -706,6 +786,8 @@ func testModelSelectionFrame() domainui.Frame {
 			ModelID:         "sonnet",
 			ReasoningChoice: domainui.ReasoningChoiceHigh,
 		}),
+		SessionInfo: mo.None[session.Info](),
+		Sessions:    nil,
 	}
 }
 
