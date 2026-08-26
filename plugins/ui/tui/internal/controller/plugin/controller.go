@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -154,78 +155,64 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 	if lifecycle := request.GetLifecycle(); lifecycle != nil {
 		return mapLifecycle(lifecycle)
 	}
+	textKind := presentationdomain.EventUnspecified
+	text := ""
 	if authorization := request.GetAuthorization(); authorization != nil {
-		return presentationdomain.Event{
-			Kind:                 presentationdomain.EventAuthorization,
-			Startup:              nil,
-			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
-			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
-			Text:                 authorization.GetUrl(),
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
-			Models:               nil,
-			ModelSelection:       presentationdomain.ModelSelection{},
-		}, nil
+		textKind = presentationdomain.EventAuthorization
+		text = authorization.GetUrl()
+	} else if information := request.GetInformation(); information != nil {
+		textKind = presentationdomain.EventInformation
+		text = information.GetText()
 	}
-	if information := request.GetInformation(); information != nil {
+	if textKind != presentationdomain.EventUnspecified {
 		return presentationdomain.Event{
-			Kind:                 presentationdomain.EventInformation,
+			Kind:                 textKind,
 			Startup:              nil,
 			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
+			Availability:         mo.None[presentationdomain.Availability](),
+			Position:             mo.None[int](),
+			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
-			Text:                 information.GetText(),
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
+			ToolCallID:           mo.None[string](),
+			ToolName:             mo.None[string](),
+			Status:               mo.None[string](),
+			Stream:               mo.None[presentationdomain.OutputStream](),
+			Text:                 mo.Some(text),
+			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
-			ModelSelection:       presentationdomain.ModelSelection{},
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		}, nil
 	}
 	if safeError := request.GetError(); safeError != nil {
-		event := presentationdomain.Event{
+		availability := mo.None[presentationdomain.Availability]()
+		if safeError.GetRetryAuthentication() {
+			availability = mo.Some(presentationdomain.AvailabilityAuthenticationFailed)
+		}
+		return presentationdomain.Event{
 			Kind:                 presentationdomain.EventError,
 			Startup:              nil,
 			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
+			Availability:         availability,
+			Position:             mo.None[int](),
+			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
-			Text:                 safeError.GetText(),
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
+			ToolCallID:           mo.None[string](),
+			ToolName:             mo.None[string](),
+			Status:               mo.None[string](),
+			Stream:               mo.None[presentationdomain.OutputStream](),
+			Text:                 mo.Some(safeError.GetText()),
+			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
-			ModelSelection:       presentationdomain.ModelSelection{},
-		}
-		if safeError.GetRetryAuthentication() {
-			event.Availability = presentationdomain.AvailabilityAuthenticationFailed
-		}
-		return event, nil
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		}, nil
 	}
 	if changed := request.GetModelSelectionChanged(); changed != nil {
 		selection, err := mapModelSelection(changed.GetSelection())
@@ -236,22 +223,22 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			Kind:                 presentationdomain.EventModelSelectionChanged,
 			Startup:              nil,
 			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
+			Availability:         mo.None[presentationdomain.Availability](),
+			Position:             mo.None[int](),
+			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
-			Text:                 "",
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
+			ToolCallID:           mo.None[string](),
+			ToolName:             mo.None[string](),
+			Status:               mo.None[string](),
+			Stream:               mo.None[presentationdomain.OutputStream](),
+			Text:                 mo.None[string](),
+			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
-			ModelSelection:       selection,
+			ModelSelection:       mo.Some(selection),
 		}, nil
 	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
@@ -285,10 +272,10 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 			}
 			return presentationdomain.Line{
 				Kind:               kind,
-				Text:               content.GetText(),
-				ToolName:           "",
-				Status:             "",
-				ToolResultContents: nil,
+				Text:               mo.Some(content.GetText()),
+				ToolName:           mo.None[string](),
+				Status:             mo.None[string](),
+				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 			}, nil
 		},
 	)
@@ -343,22 +330,22 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		Kind:                 presentationdomain.EventInitialization,
 		Startup:              startup,
 		Extensions:           extensions,
-		Availability:         availability,
-		Position:             0,
-		ModelContentKind:     0,
+		Availability:         mo.Some(availability),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           "",
-		ToolName:             "",
-		Status:               "",
-		Stream:               0,
-		Text:                 "",
-		ToolResultContents:   nil,
-		ErrorText:            "",
-		ExitCode:             0,
-		Failure:              false,
-		ToolCall:             presentationdomain.ToolCallState{},
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.None[string](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               models,
-		ModelSelection:       selection,
+		ModelSelection:       mo.Some(selection),
 	}
 	return event, nil
 }
@@ -405,116 +392,213 @@ func mapReasoningChoice(level uiv1.ReasoningChoice) (presentationdomain.Reasonin
 	}
 }
 
-//nolint:gocyclo // The explicit flat switch mirrors the finite lifecycle enum.
 func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, error) {
+	if lifecycle == nil {
+		return presentationdomain.Event{}, errors.New("lifecycle event is nil")
+	}
 	event := presentationdomain.Event{
-		Kind:                 0,
+		Kind:                 presentationdomain.EventUnspecified,
 		Startup:              nil,
 		Extensions:           nil,
-		Availability:         0,
-		Position:             0,
-		ModelContentKind:     0,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           lifecycle.GetToolCallId(),
-		ToolName:             lifecycle.GetToolName(),
-		Status:               lifecycle.GetOutcome(),
-		Stream:               0,
-		Text:                 lifecycle.GetText(),
-		ToolResultContents:   nil,
-		ErrorText:            lifecycle.GetErrorMessage(),
-		ExitCode:             0,
-		Failure:              lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "",
-		ToolCall:             presentationdomain.ToolCallState{},
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.None[string](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
-		ModelSelection:       presentationdomain.ModelSelection{},
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 	}
 
+	var err error
 	switch lifecycle.GetType() {
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START:
 		event.Kind = presentationdomain.EventTurnStarted
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
 		event.Kind = presentationdomain.EventModelDelta
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START:
-		event.Kind = presentationdomain.EventModelDelta
-		event.Position = int(lifecycle.GetModelContent().GetPosition())
-		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA:
-		event.Kind = presentationdomain.EventModelDelta
-		event.Position = int(lifecycle.GetModelContent().GetPosition())
-		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
-		event.Text = lifecycle.GetModelContent().GetText()
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
-		event.Kind = presentationdomain.EventModelDelta
-		event.Position = int(lifecycle.GetModelContent().GetPosition())
-		event.ModelContentKind = mapModelContentKind(lifecycle.GetModelContent().GetKind())
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
+		err = mapModelLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
-		event.Kind = presentationdomain.EventToolCallPreview
-		event.ToolCall = mapToolCallPreview(lifecycle.GetToolCallPreview())
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
-		event.Kind = presentationdomain.EventToolCallFinal
-		call := lifecycle.GetFinalToolCall()
-		event.ToolCall = presentationdomain.ToolCallState{
-			CallID:      call.GetCallId(),
-			Name:        call.GetName(),
-			Position:    int(call.GetPosition()),
-			Provisional: false,
-			Fields:      nil,
-			Arguments:   call.GetArguments().AsMap(),
-		}
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
-		event.Kind = presentationdomain.EventModelEnd
-		event.ModelResponseContent = mapModelResponseContent(lifecycle.GetModelResponse().GetContent())
-		event.ErrorText = lifecycle.GetModelResponse().GetErrorMessage()
-		event.Status = lifecycle.GetModelResponse().GetOutcome()
-		event.Failure = event.ErrorText != ""
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
-		event.Kind = presentationdomain.EventToolStarted
-		event.Status = "started"
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE:
-		if err := mapProgress(&event, lifecycle.GetProgressChannel()); err != nil {
-			return presentationdomain.Event{}, err
-		}
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
-		event.Kind = presentationdomain.EventToolEnded
-		if event.Failure {
-			event.Status = "error"
-		} else {
-			event.Status = "completed"
-		}
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
-		event.Kind = presentationdomain.EventToolResult
-		contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
-		if err != nil {
-			return presentationdomain.Event{}, err
-		}
-		event.Text = ""
-		event.ToolResultContents = contents
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
+		err = mapToolCallLifecycle(&event, lifecycle)
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
+		err = mapToolLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
-		event.Kind = presentationdomain.EventTurnEnded
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
-		event.Kind = presentationdomain.EventAgentSettled
-		if event.ErrorText != "" {
-			event.Text = event.ErrorText
-		} else {
-			event.Text = lifecycle.GetOutcome()
-		}
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+		mapTerminalLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
-		availability, err := mapAvailability(lifecycle.GetAvailability())
-		if err != nil {
-			return presentationdomain.Event{}, err
+		availability, mapErr := mapAvailability(lifecycle.GetAvailability())
+		if mapErr != nil {
+			return presentationdomain.Event{}, mapErr
 		}
 		event.Kind = presentationdomain.EventAvailability
-		event.Availability = availability
+		event.Availability = mo.Some(availability)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
 		return presentationdomain.Event{}, errors.New("lifecycle type is unspecified")
 	default:
 		return presentationdomain.Event{}, fmt.Errorf("unknown lifecycle type %d", lifecycle.GetType())
 	}
-
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
 	return event, nil
+}
+
+// mapModelLifecycle preserves optional streaming and terminal model payloads.
+func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END {
+		response := lifecycle.GetModelResponse()
+		event.Kind = presentationdomain.EventModelEnd
+		if response == nil {
+			return nil
+		}
+		event.ModelResponseContent = mapModelResponseContent(response.GetContent())
+		if response.HasErrorMessage() {
+			event.ErrorText = mo.Some(response.GetErrorMessage())
+		}
+		if response.HasOutcome() {
+			event.Status = mo.Some(response.GetOutcome())
+		}
+		event.Failure = mo.Some(response.HasErrorMessage() && response.GetErrorMessage() != "")
+		return nil
+	}
+	content := lifecycle.GetModelContent()
+	if content == nil {
+		return errors.New("model content is missing")
+	}
+	event.Kind = presentationdomain.EventModelDelta
+	if content.HasPosition() {
+		event.Position = mo.Some(int(content.GetPosition()))
+	}
+	kind := mapModelContentKind(content.GetKind())
+	if kind != presentationdomain.ModelContentUnspecified {
+		event.ModelContentKind = mo.Some(kind)
+	}
+	if content.HasText() {
+		event.Text = mo.Some(content.GetText())
+	}
+	return nil
+}
+
+// mapToolCallLifecycle validates preview and final call payloads before projection.
+func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END {
+		preview := lifecycle.GetToolCallPreview()
+		if preview == nil {
+			return errors.New("tool call preview is missing")
+		}
+		event.Kind = presentationdomain.EventToolCallPreview
+		event.ToolCall = mo.Some(mapToolCallPreview(preview))
+		return nil
+	}
+	call := lifecycle.GetFinalToolCall()
+	if call == nil || call.GetArguments() == nil {
+		return errors.New("final tool call is missing")
+	}
+	event.Kind = presentationdomain.EventToolCallFinal
+	event.ToolCall = mo.Some(presentationdomain.ToolCallState{
+		CallID:      call.GetCallId(),
+		Name:        call.GetName(),
+		Position:    int(call.GetPosition()),
+		Provisional: false,
+		Fields:      nil,
+		Arguments:   call.GetArguments().AsMap(),
+	})
+	return nil
+}
+
+// mapToolLifecycle projects execution updates and terminal result payloads.
+func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	lifecycleType := lifecycle.GetType()
+	switch int(lifecycleType) {
+	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START):
+		if !lifecycle.HasToolName() {
+			return errors.New("started tool name is missing")
+		}
+		event.Kind = presentationdomain.EventToolStarted
+		event.ToolName = mo.Some(lifecycle.GetToolName())
+		event.Status = mo.Some("started")
+	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE):
+		if err := mapProgress(event, lifecycle.GetProgressChannel()); err != nil {
+			return err
+		}
+	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END):
+		event.Kind = presentationdomain.EventToolEnded
+		failure := lifecycle.GetIsError() || lifecycle.GetErrorMessage() != ""
+		event.Failure = mo.Some(failure)
+		if failure {
+			event.Status = mo.Some("error")
+		} else {
+			event.Status = mo.Some("completed")
+		}
+	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT):
+		contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
+		if err != nil {
+			return err
+		}
+		event.Kind = presentationdomain.EventToolResult
+		event.ToolResultContents = mo.Some(contents)
+		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
+	default:
+		return fmt.Errorf("lifecycle type %d is not a tool event", lifecycleType)
+	}
+	if lifecycle.HasToolCallId() {
+		event.ToolCallID = mo.Some(lifecycle.GetToolCallId())
+	}
+	if lifecycle.HasToolName() {
+		event.ToolName = mo.Some(lifecycle.GetToolName())
+	}
+	if lifecycle.HasText() {
+		event.Text = mo.Some(lifecycle.GetText())
+	}
+	if lifecycle.HasErrorMessage() {
+		event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
+	}
+	return nil
+}
+
+// mapTerminalLifecycle preserves turn and settlement outcome presence.
+func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) {
+	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
+		event.Kind = presentationdomain.EventTurnEnded
+		if lifecycle.HasErrorMessage() {
+			event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
+		}
+		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
+		return
+	}
+	event.Kind = presentationdomain.EventAgentSettled
+	if lifecycle.HasErrorMessage() {
+		event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
+	}
+	if lifecycle.HasOutcome() {
+		event.Status = mo.Some(lifecycle.GetOutcome())
+	}
+	if lifecycle.HasIsError() || lifecycle.HasErrorMessage() {
+		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
+	}
+	if lifecycle.HasErrorMessage() && lifecycle.GetErrorMessage() != "" {
+		event.Text = mo.Some(lifecycle.GetErrorMessage())
+	} else if lifecycle.HasOutcome() {
+		event.Text = mo.Some(lifecycle.GetOutcome())
+	}
 }
 
 // mapToolResultContents rejects malformed blocks before they reach presentation state.
@@ -531,9 +615,9 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 			switch content.WhichContent() {
 			case uiv1.ToolResultContent_Text_case:
 				return presentationdomain.ToolResultContent{
-					Text:      content.GetText(),
-					MediaType: "",
-					Data:      nil,
+					Text:      mo.Some(content.GetText()),
+					MediaType: mo.None[string](),
+					Data:      mo.None[[]byte](),
 				}, nil
 			case uiv1.ToolResultContent_Image_case:
 				image := content.GetImage()
@@ -541,9 +625,9 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 					return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result image %d is invalid", index)
 				}
 				return presentationdomain.ToolResultContent{
-					MediaType: image.GetMediaType(),
-					Data:      bytes.Clone(image.GetData()),
-					Text:      "",
+					MediaType: mo.Some(image.GetMediaType()),
+					Data:      mo.Some(bytes.Clone(image.GetData())),
+					Text:      mo.None[string](),
 				}, nil
 			case uiv1.ToolResultContent_Content_not_set_case:
 				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
@@ -562,7 +646,7 @@ func mapModelResponseContent(content []*uiv1.ModelResponseContent) []presentatio
 			kind := mapModelContentKind(item.GetKind())
 			return presentationdomain.ModelResponseContent{
 					Kind: kind,
-					Text: item.GetText(),
+					Text: mo.Some(item.GetText()),
 				},
 				kind != presentationdomain.ModelContentUnspecified
 		},
@@ -588,17 +672,15 @@ func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelCon
 func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCallState {
 	fields := lo.Map(preview.GetFields(), func(field *uiv1.ToolCallPreviewField, _ int) presentationdomain.ToolCallField {
 		mapped := presentationdomain.ToolCallField{
-			Name:     field.GetName(),
-			Value:    nil,
-			Prefix:   "",
-			Complete: false,
+			Name:   field.GetName(),
+			Value:  mo.None[any](),
+			Prefix: mo.None[string](),
 		}
 		switch field.WhichContent() {
 		case uiv1.ToolCallPreviewField_Value_case:
-			mapped.Value = field.GetValue().AsInterface()
-			mapped.Complete = true
+			mapped.Value = mo.Some(field.GetValue().AsInterface())
 		case uiv1.ToolCallPreviewField_Prefix_case:
-			mapped.Prefix = field.GetPrefix()
+			mapped.Prefix = mo.Some(field.GetPrefix())
 		case uiv1.ToolCallPreviewField_Content_not_set_case:
 		}
 		return mapped
@@ -618,13 +700,13 @@ func mapProgress(event *presentationdomain.Event, channel uiv1.ProgressChannel) 
 	switch channel {
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS:
 		event.Kind = presentationdomain.EventToolProgress
-		event.Status = "progress"
+		event.Status = mo.Some("progress")
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT:
 		event.Kind = presentationdomain.EventToolOutput
-		event.Stream = presentationdomain.OutputStdout
+		event.Stream = mo.Some(presentationdomain.OutputStdout)
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR:
 		event.Kind = presentationdomain.EventToolOutput
-		event.Stream = presentationdomain.OutputStderr
+		event.Stream = mo.Some(presentationdomain.OutputStderr)
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED:
 		return errors.New("tool progress channel is unspecified")
 	default:
@@ -657,10 +739,14 @@ func mapAvailability(availability uiv1.Availability) (presentationdomain.Availab
 func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
 	switch command.Kind {
 	case presentationdomain.CommandSubmit:
+		text, ok := command.Text.Get()
+		if !ok {
+			return nil, errors.New("UI submit text is missing")
+		}
 		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Submit field.
 		return uiv1.OpenResponse_builder{
 			Submit: uiv1.SubmitCommand_builder{
-				Text: new(command.Text),
+				Text: new(text),
 			}.Build(),
 		}.Build(), nil
 	case presentationdomain.CommandStop:
@@ -679,15 +765,24 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 			Quit: &uiv1.QuitCommand{},
 		}.Build(), nil
 	case presentationdomain.CommandSelectModel:
+		providerID, providerOK := command.ProviderID.Get()
+		modelID, modelOK := command.ModelID.Get()
+		if !providerOK || !modelOK {
+			return nil, errors.New("UI model selection is missing")
+		}
 		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SelectModel field.
 		return uiv1.OpenResponse_builder{
 			SelectModel: uiv1.SelectModelCommand_builder{
-				ProviderId: new(command.ProviderID),
-				ModelId:    new(command.ModelID),
+				ProviderId: new(providerID),
+				ModelId:    new(modelID),
 			}.Build(),
 		}.Build(), nil
 	case presentationdomain.CommandSelectReasoningChoice:
-		level := mapReasoningChoiceToProto(command.ReasoningChoice)
+		reasoningChoice, ok := command.ReasoningChoice.Get()
+		if !ok {
+			return nil, errors.New("UI reasoning choice is missing")
+		}
+		level := mapReasoningChoiceToProto(reasoningChoice)
 		if level == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
 			return nil, errors.New("UI reasoning choice is unspecified")
 		}

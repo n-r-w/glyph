@@ -1,6 +1,8 @@
 // Package presentation defines process-local state derived from Host UI frames.
 package presentation
 
+import "github.com/samber/mo"
+
 // Availability controls which user commands the presentation may emit.
 type Availability uint8
 
@@ -127,13 +129,13 @@ const (
 // ModelResponseContent carries one finalized visible model content block.
 type ModelResponseContent struct {
 	Kind ModelContentKind
-	Text string
+	Text mo.Option[string]
 }
 
 // ActiveModelContent carries one streaming visible model content block.
 type ActiveModelContent struct {
-	Kind ModelContentKind
-	Text string
+	Kind mo.Option[ModelContentKind]
+	Text mo.Option[string]
 }
 
 // OutputStream identifies readable tool output without exposing tool internals.
@@ -157,9 +159,9 @@ type Extension struct {
 
 // ToolResultContent is one terminal tool result block received from the Host.
 type ToolResultContent struct {
-	Text      string
-	MediaType string
-	Data      []byte
+	Text      mo.Option[string]
+	MediaType mo.Option[string]
+	Data      mo.Option[[]byte]
 }
 
 // Event contains the fields used by one presentation update.
@@ -167,22 +169,22 @@ type Event struct {
 	Kind                 EventKind
 	Startup              []Line
 	Extensions           []Extension
-	Availability         Availability
-	Position             int
-	ModelContentKind     ModelContentKind
+	Availability         mo.Option[Availability]
+	Position             mo.Option[int]
+	ModelContentKind     mo.Option[ModelContentKind]
 	ModelResponseContent []ModelResponseContent
-	ToolCallID           string
-	ToolName             string
-	Status               string
-	Stream               OutputStream
-	Text                 string
-	ToolResultContents   []ToolResultContent
-	ErrorText            string
-	ExitCode             int
-	Failure              bool
-	ToolCall             ToolCallState
+	ToolCallID           mo.Option[string]
+	ToolName             mo.Option[string]
+	Status               mo.Option[string]
+	Stream               mo.Option[OutputStream]
+	Text                 mo.Option[string]
+	ToolResultContents   mo.Option[[]ToolResultContent]
+	ErrorText            mo.Option[string]
+	ExitCode             mo.Option[int]
+	Failure              mo.Option[bool]
+	ToolCall             mo.Option[ToolCallState]
 	Models               []ConfiguredModel
-	ModelSelection       ModelSelection
+	ModelSelection       mo.Option[ModelSelection]
 }
 
 // LineKind controls the plain prefix used to render one transcript line.
@@ -220,18 +222,17 @@ const (
 // Line is one readable startup or transcript entry.
 type Line struct {
 	Kind               LineKind
-	ToolName           string
-	Status             string
-	Text               string
-	ToolResultContents []ToolResultContent
+	ToolName           mo.Option[string]
+	Status             mo.Option[string]
+	Text               mo.Option[string]
+	ToolResultContents mo.Option[[]ToolResultContent]
 }
 
 // ToolCallField is one rendered argument field.
 type ToolCallField struct {
-	Name     string
-	Value    any
-	Prefix   string
-	Complete bool
+	Name   string
+	Value  mo.Option[any]
+	Prefix mo.Option[string]
 }
 
 // ToolCallState is one transient or finalized function call.
@@ -251,11 +252,11 @@ type State struct {
 	ActiveModel      map[int]ActiveModelContent
 	ActiveToolCalls  map[string]ToolCallState
 	ActiveTools      map[string]string
-	Availability     Availability
-	AuthorizationURL string
-	Settled          bool
+	Availability     mo.Option[Availability]
+	AuthorizationURL mo.Option[string]
+	Settled          mo.Option[bool]
 	Models           []ConfiguredModel
-	ModelSelection   ModelSelection
+	ModelSelection   mo.Option[ModelSelection]
 }
 
 // CommandKind identifies one accepted command sent to the Host.
@@ -281,8 +282,8 @@ const (
 // Command is one user request emitted through the UI stream.
 type Command struct {
 	Kind            CommandKind
-	Text            string
-	ProviderID      string
-	ModelID         string
-	ReasoningChoice ReasoningChoice
+	Text            mo.Option[string]
+	ProviderID      mo.Option[string]
+	ModelID         mo.Option[string]
+	ReasoningChoice mo.Option[ReasoningChoice]
 }

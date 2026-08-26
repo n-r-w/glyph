@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -88,12 +89,12 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				Kind: presentationdomain.EventInitialization,
 				Startup: []presentationdomain.Line{{
 					Kind:               presentationdomain.LineInformation,
-					Text:               "ready",
-					ToolName:           "",
-					Status:             "",
-					ToolResultContents: nil,
+					Text:               mo.Some("ready"),
+					ToolName:           mo.None[string](),
+					Status:             mo.None[string](),
+					ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 				}},
-				Availability: presentationdomain.AvailabilityIdle,
+				Availability: mo.Some(presentationdomain.AvailabilityIdle),
 				Extensions: []presentationdomain.Extension{{
 					ID:    "tools",
 					Tools: []string{"read"},
@@ -104,24 +105,24 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 					ModelID:    "gpt",
 					Reasoning:  testReasoning(presentationdomain.ReasoningChoiceHigh),
 				}},
-				ModelSelection: presentationdomain.ModelSelection{
+				ModelSelection: mo.Some(presentationdomain.ModelSelection{
 					ProviderID:      "openai-codex",
 					ModelID:         "gpt",
 					ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
-				},
-				Position:             0,
-				ModelContentKind:     0,
+				}),
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				ToolCallID:           "",
-				ToolName:             "",
-				Status:               "",
-				Stream:               0,
-				Text:                 "",
-				ToolResultContents:   nil,
-				ErrorText:            "",
-				ExitCode:             0,
-				Failure:              false,
-				ToolCall:             presentationdomain.ToolCallState{},
+				ToolCallID:           mo.None[string](),
+				ToolName:             mo.None[string](),
+				Status:               mo.None[string](),
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				Text:                 mo.None[string](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				Failure:              mo.None[bool](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			}, initial)
 			return program
 		},
@@ -133,33 +134,39 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	})
 	program.EXPECT().Send(presentationdomain.Event{
 		Kind:                 presentationdomain.EventInformation,
-		Text:                 "information",
+		Text:                 mo.Some("information"),
 		Startup:              nil,
 		Extensions:           nil,
-		Availability:         0,
-		Position:             0,
-		ModelContentKind:     0,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           "",
-		ToolName:             "",
-		Status:               "",
-		Stream:               0,
-		ToolResultContents:   nil,
-		ErrorText:            "",
-		ExitCode:             0,
-		Failure:              false,
-		ToolCall:             presentationdomain.ToolCallState{},
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
-		ModelSelection:       presentationdomain.ModelSelection{},
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
-		switch event.ModelContentKind {
+		contentKind, ok := event.ModelContentKind.Get()
+		require.True(t, ok)
+		position, ok := event.Position.Get()
+		require.True(t, ok)
+		text, ok := event.Text.Get()
+		require.True(t, ok)
+		switch contentKind {
 		case presentationdomain.ModelContentReasoning:
-			assert.Equal(t, 1, event.Position)
-			assert.Equal(t, "hidden reasoning", event.Text)
+			assert.Equal(t, 1, position)
+			assert.Equal(t, "hidden reasoning", text)
 		case presentationdomain.ModelContentText:
-			assert.Equal(t, 2, event.Position)
-			assert.Equal(t, "delta", event.Text)
+			assert.Equal(t, 2, position)
+			assert.Equal(t, "delta", text)
 		case presentationdomain.ModelContentUnspecified, presentationdomain.ModelContentRefusal:
 			require.Fail(t, "unexpected model content kind")
 		default:
@@ -264,11 +271,11 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		ModelID:    "sonnet",
 		Reasoning:  testReasoning(presentationdomain.ReasoningChoiceOff, presentationdomain.ReasoningChoiceHigh),
 	}}, initial.Models)
-	assert.Equal(t, presentationdomain.ModelSelection{
+	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
 		ProviderID:      "openrouter",
 		ModelID:         "sonnet",
 		ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
-	}, initial.ModelSelection)
+	}), initial.ModelSelection)
 
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active ModelSelectionChanged field.
 	changed, err := mapRequest(uiv1.OpenRequest_builder{
@@ -282,14 +289,18 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
-	assert.Equal(t, presentationdomain.ReasoningChoiceXHigh, changed.ModelSelection.ReasoningChoice)
+	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
+		ProviderID:      "openai-codex",
+		ModelID:         "gpt",
+		ReasoningChoice: presentationdomain.ReasoningChoiceXHigh,
+	}), changed.ModelSelection)
 
 	modelCommand, err := mapCommand(presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectModel,
-		ProviderID:      "openai-codex",
-		ModelID:         "gpt",
-		Text:            "",
-		ReasoningChoice: 0,
+		ProviderID:      mo.Some("openai-codex"),
+		ModelID:         mo.Some("gpt"),
+		Text:            mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
@@ -297,13 +308,40 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 
 	reasoningCommand, err := mapCommand(presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectReasoningChoice,
-		ReasoningChoice: presentationdomain.ReasoningChoiceMax,
-		Text:            "",
-		ProviderID:      "",
-		ModelID:         "",
+		ReasoningChoice: mo.Some(presentationdomain.ReasoningChoiceMax),
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
+}
+
+// TestMapCommandRejectsMissingSelectedPayload verifies malformed presentation commands do not emit zero payloads.
+func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	response, err := mapCommand(presentationdomain.Command{
+		Kind:            presentationdomain.CommandSubmit,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, response)
+
+	response, err = mapCommand(presentationdomain.Command{
+		Kind:            presentationdomain.CommandSubmit,
+		Text:            mo.Some(""),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+	})
+	require.NoError(t, err)
+	assert.True(t, response.GetSubmit().HasText())
+	assert.Empty(t, response.GetSubmit().GetText())
 }
 
 // TestReasoningMappingsCoverEveryValue verifies public and presentation enums stay exact.
@@ -353,32 +391,32 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 		state = service.Apply(state, event)
 	}
 
-	assert.True(t, state.Settled)
-	assert.Equal(t, presentationdomain.AvailabilityIdle, state.Availability)
+	assert.Equal(t, mo.Some(true), state.Settled)
+	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:               presentationdomain.LineModel,
-		Text:               "Request complete.",
-		ToolName:           "",
-		Status:             "",
-		ToolResultContents: nil,
+		Text:               mo.Some("Request complete."),
+		ToolName:           mo.None[string](),
+		Status:             mo.None[string](),
+		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 	})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:               presentationdomain.LineToolDone,
-		ToolName:           "bash",
-		Status:             "completed",
-		Text:               "",
-		ToolResultContents: nil,
+		ToolName:           mo.Some("bash"),
+		Status:             mo.Some("completed"),
+		Text:               mo.None[string](),
+		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 	})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:     presentationdomain.LineToolDone,
-		ToolName: "bash",
-		Text:     "tool-ok\n\n[Exit code: 0]\n",
-		ToolResultContents: []presentationdomain.ToolResultContent{{
-			Text:      "tool-ok\n\n[Exit code: 0]\n",
-			MediaType: "",
-			Data:      nil,
-		}},
-		Status: "",
+		ToolName: mo.Some("bash"),
+		Text:     mo.Some("tool-ok\n\n[Exit code: 0]\n"),
+		ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
+			Text:      mo.Some("tool-ok\n\n[Exit code: 0]\n"),
+			MediaType: mo.None[string](),
+			Data:      mo.None[[]byte](),
+		}}),
+		Status: mo.None[string](),
 	})
 	assert.Empty(t, state.ActiveTools)
 }
@@ -511,8 +549,8 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelDelta, event.Kind)
-	assert.Equal(t, presentationdomain.ModelContentRefusal, event.ModelContentKind)
-	assert.Equal(t, "cannot help", event.Text)
+	assert.Equal(t, mo.Some(presentationdomain.ModelContentRefusal), event.ModelContentKind)
+	assert.Equal(t, mo.Some("cannot help"), event.Text)
 }
 
 // TestMapLifecyclePreservesFinalizedVisibleBlocks verifies mixed visible content reaches presentation state.
@@ -565,15 +603,15 @@ func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 	assert.Equal(t, []presentationdomain.ModelResponseContent{
 		{
 			Kind: presentationdomain.ModelContentReasoning,
-			Text: "hidden",
+			Text: mo.Some("hidden"),
 		},
 		{
 			Kind: presentationdomain.ModelContentText,
-			Text: "answer",
+			Text: mo.Some("answer"),
 		},
 		{
 			Kind: presentationdomain.ModelContentRefusal,
-			Text: "cannot help",
+			Text: mo.Some("cannot help"),
 		},
 	}, event.ModelResponseContent)
 }
@@ -612,31 +650,31 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 	commands := []presentationdomain.Command{
 		{
 			Kind:            presentationdomain.CommandSubmit,
-			Text:            "hello",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.Some("hello"),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		},
 		{
 			Kind:            presentationdomain.CommandStop,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		},
 		{
 			Kind:            presentationdomain.CommandRetryAuthentication,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		},
 		{
 			Kind:            presentationdomain.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		},
 	}
 	for _, command := range commands {
@@ -723,10 +761,10 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:               presentationdomain.LineWarning,
-		ToolName:           "",
-		Status:             "",
-		Text:               "excluded optional UI",
-		ToolResultContents: nil,
+		ToolName:           mo.None[string](),
+		Status:             mo.None[string](),
+		Text:               mo.Some("excluded optional UI"),
+		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 	}}, event.Startup)
 	assert.Equal(t, []presentationdomain.Extension{{
 		ID:    "glyph-tools",
@@ -755,24 +793,24 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
 		Kind:                 presentationdomain.EventError,
-		Text:                 "safe error",
+		Text:                 mo.Some("safe error"),
 		Startup:              nil,
 		Extensions:           nil,
-		Availability:         0,
-		Position:             0,
-		ModelContentKind:     0,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           "",
-		ToolName:             "",
-		Status:               "",
-		Stream:               0,
-		ToolResultContents:   nil,
-		ErrorText:            "",
-		ExitCode:             0,
-		Failure:              false,
-		ToolCall:             presentationdomain.ToolCallState{},
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
-		ModelSelection:       presentationdomain.ModelSelection{},
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 	}, event)
 }
 
@@ -964,17 +1002,17 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	assert.Equal(t, []presentationdomain.Line{
 		{
 			Kind:               presentationdomain.LineReasoning,
-			Text:               "hidden reasoning",
-			ToolName:           "",
-			Status:             "",
-			ToolResultContents: nil,
+			Text:               mo.Some("hidden reasoning"),
+			ToolName:           mo.None[string](),
+			Status:             mo.None[string](),
+			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 		},
 		{
 			Kind:               presentationdomain.LineModel,
-			Text:               "complete answer",
-			ToolName:           "",
-			Status:             "",
-			ToolResultContents: nil,
+			Text:               mo.Some("complete answer"),
+			ToolName:           mo.None[string](),
+			Status:             mo.None[string](),
+			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 		},
 	}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
@@ -1015,24 +1053,24 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:                 presentationdomain.EventModelDelta,
-				Position:             2,
-				Text:                 "delta",
+				Position:             mo.Some(2),
+				Text:                 mo.Some("delta"),
 				Startup:              nil,
 				Extensions:           nil,
-				Availability:         0,
-				ModelContentKind:     0,
+				Availability:         mo.None[presentationdomain.Availability](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				ToolCallID:           "",
-				ToolName:             "",
-				Status:               "",
-				Stream:               0,
-				ToolResultContents:   nil,
-				ErrorText:            "",
-				ExitCode:             0,
-				Failure:              false,
-				ToolCall:             presentationdomain.ToolCallState{},
+				ToolCallID:           mo.None[string](),
+				ToolName:             mo.None[string](),
+				Status:               mo.None[string](),
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				Failure:              mo.None[bool](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 		{
@@ -1056,24 +1094,24 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:                 presentationdomain.EventToolStarted,
-				ToolCallID:           "call-1",
-				ToolName:             "read",
-				Status:               "started",
+				ToolCallID:           mo.Some("call-1"),
+				ToolName:             mo.Some("read"),
+				Status:               mo.Some("started"),
 				Startup:              nil,
 				Extensions:           nil,
-				Availability:         0,
-				Position:             0,
-				ModelContentKind:     0,
+				Availability:         mo.None[presentationdomain.Availability](),
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				Stream:               0,
-				Text:                 "",
-				ToolResultContents:   nil,
-				ErrorText:            "",
-				ExitCode:             0,
-				Failure:              false,
-				ToolCall:             presentationdomain.ToolCallState{},
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				Text:                 mo.None[string](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				Failure:              mo.None[bool](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 		{
@@ -1097,24 +1135,24 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:                 presentationdomain.EventToolOutput,
-				ToolCallID:           "call-1",
-				Stream:               presentationdomain.OutputStderr,
-				Text:                 "warning",
+				ToolCallID:           mo.Some("call-1"),
+				Stream:               mo.Some(presentationdomain.OutputStderr),
+				Text:                 mo.Some("warning"),
 				Startup:              nil,
 				Extensions:           nil,
-				Availability:         0,
-				Position:             0,
-				ModelContentKind:     0,
+				Availability:         mo.None[presentationdomain.Availability](),
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				ToolName:             "",
-				Status:               "",
-				ToolResultContents:   nil,
-				ErrorText:            "",
-				ExitCode:             0,
-				Failure:              false,
-				ToolCall:             presentationdomain.ToolCallState{},
+				ToolName:             mo.None[string](),
+				Status:               mo.None[string](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				Failure:              mo.None[bool](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 		{
@@ -1143,28 +1181,28 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:       presentationdomain.EventToolResult,
-				ToolCallID: "call-1",
-				ToolName:   "read",
-				Failure:    true,
-				ToolResultContents: []presentationdomain.ToolResultContent{{
-					Text:      "denied",
-					MediaType: "",
-					Data:      nil,
-				}},
+				ToolCallID: mo.Some("call-1"),
+				ToolName:   mo.Some("read"),
+				Failure:    mo.Some(true),
+				ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
+					Text:      mo.Some("denied"),
+					MediaType: mo.None[string](),
+					Data:      mo.None[[]byte](),
+				}}),
 				Startup:              nil,
 				Extensions:           nil,
-				Availability:         0,
-				Position:             0,
-				ModelContentKind:     0,
+				Availability:         mo.None[presentationdomain.Availability](),
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				Status:               "",
-				Stream:               0,
-				Text:                 "",
-				ErrorText:            "",
-				ExitCode:             0,
-				ToolCall:             presentationdomain.ToolCallState{},
+				Status:               mo.None[string](),
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				Text:                 mo.None[string](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 		{
@@ -1188,24 +1226,24 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:                 presentationdomain.EventAgentSettled,
-				Text:                 "safe failure",
-				ErrorText:            "safe failure",
-				Status:               "error",
-				Failure:              true,
+				Text:                 mo.Some("safe failure"),
+				ErrorText:            mo.Some("safe failure"),
+				Status:               mo.Some("error"),
+				Failure:              mo.Some(true),
 				Startup:              nil,
 				Extensions:           nil,
-				Availability:         0,
-				Position:             0,
-				ModelContentKind:     0,
+				Availability:         mo.None[presentationdomain.Availability](),
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				ToolCallID:           "",
-				ToolName:             "",
-				Stream:               0,
-				ToolResultContents:   nil,
-				ExitCode:             0,
-				ToolCall:             presentationdomain.ToolCallState{},
+				ToolCallID:           mo.None[string](),
+				ToolName:             mo.None[string](),
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ExitCode:             mo.None[int](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 		{
@@ -1229,24 +1267,24 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 			}.Build(),
 			expected: presentationdomain.Event{
 				Kind:                 presentationdomain.EventAvailability,
-				Availability:         presentationdomain.AvailabilityRunning,
+				Availability:         mo.Some(presentationdomain.AvailabilityRunning),
 				Startup:              nil,
 				Extensions:           nil,
-				Position:             0,
-				ModelContentKind:     0,
+				Position:             mo.None[int](),
+				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 				ModelResponseContent: nil,
-				ToolCallID:           "",
-				ToolName:             "",
-				Status:               "",
-				Stream:               0,
-				Text:                 "",
-				ToolResultContents:   nil,
-				ErrorText:            "",
-				ExitCode:             0,
-				Failure:              false,
-				ToolCall:             presentationdomain.ToolCallState{},
+				ToolCallID:           mo.None[string](),
+				ToolName:             mo.None[string](),
+				Status:               mo.None[string](),
+				Stream:               mo.None[presentationdomain.OutputStream](),
+				Text:                 mo.None[string](),
+				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				ErrorText:            mo.None[string](),
+				ExitCode:             mo.None[int](),
+				Failure:              mo.None[bool](),
+				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
-				ModelSelection:       presentationdomain.ModelSelection{},
+				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			},
 		},
 	}
@@ -1269,6 +1307,8 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 		"nested": []any{"value", float64(2), true},
 	})
 	require.NoError(t, err)
+	nullValue, err := structpb.NewValue(nil)
+	require.NoError(t, err)
 	preview := uiv1.ToolCallPreview_builder{
 		CallId:      new("call-17"),
 		Name:        new("sample"),
@@ -1278,6 +1318,11 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 			uiv1.ToolCallPreviewField_builder{
 				Name:   new("complete"),
 				Value:  proto.ValueOrDefault(completeValue),
+				Prefix: nil,
+			}.Build(),
+			uiv1.ToolCallPreviewField_builder{
+				Name:   new("null"),
+				Value:  proto.ValueOrDefault(nullValue),
 				Prefix: nil,
 			}.Build(),
 			uiv1.ToolCallPreviewField_builder{
@@ -1296,17 +1341,20 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 		Fields: []presentationdomain.ToolCallField{
 			{
 				Name: "complete",
-				Value: map[string]any{
+				Value: mo.Some[any](map[string]any{
 					"nested": []any{"value", float64(2), true},
-				},
-				Prefix:   "",
-				Complete: true,
+				}),
+				Prefix: mo.None[string](),
 			},
 			{
-				Name:     "prefix",
-				Value:    nil,
-				Prefix:   `{"partial":`,
-				Complete: false,
+				Name:   "null",
+				Value:  mo.Some[any](nil),
+				Prefix: mo.None[string](),
+			},
+			{
+				Name:   "prefix",
+				Value:  mo.None[any](),
+				Prefix: mo.Some(`{"partial":`),
 			},
 		},
 		Arguments: nil,
@@ -1327,24 +1375,24 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
 		Kind:                 presentationdomain.EventError,
-		Text:                 "Authentication failed.",
-		Availability:         presentationdomain.AvailabilityAuthenticationFailed,
+		Text:                 mo.Some("Authentication failed."),
+		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
 		Startup:              nil,
 		Extensions:           nil,
-		Position:             0,
-		ModelContentKind:     0,
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           "",
-		ToolName:             "",
-		Status:               "",
-		Stream:               0,
-		ToolResultContents:   nil,
-		ErrorText:            "",
-		ExitCode:             0,
-		Failure:              false,
-		ToolCall:             presentationdomain.ToolCallState{},
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		Models:               nil,
-		ModelSelection:       presentationdomain.ModelSelection{},
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 	}, event)
 }
 

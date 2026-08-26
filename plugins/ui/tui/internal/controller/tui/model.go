@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/samber/mo"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
@@ -99,48 +100,51 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			Kind:                 presentationdomain.EventError,
 			Startup:              nil,
 			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
+			Availability:         mo.None[presentationdomain.Availability](),
+			Position:             mo.None[int](),
+			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
-			Text:                 "Could not send command: " + message.err.Error(),
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
+			ToolCallID:           mo.None[string](),
+			ToolName:             mo.None[string](),
+			Status:               mo.None[string](),
+			Stream:               mo.None[presentationdomain.OutputStream](),
+			Text:                 mo.Some("Could not send command: " + message.err.Error()),
+			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
-			ModelSelection:       presentationdomain.ModelSelection{},
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		})
 		return model, nil
 	}
 
 	switch message.command.Kind {
 	case presentationdomain.CommandSubmit:
+		if message.command.Text.IsNone() {
+			return model, nil
+		}
 		model.state = model.apply(model.state, presentationdomain.Event{
 			Kind:                 presentationdomain.EventUserSubmitted,
 			Startup:              nil,
 			Extensions:           nil,
-			Availability:         0,
-			Position:             0,
-			ModelContentKind:     0,
+			Availability:         mo.None[presentationdomain.Availability](),
+			Position:             mo.None[int](),
+			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 			ModelResponseContent: nil,
-			ToolCallID:           "",
-			ToolName:             "",
-			Status:               "",
-			Stream:               0,
+			ToolCallID:           mo.None[string](),
+			ToolName:             mo.None[string](),
+			Status:               mo.None[string](),
+			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 message.command.Text,
-			ToolResultContents:   nil,
-			ErrorText:            "",
-			ExitCode:             0,
-			Failure:              false,
-			ToolCall:             presentationdomain.ToolCallState{},
+			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			Models:               nil,
-			ModelSelection:       presentationdomain.ModelSelection{},
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		})
 		model.input = nil
 		model.cursor = 0
@@ -158,8 +162,11 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 
 //nolint:gocyclo // The explicit flat switch mirrors the supported editor and command keys.
 func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
-	if isSelectionShortcut(key) && !selectionAvailable(model.state.Availability) {
-		return model, nil
+	if isSelectionShortcut(key) {
+		availability, ok := model.state.Availability.Get()
+		if !ok || !selectionAvailable(availability) {
+			return model, nil
+		}
 	}
 	if key.Mod == tea.ModCtrl && key.Code == 't' {
 		model.reasoningExpanded = !model.reasoningExpanded
@@ -181,7 +188,8 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 		return model.cycleReasoning()
 	}
 
-	if model.state.Availability != presentationdomain.AvailabilityIdle {
+	availability, ok := model.state.Availability.Get()
+	if !ok || availability != presentationdomain.AvailabilityIdle {
 		return model, nil
 	}
 
@@ -198,10 +206,10 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 		}
 		return model.emitCommand(presentationdomain.Command{
 			Kind:            presentationdomain.CommandSubmit,
-			Text:            text,
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.Some(text),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		})
 	case tea.KeyLeft:
 		if model.cursor > 0 {
@@ -252,29 +260,30 @@ func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 	case 'q':
 		return model.emitCommand(presentationdomain.Command{
 			Kind:            presentationdomain.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		})
 	case 'c':
-		if model.state.Availability == presentationdomain.AvailabilityRunning {
+		if availability, ok := model.state.Availability.Get(); ok && availability == presentationdomain.AvailabilityRunning {
 			return model.emitCommand(presentationdomain.Command{
 				Kind:            presentationdomain.CommandStop,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			})
 		}
 	case 'r':
-		if model.state.Availability == presentationdomain.AvailabilityAuthenticationFailed {
+		availability, ok := model.state.Availability.Get()
+		if ok && availability == presentationdomain.AvailabilityAuthenticationFailed {
 			return model.emitCommand(presentationdomain.Command{
 				Kind:            presentationdomain.CommandRetryAuthentication,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			})
 		}
 	case 'l':
@@ -307,10 +316,10 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 		model.selectorOpen = false
 		return model.emitCommand(presentationdomain.Command{
 			Kind:            presentationdomain.CommandSelectModel,
-			Text:            "",
-			ProviderID:      selected.ProviderID,
-			ModelID:         selected.ModelID,
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.Some(selected.ProviderID),
+			ModelID:         mo.Some(selected.ModelID),
+			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		})
 	case tea.KeyEscape:
 		model.selectorOpen = false
@@ -327,10 +336,10 @@ func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
 	selected := model.state.Models[index]
 	return model.emitCommand(presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectModel,
-		Text:            "",
-		ProviderID:      selected.ProviderID,
-		ModelID:         selected.ModelID,
-		ReasoningChoice: 0,
+		Text:            mo.None[string](),
+		ProviderID:      mo.Some(selected.ProviderID),
+		ModelID:         mo.Some(selected.ModelID),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 	})
 }
 
@@ -344,26 +353,33 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 	index := 0
+	selection, ok := model.state.ModelSelection.Get()
+	if !ok {
+		return model, nil
+	}
 	for current, level := range configured.Reasoning.Choices {
-		if level == model.state.ModelSelection.ReasoningChoice {
+		if level == selection.ReasoningChoice {
 			index = (current + 1) % len(configured.Reasoning.Choices)
 			break
 		}
 	}
 	return model.emitCommand(presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectReasoningChoice,
-		Text:            "",
-		ProviderID:      "",
-		ModelID:         "",
-		ReasoningChoice: configured.Reasoning.Choices[index],
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.Some(configured.Reasoning.Choices[index]),
 	})
 }
 
 // currentModelIndex resolves the Host-confirmed selection in configured order.
 func (model Model) currentModelIndex() int {
+	selection, ok := model.state.ModelSelection.Get()
+	if !ok {
+		return 0
+	}
 	index := slices.IndexFunc(model.state.Models, func(configured presentationdomain.ConfiguredModel) bool {
-		return configured.ProviderID == model.state.ModelSelection.ProviderID &&
-			configured.ModelID == model.state.ModelSelection.ModelID
+		return configured.ProviderID == selection.ProviderID && configured.ModelID == selection.ModelID
 	})
 	return max(index, 0)
 }
@@ -481,7 +497,11 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for _, position := range positions {
 		content := model.state.ActiveModel[position]
 		kind := presentationdomain.LineModel
-		switch content.Kind {
+		contentKind, kindOK := content.Kind.Get()
+		if !kindOK {
+			contentKind = presentationdomain.ModelContentUnspecified
+		}
+		switch contentKind {
 		case presentationdomain.ModelContentRefusal:
 			kind = presentationdomain.LineRefusal
 		case presentationdomain.ModelContentReasoning:
@@ -497,9 +517,9 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 			renderLine(presentationdomain.Line{
 				Kind:               kind,
 				Text:               content.Text,
-				ToolName:           "",
-				Status:             "",
-				ToolResultContents: nil,
+				ToolName:           mo.None[string](),
+				Status:             mo.None[string](),
+				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
 			}),
 			model.width,
 		)
@@ -514,8 +534,8 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for _, call := range calls {
 		lines = appendWrappedBodyLine(lines, renderToolCall(call), model.width)
 	}
-	if model.state.AuthorizationURL != "" {
-		lines = appendWrappedBodyLine(lines, "Authorization: "+model.state.AuthorizationURL, model.width)
+	if authorizationURL, ok := model.state.AuthorizationURL.Get(); ok {
+		lines = appendWrappedBodyLine(lines, "Authorization: "+authorizationURL, model.width)
 	}
 
 	if model.height <= 0 {
@@ -547,11 +567,11 @@ func renderToolCall(call presentationdomain.ToolCallState) string {
 	}
 	parts := make([]string, 0, len(call.Fields)+1)
 	for _, field := range call.Fields {
-		if field.Complete {
-			value, _ := json.Marshal(field.Value)
-			parts = append(parts, field.Name+"="+string(value))
-		} else if field.Prefix != "" {
-			parts = append(parts, field.Name+"="+field.Prefix)
+		if value, ok := field.Value.Get(); ok {
+			encoded, _ := json.Marshal(value)
+			parts = append(parts, field.Name+"="+string(encoded))
+		} else if prefix, prefixOK := field.Prefix.Get(); prefixOK {
+			parts = append(parts, field.Name+"="+prefix)
 		}
 	}
 	if !call.Provisional && call.Arguments != nil {
@@ -617,22 +637,23 @@ func renderLine(line presentationdomain.Line) string {
 	prefix := linePrefix(line.Kind)
 
 	parts := []string{prefix}
-	if line.ToolName != "" {
-		parts = append(parts, line.ToolName)
+	if toolName, ok := line.ToolName.Get(); ok && toolName != "" {
+		parts = append(parts, toolName)
 	}
-	if line.Status != "" {
-		parts = append(parts, "("+line.Status+")")
+	if status, ok := line.Status.Get(); ok && status != "" {
+		parts = append(parts, "("+status+")")
 	}
-	if line.Text != "" {
-		parts = append(parts, line.Text)
+	if text, ok := line.Text.Get(); ok && text != "" {
+		parts = append(parts, text)
 	}
 
 	return strings.Join(parts, " ")
 }
 
 // selectionText renders only the Host-confirmed selection.
-func selectionText(selection presentationdomain.ModelSelection) string {
-	if selection.ProviderID == "" || selection.ModelID == "" {
+func selectionText(selectionOption mo.Option[presentationdomain.ModelSelection]) string {
+	selection, ok := selectionOption.Get()
+	if !ok || selection.ProviderID == "" || selection.ModelID == "" {
 		return "model unavailable"
 	}
 	return fmt.Sprintf("%s / %s / %s", selection.ProviderID, selection.ModelID, reasoningText(selection.ReasoningChoice))
@@ -665,7 +686,11 @@ func reasoningText(level presentationdomain.ReasoningChoice) string {
 }
 
 // availabilityText maps Host availability to concise terminal status text.
-func availabilityText(availability presentationdomain.Availability) string {
+func availabilityText(availabilityOption mo.Option[presentationdomain.Availability]) string {
+	availability, ok := availabilityOption.Get()
+	if !ok {
+		return "Unavailable"
+	}
 	switch availability {
 	case presentationdomain.AvailabilityChecking:
 		return "Checking"
