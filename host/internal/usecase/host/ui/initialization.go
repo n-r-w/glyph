@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -58,15 +59,7 @@ func BuildInitialization(
 		Severity: domainui.ContentSeverityInformation,
 		Text:     strings.Join(summaryParts, "; "),
 	})
-	initialization := domainui.Initialization{
-		SelectedUIID:   selectedUIID,
-		StartupContent: content,
-		Extensions:     extensions,
-		Availability:   domainui.AvailabilityCheckingAuthentication,
-		Models:         nil,
-		ModelSelection: emptyModelSelection(),
-	}
-	initialization.Models = lo.Map(
+	models := lo.Map(
 		modelCatalog.Models(),
 		func(descriptor model.Descriptor, _ int) domainui.ConfiguredModel {
 			choices := lo.Map(
@@ -85,6 +78,12 @@ func BuildInitialization(
 			}
 		},
 	)
-	initialization.ModelSelection = selectionToUI(modelCatalog.Selection())
-	return initialization
+	return domainui.Initialization{
+		SelectedUIID:   selectedUIID,
+		StartupContent: content,
+		Extensions:     extensions,
+		Availability:   domainui.AvailabilityCheckingAuthentication,
+		Models:         models,
+		ModelSelection: mo.Some(selectionToUI(modelCatalog.Selection())),
+	}
 }

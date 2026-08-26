@@ -47,9 +47,23 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("deliver UI agent event: %w", err)
 	}
-	lifecycle := emptyLifecycle()
-	lifecycle.Type = mapEventType(event.Type)
-	lifecycle.RunID = event.RunID
+	lifecycle := domainui.Lifecycle{
+		Type:               mapEventType(event.Type),
+		RunID:              mo.Some(event.RunID),
+		Text:               mo.None[string](),
+		ToolResultContents: mo.None[[]tool.ResultContent](),
+		ModelContent:       mo.None[domainui.ModelContent](),
+		ModelResponse:      mo.None[domainui.ModelResponse](),
+		ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
+		FinalToolCall:      mo.None[domainui.FinalToolCall](),
+		ToolCallID:         mo.None[string](),
+		ToolName:           mo.None[string](),
+		ProgressChannel:    mo.None[domainui.ProgressChannel](),
+		IsError:            mo.None[bool](),
+		Outcome:            mo.None[string](),
+		ErrorMessage:       mo.None[string](),
+		Availability:       mo.None[domainui.Availability](),
+	}
 	var mapErr error
 	switch event.Type {
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart:
@@ -75,9 +89,23 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("deliver UI agent settlement: %w", err)
 	}
-	lifecycle := emptyLifecycle()
-	lifecycle.Type = domainui.LifecycleAgentSettled
-	lifecycle.RunID = runID
+	lifecycle := domainui.Lifecycle{
+		Type:               domainui.LifecycleAgentSettled,
+		RunID:              mo.Some(runID),
+		Text:               mo.None[string](),
+		ToolResultContents: mo.None[[]tool.ResultContent](),
+		ModelContent:       mo.None[domainui.ModelContent](),
+		ModelResponse:      mo.None[domainui.ModelResponse](),
+		ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
+		FinalToolCall:      mo.None[domainui.FinalToolCall](),
+		ToolCallID:         mo.None[string](),
+		ToolName:           mo.None[string](),
+		ProgressChannel:    mo.None[domainui.ProgressChannel](),
+		IsError:            mo.None[bool](),
+		Outcome:            mo.None[string](),
+		ErrorMessage:       mo.None[string](),
+		Availability:       mo.None[domainui.Availability](),
+	}
 	if err := d.channel.Send(lifecycleFrame(lifecycle)); err != nil {
 		return fmt.Errorf("deliver UI agent settlement: %w", err)
 	}
@@ -105,7 +133,7 @@ func mapUIModelEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		if !present {
 			return errors.New("deliver UI agent event: message end event requires model response")
 		}
-		lifecycle.ModelResponse = mapModelResponse(message)
+		lifecycle.ModelResponse = mo.Some(mapModelResponse(message))
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
 		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
@@ -129,16 +157,17 @@ func mapContentLifecycle(event run.Event, lifecycle *domainui.Lifecycle) error {
 	if event.Type == run.EventContentEnd {
 		contentType = domainui.ModelContentEnd
 	}
-	lifecycle.ModelContent = domainui.ModelContent{
-		Type: contentType, Kind: modelContentKind(content.Kind), Position: position, Text: "",
-	}
+	text := mo.None[string]()
 	if event.Type == run.EventTextDelta {
-		text, present := content.Text.Get()
+		value, present := content.Text.Get()
 		if !present {
 			return errors.New("deliver UI agent event: text delta event requires text")
 		}
-		lifecycle.ModelContent.Text = text
+		text = mo.Some(value)
 	}
+	lifecycle.ModelContent = mo.Some(domainui.ModelContent{
+		Type: contentType, Kind: modelContentKind(content.Kind), Position: position, Text: text,
+	})
 	return nil
 }
 
@@ -150,39 +179,39 @@ func mapUIToolEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		if !present {
 			return fmt.Errorf("deliver UI agent event: event type %d requires tool call preview", event.Type)
 		}
-		lifecycle.ToolCallPreview = mapToolCallPreview(preview)
+		lifecycle.ToolCallPreview = mo.Some(mapToolCallPreview(preview))
 	case run.EventToolCallEnd:
 		call, hasCall := event.ToolCall.Get()
 		position, hasPosition := event.Position.Get()
 		if !hasCall || !hasPosition {
 			return errors.New("deliver UI agent event: tool call end event requires tool call and position")
 		}
-		lifecycle.FinalToolCall = domainui.FinalToolCall{
-			CallID: call.ID, Name: call.Name, Position: position, Arguments: maps.Clone(call.Arguments),
-		}
+		lifecycle.FinalToolCall = mo.Some(domainui.FinalToolCall{
+			CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+		})
 	case run.EventToolExecutionStart:
 		call, present := event.ToolCall.Get()
 		if !present {
 			return errors.New("deliver UI agent event: tool execution start event requires tool call")
 		}
-		lifecycle.ToolCallID = call.ID
-		lifecycle.ToolName = call.Name
+		lifecycle.ToolCallID = mo.Some(call.ID)
+		lifecycle.ToolName = mo.Some(call.Name)
 	case run.EventToolExecutionUpdate:
 		progress, present := event.Progress.Get()
 		if !present {
 			return errors.New("deliver UI agent event: tool execution update event requires progress")
 		}
-		lifecycle.Text = progress.Content
-		lifecycle.ProgressChannel = progressChannel(progress.Channel)
+		lifecycle.Text = mo.Some(progress.Content)
+		lifecycle.ProgressChannel = mo.Some(progressChannel(progress.Channel))
 	case run.EventToolExecutionEnd, run.EventToolResult:
 		result, present := event.ToolResult.Get()
 		if !present {
 			return fmt.Errorf("deliver UI agent event: event type %d requires tool result", event.Type)
 		}
-		lifecycle.ToolCallID = result.CallID
-		lifecycle.ToolName = result.ToolName
-		lifecycle.ToolResultContents = cloneResultContents(result.Contents)
-		lifecycle.IsError = result.IsError
+		lifecycle.ToolCallID = mo.Some(result.CallID)
+		lifecycle.ToolName = mo.Some(result.ToolName)
+		lifecycle.ToolResultContents = mo.Some(cloneResultContents(result.Contents))
+		lifecycle.IsError = mo.Some(result.IsError)
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventContentStart, run.EventTextDelta, run.EventContentEnd, run.EventMessageEnd,
 		run.EventTurnEnd, run.EventAgentEnd:
@@ -199,21 +228,21 @@ func mapUITerminalEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		if !present {
 			return errors.New("deliver UI agent event: turn end event requires turn summary")
 		}
-		lifecycle.Text = responseText(turn.Response)
+		lifecycle.Text = mo.Some(responseText(turn.Response))
 		if outcome, hasOutcome := turn.Response.Outcome.Get(); hasOutcome {
-			lifecycle.Outcome = modelOutcome(outcome)
+			lifecycle.Outcome = mo.Some(modelOutcome(outcome))
 		}
 		if errorMessage, hasErrorMessage := turn.Response.ErrorMessage.Get(); hasErrorMessage {
-			lifecycle.ErrorMessage = errorMessage
+			lifecycle.ErrorMessage = mo.Some(errorMessage)
 		}
 	case run.EventAgentEnd:
 		summary, present := event.Agent.Get()
 		if !present {
 			return errors.New("deliver UI agent event: agent end event requires agent summary")
 		}
-		lifecycle.Outcome = runOutcome(summary.Outcome)
+		lifecycle.Outcome = mo.Some(runOutcome(summary.Outcome))
 		if errorMessage, hasErrorMessage := summary.ErrorMessage.Get(); hasErrorMessage {
-			lifecycle.ErrorMessage = errorMessage
+			lifecycle.ErrorMessage = mo.Some(errorMessage)
 		}
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
@@ -268,14 +297,51 @@ func mapEventType(eventType run.EventType) domainui.LifecycleType {
 
 func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview {
 	fields := lo.Map(preview.Fields, func(field model.ToolCallPreviewField, _ int) domainui.ToolCallPreviewField {
-		return domainui.ToolCallPreviewField{
-			Name: field.Name, Value: field.Value, Prefix: field.Prefix,
-			Complete: field.Kind == model.ToolCallPreviewFieldComplete,
+		mapped := domainui.ToolCallPreviewField{
+			Name: field.Name, Value: mo.None[any](), Prefix: mo.None[string](), Complete: false,
 		}
+		switch field.Kind {
+		case model.ToolCallPreviewFieldComplete:
+			mapped.Value = mo.Some(cloneJSONValue(field.Value))
+			mapped.Complete = true
+		case model.ToolCallPreviewFieldPrefix:
+			mapped.Prefix = mo.Some(field.Prefix)
+		}
+		return mapped
 	})
 	return domainui.ToolCallPreview{
 		CallID: preview.CallID, Name: preview.Name, Position: preview.Position,
 		Provisional: preview.Provisional, Fields: fields,
+	}
+}
+
+// cloneArguments isolates nested JSON argument values before lifecycle delivery.
+func cloneArguments(arguments map[string]any) map[string]any {
+	if arguments == nil {
+		return nil
+	}
+	cloned := maps.Clone(arguments)
+	for key, value := range cloned {
+		cloned[key] = cloneJSONValue(value)
+	}
+	return cloned
+}
+
+// cloneJSONValue copies mutable JSON-compatible values.
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneArguments(typed)
+	case []any:
+		cloned := slices.Clone(typed)
+		for index, item := range cloned {
+			cloned[index] = cloneJSONValue(item)
+		}
+		return cloned
+	case []byte:
+		return bytes.Clone(typed)
+	default:
+		return typed
 	}
 }
 
@@ -300,43 +366,46 @@ func mapModelResponse(response model.Response) domainui.ModelResponse {
 		text, present := item.Text.Get()
 		return domainui.ModelResponseContent{Kind: kind, Text: text}, kind != 0 && present
 	})
-	var responseModel *string
+	responseModel := mo.None[string]()
 	if actualModel, ok := response.ResponseModel.Get(); ok {
-		value := string(actualModel)
-		responseModel = &value
+		responseModel = mo.Some(string(actualModel))
 	}
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic model.Diagnostic, _ int) domainui.ModelDiagnostic {
 		return domainui.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
 	})
-	mapped := domainui.ModelResponse{
-		Text: "", Outcome: "", ErrorMessage: "", Provider: "", Model: "",
-		ResponseModel: responseModel, ResponseID: "", Content: content, Usage: domainui.ModelUsage{},
-		Diagnostics: diagnostics,
+	outcome := mo.None[string]()
+	if value, present := response.Outcome.Get(); present {
+		outcome = mo.Some(modelOutcome(value))
 	}
-	mapped.Text = responseText(response)
-	if outcome, present := response.Outcome.Get(); present {
-		mapped.Outcome = modelOutcome(outcome)
+	errorMessage := mo.None[string]()
+	if value, present := response.ErrorMessage.Get(); present {
+		errorMessage = mo.Some(value)
 	}
-	if errorMessage, present := response.ErrorMessage.Get(); present {
-		mapped.ErrorMessage = errorMessage
+	provider := mo.None[string]()
+	if value, present := response.Provider.Get(); present {
+		provider = mo.Some(string(value))
 	}
-	if provider, present := response.Provider.Get(); present {
-		mapped.Provider = string(provider)
+	configuredModel := mo.None[string]()
+	if value, present := response.Model.Get(); present {
+		configuredModel = mo.Some(string(value))
 	}
-	if configuredModel, present := response.Model.Get(); present {
-		mapped.Model = string(configuredModel)
+	responseID := mo.None[string]()
+	if value, present := response.ResponseID.Get(); present {
+		responseID = mo.Some(value)
 	}
-	if responseID, present := response.ResponseID.Get(); present {
-		mapped.ResponseID = responseID
-	}
+	mappedUsage := mo.None[domainui.ModelUsage]()
 	if usage, present := response.Usage.Get(); present {
-		mapped.Usage = domainui.ModelUsage{
+		mappedUsage = mo.Some(domainui.ModelUsage{
 			InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens,
 			CachedInputTokens: usage.CachedInputTokens, CacheWriteTokens: usage.CacheWriteTokens,
 			ReasoningTokens: usage.ReasoningTokens, TotalTokens: usage.TotalTokens,
-		}
+		})
 	}
-	return mapped
+	return domainui.ModelResponse{
+		Text: responseText(response), Outcome: outcome, ErrorMessage: errorMessage,
+		Provider: provider, Model: configuredModel, ResponseModel: responseModel,
+		ResponseID: responseID, Content: content, Usage: mappedUsage, Diagnostics: diagnostics,
+	}
 }
 
 // modelContentKind maps only UI-safe streamed content kinds.

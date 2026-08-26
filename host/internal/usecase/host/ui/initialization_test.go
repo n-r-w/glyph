@@ -116,7 +116,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 		ProviderID:      "openai-codex",
 		ModelID:         "gpt",
 		ReasoningChoice: domainui.ReasoningChoiceHigh,
-	}, initialization.ModelSelection)
+	}, initialization.ModelSelection.MustGet())
 }
 
 // TestBuildInitializationTreatsEmptyExtensionsAsNormalInformation verifies empty catalogs are not errors.

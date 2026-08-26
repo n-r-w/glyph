@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -54,7 +55,7 @@ func (s *SessionSuite) TestSessionInitializationDeliveryFailureSkipsActivation()
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.ErrorIs(t, err, io.ErrClosedPipe)
@@ -75,7 +76,7 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	}
 	var mutex sync.Mutex
 	var readyOnce sync.Once
@@ -95,7 +96,7 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 		}
 		frameCount := len(frames)
 		mutex.Unlock()
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			if frameCount == 2 {
 				readyOnce.Do(func() { close(ready) })
 			} else if frameCount > 2 {
@@ -149,9 +150,9 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 	assert.Equal(t, []string{"initialization", "activated"}, activationOrder)
 	assert.Equal(t, "session-value", activationValue)
 	assert.Equal(t, domainui.FrameInitialization, frames[0].Kind)
-	assert.Equal(t, domainui.AvailabilityIdle, frames[1].Lifecycle.Availability)
-	assert.Equal(t, domainui.AvailabilityRunning, frames[2].Lifecycle.Availability)
-	assert.Equal(t, domainui.AvailabilityIdle, frames[3].Lifecycle.Availability)
+	assert.Equal(t, domainui.AvailabilityIdle, frames[1].Lifecycle.MustGet().Availability.MustGet())
+	assert.Equal(t, domainui.AvailabilityRunning, frames[2].Lifecycle.MustGet().Availability.MustGet())
+	assert.Equal(t, domainui.AvailabilityIdle, frames[3].Lifecycle.MustGet().Availability.MustGet())
 }
 
 // TestSessionOAuthFailureRequiresExplicitRetry verifies failed authentication never retries automatically.
@@ -179,10 +180,10 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		mutex.Lock()
 		frames = append(frames, frame)
 		mutex.Unlock()
-		if frame.Lifecycle.Availability == domainui.AvailabilityAuthenticationFailed {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityAuthenticationFailed {
 			authFailedOnce.Do(func() { close(authFailed) })
 		}
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 		}
 		return nil
@@ -226,7 +227,7 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.NoError(t, err)
@@ -257,7 +258,7 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		frames = append(frames, frame)
 		frameCount := len(frames)
 		mutex.Unlock()
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 			if frameCount > 3 {
 				stoppedOnce.Do(func() { close(idleAfterStop) })
@@ -320,7 +321,7 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.NoError(t, err)
@@ -370,7 +371,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 			channel := NewMockChannel(gomock.NewController(t))
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				assert.Equal(t, domainui.FrameError, frame.Kind)
-				assert.Equal(t, "Could not change model selection.", frame.Text)
+				assert.Equal(t, "Could not change model selection.", frame.Text.MustGet())
 				return nil
 			})
 			canceled := false
@@ -488,7 +489,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 			ProviderID:      "openrouter",
 			ModelID:         "sonnet",
 			ReasoningChoice: domainui.ReasoningChoiceHigh,
-		}, frame.ModelSelection)
+		}, frame.ModelSelection.MustGet())
 		return nil
 	}).Times(2)
 	session := &Session{
@@ -532,8 +533,8 @@ func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmat
 	s.modelCatalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceMax).Return(model.Selection{}, errors.New("secret detail"))
 	s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		assert.Equal(t, domainui.FrameError, frame.Kind)
-		assert.Equal(t, "Could not change model selection.", frame.Text)
-		assert.NotContains(t, frame.Text, "secret")
+		assert.Equal(t, "Could not change model selection.", frame.Text.MustGet())
+		assert.NotContains(t, frame.Text.MustGet(), "secret")
 		return nil
 	})
 
@@ -570,7 +571,7 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 	idleCount := 0
 	var mutex sync.Mutex
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			mutex.Lock()
 			index := idleCount
 			idleCount++
@@ -618,7 +619,7 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.NoError(t, err)
@@ -649,7 +650,7 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		mutex.Lock()
 		frames = append(frames, frame)
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			idleCount++
 		}
 		currentIdleCount := idleCount
@@ -657,10 +658,10 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		if currentIdleCount == 1 {
 			initialIdleOnce.Do(func() { close(initialIdle) })
 		}
-		if currentIdleCount >= 2 || (frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text, "retry is not available")) {
+		if currentIdleCount >= 2 || (frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), "retry is not available")) {
 			terminalReadyOnce.Do(func() { close(terminalReady) })
 		}
-		if frame.Kind == domainui.FrameError && frame.Text == signInRequired.Error() {
+		if frame.Kind == domainui.FrameError && frame.Text.MustGet() == signInRequired.Error() {
 			runErrorOnce.Do(func() { close(runErrorSent) })
 		}
 		return nil
@@ -705,7 +706,7 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.NoError(t, err)
@@ -713,7 +714,7 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 	defer mutex.Unlock()
 	errorCount := 0
 	for _, frame := range frames {
-		if frame.Kind == domainui.FrameError && frame.Text == signInRequired.Error() {
+		if frame.Kind == domainui.FrameError && frame.Text.MustGet() == signInRequired.Error() {
 			errorCount++
 		}
 	}
@@ -750,7 +751,7 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 			Extensions:     nil,
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
-			ModelSelection: domainui.ModelSelection{},
+			ModelSelection: mo.Some(domainui.ModelSelection{}),
 		},
 	)
 
@@ -790,7 +791,7 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 			Extensions:     nil,
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
-			ModelSelection: domainui.ModelSelection{},
+			ModelSelection: mo.Some(domainui.ModelSelection{}),
 		},
 	)
 
@@ -831,7 +832,7 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 			Extensions:     nil,
 			Availability:   domainui.AvailabilityCheckingAuthentication,
 			Models:         nil,
-			ModelSelection: domainui.ModelSelection{},
+			ModelSelection: mo.Some(domainui.ModelSelection{}),
 		},
 	)
 
@@ -851,7 +852,7 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 	runStopped := make(chan struct{})
 	var readyOnce sync.Once
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		if frame.Lifecycle.Availability == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 		}
 		return nil
@@ -887,7 +888,7 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 		Extensions:     nil,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         nil,
-		ModelSelection: domainui.ModelSelection{},
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
 	})
 
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
@@ -907,7 +908,7 @@ func TestSessionSuite(t *testing.T) {
 // containsRetryableError reports whether one retryable error frame matches text.
 func containsRetryableError(frames []domainui.Frame, text string) bool {
 	for _, frame := range frames {
-		if frame.Kind == domainui.FrameError && frame.RetryAuthentication && frame.Text == text {
+		if frame.Kind == domainui.FrameError && frame.RetryAuthentication.MustGet() && frame.Text.MustGet() == text {
 			return true
 		}
 	}
@@ -917,7 +918,7 @@ func containsRetryableError(frames []domainui.Frame, text string) bool {
 // containsInformation reports whether one information frame contains text.
 func containsInformation(frames []domainui.Frame, text string) bool {
 	for _, frame := range frames {
-		if frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text, text) {
+		if frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), text) {
 			return true
 		}
 	}
@@ -927,7 +928,7 @@ func containsInformation(frames []domainui.Frame, text string) bool {
 // containsAvailability reports whether one lifecycle frame carries availability.
 func containsAvailability(frames []domainui.Frame, availability domainui.Availability) bool {
 	for _, frame := range frames {
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.Availability == availability {
+		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == availability {
 			return true
 		}
 	}

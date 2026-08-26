@@ -16,19 +16,58 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+// TestFrameConstructorsSetOnlySelectedPayload verifies every Host frame alternative.
+func TestFrameConstructorsSetOnlySelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	initialization := domainui.Initialization{}
+	lifecycle := domainui.Lifecycle{}
+	selection := domainui.ModelSelection{}
+	frames := []domainui.Frame{
+		initializationFrame(initialization),
+		lifecycleFrame(lifecycle),
+		authorizationFrame(""),
+		informationFrame(""),
+		errorFrame("", false),
+		modelSelectionChangedFrame(selection),
+	}
+	expected := [][]bool{
+		{true, false, false, false, false, false},
+		{false, true, false, false, false, false},
+		{false, false, true, false, false, false},
+		{false, false, false, true, false, false},
+		{false, false, false, true, true, false},
+		{false, false, false, false, false, true},
+	}
+	for index, frame := range frames {
+		actual := []bool{
+			frame.Initialization.IsSome(),
+			frame.Lifecycle.IsSome(),
+			frame.AuthorizationURL.IsSome(),
+			frame.Text.IsSome(),
+			frame.RetryAuthentication.IsSome(),
+			frame.ModelSelection.IsSome(),
+		}
+		assert.Equal(t, expected[index], actual)
+	}
+	assert.Equal(t, mo.Some(""), frames[2].AuthorizationURL)
+	assert.Equal(t, mo.Some(""), frames[3].Text)
+	assert.Equal(t, mo.Some(false), frames[4].RetryAuthentication)
+}
+
 // TestDeliveryReportsRuntimeFailure sends one safe identity-bearing error frame.
 func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 	t.Parallel()
 
 	channel := NewMockChannel(gomock.NewController(t))
 	channel.EXPECT().Send(domainui.Frame{
-		ModelSelection:      domainui.ModelSelection{},
 		Kind:                domainui.FrameError,
-		Initialization:      domainui.Initialization{},
-		Lifecycle:           domainui.Lifecycle{},
-		AuthorizationURL:    "",
-		Text:                "extension crashed-plugin unavailable: extension process exited",
-		RetryAuthentication: false,
+		Initialization:      mo.None[domainui.Initialization](),
+		Lifecycle:           mo.None[domainui.Lifecycle](),
+		AuthorizationURL:    mo.None[string](),
+		Text:                mo.Some("extension crashed-plugin unavailable: extension process exited"),
+		RetryAuthentication: mo.Some(false),
+		ModelSelection:      mo.None[domainui.ModelSelection](),
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
@@ -113,11 +152,23 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 		require.NoError(t, service.DeliverAgent(t.Context(), event))
 	}
 
-	assert.Equal(t, domainui.ModelContentStart, delivered[0].Lifecycle.ModelContent.Type)
-	assert.Equal(t, domainui.ModelContentTextDelta, delivered[1].Lifecycle.ModelContent.Type)
-	assert.Equal(t, 2, delivered[1].Lifecycle.ModelContent.Position)
-	assert.Equal(t, "delta", delivered[1].Lifecycle.ModelContent.Text)
-	assert.Equal(t, domainui.ModelContentEnd, delivered[2].Lifecycle.ModelContent.Type)
+	startLifecycle, present := delivered[0].Lifecycle.Get()
+	require.True(t, present)
+	startContent, present := startLifecycle.ModelContent.Get()
+	require.True(t, present)
+	deltaLifecycle, present := delivered[1].Lifecycle.Get()
+	require.True(t, present)
+	deltaContent, present := deltaLifecycle.ModelContent.Get()
+	require.True(t, present)
+	endLifecycle, present := delivered[2].Lifecycle.Get()
+	require.True(t, present)
+	endContent, present := endLifecycle.ModelContent.Get()
+	require.True(t, present)
+	assert.Equal(t, domainui.ModelContentStart, startContent.Type)
+	assert.Equal(t, domainui.ModelContentTextDelta, deltaContent.Type)
+	assert.Equal(t, 2, deltaContent.Position)
+	assert.Equal(t, mo.Some("delta"), deltaContent.Text)
+	assert.Equal(t, domainui.ModelContentEnd, endContent.Type)
 }
 
 func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
@@ -142,6 +193,12 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 				Kind:   model.ToolCallPreviewFieldPrefix,
 				Prefix: "fi",
 			},
+			{
+				Value:  map[string]any{"items": []any{"first"}},
+				Name:   "options",
+				Kind:   model.ToolCallPreviewFieldComplete,
+				Prefix: "",
+			},
 		},
 	}
 	require.NoError(
@@ -163,6 +220,7 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 			},
 		),
 	)
+	arguments := map[string]any{"options": map[string]any{"items": []any{"first"}}}
 	require.NoError(
 		t,
 		service.DeliverAgent(t.Context(), run.Event{
@@ -179,18 +237,27 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 			ToolCall: mo.Some(model.ToolCall{
 				ID:        "call-1",
 				Name:      "read",
-				Arguments: map[string]any{"path": "file.txt"},
+				Arguments: arguments,
 			}),
 		}),
 	)
 
-	require.Equal(t, "fi", delivered[0].Lifecycle.ToolCallPreview.Fields[0].Prefix)
-	require.True(t, delivered[0].Lifecycle.ToolCallPreview.Provisional)
-	require.Equal(
-		t,
-		map[string]any{"path": "file.txt"},
-		delivered[1].Lifecycle.FinalToolCall.Arguments,
-	)
+	previewLifecycle, present := delivered[0].Lifecycle.Get()
+	require.True(t, present)
+	mappedPreview, present := previewLifecycle.ToolCallPreview.Get()
+	require.True(t, present)
+	finalLifecycle, present := delivered[1].Lifecycle.Get()
+	require.True(t, present)
+	finalCall, present := finalLifecycle.FinalToolCall.Get()
+	require.True(t, present)
+	require.Equal(t, mo.Some("fi"), mappedPreview.Fields[0].Prefix)
+	require.True(t, mappedPreview.Provisional)
+	previewValue, present := mappedPreview.Fields[1].Value.Get()
+	require.True(t, present)
+	previewValue.(map[string]any)["items"].([]any)[0] = "changed"
+	finalCall.Arguments["options"].(map[string]any)["items"].([]any)[0] = "changed"
+	assert.Equal(t, "first", preview.Fields[1].Value.(map[string]any)["items"].([]any)[0])
+	assert.Equal(t, "first", arguments["options"].(map[string]any)["items"].([]any)[0])
 }
 
 // TestDeliveryFiltersProviderContextFromMessageEnd verifies opaque provider data cannot cross the UI boundary.
@@ -276,15 +343,20 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, domainui.FrameLifecycle, delivered.Kind)
-	assert.Equal(t, "visible textcannot help", delivered.Lifecycle.ModelResponse.Text)
-	assert.NotContains(t, delivered.Lifecycle.ModelResponse.Text, "encrypted-secret")
-	assert.Equal(t, "stop", delivered.Lifecycle.ModelResponse.Outcome)
-	assert.Equal(t, "openai-codex", delivered.Lifecycle.ModelResponse.Provider)
-	assert.Equal(t, "gpt-test", delivered.Lifecycle.ModelResponse.Model)
-	require.NotNil(t, delivered.Lifecycle.ModelResponse.ResponseModel)
-	assert.Equal(t, "gpt-actual", *delivered.Lifecycle.ModelResponse.ResponseModel)
-	assert.Equal(t, "resp-1", delivered.Lifecycle.ModelResponse.ResponseID)
-	assert.Equal(t, int64(17), delivered.Lifecycle.ModelResponse.Usage.TotalTokens)
+	lifecycle, present := delivered.Lifecycle.Get()
+	require.True(t, present)
+	mappedResponse, present := lifecycle.ModelResponse.Get()
+	require.True(t, present)
+	assert.Equal(t, "visible textcannot help", mappedResponse.Text)
+	assert.NotContains(t, mappedResponse.Text, "encrypted-secret")
+	assert.Equal(t, mo.Some("stop"), mappedResponse.Outcome)
+	assert.Equal(t, mo.Some("openai-codex"), mappedResponse.Provider)
+	assert.Equal(t, mo.Some("gpt-test"), mappedResponse.Model)
+	assert.Equal(t, mo.Some("gpt-actual"), mappedResponse.ResponseModel)
+	assert.Equal(t, mo.Some("resp-1"), mappedResponse.ResponseID)
+	usage, present := mappedResponse.Usage.Get()
+	require.True(t, present)
+	assert.Equal(t, int64(17), usage.TotalTokens)
 	assert.Equal(t, []domainui.ModelResponseContent{
 		{
 			Kind: domainui.ModelContentKindReasoning,
@@ -298,12 +370,12 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 			Kind: domainui.ModelContentKindRefusal,
 			Text: "cannot help",
 		},
-	}, delivered.Lifecycle.ModelResponse.Content)
+	}, mappedResponse.Content)
 	assert.Equal(t, []domainui.ModelDiagnostic{{
 		Code:    "recovered_output",
 		Message: "safe diagnostic",
-	}}, delivered.Lifecycle.ModelResponse.Diagnostics)
-	assert.Empty(t, delivered.Lifecycle.Outcome)
+	}}, mappedResponse.Diagnostics)
+	assert.True(t, lifecycle.Outcome.IsNone())
 }
 
 // TestDeliveryPreservesAgentThenSettlementOrder verifies Host settlement remains a separate final lifecycle item.
@@ -341,8 +413,12 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 	require.NoError(t, delivery.DeliverSettled(t.Context(), "run-1"))
 
 	require.Len(t, frames, 2)
-	assert.Equal(t, domainui.LifecycleAgentEnd, frames[0].Lifecycle.Type)
-	assert.Equal(t, domainui.LifecycleAgentSettled, frames[1].Lifecycle.Type)
+	agentLifecycle, present := frames[0].Lifecycle.Get()
+	require.True(t, present)
+	settledLifecycle, present := frames[1].Lifecycle.Get()
+	require.True(t, present)
+	assert.Equal(t, domainui.LifecycleAgentEnd, agentLifecycle.Type)
+	assert.Equal(t, domainui.LifecycleAgentSettled, settledLifecycle.Type)
 }
 
 // TestCloneResultContentsClonesImageBytesInsideOption verifies lifecycle frames do not share mutable image data.

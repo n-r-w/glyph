@@ -121,36 +121,49 @@ func (c *channel) Receive() (domainui.Command, error) {
 func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 	switch frame.Kind {
 	case domainui.FrameInitialization:
-		request := &uipb.OpenRequest{}
-		request.SetInitialization(mapInitialization(frame.Initialization))
-		return request, nil
+		return mapInitializationFrame(frame)
 	case domainui.FrameLifecycle:
-		request := &uipb.OpenRequest{}
-		request.SetLifecycle(mapLifecycle(frame.Lifecycle))
-		return request, nil
+		return mapLifecycleFrame(frame)
 	case domainui.FrameAuthorization:
+		authorizationURL, present := frame.AuthorizationURL.Get()
+		if !present {
+			return nil, errors.New("map UI frame: authorization payload is required")
+		}
 		request := &uipb.OpenRequest{}
 		request.SetAuthorization(uipb.AuthorizationRequest_builder{
-			Url: new(frame.AuthorizationURL),
+			Url: new(authorizationURL),
 		}.Build())
 		return request, nil
 	case domainui.FrameInformation:
+		text, present := frame.Text.Get()
+		if !present {
+			return nil, errors.New("map UI frame: information payload is required")
+		}
 		request := &uipb.OpenRequest{}
 		request.SetInformation(uipb.Information_builder{
-			Text: new(frame.Text),
+			Text: new(text),
 		}.Build())
 		return request, nil
 	case domainui.FrameError:
+		text, hasText := frame.Text.Get()
+		retryAuthentication, hasRetryAuthentication := frame.RetryAuthentication.Get()
+		if !hasText || !hasRetryAuthentication {
+			return nil, errors.New("map UI frame: error payload is required")
+		}
 		request := &uipb.OpenRequest{}
 		request.SetError(uipb.Error_builder{
-			Text:                new(frame.Text),
-			RetryAuthentication: new(frame.RetryAuthentication),
+			Text:                new(text),
+			RetryAuthentication: new(retryAuthentication),
 		}.Build())
 		return request, nil
 	case domainui.FrameModelSelectionChanged:
+		selection, present := frame.ModelSelection.Get()
+		if !present {
+			return nil, errors.New("map UI frame: model selection payload is required")
+		}
 		request := &uipb.OpenRequest{}
 		request.SetModelSelectionChanged(uipb.ModelSelectionChanged_builder{
-			Selection: mapModelSelection(frame.ModelSelection),
+			Selection: mapModelSelection(selection),
 		}.Build())
 		return request, nil
 	default:
@@ -158,8 +171,38 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 	}
 }
 
+// mapInitializationFrame validates and maps the selected initialization payload.
+func mapInitializationFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
+	initialization, present := frame.Initialization.Get()
+	if !present {
+		return nil, errors.New("map UI frame: initialization payload is required")
+	}
+	mapped, err := mapInitialization(initialization)
+	if err != nil {
+		return nil, err
+	}
+	request := &uipb.OpenRequest{}
+	request.SetInitialization(mapped)
+	return request, nil
+}
+
+// mapLifecycleFrame validates and maps the selected lifecycle payload.
+func mapLifecycleFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
+	lifecycle, present := frame.Lifecycle.Get()
+	if !present {
+		return nil, errors.New("map UI frame: lifecycle payload is required")
+	}
+	mapped, err := mapLifecycle(lifecycle)
+	if err != nil {
+		return nil, err
+	}
+	request := &uipb.OpenRequest{}
+	request.SetLifecycle(mapped)
+	return request, nil
+}
+
 // mapInitialization converts one complete startup state.
-func mapInitialization(initialization domainui.Initialization) *uipb.Initialization {
+func mapInitialization(initialization domainui.Initialization) (*uipb.Initialization, error) {
 	startup := lo.Map(initialization.StartupContent, func(content domainui.StartupContent, _ int) *uipb.StartupContent {
 		return uipb.StartupContent_builder{
 			Severity: new(mapSeverity(content.Severity)),
@@ -191,14 +234,18 @@ func mapInitialization(initialization domainui.Initialization) *uipb.Initializat
 			Reasoning:  reasoning,
 		}.Build()
 	})
+	selection, present := initialization.ModelSelection.Get()
+	if !present {
+		return nil, errors.New("map UI initialization: model selection is required")
+	}
 	return uipb.Initialization_builder{
 		SelectedUiId:   new(initialization.SelectedUIID),
 		StartupContent: startup,
 		Extensions:     extensions,
 		Availability:   new(mapAvailability(initialization.Availability)),
 		Models:         models,
-		ModelSelection: mapModelSelection(initialization.ModelSelection),
-	}.Build()
+		ModelSelection: mapModelSelection(selection),
+	}.Build(), nil
 }
 
 // mapModelSelection converts one Host-confirmed selection.
@@ -211,51 +258,203 @@ func mapModelSelection(selection domainui.ModelSelection) *uipb.ModelSelection {
 }
 
 // mapLifecycle converts one explicit lifecycle payload.
-func mapLifecycle(event domainui.Lifecycle) *uipb.LifecycleEvent {
-	mapped := uipb.LifecycleEvent_builder{
+func mapLifecycle(event domainui.Lifecycle) (*uipb.LifecycleEvent, error) {
+	mapped := mapLifecycleScalars(event)
+	if event.Type != domainui.LifecycleAvailabilityChanged && event.RunID.IsNone() {
+		return nil, errors.New("map UI lifecycle: run ID is required")
+	}
+	switch event.Type {
+	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
+		domainui.LifecycleAgentSettled:
+		return mapped, nil
+	case domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
+		domainui.LifecycleModelContentEnd, domainui.LifecycleMessageEnd:
+		return mapModelLifecycle(event, mapped)
+	case domainui.LifecycleToolCallStart, domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd:
+		return mapToolCallLifecycle(event, mapped)
+	case domainui.LifecycleToolExecutionStart, domainui.LifecycleToolExecutionUpdate,
+		domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult:
+		return mapToolExecutionLifecycle(event, mapped)
+	case domainui.LifecycleTurnEnd, domainui.LifecycleAgentEnd:
+		return mapTerminalLifecycle(event, mapped)
+	case domainui.LifecycleAvailabilityChanged:
+		if event.Availability.IsNone() {
+			return nil, errors.New("map UI lifecycle: availability is required")
+		}
+		return mapped, nil
+	}
+	return mapped, nil
+}
+
+// mapLifecycleScalars maps scalar Options at the generated Protobuf boundary.
+func mapLifecycleScalars(event domainui.Lifecycle) *uipb.LifecycleEvent {
+	var runID *string
+	if value, present := event.RunID.Get(); present {
+		runID = new(value)
+	}
+	var text *string
+	if value, present := event.Text.Get(); present {
+		text = new(value)
+	}
+	var toolCallID *string
+	if value, present := event.ToolCallID.Get(); present {
+		toolCallID = new(value)
+	}
+	var toolName *string
+	if value, present := event.ToolName.Get(); present {
+		toolName = new(value)
+	}
+	var mappedProgressChannel *uipb.ProgressChannel
+	if value, present := event.ProgressChannel.Get(); present {
+		mappedProgressChannel = new(mapProgressChannel(value))
+	}
+	var isError *bool
+	if value, present := event.IsError.Get(); present {
+		isError = new(value)
+	}
+	var outcome *string
+	if value, present := event.Outcome.Get(); present {
+		outcome = new(value)
+	}
+	var errorMessage *string
+	if value, present := event.ErrorMessage.Get(); present {
+		errorMessage = new(value)
+	}
+	var availability *uipb.Availability
+	if value, present := event.Availability.Get(); present {
+		availability = new(mapAvailability(value))
+	}
+	return uipb.LifecycleEvent_builder{
 		Type:               new(mapLifecycleType(event.Type)),
-		RunId:              new(event.RunID),
-		Text:               new(event.Text),
-		ToolCallId:         new(event.ToolCallID),
-		ToolName:           new(event.ToolName),
-		ProgressChannel:    new(mapProgressChannel(event.ProgressChannel)),
-		IsError:            new(event.IsError),
-		Outcome:            new(event.Outcome),
-		ErrorMessage:       new(event.ErrorMessage),
-		Availability:       new(mapAvailability(event.Availability)),
+		RunId:              runID,
+		Text:               text,
+		ToolCallId:         toolCallID,
+		ToolName:           toolName,
+		ProgressChannel:    mappedProgressChannel,
+		IsError:            isError,
+		Outcome:            outcome,
+		ErrorMessage:       errorMessage,
+		Availability:       availability,
 		ModelContent:       nil,
 		ModelResponse:      nil,
 		ToolCallPreview:    nil,
 		FinalToolCall:      nil,
 		ToolResultContents: nil,
 	}.Build()
-	if event.ModelContent.Type != 0 {
-		mapped.SetModelContent(uipb.ModelContent_builder{
-			Type:     new(mapModelContentType(event.ModelContent.Type)),
-			Position: new(int32(event.ModelContent.Position)), //nolint:gosec // Model positions remain bounded by response size.
-			Text:     new(event.ModelContent.Text),
-			Kind:     new(mapModelContentKind(event.ModelContent.Kind)),
-		}.Build())
-	}
+}
+
+// mapModelLifecycle validates and maps selected model payloads.
+func mapModelLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
 	if event.Type == domainui.LifecycleMessageEnd {
-		mapped.SetModelResponse(mapModelResponse(event.ModelResponse))
+		response, present := event.ModelResponse.Get()
+		if !present {
+			return nil, errors.New("map UI lifecycle: model response is required")
+		}
+		mapped.SetModelResponse(mapModelResponse(response))
+		return mapped, nil
 	}
-	if event.Type == domainui.LifecycleToolCallStart || event.Type == domainui.LifecycleToolCallDelta {
-		mapped.SetToolCallPreview(mapToolCallPreview(event.ToolCallPreview))
+	content, present := event.ModelContent.Get()
+	if !present {
+		return nil, errors.New("map UI lifecycle: model content is required")
 	}
-	if event.Type == domainui.LifecycleToolResult {
-		mapped.SetToolResultContents(mapToolResultContents(event.ToolResultContents))
+	var contentText *string
+	if value, hasText := content.Text.Get(); hasText {
+		contentText = new(value)
 	}
+	if event.Type == domainui.LifecycleModelTextDelta && contentText == nil {
+		return nil, errors.New("map UI lifecycle: model text delta is required")
+	}
+	mapped.SetModelContent(uipb.ModelContent_builder{
+		Type:     new(mapModelContentType(content.Type)),
+		Position: new(int32(content.Position)), //nolint:gosec // Model positions remain bounded by response size.
+		Text:     contentText,
+		Kind:     new(mapModelContentKind(content.Kind)),
+	}.Build())
+	return mapped, nil
+}
+
+// mapToolCallLifecycle validates and maps selected tool-call payloads.
+func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
 	if event.Type == domainui.LifecycleToolCallEnd {
-		arguments, _ := structpb.NewStruct(event.FinalToolCall.Arguments)
+		call, present := event.FinalToolCall.Get()
+		if !present {
+			return nil, errors.New("map UI lifecycle: final tool call is required")
+		}
+		arguments, err := structpb.NewStruct(call.Arguments)
+		if err != nil {
+			return nil, fmt.Errorf("map UI lifecycle final tool call: %w", err)
+		}
 		mapped.SetFinalToolCall(uipb.FinalToolCall_builder{
-			CallId:    new(event.FinalToolCall.CallID),
-			Name:      new(event.FinalToolCall.Name),
-			Position:  new(int32(event.FinalToolCall.Position)), //nolint:gosec // Positions are bounded by response size.
+			CallId:    new(call.CallID),
+			Name:      new(call.Name),
+			Position:  new(int32(call.Position)), //nolint:gosec // Positions are bounded by response size.
 			Arguments: arguments,
 		}.Build())
+		return mapped, nil
 	}
-	return mapped
+	preview, present := event.ToolCallPreview.Get()
+	if !present {
+		return nil, errors.New("map UI lifecycle: tool call preview is required")
+	}
+	mappedPreview, err := mapToolCallPreview(preview)
+	if err != nil {
+		return nil, err
+	}
+	mapped.SetToolCallPreview(mappedPreview)
+	return mapped, nil
+}
+
+// mapToolExecutionLifecycle validates and maps selected tool-execution payloads.
+func mapToolExecutionLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+	switch event.Type {
+	case domainui.LifecycleToolExecutionStart:
+		if event.ToolCallID.IsNone() || event.ToolName.IsNone() {
+			return nil, errors.New("map UI lifecycle: tool execution is required")
+		}
+	case domainui.LifecycleToolExecutionUpdate:
+		if event.Text.IsNone() || event.ProgressChannel.IsNone() {
+			return nil, errors.New("map UI lifecycle: tool progress is required")
+		}
+	case domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult:
+		contents, hasContents := event.ToolResultContents.Get()
+		if event.ToolCallID.IsNone() || event.ToolName.IsNone() || !hasContents || event.IsError.IsNone() {
+			return nil, errors.New("map UI lifecycle: tool result is required")
+		}
+		if event.Type == domainui.LifecycleToolResult {
+			mapped.SetToolResultContents(mapToolResultContents(contents))
+		}
+	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
+		domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
+		domainui.LifecycleModelContentEnd, domainui.LifecycleToolCallStart,
+		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
+		domainui.LifecycleTurnEnd, domainui.LifecycleAgentEnd,
+		domainui.LifecycleAgentSettled, domainui.LifecycleAvailabilityChanged:
+		return nil, fmt.Errorf("map UI lifecycle: unsupported tool execution event type %d", event.Type)
+	}
+	return mapped, nil
+}
+
+// mapTerminalLifecycle validates selected turn and agent summaries.
+func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+	switch event.Type {
+	case domainui.LifecycleTurnEnd:
+		if event.Text.IsNone() {
+			return nil, errors.New("map UI lifecycle: turn summary is required")
+		}
+	case domainui.LifecycleAgentEnd:
+		if event.Outcome.IsNone() {
+			return nil, errors.New("map UI lifecycle: agent summary is required")
+		}
+	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
+		domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
+		domainui.LifecycleModelContentEnd, domainui.LifecycleToolCallStart,
+		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
+		domainui.LifecycleToolExecutionStart, domainui.LifecycleToolExecutionUpdate,
+		domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult,
+		domainui.LifecycleAgentSettled, domainui.LifecycleAvailabilityChanged:
+		return nil, fmt.Errorf("map UI lifecycle: unsupported terminal event type %d", event.Type)
+	}
+	return mapped, nil
 }
 
 // mapCommand validates one generated UI command.
@@ -467,28 +666,40 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 	})
 }
 
-func mapToolCallPreview(preview domainui.ToolCallPreview) *uipb.ToolCallPreview {
-	fields := lo.Map(preview.Fields, func(field domainui.ToolCallPreviewField, _ int) *uipb.ToolCallPreviewField {
+func mapToolCallPreview(preview domainui.ToolCallPreview) (*uipb.ToolCallPreview, error) {
+	fields := make([]*uipb.ToolCallPreviewField, 0, len(preview.Fields))
+	for _, field := range preview.Fields {
 		mapped := uipb.ToolCallPreviewField_builder{
 			Name:   new(field.Name),
 			Value:  nil,
 			Prefix: nil,
 		}.Build()
 		if field.Complete {
-			value, _ := structpb.NewValue(field.Value)
-			mapped.SetValue(proto.ValueOrDefault(value))
+			value, present := field.Value.Get()
+			if !present {
+				return nil, errors.New("map UI tool call preview: complete value is required")
+			}
+			protobufValue, err := structpb.NewValue(value)
+			if err != nil {
+				return nil, fmt.Errorf("map UI tool call preview value: %w", err)
+			}
+			mapped.SetValue(proto.ValueOrDefault(protobufValue))
 		} else {
-			mapped.SetPrefix(field.Prefix)
+			prefix, present := field.Prefix.Get()
+			if !present {
+				return nil, errors.New("map UI tool call preview: prefix is required")
+			}
+			mapped.SetPrefix(prefix)
 		}
-		return mapped
-	})
+		fields = append(fields, mapped)
+	}
 	return uipb.ToolCallPreview_builder{
 		CallId:      new(preview.CallID),
 		Name:        new(preview.Name),
 		Position:    new(int32(preview.Position)), //nolint:gosec // Positions are bounded by response size.
 		Provisional: new(preview.Provisional),
 		Fields:      fields,
-	}.Build()
+	}.Build(), nil
 }
 
 func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
@@ -504,24 +715,52 @@ func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
 			Message: new(diagnostic.Message),
 		}.Build()
 	})
+	var outcome *string
+	if value, present := response.Outcome.Get(); present {
+		outcome = new(value)
+	}
+	var errorMessage *string
+	if value, present := response.ErrorMessage.Get(); present {
+		errorMessage = new(value)
+	}
+	var provider *string
+	if value, present := response.Provider.Get(); present {
+		provider = new(value)
+	}
+	var configuredModel *string
+	if value, present := response.Model.Get(); present {
+		configuredModel = new(value)
+	}
+	var responseModel *string
+	if value, present := response.ResponseModel.Get(); present {
+		responseModel = new(value)
+	}
+	var responseID *string
+	if value, present := response.ResponseID.Get(); present {
+		responseID = new(value)
+	}
+	var usage *uipb.ModelUsage
+	if value, present := response.Usage.Get(); present {
+		usage = uipb.ModelUsage_builder{
+			InputTokens:       new(value.InputTokens),
+			OutputTokens:      new(value.OutputTokens),
+			CachedInputTokens: new(value.CachedInputTokens),
+			CacheWriteTokens:  new(value.CacheWriteTokens),
+			ReasoningTokens:   new(value.ReasoningTokens),
+			TotalTokens:       new(value.TotalTokens),
+		}.Build()
+	}
 	return uipb.ModelResponse_builder{
 		Text:          new(response.Text),
-		Outcome:       new(response.Outcome),
-		ErrorMessage:  new(response.ErrorMessage),
-		Provider:      new(response.Provider),
-		Model:         new(response.Model),
-		ResponseModel: response.ResponseModel,
-		ResponseId:    new(response.ResponseID),
-		Usage: uipb.ModelUsage_builder{
-			InputTokens:       new(response.Usage.InputTokens),
-			OutputTokens:      new(response.Usage.OutputTokens),
-			CachedInputTokens: new(response.Usage.CachedInputTokens),
-			CacheWriteTokens:  new(response.Usage.CacheWriteTokens),
-			ReasoningTokens:   new(response.Usage.ReasoningTokens),
-			TotalTokens:       new(response.Usage.TotalTokens),
-		}.Build(),
-		Diagnostics: diagnostics,
-		Content:     content,
+		Outcome:       outcome,
+		ErrorMessage:  errorMessage,
+		Provider:      provider,
+		Model:         configuredModel,
+		ResponseModel: responseModel,
+		ResponseId:    responseID,
+		Usage:         usage,
+		Diagnostics:   diagnostics,
+		Content:       content,
 	}.Build()
 }
 

@@ -1,7 +1,11 @@
 // Package ui defines provider-neutral Host UI lifecycle models.
 package ui
 
-import "github.com/n-r-w/glyph/host/internal/domain/tool"
+import (
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
+)
 
 // ContentSeverity identifies startup content importance.
 type ContentSeverity uint8
@@ -169,7 +173,7 @@ type Initialization struct {
 	Extensions     []ExtensionAvailability
 	Availability   Availability
 	Models         []ConfiguredModel
-	ModelSelection ModelSelection
+	ModelSelection mo.Option[ModelSelection]
 }
 
 // ModelContentType identifies one model content transition.
@@ -201,7 +205,7 @@ type ModelContent struct {
 	Type     ModelContentType
 	Kind     ModelContentKind
 	Position int
-	Text     string
+	Text     mo.Option[string]
 }
 
 // ModelResponseContent carries one ordered finalized model block.
@@ -229,22 +233,22 @@ type ModelDiagnostic struct {
 // ModelResponse carries typed terminal model data.
 type ModelResponse struct {
 	Text          string
-	Outcome       string
-	ErrorMessage  string
-	Provider      string
-	Model         string
-	ResponseModel *string
-	ResponseID    string
+	Outcome       mo.Option[string]
+	ErrorMessage  mo.Option[string]
+	Provider      mo.Option[string]
+	Model         mo.Option[string]
+	ResponseModel mo.Option[string]
+	ResponseID    mo.Option[string]
 	Content       []ModelResponseContent
-	Usage         ModelUsage
+	Usage         mo.Option[ModelUsage]
 	Diagnostics   []ModelDiagnostic
 }
 
 // ToolCallPreviewField carries one complete value or exact scalar prefix.
 type ToolCallPreviewField struct {
 	Name     string
-	Value    any
-	Prefix   string
+	Value    mo.Option[any]
+	Prefix   mo.Option[string]
 	Complete bool
 }
 
@@ -268,20 +272,20 @@ type FinalToolCall struct {
 // Lifecycle carries one explicit provider-neutral lifecycle event.
 type Lifecycle struct {
 	Type               LifecycleType
-	RunID              string
-	Text               string
-	ToolResultContents []tool.ResultContent
-	ModelContent       ModelContent
-	ModelResponse      ModelResponse
-	ToolCallPreview    ToolCallPreview
-	FinalToolCall      FinalToolCall
-	ToolCallID         string
-	ToolName           string
-	ProgressChannel    ProgressChannel
-	IsError            bool
-	Outcome            string
-	ErrorMessage       string
-	Availability       Availability
+	RunID              mo.Option[string]
+	Text               mo.Option[string]
+	ToolResultContents mo.Option[[]tool.ResultContent]
+	ModelContent       mo.Option[ModelContent]
+	ModelResponse      mo.Option[ModelResponse]
+	ToolCallPreview    mo.Option[ToolCallPreview]
+	FinalToolCall      mo.Option[FinalToolCall]
+	ToolCallID         mo.Option[string]
+	ToolName           mo.Option[string]
+	ProgressChannel    mo.Option[ProgressChannel]
+	IsError            mo.Option[bool]
+	Outcome            mo.Option[string]
+	ErrorMessage       mo.Option[string]
+	Availability       mo.Option[Availability]
 }
 
 // FrameKind identifies one Host-to-UI frame payload.
@@ -305,12 +309,12 @@ const (
 // Frame carries exactly one Host-to-UI payload.
 type Frame struct {
 	Kind                FrameKind
-	Initialization      Initialization
-	Lifecycle           Lifecycle
-	AuthorizationURL    string
-	Text                string
-	RetryAuthentication bool
-	ModelSelection      ModelSelection
+	Initialization      mo.Option[Initialization]
+	Lifecycle           mo.Option[Lifecycle]
+	AuthorizationURL    mo.Option[string]
+	Text                mo.Option[string]
+	RetryAuthentication mo.Option[bool]
+	ModelSelection      mo.Option[ModelSelection]
 }
 
 // CommandKind identifies one UI-to-Host command.
