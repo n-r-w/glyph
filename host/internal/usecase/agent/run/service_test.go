@@ -556,6 +556,40 @@ func TestServiceRunProviderFailure(t *testing.T) {
 	})
 }
 
+// TestServiceRunRejectsUnknownTerminalOutcome verifies rejection before malformed history mutation.
+func TestServiceRunRejectsUnknownTerminalOutcome(t *testing.T) {
+	t.Parallel()
+
+	provider := NewMockModelProvider(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(
+		model.Response{
+			Content: nil, Outcome: mo.Some(model.Outcome(99)), ErrorMessage: mo.None[string](),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+			ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		},
+		nil,
+	))
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	service := newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
+		provider, hookrunner.New(nil, nil, nil), tools, events,
+	)
+
+	_, err := service.Run(t.Context(), Request{RunID: "run-unknown-outcome", UserText: "hi"})
+
+	require.ErrorContains(t, err, "unsupported terminal model outcome 99")
+	assert.True(t, service.State().PartialResponse.IsNone())
+	history := service.History()
+	require.Len(t, history, 2)
+	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
+	for _, message := range history {
+		assert.NotEqual(t, model.Outcome(99), message.Model.OrEmpty().Outcome.OrEmpty())
+	}
+}
+
 // TestServiceRunProviderCancellation uses a live terminal context and stores an aborted partial response.
 func TestServiceRunProviderCancellation(t *testing.T) {
 	t.Parallel()

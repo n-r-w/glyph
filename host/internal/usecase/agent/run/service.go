@@ -590,7 +590,17 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 	}
 	partial, present := s.state.PartialResponse.Get()
 	if !present {
-		partial = model.Response{}
+		partial = model.Response{
+			Content:       nil,
+			Outcome:       mo.None[model.Outcome](),
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
+		}
 	}
 	if err := applyStreamEvent(&partial, event); err != nil {
 		return err

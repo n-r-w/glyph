@@ -698,8 +698,8 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 	if !content.HasKind() {
 		return errors.New("model content kind is missing")
 	}
-	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA && !content.HasText() {
-		return errors.New("model content text is missing")
+	if err := validateModelContentText(lifecycle.GetType(), content); err != nil {
+		return err
 	}
 	kind, err := mapModelContentDiscriminators(lifecycle.GetType(), content.GetType(), content.GetKind())
 	if err != nil {
@@ -710,6 +710,20 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 	event.ModelContentKind = mo.Some(kind)
 	if content.HasText() {
 		event.Text = mo.Some(content.GetText())
+	}
+	return nil
+}
+
+// validateModelContentText enforces the nested text field selected by the lifecycle type.
+func validateModelContentText(lifecycleType uiv1.LifecycleType, content *uiv1.ModelContent) error {
+	if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
+		if !content.HasText() {
+			return errors.New("model content text is missing")
+		}
+		return nil
+	}
+	if content.HasText() {
+		return errors.New("model content text must be absent")
 	}
 	return nil
 }

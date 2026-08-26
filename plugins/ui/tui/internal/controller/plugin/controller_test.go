@@ -2115,6 +2115,96 @@ func TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument(t *te
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
+// TestMapLifecycleRejectsInactiveModelContentText verifies structural variants reject nested text.
+func TestMapLifecycleRejectsInactiveModelContentText(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		outer  uiv1.LifecycleType
+		nested uiv1.ModelContentType
+	}{
+		"content start": {
+			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_START,
+		},
+		"content end": {
+			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
+			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_END,
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := mapLifecycle(modelContentLifecycleWithText(
+				testCase.outer,
+				testCase.nested,
+				uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
+				"",
+			))
+			require.ErrorContains(t, err, "model content text")
+		})
+	}
+}
+
+// TestOpenRejectsInactiveModelContentTextAsInvalidArgument verifies mapper errors keep gRPC ownership.
+func TestOpenRejectsInactiveModelContentTextAsInvalidArgument(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		outer  uiv1.LifecycleType
+		nested uiv1.ModelContentType
+	}{
+		"content start": {
+			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_START,
+		},
+		"content end": {
+			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
+			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_END,
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mockController := gomock.NewController(t)
+			terminal := NewMockTerminal(mockController)
+			session := NewMockTerminalSession(mockController)
+			factory := NewMockProgramFactory(mockController)
+			program := NewMockProgram(mockController)
+			runDone := make(chan struct{})
+			terminal.EXPECT().Open().Return(session, nil)
+			session.EXPECT().Input().Return(bytes.NewBuffer(nil))
+			session.EXPECT().Output().Return(&bytes.Buffer{})
+			factory.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(program)
+			program.EXPECT().Run().DoAndReturn(func() error { <-runDone; return nil })
+			program.EXPECT().Send(gomock.Any()).AnyTimes()
+			program.EXPECT().Quit().Do(func() { close(runDone) })
+			session.EXPECT().Close().Return(nil)
+
+			client := uisdk.TestClient(t, New(terminal, factory))
+			stream, err := client.Open(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(initializationRequest()))
+			require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+				Initialization: nil,
+				Lifecycle: modelContentLifecycleWithText(
+					testCase.outer,
+					testCase.nested,
+					uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
+					"malformed",
+				),
+				Authorization: nil, Information: nil, Error: nil, ModelSelectionChanged: nil,
+			}.Build()))
+			require.NoError(t, stream.CloseSend())
+			_, err = stream.Recv()
+			require.Error(t, err)
+			assert.Equal(t, codes.InvalidArgument, status.Code(err))
+		})
+	}
+}
+
 // TestOpenRejectsMalformedLifecycleAsInvalidArgument verifies public stream mapping keeps its protocol error code.
 func TestOpenRejectsMalformedLifecycleAsInvalidArgument(t *testing.T) {
 	t.Parallel()
@@ -2173,10 +2263,35 @@ func roundTripLifecycle(t *testing.T, lifecycle *uiv1.LifecycleEvent) *uiv1.Life
 }
 
 // modelContentLifecycle builds a present model-content payload for discriminator boundary tests.
+// modelContentLifecycle builds a valid nested model content lifecycle.
 func modelContentLifecycle(
 	outer uiv1.LifecycleType,
 	nested uiv1.ModelContentType,
 	kind uiv1.ModelContentKind,
+) *uiv1.LifecycleEvent {
+	var text *string
+	if outer == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
+		text = new("")
+	}
+	return buildModelContentLifecycle(outer, nested, kind, text)
+}
+
+// modelContentLifecycleWithText builds a nested lifecycle with an explicit text field.
+func modelContentLifecycleWithText(
+	outer uiv1.LifecycleType,
+	nested uiv1.ModelContentType,
+	kind uiv1.ModelContentKind,
+	text string,
+) *uiv1.LifecycleEvent {
+	return buildModelContentLifecycle(outer, nested, kind, new(text))
+}
+
+// buildModelContentLifecycle builds the shared generated lifecycle value.
+func buildModelContentLifecycle(
+	outer uiv1.LifecycleType,
+	nested uiv1.ModelContentType,
+	kind uiv1.ModelContentKind,
+	text *string,
 ) *uiv1.LifecycleEvent {
 	return uiv1.LifecycleEvent_builder{
 		Type:            new(outer),
@@ -2193,7 +2308,7 @@ func modelContentLifecycle(
 			Type:     new(nested),
 			Position: new(int32(0)),
 			Kind:     new(kind),
-			Text:     new(""),
+			Text:     text,
 		}.Build(),
 		ModelResponse:      nil,
 		ToolCallPreview:    nil,

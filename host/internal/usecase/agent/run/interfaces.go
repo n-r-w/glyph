@@ -189,6 +189,12 @@ func applyTerminalStreamEvent(partial *model.Response, responseOption mo.Option[
 	if !hasOutcome || outcome == 0 {
 		return errors.New("terminal model stream event requires an outcome")
 	}
+	// Reject provider enum drift at the terminal boundary before shared state changes.
+	switch outcome {
+	case model.OutcomeStop, model.OutcomeToolUse, model.OutcomeLength, model.OutcomeAborted, model.OutcomeFailed:
+	default:
+		return fmt.Errorf("unsupported terminal model outcome %d", outcome)
+	}
 	for position := range partial.Content {
 		content := &partial.Content[position]
 		if isStreamedContent(content.Kind) && !content.Final {
