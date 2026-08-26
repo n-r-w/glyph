@@ -174,7 +174,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 			Position: new(int32(0)),
 			Text:     new("streaming response"),
-			Kind:     nil,
+			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 		}.Build(),
 		RunId:              nil,
 		Text:               nil,

@@ -467,7 +467,7 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 		response := lifecycle.GetModelResponse()
 		event.Kind = presentationdomain.EventModelEnd
 		if response == nil {
-			return nil
+			return errors.New("model response is missing")
 		}
 		event.ModelResponseContent = mapModelResponseContent(response.GetContent())
 		if response.HasErrorMessage() {
@@ -483,10 +483,17 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 	if content == nil {
 		return errors.New("model content is missing")
 	}
-	event.Kind = presentationdomain.EventModelDelta
-	if content.HasPosition() {
-		event.Position = mo.Some(int(content.GetPosition()))
+	if !content.HasPosition() {
+		return errors.New("model content position is missing")
 	}
+	if !content.HasKind() {
+		return errors.New("model content kind is missing")
+	}
+	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA && !content.HasText() {
+		return errors.New("model content text is missing")
+	}
+	event.Kind = presentationdomain.EventModelDelta
+	event.Position = mo.Some(int(content.GetPosition()))
 	kind := mapModelContentKind(content.GetKind())
 	if kind != presentationdomain.ModelContentUnspecified {
 		event.ModelContentKind = mo.Some(kind)
@@ -504,8 +511,12 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifec
 		if preview == nil {
 			return errors.New("tool call preview is missing")
 		}
+		mapped, err := mapToolCallPreview(preview)
+		if err != nil {
+			return err
+		}
 		event.Kind = presentationdomain.EventToolCallPreview
-		event.ToolCall = mo.Some(mapToolCallPreview(preview))
+		event.ToolCall = mo.Some(mapped)
 		return nil
 	}
 	call := lifecycle.GetFinalToolCall()
@@ -669,8 +680,12 @@ func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelCon
 	}
 }
 
-func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCallState {
-	fields := lo.Map(preview.GetFields(), func(field *uiv1.ToolCallPreviewField, _ int) presentationdomain.ToolCallField {
+func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolCallState, error) {
+	fields := make([]presentationdomain.ToolCallField, len(preview.GetFields()))
+	for index, field := range preview.GetFields() {
+		if field == nil {
+			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d is nil", index)
+		}
 		mapped := presentationdomain.ToolCallField{
 			Name:   field.GetName(),
 			Value:  mo.None[any](),
@@ -678,13 +693,18 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCa
 		}
 		switch field.WhichContent() {
 		case uiv1.ToolCallPreviewField_Value_case:
-			mapped.Value = mo.Some(field.GetValue().AsInterface())
+			value := field.GetValue()
+			if value == nil {
+				return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d value is nil", index)
+			}
+			mapped.Value = mo.Some(value.AsInterface())
 		case uiv1.ToolCallPreviewField_Prefix_case:
 			mapped.Prefix = mo.Some(field.GetPrefix())
 		case uiv1.ToolCallPreviewField_Content_not_set_case:
+			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d content is missing", index)
 		}
-		return mapped
-	})
+		fields[index] = mapped
+	}
 	return presentationdomain.ToolCallState{
 		CallID:      preview.GetCallId(),
 		Name:        preview.GetName(),
@@ -692,7 +712,7 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) presentationdomain.ToolCa
 		Provisional: preview.GetProvisional(),
 		Fields:      fields,
 		Arguments:   nil,
-	}
+	}, nil
 }
 
 // mapProgress validates the closed progress-channel enum and assigns its output kind.

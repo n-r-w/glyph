@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/camilbenameur/go-llm-stream/scanner"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
@@ -121,7 +122,8 @@ func (a *functionPreviewAssembler) completeScalar(raw []byte) error {
 		return fmt.Errorf("decode streamed function argument value: %w", err)
 	}
 	a.setField(model.ToolCallPreviewField{
-		Name: a.currentKey, Kind: model.ToolCallPreviewFieldComplete, Value: value, Prefix: "",
+		Name: a.currentKey, Kind: model.ToolCallPreviewFieldComplete,
+		Value: mo.Some(value), Prefix: mo.None[string](),
 	})
 	a.currentKey = ""
 	return nil
@@ -136,7 +138,8 @@ func (a *functionPreviewAssembler) completeContainer(start, end int64) error {
 		return fmt.Errorf("decode streamed function argument container: %w", err)
 	}
 	a.setField(model.ToolCallPreviewField{
-		Name: a.currentKey, Kind: model.ToolCallPreviewFieldComplete, Value: value, Prefix: "",
+		Name: a.currentKey, Kind: model.ToolCallPreviewFieldComplete,
+		Value: mo.Some(value), Prefix: mo.None[string](),
 	})
 	a.currentKey = ""
 	a.containerFrom = -1
@@ -154,7 +157,8 @@ func (a *functionPreviewAssembler) preview(incomplete scanner.Token) []model.Too
 		return fields
 	}
 	field := model.ToolCallPreviewField{
-		Name: a.currentKey, Kind: model.ToolCallPreviewFieldPrefix, Value: nil, Prefix: prefix,
+		Name: a.currentKey, Kind: model.ToolCallPreviewFieldPrefix,
+		Value: mo.None[any](), Prefix: mo.Some(prefix),
 	}
 	for index := range fields {
 		if fields[index].Name == field.Name {

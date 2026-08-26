@@ -1218,6 +1218,73 @@ func TestServiceCopiesTypedToolResultImage(t *testing.T) {
 	assert.Equal(t, []byte{1, 2, 3}, clonedData)
 }
 
+func TestServiceClonesToolResultContentsAcrossStateSnapshots(t *testing.T) {
+	t.Parallel()
+
+	line := presentationdomain.Line{
+		Kind:     presentationdomain.LineToolDone,
+		ToolName: mo.Some("read"),
+		Status:   mo.None[string](),
+		Text:     mo.Some("[image: image/png]"),
+		ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
+			Text:      mo.None[string](),
+			MediaType: mo.Some("image/png"),
+			Data:      mo.Some([]byte{1, 2, 3}),
+		}}),
+	}
+	previous := presentationdomain.State{
+		Startup:          []presentationdomain.Line{line},
+		Transcript:       []presentationdomain.Line{line},
+		Models:           nil,
+		ActiveModel:      nil,
+		ActiveToolCalls:  nil,
+		ActiveTools:      nil,
+		Availability:     mo.None[presentationdomain.Availability](),
+		AuthorizationURL: mo.None[string](),
+		Settled:          mo.None[bool](),
+		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
+	}
+	next := New().Apply(previous, presentationdomain.Event{
+		Kind:                 presentationdomain.EventTurnStarted,
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelResponseContent: nil,
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.None[string](),
+		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+	})
+
+	for _, lines := range [][]presentationdomain.Line{next.Startup, next.Transcript} {
+		contents, ok := lines[0].ToolResultContents.Get()
+		require.True(t, ok)
+		contents[0].MediaType = mo.Some("image/jpeg")
+		data, ok := contents[0].Data.Get()
+		require.True(t, ok)
+		data[0] = 9
+	}
+
+	for _, lines := range [][]presentationdomain.Line{previous.Startup, previous.Transcript} {
+		contents, ok := lines[0].ToolResultContents.Get()
+		require.True(t, ok)
+		assert.Equal(t, mo.Some("image/png"), contents[0].MediaType)
+		data, ok := contents[0].Data.Get()
+		require.True(t, ok)
+		assert.Equal(t, []byte{1, 2, 3}, data)
+	}
+}
+
 // TestServiceProjectsTypedToolResultTextInOrder verifies readable ordered terminal output.
 func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 	t.Parallel()

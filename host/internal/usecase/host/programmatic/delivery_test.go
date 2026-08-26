@@ -304,16 +304,16 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 					Provisional: true,
 					Fields: []model.ToolCallPreviewField{
 						{
-							Prefix: "",
+							Prefix: mo.None[string](),
 							Name:   "null",
 							Kind:   model.ToolCallPreviewFieldComplete,
-							Value:  nil,
+							Value:  mo.Some[any](nil),
 						},
 						{
-							Prefix: "",
+							Prefix: mo.None[string](),
 							Name:   "arg",
 							Kind:   model.ToolCallPreviewFieldComplete,
-							Value:  map[string]any{"nested": []any{"value"}},
+							Value:  mo.Some[any](map[string]any{"nested": []any{"value"}}),
 						},
 					},
 				}),
@@ -372,10 +372,10 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 					Provisional: true,
 					Fields: []model.ToolCallPreviewField{
 						{
-							Value:  nil,
+							Value:  mo.None[any](),
 							Name:   "arg",
 							Kind:   model.ToolCallPreviewFieldPrefix,
-							Prefix: "",
+							Prefix: mo.Some(""),
 						},
 					},
 				}),

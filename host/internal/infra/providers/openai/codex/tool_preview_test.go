@@ -3,6 +3,7 @@ package codex
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -17,8 +18,14 @@ func TestFunctionPreviewAssemblerPublishesCompleteFieldsAndExactScalarPrefix(t *
 	fields, err := assembler.appendFragment(`{"path":"file.txt","query":"hel`)
 	require.NoError(t, err)
 	require.Equal(t, []model.ToolCallPreviewField{
-		{Name: "path", Kind: model.ToolCallPreviewFieldComplete, Value: "file.txt", Prefix: ""},
-		{Name: "query", Kind: model.ToolCallPreviewFieldPrefix, Value: nil, Prefix: "hel"},
+		{
+			Name: "path", Kind: model.ToolCallPreviewFieldComplete,
+			Value: mo.Some[any]("file.txt"), Prefix: mo.None[string](),
+		},
+		{
+			Name: "query", Kind: model.ToolCallPreviewFieldPrefix,
+			Value: mo.None[any](), Prefix: mo.Some("hel"),
+		},
 	}, fields)
 }
 

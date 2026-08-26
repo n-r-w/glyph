@@ -302,10 +302,10 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 		}
 		switch field.Kind {
 		case model.ToolCallPreviewFieldComplete:
-			mapped.Value = mo.Some(cloneJSONValue(field.Value))
+			mapped.Value = field.Value.MapValue(cloneJSONValue)
 			mapped.Complete = true
 		case model.ToolCallPreviewFieldPrefix:
-			mapped.Prefix = mo.Some(field.Prefix)
+			mapped.Prefix = field.Prefix
 		}
 		return mapped
 	})

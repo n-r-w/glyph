@@ -133,7 +133,8 @@ func TestServiceRunToolUse(t *testing.T) {
 						Kind: StreamEventToolCallStart, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
 					}))
 					preview.Fields = []model.ToolCallPreviewField{{
-						Name: "value", Kind: model.ToolCallPreviewFieldPrefix, Prefix: "1", Value: nil,
+						Name: "value", Kind: model.ToolCallPreviewFieldPrefix,
+						Prefix: mo.Some("1"), Value: mo.None[any](),
 					}}
 					require.NoError(t, update(StreamEvent{
 						Kind: StreamEventToolCallDelta, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),

@@ -290,7 +290,8 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	assert.Equal(t, run.StreamEventToolCallDelta, events[1].Kind)
 	require.Len(t, events[1].Preview.OrEmpty().Fields, 1)
 	assert.Equal(t, model.ToolCallPreviewField{
-		Name: "payload", Kind: model.ToolCallPreviewFieldPrefix, Value: nil, Prefix: "ab",
+		Name: "payload", Kind: model.ToolCallPreviewFieldPrefix,
+		Value: mo.None[any](), Prefix: mo.Some("ab"),
 	}, events[1].Preview.OrEmpty().Fields[0])
 	assert.Equal(t, run.StreamEventToolCallEnd, events[2].Kind)
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)

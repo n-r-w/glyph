@@ -169,8 +169,8 @@ const (
 type ToolCallPreviewField struct {
 	Name   string
 	Kind   ToolCallPreviewFieldKind
-	Value  any
-	Prefix string
+	Value  mo.Option[any]
+	Prefix mo.Option[string]
 }
 
 // ToolCallPreview contains transient function-call state that must not enter history.

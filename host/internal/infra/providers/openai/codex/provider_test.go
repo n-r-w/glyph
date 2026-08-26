@@ -436,7 +436,7 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	}, streamEventKinds(events))
 	require.Equal(t, "read", events[0].Preview.OrEmpty().Name)
 	require.True(t, events[0].Preview.OrEmpty().Provisional)
-	require.Equal(t, "hel", events[1].Preview.OrEmpty().Fields[1].Prefix)
+	require.Equal(t, mo.Some("hel"), events[1].Preview.OrEmpty().Fields[1].Prefix)
 	require.Equal(
 		t,
 		map[string]any{"path": "file.txt", "query": "hello"},

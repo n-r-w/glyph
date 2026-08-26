@@ -290,8 +290,8 @@ func appendFinalModelContent(
 
 // cloneState isolates mutable maps and slices before applying one event.
 func cloneState(state presentationdomain.State) presentationdomain.State {
-	state.Startup = slices.Clone(state.Startup)
-	state.Transcript = slices.Clone(state.Transcript)
+	state.Startup = cloneLines(state.Startup)
+	state.Transcript = cloneLines(state.Transcript)
 	state.Models = cloneModels(state.Models)
 	state.ActiveModel = maps.Clone(state.ActiveModel)
 	state.ActiveToolCalls = maps.Clone(state.ActiveToolCalls)
@@ -301,6 +301,15 @@ func cloneState(state presentationdomain.State) presentationdomain.State {
 	state.ActiveTools = maps.Clone(state.ActiveTools)
 
 	return state
+}
+
+// cloneLines isolates optional tool result slices and image bytes in retained snapshots.
+func cloneLines(lines []presentationdomain.Line) []presentationdomain.Line {
+	cloned := slices.Clone(lines)
+	for index := range cloned {
+		cloned[index].ToolResultContents = cloned[index].ToolResultContents.MapValue(cloneToolResultContents)
+	}
+	return cloned
 }
 
 // cloneModels isolates configured reasoning slices from incoming events.
@@ -330,9 +339,7 @@ func cloneToolResultContents(contents []presentationdomain.ToolResultContent) []
 	}
 	cloned := slices.Clone(contents)
 	for index := range cloned {
-		if data, ok := cloned[index].Data.Get(); ok {
-			cloned[index].Data = mo.Some(bytes.Clone(data))
-		}
+		cloned[index].Data = cloned[index].Data.MapValue(bytes.Clone)
 	}
 	return cloned
 }
@@ -341,9 +348,7 @@ func cloneToolResultContents(contents []presentationdomain.ToolResultContent) []
 func cloneToolCall(call presentationdomain.ToolCallState) presentationdomain.ToolCallState {
 	call.Fields = slices.Clone(call.Fields)
 	for index := range call.Fields {
-		if value, ok := call.Fields[index].Value.Get(); ok {
-			call.Fields[index].Value = mo.Some(cloneJSONValue(value))
-		}
+		call.Fields[index].Value = call.Fields[index].Value.MapValue(cloneJSONValue)
 	}
 	call.Arguments = cloneArguments(call.Arguments)
 	return call

@@ -182,7 +182,7 @@ func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
 		run.StreamEventToolCallEnd, run.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, "ab", events[1].Preview.OrEmpty().Fields[0].Prefix)
+	assert.Equal(t, mo.Some("ab"), events[1].Preview.OrEmpty().Fields[0].Prefix)
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
 }
 

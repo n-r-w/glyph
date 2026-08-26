@@ -591,7 +591,7 @@ func (a *semanticAssembler) publishCustomPreview(slot *functionOutputSlot) error
 		CallID: slot.callID, Name: slot.name, Position: slot.position, Provisional: true,
 		Fields: []model.ToolCallPreviewField{{
 			Name: slot.inputProperty, Kind: model.ToolCallPreviewFieldPrefix,
-			Value: nil, Prefix: slot.customInput,
+			Value: mo.None[any](), Prefix: mo.Some(slot.customInput),
 		}},
 	})
 	return a.handle(event)

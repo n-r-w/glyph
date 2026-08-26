@@ -237,8 +237,8 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 	deltaPreview.Fields = []model.ToolCallPreviewField{{
 		Name:   "path",
 		Kind:   model.ToolCallPreviewFieldPrefix,
-		Value:  nil,
-		Prefix: "fi",
+		Value:  mo.None[any](),
+		Prefix: mo.Some(""),
 	}}
 	delta.Preview = mo.Some(deltaPreview)
 	require.NoError(t, applyToolCallStreamEvent(previews, delta))
@@ -259,6 +259,74 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 	}
 	require.NoError(t, applyToolCallStreamEvent(previews, end))
 	require.NotContains(t, previews, "call-1")
+}
+
+func TestApplyToolCallStreamEventRejectsMissingPreviewFieldPayload(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		kind model.ToolCallPreviewFieldKind
+	}{
+		{name: "complete value", kind: model.ToolCallPreviewFieldComplete},
+		{name: "prefix", kind: model.ToolCallPreviewFieldPrefix},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			previews := make(map[string]model.ToolCallPreview)
+			event := StreamEvent{
+				Kind:     StreamEventToolCallStart,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
+				Preview: mo.Some(model.ToolCallPreview{
+					CallID:      "call-1",
+					Name:        "read",
+					Position:    0,
+					Provisional: true,
+					Fields: []model.ToolCallPreviewField{{
+						Name:   "path",
+						Kind:   testCase.kind,
+						Value:  mo.None[any](),
+						Prefix: mo.None[string](),
+					}},
+				}),
+			}
+
+			require.Error(t, applyToolCallStreamEvent(previews, event))
+			require.Empty(t, previews)
+		})
+	}
+}
+
+func TestValidateToolCallPreviewFieldsPreservesNullAndEmptyPrefix(t *testing.T) {
+	t.Parallel()
+
+	fields := []model.ToolCallPreviewField{
+		{
+			Name:   "nullable",
+			Kind:   model.ToolCallPreviewFieldComplete,
+			Value:  mo.Some[any](nil),
+			Prefix: mo.None[string](),
+		},
+		{
+			Name:   "partial",
+			Kind:   model.ToolCallPreviewFieldPrefix,
+			Value:  mo.None[any](),
+			Prefix: mo.Some(""),
+		},
+	}
+
+	require.NoError(t, validateToolCallPreviewFields(fields))
+	nullValue, ok := fields[0].Value.Get()
+	require.True(t, ok)
+	require.Nil(t, nullValue)
+	assert.True(t, fields[0].Prefix.IsNone())
+	assert.True(t, fields[1].Value.IsNone())
+	assert.Equal(t, mo.Some(""), fields[1].Prefix)
 }
 
 func TestServiceStateIsolatesNestedToolPreviewValues(t *testing.T) {
@@ -283,17 +351,19 @@ func TestServiceStateIsolatesNestedToolPreviewValues(t *testing.T) {
 			Fields: []model.ToolCallPreviewField{{
 				Name:   "options",
 				Kind:   model.ToolCallPreviewFieldComplete,
-				Value:  map[string]any{"paths": []any{"first"}},
-				Prefix: "",
+				Value:  mo.Some[any](map[string]any{"paths": []any{"first"}}),
+				Prefix: mo.None[string](),
 			}},
 		},
 	}
 
 	snapshot := service.State()
-	snapshotValue := snapshot.ToolPreviews["call-1"].Fields[0].Value.(map[string]any)
-	snapshotValue["paths"].([]any)[0] = "changed"
-	storedValue := service.State().ToolPreviews["call-1"].Fields[0].Value.(map[string]any)
-	require.Equal(t, "first", storedValue["paths"].([]any)[0])
+	snapshotValue, ok := snapshot.ToolPreviews["call-1"].Fields[0].Value.Get()
+	require.True(t, ok)
+	snapshotValue.(map[string]any)["paths"].([]any)[0] = "changed"
+	storedValue, ok := service.State().ToolPreviews["call-1"].Fields[0].Value.Get()
+	require.True(t, ok)
+	require.Equal(t, "first", storedValue.(map[string]any)["paths"].([]any)[0])
 }
 
 func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {

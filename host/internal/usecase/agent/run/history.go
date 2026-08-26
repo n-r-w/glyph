@@ -75,7 +75,7 @@ func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPre
 	}
 	cloned := slices.Clone(fields)
 	for index := range cloned {
-		cloned[index].Value = cloneJSONValue(cloned[index].Value)
+		cloned[index].Value = cloned[index].Value.MapValue(cloneJSONValue)
 	}
 	return cloned
 }

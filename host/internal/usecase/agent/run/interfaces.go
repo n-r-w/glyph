@@ -189,6 +189,9 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 		if _, exists := previews[preview.CallID]; exists {
 			return fmt.Errorf("tool call %q already started", preview.CallID)
 		}
+		if err := validateToolCallPreviewFields(preview.Fields); err != nil {
+			return err
+		}
 		preview.Fields = clonePreviewFields(preview.Fields)
 		previews[preview.CallID] = preview
 	case StreamEventToolCallDelta:
@@ -198,6 +201,9 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 		if !hasPreview || !hasPosition || position != preview.Position || !exists || preview.Name != active.Name ||
 			preview.Position != active.Position || !preview.Provisional {
 			return fmt.Errorf("tool call %q is not active", preview.CallID)
+		}
+		if err := validateToolCallPreviewFields(preview.Fields); err != nil {
+			return err
 		}
 		preview.Fields = clonePreviewFields(preview.Fields)
 		previews[preview.CallID] = preview
@@ -212,6 +218,25 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 	case StreamEventContentStart, StreamEventTextDelta, StreamEventContentEnd,
 		StreamEventDone, StreamEventError:
 		return fmt.Errorf("event kind %d is not a tool-call stream event", event.Kind)
+	}
+	return nil
+}
+
+// validateToolCallPreviewFields checks that each discriminator selects exactly one present payload.
+func validateToolCallPreviewFields(fields []model.ToolCallPreviewField) error {
+	for index, field := range fields {
+		switch field.Kind {
+		case model.ToolCallPreviewFieldComplete:
+			if field.Value.IsNone() || field.Prefix.IsSome() {
+				return fmt.Errorf("tool-call preview field %d has invalid complete content", index)
+			}
+		case model.ToolCallPreviewFieldPrefix:
+			if field.Prefix.IsNone() || field.Value.IsSome() {
+				return fmt.Errorf("tool-call preview field %d has invalid prefix content", index)
+			}
+		default:
+			return fmt.Errorf("tool-call preview field %d has unknown kind %d", index, field.Kind)
+		}
 	}
 	return nil
 }

@@ -188,16 +188,16 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 		Provisional: true,
 		Fields: []model.ToolCallPreviewField{
 			{
-				Value:  nil,
+				Value:  mo.None[any](),
 				Name:   "path",
 				Kind:   model.ToolCallPreviewFieldPrefix,
-				Prefix: "fi",
+				Prefix: mo.Some("fi"),
 			},
 			{
-				Value:  map[string]any{"items": []any{"first"}},
+				Value:  mo.Some[any](map[string]any{"items": []any{"first"}}),
 				Name:   "options",
 				Kind:   model.ToolCallPreviewFieldComplete,
-				Prefix: "",
+				Prefix: mo.None[string](),
 			},
 		},
 	}
@@ -256,7 +256,9 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 	require.True(t, present)
 	previewValue.(map[string]any)["items"].([]any)[0] = "changed"
 	finalCall.Arguments["options"].(map[string]any)["items"].([]any)[0] = "changed"
-	assert.Equal(t, "first", preview.Fields[1].Value.(map[string]any)["items"].([]any)[0])
+	originalPreviewValue, present := preview.Fields[1].Value.Get()
+	require.True(t, present)
+	assert.Equal(t, "first", originalPreviewValue.(map[string]any)["items"].([]any)[0])
 	assert.Equal(t, "first", arguments["options"].(map[string]any)["items"].([]any)[0])
 }
 

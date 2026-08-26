@@ -473,12 +473,16 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		FinalToolCall:      nil,
 		ToolResultContents: nil,
 	}.Build()
-	if frame.Type == "message_end" && frame.ModelText != "" {
-		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
-			Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
+	if frame.Type == "message_end" {
+		var content []*uiv1.ModelResponseContent
+		if frame.ModelText != "" {
+			content = []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
 				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 				Text: new(frame.ModelText),
-			}.Build()},
+			}.Build()}
+		}
+		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
+			Content:       content,
 			Text:          nil,
 			Outcome:       nil,
 			ErrorMessage:  nil,
@@ -926,7 +930,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 				Position: new(int32(1)),
 				Text:     new("complete answer"),
-				Kind:     nil,
+				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 			}.Build(),
 			RunId:              nil,
 			Text:               nil,
@@ -1035,7 +1039,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 					Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 					Position: new(int32(2)),
 					Text:     new("delta"),
-					Kind:     nil,
+					Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 				}.Build(),
 				RunId:              nil,
 				Text:               nil,
@@ -1058,7 +1062,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				Startup:              nil,
 				Extensions:           nil,
 				Availability:         mo.None[presentationdomain.Availability](),
-				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+				ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
 				ModelResponseContent: nil,
 				ToolCallID:           mo.None[string](),
 				ToolName:             mo.None[string](),
@@ -1333,6 +1337,8 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 		},
 	}.Build()
 
+	mapped, err := mapToolCallPreview(preview)
+	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.ToolCallState{
 		CallID:      "call-17",
 		Name:        "sample",
@@ -1358,7 +1364,136 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 			},
 		},
 		Arguments: nil,
-	}, mapToolCallPreview(preview))
+	}, mapped)
+}
+
+func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T) {
+	t.Parallel()
+
+	lifecycle := func(
+		lifecycleType uiv1.LifecycleType,
+		modelContent *uiv1.ModelContent,
+		preview *uiv1.ToolCallPreview,
+	) *uiv1.LifecycleEvent {
+		return uiv1.LifecycleEvent_builder{
+			Type:               new(lifecycleType),
+			RunId:              nil,
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelContent:       modelContent,
+			ModelResponse:      nil,
+			ToolCallPreview:    preview,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
+		}.Build()
+	}
+	nilFieldPreview := uiv1.ToolCallPreview_builder{
+		CallId:      nil,
+		Name:        nil,
+		Position:    nil,
+		Provisional: nil,
+		Fields:      []*uiv1.ToolCallPreviewField{nil},
+	}.Build()
+	unsetFieldPreview := uiv1.ToolCallPreview_builder{
+		CallId:      nil,
+		Name:        nil,
+		Position:    nil,
+		Provisional: nil,
+		Fields: []*uiv1.ToolCallPreviewField{uiv1.ToolCallPreviewField_builder{
+			Name:   new("path"),
+			Value:  nil,
+			Prefix: nil,
+		}.Build()},
+	}.Build()
+
+	testCases := []struct {
+		name      string
+		lifecycle *uiv1.LifecycleEvent
+	}{
+		{
+			name:      "message end response",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END, nil, nil),
+		},
+		{
+			name:      "nil preview field",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START, nil, nilFieldPreview),
+		},
+		{
+			name:      "preview field content",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA, nil, unsetFieldPreview),
+		},
+		{
+			name: "model position",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START, uiv1.ModelContent_builder{
+				Type:     nil,
+				Position: nil,
+				Text:     nil,
+				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+			}.Build(), nil),
+		},
+		{
+			name: "model kind",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END, uiv1.ModelContent_builder{
+				Type:     nil,
+				Position: new(int32(0)),
+				Text:     nil,
+				Kind:     nil,
+			}.Build(), nil),
+		},
+		{
+			name: "text delta text",
+			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA, uiv1.ModelContent_builder{
+				Type:     nil,
+				Position: new(int32(0)),
+				Text:     nil,
+				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+			}.Build(), nil),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := mapLifecycle(testCase.lifecycle)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
+	t.Parallel()
+
+	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+		RunId:           nil,
+		Text:            nil,
+		ToolCallId:      nil,
+		ToolName:        nil,
+		ProgressChannel: nil,
+		IsError:         nil,
+		Outcome:         nil,
+		ErrorMessage:    nil,
+		Availability:    nil,
+		ModelContent: uiv1.ModelContent_builder{
+			Type:     nil,
+			Position: new(int32(0)),
+			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+			Text:     new(""),
+		}.Build(),
+		ModelResponse:      nil,
+		ToolCallPreview:    nil,
+		FinalToolCall:      nil,
+		ToolResultContents: nil,
+	}.Build())
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(0), event.Position)
+	assert.Equal(t, mo.Some(""), event.Text)
 }
 
 // TestMapSafeAuthenticationErrorEnablesManualRetry verifies retry state comes only from safe Host errors.
