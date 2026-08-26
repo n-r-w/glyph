@@ -390,6 +390,9 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 
 func responsesTools(descriptors []tool.Descriptor, strictSupported bool) ([]responses.ToolUnionParam, error) {
 	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, index int) (responses.ToolUnionParam, error) {
+		if err := validateConstrainedSampling(descriptor, strictSupported); err != nil {
+			return responses.ToolUnionParam{}, fmt.Errorf("tool %d constrained sampling: %w", index, err)
+		}
 		var schema map[string]any
 		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
 			return responses.ToolUnionParam{}, fmt.Errorf("tool %d has invalid input schema: %w", index, err)

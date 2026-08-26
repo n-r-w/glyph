@@ -371,6 +371,9 @@ func chatTools(descriptors []tool.Descriptor, strictSupported bool) ([]openai.Ch
 	return lo.MapErr(
 		descriptors,
 		func(descriptor tool.Descriptor, index int) (openai.ChatCompletionToolUnionParam, error) {
+			if err := validateConstrainedSampling(descriptor, strictSupported); err != nil {
+				return openai.ChatCompletionToolUnionParam{}, fmt.Errorf("tool %d constrained sampling: %w", index, err)
+			}
 			var schema map[string]any
 			if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
 				return openai.ChatCompletionToolUnionParam{}, fmt.Errorf("tool %d has invalid input schema: %w", index, err)

@@ -396,6 +396,9 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	if lifecycle == nil {
 		return presentationdomain.Event{}, errors.New("lifecycle event is nil")
 	}
+	if err := validateLifecycleEnvelope(lifecycle); err != nil {
+		return presentationdomain.Event{}, err
+	}
 	event := presentationdomain.Event{
 		Kind:                 presentationdomain.EventUnspecified,
 		Startup:              nil,
@@ -442,8 +445,11 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
-		mapTerminalLifecycle(&event, lifecycle)
+		err = mapTerminalLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
+		if !lifecycle.HasAvailability() {
+			return presentationdomain.Event{}, errors.New("availability is missing")
+		}
 		availability, mapErr := mapAvailability(lifecycle.GetAvailability())
 		if mapErr != nil {
 			return presentationdomain.Event{}, mapErr
@@ -461,6 +467,16 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	return event, nil
 }
 
+func validateLifecycleEnvelope(lifecycle *uiv1.LifecycleEvent) error {
+	if !lifecycle.HasType() {
+		return errors.New("lifecycle type is missing")
+	}
+	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && !lifecycle.HasRunId() {
+		return errors.New("lifecycle run ID is missing")
+	}
+	return nil
+}
+
 // mapModelLifecycle preserves optional streaming and terminal model payloads.
 func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END {
@@ -469,7 +485,11 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 		if response == nil {
 			return errors.New("model response is missing")
 		}
-		event.ModelResponseContent = mapModelResponseContent(response.GetContent())
+		content, err := mapModelResponseContent(response.GetContent())
+		if err != nil {
+			return err
+		}
+		event.ModelResponseContent = content
 		if response.HasErrorMessage() {
 			event.ErrorText = mo.Some(response.GetErrorMessage())
 		}
@@ -482,6 +502,9 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 	content := lifecycle.GetModelContent()
 	if content == nil {
 		return errors.New("model content is missing")
+	}
+	if !content.HasType() {
+		return errors.New("model content type is missing")
 	}
 	if !content.HasPosition() {
 		return errors.New("model content position is missing")
@@ -523,6 +546,9 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifec
 	if call == nil || call.GetArguments() == nil {
 		return errors.New("final tool call is missing")
 	}
+	if !call.HasCallId() || !call.HasName() || !call.HasPosition() {
+		return errors.New("final tool call scalar is missing")
+	}
 	event.Kind = presentationdomain.EventToolCallFinal
 	event.ToolCall = mo.Some(presentationdomain.ToolCallState{
 		CallID:      call.GetCallId(),
@@ -538,37 +564,21 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifec
 // mapToolLifecycle projects execution updates and terminal result payloads.
 func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
 	lifecycleType := lifecycle.GetType()
+	var err error
 	switch int(lifecycleType) {
 	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START):
-		if !lifecycle.HasToolName() {
-			return errors.New("started tool name is missing")
-		}
-		event.Kind = presentationdomain.EventToolStarted
-		event.ToolName = mo.Some(lifecycle.GetToolName())
-		event.Status = mo.Some("started")
+		err = mapToolStarted(event, lifecycle)
 	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE):
-		if err := mapProgress(event, lifecycle.GetProgressChannel()); err != nil {
-			return err
-		}
+		err = mapToolProgress(event, lifecycle)
 	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END):
-		event.Kind = presentationdomain.EventToolEnded
-		failure := lifecycle.GetIsError() || lifecycle.GetErrorMessage() != ""
-		event.Failure = mo.Some(failure)
-		if failure {
-			event.Status = mo.Some("error")
-		} else {
-			event.Status = mo.Some("completed")
-		}
+		err = mapToolEnded(event, lifecycle)
 	case int(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT):
-		contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
-		if err != nil {
-			return err
-		}
-		event.Kind = presentationdomain.EventToolResult
-		event.ToolResultContents = mo.Some(contents)
-		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
+		err = mapToolResult(event, lifecycle)
 	default:
 		return fmt.Errorf("lifecycle type %d is not a tool event", lifecycleType)
+	}
+	if err != nil {
+		return err
 	}
 	if lifecycle.HasToolCallId() {
 		event.ToolCallID = mo.Some(lifecycle.GetToolCallId())
@@ -585,15 +595,64 @@ func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycle
 	return nil
 }
 
+func mapToolStarted(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() {
+		return errors.New("started tool identity is missing")
+	}
+	event.Kind = presentationdomain.EventToolStarted
+	event.ToolName = mo.Some(lifecycle.GetToolName())
+	event.Status = mo.Some("started")
+	return nil
+}
+
+func mapToolProgress(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if !lifecycle.HasText() || !lifecycle.HasProgressChannel() {
+		return errors.New("tool progress is missing")
+	}
+	return mapProgress(event, lifecycle.GetProgressChannel())
+}
+
+func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
+		return errors.New("ended tool result is missing")
+	}
+	event.Kind = presentationdomain.EventToolEnded
+	failure := lifecycle.GetIsError() || lifecycle.GetErrorMessage() != ""
+	event.Failure = mo.Some(failure)
+	if failure {
+		event.Status = mo.Some("error")
+	} else {
+		event.Status = mo.Some("completed")
+	}
+	return nil
+}
+
+func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
+		return errors.New("tool result is missing")
+	}
+	contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
+	if err != nil {
+		return err
+	}
+	event.Kind = presentationdomain.EventToolResult
+	event.ToolResultContents = mo.Some(contents)
+	event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
+	return nil
+}
+
 // mapTerminalLifecycle preserves turn and settlement outcome presence.
-func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) {
+func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+	if err := validateTerminalLifecyclePresence(lifecycle); err != nil {
+		return err
+	}
 	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
 		event.Kind = presentationdomain.EventTurnEnded
 		if lifecycle.HasErrorMessage() {
 			event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
 		}
 		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
-		return
+		return nil
 	}
 	event.Kind = presentationdomain.EventAgentSettled
 	if lifecycle.HasErrorMessage() {
@@ -610,6 +669,17 @@ func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifec
 	} else if lifecycle.HasOutcome() {
 		event.Text = mo.Some(lifecycle.GetOutcome())
 	}
+	return nil
+}
+
+func validateTerminalLifecyclePresence(lifecycle *uiv1.LifecycleEvent) error {
+	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END && !lifecycle.HasText() {
+		return errors.New("turn summary is missing")
+	}
+	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END && !lifecycle.HasOutcome() {
+		return errors.New("agent outcome is missing")
+	}
+	return nil
 }
 
 // mapToolResultContents rejects malformed blocks before they reach presentation state.
@@ -649,17 +719,30 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 	)
 }
 
-// mapModelResponseContent keeps finalized visible text and refusal blocks while dropping reasoning.
-func mapModelResponseContent(content []*uiv1.ModelResponseContent) []presentationdomain.ModelResponseContent {
-	return lo.FilterMap(
+// mapModelResponseContent rejects malformed finalized blocks before projection.
+func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentationdomain.ModelResponseContent, error) {
+	return lo.MapErr(
 		content,
-		func(item *uiv1.ModelResponseContent, _ int) (presentationdomain.ModelResponseContent, bool) {
+		func(item *uiv1.ModelResponseContent, index int) (presentationdomain.ModelResponseContent, error) {
+			if item == nil {
+				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d is missing", index)
+			}
+			if !item.HasKind() {
+				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d kind is missing", index)
+			}
 			kind := mapModelContentKind(item.GetKind())
+			if kind == presentationdomain.ModelContentUnspecified {
+				return presentationdomain.ModelResponseContent{}, fmt.Errorf(
+					"model response content %d kind %d is invalid", index, item.GetKind(),
+				)
+			}
+			if !item.HasText() {
+				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d text is missing", index)
+			}
 			return presentationdomain.ModelResponseContent{
-					Kind: kind,
-					Text: mo.Some(item.GetText()),
-				},
-				kind != presentationdomain.ModelContentUnspecified
+				Kind: kind,
+				Text: mo.Some(item.GetText()),
+			}, nil
 		},
 	)
 }
@@ -681,10 +764,16 @@ func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelCon
 }
 
 func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolCallState, error) {
+	if !preview.HasCallId() || !preview.HasName() || !preview.HasPosition() || !preview.HasProvisional() {
+		return presentationdomain.ToolCallState{}, errors.New("tool call preview scalar is missing")
+	}
 	fields := make([]presentationdomain.ToolCallField, len(preview.GetFields()))
 	for index, field := range preview.GetFields() {
 		if field == nil {
 			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d is nil", index)
+		}
+		if !field.HasName() {
+			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d name is missing", index)
 		}
 		mapped := presentationdomain.ToolCallField{
 			Name:   field.GetName(),
