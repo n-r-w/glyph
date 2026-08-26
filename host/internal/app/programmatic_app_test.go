@@ -144,10 +144,11 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
+	providerStarted := make(chan struct{}, 1)
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = programmaticTransport{
 		requestCount: requestCount,
-		started:      nil,
+		started:      providerStarted,
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
@@ -164,12 +165,17 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	require.NoError(t, err)
 	assert.Equal(t, "c1", firstEvent.GetCorrelationId())
 	require.Equal(t, programmaticv1.OpenResponse_AgentEvent_case, firstEvent.WhichContent())
+	// Provider transport entry proves that abort cancels an active provider request.
+	<-providerStarted
 
 	require.NoError(t, stream.Send(abortRequest("abort-c1")))
 	var settled, aborted bool
 	for !settled || !aborted {
 		response, receiveErr := stream.Recv()
-		require.NoError(t, receiveErr)
+		if receiveErr != nil {
+			runErr := <-fixture.result
+			require.NoError(t, receiveErr, "application error: %v", runErr)
+		}
 		switch response.WhichContent() {
 		case programmaticv1.OpenResponse_Content_not_set_case:
 			require.FailNow(t, "received response without content")
