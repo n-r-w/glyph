@@ -333,7 +333,16 @@ type toolCapabilities struct {
 // buildTools maps provider-neutral schemas into Codex tool request types.
 func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([]responses.ToolUnionParam, error) {
 	return lo.MapErr(descriptors, func(descriptor tool.Descriptor, _ int) (responses.ToolUnionParam, error) {
+		var schema map[string]any
+		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
+			return responses.ToolUnionParam{}, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
+		}
 		constraint, constrained := descriptor.ConstrainedSampling.Get()
+		if constrained {
+			if err := validateCodexConstraint(schema, constraint, descriptor.Name); err != nil {
+				return responses.ToolUnionParam{}, err
+			}
+		}
 		if constrained && constraint.Kind == tool.ConstrainedSamplingGrammar {
 			if !capabilities.lark && !capabilities.regex {
 				return responses.ToolUnionParam{}, fmt.Errorf(
@@ -375,10 +384,6 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 			}, nil
 		}
 
-		var schema map[string]any
-		if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-			return responses.ToolUnionParam{}, fmt.Errorf("decode schema for Codex tool %q: %w", descriptor.Name, err)
-		}
 		strict, err := codexStrict(schema, descriptor.ConstrainedSampling, capabilities, descriptor.Name)
 		if err != nil {
 			return responses.ToolUnionParam{}, err
@@ -397,6 +402,79 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 			},
 		}, nil
 	})
+}
+
+// validateCodexConstraint rejects malformed constraint variants at the provider request boundary.
+func validateCodexConstraint(schema map[string]any, constraint tool.ConstrainedSampling, toolName string) error {
+	switch constraint.Kind {
+	case tool.ConstrainedSamplingJSONSchema:
+		strictness, present := constraint.JSONSchemaStrictness.Get()
+		if constraint.Grammar.IsSome() || constraint.GrammarInputProperty.IsSome() {
+			return fmt.Errorf("tool %q has inconsistent JSON Schema constraint options", toolName)
+		}
+		if !present {
+			return fmt.Errorf("tool %q has invalid JSON Schema strictness", toolName)
+		}
+		switch strictness {
+		case tool.JSONSchemaStrictPrefer, tool.JSONSchemaStrictRequire:
+			return nil
+		default:
+			return fmt.Errorf("tool %q has invalid JSON Schema strictness", toolName)
+		}
+	case tool.ConstrainedSamplingGrammar:
+		grammar, hasGrammar := constraint.Grammar.Get()
+		property, hasProperty := constraint.GrammarInputProperty.Get()
+		if constraint.JSONSchemaStrictness.IsSome() {
+			return fmt.Errorf("tool %q has inconsistent grammar constraint options", toolName)
+		}
+		if !hasGrammar {
+			return fmt.Errorf(
+				"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
+				toolName,
+			)
+		}
+		if !hasProperty || property == "" {
+			return fmt.Errorf(
+				"tool %q requires grammar constrained sampling, but no grammar input property was provided",
+				toolName,
+			)
+		}
+		lark, hasLark := grammar.Lark.Get()
+		regex, hasRegex := grammar.Regex.Get()
+		if (!hasLark || strings.TrimSpace(lark) == "") && (!hasRegex || strings.TrimSpace(regex) == "") {
+			return fmt.Errorf(
+				"tool %q requires grammar constrained sampling, but no supported grammar variant was provided",
+				toolName,
+			)
+		}
+		return validateCodexGrammarSchema(schema, property, toolName)
+	default:
+		return fmt.Errorf("tool %q has invalid constrained sampling kind", toolName)
+	}
+}
+
+// validateCodexGrammarSchema checks the single direct string property used as custom tool input.
+func validateCodexGrammarSchema(schema map[string]any, property, toolName string) error {
+	const rule = "grammar schema must have exactly one required string property"
+
+	properties, hasProperties := schema["properties"].(map[string]any)
+	required, hasRequired := schema["required"].([]any)
+	if !hasProperties || len(properties) != 1 || !hasRequired || len(required) != 1 {
+		return fmt.Errorf("tool %q %s", toolName, rule)
+	}
+	requiredProperty, isString := required[0].(string)
+	if !isString || requiredProperty == "" || requiredProperty != property {
+		return fmt.Errorf("tool %q %s", toolName, rule)
+	}
+	propertySchema, exists := properties[property].(map[string]any)
+	if !exists {
+		return fmt.Errorf("tool %q %s", toolName, rule)
+	}
+	propertyType, isString := propertySchema["type"].(string)
+	if !isString || propertyType != "string" {
+		return fmt.Errorf("tool %q %s", toolName, rule)
+	}
+	return nil
 }
 
 // codexStrict selects provider strictness without changing the Glyph-owned schema.

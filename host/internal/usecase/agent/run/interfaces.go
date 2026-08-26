@@ -196,9 +196,12 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 		previews[preview.CallID] = preview
 	case StreamEventToolCallDelta:
 		preview, hasPreview := event.Preview.Get()
+		if !hasPreview {
+			return errors.New("tool-call delta requires preview")
+		}
 		position, hasPosition := event.Position.Get()
 		active, exists := previews[preview.CallID]
-		if !hasPreview || !hasPosition || position != preview.Position || !exists || preview.Name != active.Name ||
+		if !hasPosition || position != preview.Position || !exists || preview.Name != active.Name ||
 			preview.Position != active.Position || !preview.Provisional {
 			return fmt.Errorf("tool call %q is not active", preview.CallID)
 		}
@@ -209,9 +212,12 @@ func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event S
 		previews[preview.CallID] = preview
 	case StreamEventToolCallEnd:
 		toolCall, hasToolCall := event.ToolCall.Get()
+		if !hasToolCall {
+			return errors.New("tool-call end requires tool call")
+		}
 		position, hasPosition := event.Position.Get()
 		active, exists := previews[toolCall.ID]
-		if !hasToolCall || !hasPosition || !exists || toolCall.Name != active.Name || position != active.Position {
+		if !hasPosition || !exists || toolCall.Name != active.Name || position != active.Position {
 			return fmt.Errorf("tool call %q is not active", toolCall.ID)
 		}
 		delete(previews, toolCall.ID)

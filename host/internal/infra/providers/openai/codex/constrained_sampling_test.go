@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -372,6 +373,102 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	assert.Equal(t, 1, requests)
 }
 
+// TestDriverStreamRejectsMalformedConstraintsBeforeDispatch verifies provider-boundary constraint validation.
+func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
+	t.Parallel()
+
+	grammar := tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}
+	testCases := map[string]tool.Descriptor{
+		"unknown kind": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingKind(99), JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+		}),
+		"JSON Schema active payload missing": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+		}),
+		"JSON Schema inactive payloads present": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
+			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+		}),
+		"JSON Schema strictness unknown": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictness(99)),
+			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+		}),
+		"grammar active payload missing": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.Some("payload"),
+		}),
+		"grammar inactive payload present": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
+			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+		}),
+		"grammar definitions blank": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.Some(tool.GrammarVariants{Lark: mo.Some(" \t"), Regex: mo.Some("\n")}), GrammarInputProperty: mo.Some("payload"),
+		}),
+		"grammar property empty": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some(""),
+		}),
+		"grammar property mismatches schema": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
+			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("other"),
+		}),
+		"grammar schema has multiple properties": malformedConstrainedDescriptor(
+			`{"type":"object","properties":{"payload":{"type":"string"},"other":{"type":"string"}},"required":["payload"]}`,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+			},
+		),
+		"grammar schema property is not string": malformedConstrainedDescriptor(
+			`{"type":"object","properties":{"payload":{"type":"number"}},"required":["payload"]}`,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+			},
+		),
+	}
+	for name, descriptor := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			accountID := "account-malformed"
+			accessToken := testJWT(t, map[string]any{
+				"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+			})
+			credentials := NewMockCredentials(gomock.NewController(t))
+			credentials.EXPECT().Load().Return(
+				testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+			)
+			interaction := NewMockInteraction(gomock.NewController(t))
+			var requests atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				writer.WriteHeader(http.StatusInternalServerError)
+			}))
+			t.Cleanup(server.Close)
+			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+			err := service.Stream(t.Context(), run.ModelRequest{
+				Instructions: "test",
+				Model: model.Descriptor{
+					Provider: ProviderID, Model: "gpt-test",
+					ToolCapabilities: model.ToolCapabilities{
+						Grammar: model.GrammarCapabilities{Regex: true, Lark: true}, StrictJSONSchema: true,
+					},
+					ReasoningCapabilities: model.ReasoningCapabilities{},
+				},
+				ReasoningChoice: model.ReasoningChoiceOn,
+				History:         nil,
+				Tools:           []tool.Descriptor{descriptor},
+			}, func(run.StreamEvent) error { return nil })
+
+			require.Error(t, err)
+			assert.Zero(t, requests.Load())
+		})
+	}
+}
+
 // TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch verifies format intersection before HTTP dispatch.
 func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	t.Parallel()
@@ -440,6 +537,16 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
 	assert.Equal(t, model.OutcomeFailed, events[0].Response.OrEmpty().Outcome.OrEmpty())
 	assert.NotEmpty(t, events[0].Response.OrEmpty().ErrorMessage.OrEmpty())
+}
+
+// malformedConstrainedDescriptor builds provider-boundary inputs that bypass catalog validation.
+func malformedConstrainedDescriptor(schema string, constraint tool.ConstrainedSampling) tool.Descriptor {
+	return tool.Descriptor{
+		Name:                "sample",
+		Description:         "Sample.",
+		InputSchemaJSON:     []byte(schema),
+		ConstrainedSampling: mo.Some(constraint),
+	}
 }
 
 func constrainedDescriptor(strictness tool.JSONSchemaStrictness, variants tool.GrammarVariants) tool.Descriptor {

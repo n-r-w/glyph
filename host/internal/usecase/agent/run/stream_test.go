@@ -261,6 +261,60 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 	require.NotContains(t, previews, "call-1")
 }
 
+// TestApplyToolCallStreamEventChecksPayloadPresenceFirst verifies absent payloads are rejected before identity lookup.
+func TestApplyToolCallStreamEventChecksPayloadPresenceFirst(t *testing.T) {
+	t.Parallel()
+
+	active := model.ToolCallPreview{
+		CallID:      "",
+		Name:        "sentinel",
+		Position:    0,
+		Provisional: true,
+		Fields:      nil,
+	}
+	testCases := []struct {
+		name          string
+		event         StreamEvent
+		errorContains string
+	}{
+		{
+			name: "delta without preview",
+			event: StreamEvent{
+				Kind:     StreamEventToolCallDelta,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
+			},
+			errorContains: "tool-call delta requires preview",
+		},
+		{
+			name: "end without tool call",
+			event: StreamEvent{
+				Kind:     StreamEventToolCallEnd,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
+			},
+			errorContains: "tool-call end requires tool call",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			previews := map[string]model.ToolCallPreview{"": active}
+
+			require.ErrorContains(t, applyToolCallStreamEvent(previews, testCase.event), testCase.errorContains)
+			assert.Equal(t, map[string]model.ToolCallPreview{"": active}, previews)
+		})
+	}
+}
+
 func TestApplyToolCallStreamEventRejectsMissingPreviewFieldPayload(t *testing.T) {
 	t.Parallel()
 
