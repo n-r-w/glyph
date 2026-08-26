@@ -37,12 +37,12 @@ func TestServiceRunStop(t *testing.T) {
 	tools.EXPECT().Tools().Return([]tool.Descriptor{descriptor})
 	response := model.Response{
 		Content: []model.Content{
-			{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+			{Kind: model.ContentText, Text: mo.Some("hello"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			{
 				Kind: model.ContentReasoning, Text: mo.Some(""),
-				ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "codex", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte{1, 2, 3}}), Final: false, ToolCall: mo.None[model.ToolCall](),
+				ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "codex", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte{1, 2, 3}}), Final: true, ToolCall: mo.None[model.ToolCall](),
 			},
-			{Kind: model.ContentText, Text: mo.Some(" world"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+			{Kind: model.ContentText, Text: mo.Some(" world"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 		},
 		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
@@ -373,10 +373,17 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
-			require.NoError(t, emitText(handle, 0, "partial"))
-			return emitStream(handle, model.Response{
-				Content: nil, Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some("Provider failed."), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-			}, errors.New("provider transport failed"))
+			require.NoError(t, handle(StreamEvent{
+				Kind: StreamEventContentStart, Position: mo.Some(0),
+				Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}),
+				Delta:   mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}))
+			require.NoError(t, handle(StreamEvent{
+				Kind: StreamEventTextDelta, Position: mo.Some(0),
+				Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}),
+				Delta:   mo.Some("partial"), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}))
+			return errors.New("provider transport failed")
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -389,6 +396,44 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 	require.Len(t, history, 2)
 	require.Len(t, history[1].Model.OrEmpty().Content, 1)
 	assert.Equal(t, "partial", history[1].Model.OrEmpty().Content[0].Text.OrEmpty())
+	assert.True(t, history[1].Model.OrEmpty().Content[0].Final)
+}
+
+// TestServiceRunProviderFailureRejectsMalformedRetainedContent verifies invalid gaps do not enter history or terminal frames.
+func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) {
+	t.Parallel()
+
+	provider := NewMockModelProvider(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+			require.NoError(t, handle(StreamEvent{
+				Kind: StreamEventContentStart, Position: mo.Some(1),
+				Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}),
+				Delta:   mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}))
+			return errors.New("provider transport failed")
+		},
+	)
+	delivered := make([]Event, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, event Event) error {
+			delivered = append(delivered, event)
+			return nil
+		},
+	).AnyTimes()
+	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+
+	_, err := service.Run(t.Context(), Request{RunID: "run-malformed-partial", UserText: "hi"})
+
+	require.ErrorContains(t, err, "provider transport failed")
+	require.ErrorContains(t, err, "unknown kind")
+	require.Len(t, service.History(), 1)
+	assert.True(t, service.State().PartialResponse.IsNone())
+	assert.NotContains(t, eventTypes(delivered), EventMessageEnd)
+	assert.NotContains(t, eventTypes(delivered), EventTurnEnd)
 }
 
 // TestServiceRunProviderFailurePreservesSafeMessage keeps provider-approved detail in every terminal payload.
@@ -750,7 +795,7 @@ func newTestService(
 
 // testTextItem creates one complete text content item.
 func testTextItem(text string) model.Content {
-	return model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
+	return model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
 }
 
 // testCallItem creates one complete tool-call content item.

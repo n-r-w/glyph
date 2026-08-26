@@ -530,6 +530,28 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	return event, nil
 }
 
+// lifecycleFields is a presence mask for optional LifecycleEvent payload fields.
+type lifecycleFields uint16
+
+const (
+	lifecycleFieldType lifecycleFields = 1 << iota
+	lifecycleFieldRunID
+	lifecycleFieldText
+	lifecycleFieldToolCallID
+	lifecycleFieldToolName
+	lifecycleFieldProgressChannel
+	lifecycleFieldIsError
+	lifecycleFieldOutcome
+	lifecycleFieldErrorMessage
+	lifecycleFieldAvailability
+	lifecycleFieldModelContent
+	lifecycleFieldModelResponse
+	lifecycleFieldToolCallPreview
+	lifecycleFieldFinalToolCall
+	lifecycleFieldToolResultContents
+)
+
+// validateLifecycleEnvelope validates shared fields and rejects fields owned by inactive variants.
 func validateLifecycleEnvelope(lifecycle *uiv1.LifecycleEvent) error {
 	if !lifecycle.HasType() {
 		return errors.New("lifecycle type is missing")
@@ -537,7 +559,108 @@ func validateLifecycleEnvelope(lifecycle *uiv1.LifecycleEvent) error {
 	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && !lifecycle.HasRunId() {
 		return errors.New("lifecycle run ID is missing")
 	}
+	allowed, err := allowedLifecycleFields(lifecycle.GetType())
+	if err != nil {
+		return err
+	}
+	if inactive := presentLifecycleFields(lifecycle) &^ allowed; inactive != 0 {
+		return fmt.Errorf("lifecycle type %d has inactive fields 0x%x", lifecycle.GetType(), inactive)
+	}
 	return nil
+}
+
+// allowedLifecycleFields returns the complete field set for one lifecycle variant.
+func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, error) {
+	base := lifecycleFieldType | lifecycleFieldRunID
+	switch lifecycleType {
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
+		return base, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
+		return base | lifecycleFieldModelResponse, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
+		return base | lifecycleFieldToolCallID | lifecycleFieldToolName |
+			lifecycleFieldText | lifecycleFieldErrorMessage, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE:
+		return base | lifecycleFieldToolCallID | lifecycleFieldToolName | lifecycleFieldText |
+			lifecycleFieldProgressChannel | lifecycleFieldErrorMessage, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
+		return base | lifecycleFieldToolCallID | lifecycleFieldToolName | lifecycleFieldText |
+			lifecycleFieldIsError | lifecycleFieldErrorMessage, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
+		return base | lifecycleFieldToolCallID | lifecycleFieldToolName | lifecycleFieldText |
+			lifecycleFieldIsError | lifecycleFieldErrorMessage | lifecycleFieldToolResultContents, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END:
+		return base | lifecycleFieldText | lifecycleFieldIsError |
+			lifecycleFieldOutcome | lifecycleFieldErrorMessage, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+		return base | lifecycleFieldIsError | lifecycleFieldOutcome | lifecycleFieldErrorMessage, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
+		return base | lifecycleFieldAvailability, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
+		return base | lifecycleFieldModelContent, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
+		return base | lifecycleFieldToolCallPreview, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
+		return base | lifecycleFieldFinalToolCall, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
+		return 0, errors.New("lifecycle type is unspecified")
+	default:
+		return 0, fmt.Errorf("unknown lifecycle type %d", lifecycleType)
+	}
+}
+
+// presentLifecycleFields records Protobuf presence without collapsing valid scalar zero values.
+func presentLifecycleFields(lifecycle *uiv1.LifecycleEvent) lifecycleFields {
+	fields := lifecycleFieldType
+	if lifecycle.HasRunId() {
+		fields |= lifecycleFieldRunID
+	}
+	if lifecycle.HasText() {
+		fields |= lifecycleFieldText
+	}
+	if lifecycle.HasToolCallId() {
+		fields |= lifecycleFieldToolCallID
+	}
+	if lifecycle.HasToolName() {
+		fields |= lifecycleFieldToolName
+	}
+	if lifecycle.HasProgressChannel() {
+		fields |= lifecycleFieldProgressChannel
+	}
+	if lifecycle.HasIsError() {
+		fields |= lifecycleFieldIsError
+	}
+	if lifecycle.HasOutcome() {
+		fields |= lifecycleFieldOutcome
+	}
+	if lifecycle.HasErrorMessage() {
+		fields |= lifecycleFieldErrorMessage
+	}
+	if lifecycle.HasAvailability() {
+		fields |= lifecycleFieldAvailability
+	}
+	if lifecycle.HasModelContent() {
+		fields |= lifecycleFieldModelContent
+	}
+	if lifecycle.HasModelResponse() {
+		fields |= lifecycleFieldModelResponse
+	}
+	if lifecycle.HasToolCallPreview() {
+		fields |= lifecycleFieldToolCallPreview
+	}
+	if lifecycle.HasFinalToolCall() {
+		fields |= lifecycleFieldFinalToolCall
+	}
+	if len(lifecycle.GetToolResultContents()) != 0 {
+		fields |= lifecycleFieldToolResultContents
+	}
+	return fields
 }
 
 // mapModelLifecycle preserves optional streaming and terminal model payloads.

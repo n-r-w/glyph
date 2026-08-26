@@ -456,7 +456,6 @@ func newProviderCatalog(
 	})
 }
 
-// configuredModel finds one validated model without exposing persistence details outside assembly.
 // reasoningCapabilities maps validated persistence values into the model domain.
 func reasoningCapabilities(configured settingstore.Reasoning) model.ReasoningCapabilities {
 	choices := lo.Map(configured.Choices, func(choice settingstore.ReasoningChoice, _ int) model.ReasoningChoice {

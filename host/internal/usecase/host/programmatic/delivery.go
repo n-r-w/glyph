@@ -316,7 +316,11 @@ func mapProgrammaticModelEvent(event run.Event, mapped *controller.AgentEvent) e
 		if !present {
 			return errors.New("message end event requires model response")
 		}
-		mapped.ModelResponse = mo.Some(mapModelResponse(message))
+		response, err := mapModelResponse(message)
+		if err != nil {
+			return err
+		}
+		mapped.ModelResponse = mo.Some(response)
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
 		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
@@ -383,7 +387,11 @@ func mapProgrammaticTerminalEvent(event run.Event, mapped *controller.AgentEvent
 		toolResults := lo.Map(turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
 			return mapToolResult(result)
 		})
-		mapped.Turn = mo.Some(controller.TurnSummary{Response: mapModelResponse(turn.Response), ToolResults: toolResults})
+		response, err := mapModelResponse(turn.Response)
+		if err != nil {
+			return err
+		}
+		mapped.Turn = mo.Some(controller.TurnSummary{Response: response, ToolResults: toolResults})
 	case run.EventAgentEnd:
 		summary, present := event.Agent.Get()
 		if !present {

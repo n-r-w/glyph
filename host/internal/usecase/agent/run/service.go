@@ -332,6 +332,7 @@ func (s *Service) finalizeProviderError(
 	response = cloneModelResponse(response)
 	if partial, present := s.State().PartialResponse.Get(); len(response.Content) == 0 && present {
 		response.Content = partial.Content
+		finalizeRetainedStreamedContent(response.Content)
 	}
 	outcome := model.OutcomeFailed
 	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
@@ -346,7 +347,14 @@ func (s *Service) finalizeProviderError(
 	}
 	response.Outcome = mo.Some(outcome)
 	response.ErrorMessage = mo.Some(errorMessage)
+	validationErr := ValidateTerminalContent(response)
 	s.clearPartial()
+	if validationErr != nil {
+		return Result{
+			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+			ErrorMessage: mo.EmptyableToOption(errorMessage),
+		}, false, errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
+	}
 	s.appendModel(response)
 	terminalContext := context.WithoutCancel(ctx)
 	messageEnd := newEvent(EventMessageEnd, runID)
@@ -356,13 +364,31 @@ func (s *Service) finalizeProviderError(
 	turnEnd := newEvent(EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
-	runOutcome := agent.RunOutcomeFailed
-	if outcome == model.OutcomeAborted {
-		runOutcome = agent.RunOutcomeAborted
-	}
 	return Result{
-		Outcome: runOutcome, AddedHistory: nil, ErrorMessage: mo.EmptyableToOption(errorMessage),
+		Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+		ErrorMessage: mo.EmptyableToOption(errorMessage),
 	}, false, errors.Join(providerErr, deliveryErr)
+}
+
+// finalizeRetainedStreamedContent closes only well-formed streamed content kept after provider failure.
+func finalizeRetainedStreamedContent(content []model.Content) {
+	for position := range content {
+		item := &content[position]
+		if item.Final || !isStreamedContent(item.Kind) {
+			continue
+		}
+		if validateTerminalContentShape(*item) == nil {
+			item.Final = true
+		}
+	}
+}
+
+// outcomeToRunOutcome maps a model terminal outcome to the run result used for provider failures.
+func outcomeToRunOutcome(outcome model.Outcome) agent.RunOutcome {
+	if outcome == model.OutcomeAborted {
+		return agent.RunOutcomeAborted
+	}
+	return agent.RunOutcomeFailed
 }
 
 // applyOutcome executes the complete behavior for one finalized model outcome.
@@ -562,15 +588,15 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 		event.Kind == StreamEventToolCallEnd {
 		return applyToolCallStreamEvent(s.state.ToolPreviews, event)
 	}
-	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
-		clear(s.state.ToolPreviews)
-	}
 	partial, present := s.state.PartialResponse.Get()
 	if !present {
 		partial = model.Response{}
 	}
 	if err := applyStreamEvent(&partial, event); err != nil {
 		return err
+	}
+	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
+		clear(s.state.ToolPreviews)
 	}
 	s.state.PartialResponse = mo.Some(partial)
 	return nil

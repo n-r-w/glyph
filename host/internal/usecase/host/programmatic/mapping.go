@@ -2,6 +2,8 @@ package programmatic
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -13,46 +15,52 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-func mapHistory(history []agent.HistoryEntry) []controller.HistoryEntry {
-	return lo.FilterMap(history, func(entry agent.HistoryEntry, _ int) (controller.HistoryEntry, bool) {
+func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error) {
+	return lo.MapErr(history, func(entry agent.HistoryEntry, position int) (controller.HistoryEntry, error) {
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
-			user, ok := entry.User.Get()
-			if !ok {
-				return controller.HistoryEntry{}, false
+			user, present := entry.User.Get()
+			if !present {
+				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: user payload is missing", position)
 			}
 			return controller.HistoryEntry{
 				Kind:       controller.HistoryEntryUser,
 				UserText:   mo.Some(publicInputText(user)),
 				Model:      mo.None[controller.ModelResponse](),
 				ToolResult: mo.None[controller.ToolResult](),
-			}, true
+			}, nil
 		case agent.HistoryEntryModel:
-			modelResponse, ok := entry.Model.Get()
-			if !ok {
-				return controller.HistoryEntry{}, false
+			modelResponse, present := entry.Model.Get()
+			if !present {
+				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: model payload is missing", position)
+			}
+			mapped, err := mapModelResponse(modelResponse)
+			if err != nil {
+				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: %w", position, err)
 			}
 			return controller.HistoryEntry{
 				Kind:       controller.HistoryEntryModel,
 				UserText:   mo.None[string](),
-				Model:      mo.Some(mapModelResponse(modelResponse)),
+				Model:      mo.Some(mapped),
 				ToolResult: mo.None[controller.ToolResult](),
-			}, true
+			}, nil
 		case agent.HistoryEntryToolResult:
-			toolResult, ok := entry.ToolResult.Get()
-			if !ok {
-				return controller.HistoryEntry{}, false
+			toolResult, present := entry.ToolResult.Get()
+			if !present {
+				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: tool result payload is missing", position)
 			}
 			return controller.HistoryEntry{
 				Kind:       controller.HistoryEntryToolResult,
 				UserText:   mo.None[string](),
 				Model:      mo.None[controller.ModelResponse](),
 				ToolResult: mo.Some(mapToolResult(toolResult)),
-			}, true
+			}, nil
+		default:
+			return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: unknown kind %d", position, entry.Kind)
 		}
-		return controller.HistoryEntry{}, false
 	})
 }
 
@@ -70,23 +78,31 @@ func publicInputText(message model.Message) string {
 	return text.String()
 }
 
-func mapModelResponse(response model.Response) controller.ModelResponse {
-	content := make([]controller.ModelResponseContent, 0, len(response.Content))
+func mapModelResponse(response model.Response) (controller.ModelResponse, error) {
+	if err := run.ValidateTerminalContent(response); err != nil {
+		return controller.ModelResponse{}, fmt.Errorf("map model response: %w", err)
+	}
+	mappedContent, err := lo.MapErr(response.Content, func(
+		item model.Content,
+		position int,
+	) (mo.Option[controller.ModelResponseContent], error) {
+		return mapModelResponseContent(position, item)
+	})
+	if err != nil {
+		return controller.ModelResponse{}, err
+	}
+	content := make([]controller.ModelResponseContent, 0, len(mappedContent))
 	var text strings.Builder
-	for position := range response.Content {
-		item := &response.Content[position]
-		if !item.Final {
-			continue
-		}
-		mapped, ok := mapModelResponseContent(position, *item)
-		if !ok {
+	for position := range mappedContent {
+		mapped, present := mappedContent[position].Get()
+		if !present {
 			continue
 		}
 		content = append(content, mapped)
-		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			mappedText, present := mapped.Text.Get()
-			if !present {
-				continue
+		if mapped.Kind == controller.ModelResponseContentText || mapped.Kind == controller.ModelResponseContentRefusal {
+			mappedText, hasText := mapped.Text.Get()
+			if !hasText {
+				return controller.ModelResponse{}, fmt.Errorf("map model response content %d: text is missing", position)
 			}
 			text.WriteString(mappedText)
 		}
@@ -132,15 +148,21 @@ func mapModelResponse(response model.Response) controller.ModelResponse {
 		Usage:         usage,
 		Diagnostics:   diagnostics,
 		Content:       content,
-	}
+	}, nil
 }
 
-func mapModelResponseContent(position int, content model.Content) (controller.ModelResponseContent, bool) {
+func mapModelResponseContent(
+	position int,
+	content model.Content,
+) (mo.Option[controller.ModelResponseContent], error) {
 	switch content.Kind {
 	case model.ContentText, model.ContentRefusal, model.ContentReasoning:
-		text, ok := content.Text.Get()
-		if !ok {
-			return controller.ModelResponseContent{}, false
+		text, hasText := content.Text.Get()
+		if !hasText {
+			if content.Kind == model.ContentReasoning && content.ProviderContext.IsSome() {
+				return mo.None[controller.ModelResponseContent](), nil
+			}
+			return mo.None[controller.ModelResponseContent](), errors.New("model response content text is missing")
 		}
 		kind := controller.ModelResponseContentText
 		switch content.Kind {
@@ -150,23 +172,23 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 			kind = controller.ModelResponseContentReasoning
 		case model.ContentText, model.ContentToolCall:
 		}
-		return controller.ModelResponseContent{
+		return mo.Some(controller.ModelResponseContent{
 			Kind: kind, Text: mo.Some(text), ToolCall: mo.None[controller.FinalToolCall](),
-		}, true
+		}), nil
 	case model.ContentToolCall:
-		call, ok := content.ToolCall.Get()
-		if !ok {
-			return controller.ModelResponseContent{}, false
+		call, hasToolCall := content.ToolCall.Get()
+		if !hasToolCall {
+			return mo.None[controller.ModelResponseContent](), errors.New("model response tool call is missing")
 		}
-		return controller.ModelResponseContent{
+		return mo.Some(controller.ModelResponseContent{
 			Kind: controller.ModelResponseContentToolCall, Text: mo.None[string](),
 			ToolCall: mo.Some(controller.FinalToolCall{
 				CallID: call.ID, Name: call.Name, Position: position,
 				Arguments: cloneArguments(call.Arguments),
 			}),
-		}, true
+		}), nil
 	}
-	return controller.ModelResponseContent{}, false
+	return mo.None[controller.ModelResponseContent](), fmt.Errorf("unknown model response content kind %d", content.Kind)
 }
 
 func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPreview {

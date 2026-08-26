@@ -63,7 +63,8 @@ func (s *Service) Handle(
 	case controller.CommandGetRunState:
 		return s.runState(command.CorrelationID, current), nil, nil
 	case controller.CommandGetMessages:
-		return s.messages(command.CorrelationID), nil, nil
+		response, mapErr := s.messages(command.CorrelationID)
+		return response, nil, mapErr
 	case controller.CommandGetModels:
 		return s.models(command.CorrelationID), nil, nil
 	case controller.CommandSelectModel:
@@ -141,10 +142,14 @@ func (s *Service) runState(correlationID string, active *activeRun) controller.R
 	return response
 }
 
-func (s *Service) messages(correlationID string) controller.Response {
+func (s *Service) messages(correlationID string) (controller.Response, error) {
 	response := emptyResponse(correlationID, controller.ResponseMessages)
-	response.Messages = mapHistory(s.historySnapshot())
-	return response
+	messages, err := mapHistory(s.historySnapshot())
+	if err != nil {
+		return controller.Response{}, err
+	}
+	response.Messages = messages
+	return response, nil
 }
 
 func (s *Service) models(correlationID string) controller.Response {

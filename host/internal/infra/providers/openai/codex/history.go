@@ -222,7 +222,6 @@ func buildModelInput(
 	return input, nil
 }
 
-// providerContextCompatible applies exact-model and additive compatibility-key replay rules.
 // codexReasoningInput maps replayable or visible reasoning to Codex SDK input.
 func codexReasoningInput(
 	item model.Content,

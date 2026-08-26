@@ -643,11 +643,11 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	}
 	lifecycle := uiv1.LifecycleEvent_builder{
 		Type:               new(typeValue),
-		ToolName:           new(frame.ToolName),
-		Text:               new(frame.Text),
-		Outcome:            new(frame.Outcome),
+		ToolName:           nil,
+		Text:               nil,
+		Outcome:            nil,
 		RunId:              new("run"),
-		ToolCallId:         new("call"),
+		ToolCallId:         nil,
 		ProgressChannel:    nil,
 		IsError:            nil,
 		ErrorMessage:       nil,
@@ -679,7 +679,13 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 			ResponseModel: nil,
 		}.Build())
 	}
+	if frame.Type == "tool_execution_start" {
+		lifecycle.SetToolCallId("call")
+		lifecycle.SetToolName(frame.ToolName)
+	}
 	if frame.Type == "tool_result" {
+		lifecycle.SetToolCallId("call")
+		lifecycle.SetToolName(frame.ToolName)
 		contents := make([]*uiv1.ToolResultContent, 0, len(frame.ToolResultContents))
 		for _, content := range frame.ToolResultContents {
 			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
@@ -690,10 +696,15 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		lifecycle.SetToolResultContents(contents)
 	}
 	if frame.Type == "tool_execution_end" {
+		lifecycle.SetToolCallId("call")
+		lifecycle.SetToolName(frame.ToolName)
 		lifecycle.SetIsError(frame.ToolStatus != "ok")
 	}
 	if frame.Type == "tool_result" {
 		lifecycle.SetIsError(false)
+	}
+	if frame.Type == "agent_end" {
+		lifecycle.SetOutcome(frame.Outcome)
 	}
 	if frame.Type == "availability" {
 		lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
@@ -1555,6 +1566,136 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 	}, mapped)
 }
 
+// TestMapLifecycleRejectsInactiveAgentStartResponse verifies stale lifecycle payloads fail at ingress.
+func TestMapLifecycleRejectsInactiveAgentStartResponse(t *testing.T) {
+	t.Parallel()
+
+	lifecycle := messageEndLifecycle(t, nil)
+	lifecycle.SetType(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START)
+	_, err := mapLifecycle(lifecycle)
+
+	require.Error(t, err)
+}
+
+// TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType verifies the complete lifecycle shape table.
+func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) {
+	t.Parallel()
+
+	validLifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.LifecycleEvent {
+		lifecycle := uiv1.LifecycleEvent_builder{
+			Type: new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
+			ProgressChannel: nil, IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
+			ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
+			ToolResultContents: nil,
+		}.Build()
+		switch lifecycleType {
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
+			nestedType := uiv1.ModelContentType_MODEL_CONTENT_TYPE_START
+			if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
+				nestedType = uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA
+			}
+			if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END {
+				nestedType = uiv1.ModelContentType_MODEL_CONTENT_TYPE_END
+			}
+			text := (*string)(nil)
+			if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
+				text = new("")
+			}
+			lifecycle.SetModelContent(uiv1.ModelContent_builder{
+				Type: new(nestedType), Position: new(int32(0)), Text: text,
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
+			}.Build())
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
+			lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
+				Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+				ResponseId: nil, Usage: nil, Diagnostics: nil, Content: nil, ResponseModel: nil,
+			}.Build())
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
+			lifecycle.SetToolCallPreview(uiv1.ToolCallPreview_builder{
+				CallId: new("call"), Name: new("tool"), Position: new(int32(0)), Provisional: new(true), Fields: nil,
+			}.Build())
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
+			lifecycle.SetFinalToolCall(uiv1.FinalToolCall_builder{
+				CallId: new("call"), Name: new("tool"), Position: new(int32(0)),
+				Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{}},
+			}.Build())
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
+			lifecycle.SetToolCallId("")
+			lifecycle.SetToolName("")
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE:
+			lifecycle.SetText("")
+			lifecycle.SetProgressChannel(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT)
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
+			lifecycle.SetToolCallId("")
+			lifecycle.SetToolName("")
+			lifecycle.SetIsError(false)
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
+			lifecycle.SetToolCallId("")
+			lifecycle.SetToolName("")
+			lifecycle.SetIsError(false)
+			lifecycle.SetToolResultContents([]*uiv1.ToolResultContent{uiv1.ToolResultContent_builder{
+				Text: new(""), Image: nil,
+			}.Build()})
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END:
+			lifecycle.SetText("")
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
+			lifecycle.SetOutcome("")
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
+			lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
+		case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
+			uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
+		}
+		return lifecycle
+	}
+
+	lifecycleTypes := []uiv1.LifecycleType{
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END,
+	}
+	for _, lifecycleType := range lifecycleTypes {
+		t.Run(lifecycleType.String(), func(t *testing.T) {
+			t.Parallel()
+			valid := roundTripLifecycle(t, validLifecycle(lifecycleType))
+			_, err := mapLifecycle(valid)
+			require.NoError(t, err)
+
+			malformed := roundTripLifecycle(t, validLifecycle(lifecycleType))
+			if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED {
+				malformed.SetModelResponse(uiv1.ModelResponse_builder{
+					Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+					ResponseId: nil, Usage: nil, Diagnostics: nil, Content: nil, ResponseModel: nil,
+				}.Build())
+			} else {
+				malformed.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
+			}
+			_, err = mapLifecycle(malformed)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T) {
 	t.Parallel()
 
@@ -1998,11 +2139,15 @@ func TestOpenRejectsMalformedLifecycleAsInvalidArgument(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(initializationRequest()))
 	malformed := uiv1.LifecycleEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END), RunId: new("run"), Text: nil,
-		ToolCallId: new("call"), ToolName: new("tool"), ProgressChannel: nil,
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
+		ToolCallId: nil, ToolName: nil, ProgressChannel: nil,
 		IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
-		ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
-		ToolResultContents: nil,
+		ModelContent: nil,
+		ModelResponse: uiv1.ModelResponse_builder{
+			Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+			ResponseId: nil, Usage: nil, Diagnostics: nil, Content: nil, ResponseModel: nil,
+		}.Build(),
+		ToolCallPreview: nil, FinalToolCall: nil, ToolResultContents: nil,
 	}.Build()
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Initialization:        nil,

@@ -295,7 +295,6 @@ func fallbackReasoningChoice(active model.ReasoningChoice, target model.Reasonin
 	return target.Default
 }
 
-// supports reports whether one effective choice list contains the target.
 // reasoningRank defines the product ordering used by model-selection fallback.
 func reasoningRank(level model.ReasoningChoice) (int, bool) {
 	switch level {

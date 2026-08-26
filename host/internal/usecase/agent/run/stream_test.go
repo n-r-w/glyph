@@ -519,6 +519,186 @@ func TestApplyStreamEventRequiresNonzeroTerminalOutcome(t *testing.T) {
 	assert.True(t, partial.Outcome.IsNone())
 }
 
+// TestValidateStreamEventShapeCoversEveryKind verifies active fields and one inactive field per variant.
+func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
+	t.Parallel()
+
+	content := model.Content{
+		Kind:            model.ContentText,
+		Text:            mo.Some(""),
+		Final:           false,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
+	}
+	preview := model.ToolCallPreview{
+		CallID: "call", Name: "tool", Position: 0, Provisional: true, Fields: nil,
+	}
+	call := model.ToolCall{
+		ID: "call", Name: "tool", Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+	}
+	response := model.Response{
+		Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
+		Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+		Usage: mo.None[model.Usage](), Diagnostics: nil, Outcome: mo.Some(model.OutcomeStop),
+	}
+	tests := []struct {
+		name  string
+		valid StreamEvent
+	}{
+		{name: "content start", valid: StreamEvent{Kind: StreamEventContentStart, Position: mo.Some(0), Content: mo.Some(content), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
+		{name: "text delta", valid: StreamEvent{Kind: StreamEventTextDelta, Position: mo.Some(0), Content: mo.Some(content), Delta: mo.Some(""), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
+		{name: "content end wildcard", valid: StreamEvent{Kind: StreamEventContentEnd, Position: mo.Some(0), Content: mo.Some(model.Content{}), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
+		{name: "tool call start", valid: StreamEvent{Kind: StreamEventToolCallStart, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.Some(preview), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
+		{name: "tool call delta", valid: StreamEvent{Kind: StreamEventToolCallDelta, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.Some(preview), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
+		{name: "tool call end", valid: StreamEvent{Kind: StreamEventToolCallEnd, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.Some(call), Response: mo.None[model.Response]()}},
+		{name: "done", valid: StreamEvent{Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.Some(response)}},
+		{name: "error", valid: StreamEvent{Kind: StreamEventError, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.Some(response)}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			require.NoError(t, validateStreamEventShape(test.valid))
+			malformed := test.valid
+			if malformed.Response.IsSome() {
+				malformed.Position = mo.Some(0)
+			} else {
+				malformed.Response = mo.Some(response)
+			}
+			require.Error(t, validateStreamEventShape(malformed))
+		})
+	}
+	for _, kind := range []StreamEventKind{0, 99} {
+		require.Error(t, validateStreamEventShape(StreamEvent{
+			Kind: kind, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](),
+			Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+		}))
+	}
+}
+
+// TestValidateTerminalContentPreservesValidOptionalValues verifies every terminal content shape.
+func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
+	t.Parallel()
+
+	providerContext := model.ProviderContext{
+		Source: model.ProviderContextSource{
+			ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some(""),
+		},
+		Payload: []byte{0},
+	}
+	call := model.ToolCall{
+		ID: "call", Name: "tool", Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+	}
+	tests := []struct {
+		name    string
+		content model.Content
+	}{
+		{name: "empty text", content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
+		{name: "empty refusal", content: model.Content{Kind: model.ContentRefusal, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
+		{name: "reasoning text", content: model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
+		{name: "reasoning provider context", content: model.Content{Kind: model.ContentReasoning, Text: mo.None[string](), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()}},
+		{name: "reasoning text and provider context", content: model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()}},
+		{name: "tool call null arguments", content: model.Content{Kind: model.ContentToolCall, Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			require.NoError(t, ValidateTerminalContent(testTerminalContentResponse([]model.Content{test.content})))
+		})
+	}
+
+	invalid := []model.Content{
+		{Kind: model.ContentText, Text: mo.None[string](), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{Kind: model.ContentRefusal, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()},
+		{Kind: model.ContentReasoning, Text: mo.None[string](), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)},
+		{Kind: model.ContentToolCall, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)},
+		{Kind: model.ContentKind(99), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+	}
+	for _, content := range invalid {
+		require.Error(t, ValidateTerminalContent(testTerminalContentResponse([]model.Content{content})))
+	}
+}
+
+// TestApplyStreamEventRejectsMalformedTerminalContentBeforeMutation verifies the terminal response boundary.
+func TestApplyStreamEventRejectsMalformedTerminalContentBeforeMutation(t *testing.T) {
+	t.Parallel()
+
+	partial := testTerminalContentResponse([]model.Content{{
+		Kind:            model.ContentText,
+		Text:            mo.Some("streamed"),
+		Final:           true,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
+	}})
+	err := applyStreamEvent(&partial, StreamEvent{
+		Kind:     StreamEventDone,
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.Some(model.Response{
+			Content: []model.Content{{
+				Kind:            model.ContentText,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}},
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
+			Outcome:       mo.Some(model.OutcomeStop),
+		}),
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, "streamed", partial.Content[0].Text.OrEmpty())
+}
+
+// TestApplyStreamEventRejectsInactiveTerminalPosition verifies stale stream fields are rejected.
+func TestApplyStreamEventRejectsInactiveTerminalPosition(t *testing.T) {
+	t.Parallel()
+
+	partial := model.Response{}
+	err := applyStreamEvent(&partial, StreamEvent{
+		Kind:     StreamEventDone,
+		Position: mo.Some(0),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.Some(model.Response{
+			Content:       nil,
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
+			Outcome:       mo.Some(model.OutcomeStop),
+		}),
+	})
+
+	require.Error(t, err)
+	assert.True(t, partial.Outcome.IsNone())
+}
+
+// testTerminalContentResponse builds a response for content-only validation tests.
+func testTerminalContentResponse(content []model.Content) model.Response {
+	return model.Response{
+		Content: content, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
+		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+}
+
 func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 	t.Parallel()
 

@@ -300,7 +300,7 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 					),
 				},
 				{
-					Final:           false,
+					Final:           true,
 					ProviderContext: mo.None[model.ProviderContext](),
 					ToolCall:        mo.None[model.ToolCall](),
 					Kind:            model.ContentText,
@@ -312,6 +312,19 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 					Kind:            model.ContentRefusal,
 					Text:            mo.Some("cannot help"),
 					Final:           true,
+				},
+				{
+					ProviderContext: mo.Some(model.ProviderContext{
+						Source: model.ProviderContextSource{
+							API: "responses", Model: "gpt-test", CompatibilityKey: mo.None[string](),
+							ProviderID: "secret-provider",
+						},
+						Payload: []byte("opaque-only"),
+					}),
+					ToolCall: mo.None[model.ToolCall](),
+					Kind:     model.ContentReasoning,
+					Text:     mo.None[string](),
+					Final:    true,
 				},
 			},
 			Outcome: mo.Some(model.OutcomeStop),
@@ -441,6 +454,41 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	image.Data[0] = 9
 
 	assert.Equal(t, byte(1), original[0].Image.OrEmpty().Data[0])
+}
+
+// TestMapUIModelEventRejectsMalformedResponseContent verifies projection errors are returned.
+func TestMapUIModelEventRejectsMalformedResponseContent(t *testing.T) {
+	t.Parallel()
+
+	event := run.Event{
+		Type:       run.EventMessageEnd,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Message: mo.Some(model.Response{
+			Content: []model.Content{{
+				Kind:            model.ContentText,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}},
+			Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+		Turn:  mo.None[run.TurnSummary](),
+		Agent: mo.None[run.AgentSummary](),
+	}
+
+	err := mapUIModelEvent(event, &domainui.Lifecycle{})
+
+	require.Error(t, err)
 }
 
 // TestDeliveryRejectsMissingSelectedPayload verifies malformed lifecycle variants do not reach the UI channel.

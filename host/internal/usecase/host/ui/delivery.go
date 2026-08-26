@@ -133,7 +133,11 @@ func mapUIModelEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		if !present {
 			return errors.New("deliver UI agent event: message end event requires model response")
 		}
-		lifecycle.ModelResponse = mo.Some(mapModelResponse(message))
+		response, err := mapModelResponse(message)
+		if err != nil {
+			return err
+		}
+		lifecycle.ModelResponse = mo.Some(response)
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
 		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
@@ -227,6 +231,9 @@ func mapUITerminalEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		turn, present := event.Turn.Get()
 		if !present {
 			return errors.New("deliver UI agent event: turn end event requires turn summary")
+		}
+		if err := run.ValidateTerminalContent(turn.Response); err != nil {
+			return fmt.Errorf("deliver UI turn end: %w", err)
 		}
 		lifecycle.Text = mo.Some(responseText(turn.Response))
 		if outcome, hasOutcome := turn.Response.Outcome.Get(); hasOutcome {
@@ -360,12 +367,25 @@ func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
 }
 
 // mapModelResponse copies typed terminal data while excluding opaque provider context.
-func mapModelResponse(response model.Response) domainui.ModelResponse {
-	content := lo.FilterMap(response.Content, func(item model.Content, _ int) (domainui.ModelResponseContent, bool) {
-		kind := modelContentKind(item.Kind)
-		text, present := item.Text.Get()
-		return domainui.ModelResponseContent{Kind: kind, Text: text}, kind != 0 && present
+func mapModelResponse(response model.Response) (domainui.ModelResponse, error) {
+	if err := run.ValidateTerminalContent(response); err != nil {
+		return domainui.ModelResponse{}, fmt.Errorf("map UI model response: %w", err)
+	}
+	mappedContent, err := lo.MapErr(response.Content, func(
+		item model.Content,
+		_ int,
+	) (mo.Option[domainui.ModelResponseContent], error) {
+		return mapUIModelResponseContent(item)
 	})
+	if err != nil {
+		return domainui.ModelResponse{}, err
+	}
+	content := make([]domainui.ModelResponseContent, 0, len(mappedContent))
+	for position := range mappedContent {
+		if item, present := mappedContent[position].Get(); present {
+			content = append(content, item)
+		}
+	}
 	responseModel := mo.None[string]()
 	if actualModel, ok := response.ResponseModel.Get(); ok {
 		responseModel = mo.Some(string(actualModel))
@@ -405,7 +425,25 @@ func mapModelResponse(response model.Response) domainui.ModelResponse {
 		Text: responseText(response), Outcome: outcome, ErrorMessage: errorMessage,
 		Provider: provider, Model: configuredModel, ResponseModel: responseModel,
 		ResponseID: responseID, Content: content, Usage: mappedUsage, Diagnostics: diagnostics,
+	}, nil
+}
+
+// mapUIModelResponseContent projects one valid terminal content item without opaque provider data.
+func mapUIModelResponseContent(
+	item model.Content,
+) (mo.Option[domainui.ModelResponseContent], error) {
+	kind := modelContentKind(item.Kind)
+	if kind == 0 {
+		return mo.None[domainui.ModelResponseContent](), nil
 	}
+	text, present := item.Text.Get()
+	if !present {
+		if item.Kind == model.ContentReasoning && item.ProviderContext.IsSome() {
+			return mo.None[domainui.ModelResponseContent](), nil
+		}
+		return mo.None[domainui.ModelResponseContent](), errors.New("UI model response content text is missing")
+	}
+	return mo.Some(domainui.ModelResponseContent{Kind: kind, Text: text}), nil
 }
 
 // modelContentKind maps only UI-safe streamed content kinds.

@@ -506,8 +506,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
 			Content: []model.Content{
 				{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"secret":true}`)}), Text: mo.None[string](), Final: false, ToolCall: mo.None[model.ToolCall]()},
+				{Kind: model.ContentText, Text: mo.Some("partial"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+				{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"secret":true}`)}), Text: mo.None[string](), Final: true, ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentReasoning, Text: mo.Some("reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			},
 			Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(responseModel), ErrorMessage: mo.None[string](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
@@ -531,9 +531,9 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().Len(response.Messages, 3)
 	s.Equal("hello", response.Messages[0].UserText.OrEmpty())
 	modelResponse := response.Messages[1].Model.OrEmpty()
-	s.Equal("answer", modelResponse.Text)
-	s.Require().Len(modelResponse.Content, 2)
-	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[1].Kind)
+	s.Equal("answerpartial", modelResponse.Text)
+	s.Require().Len(modelResponse.Content, 3)
+	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[2].Kind)
 	toolResult := response.Messages[2].ToolResult.OrEmpty()
 	image, present := toolResult.Contents[1].Image.Get()
 	s.Require().True(present)

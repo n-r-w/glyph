@@ -35,7 +35,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 			},
 			{
 				Text:     mo.None[string](),
-				Final:    false,
+				Final:    true,
 				ToolCall: mo.None[model.ToolCall](),
 				Kind:     model.ContentReasoning,
 				ProviderContext: mo.Some(
@@ -57,6 +57,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		Provider: mo.Some(model.ProviderID("provider")),
 		Model:    mo.Some(model.ID("model")),
 	}
+	mappedResponse, err := mapModelResponse(response)
+	require.NoError(t, err)
 	toolResult := agent.ToolResult{
 		IsError:  false,
 		CallID:   "call",
@@ -474,7 +476,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				Turn:            mo.None[controller.TurnSummary](),
 				Agent:           mo.None[controller.AgentSummary](),
 				Type:            controller.AgentEventMessageEnd,
-				ModelResponse:   mo.Some(mapModelResponse(response)),
+				ModelResponse:   mo.Some(mappedResponse),
 			},
 		},
 		{
@@ -641,7 +643,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				Agent:           mo.None[controller.AgentSummary](),
 				Type:            controller.AgentEventTurnEnd,
 				Turn: mo.Some(controller.TurnSummary{
-					Response:    mapModelResponse(response),
+					Response:    mappedResponse,
 					ToolResults: []controller.ToolResult{mapToolResult(toolResult)},
 				}),
 			},
@@ -782,6 +784,41 @@ func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 
 	require.ErrorContains(t, err, "requires model response")
 	delivery.finish(active, nil)
+}
+
+// TestMapProgrammaticModelEventRejectsMalformedResponseContent verifies projection errors are returned.
+func TestMapProgrammaticModelEventRejectsMalformedResponseContent(t *testing.T) {
+	t.Parallel()
+
+	event := run.Event{
+		Type:       run.EventMessageEnd,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Message: mo.Some(model.Response{
+			Content: []model.Content{{
+				Kind:            model.ContentText,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			}},
+			Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+		Turn:  mo.None[run.TurnSummary](),
+		Agent: mo.None[run.AgentSummary](),
+	}
+
+	err := mapProgrammaticModelEvent(event, &controller.AgentEvent{})
+
+	require.Error(t, err)
 }
 
 func newTestActiveRun(

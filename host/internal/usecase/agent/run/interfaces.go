@@ -71,8 +71,91 @@ type StreamEvent struct {
 // StreamHandler consumes model stream transitions in provider order.
 type StreamHandler func(event StreamEvent) error
 
+// streamEventFields is a presence mask for optional StreamEvent payload fields.
+type streamEventFields uint8
+
+const (
+	streamEventFieldPosition streamEventFields = 1 << iota
+	streamEventFieldContent
+	streamEventFieldDelta
+	streamEventFieldPreview
+	streamEventFieldToolCall
+	streamEventFieldResponse
+)
+
+// validateStreamEventShape validates the active fields selected by one stream event kind.
+func validateStreamEventShape(event StreamEvent) error {
+	required, allowed, missingMessage, err := streamEventFieldContract(event.Kind)
+	if err != nil {
+		return err
+	}
+	present := presentStreamEventFields(event)
+	if present&required != required {
+		return errors.New(missingMessage)
+	}
+	if present&^allowed != 0 {
+		return fmt.Errorf("model stream event kind %d has invalid payload fields", event.Kind)
+	}
+	return nil
+}
+
+// streamEventFieldContract returns required and allowed Option fields for one event kind.
+func streamEventFieldContract(
+	kind StreamEventKind,
+) (required, allowed streamEventFields, missingMessage string, err error) {
+	switch kind {
+	case StreamEventContentStart, StreamEventContentEnd:
+		fields := streamEventFieldPosition | streamEventFieldContent
+		return fields, fields, "model content stream event requires position and content", nil
+	case StreamEventTextDelta:
+		fields := streamEventFieldPosition | streamEventFieldContent | streamEventFieldDelta
+		return fields, fields, "model text delta requires position, content, and text delta", nil
+	case StreamEventToolCallStart:
+		fields := streamEventFieldPosition | streamEventFieldPreview
+		return fields, fields, "tool-call start requires preview and position", nil
+	case StreamEventToolCallDelta:
+		fields := streamEventFieldPosition | streamEventFieldPreview
+		return fields, fields, "tool-call delta requires preview and position", nil
+	case StreamEventToolCallEnd:
+		fields := streamEventFieldPosition | streamEventFieldToolCall
+		return fields, fields, "tool-call end requires tool call and position", nil
+	case StreamEventDone, StreamEventError:
+		return streamEventFieldResponse, streamEventFieldResponse,
+			"terminal model stream event requires an outcome", nil
+	default:
+		return 0, 0, "", fmt.Errorf("unsupported model stream event kind %d", kind)
+	}
+}
+
+// presentStreamEventFields records Option presence without collapsing valid zero values.
+func presentStreamEventFields(event StreamEvent) streamEventFields {
+	var fields streamEventFields
+	if event.Position.IsSome() {
+		fields |= streamEventFieldPosition
+	}
+	if event.Content.IsSome() {
+		fields |= streamEventFieldContent
+	}
+	if event.Delta.IsSome() {
+		fields |= streamEventFieldDelta
+	}
+	if event.Preview.IsSome() {
+		fields |= streamEventFieldPreview
+	}
+	if event.ToolCall.IsSome() {
+		fields |= streamEventFieldToolCall
+	}
+	if event.Response.IsSome() {
+		fields |= streamEventFieldResponse
+	}
+	return fields
+}
+
 // applyStreamEvent applies one semantic stream transition to partial response state.
 func applyStreamEvent(partial *model.Response, event StreamEvent) error {
+	if err := validateStreamEventShape(event); err != nil {
+		return err
+	}
 	if outcome, present := partial.Outcome.Get(); present && outcome != 0 {
 		return errors.New("model stream already terminated")
 	}
@@ -111,6 +194,9 @@ func applyTerminalStreamEvent(partial *model.Response, responseOption mo.Option[
 		if isStreamedContent(content.Kind) && !content.Final {
 			return fmt.Errorf("model content %d is still active", position)
 		}
+	}
+	if err := ValidateTerminalContent(response); err != nil {
+		return err
 	}
 	*partial = response
 	return nil
@@ -178,6 +264,9 @@ func applyContentUpdate(partial *model.Response, position int, event StreamEvent
 
 //nolint:gocyclo // The explicit branches validate the closed tool-call event lifecycle.
 func applyToolCallStreamEvent(previews map[string]model.ToolCallPreview, event StreamEvent) error {
+	if err := validateStreamEventShape(event); err != nil {
+		return err
+	}
 	switch event.Kind {
 	case StreamEventToolCallStart:
 		preview, hasPreview := event.Preview.Get()
@@ -243,6 +332,44 @@ func validateToolCallPreviewFields(fields []model.ToolCallPreviewField) error {
 		default:
 			return fmt.Errorf("tool-call preview field %d has unknown kind %d", index, field.Kind)
 		}
+	}
+	return nil
+}
+
+// ValidateTerminalContent validates every content discriminator in a terminal model response.
+func ValidateTerminalContent(response model.Response) error {
+	for position := range response.Content {
+		content := &response.Content[position]
+		if err := validateTerminalContentShape(*content); err != nil {
+			return fmt.Errorf("terminal model content %d: %w", position, err)
+		}
+		if isStreamedContent(content.Kind) && !content.Final {
+			return fmt.Errorf("terminal model content %d is not final", position)
+		}
+	}
+	return nil
+}
+
+// validateTerminalContentShape validates active and inactive payload fields for one content item.
+func validateTerminalContentShape(content model.Content) error {
+	hasText := content.Text.IsSome()
+	hasProviderContext := content.ProviderContext.IsSome()
+	hasToolCall := content.ToolCall.IsSome()
+	switch content.Kind {
+	case model.ContentText, model.ContentRefusal:
+		if !hasText || hasProviderContext || hasToolCall {
+			return fmt.Errorf("invalid payload fields for kind %d", content.Kind)
+		}
+	case model.ContentReasoning:
+		if (!hasText && !hasProviderContext) || hasToolCall {
+			return fmt.Errorf("invalid payload fields for kind %d", content.Kind)
+		}
+	case model.ContentToolCall:
+		if hasText || hasProviderContext || !hasToolCall {
+			return fmt.Errorf("invalid payload fields for kind %d", content.Kind)
+		}
+	default:
+		return fmt.Errorf("unknown kind %d", content.Kind)
 	}
 	return nil
 }
