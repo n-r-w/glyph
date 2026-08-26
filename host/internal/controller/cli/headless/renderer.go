@@ -92,7 +92,7 @@ func (r *Renderer) renderTextDelta(event run.Event) error {
 	}
 	writeErr := writeText(r.stdout, text)
 	if writeErr == nil && text != "" {
-		r.modelLineOpen = true
+		r.modelLineOpen = text[len(text)-1] != '\n'
 	}
 	return writeErr
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -23,6 +25,52 @@ import (
 type runtimeContractService struct {
 	uipb.UnimplementedUIServiceServer
 	received chan *uipb.OpenRequest
+}
+
+// closeContractService holds one real gRPC receive open until its stream context is canceled.
+type closeContractService struct {
+	uipb.UnimplementedUIServiceServer
+	opened chan struct{}
+}
+
+// Open reports stream readiness and waits for client-side cancellation.
+func (s *closeContractService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse]) error {
+	close(s.opened)
+	<-stream.Context().Done()
+	return stream.Context().Err()
+}
+
+// TestChannelCloseUnblocksPendingReceive verifies cancellation through the owned stream context.
+func TestChannelCloseUnblocksPendingReceive(t *testing.T) {
+	t.Parallel()
+
+	service := &closeContractService{
+		UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
+		opened:                       make(chan struct{}),
+	}
+	client := uisdk.TestClient(t, service)
+	streamContext, cancel := context.WithCancel(t.Context())
+	stream, err := client.Open(streamContext)
+	require.NoError(t, err)
+	transport := &channel{
+		stream:    stream,
+		cancel:    cancel,
+		closeOnce: sync.Once{},
+		mutex:     sync.Mutex{},
+	}
+	receiveStarted := make(chan struct{})
+	receiveDone := make(chan error, 1)
+	go func() {
+		close(receiveStarted)
+		_, receiveErr := transport.Receive()
+		receiveDone <- receiveErr
+	}()
+
+	<-service.opened
+	<-receiveStarted
+	transport.Close()
+
+	require.Equal(t, codes.Canceled, status.Code(<-receiveDone))
 }
 
 // TestChannelMapsEveryFrameAndCommand verifies the complete generated transport boundary.

@@ -150,7 +150,7 @@ type modelFile struct {
 }
 
 type reasoningFile struct {
-	Supported        bool                `yaml:"supported"`
+	Supported        mo.Option[bool]     `yaml:"supported"`
 	Choices          []ReasoningChoice   `yaml:"choices"`
 	Default          ReasoningChoice     `yaml:"default"`
 	CompatibilityKey mo.Option[string]   `yaml:"compatibilityKey"`
@@ -259,9 +259,11 @@ func (configured *reasoningFile) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	var decoded reasoningFile
-	if decodeErr := decodeYAMLField(fields, "supported", &decoded.Supported); decodeErr != nil {
-		return decodeErr
+	supported, supportedDecodeErr := decodeYAMLOption[bool](fields, "supported")
+	if supportedDecodeErr != nil {
+		return supportedDecodeErr
 	}
+	decoded.Supported = supported
 	if decodeErr := decodeYAMLField(fields, "choices", &decoded.Choices); decodeErr != nil {
 		return decodeErr
 	}
@@ -510,6 +512,10 @@ func validateModel(providerID string, providerType ProviderType, providerAPI API
 //
 //nolint:gocyclo // The flat validation mirrors the closed capability and wire-format combinations.
 func validateReasoning(providerID, modelID string, api API, configured reasoningFile) (Reasoning, error) {
+	supported, supportedPresent := configured.Supported.Get()
+	if !supportedPresent {
+		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning requires supported", providerID, modelID)
+	}
 	choices := slices.Clone(configured.Choices)
 	seen := make(map[ReasoningChoice]struct{}, len(choices))
 	for _, choice := range choices {
@@ -537,7 +543,7 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 			)
 		}
 	}
-	if !configured.Supported {
+	if !supported {
 		invalidShape := len(choices) != 1 || choices[0] != ReasoningChoiceOff ||
 			configured.Default != ReasoningChoiceOff || key.IsSome() || configured.WireFormat != ""
 		if invalidShape {

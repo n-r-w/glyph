@@ -56,7 +56,7 @@ func cloneMessage(message model.Message) model.Message {
 	return message
 }
 
-// cloneModelResponse preserves ordered content while isolating mutable values.
+// cloneToolPreviews isolates mutable preview fields.
 func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]model.ToolCallPreview {
 	if previews == nil {
 		return nil
@@ -80,6 +80,7 @@ func clonePreviewFields(fields []model.ToolCallPreviewField) []model.ToolCallPre
 	return cloned
 }
 
+// cloneModelResponse preserves ordered content while isolating mutable values.
 func cloneModelResponse(response model.Response) model.Response {
 	items := slices.Clone(response.Content)
 	for index := range items {

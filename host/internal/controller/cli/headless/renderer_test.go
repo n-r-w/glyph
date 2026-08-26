@@ -19,6 +19,46 @@ import (
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
+// rendererTextDeltaEvent creates one visible model text delta.
+func rendererTextDeltaEvent(text string) run.Event {
+	return run.Event{
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+		Type:       run.EventTextDelta,
+		RunID:      "run",
+		Position:   mo.Some(0),
+		Content: mo.Some(model.Content{
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+			Kind:            model.ContentText,
+			Text:            mo.Some(text),
+		}),
+	}
+}
+
+// rendererMessageEndEvent creates one model message finalization event.
+func rendererMessageEndEvent() run.Event {
+	return run.Event{
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+		Message:    mo.None[model.Response](),
+		Type:       run.EventMessageEnd,
+		RunID:      "run",
+	}
+}
+
 // TestRendererReportsRuntimeFailure writes one classified identity-bearing failure to stderr.
 func TestRendererReportsRuntimeFailure(t *testing.T) {
 	t.Parallel()
@@ -120,6 +160,38 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	}
 
 	assert.Equal(t, "I cannot help\n", stdout.String())
+}
+
+// TestRendererFinalizesVisibleTextWithOneTrailingNewline verifies byte-exact message termination.
+func TestRendererFinalizesVisibleTextWithOneTrailingNewline(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		chunks   []string
+		expected string
+	}{
+		"no visible text":            {chunks: nil, expected: ""},
+		"open line":                  {chunks: []string{"hello"}, expected: "hello\n"},
+		"closed line":                {chunks: []string{"hello\n"}, expected: "hello\n"},
+		"empty delta preserves line": {chunks: []string{"hello", ""}, expected: "hello\n"},
+		"last chunk closes line":     {chunks: []string{"hello", " world\n"}, expected: "hello world\n"},
+		"last chunk reopens line":    {chunks: []string{"hello\n", "world"}, expected: "hello\nworld\n"},
+		"multiple trailing newlines": {chunks: []string{"hello\n\n"}, expected: "hello\n\n"},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var stdout bytes.Buffer
+			renderer := NewRenderer(&stdout, &bytes.Buffer{})
+			for _, chunk := range testCase.chunks {
+				require.NoError(t, renderer.DeliverAgent(t.Context(), rendererTextDeltaEvent(chunk)))
+			}
+			require.NoError(t, renderer.DeliverAgent(t.Context(), rendererMessageEndEvent()))
+
+			assert.Equal(t, testCase.expected, stdout.String())
+		})
+	}
 }
 
 // TestRendererDoesNotWriteNewlineForToolOnlyMessage keeps stdout empty without streamed model text.

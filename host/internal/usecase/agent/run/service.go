@@ -287,7 +287,6 @@ func internalHookFailureResponse(stage hooks.Stage) model.Response {
 	}
 }
 
-// normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
 // mergeTerminalResponse validates and completes one terminal response with streamed content.
 func mergeTerminalResponse(
 	responseOption mo.Option[model.Response],
@@ -304,6 +303,7 @@ func mergeTerminalResponse(
 	return terminal, nil
 }
 
+// normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
 func normalizeTerminalResponse(response model.Response) model.Response {
 	if errorMessage, present := response.ErrorMessage.Get(); present && errorMessage != "" {
 		return response
