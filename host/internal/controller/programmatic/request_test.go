@@ -184,6 +184,72 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 	}
 }
 
+// TestMapOpenRequestRequiresSelectedScalarPresence verifies omission is rejected at the public boundary.
+func TestMapOpenRequestRequiresSelectedScalarPresence(t *testing.T) {
+	t.Parallel()
+
+	user := testOpenRequest("user")
+	user.SetUserRequest(programmaticv1.UserRequest_builder{Text: nil}.Build())
+	provider := testOpenRequest("provider")
+	provider.SetSelectModel(programmaticv1.SelectModel_builder{
+		ProviderId: nil,
+		ModelId:    proto.String("model"),
+	}.Build())
+	modelID := testOpenRequest("model")
+	modelID.SetSelectModel(programmaticv1.SelectModel_builder{
+		ProviderId: proto.String("provider"),
+		ModelId:    nil,
+	}.Build())
+	reasoning := testOpenRequest("reasoning")
+	reasoning.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{Choice: nil}.Build())
+
+	for name, request := range map[string]*programmaticv1.OpenRequest{
+		"user text":        user,
+		"provider ID":      provider,
+		"model ID":         modelID,
+		"reasoning choice": reasoning,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := mapOpenRequest(request)
+			require.Error(t, err)
+			assert.Equal(t, codes.InvalidArgument, status.Code(err))
+		})
+	}
+}
+
+// TestMapOpenRequestPreservesPresentZeroScalars verifies presence is not inferred from scalar values.
+func TestMapOpenRequestPreservesPresentZeroScalars(t *testing.T) {
+	t.Parallel()
+
+	userRequest := testOpenRequest("user")
+	userRequest.SetUserRequest(programmaticv1.UserRequest_builder{Text: proto.String("")}.Build())
+	user, err := mapOpenRequest(userRequest)
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(""), user.UserText)
+
+	modelRequest := testOpenRequest("model")
+	modelRequest.SetSelectModel(programmaticv1.SelectModel_builder{
+		ProviderId: proto.String(""),
+		ModelId:    proto.String(""),
+	}.Build())
+	selection, err := mapOpenRequest(modelRequest)
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(model.ProviderID("")), selection.ProviderID)
+	assert.Equal(t, mo.Some(model.ID("")), selection.ModelID)
+
+	reasoningRequest := testOpenRequest("reasoning")
+	reasoningRequest.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
+		Choice: programmaticv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED.Enum(),
+	}.Build())
+	reasoning, err := mapOpenRequest(reasoningRequest)
+	require.NoError(t, err)
+	reasoningChoice, present := reasoning.ReasoningChoice.Get()
+	assert.True(t, present)
+	assert.Empty(t, reasoningChoice)
+}
+
 // TestMapOpenRequestMapsReasoningChoices verifies every transport reasoning value.
 func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 	t.Parallel()
@@ -212,6 +278,20 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, want, string(got.ReasoningChoice.OrEmpty()))
 	}
+}
+
+// testOpenRequest builds an empty correlated request for selected-variant tests.
+func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
+	return programmaticv1.OpenRequest_builder{
+		CorrelationId:         proto.String(correlationID),
+		UserRequest:           nil,
+		Abort:                 nil,
+		GetRunState:           nil,
+		GetMessages:           nil,
+		GetModels:             nil,
+		SelectModel:           nil,
+		SelectReasoningChoice: nil,
+	}.Build()
 }
 
 // TestMapOpenRequestRejectsTerminalFrames verifies uncorrelated and malformed frame handling.

@@ -32,8 +32,12 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	}
 	switch request.WhichCommand() {
 	case programmaticv1.OpenRequest_UserRequest_case:
+		userRequest := request.GetUserRequest()
+		if !userRequest.HasText() {
+			return Command{}, status.Error(codes.InvalidArgument, "user request text is required")
+		}
 		command.Kind = CommandUserRequest
-		command.UserText = mo.Some(request.GetUserRequest().GetText())
+		command.UserText = mo.Some(userRequest.GetText())
 	case programmaticv1.OpenRequest_Abort_case:
 		command.Kind = CommandAbort
 	case programmaticv1.OpenRequest_GetRunState_case:
@@ -43,12 +47,20 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	case programmaticv1.OpenRequest_GetModels_case:
 		command.Kind = CommandGetModels
 	case programmaticv1.OpenRequest_SelectModel_case:
+		selection := request.GetSelectModel()
+		if !selection.HasProviderId() || !selection.HasModelId() {
+			return Command{}, status.Error(codes.InvalidArgument, "provider ID and model ID are required")
+		}
 		command.Kind = CommandSelectModel
-		command.ProviderID = mo.Some(model.ProviderID(request.GetSelectModel().GetProviderId()))
-		command.ModelID = mo.Some(model.ID(request.GetSelectModel().GetModelId()))
+		command.ProviderID = mo.Some(model.ProviderID(selection.GetProviderId()))
+		command.ModelID = mo.Some(model.ID(selection.GetModelId()))
 	case programmaticv1.OpenRequest_SelectReasoningChoice_case:
+		selection := request.GetSelectReasoningChoice()
+		if !selection.HasChoice() {
+			return Command{}, status.Error(codes.InvalidArgument, "reasoning choice is required")
+		}
 		command.Kind = CommandSelectReasoningChoice
-		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(request.GetSelectReasoningChoice().GetChoice()))
+		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(selection.GetChoice()))
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
 	return command, nil

@@ -158,9 +158,15 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 	textKind := presentationdomain.EventUnspecified
 	text := ""
 	if authorization := request.GetAuthorization(); authorization != nil {
+		if !authorization.HasUrl() {
+			return presentationdomain.Event{}, errors.New("authorization URL is required")
+		}
 		textKind = presentationdomain.EventAuthorization
 		text = authorization.GetUrl()
 	} else if information := request.GetInformation(); information != nil {
+		if !information.HasText() {
+			return presentationdomain.Event{}, errors.New("information text is required")
+		}
 		textKind = presentationdomain.EventInformation
 		text = information.GetText()
 	}
@@ -188,6 +194,12 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 		}, nil
 	}
 	if safeError := request.GetError(); safeError != nil {
+		if !safeError.HasText() {
+			return presentationdomain.Event{}, errors.New("error text is required")
+		}
+		if !safeError.HasRetryAuthentication() {
+			return presentationdomain.Event{}, errors.New("error retry authentication is required")
+		}
 		availability := mo.None[presentationdomain.Availability]()
 		if safeError.GetRetryAuthentication() {
 			availability = mo.Some(presentationdomain.AvailabilityAuthenticationFailed)
@@ -246,6 +258,12 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 
 // mapInitialization preserves startup severity, identities, paths, tools, and availability.
 func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.Event, error) {
+	if !initialization.HasSelectedUiId() {
+		return presentationdomain.Event{}, errors.New("selected UI ID is required")
+	}
+	if !initialization.HasAvailability() {
+		return presentationdomain.Event{}, errors.New("availability is required")
+	}
 	availability, err := mapAvailability(initialization.GetAvailability())
 	if err != nil {
 		return presentationdomain.Event{}, err
@@ -254,75 +272,15 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
-	startup, err := lo.MapErr(
-		initialization.GetStartupContent(),
-		func(content *uiv1.StartupContent, _ int) (presentationdomain.Line, error) {
-			var kind presentationdomain.LineKind
-			switch content.GetSeverity() {
-			case uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION:
-				kind = presentationdomain.LineInformation
-			case uiv1.ContentSeverity_CONTENT_SEVERITY_ERROR:
-				kind = presentationdomain.LineError
-			case uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING:
-				kind = presentationdomain.LineWarning
-			case uiv1.ContentSeverity_CONTENT_SEVERITY_UNSPECIFIED:
-				return presentationdomain.Line{}, errors.New("startup content severity is unspecified")
-			default:
-				return presentationdomain.Line{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
-			}
-			return presentationdomain.Line{
-				Kind:               kind,
-				Text:               mo.Some(content.GetText()),
-				ToolName:           mo.None[string](),
-				Status:             mo.None[string](),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
-			}, nil
-		},
-	)
+	startup, err := mapInitializationStartup(initialization.GetStartupContent())
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
-	extensions := lo.Map(
-		initialization.GetExtensions(),
-		func(extension *uiv1.ExtensionAvailability, _ int) presentationdomain.Extension {
-			return presentationdomain.Extension{
-				ID:    extension.GetPluginId(),
-				Path:  extension.GetPath(),
-				Tools: slices.Clone(extension.GetTools()),
-			}
-		},
-	)
-	models, err := lo.MapErr(
-		initialization.GetModels(),
-		func(configured *uiv1.ConfiguredModel, _ int) (presentationdomain.ConfiguredModel, error) {
-			reasoning := configured.GetReasoning()
-			if reasoning == nil {
-				return presentationdomain.ConfiguredModel{}, errors.New("model reasoning capabilities are missing")
-			}
-			choices, mapErr := lo.MapErr(
-				reasoning.GetChoices(),
-				func(choice uiv1.ReasoningChoice, _ int) (presentationdomain.ReasoningChoice, error) {
-					return mapReasoningChoice(choice)
-				},
-			)
-			if mapErr != nil {
-				return presentationdomain.ConfiguredModel{}, mapErr
-			}
-			defaultChoice, mapErr := mapReasoningChoice(reasoning.GetDefaultChoice())
-			if mapErr != nil {
-				return presentationdomain.ConfiguredModel{}, mapErr
-			}
-			return presentationdomain.ConfiguredModel{
-				ProviderID: configured.GetProviderId(),
-				ModelID:    configured.GetModelId(),
-				Reasoning: presentationdomain.ReasoningCapabilities{
-					Supported: reasoning.GetSupported(),
-					Choices:   choices,
-					Default:   defaultChoice,
-				},
-			}, nil
-		},
-	)
+	extensions, err := mapInitializationExtensions(initialization.GetExtensions())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	models, err := mapInitializationModels(initialization.GetModels())
 	if err != nil {
 		return presentationdomain.Event{}, err
 	}
@@ -350,9 +308,114 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 	return event, nil
 }
 
+// mapInitializationStartup validates and maps startup lines.
+func mapInitializationStartup(contents []*uiv1.StartupContent) ([]presentationdomain.Line, error) {
+	return lo.MapErr(contents, func(content *uiv1.StartupContent, _ int) (presentationdomain.Line, error) {
+		if !content.HasSeverity() {
+			return presentationdomain.Line{}, errors.New("startup content severity is required")
+		}
+		if !content.HasText() {
+			return presentationdomain.Line{}, errors.New("startup content text is required")
+		}
+		var kind presentationdomain.LineKind
+		switch content.GetSeverity() {
+		case uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION:
+			kind = presentationdomain.LineInformation
+		case uiv1.ContentSeverity_CONTENT_SEVERITY_ERROR:
+			kind = presentationdomain.LineError
+		case uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING:
+			kind = presentationdomain.LineWarning
+		case uiv1.ContentSeverity_CONTENT_SEVERITY_UNSPECIFIED:
+			return presentationdomain.Line{}, errors.New("startup content severity is unspecified")
+		default:
+			return presentationdomain.Line{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
+		}
+		return presentationdomain.Line{
+			Kind:               kind,
+			Text:               mo.Some(content.GetText()),
+			ToolName:           mo.None[string](),
+			Status:             mo.None[string](),
+			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		}, nil
+	})
+}
+
+// mapInitializationExtensions validates and maps extension availability.
+func mapInitializationExtensions(extensions []*uiv1.ExtensionAvailability) ([]presentationdomain.Extension, error) {
+	return lo.MapErr(extensions, func(extension *uiv1.ExtensionAvailability, _ int) (presentationdomain.Extension, error) {
+		if !extension.HasPluginId() {
+			return presentationdomain.Extension{}, errors.New("extension plugin ID is required")
+		}
+		if !extension.HasPath() {
+			return presentationdomain.Extension{}, errors.New("extension path is required")
+		}
+		return presentationdomain.Extension{
+			ID:    extension.GetPluginId(),
+			Path:  extension.GetPath(),
+			Tools: slices.Clone(extension.GetTools()),
+		}, nil
+	})
+}
+
+// mapInitializationModels validates and maps configured models.
+func mapInitializationModels(models []*uiv1.ConfiguredModel) ([]presentationdomain.ConfiguredModel, error) {
+	return lo.MapErr(models, func(configured *uiv1.ConfiguredModel, _ int) (presentationdomain.ConfiguredModel, error) {
+		if !configured.HasProviderId() {
+			return presentationdomain.ConfiguredModel{}, errors.New("configured model provider ID is required")
+		}
+		if !configured.HasModelId() {
+			return presentationdomain.ConfiguredModel{}, errors.New("configured model ID is required")
+		}
+		reasoning := configured.GetReasoning()
+		if reasoning == nil {
+			return presentationdomain.ConfiguredModel{}, errors.New("model reasoning capabilities are missing")
+		}
+		if !reasoning.HasSupported() {
+			return presentationdomain.ConfiguredModel{}, errors.New("model reasoning support is required")
+		}
+		if !reasoning.HasDefaultChoice() {
+			return presentationdomain.ConfiguredModel{}, errors.New("model reasoning default choice is required")
+		}
+		choices, err := lo.MapErr(
+			reasoning.GetChoices(),
+			func(choice uiv1.ReasoningChoice, _ int) (presentationdomain.ReasoningChoice, error) {
+				return mapReasoningChoice(choice)
+			},
+		)
+		if err != nil {
+			return presentationdomain.ConfiguredModel{}, err
+		}
+		defaultChoice, err := mapReasoningChoice(reasoning.GetDefaultChoice())
+		if err != nil {
+			return presentationdomain.ConfiguredModel{}, err
+		}
+		return presentationdomain.ConfiguredModel{
+			ProviderID: configured.GetProviderId(),
+			ModelID:    configured.GetModelId(),
+			Reasoning: presentationdomain.ReasoningCapabilities{
+				Supported: reasoning.GetSupported(),
+				Choices:   choices,
+				Default:   defaultChoice,
+			},
+		}, nil
+	})
+}
+
 // mapModelSelection validates one Host-confirmed selection.
 func mapModelSelection(selection *uiv1.ModelSelection) (presentationdomain.ModelSelection, error) {
-	if selection == nil || selection.GetProviderId() == "" || selection.GetModelId() == "" {
+	if selection == nil {
+		return presentationdomain.ModelSelection{}, errors.New("model selection is invalid")
+	}
+	if !selection.HasProviderId() {
+		return presentationdomain.ModelSelection{}, errors.New("model selection provider ID is required")
+	}
+	if !selection.HasModelId() {
+		return presentationdomain.ModelSelection{}, errors.New("model selection model ID is required")
+	}
+	if !selection.HasReasoningChoice() {
+		return presentationdomain.ModelSelection{}, errors.New("model selection reasoning choice is required")
+	}
+	if selection.GetProviderId() == "" || selection.GetModelId() == "" {
 		return presentationdomain.ModelSelection{}, errors.New("model selection is invalid")
 	}
 	level, err := mapReasoningChoice(selection.GetReasoningChoice())

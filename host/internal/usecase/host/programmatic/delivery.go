@@ -184,12 +184,24 @@ func (d *Delivery) emit(
 	event controller.AgentEvent,
 ) error {
 	select {
+	case <-active.streamDone:
+		return nil
+	default:
+	}
+
+	select {
 	case active.events <- event:
 		return nil
-	case <-ctx.Done():
-		return context.Cause(ctx)
 	case <-active.streamDone:
-		return context.Canceled
+		return nil
+	case <-ctx.Done():
+		// Owner teardown closes streamDone before it cancels the run context.
+		select {
+		case <-active.streamDone:
+			return nil
+		default:
+			return context.Cause(ctx)
+		}
 	}
 }
 

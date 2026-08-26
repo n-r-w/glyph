@@ -147,7 +147,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 			Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
 				PluginId: new("glyph-tools"),
 				Tools:    []string{"read"},
-				Path:     nil,
+				Path:     new(""),
 			}.Build()},
 			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 			Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{

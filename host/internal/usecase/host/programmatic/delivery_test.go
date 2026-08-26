@@ -704,6 +704,31 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	}
 }
 
+// TestDeliveryStopsCleanlyWhenOwnerStreamEnds verifies owner teardown is not a delivery failure.
+func TestDeliveryStopsCleanlyWhenOwnerStreamEnds(t *testing.T) {
+	t.Parallel()
+
+	delivery := NewDelivery()
+	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	defer active.cancel()
+	close(active.streamDone)
+
+	require.NoError(t, delivery.emit(t.Context(), active, controller.AgentEvent{}))
+}
+
+// TestDeliveryReturnsIndependentContextCancellation verifies delivery context ownership remains unchanged.
+func TestDeliveryReturnsIndependentContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	delivery := NewDelivery()
+	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	defer active.cancel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	require.ErrorIs(t, delivery.emit(ctx, active, controller.AgentEvent{}), context.Canceled)
+}
+
 // TestDeliveryRejectsMismatchedRun verifies events cannot cross active correlations.
 func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 	t.Parallel()

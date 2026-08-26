@@ -462,9 +462,13 @@ func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent)
 func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 	switch {
 	case command.GetSubmit() != nil:
+		submit := command.GetSubmit()
+		if !submit.HasText() {
+			return domainui.Command{}, errors.New("receive UI command: submit text is required")
+		}
 		return domainui.Command{
 			Kind:            domainui.CommandSubmit,
-			Text:            mo.Some(command.GetSubmit().GetText()),
+			Text:            mo.Some(submit.GetText()),
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
@@ -495,7 +499,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		}, nil
 	case command.GetSelectModel() != nil:
 		selected := command.GetSelectModel()
-		if selected.GetProviderId() == "" || selected.GetModelId() == "" {
+		if !selected.HasProviderId() || !selected.HasModelId() ||
+			selected.GetProviderId() == "" || selected.GetModelId() == "" {
 			return domainui.Command{}, errors.New("receive UI command: provider and model are required")
 		}
 		return domainui.Command{
@@ -506,7 +511,11 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetSelectReasoningChoice() != nil:
-		level, err := mapReasoningChoiceFromProto(command.GetSelectReasoningChoice().GetChoice())
+		selected := command.GetSelectReasoningChoice()
+		if !selected.HasChoice() {
+			return domainui.Command{}, errors.New("receive UI command: reasoning choice is required")
+		}
+		level, err := mapReasoningChoiceFromProto(selected.GetChoice())
 		if err != nil {
 			return domainui.Command{}, err
 		}

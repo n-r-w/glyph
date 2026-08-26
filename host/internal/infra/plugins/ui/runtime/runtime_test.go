@@ -105,6 +105,56 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	}
 }
 
+// TestMapCommandRequiresSelectedScalarPresence verifies omission is rejected at the plugin boundary.
+func TestMapCommandRequiresSelectedScalarPresence(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		responseIndex int
+		clear         func(*uipb.OpenResponse)
+	}{
+		"submit text": {
+			responseIndex: 0,
+			clear:         func(response *uipb.OpenResponse) { response.GetSubmit().ClearText() },
+		},
+		"provider ID": {
+			responseIndex: 4,
+			clear:         func(response *uipb.OpenResponse) { response.GetSelectModel().ClearProviderId() },
+		},
+		"model ID": {
+			responseIndex: 4,
+			clear:         func(response *uipb.OpenResponse) { response.GetSelectModel().ClearModelId() },
+		},
+		"reasoning choice": {
+			responseIndex: 5,
+			clear: func(response *uipb.OpenResponse) {
+				response.GetSelectReasoningChoice().ClearChoice()
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			response := runtimeCommandResponses("request", "openrouter", "sonnet")[test.responseIndex]
+			test.clear(response)
+			_, err := mapCommand(response)
+			require.Error(t, err)
+		})
+	}
+}
+
+// TestMapCommandPreservesPresentEmptySubmit verifies an explicit empty string remains active.
+func TestMapCommandPreservesPresentEmptySubmit(t *testing.T) {
+	t.Parallel()
+
+	response := runtimeCommandResponses("", "openrouter", "sonnet")[0]
+	command, err := mapCommand(response)
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(""), command.Text)
+}
+
 // TestMapCommandRejectsEmptySelectedModel verifies Protobuf validation stays at the runtime boundary.
 func TestMapCommandRejectsEmptySelectedModel(t *testing.T) {
 	t.Parallel()

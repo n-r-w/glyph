@@ -147,6 +147,7 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = programmaticTransport{
 		requestCount: requestCount,
+		started:      nil,
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
@@ -213,9 +214,11 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
+	providerStarted := make(chan struct{}, 1)
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = programmaticTransport{
 		requestCount: requestCount,
+		started:      providerStarted,
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
@@ -226,6 +229,7 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, accepted.GetCommandResponse().WhichResult())
 	_, err = fixture.stream.Recv()
 	require.NoError(t, err)
+	<-providerStarted
 
 	fixture.closeOwner(t)
 	assert.Equal(t, int32(1), requestCount.Load())
@@ -237,9 +241,11 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
 	requestCount := new(atomic.Int32)
+	providerStarted := make(chan struct{}, 1)
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = programmaticTransport{
 		requestCount: requestCount,
+		started:      providerStarted,
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
@@ -250,6 +256,7 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, accepted.GetCommandResponse().WhichResult())
 	_, err = fixture.stream.Recv()
 	require.NoError(t, err)
+	<-providerStarted
 
 	fixture.cancel()
 	_ = fixture.stream.CloseSend()
@@ -502,12 +509,17 @@ func (fixture *programmaticFixture) assertStdout(t *testing.T) {
 // programmaticTransport blocks the first run and completes the second run.
 type programmaticTransport struct {
 	requestCount *atomic.Int32
+	started      chan<- struct{}
 }
 
 // RoundTrip returns deterministic provider behavior without network access.
 func (transport programmaticTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	switch transport.requestCount.Add(1) {
 	case 1:
+		if transport.started != nil {
+			// The signal proves that provider transport owns the active request before cancellation.
+			transport.started <- struct{}{}
+		}
 		<-request.Context().Done()
 		return nil, request.Context().Err()
 	case 2:

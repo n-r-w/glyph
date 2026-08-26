@@ -261,7 +261,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 			ModelId:         new("sonnet"),
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
-		SelectedUiId:   nil,
+		SelectedUiId:   new("glyph-tui"),
 		StartupContent: nil,
 		Extensions:     nil,
 	}.Build())
@@ -317,6 +317,113 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
 }
 
+// TestMapRequestRequiresTextFrameScalarPresence verifies selected Host frame scalars cannot be omitted.
+func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]*uiv1.OpenRequest{
+		"authorization URL": uiv1.OpenRequest_builder{
+			Initialization:        nil,
+			Lifecycle:             nil,
+			Authorization:         uiv1.AuthorizationRequest_builder{Url: nil}.Build(),
+			Information:           nil,
+			Error:                 nil,
+			ModelSelectionChanged: nil,
+		}.Build(),
+		"information text": uiv1.OpenRequest_builder{
+			Initialization:        nil,
+			Lifecycle:             nil,
+			Authorization:         nil,
+			Information:           uiv1.Information_builder{Text: nil}.Build(),
+			Error:                 nil,
+			ModelSelectionChanged: nil,
+		}.Build(),
+		"error text": uiv1.OpenRequest_builder{
+			Initialization: nil,
+			Lifecycle:      nil,
+			Authorization:  nil,
+			Information:    nil,
+			Error: uiv1.Error_builder{
+				Text:                nil,
+				RetryAuthentication: new(false),
+			}.Build(),
+			ModelSelectionChanged: nil,
+		}.Build(),
+		"error retry authentication": uiv1.OpenRequest_builder{
+			Initialization: nil,
+			Lifecycle:      nil,
+			Authorization:  nil,
+			Information:    nil,
+			Error: uiv1.Error_builder{
+				Text:                new("error"),
+				RetryAuthentication: nil,
+			}.Build(),
+			ModelSelectionChanged: nil,
+		}.Build(),
+	}
+
+	for name, request := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := mapRequest(request)
+			require.Error(t, err)
+		})
+	}
+}
+
+// TestMapRequestPreservesPresentFalseRetryAuthentication verifies false is not treated as absence.
+func TestMapRequestPreservesPresentFalseRetryAuthentication(t *testing.T) {
+	t.Parallel()
+
+	event, err := mapRequest(uiv1.OpenRequest_builder{
+		Initialization: nil,
+		Lifecycle:      nil,
+		Authorization:  nil,
+		Information:    nil,
+		Error: uiv1.Error_builder{
+			Text:                new(""),
+			RetryAuthentication: new(false),
+		}.Build(),
+		ModelSelectionChanged: nil,
+	}.Build())
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(""), event.Text)
+	assert.True(t, event.Availability.IsNone())
+}
+
+// TestMapRequestPreservesPresentEmptyText verifies empty text stays active for text frames.
+func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
+	t.Parallel()
+
+	for name, request := range map[string]*uiv1.OpenRequest{
+		"authorization": uiv1.OpenRequest_builder{
+			Initialization:        nil,
+			Lifecycle:             nil,
+			Authorization:         uiv1.AuthorizationRequest_builder{Url: new("")}.Build(),
+			Information:           nil,
+			Error:                 nil,
+			ModelSelectionChanged: nil,
+		}.Build(),
+		"information": uiv1.OpenRequest_builder{
+			Initialization:        nil,
+			Lifecycle:             nil,
+			Authorization:         nil,
+			Information:           uiv1.Information_builder{Text: new("")}.Build(),
+			Error:                 nil,
+			ModelSelectionChanged: nil,
+		}.Build(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			event, err := mapRequest(request)
+			require.NoError(t, err)
+			assert.Equal(t, mo.Some(""), event.Text)
+		})
+	}
+}
+
 // TestMapCommandRejectsMissingSelectedPayload verifies malformed presentation commands do not emit zero payloads.
 func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
@@ -342,6 +449,84 @@ func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, response.GetSubmit().HasText())
 	assert.Empty(t, response.GetSubmit().GetText())
+}
+
+// TestMapInitializationRequiresScalarPresence verifies initialization keeps its handwritten required fields.
+func TestMapInitializationRequiresScalarPresence(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func(*uiv1.Initialization){
+		"selected UI ID": func(initialization *uiv1.Initialization) { initialization.ClearSelectedUiId() },
+		"availability":   func(initialization *uiv1.Initialization) { initialization.ClearAvailability() },
+		"startup severity": func(initialization *uiv1.Initialization) {
+			initialization.GetStartupContent()[0].ClearSeverity()
+		},
+		"startup text": func(initialization *uiv1.Initialization) {
+			initialization.GetStartupContent()[0].ClearText()
+		},
+		"extension plugin ID": func(initialization *uiv1.Initialization) {
+			initialization.GetExtensions()[0].ClearPluginId()
+		},
+		"extension path": func(initialization *uiv1.Initialization) {
+			initialization.GetExtensions()[0].ClearPath()
+		},
+		"configured provider ID": func(initialization *uiv1.Initialization) {
+			initialization.GetModels()[0].ClearProviderId()
+		},
+		"configured model ID": func(initialization *uiv1.Initialization) {
+			initialization.GetModels()[0].ClearModelId()
+		},
+		"reasoning supported": func(initialization *uiv1.Initialization) {
+			initialization.GetModels()[0].GetReasoning().ClearSupported()
+		},
+		"reasoning default choice": func(initialization *uiv1.Initialization) {
+			initialization.GetModels()[0].GetReasoning().ClearDefaultChoice()
+		},
+		"selection provider ID": func(initialization *uiv1.Initialization) {
+			initialization.GetModelSelection().ClearProviderId()
+		},
+		"selection model ID": func(initialization *uiv1.Initialization) {
+			initialization.GetModelSelection().ClearModelId()
+		},
+		"selection reasoning choice": func(initialization *uiv1.Initialization) {
+			initialization.GetModelSelection().ClearReasoningChoice()
+		},
+	}
+
+	for name, clear := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			request := proto.Clone(initializationRequest()).(*uiv1.OpenRequest)
+			initialization := request.GetInitialization()
+			clear(initialization)
+			_, err := mapInitialization(initialization)
+			require.Error(t, err)
+		})
+	}
+}
+
+// TestMapInitializationPreservesPresentZeroScalars verifies valid zero values stay concrete.
+func TestMapInitializationPreservesPresentZeroScalars(t *testing.T) {
+	t.Parallel()
+
+	initialization := proto.Clone(initializationRequest().GetInitialization()).(*uiv1.Initialization)
+	initialization.SetSelectedUiId("")
+	initialization.GetStartupContent()[0].SetText("")
+	initialization.GetExtensions()[0].SetPluginId("")
+	initialization.GetExtensions()[0].SetPath("")
+	initialization.GetModels()[0].SetProviderId("")
+	initialization.GetModels()[0].SetModelId("")
+	initialization.GetModels()[0].GetReasoning().SetSupported(false)
+
+	event, err := mapInitialization(initialization)
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some(""), event.Startup[0].Text)
+	assert.Empty(t, event.Extensions[0].ID)
+	assert.Empty(t, event.Extensions[0].Path)
+	assert.Empty(t, event.Models[0].ProviderID)
+	assert.Empty(t, event.Models[0].ModelID)
+	assert.False(t, event.Models[0].Reasoning.Supported)
 }
 
 // TestReasoningMappingsCoverEveryValue verifies public and presentation enums stay exact.
@@ -794,7 +979,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	event, err := mapRequest(uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("safe error"),
-			RetryAuthentication: nil,
+			RetryAuthentication: new(false),
 		}.Build(),
 	}.Build())
 	require.NoError(t, err)
@@ -1746,7 +1931,7 @@ func initializationRequest() *uiv1.OpenRequest {
 			Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
 				PluginId: new("tools"),
 				Tools:    []string{"read"},
-				Path:     nil,
+				Path:     new(""),
 			}.Build()},
 			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
 			Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
@@ -1759,7 +1944,7 @@ func initializationRequest() *uiv1.OpenRequest {
 				ModelId:         new("gpt"),
 				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 			}.Build(),
-			SelectedUiId: nil,
+			SelectedUiId: new("glyph-tui"),
 		}.Build(),
 	}.Build()
 }
