@@ -578,12 +578,13 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycl
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA && !content.HasText() {
 		return errors.New("model content text is missing")
 	}
+	kind, err := mapModelContentDiscriminators(lifecycle.GetType(), content.GetType(), content.GetKind())
+	if err != nil {
+		return err
+	}
 	event.Kind = presentationdomain.EventModelDelta
 	event.Position = mo.Some(int(content.GetPosition()))
-	kind := mapModelContentKind(content.GetKind())
-	if kind != presentationdomain.ModelContentUnspecified {
-		event.ModelContentKind = mo.Some(kind)
-	}
+	event.ModelContentKind = mo.Some(kind)
 	if content.HasText() {
 		event.Text = mo.Some(content.GetText())
 	}
@@ -793,11 +794,9 @@ func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentati
 			if !item.HasKind() {
 				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d kind is missing", index)
 			}
-			kind := mapModelContentKind(item.GetKind())
-			if kind == presentationdomain.ModelContentUnspecified {
-				return presentationdomain.ModelResponseContent{}, fmt.Errorf(
-					"model response content %d kind %d is invalid", index, item.GetKind(),
-				)
+			kind, err := mapModelContentKind(item.GetKind())
+			if err != nil {
+				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d: %w", index, err)
 			}
 			if !item.HasText() {
 				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d text is missing", index)
@@ -810,19 +809,54 @@ func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentati
 	)
 }
 
+// mapModelContentDiscriminators validates both nested model-content discriminators.
+func mapModelContentDiscriminators(
+	lifecycleType uiv1.LifecycleType,
+	contentType uiv1.ModelContentType,
+	contentKind uiv1.ModelContentKind,
+) (presentationdomain.ModelContentKind, error) {
+	expectedType, err := expectedModelContentType(lifecycleType)
+	if err != nil {
+		return presentationdomain.ModelContentUnspecified, err
+	}
+	if contentType != expectedType {
+		return presentationdomain.ModelContentUnspecified, fmt.Errorf(
+			"model content type %d does not match lifecycle type %d",
+			contentType, lifecycleType,
+		)
+	}
+	return mapModelContentKind(contentKind)
+}
+
+// expectedModelContentType maps each model lifecycle boundary to its matching nested type.
+func expectedModelContentType(lifecycleType uiv1.LifecycleType) (uiv1.ModelContentType, error) {
+	if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START {
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_START, nil
+	}
+	if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA, nil
+	}
+	if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END {
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_END, nil
+	}
+	return uiv1.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED, fmt.Errorf(
+		"lifecycle type %d does not support model content", lifecycleType,
+	)
+}
+
 // mapModelContentKind converts public content identity into the TUI presentation contract.
-func mapModelContentKind(kind uiv1.ModelContentKind) presentationdomain.ModelContentKind {
+func mapModelContentKind(kind uiv1.ModelContentKind) (presentationdomain.ModelContentKind, error) {
 	switch kind {
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
-		return presentationdomain.ModelContentText
+		return presentationdomain.ModelContentText, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
-		return presentationdomain.ModelContentRefusal
+		return presentationdomain.ModelContentRefusal, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
-		return presentationdomain.ModelContentReasoning
+		return presentationdomain.ModelContentReasoning, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED:
-		return presentationdomain.ModelContentUnspecified
+		return presentationdomain.ModelContentUnspecified, errors.New("model content kind is unspecified")
 	default:
-		return presentationdomain.ModelContentUnspecified
+		return presentationdomain.ModelContentUnspecified, fmt.Errorf("model content kind %d is invalid", kind)
 	}
 }
 

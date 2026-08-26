@@ -328,8 +328,8 @@ func mapGrammarSampling(
 	if len(schema.Properties) != 1 || len(schema.Required) != 1 || schema.Required[0] == "" {
 		return tool.ConstrainedSampling{}, errors.New("grammar schema must have exactly one required string property")
 	}
-	if _, exists := schema.Properties[schema.Required[0]]; !exists {
-		return tool.ConstrainedSampling{}, errors.New("grammar schema must have exactly one required string property")
+	if err := validateGrammarInputProperty(schema.Properties, schema.Required[0]); err != nil {
+		return tool.ConstrainedSampling{}, err
 	}
 	return tool.ConstrainedSampling{
 		Kind:                 tool.ConstrainedSamplingGrammar,
@@ -337,6 +337,27 @@ func mapGrammarSampling(
 		Grammar:              mo.Some(tool.GrammarVariants{Lark: lark, Regex: regex}),
 		GrammarInputProperty: mo.Some(schema.Required[0]),
 	}, nil
+}
+
+// validateGrammarInputProperty enforces the direct single-string input contract.
+func validateGrammarInputProperty(properties map[string]json.RawMessage, required string) error {
+	const rule = "grammar schema must have exactly one required string property"
+
+	propertyJSON, exists := properties[required]
+	if !exists {
+		return errors.New(rule)
+	}
+	var property struct {
+		Type json.RawMessage `json:"type"`
+	}
+	if err := json.Unmarshal(propertyJSON, &property); err != nil {
+		return errors.New(rule)
+	}
+	var propertyType string
+	if err := json.Unmarshal(property.Type, &propertyType); err != nil || propertyType != "string" {
+		return errors.New(rule)
+	}
+	return nil
 }
 
 // compileToolSchema compiles a Draft 2020-12 object schema for tool arguments.

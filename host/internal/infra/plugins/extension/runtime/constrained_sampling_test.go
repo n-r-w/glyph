@@ -116,6 +116,70 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			}),
 			errorContains: "",
 		},
+		"grammar rejects missing property type": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects integer property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects number property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"number"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects boolean property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"boolean"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects null property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"null"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects object property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"object"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects array property": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":"array"}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
+		"grammar rejects union property including string": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{"type":["string","null"]}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			errorContains: "exactly one required string property",
+			expected:      mo.None[tool.ConstrainedSampling](),
+		},
 		"grammar rejects multiple properties": {
 			descriptor: constrainedProtoDescriptor(
 				`{"type":"object","properties":{"path":{"type":"string","description":"Path."},"query":{"type":"string","description":"Query."}},"required":["path","query"],"additionalProperties":false}`,
@@ -155,6 +219,17 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			assert.Equal(t, testCase.expected, tools[0].ConstrainedSampling)
 		})
 	}
+}
+
+// grammarProtoConstraint builds one valid Regex grammar for schema validation cases.
+func grammarProtoConstraint() *extensionpb.ConstrainedSampling {
+	return extensionpb.ConstrainedSampling_builder{
+		JsonSchema: nil,
+		Grammar: extensionpb.GrammarConstrainedSampling_builder{
+			Regex: new(".+"),
+			Lark:  nil,
+		}.Build(),
+	}.Build()
 }
 
 func constrainedProtoDescriptor(schema string, constraint *extensionpb.ConstrainedSampling) *extensionpb.ToolDescriptor {
