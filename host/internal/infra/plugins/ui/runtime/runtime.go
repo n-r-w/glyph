@@ -40,8 +40,10 @@ var _ hostui.Runtime = (*Runtime)(nil)
 
 // channel maps provider-neutral frames and commands to the generated contract.
 type channel struct {
-	stream uipb.UIService_OpenClient
-	mutex  sync.Mutex
+	stream    uipb.UIService_OpenClient
+	cancel    context.CancelFunc
+	closeOnce sync.Once
+	mutex     sync.Mutex
 }
 
 var _ hostui.Channel = (*channel)(nil)
@@ -77,14 +79,18 @@ func (r *Runtime) Capabilities() domainui.Capabilities {
 // Open opens and reuses the one persistent UI lifecycle stream.
 func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
 	r.openOnce.Do(func() {
-		stream, err := r.client.Service().Open(ctx)
+		streamContext, cancel := context.WithCancel(ctx)
+		stream, err := r.client.Service().Open(streamContext)
 		if err != nil {
+			cancel()
 			r.openErr = fmt.Errorf("open UI stream: %w", err)
 			return
 		}
 		r.channel = &channel{
-			stream: stream,
-			mutex:  sync.Mutex{},
+			stream:    stream,
+			cancel:    cancel,
+			closeOnce: sync.Once{},
+			mutex:     sync.Mutex{},
 		}
 	})
 	return r.channel, r.openErr
@@ -116,6 +122,11 @@ func (c *channel) Receive() (domainui.Command, error) {
 		return domainui.Command{}, fmt.Errorf("receive UI command: %w", err)
 	}
 	return mapCommand(command)
+}
+
+// Close cancels the stream context to unblock pending send and receive calls.
+func (c *channel) Close() {
+	c.closeOnce.Do(c.cancel)
 }
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.

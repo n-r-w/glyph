@@ -65,27 +65,32 @@ func (s *Session) Run(ctx context.Context, initialization domainui.Initializatio
 	}
 	s.afterInitialization(ctx)
 
+	receiverContext, cancelReceiver := context.WithCancel(ctx)
 	commands := make(chan receivedCommand)
-	go s.receiveCommands(commands)
+	receiverDone := make(chan struct{})
+	go func() {
+		defer close(receiverDone)
+		s.receiveCommands(receiverContext, commands)
+	}()
 	results := make(chan operationResult)
 	availability := domainui.AvailabilityCheckingAuthentication
 	activeCancel, activeKind := s.startAuthenticationCheck(ctx, results)
+	defer func() {
+		s.shutdown(activeCancel, activeKind, results, cancelReceiver, receiverDone)
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
-			s.cancelAndAwait(activeCancel, activeKind, results)
 			return fmt.Errorf("run UI session: %w", ctx.Err())
 		case received := <-commands:
 			if received.err != nil {
-				s.cancelAndAwait(activeCancel, activeKind, results)
 				if errors.Is(received.err, io.EOF) || errors.Is(received.err, context.Canceled) {
 					return nil
 				}
 				return received.err
 			}
 			if received.command.Kind == domainui.CommandQuit {
-				s.cancelAndAwait(activeCancel, activeKind, results)
 				return nil
 			}
 			var err error
@@ -108,10 +113,14 @@ func (s *Session) Run(ctx context.Context, initialization domainui.Initializatio
 }
 
 // receiveCommands performs the one blocking receive operation for the session.
-func (s *Session) receiveCommands(commands chan<- receivedCommand) {
+func (s *Session) receiveCommands(ctx context.Context, commands chan<- receivedCommand) {
 	for {
 		command, err := s.channel.Receive()
-		commands <- receivedCommand{command: command, err: err}
+		select {
+		case commands <- receivedCommand{command: command, err: err}:
+		case <-ctx.Done():
+			return
+		}
 		if err != nil || command.Kind == domainui.CommandQuit {
 			return
 		}
@@ -356,17 +365,23 @@ func (*Session) resolveDeliveryFailure(
 	}
 }
 
-// cancelAndAwait cancels and waits for the single active operation before shutdown.
-func (*Session) cancelAndAwait(
-	cancel context.CancelFunc,
-	kind operationKind,
+// shutdown cancels and joins the active operation and command receiver.
+func (s *Session) shutdown(
+	activeCancel context.CancelFunc,
+	activeKind operationKind,
 	results <-chan operationResult,
+	cancelReceiver context.CancelFunc,
+	receiverDone <-chan struct{},
 ) {
-	if kind == 0 {
-		return
+	if activeKind != 0 {
+		activeCancel()
 	}
-	cancel()
-	<-results
+	cancelReceiver()
+	s.channel.Close()
+	if activeKind != 0 {
+		<-results
+	}
+	<-receiverDone
 }
 
 // sendAvailability emits one ordered lifecycle availability update.

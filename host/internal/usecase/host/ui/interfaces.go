@@ -31,6 +31,7 @@ type Runtime interface {
 type Channel interface {
 	Send(frame domainui.Frame) error
 	Receive() (domainui.Command, error)
+	Close()
 }
 
 // AgentRunner starts one user request against the retained Agent Core history.

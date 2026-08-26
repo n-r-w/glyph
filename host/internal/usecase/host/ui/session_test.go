@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -35,6 +36,7 @@ type SessionSuite struct {
 func (s *SessionSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.channel = NewMockChannel(controller)
+	s.channel.EXPECT().Close().AnyTimes()
 	s.runner = NewMockAgentRunner(controller)
 	s.authenticator = NewMockAuthenticator(controller)
 	s.modelCatalog = NewMockModelCatalog(controller)
@@ -613,6 +615,99 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 	assert.False(t, canceled)
 }
 
+// TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun verifies command delivery failure owns operation teardown.
+func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun() {
+	t := s.T()
+	selectionSendErr := errors.New("send selection confirmation")
+	ready := make(chan struct{})
+	runStarted := make(chan struct{})
+	runCanceled := make(chan struct{})
+	runFinished := make(chan struct{})
+	selection := model.Selection{
+		Provider:        "openrouter",
+		Model:           "sonnet",
+		ReasoningChoice: model.ReasoningChoiceHigh,
+	}
+
+	gomock.InOrder(
+		s.channel.EXPECT().Send(gomock.Any()).Return(nil),
+		s.channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+			lifecycle, lifecyclePresent := frame.Lifecycle.Get()
+			require.True(t, lifecyclePresent)
+			availability, availabilityPresent := lifecycle.Availability.Get()
+			require.True(t, availabilityPresent)
+			assert.Equal(t, domainui.AvailabilityIdle, availability)
+			close(ready)
+			return nil
+		}),
+		s.channel.EXPECT().Send(gomock.Any()).Return(nil),
+		s.channel.EXPECT().Send(gomock.Any()).Return(selectionSendErr),
+	)
+	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
+	s.runner.EXPECT().Run(gomock.Any(), "request").DoAndReturn(
+		func(ctx context.Context, _ string) (agent.RunOutcome, error) {
+			defer close(runFinished)
+			close(runStarted)
+			<-ctx.Done()
+			close(runCanceled)
+			return agent.RunOutcomeAborted, ctx.Err()
+		},
+	)
+	s.modelCatalog.EXPECT().SelectModel(
+		gomock.Any(), model.ProviderID("openrouter"), model.ID("sonnet"),
+	).Return(selection, nil)
+	gomock.InOrder(
+		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
+			<-ready
+			return domainui.Command{
+				Kind:            domainui.CommandSubmit,
+				Text:            mo.Some("request"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			}, nil
+		}),
+		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
+			<-runStarted
+			return domainui.Command{
+				Kind:            domainui.CommandSelectModel,
+				Text:            mo.None[string](),
+				ProviderID:      mo.Some("openrouter"),
+				ModelID:         mo.Some("sonnet"),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			}, nil
+		}),
+		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
+			<-runCanceled
+			return domainui.Command{}, context.Canceled
+		}),
+	)
+
+	err := NewSession(s.channel, s.runner, s.authenticator, s.modelCatalog, func(context.Context) {}).Run(
+		t.Context(),
+		domainui.Initialization{
+			SelectedUIID:   "ui",
+			StartupContent: nil,
+			Extensions:     nil,
+			Availability:   domainui.AvailabilityCheckingAuthentication,
+			Models:         nil,
+			ModelSelection: mo.Some(domainui.ModelSelection{}),
+		},
+	)
+
+	require.ErrorIs(t, err, selectionSendErr)
+	select {
+	case <-runCanceled:
+	default:
+		assert.Fail(t, "active run context was not canceled before selection send failure returned")
+	}
+	select {
+	case <-runFinished:
+	default:
+		assert.Fail(t, "active run was not awaited before selection send failure returned")
+	}
+}
+
 // TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation verifies rejected selection preserves status.
 func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmation() {
 	t := s.T()
@@ -989,6 +1084,106 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 func TestSessionSuite(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(SessionSuite))
+}
+
+// TestSessionSendFailureClosesPendingReceive verifies teardown unblocks and joins a pending receive call.
+func TestSessionSendFailureClosesPendingReceive(t *testing.T) {
+	t.Parallel()
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	authenticator := NewMockAuthenticator(controller)
+	receiveStarted := make(chan struct{})
+	receiveRelease := make(chan struct{})
+	receiveCompleted := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseReceive := func() {
+		releaseOnce.Do(func() { close(receiveRelease) })
+	}
+	defer releaseReceive()
+
+	gomock.InOrder(
+		channel.EXPECT().Send(gomock.Any()).Return(nil),
+		channel.EXPECT().Send(gomock.Any()).Return(io.ErrUnexpectedEOF),
+	)
+	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
+		close(receiveStarted)
+		<-receiveRelease
+		close(receiveCompleted)
+		return domainui.Command{}, context.Canceled
+	})
+	channel.EXPECT().Close().Do(releaseReceive).AnyTimes()
+	authenticator.EXPECT().CheckAuthentication(gomock.Any()).DoAndReturn(func(context.Context) error {
+		<-receiveStarted
+		return nil
+	})
+
+	err := NewSession(
+		channel,
+		NewMockAgentRunner(controller),
+		authenticator,
+		NewMockModelCatalog(controller),
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
+		SelectedUIID:   "ui",
+		StartupContent: nil,
+		Extensions:     nil,
+		Availability:   domainui.AvailabilityCheckingAuthentication,
+		Models:         nil,
+		ModelSelection: mo.Some(domainui.ModelSelection{}),
+	})
+
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	select {
+	case <-receiveCompleted:
+	default:
+		assert.Fail(t, "pending command receive was not completed before session return")
+	}
+}
+
+// TestReceiveCommandsCancellationUnblocksCompletedHandoff verifies cancellation releases a completed receive result.
+func TestReceiveCommandsCancellationUnblocksCompletedHandoff(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		controller := gomock.NewController(t)
+		channel := NewMockChannel(controller)
+		ctx, cancel := context.WithCancel(t.Context())
+		commands := make(chan receivedCommand)
+		receiveCompleted := make(chan struct{})
+		receiverDone := make(chan struct{})
+		channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
+			close(receiveCompleted)
+			return domainui.Command{
+				Kind:            domainui.CommandQuit,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			}, nil
+		})
+
+		go func() {
+			defer close(receiverDone)
+			(&Session{
+				channel:             channel,
+				runner:              nil,
+				authenticator:       nil,
+				modelCatalog:        nil,
+				afterInitialization: nil,
+			}).receiveCommands(ctx, commands)
+		}()
+		<-receiveCompleted
+		synctest.Wait()
+		cancel()
+		synctest.Wait()
+
+		select {
+		case <-receiverDone:
+		default:
+			assert.Fail(t, "completed command receive remained blocked on result handoff")
+			<-commands
+			synctest.Wait()
+		}
+	})
 }
 
 // containsRetryableError reports whether one retryable error frame matches text.

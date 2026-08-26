@@ -36,9 +36,12 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	client := uisdk.TestClient(t, service)
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
+	_, cancel := context.WithCancel(t.Context())
 	transport := &channel{
-		stream: stream,
-		mutex:  sync.Mutex{},
+		stream:    stream,
+		cancel:    cancel,
+		closeOnce: sync.Once{},
+		mutex:     sync.Mutex{},
 	}
 	frames := []domainui.Frame{
 		testInitializationFrame(),
