@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"google.golang.org/protobuf/proto"
@@ -463,34 +464,34 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 	case command.GetSubmit() != nil:
 		return domainui.Command{
 			Kind:            domainui.CommandSubmit,
-			Text:            command.GetSubmit().GetText(),
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.Some(command.GetSubmit().GetText()),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetStop() != nil:
 		return domainui.Command{
 			Kind:            domainui.CommandStop,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetRetryAuthentication() != nil:
 		return domainui.Command{
 			Kind:            domainui.CommandRetryAuthentication,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetQuit() != nil:
 		return domainui.Command{
 			Kind:            domainui.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetSelectModel() != nil:
 		selected := command.GetSelectModel()
@@ -499,10 +500,10 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		}
 		return domainui.Command{
 			Kind:            domainui.CommandSelectModel,
-			ProviderID:      selected.GetProviderId(),
-			ModelID:         selected.GetModelId(),
-			Text:            "",
-			ReasoningChoice: 0,
+			ProviderID:      mo.Some(selected.GetProviderId()),
+			ModelID:         mo.Some(selected.GetModelId()),
+			Text:            mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	case command.GetSelectReasoningChoice() != nil:
 		level, err := mapReasoningChoiceFromProto(command.GetSelectReasoningChoice().GetChoice())
@@ -511,10 +512,10 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		}
 		return domainui.Command{
 			Kind:            domainui.CommandSelectReasoningChoice,
-			ReasoningChoice: level,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
+			ReasoningChoice: mo.Some(level),
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
 		}, nil
 	default:
 		return domainui.Command{}, errors.New("receive UI command: payload is required")

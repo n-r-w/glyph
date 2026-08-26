@@ -338,8 +338,8 @@ const (
 // Command carries exactly one UI-to-Host command.
 type Command struct {
 	Kind            CommandKind
-	Text            string
-	ProviderID      string
-	ModelID         string
-	ReasoningChoice ReasoningChoice
+	Text            mo.Option[string]
+	ProviderID      mo.Option[string]
+	ModelID         mo.Option[string]
+	ReasoningChoice mo.Option[ReasoningChoice]
 }

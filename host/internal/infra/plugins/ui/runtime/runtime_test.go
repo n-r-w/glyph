@@ -58,50 +58,72 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	for _, expected := range []domainui.Command{
 		{
 			Kind:            domainui.CommandSubmit,
-			Text:            "request",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.Some("request"),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		},
 		{
 			Kind:            domainui.CommandStop,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		},
 		{
 			Kind:            domainui.CommandRetryAuthentication,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		},
 		{
 			Kind:            domainui.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		},
 		{
 			Kind:            domainui.CommandSelectModel,
-			ProviderID:      "openrouter",
-			ModelID:         "sonnet",
-			Text:            "",
-			ReasoningChoice: 0,
+			ProviderID:      mo.Some("openrouter"),
+			ModelID:         mo.Some("sonnet"),
+			Text:            mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		},
 		{
 			Kind:            domainui.CommandSelectReasoningChoice,
-			ReasoningChoice: domainui.ReasoningChoiceXHigh,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
+			ReasoningChoice: mo.Some(domainui.ReasoningChoiceXHigh),
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
 		},
 	} {
 		command, receiveErr := transport.Receive()
 		require.NoError(t, receiveErr)
 		assert.Equal(t, expected, command)
+	}
+}
+
+// TestMapCommandRejectsEmptySelectedModel verifies Protobuf validation stays at the runtime boundary.
+func TestMapCommandRejectsEmptySelectedModel(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name       string
+		providerID string
+		modelID    string
+	}{
+		{name: "provider", providerID: "", modelID: "sonnet"},
+		{name: "model", providerID: "openrouter", modelID: ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			responses := runtimeCommandResponses("request", test.providerID, test.modelID)
+			_, err := mapCommand(responses[4])
+			require.EqualError(t, err, "receive UI command: provider and model are required")
+		})
 	}
 }
 
@@ -431,11 +453,21 @@ func (s *runtimeContractService) Open(
 		}
 		s.received <- request
 	}
-	for _, response := range []*uipb.OpenResponse{
+	for _, response := range runtimeCommandResponses("request", "openrouter", "sonnet") {
+		if err := stream.Send(response); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// runtimeCommandResponses builds the generated alternatives used by runtime command tests.
+func runtimeCommandResponses(text string, providerID string, modelID string) []*uipb.OpenResponse {
+	return []*uipb.OpenResponse{
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
 		uipb.OpenResponse_builder{
 			Submit: uipb.SubmitCommand_builder{
-				Text: new("request"),
+				Text: new(text),
 			}.Build(),
 		}.Build(),
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Stop field.
@@ -453,8 +485,8 @@ func (s *runtimeContractService) Open(
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectModel field.
 		uipb.OpenResponse_builder{
 			SelectModel: uipb.SelectModelCommand_builder{
-				ProviderId: new("openrouter"),
-				ModelId:    new("sonnet"),
+				ProviderId: new(providerID),
+				ModelId:    new(modelID),
 			}.Build(),
 		}.Build(),
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
@@ -463,12 +495,7 @@ func (s *runtimeContractService) Open(
 				Choice: new(uipb.ReasoningChoice_REASONING_CHOICE_XHIGH),
 			}.Build(),
 		}.Build(),
-	} {
-		if err := stream.Send(response); err != nil {
-			return err
-		}
 	}
-	return nil
 }
 
 // testInitializationFrame creates one complete initialization mapping fixture.

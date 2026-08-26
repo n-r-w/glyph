@@ -118,19 +118,19 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 			<-ready
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "first request",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("first request"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 		<-idleAfterRun
 		return domainui.Command{
 			Kind:            domainui.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	}).Times(2)
 
@@ -196,27 +196,27 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 			<-authFailed
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "blocked",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("blocked"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		case 2:
 			return domainui.Command{
 				Kind:            domainui.CommandRetryAuthentication,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		default:
 			<-ready
 			return domainui.Command{
 				Kind:            domainui.CommandQuit,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 	}).Times(3)
@@ -281,36 +281,36 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 			<-ready
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "first",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("first"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		case 2:
 			<-runStarted
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "queued",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("queued"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		case 3:
 			return domainui.Command{
 				Kind:            domainui.CommandStop,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		default:
 			<-idleAfterStop
 			return domainui.Command{
 				Kind:            domainui.CommandQuit,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 	}).Times(4)
@@ -347,10 +347,10 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 			activeKind:   operationAuthenticationCheck,
 			command: domainui.Command{
 				Kind:            domainui.CommandSelectModel,
-				ProviderID:      "openrouter",
-				ModelID:         "sonnet",
-				Text:            "",
-				ReasoningChoice: 0,
+				ProviderID:      mo.Some("openrouter"),
+				ModelID:         mo.Some("sonnet"),
+				Text:            mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			},
 		},
 		{
@@ -359,10 +359,10 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 			activeKind:   operationSignIn,
 			command: domainui.Command{
 				Kind:            domainui.CommandSelectReasoningChoice,
-				ReasoningChoice: domainui.ReasoningChoiceHigh,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
+				ReasoningChoice: mo.Some(domainui.ReasoningChoiceHigh),
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
 			},
 		},
 	}
@@ -397,6 +397,92 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 	}
 }
 
+// TestSessionRejectsMissingSelectedCommandPayload verifies malformed commands use safe errors.
+func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
+	t := s.T()
+	tests := []struct {
+		name         string
+		command      domainui.Command
+		expectedKind domainui.FrameKind
+		expectedText string
+	}{
+		{
+			name: "submit text",
+			command: domainui.Command{
+				Kind:            domainui.CommandSubmit,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			},
+			expectedKind: domainui.FrameInformation,
+			expectedText: "A nonempty request is required.",
+		},
+		{
+			name: "model provider",
+			command: domainui.Command{
+				Kind:            domainui.CommandSelectModel,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.Some("sonnet"),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			},
+			expectedKind: domainui.FrameError,
+			expectedText: "Could not change model selection.",
+		},
+		{
+			name: "model identifier",
+			command: domainui.Command{
+				Kind:            domainui.CommandSelectModel,
+				Text:            mo.None[string](),
+				ProviderID:      mo.Some("openrouter"),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			},
+			expectedKind: domainui.FrameError,
+			expectedText: "Could not change model selection.",
+		},
+		{
+			name: "reasoning choice",
+			command: domainui.Command{
+				Kind:            domainui.CommandSelectReasoningChoice,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+			},
+			expectedKind: domainui.FrameError,
+			expectedText: "Could not change model selection.",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			channel := NewMockChannel(gomock.NewController(t))
+			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+				assert.Equal(t, test.expectedKind, frame.Kind)
+				assert.Equal(t, test.expectedText, frame.Text.MustGet())
+				return nil
+			})
+			session := &Session{
+				channel:             channel,
+				runner:              s.runner,
+				authenticator:       s.authenticator,
+				modelCatalog:        s.modelCatalog,
+				afterInitialization: func(context.Context) {},
+			}
+
+			availability, activeCancel, activeKind, err := session.applyCommand(
+				t.Context(), domainui.AvailabilityIdle, nil, 0, test.command, make(chan operationResult),
+			)
+
+			require.NoError(t, err)
+			assert.Equal(t, domainui.AvailabilityIdle, availability)
+			assert.Nil(t, activeCancel)
+			assert.Zero(t, activeKind)
+		})
+	}
+}
+
 // TestSessionSelectionCommandsAllowNonAuthenticationStates verifies availability alone does not block selection.
 func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates() {
 	t := s.T()
@@ -410,10 +496,10 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 			availability: domainui.AvailabilityIdle,
 			command: domainui.Command{
 				Kind:            domainui.CommandSelectModel,
-				ProviderID:      "openrouter",
-				ModelID:         "sonnet",
-				Text:            "",
-				ReasoningChoice: 0,
+				ProviderID:      mo.Some("openrouter"),
+				ModelID:         mo.Some("sonnet"),
+				Text:            mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			},
 		},
 		{
@@ -421,10 +507,10 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 			availability: domainui.AvailabilityAuthenticationFailed,
 			command: domainui.Command{
 				Kind:            domainui.CommandSelectReasoningChoice,
-				ReasoningChoice: domainui.ReasoningChoiceHigh,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
+				ReasoningChoice: mo.Some(domainui.ReasoningChoiceHigh),
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
 			},
 		},
 	}
@@ -503,20 +589,20 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 	availability, activeCancel, activeKind, err := session.applyCommand(
 		ctx, domainui.AvailabilityRunning, cancel, operationRun, domainui.Command{
 			Kind:            domainui.CommandSelectModel,
-			ProviderID:      "openrouter",
-			ModelID:         "sonnet",
-			Text:            "",
-			ReasoningChoice: 0,
+			ProviderID:      mo.Some("openrouter"),
+			ModelID:         mo.Some("sonnet"),
+			Text:            mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, make(chan operationResult),
 	)
 	require.NoError(t, err)
 	availability, activeCancel, activeKind, err = session.applyCommand(
 		ctx, availability, activeCancel, activeKind, domainui.Command{
 			Kind:            domainui.CommandSelectReasoningChoice,
-			ReasoningChoice: domainui.ReasoningChoiceHigh,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
+			ReasoningChoice: mo.Some(domainui.ReasoningChoiceHigh),
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
 		}, make(chan operationResult),
 	)
 
@@ -546,10 +632,10 @@ func (s *SessionSuite) TestSessionSelectionFailureSendsSafeErrorWithoutConfirmat
 		afterInitialization: func(context.Context) {},
 	}).applyCommand(t.Context(), domainui.AvailabilityRunning, func() {}, operationRun, domainui.Command{
 		Kind:            domainui.CommandSelectReasoningChoice,
-		ReasoningChoice: domainui.ReasoningChoiceMax,
-		Text:            "",
-		ProviderID:      "",
-		ModelID:         "",
+		ReasoningChoice: mo.Some(domainui.ReasoningChoiceMax),
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
 	}, make(chan operationResult))
 
 	require.NoError(t, err)
@@ -589,26 +675,26 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 		case 0:
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "first",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("first"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		case 1:
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "second",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("second"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		default:
 			return domainui.Command{
 				Kind:            domainui.CommandQuit,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 	}).Times(3)
@@ -674,28 +760,28 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 			<-initialIdle
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "request",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("request"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		case 2:
 			<-runErrorSent
 			return domainui.Command{
 				Kind:            domainui.CommandRetryAuthentication,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		default:
 			<-terminalReady
 			return domainui.Command{
 				Kind:            domainui.CommandQuit,
-				Text:            "",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.None[string](),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 	}).Times(3)
@@ -733,10 +819,10 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 	channel.EXPECT().Send(gomock.Any()).Return(nil)
 	channel.EXPECT().Receive().Return(domainui.Command{
 		Kind:            domainui.CommandQuit,
-		Text:            "",
-		ProviderID:      "",
-		ModelID:         "",
-		ReasoningChoice: 0,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 	}, nil)
 	authenticator.EXPECT().CheckAuthentication(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		<-ctx.Done()
@@ -775,10 +861,10 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 		<-deliveryAttempted
 		return domainui.Command{
 			Kind:            domainui.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	})
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
@@ -816,10 +902,10 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 		<-deliveryAttempted
 		return domainui.Command{
 			Kind:            domainui.CommandQuit,
-			Text:            "",
-			ProviderID:      "",
-			ModelID:         "",
-			ReasoningChoice: 0,
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		}, nil
 	}).AnyTimes()
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
@@ -872,10 +958,10 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 			<-ready
 			return domainui.Command{
 				Kind:            domainui.CommandSubmit,
-				Text:            "request",
-				ProviderID:      "",
-				ModelID:         "",
-				ReasoningChoice: 0,
+				Text:            mo.Some("request"),
+				ProviderID:      mo.None[string](),
+				ModelID:         mo.None[string](),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			}, nil
 		}
 		<-runStarted

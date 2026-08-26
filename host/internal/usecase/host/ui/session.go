@@ -175,13 +175,14 @@ func (s *Session) applyCommand(
 		if availability != domainui.AvailabilityIdle {
 			return availability, activeCancel, activeKind, s.sendInformation("Glyph is not ready for another request.")
 		}
-		if strings.TrimSpace(command.Text) == "" {
+		text, present := command.Text.Get()
+		if !present || strings.TrimSpace(text) == "" {
 			return availability, activeCancel, activeKind, s.sendInformation("A nonempty request is required.")
 		}
 		if err := s.sendAvailability(domainui.AvailabilityRunning); err != nil {
 			return availability, activeCancel, activeKind, err
 		}
-		activeCancel, activeKind = s.startRun(ctx, command.Text, results)
+		activeCancel, activeKind = s.startRun(ctx, text, results)
 		return domainui.AvailabilityRunning, activeCancel, activeKind, nil
 	case domainui.CommandStop:
 		if activeKind != operationRun {
@@ -216,14 +217,20 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 	var err error
 	switch command.Kind {
 	case domainui.CommandSelectModel:
-		if command.ProviderID == "" || command.ModelID == "" {
+		providerID, providerPresent := command.ProviderID.Get()
+		modelID, modelPresent := command.ModelID.Get()
+		if !providerPresent || !modelPresent || providerID == "" || modelID == "" {
 			return s.sendSelectionError()
 		}
 		selection, err = s.modelCatalog.SelectModel(
-			ctx, model.ProviderID(command.ProviderID), model.ID(command.ModelID),
+			ctx, model.ProviderID(providerID), model.ID(modelID),
 		)
 	case domainui.CommandSelectReasoningChoice:
-		level, valid := reasoningChoiceFromUI(command.ReasoningChoice)
+		reasoningChoice, present := command.ReasoningChoice.Get()
+		if !present {
+			return s.sendSelectionError()
+		}
+		level, valid := reasoningChoiceFromUI(reasoningChoice)
 		if !valid {
 			return s.sendSelectionError()
 		}
