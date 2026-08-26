@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -20,6 +18,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	testsupporttui "github.com/n-r-w/glyph/internal/testsupport/tui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
@@ -28,6 +27,7 @@ const (
 	ptyInnerEnvironment  = "GLYPH_TUI_PTY_INNER"
 	ptyBinaryEnvironment = "GLYPH_TUI_PTY_BINARY"
 	ptyTestTimeout       = 30 * time.Second
+	ptyJoinTimeout       = 5 * time.Second
 )
 
 // TestStandardTUIPTY verifies the standard TUI lifecycle against a real pseudo-terminal.
@@ -47,8 +47,10 @@ func TestStandardTUIPTY(t *testing.T) {
 
 	ptyContext, cancelPTY := context.WithTimeout(t.Context(), ptyTestTimeout)
 	t.Cleanup(cancelPTY)
+	// Cleanup owns wrapper cancellation because testing cancels t.Context before cleanup runs.
+	wrapperContext, cancelWrapper := context.WithCancel(context.WithoutCancel(t.Context()))
 	command := exec.CommandContext(
-		ptyContext, "/usr/bin/script", "-q", "/dev/null",
+		wrapperContext, "/usr/bin/script", "-q", "/dev/null",
 		os.Args[0], "-test.run=^TestStandardTUIPTYInner$",
 	)
 	command.Env = append(
@@ -57,35 +59,35 @@ func TestStandardTUIPTY(t *testing.T) {
 		ptyBinaryEnvironment+"="+binaryPath,
 		"TERM=xterm-256color",
 	)
+	testsupporttui.ConfigureProcessGroup(command)
 	input, err := command.StdinPipe()
 	require.NoError(t, err)
 	output, err := command.StdoutPipe()
 	require.NoError(t, err)
-	observer := newOutputObserver(ptyContext)
+	observer := testsupporttui.NewOutputObserver(ptyContext)
 	command.Stderr = observer
 	require.NoError(t, command.Start())
-	waiter := newCommandWaiter(command)
-	t.Cleanup(func() {
-		_ = input.Close()
-		_ = command.Process.Kill()
-		_ = waiter.Wait()
+	waiter := testsupporttui.NewCommandWaiter(command)
+	outputWaiter := testsupporttui.NewOutputWaiter(observer, output)
+	testsupporttui.RegisterProcessGroupCleanup(t.Context(), t, testsupporttui.ProcessGroupCleanup{
+		Cancel:        cancelWrapper,
+		Input:         input,
+		Command:       command,
+		CommandWaiter: waiter,
+		OutputWaiter:  outputWaiter,
+		Timeout:       ptyJoinTimeout,
 	})
-	copyResult := make(chan error, 1)
-	go func() {
-		_, copyErr := io.Copy(observer, output)
-		copyResult <- copyErr
-	}()
 
 	observer.WaitNext(t, "Status: Idle")
 	observer.WaitNext(t, "Request: |")
 	observer.WaitNext(t, "Terminal: 100x40")
-	writePTY(t, input, "héllo🙂")
+	testsupporttui.Write(t, input, "héllo🙂")
 	observer.WaitNext(t, "héllo🙂|")
-	writePTY(t, input, "\x1b[13u")
+	testsupporttui.Write(t, input, "\x1b[13u")
 
 	observer.WaitNext(t, "Running")
 	observer.WaitNext(t, "assistant: streaming response")
-	writePTY(t, input, string([]byte{3}))
+	testsupporttui.Write(t, input, string([]byte{3}))
 
 	observer.WaitNext(t, "Idle")
 	observer.WaitNext(t, "[tool:status] read (started)")
@@ -93,19 +95,19 @@ func TestStandardTUIPTY(t *testing.T) {
 	observer.WaitNext(t, "[tool:stderr] read warning")
 	// Bubble Tea updates the changed portion of the active model line in place.
 	observer.WaitNext(t, "complete ")
-	writePTY(t, input, "second request")
+	testsupporttui.Write(t, input, "second request")
 	observer.WaitNext(t, "second request|")
-	writePTY(t, input, "\x1b[13u")
+	testsupporttui.Write(t, input, "\x1b[13u")
 
 	observer.WaitNext(t, "Authentication failed")
 	observer.WaitNext(t, "[error] Authentication failed safely.")
-	writePTY(t, input, string([]byte{18}))
+	testsupporttui.Write(t, input, string([]byte{18}))
 
 	observer.WaitNext(t, "Idle")
-	writePTY(t, input, string([]byte{17}))
+	testsupporttui.Write(t, input, string([]byte{17}))
 	require.NoError(t, input.Close())
-	runErr := waiter.Wait()
-	copyErr := <-copyResult
+	runErr := waiter.Wait(ptyContext)
+	copyErr := outputWaiter.Wait(ptyContext)
 	require.NoError(t, copyErr)
 	require.NoError(t, runErr, observer.String())
 
@@ -162,7 +164,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 			}.Build(),
 		}.Build(),
 	}.Build()))
-	setTerminalSize(t, terminalFile, 100, 40)
+	testsupporttui.SetTerminalSize(t, terminalFile, 100, 40)
 
 	response, err := stream.Recv()
 	require.NoError(t, err)
@@ -448,112 +450,6 @@ func normalizeTerminalSettings(settings string) string {
 		parts[index] = "lflag=" + strconv.FormatUint(value&^uint64(syscall.PENDIN), 16)
 	}
 	return strings.Join(parts, ":")
-}
-
-// setTerminalSize applies the PTY dimensions used by the rendering assertions.
-func setTerminalSize(t *testing.T, terminalFile *os.File, width, height int) {
-	t.Helper()
-	command := exec.CommandContext(
-		t.Context(), "/bin/stty", "rows", strconv.Itoa(height), "columns", strconv.Itoa(width),
-	)
-	command.Stdin = terminalFile
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
-}
-
-// writePTY sends one raw keyboard sequence to the pseudo-terminal.
-func writePTY(t *testing.T, writer io.Writer, content string) {
-	t.Helper()
-	_, err := io.WriteString(writer, content)
-	require.NoError(t, err)
-}
-
-// outputObserver records PTY bytes and waits for ordered rendering fragments.
-type outputObserver struct {
-	context      context.Context
-	mutex        sync.Mutex
-	content      bytes.Buffer
-	notification chan struct{}
-	cursor       int
-}
-
-var _ io.Writer = (*outputObserver)(nil)
-
-// newOutputObserver creates an ordered PTY output cursor bound to the test context.
-func newOutputObserver(ctx context.Context) *outputObserver {
-	return &outputObserver{
-		context:      ctx,
-		notification: make(chan struct{}, 1),
-		mutex:        sync.Mutex{},
-		content:      bytes.Buffer{},
-		cursor:       0,
-	}
-}
-
-// Write records new PTY bytes and wakes blocked rendering assertions.
-func (observer *outputObserver) Write(content []byte) (int, error) {
-	observer.mutex.Lock()
-	defer observer.mutex.Unlock()
-	written, err := observer.content.Write(content)
-	select {
-	case observer.notification <- struct{}{}:
-	default:
-	}
-	return written, err
-}
-
-// WaitNext requires one rendering fragment after the observer cursor.
-func (observer *outputObserver) WaitNext(t *testing.T, expected string) {
-	t.Helper()
-	for {
-		observer.mutex.Lock()
-		content := observer.content.String()
-		position := strings.Index(content[observer.cursor:], expected)
-		if position >= 0 {
-			observer.cursor += position + len(expected)
-			observer.mutex.Unlock()
-			return
-		}
-		observer.mutex.Unlock()
-
-		select {
-		case <-observer.notification:
-		case <-observer.context.Done():
-			t.Fatalf("PTY output did not contain %q after cursor:\n%s", expected, content)
-		}
-	}
-}
-
-// String returns a stable copy of all recorded PTY output.
-func (observer *outputObserver) String() string {
-	observer.mutex.Lock()
-	defer observer.mutex.Unlock()
-	return observer.content.String()
-}
-
-// commandWaiter guarantees one subprocess wait result across cleanup paths.
-type commandWaiter struct {
-	result error
-	done   chan struct{}
-}
-
-// newCommandWaiter begins waiting for the isolated TUI subprocess.
-func newCommandWaiter(command *exec.Cmd) *commandWaiter {
-	waiter := &commandWaiter{
-		done:   make(chan struct{}),
-		result: nil,
-	}
-	go func() {
-		waiter.result = command.Wait()
-		close(waiter.done)
-	}()
-	return waiter
-}
-
-// Wait returns the isolated TUI subprocess result exactly once.
-func (waiter *commandWaiter) Wait() error {
-	<-waiter.done
-	return waiter.result
 }
 
 func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
