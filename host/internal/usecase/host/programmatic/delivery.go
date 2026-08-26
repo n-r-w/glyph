@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -230,15 +231,15 @@ func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
 		CorrelationID:   correlationID,
 		Type:            controller.AgentEventAgentSettled,
 		RunID:           runID,
-		ModelContent:    controller.ModelContent{},
-		ToolCallPreview: controller.ToolCallPreview{},
-		FinalToolCall:   controller.FinalToolCall{},
-		ToolExecution:   controller.ToolExecution{},
-		ToolProgress:    controller.ToolProgress{},
-		ToolResult:      controller.ToolResult{},
-		ModelResponse:   controller.ModelResponse{},
-		Turn:            controller.TurnSummary{},
-		Agent:           controller.AgentSummary{},
+		ModelContent:    mo.None[controller.ModelContent](),
+		ToolCallPreview: mo.None[controller.ToolCallPreview](),
+		FinalToolCall:   mo.None[controller.FinalToolCall](),
+		ToolExecution:   mo.None[controller.ToolExecution](),
+		ToolProgress:    mo.None[controller.ToolProgress](),
+		ToolResult:      mo.None[controller.ToolResult](),
+		ModelResponse:   mo.None[controller.ModelResponse](),
+		Turn:            mo.None[controller.TurnSummary](),
+		Agent:           mo.None[controller.AgentSummary](),
 	}
 	if err := d.emit(ctx, active, settled); err != nil {
 		return fmt.Errorf("deliver Programmatic Control settlement: %w", err)
@@ -251,15 +252,15 @@ func mapAgentEvent(event run.Event) (controller.AgentEvent, error) {
 		CorrelationID:   "",
 		Type:            mapAgentEventType(event.Type),
 		RunID:           event.RunID,
-		ModelContent:    controller.ModelContent{},
-		ToolCallPreview: controller.ToolCallPreview{},
-		FinalToolCall:   controller.FinalToolCall{},
-		ToolExecution:   controller.ToolExecution{},
-		ToolProgress:    controller.ToolProgress{},
-		ToolResult:      controller.ToolResult{},
-		ModelResponse:   controller.ModelResponse{},
-		Turn:            controller.TurnSummary{},
-		Agent:           controller.AgentSummary{},
+		ModelContent:    mo.None[controller.ModelContent](),
+		ToolCallPreview: mo.None[controller.ToolCallPreview](),
+		FinalToolCall:   mo.None[controller.FinalToolCall](),
+		ToolExecution:   mo.None[controller.ToolExecution](),
+		ToolProgress:    mo.None[controller.ToolProgress](),
+		ToolResult:      mo.None[controller.ToolResult](),
+		ModelResponse:   mo.None[controller.ModelResponse](),
+		Turn:            mo.None[controller.TurnSummary](),
+		Agent:           mo.None[controller.AgentSummary](),
 	}
 	var err error
 	switch event.Type {
@@ -287,22 +288,23 @@ func mapProgrammaticModelEvent(event run.Event, mapped *controller.AgentEvent) e
 		if !hasContent || !hasPosition {
 			return fmt.Errorf("event type %d requires content and position", event.Type)
 		}
-		mapped.ModelContent = controller.ModelContent{
-			Kind: mapModelContentKind(content.Kind), Position: position, Text: "",
-		}
+		text := mo.None[string]()
 		if event.Type == run.EventTextDelta {
-			text, present := content.Text.Get()
+			value, present := content.Text.Get()
 			if !present {
 				return errors.New("text delta event requires text")
 			}
-			mapped.ModelContent.Text = text
+			text = mo.Some(value)
 		}
+		mapped.ModelContent = mo.Some(controller.ModelContent{
+			Kind: mapModelContentKind(content.Kind), Position: position, Text: text,
+		})
 	case run.EventMessageEnd:
 		message, present := event.Message.Get()
 		if !present {
 			return errors.New("message end event requires model response")
 		}
-		mapped.ModelResponse = mapModelResponse(message)
+		mapped.ModelResponse = mo.Some(mapModelResponse(message))
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
 		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
@@ -320,36 +322,36 @@ func mapProgrammaticToolEvent(event run.Event, mapped *controller.AgentEvent) er
 		if !present {
 			return fmt.Errorf("event type %d requires tool call preview", event.Type)
 		}
-		mapped.ToolCallPreview = mapToolCallPreview(preview)
+		mapped.ToolCallPreview = mo.Some(mapToolCallPreview(preview))
 	case run.EventToolCallEnd:
 		call, hasCall := event.ToolCall.Get()
 		position, hasPosition := event.Position.Get()
 		if !hasCall || !hasPosition {
 			return errors.New("tool call end event requires tool call and position")
 		}
-		mapped.FinalToolCall = controller.FinalToolCall{
+		mapped.FinalToolCall = mo.Some(controller.FinalToolCall{
 			CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
-		}
+		})
 	case run.EventToolExecutionStart:
 		call, present := event.ToolCall.Get()
 		if !present {
 			return errors.New("tool execution start event requires tool call")
 		}
-		mapped.ToolExecution = controller.ToolExecution{CallID: call.ID, ToolName: call.Name}
+		mapped.ToolExecution = mo.Some(controller.ToolExecution{CallID: call.ID, ToolName: call.Name})
 	case run.EventToolExecutionUpdate:
 		progress, present := event.Progress.Get()
 		if !present {
 			return errors.New("tool execution update event requires progress")
 		}
-		mapped.ToolProgress = controller.ToolProgress{
+		mapped.ToolProgress = mo.Some(controller.ToolProgress{
 			Channel: mapProgressChannel(progress.Channel), Content: progress.Content,
-		}
+		})
 	case run.EventToolExecutionEnd, run.EventToolResult:
 		result, present := event.ToolResult.Get()
 		if !present {
 			return fmt.Errorf("event type %d requires tool result", event.Type)
 		}
-		mapped.ToolResult = mapToolResult(result)
+		mapped.ToolResult = mo.Some(mapToolResult(result))
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventContentStart, run.EventTextDelta, run.EventContentEnd, run.EventMessageEnd,
 		run.EventTurnEnd, run.EventAgentEnd:
@@ -369,16 +371,15 @@ func mapProgrammaticTerminalEvent(event run.Event, mapped *controller.AgentEvent
 		toolResults := lo.Map(turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
 			return mapToolResult(result)
 		})
-		mapped.Turn = controller.TurnSummary{Response: mapModelResponse(turn.Response), ToolResults: toolResults}
+		mapped.Turn = mo.Some(controller.TurnSummary{Response: mapModelResponse(turn.Response), ToolResults: toolResults})
 	case run.EventAgentEnd:
 		summary, present := event.Agent.Get()
 		if !present {
 			return errors.New("agent end event requires agent summary")
 		}
-		mapped.Agent = controller.AgentSummary{Outcome: mapRunOutcome(summary.Outcome), ErrorMessage: ""}
-		if errorMessage, hasErrorMessage := summary.ErrorMessage.Get(); hasErrorMessage {
-			mapped.Agent.ErrorMessage = errorMessage
-		}
+		mapped.Agent = mo.Some(controller.AgentSummary{
+			Outcome: mapRunOutcome(summary.Outcome), ErrorMessage: summary.ErrorMessage,
+		})
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
 		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd, run.EventMessageEnd,

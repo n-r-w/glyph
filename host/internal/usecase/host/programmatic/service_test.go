@@ -96,7 +96,7 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		}
 
 		assert.Equal(t, controller.AgentEvent{
-			CorrelationID: "c1", Type: controller.AgentEventAgentStart, RunID: "run-1", ModelContent: controller.ModelContent{}, ToolCallPreview: controller.ToolCallPreview{}, FinalToolCall: controller.FinalToolCall{}, ToolExecution: controller.ToolExecution{}, ToolProgress: controller.ToolProgress{}, ToolResult: controller.ToolResult{}, ModelResponse: controller.ModelResponse{}, Turn: controller.TurnSummary{}, Agent: controller.AgentSummary{},
+			CorrelationID: "c1", Type: controller.AgentEventAgentStart, RunID: "run-1", ModelContent: mo.None[controller.ModelContent](), ToolCallPreview: mo.None[controller.ToolCallPreview](), FinalToolCall: mo.None[controller.FinalToolCall](), ToolExecution: mo.None[controller.ToolExecution](), ToolProgress: mo.None[controller.ToolProgress](), ToolResult: mo.None[controller.ToolResult](), ModelResponse: mo.None[controller.ModelResponse](), Turn: mo.None[controller.TurnSummary](), Agent: mo.None[controller.AgentSummary](),
 		}, <-operation.Events())
 		synctest.Wait()
 		select {
@@ -105,7 +105,7 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 			assert.Fail(t, "event producer remained blocked after consumption")
 		}
 		assert.Equal(t, controller.AgentEvent{
-			CorrelationID: "c1", Type: controller.AgentEventAgentSettled, RunID: "run-1", ModelContent: controller.ModelContent{}, ToolCallPreview: controller.ToolCallPreview{}, FinalToolCall: controller.FinalToolCall{}, ToolExecution: controller.ToolExecution{}, ToolProgress: controller.ToolProgress{}, ToolResult: controller.ToolResult{}, ModelResponse: controller.ModelResponse{}, Turn: controller.TurnSummary{}, Agent: controller.AgentSummary{},
+			CorrelationID: "c1", Type: controller.AgentEventAgentSettled, RunID: "run-1", ModelContent: mo.None[controller.ModelContent](), ToolCallPreview: mo.None[controller.ToolCallPreview](), FinalToolCall: mo.None[controller.FinalToolCall](), ToolExecution: mo.None[controller.ToolExecution](), ToolProgress: mo.None[controller.ToolProgress](), ToolResult: mo.None[controller.ToolResult](), ModelResponse: mo.None[controller.ModelResponse](), Turn: mo.None[controller.TurnSummary](), Agent: mo.None[controller.AgentSummary](),
 		}, <-operation.Events())
 		synctest.Wait()
 		_, open := <-operation.Events()
@@ -535,8 +535,10 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().Len(modelResponse.Content, 2)
 	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[1].Kind)
 	toolResult := response.Messages[2].ToolResult.OrEmpty()
-	s.Equal([]byte{1, 2}, toolResult.Contents[1].Image.Data)
-	toolResult.Contents[1].Image.Data[0] = 9
+	image, present := toolResult.Contents[1].Image.Get()
+	s.Require().True(present)
+	s.Equal([]byte{1, 2}, image.Data)
+	image.Data[0] = 9
 	s.Equal(byte(1), history[2].ToolResult.OrEmpty().Contents[1].Image.OrEmpty().Data[0])
 }
 

@@ -157,7 +157,6 @@ func wrapCommandResponse(
 	return mapped
 }
 
-//nolint:gocyclo // The closed event union is mapped exhaustively.
 func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
 	eventType, err := mapAgentEventType(event.Type)
 	if err != nil {
@@ -169,68 +168,168 @@ func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
 
 	switch event.Type {
 	case AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart, AgentEventAgentSettled:
-	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd:
-		content, mapErr := mapModelContent(event.ModelContent)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetModelContent(content)
-	case AgentEventToolCallStart, AgentEventToolCallDelta:
-		preview, mapErr := mapToolCallPreview(event.ToolCallPreview)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetToolCallPreview(preview)
-	case AgentEventToolCallEnd:
-		call, mapErr := mapFinalToolCall(event.FinalToolCall)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetFinalToolCall(call)
-	case AgentEventMessageEnd:
-		response, mapErr := mapModelResponse(event.ModelResponse)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetModelResponse(response)
-	case AgentEventToolExecutionStart:
-		execution := new(programmaticv1.ToolExecution)
-		execution.SetCallId(event.ToolExecution.CallID)
-		execution.SetToolName(event.ToolExecution.ToolName)
-		wire.SetToolExecution(execution)
-	case AgentEventToolExecutionUpdate:
-		progress, mapErr := mapToolProgress(event.ToolProgress)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetToolProgress(progress)
-	case AgentEventToolExecutionEnd, AgentEventToolResult:
-		result, mapErr := mapToolResult(event.ToolResult)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetToolResult(result)
-	case AgentEventTurnEnd:
-		turn, mapErr := mapTurnSummary(event.Turn)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetTurn(turn)
-	case AgentEventAgentEnd:
-		agent, mapErr := mapAgentSummary(event.Agent)
-		if mapErr != nil {
-			return nil, mapErr
-		}
-		wire.SetAgent(agent)
+	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd:
+		err = mapModelEvent(event, wire)
+	case AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd:
+		err = mapToolCallEvent(event, wire)
+	case AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd, AgentEventToolResult:
+		err = mapToolExecutionEvent(event, wire)
+	case AgentEventTurnEnd, AgentEventAgentEnd:
+		err = mapTerminalEvent(event, wire)
 	case AgentEventUnspecified:
 		return nil, errors.New("map agent event: unspecified event type")
 	default:
 		return nil, fmt.Errorf("map agent event: unknown event type %d", event.Type)
 	}
+	if err != nil {
+		return nil, err
+	}
 	mapped := new(programmaticv1.OpenResponse)
 	mapped.SetCorrelationId(event.CorrelationID)
 	mapped.SetAgentEvent(wire)
 	return mapped, nil
+}
+
+func mapModelEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
+	switch event.Type {
+	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd:
+		contentValue, present := event.ModelContent.Get()
+		if !present {
+			return fmt.Errorf("map agent event type %d: model content is missing", event.Type)
+		}
+		content, err := mapModelContent(contentValue, event.Type == AgentEventModelTextDelta)
+		if err != nil {
+			return err
+		}
+		wire.SetModelContent(content)
+	case AgentEventMessageEnd:
+		responseValue, present := event.ModelResponse.Get()
+		if !present {
+			return errors.New("map message end event: model response is missing")
+		}
+		response, err := mapModelResponse(responseValue)
+		if err != nil {
+			return err
+		}
+		wire.SetModelResponse(response)
+	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd,
+		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
+		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		return fmt.Errorf("map model event: unsupported event type %d", event.Type)
+	default:
+		return fmt.Errorf("map model event: unsupported event type %d", event.Type)
+	}
+	return nil
+}
+
+func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
+	switch event.Type {
+	case AgentEventToolCallStart, AgentEventToolCallDelta:
+		previewValue, present := event.ToolCallPreview.Get()
+		if !present {
+			return fmt.Errorf("map agent event type %d: tool call preview is missing", event.Type)
+		}
+		preview, err := mapToolCallPreview(previewValue)
+		if err != nil {
+			return err
+		}
+		wire.SetToolCallPreview(preview)
+	case AgentEventToolCallEnd:
+		callValue, present := event.FinalToolCall.Get()
+		if !present {
+			return errors.New("map tool call end event: final tool call is missing")
+		}
+		call, err := mapFinalToolCall(callValue)
+		if err != nil {
+			return err
+		}
+		wire.SetFinalToolCall(call)
+	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd,
+		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
+		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		return fmt.Errorf("map tool call event: unsupported event type %d", event.Type)
+	default:
+		return fmt.Errorf("map tool call event: unsupported event type %d", event.Type)
+	}
+	return nil
+}
+
+func mapToolExecutionEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
+	switch event.Type {
+	case AgentEventToolExecutionStart:
+		executionValue, present := event.ToolExecution.Get()
+		if !present {
+			return errors.New("map tool execution start event: tool execution is missing")
+		}
+		execution := new(programmaticv1.ToolExecution)
+		execution.SetCallId(executionValue.CallID)
+		execution.SetToolName(executionValue.ToolName)
+		wire.SetToolExecution(execution)
+	case AgentEventToolExecutionUpdate:
+		progressValue, present := event.ToolProgress.Get()
+		if !present {
+			return errors.New("map tool execution update event: tool progress is missing")
+		}
+		progress, err := mapToolProgress(progressValue)
+		if err != nil {
+			return err
+		}
+		wire.SetToolProgress(progress)
+	case AgentEventToolExecutionEnd, AgentEventToolResult:
+		resultValue, present := event.ToolResult.Get()
+		if !present {
+			return fmt.Errorf("map agent event type %d: tool result is missing", event.Type)
+		}
+		result, err := mapToolResult(resultValue)
+		if err != nil {
+			return err
+		}
+		wire.SetToolResult(result)
+	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
+		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
+		AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		return fmt.Errorf("map tool execution event: unsupported event type %d", event.Type)
+	default:
+		return fmt.Errorf("map tool execution event: unsupported event type %d", event.Type)
+	}
+	return nil
+}
+
+func mapTerminalEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
+	switch event.Type {
+	case AgentEventTurnEnd:
+		turnValue, present := event.Turn.Get()
+		if !present {
+			return errors.New("map turn end event: turn summary is missing")
+		}
+		turn, err := mapTurnSummary(turnValue)
+		if err != nil {
+			return err
+		}
+		wire.SetTurn(turn)
+	case AgentEventAgentEnd:
+		agentValue, present := event.Agent.Get()
+		if !present {
+			return errors.New("map agent end event: agent summary is missing")
+		}
+		agent, err := mapAgentSummary(agentValue)
+		if err != nil {
+			return err
+		}
+		wire.SetAgent(agent)
+	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
+		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
+		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
+		AgentEventToolResult, AgentEventAgentSettled:
+		return fmt.Errorf("map terminal event: unsupported event type %d", event.Type)
+	default:
+		return fmt.Errorf("map terminal event: unsupported event type %d", event.Type)
+	}
+	return nil
 }
 
 func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, error) {
@@ -274,7 +373,7 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 	})
 }
 
-func mapModelContent(content ModelContent) (*programmaticv1.ModelContent, error) {
+func mapModelContent(content ModelContent, requireText bool) (*programmaticv1.ModelContent, error) {
 	kind, err := mapModelContentKind(content.Kind)
 	if err != nil {
 		return nil, err
@@ -286,7 +385,11 @@ func mapModelContent(content ModelContent) (*programmaticv1.ModelContent, error)
 	mapped := new(programmaticv1.ModelContent)
 	mapped.SetKind(kind)
 	mapped.SetPosition(position)
-	mapped.SetText(content.Text)
+	if text, present := content.Text.Get(); present {
+		mapped.SetText(text)
+	} else if requireText {
+		return nil, errors.New("map model text delta: text is missing")
+	}
 	return mapped, nil
 }
 
@@ -302,13 +405,21 @@ func mapToolCallPreview(preview ToolCallPreview) (*programmaticv1.ToolCallPrevie
 			mapped.SetName(field.Name)
 			switch field.Kind {
 			case ToolCallPreviewFieldComplete:
-				value, valueErr := structpb.NewValue(field.Value)
+				fieldValue, present := field.Value.Get()
+				if !present {
+					return nil, fmt.Errorf("map tool call preview field %d: value is missing", index)
+				}
+				value, valueErr := structpb.NewValue(fieldValue)
 				if valueErr != nil {
 					return nil, fmt.Errorf("map tool call preview field %d value: %w", index, valueErr)
 				}
 				mapped.SetValue(value)
 			case ToolCallPreviewFieldPrefix:
-				mapped.SetPrefix(field.Prefix)
+				prefix, present := field.Prefix.Get()
+				if !present {
+					return nil, fmt.Errorf("map tool call preview field %d: prefix is missing", index)
+				}
+				mapped.SetPrefix(prefix)
 			case ToolCallPreviewFieldUnspecified:
 				return nil, fmt.Errorf("map tool call preview field %d: unspecified content kind", index)
 			default:
@@ -364,11 +475,19 @@ func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
 			mapped := new(programmaticv1.ToolResultContent)
 			switch content.Kind {
 			case ToolResultContentText:
-				mapped.SetText(content.Text)
+				text, present := content.Text.Get()
+				if !present {
+					return nil, fmt.Errorf("map tool result content %d: text is missing", index)
+				}
+				mapped.SetText(text)
 			case ToolResultContentImage:
+				imageValue, present := content.Image.Get()
+				if !present {
+					return nil, fmt.Errorf("map tool result content %d: image is missing", index)
+				}
 				image := new(programmaticv1.ToolResultImage)
-				image.SetMediaType(content.Image.MediaType)
-				image.SetData(bytes.Clone(content.Image.Data))
+				image.SetMediaType(imageValue.MediaType)
+				image.SetData(bytes.Clone(imageValue.Data))
 				mapped.SetImage(image)
 			case ToolResultContentUnspecified:
 				return nil, fmt.Errorf("map tool result content %d: unspecified content kind", index)
@@ -394,37 +513,7 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	if err != nil {
 		return nil, err
 	}
-	content, err := lo.MapErr(
-		response.Content,
-		func(item ModelResponseContent, index int) (*programmaticv1.ModelResponseItem, error) {
-			mapped := new(programmaticv1.ModelResponseItem)
-			switch item.Kind {
-			case ModelResponseContentText:
-				text := new(programmaticv1.FinalText)
-				text.SetText(item.Text)
-				mapped.SetText(text)
-			case ModelResponseContentRefusal:
-				text := new(programmaticv1.FinalText)
-				text.SetText(item.Text)
-				mapped.SetRefusal(text)
-			case ModelResponseContentReasoning:
-				text := new(programmaticv1.FinalText)
-				text.SetText(item.Text)
-				mapped.SetReasoning(text)
-			case ModelResponseContentToolCall:
-				call, mapErr := mapFinalToolCall(item.ToolCall)
-				if mapErr != nil {
-					return nil, fmt.Errorf("map model response content %d: %w", index, mapErr)
-				}
-				mapped.SetToolCall(call)
-			case ModelResponseContentUnspecified:
-				return nil, fmt.Errorf("map model response content %d: unspecified content kind", index)
-			default:
-				return nil, fmt.Errorf("map model response content %d: unknown content kind %d", index, item.Kind)
-			}
-			return mapped, nil
-		},
-	)
+	content, err := lo.MapErr(response.Content, mapModelResponseItem)
 	if err != nil {
 		return nil, err
 	}
@@ -468,6 +557,43 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	return mapped, nil
 }
 
+func mapModelResponseItem(item ModelResponseContent, index int) (*programmaticv1.ModelResponseItem, error) {
+	mapped := new(programmaticv1.ModelResponseItem)
+	switch item.Kind {
+	case ModelResponseContentText, ModelResponseContentRefusal, ModelResponseContentReasoning:
+		textValue, present := item.Text.Get()
+		if !present {
+			return nil, fmt.Errorf("map model response content %d: text is missing", index)
+		}
+		text := new(programmaticv1.FinalText)
+		text.SetText(textValue)
+		switch item.Kind {
+		case ModelResponseContentText:
+			mapped.SetText(text)
+		case ModelResponseContentRefusal:
+			mapped.SetRefusal(text)
+		case ModelResponseContentReasoning:
+			mapped.SetReasoning(text)
+		case ModelResponseContentUnspecified, ModelResponseContentToolCall:
+		}
+	case ModelResponseContentToolCall:
+		callValue, present := item.ToolCall.Get()
+		if !present {
+			return nil, fmt.Errorf("map model response content %d: tool call is missing", index)
+		}
+		call, err := mapFinalToolCall(callValue)
+		if err != nil {
+			return nil, fmt.Errorf("map model response content %d: %w", index, err)
+		}
+		mapped.SetToolCall(call)
+	case ModelResponseContentUnspecified:
+		return nil, fmt.Errorf("map model response content %d: unspecified content kind", index)
+	default:
+		return nil, fmt.Errorf("map model response content %d: unknown content kind %d", index, item.Kind)
+	}
+	return mapped, nil
+}
+
 func mapTurnSummary(turn TurnSummary) (*programmaticv1.TurnSummary, error) {
 	response, err := mapModelResponse(turn.Response)
 	if err != nil {
@@ -496,7 +622,9 @@ func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
 	}
 	mapped := new(programmaticv1.AgentSummary)
 	mapped.SetOutcome(outcome)
-	mapped.SetErrorMessage(agent.ErrorMessage)
+	if errorMessage, present := agent.ErrorMessage.Get(); present {
+		mapped.SetErrorMessage(errorMessage)
+	}
 	return mapped, nil
 }
 

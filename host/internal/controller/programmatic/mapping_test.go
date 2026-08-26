@@ -280,258 +280,258 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			typeValue: AgentEventModelContentStart,
 			payload:   "model_content",
 			event: AgentEvent{
-				ModelContent: ModelContent{
+				ModelContent: mo.Some(ModelContent{
 					Kind:     ModelContentReasoning,
 					Position: 2,
-					Text:     "",
-				},
+					Text:     mo.None[string](),
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventModelTextDelta,
 			payload:   "model_content",
 			event: AgentEvent{
-				ModelContent: ModelContent{
+				ModelContent: mo.Some(ModelContent{
 					Kind:     ModelContentText,
 					Position: 1,
-					Text:     "delta",
-				},
+					Text:     mo.Some("delta"),
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventModelContentEnd,
 			payload:   "model_content",
 			event: AgentEvent{
-				ModelContent: ModelContent{
+				ModelContent: mo.Some(ModelContent{
 					Kind:     ModelContentRefusal,
 					Position: 3,
-					Text:     "",
-				},
+					Text:     mo.None[string](),
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolCallStart,
 			payload:   "tool_call_preview",
 			event: AgentEvent{
-				ToolCallPreview: maximalToolCallPreview(),
+				ToolCallPreview: mo.Some(maximalToolCallPreview()),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolCallDelta,
 			payload:   "tool_call_preview",
 			event: AgentEvent{
-				ToolCallPreview: maximalToolCallPreview(),
+				ToolCallPreview: mo.Some(maximalToolCallPreview()),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolCallEnd,
 			payload:   "final_tool_call",
 			event: AgentEvent{
-				FinalToolCall:   maximalFinalToolCall(),
+				FinalToolCall:   mo.Some(maximalFinalToolCall()),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventMessageEnd,
 			payload:   "model_response",
 			event: AgentEvent{
-				ModelResponse:   maximalModelResponse(mo.Some("")),
+				ModelResponse:   mo.Some(maximalModelResponse(mo.Some(""))),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolExecutionStart,
 			payload:   "tool_execution",
 			event: AgentEvent{
-				ToolExecution: ToolExecution{
+				ToolExecution: mo.Some(ToolExecution{
 					CallID:   "call",
 					ToolName: "tool",
-				},
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolExecutionUpdate,
 			payload:   "tool_progress",
 			event: AgentEvent{
-				ToolProgress: ToolProgress{
+				ToolProgress: mo.Some(ToolProgress{
 					Channel: ProgressChannelStderr,
 					Content: "progress",
-				},
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolExecutionEnd,
 			payload:   "tool_result",
 			event: AgentEvent{
-				ToolResult:      maximalToolResult(),
+				ToolResult:      mo.Some(maximalToolResult()),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventToolResult,
 			payload:   "tool_result",
 			event: AgentEvent{
-				ToolResult:      maximalToolResult(),
+				ToolResult:      mo.Some(maximalToolResult()),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventTurnEnd,
 			payload:   "turn",
 			event: AgentEvent{
-				Turn: TurnSummary{
+				Turn: mo.Some(TurnSummary{
 					Response:    maximalModelResponse(mo.Some("")),
 					ToolResults: []ToolResult{maximalToolResult()},
-				},
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Agent:           mo.None[AgentSummary](),
 			},
 		},
 		{
 			typeValue: AgentEventAgentEnd,
 			payload:   "agent",
 			event: AgentEvent{
-				Agent: AgentSummary{
+				Agent: mo.Some(AgentSummary{
 					Outcome:      RunOutcomeFailed,
-					ErrorMessage: "failed",
-				},
+					ErrorMessage: mo.Some("failed"),
+				}),
 				CorrelationID:   "",
 				Type:            0,
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
 			},
 		},
 		{
@@ -602,145 +602,145 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Type:            AgentEventUnspecified,
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"content": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventModelContentStart,
-				ModelContent: ModelContent{
+				ModelContent: mo.Some(ModelContent{
 					Kind:     ModelContentUnspecified,
 					Position: 0,
-					Text:     "",
-				},
+					Text:     mo.None[string](),
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"preview kind": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventToolCallStart,
-				ToolCallPreview: ToolCallPreview{
+				ToolCallPreview: mo.Some(ToolCallPreview{
 					Fields: []ToolCallPreviewField{{
 						Kind:   ToolCallPreviewFieldUnspecified,
 						Name:   "",
-						Value:  nil,
-						Prefix: "",
+						Value:  mo.None[any](),
+						Prefix: mo.None[string](),
 					}},
 					CallID:      "",
 					Name:        "",
 					Position:    0,
 					Provisional: false,
-				},
+				}),
 				CorrelationID: "",
 				RunID:         "",
-				ModelContent:  ModelContent{},
-				FinalToolCall: FinalToolCall{},
-				ToolExecution: ToolExecution{},
-				ToolProgress:  ToolProgress{},
-				ToolResult:    ToolResult{},
-				ModelResponse: ModelResponse{},
-				Turn:          TurnSummary{},
-				Agent:         AgentSummary{},
+				ModelContent:  mo.None[ModelContent](),
+				FinalToolCall: mo.None[FinalToolCall](),
+				ToolExecution: mo.None[ToolExecution](),
+				ToolProgress:  mo.None[ToolProgress](),
+				ToolResult:    mo.None[ToolResult](),
+				ModelResponse: mo.None[ModelResponse](),
+				Turn:          mo.None[TurnSummary](),
+				Agent:         mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"preview JSON": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventToolCallStart,
-				ToolCallPreview: ToolCallPreview{
+				ToolCallPreview: mo.Some(ToolCallPreview{
 					Fields: []ToolCallPreviewField{{
 						Kind:   ToolCallPreviewFieldComplete,
-						Value:  make(chan int),
+						Value:  mo.Some[any](make(chan int)),
 						Name:   "",
-						Prefix: "",
+						Prefix: mo.None[string](),
 					}},
 					CallID:      "",
 					Name:        "",
 					Position:    0,
 					Provisional: false,
-				},
+				}),
 				CorrelationID: "",
 				RunID:         "",
-				ModelContent:  ModelContent{},
-				FinalToolCall: FinalToolCall{},
-				ToolExecution: ToolExecution{},
-				ToolProgress:  ToolProgress{},
-				ToolResult:    ToolResult{},
-				ModelResponse: ModelResponse{},
-				Turn:          TurnSummary{},
-				Agent:         AgentSummary{},
+				ModelContent:  mo.None[ModelContent](),
+				FinalToolCall: mo.None[FinalToolCall](),
+				ToolExecution: mo.None[ToolExecution](),
+				ToolProgress:  mo.None[ToolProgress](),
+				ToolResult:    mo.None[ToolResult](),
+				ModelResponse: mo.None[ModelResponse](),
+				Turn:          mo.None[TurnSummary](),
+				Agent:         mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"progress": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventToolExecutionUpdate,
-				ToolProgress: ToolProgress{
+				ToolProgress: mo.Some(ToolProgress{
 					Channel: ProgressChannelUnspecified,
 					Content: "",
-				},
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"tool result": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventToolResult,
-				ToolResult: ToolResult{
+				ToolResult: mo.Some(ToolResult{
 					Contents: []ToolResultContent{{
 						Kind:  ToolResultContentUnspecified,
-						Text:  "",
-						Image: ToolResultImage{},
+						Text:  mo.None[string](),
+						Image: mo.None[ToolResultImage](),
 					}},
 					CallID:   "",
 					ToolName: "",
 					IsError:  false,
-				},
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"model outcome": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventMessageEnd,
-				ModelResponse: ModelResponse{
+				ModelResponse: mo.Some(ModelResponse{
 					Outcome:       mo.Some(ModelOutcomeUnspecified),
 					Text:          "",
 					ErrorMessage:  mo.None[string](),
@@ -751,29 +751,29 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
 					Content:       nil,
-				},
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"model content": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventMessageEnd,
-				ModelResponse: ModelResponse{
+				ModelResponse: mo.Some(ModelResponse{
 					Outcome: mo.Some(ModelOutcomeStop),
 					Content: []ModelResponseContent{{
 						Kind:     ModelResponseContentUnspecified,
-						Text:     "",
-						ToolCall: FinalToolCall{},
+						Text:     mo.None[string](),
+						ToolCall: mo.None[FinalToolCall](),
 					}},
 					Text:          "",
 					ErrorMessage:  mo.None[string](),
@@ -783,37 +783,37 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					ResponseID:    mo.None[string](),
 					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
-				},
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				Turn:            TurnSummary{},
-				Agent:           AgentSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				Turn:            mo.None[TurnSummary](),
+				Agent:           mo.None[AgentSummary](),
 			})
 			return err
 		},
 		"run outcome": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventAgentEnd,
-				Agent: AgentSummary{
+				Agent: mo.Some(AgentSummary{
 					Outcome:      RunOutcomeUnspecified,
-					ErrorMessage: "",
-				},
+					ErrorMessage: mo.None[string](),
+				}),
 				CorrelationID:   "",
 				RunID:           "",
-				ModelContent:    ModelContent{},
-				ToolCallPreview: ToolCallPreview{},
-				FinalToolCall:   FinalToolCall{},
-				ToolExecution:   ToolExecution{},
-				ToolProgress:    ToolProgress{},
-				ToolResult:      ToolResult{},
-				ModelResponse:   ModelResponse{},
-				Turn:            TurnSummary{},
+				ModelContent:    mo.None[ModelContent](),
+				ToolCallPreview: mo.None[ToolCallPreview](),
+				FinalToolCall:   mo.None[FinalToolCall](),
+				ToolExecution:   mo.None[ToolExecution](),
+				ToolProgress:    mo.None[ToolProgress](),
+				ToolResult:      mo.None[ToolResult](),
+				ModelResponse:   mo.None[ModelResponse](),
+				Turn:            mo.None[TurnSummary](),
 			})
 			return err
 		},
@@ -824,6 +824,91 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			assert.Error(t, test())
 		})
 	}
+}
+
+// TestMapEventRejectsMissingSelectedPayload verifies malformed selected events fail before serialization.
+func TestMapEventRejectsMissingSelectedPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := mapEvent(AgentEvent{
+		CorrelationID:   "correlation",
+		Type:            AgentEventToolExecutionStart,
+		RunID:           "run",
+		ModelContent:    mo.None[ModelContent](),
+		ToolCallPreview: mo.None[ToolCallPreview](),
+		FinalToolCall:   mo.None[FinalToolCall](),
+		ToolExecution:   mo.None[ToolExecution](),
+		ToolProgress:    mo.None[ToolProgress](),
+		ToolResult:      mo.None[ToolResult](),
+		ModelResponse:   mo.None[ModelResponse](),
+		Turn:            mo.None[TurnSummary](),
+		Agent:           mo.None[AgentSummary](),
+	})
+
+	assert.Error(t, err)
+}
+
+// TestMappingRejectsMissingNestedAlternatives verifies nested discriminators require their selected payloads.
+func TestMappingRejectsMissingNestedAlternatives(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func() error{
+		"model text": func() error {
+			_, err := mapModelContent(ModelContent{
+				Kind: ModelContentText, Position: 0, Text: mo.None[string](),
+			}, true)
+			return err
+		},
+		"preview value": func() error {
+			_, err := mapToolCallPreview(ToolCallPreview{
+				CallID: "call", Name: "tool", Position: 0, Provisional: true,
+				Fields: []ToolCallPreviewField{{
+					Name: "field", Kind: ToolCallPreviewFieldComplete,
+					Value: mo.None[any](), Prefix: mo.None[string](),
+				}},
+			})
+			return err
+		},
+		"tool result text": func() error {
+			_, err := mapToolResult(ToolResult{
+				CallID: "call", ToolName: "tool", IsError: false,
+				Contents: []ToolResultContent{{
+					Kind: ToolResultContentText, Text: mo.None[string](), Image: mo.None[ToolResultImage](),
+				}},
+			})
+			return err
+		},
+		"model response tool call": func() error {
+			_, err := mapModelResponse(ModelResponse{
+				Text: "", Outcome: mo.Some(ModelOutcomeToolUse), ErrorMessage: mo.None[string](),
+				Provider: mo.None[string](), Model: mo.None[string](), ResponseModel: mo.None[string](),
+				ResponseID: mo.None[string](), Usage: mo.None[ModelUsage](), Diagnostics: nil,
+				Content: []ModelResponseContent{{
+					Kind: ModelResponseContentToolCall, Text: mo.None[string](),
+					ToolCall: mo.None[FinalToolCall](),
+				}},
+			})
+			return err
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Error(t, test())
+		})
+	}
+}
+
+// TestMapModelContentPreservesPresentZeroValues verifies zero position and empty text remain present values.
+func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
+	t.Parallel()
+
+	mapped, err := mapModelContent(ModelContent{
+		Kind: ModelContentText, Position: 0, Text: mo.Some(""),
+	}, true)
+	require.NoError(t, err)
+	assert.Equal(t, int32(0), mapped.GetPosition())
+	assert.Empty(t, mapped.GetText())
 }
 
 // TestApprovedEnumValuesMapExactly verifies all approved nonzero enum values.
@@ -883,14 +968,14 @@ func maximalToolCallPreview() ToolCallPreview {
 			{
 				Name:   "null",
 				Kind:   ToolCallPreviewFieldComplete,
-				Value:  nil,
-				Prefix: "",
+				Value:  mo.Some[any](nil),
+				Prefix: mo.None[string](),
 			},
 			{
 				Name:   "prefix",
 				Kind:   ToolCallPreviewFieldPrefix,
-				Prefix: "",
-				Value:  nil,
+				Prefix: mo.Some(""),
+				Value:  mo.None[any](),
 			},
 		},
 	}
@@ -913,16 +998,16 @@ func maximalToolResult() ToolResult {
 		Contents: []ToolResultContent{
 			{
 				Kind:  ToolResultContentText,
-				Text:  "",
-				Image: ToolResultImage{},
+				Text:  mo.Some(""),
+				Image: mo.None[ToolResultImage](),
 			},
 			{
 				Kind: ToolResultContentImage,
-				Image: ToolResultImage{
+				Image: mo.Some(ToolResultImage{
 					MediaType: "image/png",
 					Data:      []byte{0, 1, 255},
-				},
-				Text: "",
+				}),
+				Text: mo.None[string](),
 			},
 		},
 	}
@@ -952,23 +1037,23 @@ func maximalModelResponse(responseModel mo.Option[string]) ModelResponse {
 		Content: []ModelResponseContent{
 			{
 				Kind:     ModelResponseContentText,
-				Text:     "text",
-				ToolCall: FinalToolCall{},
+				Text:     mo.Some("text"),
+				ToolCall: mo.None[FinalToolCall](),
 			},
 			{
 				Kind:     ModelResponseContentRefusal,
-				Text:     "refusal",
-				ToolCall: FinalToolCall{},
+				Text:     mo.Some("refusal"),
+				ToolCall: mo.None[FinalToolCall](),
 			},
 			{
 				Kind:     ModelResponseContentReasoning,
-				Text:     "reasoning",
-				ToolCall: FinalToolCall{},
+				Text:     mo.Some("reasoning"),
+				ToolCall: mo.None[FinalToolCall](),
 			},
 			{
 				Kind:     ModelResponseContentToolCall,
-				ToolCall: maximalFinalToolCall(),
-				Text:     "",
+				ToolCall: mo.Some(maximalFinalToolCall()),
+				Text:     mo.None[string](),
 			},
 		},
 	}

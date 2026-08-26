@@ -84,7 +84,11 @@ func mapModelResponse(response model.Response) controller.ModelResponse {
 		}
 		content = append(content, mapped)
 		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			text.WriteString(mapped.Text)
+			mappedText, present := mapped.Text.Get()
+			if !present {
+				continue
+			}
+			text.WriteString(mappedText)
 		}
 	}
 	responseModel := mo.None[string]()
@@ -147,7 +151,7 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 		case model.ContentText, model.ContentToolCall:
 		}
 		return controller.ModelResponseContent{
-			Kind: kind, Text: text, ToolCall: controller.FinalToolCall{},
+			Kind: kind, Text: mo.Some(text), ToolCall: mo.None[controller.FinalToolCall](),
 		}, true
 	case model.ContentToolCall:
 		call, ok := content.ToolCall.Get()
@@ -155,11 +159,11 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 			return controller.ModelResponseContent{}, false
 		}
 		return controller.ModelResponseContent{
-			Kind: controller.ModelResponseContentToolCall, Text: "",
-			ToolCall: controller.FinalToolCall{
+			Kind: controller.ModelResponseContentToolCall, Text: mo.None[string](),
+			ToolCall: mo.Some(controller.FinalToolCall{
 				CallID: call.ID, Name: call.Name, Position: position,
 				Arguments: cloneArguments(call.Arguments),
-			},
+			}),
 		}, true
 	}
 	return controller.ModelResponseContent{}, false
@@ -168,15 +172,16 @@ func mapModelResponseContent(position int, content model.Content) (controller.Mo
 func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPreview {
 	fields := lo.Map(preview.Fields, func(field model.ToolCallPreviewField, _ int) controller.ToolCallPreviewField {
 		mapped := controller.ToolCallPreviewField{
-			Name: field.Name, Kind: controller.ToolCallPreviewFieldUnspecified, Value: nil, Prefix: "",
+			Name: field.Name, Kind: controller.ToolCallPreviewFieldUnspecified,
+			Value: mo.None[any](), Prefix: mo.None[string](),
 		}
 		switch field.Kind {
 		case model.ToolCallPreviewFieldComplete:
 			mapped.Kind = controller.ToolCallPreviewFieldComplete
-			mapped.Value = cloneJSONValue(field.Value)
+			mapped.Value = mo.Some(cloneJSONValue(field.Value))
 		case model.ToolCallPreviewFieldPrefix:
 			mapped.Kind = controller.ToolCallPreviewFieldPrefix
-			mapped.Prefix = field.Prefix
+			mapped.Prefix = mo.Some(field.Prefix)
 		}
 		return mapped
 	})
@@ -197,8 +202,8 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 					return controller.ToolResultContent{}, false
 				}
 				return controller.ToolResultContent{
-					Kind: controller.ToolResultContentText, Text: text,
-					Image: controller.ToolResultImage{},
+					Kind: controller.ToolResultContentText, Text: mo.Some(text),
+					Image: mo.None[controller.ToolResultImage](),
 				}, true
 			case tool.ResultContentImage:
 				image, ok := content.Image.Get()
@@ -206,11 +211,11 @@ func mapToolResult(result agent.ToolResult) controller.ToolResult {
 					return controller.ToolResultContent{}, false
 				}
 				return controller.ToolResultContent{
-					Kind: controller.ToolResultContentImage, Text: "",
-					Image: controller.ToolResultImage{
+					Kind: controller.ToolResultContentImage, Text: mo.None[string](),
+					Image: mo.Some(controller.ToolResultImage{
 						MediaType: image.MediaType,
 						Data:      bytes.Clone(image.Data),
-					},
+					}),
 				}, true
 			}
 			return controller.ToolResultContent{}, false

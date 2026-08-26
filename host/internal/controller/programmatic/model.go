@@ -151,15 +151,15 @@ type AgentEvent struct {
 	CorrelationID   string
 	Type            AgentEventType
 	RunID           string
-	ModelContent    ModelContent
-	ToolCallPreview ToolCallPreview
-	FinalToolCall   FinalToolCall
-	ToolExecution   ToolExecution
-	ToolProgress    ToolProgress
-	ToolResult      ToolResult
-	ModelResponse   ModelResponse
-	Turn            TurnSummary
-	Agent           AgentSummary
+	ModelContent    mo.Option[ModelContent]
+	ToolCallPreview mo.Option[ToolCallPreview]
+	FinalToolCall   mo.Option[FinalToolCall]
+	ToolExecution   mo.Option[ToolExecution]
+	ToolProgress    mo.Option[ToolProgress]
+	ToolResult      mo.Option[ToolResult]
+	ModelResponse   mo.Option[ModelResponse]
+	Turn            mo.Option[TurnSummary]
+	Agent           mo.Option[AgentSummary]
 }
 
 // ModelContentKind identifies public model content.
@@ -177,7 +177,7 @@ const (
 type ModelContent struct {
 	Kind     ModelContentKind
 	Position int
-	Text     string
+	Text     mo.Option[string]
 }
 
 // ToolCallPreviewFieldKind identifies the present preview field payload.
@@ -194,8 +194,8 @@ const (
 type ToolCallPreviewField struct {
 	Name   string
 	Kind   ToolCallPreviewFieldKind
-	Value  any
-	Prefix string
+	Value  mo.Option[any]
+	Prefix mo.Option[string]
 }
 
 // ToolCallPreview is the complete current preview for one tool call.
@@ -257,8 +257,8 @@ type ToolResultImage struct {
 // ToolResultContent is one ordered tool result block.
 type ToolResultContent struct {
 	Kind  ToolResultContentKind
-	Text  string
-	Image ToolResultImage
+	Text  mo.Option[string]
+	Image mo.Option[ToolResultImage]
 }
 
 // ToolResult is one complete public tool result.
@@ -297,8 +297,8 @@ const (
 // ModelResponseContent is one ordered public response item.
 type ModelResponseContent struct {
 	Kind     ModelResponseContentKind
-	Text     string
-	ToolCall FinalToolCall
+	Text     mo.Option[string]
+	ToolCall mo.Option[FinalToolCall]
 }
 
 // ModelUsage contains provider token accounting.
@@ -351,5 +351,5 @@ const (
 // AgentSummary contains the public terminal agent result.
 type AgentSummary struct {
 	Outcome      RunOutcome
-	ErrorMessage string
+	ErrorMessage mo.Option[string]
 }
