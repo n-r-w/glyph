@@ -122,8 +122,8 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 	}
 }
 
-// TestSessionErrorsUseExistingRejectionCodes verifies session failures reuse public rejection semantics.
-func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
+// TestSessionErrorsUsePublicRejectionCodes verifies each session failure has one safe public code.
+func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 	t.Parallel()
 
 	// Arrange domain, lookup, and persistence failures with expected public codes.
@@ -138,6 +138,7 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy},
 		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument},
 		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound},
+		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: session.ErrUnavailable, expected: controller.RejectionSessionUnavailable},
 		{name: "persistence", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("name"), operationErr: errors.New("disk failed"), expected: controller.RejectionInternal},
 	}
 

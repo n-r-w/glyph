@@ -133,7 +133,7 @@ func lastSessionID(output string) string {
 	return fields[0]
 }
 
-// TestStandardTUIHostSmoke verifies cost states, visible content, and continuation through a real TUI restart.
+// TestStandardTUIHostSmoke verifies recovery, cost states, and continuation through a real TUI restart.
 func TestStandardTUIHostSmoke(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
@@ -336,6 +336,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	assert.NotContains(t, observer.StringFrom(emptyBeforeCheckpoint), "openai-codex/selected-model:")
 	emptyID := lastSessionID(observer.String())
 	require.NotEmpty(t, emptyID)
+	restartStoragePath, workingDirectory := findSessionStoragePath(t, paths.Directory, restartID)
+	recoveryFixtures := writeSessionRecoveryFixture(t, restartStoragePath, workingDirectory)
 
 	testsupporttui.Write(t, input, string([]byte{17}))
 
@@ -352,7 +354,12 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
-	require.NoError(t, validateRestartRow(observer.StringFrom(restartCheckpoint)))
+	restartSelector := observer.StringFrom(restartCheckpoint)
+	require.NoError(t, validateRestartRow(restartSelector))
+	assert.Contains(t, restartSelector, "preceding tail text")
+	assert.NotContains(t, restartSelector, malformedRecoveryID)
+	assert.NotContains(t, restartSelector, wrongCWDRecoveryID)
+	assert.NotContains(t, restartSelector, unsupportedRecoveryID)
 	testsupporttui.Write(t, input, "\x1b[13u")
 	// Restored tool history proves that resume replaced the empty startup transcript in stored order.
 	observer.WaitNext(t, "user: read input.txt")
@@ -454,6 +461,24 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Messages: 3 user, 4 model, 2 tool results, 9 total")
 	observer.WaitNext(t, "Tool calls: 2")
 	observer.WaitNext(t, "Tokens: unavailable")
+
+	// Resume the interrupted session and prove the real TUI receives only its complete prefix.
+	testsupporttui.Write(t, input, "/resume")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Sessions:")
+	testsupporttui.Write(t, input, "\x1b[B\x1b[B\x1b[B\x1b[B")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "user: preceding tail text")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+recoveryFixtures.interruptedID)
+	recoveredTail, err := os.ReadFile(recoveryFixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.True(t, bytes.HasSuffix(recoveredTail, []byte{'\n'}))
+	recoveredInfo, err := os.Stat(recoveryFixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), recoveredInfo.Mode().Perm())
+
 	testsupporttui.Write(t, input, string([]byte{17}))
 	require.NoError(t, input.Close())
 	runErr := waiter.Wait(ptyContext)

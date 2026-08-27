@@ -214,6 +214,9 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	if behavior == "session-usage-restart" {
 		return runSessionUsageRestartUI(stream, initialization)
 	}
+	if behavior == "session-recovery" {
+		return runSessionRecoveryUI(stream, initialization)
+	}
 	if behavior != "semantic" {
 		if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
 			return err
@@ -477,6 +480,141 @@ func runSessionRestartUI(
 	observation.NamedSession = active
 	observation.Complete = true
 	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// runSessionRecoveryUI rejects completed corruption and restores the prefix before one interrupted tail.
+func runSessionRecoveryUI(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	initialization *uipb.Initialization,
+) error {
+	tracePath := os.Getenv(appUITraceEnvironment)
+	payload, readErr := os.ReadFile(tracePath)
+	if errors.Is(readErr, os.ErrNotExist) {
+		return nameRecoveryStartupSession(stream, tracePath, initialization.GetSessionInfo())
+	}
+	if readErr != nil {
+		return readErr
+	}
+	var observation sessionRestartObservation
+	if err := json.Unmarshal(payload, &observation); err != nil {
+		return err
+	}
+	startup := observeSessionInfo(initialization.GetSessionInfo())
+	for _, id := range []string{malformedRecoveryID, wrongCWDRecoveryID, unsupportedRecoveryID} {
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+		if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
+			SessionId: new(id),
+		}.Build()}.Build()); err != nil {
+			return err
+		}
+		rejected, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+			return frame.GetInformation() != nil
+		})
+		if err != nil {
+			return err
+		}
+		if rejected.GetInformation().GetText() != "Session replacement is unavailable." {
+			return errors.New("invalid resume did not return safe unavailable information")
+		}
+		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+		if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+			return err
+		}
+		information, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+			return frame.GetSessionInformation() != nil
+		})
+		if err != nil {
+			return err
+		}
+		if information.GetSessionInformation().GetInfo().GetId() != startup.ID {
+			return errors.New("invalid resume replaced the previous active session")
+		}
+	}
+
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
+	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
+		return err
+	}
+	listed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil })
+	if err != nil {
+		return err
+	}
+	listedIDs := lo.Map(listed.GetSessionList().GetSessions(), func(summary *uipb.SessionSummary, _ int) string {
+		return summary.GetInfo().GetId()
+	})
+	if len(listedIDs) != 2 || !lo.Contains(listedIDs, observation.NamedSession.ID) ||
+		!lo.Contains(listedIDs, interruptedRecoveryID) {
+		return errors.New("session list did not skip invalid recovery fixtures")
+	}
+
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	if err = stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
+		SessionId: new(interruptedRecoveryID),
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	changed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	if err != nil {
+		return err
+	}
+	entries := changed.GetSessionChanged().GetEntries()
+	if changed.GetSessionChanged().GetInfo().GetId() != interruptedRecoveryID || len(entries) != 1 {
+		return errors.New("interrupted-tail resume did not restore only preceding entries")
+	}
+	user := entries[0].GetUser()
+	if user == nil || len(user.GetContent()) != 1 || user.GetContent()[0].GetText() != "preceding tail text" {
+		return errors.New("interrupted-tail resume did not restore the preceding user entry")
+	}
+	observation.NewStartup = startup
+	observation.Complete = true
+	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// nameRecoveryStartupSession persists one empty session before the parent writes recovery fixtures.
+func nameRecoveryStartupSession(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	tracePath string,
+	startupInfo *uipb.SessionInfo,
+) error {
+	startup := observeSessionInfo(startupInfo)
+	name := "recovery active"
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{
+		Name: &name,
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	if err != nil {
+		return err
+	}
+	named := observeSessionInfo(frame.GetSessionInformation().GetInfo())
+	if named.ID != startup.ID || named.Name != name || !named.StoragePathPresent {
+		return errors.New("Host did not persist the recovery startup session")
+	}
+	encoded, err := json.Marshal(sessionRestartObservation{
+		NamedSession: named,
+		NewStartup:   sessionInfoObservation{},
+		Complete:     false,
+	})
 	if err != nil {
 		return err
 	}
@@ -1145,6 +1283,53 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	require.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
 	require.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
 	require.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
+}
+
+// TestRunWithPathsUISessionRecoveryPaths verifies the UI process rejects corruption and recovers one interrupted tail.
+func TestRunWithPathsUISessionRecoveryPaths(t *testing.T) {
+	// Arrange a two-run Host UI helper and one persisted startup session.
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	), 0o600))
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Session_Recovery_UI")
+	tracePath := filepath.Join(t.TempDir(), "session-recovery.json")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "session-recovery")
+	command := cli.Command{
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText: "", ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "session-recovery-ui", SocketPath: "",
+	}
+	require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+	partialPayload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	var partial sessionRestartObservation
+	require.NoError(t, json.Unmarshal(partialPayload, &partial))
+	fixtures := writeSessionRecoveryFixture(t, partial.NamedSession.StoragePath, partial.NamedSession.WorkingDirectory)
+
+	// Act by starting a new Host UI process that exercises invalid and interrupted resume paths.
+	runErr := runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{})
+
+	// Assert the helper observed preserved identity and recovered only the complete entry prefix.
+	require.NoError(t, runErr)
+	payload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	var observation sessionRestartObservation
+	require.NoError(t, json.Unmarshal(payload, &observation))
+	assert.True(t, observation.Complete)
+	assert.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
+	recovered, err := os.ReadFile(fixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.True(t, bytes.HasSuffix(recovered, []byte{'\n'}))
+	info, err := os.Stat(fixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
 //nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.

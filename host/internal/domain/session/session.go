@@ -19,6 +19,8 @@ var (
 	ErrBusy = errors.New("another operation is active")
 	// ErrInvalidName reports a name that is empty after normalization.
 	ErrInvalidName = errors.New("session name is required")
+	// ErrUnavailable reports a stored session that cannot be validated or recovered.
+	ErrUnavailable = errors.New("session is unavailable")
 )
 
 // Header is the first record in a persisted session.

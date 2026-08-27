@@ -606,6 +606,8 @@ enum RejectionCode {
   REJECTION_CODE_REASONING_UNSUPPORTED = 7;
   // The selected model credential is unavailable.
   REJECTION_CODE_CREDENTIAL_UNAVAILABLE = 8;
+  // The requested session file cannot be resumed.
+  REJECTION_CODE_SESSION_UNAVAILABLE = 9;
 }
 
 // ReasoningChoice identifies provider-neutral reasoning behavior.

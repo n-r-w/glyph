@@ -2,7 +2,6 @@
 package sessions
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -27,8 +26,9 @@ import (
 )
 
 const (
-	directoryMode = 0o700
-	fileMode      = 0o600
+	directoryMode  = 0o700
+	fileMode       = 0o600
+	readBufferSize = 32 * 1024
 )
 
 // headerRecord is the immutable first JSONL record that binds a file to one project.
@@ -59,10 +59,10 @@ type informationRecord struct {
 
 // userRecord stores ordered provider-neutral user content.
 type userRecord struct {
-	Type      string        `json:"type"`
-	ID        string        `json:"id"`
-	CreatedAt string        `json:"createdAt"`
-	Message   messageRecord `json:"message"`
+	Type      string         `json:"type"`
+	ID        string         `json:"id"`
+	CreatedAt string         `json:"createdAt"`
+	Message   *messageRecord `json:"message"`
 }
 
 type messageRecord struct {
@@ -294,6 +294,22 @@ func persist(file File, created bool, payload []byte) error {
 	return errors.Join(syncErr, file.Close())
 }
 
+// loadPurpose limits one file descriptor to discovery, preparation, or tail mutation.
+type loadPurpose uint8
+
+const (
+	loadForList loadPurpose = iota
+	loadForProbe
+	loadForMatchedResume
+	loadForTailRecovery
+)
+
+// loadedPath carries validated session data and tail classification between resume steps.
+type loadedPath struct {
+	loaded      hostsessions.LoadedSession
+	interrupted bool
+}
+
 // List loads all valid stored sessions.
 func (s *Service) List(ctx context.Context) ([]hostsessions.LoadedSession, error) {
 	entries, err := os.ReadDir(s.projectDirectory)
@@ -302,134 +318,255 @@ func (s *Service) List(ctx context.Context) ([]hostsessions.LoadedSession, error
 	}
 	result := make([]hostsessions.LoadedSession, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+		if !strings.HasSuffix(entry.Name(), ".jsonl") {
 			continue
 		}
-		loaded, loadErr := s.loadPath(entry.Name())
+		if !entry.Type().IsRegular() {
+			warnUnavailableSession(ctx, "list", "", errors.New("session file is not regular"))
+			continue
+		}
+		pathResult, loadErr := s.loadPath(ctx, entry.Name(), loadForList)
 		if loadErr != nil {
-			slog.WarnContext(ctx, "skipping unavailable session", "operation", "list", "error", loadErr)
+			warnUnavailableSession(ctx, "list", pathResult.loaded.Header.ID, loadErr)
 			continue
 		}
-		result = append(result, loaded)
+		result = append(result, pathResult.loaded)
 	}
 	return result, nil
 }
 
 // Load loads one stored session by validated header ID.
-func (s *Service) Load(_ context.Context, id session.ID) (hostsessions.LoadedSession, error) {
+func (s *Service) Load(ctx context.Context, id session.ID) (hostsessions.LoadedSession, error) {
 	entries, err := os.ReadDir(s.projectDirectory)
 	if err != nil {
 		return hostsessions.LoadedSession{}, fmt.Errorf("read project session directory: %w", err)
 	}
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+		if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".jsonl") {
 			continue
 		}
-		loaded, loadErr := s.loadPath(entry.Name())
-		if loadErr == nil && loaded.Header.ID == id {
-			return loaded, nil
+		candidate, loadErr := s.loadPath(ctx, entry.Name(), loadForProbe)
+		if candidate.loaded.Header.ID != id {
+			continue
 		}
+		if loadErr != nil {
+			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrUnavailable, loadErr)
+		}
+		prepared, loadErr := s.loadPath(ctx, entry.Name(), loadForMatchedResume)
+		if loadErr != nil {
+			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrUnavailable, loadErr)
+		}
+		if !prepared.interrupted {
+			return prepared.loaded, nil
+		}
+		recovered, loadErr := s.loadPath(ctx, entry.Name(), loadForTailRecovery)
+		if loadErr != nil {
+			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrUnavailable, loadErr)
+		}
+		return recovered.loaded, nil
 	}
 	return hostsessions.LoadedSession{}, os.ErrNotExist
 }
 
-// loadPath confines file access to the project root and reports close failures to the caller.
-func (s *Service) loadPath(name string) (loaded hostsessions.LoadedSession, resultErr error) {
-	root, err := os.OpenRoot(s.projectDirectory)
-	if err != nil {
-		return hostsessions.LoadedSession{}, err
+// loadPath revalidates one descriptor before applying operations allowed for its purpose.
+func (s *Service) loadPath(
+	ctx context.Context,
+	name string,
+	purpose loadPurpose,
+) (pathResult loadedPath, resultErr error) {
+	flags := os.O_RDONLY
+	if purpose == loadForTailRecovery {
+		flags = os.O_RDWR
 	}
-	defer func() { resultErr = errors.Join(resultErr, root.Close()) }()
-	file, err := root.Open(name)
+	file, err := s.fileSystem.OpenFile(s.projectDirectory, name, flags, 0)
 	if err != nil {
-		return hostsessions.LoadedSession{}, err
+		return loadedPath{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
 
-	header, entries, err := s.scan(file)
+	info, err := file.Stat()
 	if err != nil {
-		return hostsessions.LoadedSession{}, err
+		return loadedPath{}, fmt.Errorf("inspect session file: %w", err)
 	}
-	return hostsessions.LoadedSession{
-		Header:      header,
-		StoragePath: filepath.Join(s.projectDirectory, name),
-		Entries:     entries,
-	}, nil
+	if !info.Mode().IsRegular() {
+		return loadedPath{}, errors.New("session file is not regular")
+	}
+	payload, err := readPayload(file)
+	if err != nil {
+		return loadedPath{}, fmt.Errorf("read session file: %w", err)
+	}
+	scanned, err := s.scan(payload)
+	pathResult.loaded.Header = scanned.header
+	if err != nil {
+		return pathResult, err
+	}
+	pathResult.loaded.StoragePath = filepath.Join(s.projectDirectory, name)
+	pathResult.loaded.Entries = scanned.entries
+	pathResult.interrupted = scanned.interrupted
+
+	if purpose == loadForTailRecovery && scanned.interrupted {
+		if err = file.Truncate(scanned.completeSize); err != nil {
+			return pathResult, fmt.Errorf("truncate interrupted session record: %w", err)
+		}
+		if err = file.Sync(); err != nil {
+			return pathResult, fmt.Errorf("sync recovered session file: %w", err)
+		}
+		if err = file.Chmod(fileMode); err != nil {
+			return pathResult, fmt.Errorf("enforce recovered session mode: %w", err)
+		}
+		warnRecoveredSession(ctx, scanned.header.ID)
+		return pathResult, nil
+	}
+	shouldRepairMode := purpose == loadForMatchedResume ||
+		purpose == loadForList && !scanned.interrupted
+	if repairErr := repairSessionFileMode(file, info.Mode(), shouldRepairMode); repairErr != nil {
+		return pathResult, repairErr
+	}
+	return pathResult, nil
 }
 
-// scan validates the header before decoding ordered lifecycle records without a record-size limit.
-func (s *Service) scan(source io.Reader) (session.Header, []session.Entry, error) {
-	reader := bufio.NewReader(source)
-	headerData, err := readRecord(reader)
-	if errors.Is(err, io.EOF) {
-		return session.Header{}, nil, errors.New("session header is missing")
+// repairSessionFileMode changes mode only after the caller validates a mutation-safe path.
+func repairSessionFileMode(file File, currentMode os.FileMode, enabled bool) error {
+	if !enabled || currentMode.Perm() == fileMode {
+		return nil
 	}
-	if err != nil {
-		return session.Header{}, nil, err
+	if err := file.Chmod(fileMode); err != nil {
+		return fmt.Errorf("set session file mode: %w", err)
 	}
-	header, err := s.decodeHeader(headerData)
-	if err != nil {
-		return session.Header{}, nil, err
-	}
-	entries, err := decodeEntries(reader)
-	if err != nil {
-		return session.Header{}, nil, err
-	}
-	return header, entries, nil
+	return nil
 }
 
-// readRecord reads through a newline or returns the final unterminated value at EOF.
-func readRecord(reader *bufio.Reader) ([]byte, error) {
-	data, err := reader.ReadBytes('\n')
-	if len(data) > 0 {
-		return bytes.TrimSuffix(data, []byte{'\n'}), nil
+// scanResult retains the validated prefix and the byte boundary for optional recovery.
+type scanResult struct {
+	header       session.Header
+	entries      []session.Entry
+	completeSize int64
+	interrupted  bool
+}
+
+// scan classifies only final nonempty bytes as interrupted after every completed record validates.
+func (s *Service) scan(payload []byte) (scanResult, error) {
+	headerEnd := bytes.IndexByte(payload, '\n')
+	if headerEnd < 0 {
+		return scanResult{}, errors.New("session header is missing or interrupted")
 	}
-	return nil, err
+	header, err := s.decodeHeader(payload[:headerEnd])
+	result := scanResult{header: header, entries: nil, completeSize: int64(len(payload)), interrupted: false}
+	if err != nil {
+		return result, err
+	}
+
+	completeSize := len(payload)
+	if len(payload) > 0 && payload[len(payload)-1] != '\n' {
+		lastNewline := bytes.LastIndexByte(payload, '\n')
+		completeSize = lastNewline + 1
+		result.completeSize = int64(completeSize)
+		result.interrupted = true
+	}
+	entries, err := decodeEntries(payload[headerEnd+1 : completeSize])
+	if err != nil {
+		return result, err
+	}
+	result.entries = entries
+	return result, nil
+}
+
+// readPayload reads one confined file without imposing a session record size limit.
+func readPayload(file File) ([]byte, error) {
+	result := make([]byte, 0)
+	buffer := make([]byte, readBufferSize)
+	for {
+		count, err := file.ReadPayload(buffer)
+		if count > 0 {
+			result = append(result, buffer[:count]...)
+		}
+		if errors.Is(err, io.EOF) {
+			return result, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if count == 0 {
+			return nil, io.ErrNoProgress
+		}
+	}
 }
 
 // decodeHeader rejects schema, version, identity, and project-binding mismatches.
 func (s *Service) decodeHeader(data []byte) (session.Header, error) {
 	var record headerRecord
-	if err := decodeRecord(data, &record); err != nil {
-		return session.Header{}, fmt.Errorf("decode session header: %w", err)
-	}
-	createdAt, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	valid := record.Type == "session" && record.Version == 1 && record.ID != "" && record.CWD == s.workingDirectory
-	if err != nil || !valid {
-		return session.Header{}, errors.New("invalid session header")
-	}
-	return session.Header{
+	decodeErr := errors.Join(decodeRecord(data, &record), validateHeaderRequiredFields(data))
+	createdAt, timeErr := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	header := session.Header{
 		Version:          record.Version,
 		ID:               session.ID(record.ID),
 		CreatedAt:        createdAt,
 		WorkingDirectory: record.CWD,
-	}, nil
+	}
+	if timeErr != nil || record.Type != "session" || record.ID == "" || record.CWD != s.workingDirectory {
+		return header, errors.New("invalid session header")
+	}
+	if decodeErr != nil {
+		return header, fmt.Errorf("decode session header: %w", decodeErr)
+	}
+	if record.Version != 1 {
+		return header, fmt.Errorf("unsupported session version %d", record.Version)
+	}
+	return header, nil
 }
 
-// decodeEntries preserves file order for session information records.
-func decodeEntries(reader *bufio.Reader) ([]session.Entry, error) {
+// decodeEntries preserves file order and rejects duplicate entry identities.
+func decodeEntries(payload []byte) ([]session.Entry, error) {
 	entries := make([]session.Entry, 0)
-	for {
-		data, err := readRecord(reader)
-		if errors.Is(err, io.EOF) {
-			return entries, nil
+	identities := make(map[string]struct{})
+	for len(payload) > 0 {
+		lineEnd := bytes.IndexByte(payload, '\n')
+		if lineEnd < 0 {
+			return nil, errors.New("completed session record is missing a newline")
 		}
+		entry, err := decodeEntry(payload[:lineEnd])
 		if err != nil {
 			return nil, err
 		}
-		entry, err := decodeEntry(data)
-		if err != nil {
-			return nil, err
+		if _, exists := identities[entry.ID]; exists {
+			return nil, errors.New("duplicate session entry ID")
 		}
+		identities[entry.ID] = struct{}{}
 		entries = append(entries, entry)
+		payload = payload[lineEnd+1:]
 	}
+	return entries, nil
+}
+
+// warnUnavailableSession records validation context without stored record content.
+func warnUnavailableSession(ctx context.Context, operation string, id session.ID, err error) {
+	attributes := []any{"operation", operation}
+	if id != "" {
+		attributes = append(attributes, "session_id", id)
+	}
+	attributes = append(attributes, "error", err)
+	slog.WarnContext(ctx, "session file is unavailable", attributes...)
+}
+
+// warnRecoveredSession records a completed tail repair without stored record content.
+func warnRecoveredSession(ctx context.Context, id session.ID) {
+	slog.WarnContext(
+		ctx,
+		"recovered interrupted session tail",
+		"operation", "recover_interrupted_tail",
+		"session_id", id,
+	)
 }
 
 // decodeEntry selects one strict version 1 record without exposing repository DTOs.
 func decodeEntry(data []byte) (session.Entry, error) {
 	var kind recordType
-	if err := decodeRecord(data, &kind); err != nil {
+	// The discriminator selects the closed record DTO. The selected DTO then performs strict decoding.
+	if err := json.Unmarshal(data, &kind); err != nil {
 		return session.Entry{}, errors.New("invalid session entry")
+	}
+	if err := validateEntryRequiredFields(data, kind.Type); err != nil {
+		return session.Entry{}, fmt.Errorf("validate required session fields: %w", err)
 	}
 	switch kind.Type {
 	case "session_info":
@@ -467,6 +604,9 @@ func decodeUser(data []byte) (session.Entry, error) {
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
 	if err != nil || record.ID == "" {
+		return session.Entry{}, errors.New("invalid user entry")
+	}
+	if record.Message == nil {
 		return session.Entry{}, errors.New("invalid user entry")
 	}
 	var content []model.InputContent
@@ -619,7 +759,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 			return nil, err
 		}
 		return encodeLine(userRecord{
-			Type: "user", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Message: message,
+			Type: "user", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Message: &message,
 		})
 	}
 	if response, ok := entry.Model.Get(); ok {
@@ -1031,9 +1171,21 @@ func encodeLine(value any) ([]byte, error) {
 	return append(encoded, '\n'), nil
 }
 
-// decodeRecord reads the first JSON value without rejecting unknown fields or remaining bytes.
+// decodeRecord accepts exactly one JSON value whose core fields match the selected DTO.
 func decodeRecord(data []byte, target any) error {
-	return json.NewDecoder(bytes.NewReader(data)).Decode(target)
+	// Core records use a closed schema so format changes require a new version.
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values in one session record")
+		}
+		return err
+	}
+	return nil
 }
 
 // filename keeps creation ordering visible while retaining the opaque session ID.

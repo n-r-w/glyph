@@ -1092,6 +1092,21 @@ func TestMappingRejectsMissingNestedAlternatives(t *testing.T) {
 	}
 }
 
+// TestSessionUnavailableRejectionMapsExactly verifies malformed storage has a dedicated transport code.
+func TestSessionUnavailableRejectionMapsExactly(t *testing.T) {
+	t.Parallel()
+
+	// Arrange the internal rejection for a stored session that cannot be resumed.
+	code := RejectionSessionUnavailable
+
+	// Act by mapping the rejection to the Programmatic protobuf contract.
+	mapped, err := mapRejectionCode(code)
+
+	// Assert the dedicated unavailable-session code is emitted.
+	require.NoError(t, err)
+	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, mapped)
+}
+
 // TestMapModelContentPreservesPresentZeroValues verifies zero position and empty text remain present values.
 func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
 	t.Parallel()

@@ -140,6 +140,8 @@ const (
 	RejectionCode_REJECTION_CODE_REASONING_UNSUPPORTED RejectionCode = 7
 	// The selected model credential is unavailable.
 	RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE RejectionCode = 8
+	// The requested session file cannot be resumed.
+	RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE RejectionCode = 9
 )
 
 // Enum value maps for RejectionCode.
@@ -154,6 +156,7 @@ var (
 		6: "REJECTION_CODE_NOT_FOUND",
 		7: "REJECTION_CODE_REASONING_UNSUPPORTED",
 		8: "REJECTION_CODE_CREDENTIAL_UNAVAILABLE",
+		9: "REJECTION_CODE_SESSION_UNAVAILABLE",
 	}
 	RejectionCode_value = map[string]int32{
 		"REJECTION_CODE_UNSPECIFIED":            0,
@@ -165,6 +168,7 @@ var (
 		"REJECTION_CODE_NOT_FOUND":              6,
 		"REJECTION_CODE_REASONING_UNSUPPORTED":  7,
 		"REJECTION_CODE_CREDENTIAL_UNAVAILABLE": 8,
+		"REJECTION_CODE_SESSION_UNAVAILABLE":    9,
 	}
 )
 
@@ -9756,7 +9760,7 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x1dCOMMAND_TYPE_SET_SESSION_NAME\x10\v\x12!\n" +
 	"\x1dCOMMAND_TYPE_GET_SESSION_INFO\x10\f\x12$\n" +
 	" COMMAND_TYPE_GET_SESSION_ENTRIES\x10\r\x12\"\n" +
-	"\x1eCOMMAND_TYPE_GET_SESSION_STATS\x10\x0e*\xc6\x02\n" +
+	"\x1eCOMMAND_TYPE_GET_SESSION_STATS\x10\x0e*\xee\x02\n" +
 	"\rRejectionCode\x12\x1e\n" +
 	"\x1aREJECTION_CODE_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fREJECTION_CODE_INVALID_ARGUMENT\x10\x01\x12\x17\n" +
@@ -9766,7 +9770,8 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x17REJECTION_CODE_INTERNAL\x10\x05\x12\x1c\n" +
 	"\x18REJECTION_CODE_NOT_FOUND\x10\x06\x12(\n" +
 	"$REJECTION_CODE_REASONING_UNSUPPORTED\x10\a\x12)\n" +
-	"%REJECTION_CODE_CREDENTIAL_UNAVAILABLE\x10\b*\x8c\x02\n" +
+	"%REJECTION_CODE_CREDENTIAL_UNAVAILABLE\x10\b\x12&\n" +
+	"\"REJECTION_CODE_SESSION_UNAVAILABLE\x10\t*\x8c\x02\n" +
 	"\x0fReasoningChoice\x12 \n" +
 	"\x1cREASONING_CHOICE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REASONING_CHOICE_OFF\x10\x01\x12\x17\n" +

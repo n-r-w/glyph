@@ -326,6 +326,8 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionBusy, "another operation is active")
 	case errors.Is(err, session.ErrInvalidName):
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	case errors.Is(err, session.ErrUnavailable):
+		return s.rejection(command, controller.RejectionSessionUnavailable, "session is unavailable")
 	case errors.Is(err, os.ErrNotExist):
 		return s.rejection(command, controller.RejectionNotFound, "session was not found")
 	default:

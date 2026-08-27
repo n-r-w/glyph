@@ -41,13 +41,22 @@ type rootedFile struct {
 
 var _ sessionstore.File = (*rootedFile)(nil)
 
+// ReadPayload reads stored bytes through the open descriptor.
+func (file *rootedFile) ReadPayload(payload []byte) (int, error) { return file.file.Read(payload) }
+
 // WritePayload writes one complete append payload.
 func (file *rootedFile) WritePayload(payload []byte) (int, error) { return file.file.Write(payload) }
+
+// Stat reports the opened file type and mode.
+func (file *rootedFile) Stat() (os.FileInfo, error) { return file.file.Stat() }
+
+// Truncate changes the file size through the open descriptor.
+func (file *rootedFile) Truncate(size int64) error { return file.file.Truncate(size) }
 
 // Chmod applies an exact mode through the open descriptor.
 func (file *rootedFile) Chmod(mode os.FileMode) error { return file.file.Chmod(mode) }
 
-// Sync commits file content before append success.
+// Sync commits file changes before repository success.
 func (file *rootedFile) Sync() error { return file.file.Sync() }
 
 // Close releases the file before its root and retains both failures.

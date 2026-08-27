@@ -10,13 +10,19 @@ type FileSystem interface {
 	OpenFile(projectDirectory, name string, flags int, mode os.FileMode) (File, error)
 }
 
-// File exposes the ordered durability operations required by repository append.
+// File exposes the ordered operations required by repository persistence.
 type File interface {
+	// ReadPayload reads stored bytes through the confined file descriptor.
+	ReadPayload([]byte) (int, error)
 	// WritePayload writes one buffered header-plus-entry payload.
 	WritePayload([]byte) (int, error)
-	// Chmod applies the exact mode to a newly created file descriptor.
+	// Stat reports the opened file type and mode.
+	Stat() (os.FileInfo, error)
+	// Truncate removes an interrupted append at a validated byte offset.
+	Truncate(int64) error
+	// Chmod applies the exact session file mode.
 	Chmod(os.FileMode) error
-	// Sync commits written data before repository success.
+	// Sync commits file changes before repository success.
 	Sync() error
 	// Close releases the file and its confined root.
 	Close() error

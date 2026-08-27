@@ -959,6 +959,8 @@ func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) 
 		return programmaticv1.RejectionCode_REJECTION_CODE_REASONING_UNSUPPORTED, nil
 	case RejectionCredentialUnavailable:
 		return programmaticv1.RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE, nil
+	case RejectionSessionUnavailable:
+		return programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, nil
 	case RejectionUnspecified:
 		return 0, errors.New("map rejection code: unspecified value")
 	default:

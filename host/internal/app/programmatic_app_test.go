@@ -391,6 +391,80 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Equal(t, int32(3), requestCount.Load())
 }
 
+// TestSessionRecoveryProcessPaths verifies Programmatic resume rejects completed corruption and repairs one interrupted tail.
+func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
+	t := testSuite.T()
+
+	// Arrange one persisted active session and four raw recovery fixtures in its project partition.
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	credentials := fmt.Sprintf(
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	)
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
+	process := startProgrammaticFixture(t, paths)
+	defer process.closeOwner(t)
+	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
+		request := new(programmaticv1.OpenRequest)
+		request.SetCorrelationId(correlationID)
+		configure(request)
+		require.NoError(t, process.stream.Send(request))
+		response, err := process.stream.Recv()
+		require.NoError(t, err)
+		return response.GetCommandResponse()
+	}
+	active := send("persist-active", func(request *programmaticv1.OpenRequest) {
+		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("active")}.Build())
+	}).GetSessionInfo().GetInfo()
+	fixtures := writeSessionRecoveryFixture(t, active.GetStoragePath(), active.GetWorkingDirectory())
+
+	// Act by rejecting each completed invalid file, listing, and resuming the interrupted file.
+	for _, test := range []struct {
+		name string
+		id   string
+	}{
+		{name: "malformed", id: fixtures.malformedID},
+		{name: "wrong cwd", id: fixtures.wrongCWDID},
+		{name: "unsupported", id: fixtures.unsupportedID},
+	} {
+		response := send("reject-"+test.name, func(request *programmaticv1.OpenRequest) {
+			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(test.id)}.Build())
+		})
+		require.NotNil(t, response.GetRejected())
+		assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, response.GetRejected().GetCode())
+		current := send("active-after-"+test.name, func(request *programmaticv1.OpenRequest) {
+			request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		}).GetSessionInfo().GetInfo()
+		assert.Equal(t, active.GetId(), current.GetId())
+	}
+	listed := send("list-valid", func(request *programmaticv1.OpenRequest) {
+		request.SetListSessions(new(programmaticv1.ListSessions))
+	}).GetSessions().GetSessions()
+	listedIDs := make([]string, 0, len(listed))
+	for _, summary := range listed {
+		listedIDs = append(listedIDs, summary.GetInfo().GetId())
+	}
+	resumed := send("recover-tail", func(request *programmaticv1.OpenRequest) {
+		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(fixtures.interruptedID)}.Build())
+	}).GetSessionInfo().GetInfo()
+	entries := send("recovered-entries", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+	}).GetSessionEntries().GetEntries()
+
+	// Assert list skips invalid files, failures preserve identity, and recovery restores only the preceding entry.
+	assert.ElementsMatch(t, []string{active.GetId(), fixtures.interruptedID}, listedIDs)
+	assert.Equal(t, fixtures.interruptedID, resumed.GetId())
+	require.Len(t, entries, 1)
+	assert.Equal(t, "preceding tail text", entries[0].GetUser().GetContent()[0].GetText())
+	recovered, err := os.ReadFile(fixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.True(t, bytes.HasSuffix(recovered, []byte{'\n'}))
+	info, err := os.Stat(fixtures.interruptedPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
 func waitProgrammaticSettled(t *testing.T, fixture *programmaticFixture) {
 	t.Helper()
 	for {

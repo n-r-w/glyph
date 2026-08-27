@@ -107,6 +107,36 @@ func (mr *MockFileMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockFile)(nil).Close))
 }
 
+// ReadPayload mocks base method.
+func (m *MockFile) ReadPayload(arg0 []byte) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadPayload", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadPayload indicates an expected call of ReadPayload.
+func (mr *MockFileMockRecorder) ReadPayload(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadPayload", reflect.TypeOf((*MockFile)(nil).ReadPayload), arg0)
+}
+
+// Stat mocks base method.
+func (m *MockFile) Stat() (os.FileInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stat")
+	ret0, _ := ret[0].(os.FileInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Stat indicates an expected call of Stat.
+func (mr *MockFileMockRecorder) Stat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockFile)(nil).Stat))
+}
+
 // Sync mocks base method.
 func (m *MockFile) Sync() error {
 	m.ctrl.T.Helper()
@@ -119,6 +149,20 @@ func (m *MockFile) Sync() error {
 func (mr *MockFileMockRecorder) Sync() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MockFile)(nil).Sync))
+}
+
+// Truncate mocks base method.
+func (m *MockFile) Truncate(arg0 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Truncate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Truncate indicates an expected call of Truncate.
+func (mr *MockFileMockRecorder) Truncate(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Truncate", reflect.TypeOf((*MockFile)(nil).Truncate), arg0)
 }
 
 // WritePayload mocks base method.

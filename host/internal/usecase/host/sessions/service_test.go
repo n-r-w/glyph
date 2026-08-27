@@ -66,6 +66,30 @@ func (s *ServiceSuite) TestInitializeCreatesUnpersistedActiveSession() {
 	}, service.ActiveInfo())
 }
 
+// TestResumeFailurePreservesPreviousActiveSession verifies rejected storage cannot replace active identity.
+func (s *ServiceSuite) TestResumeFailurePreservesPreviousActiveSession() {
+	// Arrange one initialized active session and a failed target load.
+	createdAt := time.Date(2026, 8, 27, 10, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
+	s.ids.EXPECT().NewID().Return("active-id", nil)
+	s.clock.EXPECT().Now().Return(createdAt)
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
+	s.Require().NoError(service.Initialize(s.T().Context()))
+	beforeInfo := service.ActiveInfo()
+	beforeHistory := service.Snapshot()
+	s.repository.EXPECT().Load(gomock.Any(), session.ID("broken-id")).Return(
+		LoadedSession{}, fmt.Errorf("%w: invalid completed record", session.ErrUnavailable),
+	)
+
+	// Act by trying to resume the unavailable target session.
+	_, err := service.ResumeActive(s.T().Context(), session.ID("broken-id"))
+
+	// Assert the error propagates and the previous active snapshot remains exact.
+	s.Require().ErrorIs(err, session.ErrUnavailable)
+	s.Equal(beforeInfo, service.ActiveInfo())
+	s.Equal(beforeHistory, service.Snapshot())
+}
+
 // TestCreateReplacesActiveSessionWithIndependentSnapshot verifies caller mutation cannot alter the new active session.
 func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() {
 	// Arrange deterministic identity and time for a new active session.

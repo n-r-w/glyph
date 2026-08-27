@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/samber/mo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -647,6 +649,73 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			require.Equal(t, before, active.ActiveInfo())
 		})
 	}
+}
+
+// TestInterruptedTailRecoveryOrdersDurabilityOperations verifies recovery truncates and syncs before close.
+func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a read-only session and generated filesystem mocks for probe, mode repair, and recovery opens.
+	controller := gomock.NewController(t)
+	fileSystem := NewMockFileSystem(controller)
+	probe := NewMockFile(controller)
+	preparation := NewMockFile(controller)
+	recovery := NewMockFile(controller)
+	root := t.TempDir()
+	project := t.TempDir()
+	repository := New(root, project, fileSystem)
+	require.NoError(t, repository.Initialize(t.Context()))
+	name := "stored.jsonl"
+	path := filepath.Join(repository.projectDirectory, name)
+	require.NoError(t, os.WriteFile(path, []byte("placeholder"), 0o400))
+	readOnlyInfo, err := os.Stat(path)
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(path, 0o600))
+	recoveryInfo, err := os.Stat(path)
+	require.NoError(t, err)
+	header := fmt.Sprintf(`{"type":"session","version":1,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
+	entry := `{"type":"session_info","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","name":"Stored"}` + "\n"
+	payload := []byte(header + entry + `{"type":"user"`)
+	completeSize := int64(len(header + entry))
+	readPayload := func(data []byte) func([]byte) (int, error) {
+		used := false
+		return func(target []byte) (int, error) {
+			if used {
+				return 0, io.EOF
+			}
+			used = true
+			return copy(target, data), nil
+		}
+	}
+	gomock.InOrder(
+		fileSystem.EXPECT().OpenFile(repository.projectDirectory, name, os.O_RDONLY, os.FileMode(0)).Return(probe, nil),
+		probe.EXPECT().Stat().Return(readOnlyInfo, nil),
+		probe.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
+		probe.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),
+		probe.EXPECT().Close().Return(nil),
+		fileSystem.EXPECT().OpenFile(repository.projectDirectory, name, os.O_RDONLY, os.FileMode(0)).Return(preparation, nil),
+		preparation.EXPECT().Stat().Return(readOnlyInfo, nil),
+		preparation.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
+		preparation.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),
+		preparation.EXPECT().Chmod(os.FileMode(fileMode)).Return(nil),
+		preparation.EXPECT().Close().Return(nil),
+		fileSystem.EXPECT().OpenFile(repository.projectDirectory, name, os.O_RDWR, os.FileMode(0)).Return(recovery, nil),
+		recovery.EXPECT().Stat().Return(recoveryInfo, nil),
+		recovery.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
+		recovery.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),
+		recovery.EXPECT().Truncate(completeSize).Return(nil),
+		recovery.EXPECT().Sync().Return(nil),
+		recovery.EXPECT().Chmod(os.FileMode(fileMode)).Return(nil),
+		recovery.EXPECT().Close().Return(nil),
+	)
+
+	// Act by explicitly loading the session with one interrupted final append.
+	loaded, loadErr := repository.Load(t.Context(), session.ID("stored"))
+
+	// Assert only the preceding complete entry is restored after ordered recovery.
+	require.NoError(t, loadErr)
+	require.Len(t, loaded.Entries, 1)
+	assert.Equal(t, "entry-1", loaded.Entries[0].ID)
 }
 
 func expectInitialAppendFailure(
