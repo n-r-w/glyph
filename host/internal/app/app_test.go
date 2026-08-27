@@ -207,6 +207,9 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	if behavior == "session-restart" {
 		return runSessionRestartUI(stream, initialization)
 	}
+	if behavior == "session-usage-restart" {
+		return runSessionUsageRestartUI(stream, initialization)
+	}
 	if behavior != "semantic" {
 		if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
 			return err
@@ -376,6 +379,9 @@ func runSessionRestartUI(
 	if err := configureRestartSelection(stream); err != nil {
 		return err
 	}
+	if err := assertUIStatistics(stream, 0, true, 0); err != nil {
+		return fmt.Errorf("verify restarted empty-session statistics: %w", err)
+	}
 
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
@@ -442,6 +448,9 @@ func runSessionRestartUI(
 		!bytes.Equal(entries[6].GetToolResult().GetContents()[1].GetImage().GetData(), []byte{9, 8, 7, 6}) {
 		return errors.New("resumed session did not restore ordered full content")
 	}
+	if err = assertUIStatistics(stream, 7, false, 0); err != nil {
+		return fmt.Errorf("verify resumed session statistics: %w", err)
+	}
 	if err = submitRestartTurn(stream, "continue"); err != nil {
 		return err
 	}
@@ -500,6 +509,10 @@ func nameStartupSession(
 	if named.ID != startup.ID || !named.NamePresent || named.Name != name || !named.StoragePathPresent {
 		return errors.New("Host did not persist the startup session name")
 	}
+	statistics := frame.GetSessionInformation().GetStatistics()
+	if statistics.GetTotalMessages() != 0 || !statistics.HasTokens() || statistics.GetTokens().GetTotalTokens() != 0 {
+		return errors.New("named empty session did not expose available zero token totals")
+	}
 	if err = submitRestartTurn(stream, "restart text"); err != nil {
 		return err
 	}
@@ -514,6 +527,10 @@ func nameStartupSession(
 		return err
 	}
 	named = observeSessionInfo(frame.GetSessionInformation().GetInfo())
+	statistics = frame.GetSessionInformation().GetStatistics()
+	if statistics.GetTotalMessages() != 4 || statistics.HasTokens() {
+		return errors.New("completed session did not expose counts with unavailable token totals")
+	}
 	encoded, err := json.Marshal(sessionRestartObservation{
 		NamedSession: named,
 		NewStartup:   sessionInfoObservation{},
@@ -527,6 +544,32 @@ func nameStartupSession(
 	}
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+func assertUIStatistics(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	totalMessages int64,
+	tokensAvailable bool,
+	totalTokens int64,
+) error {
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		return err
+	}
+	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	if err != nil {
+		return err
+	}
+	statistics := frame.GetSessionInformation().GetStatistics()
+	if statistics.GetTotalMessages() != totalMessages || statistics.HasTokens() != tokensAvailable {
+		return errors.New("session statistics availability or count did not match")
+	}
+	if tokensAvailable && statistics.GetTokens().GetTotalTokens() != totalTokens {
+		return errors.New("session token total did not match")
+	}
+	return nil
 }
 
 // receiveSessionFrame rejects replay content while waiting for one lifecycle response.
@@ -1726,5 +1769,220 @@ func testSettingsReasoning(choices ...settingstore.ReasoningChoice) settingstore
 		Default:          choices[len(choices)-1],
 		WireFormat:       wireFormat,
 		CompatibilityKey: mo.None[string](),
+	}
+}
+
+type tokenUsageObservation struct {
+	Present          bool  `json:"present"`
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
+	ReasoningTokens  int64 `json:"reasoning_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+}
+
+type statisticsObservation struct {
+	UserMessages   int64                 `json:"user_messages"`
+	ModelResponses int64                 `json:"model_responses"`
+	ToolCalls      int64                 `json:"tool_calls"`
+	ToolResults    int64                 `json:"tool_results"`
+	TotalMessages  int64                 `json:"total_messages"`
+	Tokens         tokenUsageObservation `json:"tokens"`
+}
+
+type sessionUsageRestartObservation struct {
+	BeforeInfo       sessionInfoObservation `json:"before_info"`
+	AfterInfo        sessionInfoObservation `json:"after_info"`
+	NewStartup       sessionInfoObservation `json:"new_startup"`
+	BeforeStatistics statisticsObservation  `json:"before_statistics"`
+	AfterStatistics  statisticsObservation  `json:"after_statistics"`
+	Complete         bool                   `json:"complete"`
+}
+
+func runSessionUsageRestartUI(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	initialization *uipb.Initialization,
+) error {
+	tracePath := os.Getenv(appUITraceEnvironment)
+	payload, readErr := os.ReadFile(tracePath)
+	if errors.Is(readErr, os.ErrNotExist) {
+		return recordInitialSessionUsage(stream, tracePath)
+	}
+	if readErr != nil {
+		return readErr
+	}
+	var observation sessionUsageRestartObservation
+	if err := json.Unmarshal(payload, &observation); err != nil {
+		return err
+	}
+	observation.NewStartup = observeSessionInfo(initialization.GetSessionInfo())
+	if observation.NewStartup.ID == observation.BeforeInfo.ID || observation.NewStartup.StoragePathPresent {
+		return errors.New("usage restart did not create an empty active session")
+	}
+	if err := configureRestartSelection(stream); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
+		SessionId: new(observation.BeforeInfo.ID),
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	changed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionChanged() != nil
+	})
+	if err != nil {
+		return err
+	}
+	if observeSessionInfo(changed.GetSessionChanged().GetInfo()) != observation.BeforeInfo {
+		return errors.New("usage restart changed session information during resume")
+	}
+	frame, err := requestUISessionInformation(stream)
+	if err != nil {
+		return err
+	}
+	observation.AfterInfo = observeSessionInfo(frame.GetInfo())
+	observation.AfterStatistics = observeUIStatistics(frame.GetStatistics())
+	observation.Complete = true
+	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// recordInitialSessionUsage stores the first-process session snapshot before requesting shutdown.
+func recordInitialSessionUsage(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	tracePath string,
+) error {
+	if err := configureRestartSelection(stream); err != nil {
+		return err
+	}
+	if err := submitRestartTurn(stream, "usage request"); err != nil {
+		return err
+	}
+	frame, err := requestUISessionInformation(stream)
+	if err != nil {
+		return err
+	}
+	observation := sessionUsageRestartObservation{
+		BeforeInfo: observeSessionInfo(frame.GetInfo()), AfterInfo: sessionInfoObservation{},
+		NewStartup: sessionInfoObservation{}, BeforeStatistics: observeUIStatistics(frame.GetStatistics()),
+		AfterStatistics: statisticsObservation{}, Complete: false,
+	}
+	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+func requestUISessionInformation(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+) (*uipb.SessionInformation, error) {
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		return nil, err
+	}
+	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return frame.GetSessionInformation(), nil
+}
+
+func observeUIStatistics(statistics *uipb.SessionStatistics) statisticsObservation {
+	observation := statisticsObservation{
+		UserMessages: statistics.GetUserMessages(), ModelResponses: statistics.GetModelResponses(),
+		ToolCalls: statistics.GetToolCalls(), ToolResults: statistics.GetToolResults(),
+		TotalMessages: statistics.GetTotalMessages(), Tokens: tokenUsageObservation{},
+	}
+	if tokens := statistics.GetTokens(); tokens != nil {
+		observation.Tokens = tokenUsageObservation{
+			Present: true, InputTokens: tokens.GetInputTokens(), OutputTokens: tokens.GetOutputTokens(),
+			CacheReadTokens: tokens.GetCacheReadTokens(), CacheWriteTokens: tokens.GetCacheWriteTokens(),
+			ReasoningTokens: tokens.GetReasoningTokens(), TotalTokens: tokens.GetTotalTokens(),
+		}
+	}
+	return observation
+}
+
+// TestRunWithPathsUISessionUsageSurvivesRestart verifies available usage through the real UI helper process.
+func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
+	tests := []struct {
+		name     string
+		usage    string
+		expected tokenUsageObservation
+	}{
+		{
+			name:     "present zero",
+			usage:    `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			expected: tokenUsageObservation{Present: true, InputTokens: 0, OutputTokens: 0, CacheReadTokens: 0, CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0},
+		},
+		{
+			name:     "available nonzero",
+			usage:    `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			expected: tokenUsageObservation{Present: true, InputTokens: 7, OutputTokens: 4, CacheReadTokens: 2, CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 14},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Arrange persistent Host paths, a real UI helper process, and one provider usage response.
+			paths := testPaths(t, restartSelectionSettings())
+			accessToken := semanticAccessToken(t, "account")
+			require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				accessToken,
+			), 0o600))
+			previousTransport := http.DefaultTransport
+			http.DefaultTransport = usageCodexTransport{usageJSON: test.usage}
+			t.Cleanup(func() { http.DefaultTransport = previousTransport })
+			uiDirectory := t.TempDir()
+			writeUIExecutable(t, uiDirectory, "Session_Usage_Restart_UI")
+			tracePath := filepath.Join(t.TempDir(), "session-usage-restart.json")
+			t.Setenv(appUITraceEnvironment, tracePath)
+			t.Setenv(appUIBehaviorEnvironment, "session-usage-restart")
+			command := cli.Command{
+				Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: t.TempDir()},
+				ExtensionDirectory: t.TempDir(), UIDirectory: uiDirectory,
+				UIID: "session-usage-restart-ui", SocketPath: "",
+			}
+
+			// Act by running the Host, restarting it, and explicitly resuming the stored session.
+			require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+			require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+			payload, err := os.ReadFile(tracePath)
+			require.NoError(t, err)
+			var observation sessionUsageRestartObservation
+			require.NoError(t, json.Unmarshal(payload, &observation))
+
+			// Assert all session fields, counts, token presence, buckets, and nondefault selection survive.
+			require.True(t, observation.Complete)
+			assert.Equal(t, observation.BeforeInfo, observation.AfterInfo)
+			assert.NotEqual(t, observation.BeforeInfo.ID, observation.NewStartup.ID)
+			assert.True(t, observation.BeforeInfo.IDPresent)
+			assert.True(t, observation.BeforeInfo.WorkingDirectoryPresent)
+			assert.True(t, observation.BeforeInfo.StoragePathPresent)
+			assert.True(t, observation.BeforeInfo.CreatedTimePresent)
+			assert.True(t, observation.BeforeInfo.UpdateTimePresent)
+			assert.False(t, observation.BeforeInfo.NamePresent)
+			assert.Equal(t, statisticsObservation{
+				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0,
+				TotalMessages: 2, Tokens: test.expected,
+			}, observation.BeforeStatistics)
+			assert.Equal(t, observation.BeforeStatistics, observation.AfterStatistics)
+		})
 	}
 }

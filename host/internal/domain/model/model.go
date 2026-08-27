@@ -192,6 +192,25 @@ type Usage struct {
 	TotalTokens       int64
 }
 
+// NormalizeUsage converts provider totals into disjoint nonnegative buckets.
+func NormalizeUsage(usage Usage) Usage {
+	cacheRead := max(int64(0), usage.CachedInputTokens)
+	cacheWrite := max(int64(0), usage.CacheWriteTokens)
+	output := max(int64(0), usage.OutputTokens)
+	// Provider input includes both cache buckets, so only the remainder is uncached input.
+	input := max(int64(0), usage.InputTokens-cacheRead-cacheWrite)
+	// Reasoning is output detail. It cannot exceed output and never increases the total.
+	reasoning := min(max(int64(0), usage.ReasoningTokens), output)
+	return Usage{
+		InputTokens:       input,
+		OutputTokens:      output,
+		CachedInputTokens: cacheRead,
+		CacheWriteTokens:  cacheWrite,
+		ReasoningTokens:   reasoning,
+		TotalTokens:       input + output + cacheRead + cacheWrite,
+	}
+}
+
 // Diagnostic contains safe typed provider or runtime failure information.
 type Diagnostic struct {
 	Code    string

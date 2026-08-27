@@ -131,7 +131,10 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 	case presentationdomain.EventSessionInformation:
 		// Information confirms /session or /name without replacing transcript ownership.
 		if info, present := event.SessionInfo.Get(); present {
-			model.state = model.apply(model.state, sessionInformationEvent(formatSessionInfo(info)))
+			model.state = model.apply(
+				model.state,
+				sessionInformationEvent(formatSessionInformation(info, event.SessionStatistics)),
+			)
 		}
 		model.input = nil
 		model.cursor = 0
@@ -181,6 +184,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		})
 		return model, nil
 	}
@@ -213,6 +217,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		})
 		model.input = nil
 		model.cursor = 0
@@ -576,6 +581,36 @@ func (model Model) emitSessionCommand(kind presentationdomain.CommandKind, id, n
 	return model.emitCommand(command)
 }
 
+// formatSessionInformation renders metadata, message counts, and optional token usage.
+func formatSessionInformation(
+	info presentationdomain.SessionInfo,
+	statistics mo.Option[presentationdomain.SessionStatistics],
+) string {
+	lines := []string{formatSessionInfo(info)}
+	if values, present := statistics.Get(); present {
+		lines = append(lines,
+			fmt.Sprintf(
+				"Messages: %d user, %d model, %d tool results, %d total",
+				values.UserMessages, values.ModelResponses, values.ToolResults, values.TotalMessages,
+			),
+			fmt.Sprintf("Tool calls: %d", values.ToolCalls),
+		)
+		if tokens, available := values.TokenUsage.Get(); available {
+			lines = append(lines,
+				fmt.Sprintf(
+					"Tokens: %d input, %d output, %d cache read, %d cache write, %d total",
+					tokens.InputTokens, tokens.OutputTokens, tokens.CacheReadTokens,
+					tokens.CacheWriteTokens, tokens.TotalTokens,
+				),
+				fmt.Sprintf("Reasoning tokens: %d, included in output", tokens.ReasoningTokens),
+			)
+		} else {
+			lines = append(lines, "Tokens: unavailable")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // formatSessionInfo renders lifecycle-only session metadata as safe presentation text.
 func formatSessionInfo(info presentationdomain.SessionInfo) string {
 	name := "<absent>"
@@ -621,6 +656,7 @@ func sessionInformationEvent(text string) presentationdomain.Event {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}
 }
 

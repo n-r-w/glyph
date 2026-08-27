@@ -190,6 +190,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Text:        "blocked",
@@ -366,6 +367,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		}, service.Apply, func(presentationdomain.Command) error {
 			t.Fatal("redundant selection command emitted")
 			return nil
@@ -414,6 +416,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, func(presentationdomain.Command) error {
 		t.Fatal("fixed reasoning selection command emitted")
 		return nil
@@ -458,6 +461,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		Models:               nil,
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	// Assert fixed reasoning stays hidden while display state remains intact.
 	assert.False(t, model.reasoningExpanded)
@@ -496,6 +500,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		Models:               nil,
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.True(t, model.reasoningExpanded)
 }
@@ -615,6 +620,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, nil)
 	model.height = 10
 	model.input = []rune("draft")
@@ -814,6 +820,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
 	model = updateModel(t, model, presentationdomain.Event{
@@ -843,6 +850,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		Models:               nil,
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / high")
 }
@@ -890,6 +898,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'r',
@@ -997,6 +1006,7 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 
 	// Act by rendering the initialized model.
@@ -1042,6 +1052,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 	// Act by applying lifecycle updates and resizing the terminal.
 	model = updateModel(t, model, presentationdomain.Event{
@@ -1067,6 +1078,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1091,6 +1103,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1115,6 +1128,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  100,
@@ -1171,6 +1185,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1195,6 +1210,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1204,24 +1220,25 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("complete answer"),
 		}},
-		Startup:          nil,
-		Extensions:       nil,
-		Availability:     mo.None[presentationdomain.Availability](),
-		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:       mo.None[string](),
-		ToolName:         mo.None[string](),
-		Status:           mo.None[string](),
-		Stream:           mo.None[presentationdomain.OutputStream](),
-		Text:             mo.None[string](),
-		Contents:         mo.None[[]presentationdomain.Content](),
-		ErrorText:        mo.None[string](),
-		ExitCode:         mo.None[int](),
-		Failure:          mo.None[bool](),
-		ToolCall:         mo.None[presentationdomain.ToolCallState](),
-		Models:           nil,
-		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
-		Sessions:         nil,
+		Startup:           nil,
+		Extensions:        nil,
+		Availability:      mo.None[presentationdomain.Availability](),
+		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:        mo.None[string](),
+		ToolName:          mo.None[string](),
+		Status:            mo.None[string](),
+		Stream:            mo.None[presentationdomain.OutputStream](),
+		Text:              mo.None[string](),
+		Contents:          mo.None[[]presentationdomain.Content](),
+		ErrorText:         mo.None[string](),
+		ExitCode:          mo.None[int](),
+		Failure:           mo.None[bool](),
+		ToolCall:          mo.None[presentationdomain.ToolCallState](),
+		Models:            nil,
+		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 
 	// Assert the model clears active fragments and renders the completed text once.
@@ -1277,6 +1294,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 
 	view := model.View().Content
@@ -1380,25 +1398,26 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("readable words wrap cleanly\n你好 世界"),
 		}},
-		Startup:          nil,
-		Extensions:       nil,
-		Availability:     mo.None[presentationdomain.Availability](),
-		Position:         mo.None[int](),
-		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:       mo.None[string](),
-		ToolName:         mo.None[string](),
-		Status:           mo.None[string](),
-		Stream:           mo.None[presentationdomain.OutputStream](),
-		Text:             mo.None[string](),
-		Contents:         mo.None[[]presentationdomain.Content](),
-		ErrorText:        mo.None[string](),
-		ExitCode:         mo.None[int](),
-		Failure:          mo.None[bool](),
-		ToolCall:         mo.None[presentationdomain.ToolCallState](),
-		Models:           nil,
-		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
-		Sessions:         nil,
+		Startup:           nil,
+		Extensions:        nil,
+		Availability:      mo.None[presentationdomain.Availability](),
+		Position:          mo.None[int](),
+		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:        mo.None[string](),
+		ToolName:          mo.None[string](),
+		Status:            mo.None[string](),
+		Stream:            mo.None[presentationdomain.OutputStream](),
+		Text:              mo.None[string](),
+		Contents:          mo.None[[]presentationdomain.Content](),
+		ErrorText:         mo.None[string](),
+		ExitCode:          mo.None[int](),
+		Failure:           mo.None[bool](),
+		ToolCall:          mo.None[presentationdomain.ToolCallState](),
+		Models:            nil,
+		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
@@ -1443,6 +1462,7 @@ func TestModelWrapsActiveContent(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
@@ -1487,6 +1507,7 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	// Act by resizing after content wrapping.
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1533,6 +1554,7 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		})
 	}
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1567,25 +1589,26 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("first response"),
 		}},
-		Startup:          nil,
-		Extensions:       nil,
-		Availability:     mo.None[presentationdomain.Availability](),
-		Position:         mo.None[int](),
-		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:       mo.None[string](),
-		ToolName:         mo.None[string](),
-		Status:           mo.None[string](),
-		Stream:           mo.None[presentationdomain.OutputStream](),
-		Text:             mo.None[string](),
-		Contents:         mo.None[[]presentationdomain.Content](),
-		ErrorText:        mo.None[string](),
-		ExitCode:         mo.None[int](),
-		Failure:          mo.None[bool](),
-		ToolCall:         mo.None[presentationdomain.ToolCallState](),
-		Models:           nil,
-		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
-		Sessions:         nil,
+		Startup:           nil,
+		Extensions:        nil,
+		Availability:      mo.None[presentationdomain.Availability](),
+		Position:          mo.None[int](),
+		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:        mo.None[string](),
+		ToolName:          mo.None[string](),
+		Status:            mo.None[string](),
+		Stream:            mo.None[presentationdomain.OutputStream](),
+		Text:              mo.None[string](),
+		Contents:          mo.None[[]presentationdomain.Content](),
+		ErrorText:         mo.None[string](),
+		ExitCode:          mo.None[int](),
+		Failure:           mo.None[bool](),
+		ToolCall:          mo.None[presentationdomain.ToolCallState](),
+		Models:            nil,
+		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1610,6 +1633,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1634,6 +1658,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Text:        "second request",
@@ -1720,7 +1745,8 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			CreatedAt:        time.Unix(1, 0),
 			UpdatedAt:        time.Unix(1, 0),
 		}),
-		Sessions: nil,
+		Sessions:          nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	// Assert the draft clears only after host confirmation.
 	assert.Empty(t, model.input)
@@ -1761,7 +1787,8 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			CreatedAt:        time.Unix(1, 0),
 			UpdatedAt:        time.Unix(2, 0),
 		}),
-		Sessions: nil,
+		Sessions:          nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.Empty(t, model.input)
 	assert.Zero(t, model.cursor)
@@ -1818,6 +1845,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 			{Info: presentationdomain.SessionInfo{ID: "second", Name: "", NamePresent: false, WorkingDirectory: "/project", StoragePath: "/second", StoragePresent: true, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(3, 0)}, FirstUserText: "fallback", TextPresent: true, TotalMessages: 2},
 			{Info: presentationdomain.SessionInfo{ID: "id-fallback", Name: "", NamePresent: false, WorkingDirectory: "/project", StoragePath: "/third", StoragePresent: true, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(4, 0)}, FirstUserText: "", TextPresent: false, TotalMessages: 0},
 		},
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.True(t, model.selectorOpen)
 	assert.True(t, model.sessionSelector)
@@ -1866,6 +1894,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.True(t, model.selectorOpen)
 	assert.True(t, model.sessionSelector)
@@ -1904,6 +1933,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.Some(model.state.Sessions[1].Info), Sessions: nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
 	})
 	assert.False(t, model.selectorOpen)
 	assert.False(t, model.sessionSelector)
@@ -2034,6 +2064,7 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 		ToolCall:             mo.None[presentationdomain.ToolCallState](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, emit)
 	model.state.Transcript = []presentationdomain.Line{{
 		Kind:     presentationdomain.LineModel,
@@ -2074,6 +2105,7 @@ func newTestModel(t *testing.T, availability presentationdomain.Availability, em
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, service.Apply, emit)
 }
 

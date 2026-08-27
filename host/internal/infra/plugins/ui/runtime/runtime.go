@@ -215,7 +215,13 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 				Info: mapSessionInfo(info), Entries: entries,
 			}.Build())
 		} else {
-			request.SetSessionInformation(uipb.SessionInformation_builder{Info: mapSessionInfo(info)}.Build())
+			statistics, statisticsPresent := frame.SessionStatistics.Get()
+			if !statisticsPresent {
+				return nil, true, errors.New("map UI frame: session statistics are required")
+			}
+			request.SetSessionInformation(uipb.SessionInformation_builder{
+				Info: mapSessionInfo(info), Statistics: mapSessionStatistics(statistics),
+			}.Build())
 		}
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
@@ -588,6 +594,23 @@ func mapSessionInfo(info session.Info) *uipb.SessionInfo {
 	}
 	if path, present := info.StoragePath.Get(); present {
 		wire.SetStoragePath(path)
+	}
+	return wire
+}
+
+// mapSessionStatistics preserves counts and optional complete token usage on the UI wire boundary.
+func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics {
+	wire := uipb.SessionStatistics_builder{
+		UserMessages: new(int64(statistics.UserMessages)), ModelResponses: new(int64(statistics.ModelResponses)),
+		ToolCalls: new(int64(statistics.ToolCalls)), ToolResults: new(int64(statistics.ToolResults)),
+		TotalMessages: new(int64(statistics.TotalMessages)), Tokens: nil,
+	}.Build()
+	if usage, present := statistics.TokenUsage.Get(); present {
+		wire.SetTokens(uipb.TokenUsage_builder{
+			InputTokens: new(usage.InputTokens), OutputTokens: new(usage.OutputTokens),
+			CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
+			ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
+		}.Build())
 	}
 	return wire
 }

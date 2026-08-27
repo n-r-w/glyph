@@ -160,30 +160,21 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 	}
 	result := make([]session.Summary, 0, len(loaded))
 	for _, item := range loaded {
+		counts := countSessionEntries(item.Entries)
 		firstUserText := mo.None[string]()
-		totalMessages := 0
 		for entryIndex := range item.Entries {
 			entry := &item.Entries[entryIndex]
-			if user, present := entry.User.Get(); present {
-				totalMessages++
-				if firstUserText.IsNone() {
-					text := strings.TrimSpace(lineBreaks.ReplaceAllString(publicUserText(user), " "))
-					if text != "" {
-						firstUserText = mo.Some(text)
-					}
+			if user, present := entry.User.Get(); present && firstUserText.IsNone() {
+				text := strings.TrimSpace(lineBreaks.ReplaceAllString(publicUserText(user), " "))
+				if text != "" {
+					firstUserText = mo.Some(text)
 				}
-			}
-			if entry.Model.IsSome() {
-				totalMessages++
-			}
-			if entry.ToolResult.IsSome() {
-				totalMessages++
 			}
 		}
 		result = append(result, session.Summary{
 			Info:          infoFromLoaded(item),
 			FirstUserText: firstUserText,
-			TotalMessages: totalMessages,
+			TotalMessages: counts.totalMessages,
 		})
 	}
 	sort.Slice(result, func(left int, right int) bool {
@@ -207,6 +198,97 @@ func (s *Service) ActiveEntries() []session.Entry {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return cloneEntries(s.active.Entries)
+}
+
+// ActiveStatistics derives counts and complete token totals from durable entries.
+func (s *Service) ActiveStatistics() session.Statistics {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return statisticsFromEntries(s.active.Entries)
+}
+
+// ActiveInformation returns metadata and statistics from one locked active-session snapshot.
+func (s *Service) ActiveInformation() session.InformationSnapshot {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	info := infoFromLoaded(s.active)
+	return session.InformationSnapshot{
+		Info:       info,
+		Statistics: statisticsFromEntries(s.active.Entries),
+	}
+}
+
+// sessionEntryCounts owns shared public-message counts for durable session entries.
+type sessionEntryCounts struct {
+	userMessages   int
+	modelResponses int
+	toolResults    int
+	totalMessages  int
+}
+
+// add owns which durable entry kinds count as public messages.
+func (counts *sessionEntryCounts) add(entry session.Entry) {
+	if entry.User.IsSome() {
+		counts.userMessages++
+		counts.totalMessages++
+	}
+	if entry.Model.IsSome() {
+		counts.modelResponses++
+		counts.totalMessages++
+	}
+	if entry.ToolResult.IsSome() {
+		counts.toolResults++
+		counts.totalMessages++
+	}
+}
+
+// countSessionEntries applies the shared public-message count rule to stored entries.
+func countSessionEntries(entries []session.Entry) sessionEntryCounts {
+	counts := sessionEntryCounts{
+		userMessages: 0, modelResponses: 0, toolResults: 0, totalMessages: 0,
+	}
+	for entryIndex := range entries {
+		counts.add(entries[entryIndex])
+	}
+	return counts
+}
+
+// statisticsFromEntries owns tool-call totals and complete token-usage availability.
+func statisticsFromEntries(entries []session.Entry) session.Statistics {
+	counts := countSessionEntries(entries)
+	statistics := session.Statistics{
+		UserMessages: counts.userMessages, ModelResponses: counts.modelResponses,
+		ToolCalls: 0, ToolResults: counts.toolResults, TotalMessages: counts.totalMessages,
+		TokenUsage: mo.Some(session.TokenUsage{}),
+	}
+	usage := session.TokenUsage{}
+	for entryIndex := range entries {
+		entry := &entries[entryIndex]
+		if response, present := entry.Model.Get(); present {
+			for contentIndex := range response.Content {
+				content := &response.Content[contentIndex]
+				if content.Kind == model.ContentToolCall && content.ToolCall.IsSome() {
+					statistics.ToolCalls++
+				}
+			}
+			modelUsage, usagePresent := response.Usage.Get()
+			if !usagePresent {
+				// One absent model usage makes only token totals unavailable. Counts remain complete.
+				statistics.TokenUsage = mo.None[session.TokenUsage]()
+			} else {
+				usage.InputTokens += modelUsage.InputTokens
+				usage.OutputTokens += modelUsage.OutputTokens
+				usage.CacheReadTokens += modelUsage.CachedInputTokens
+				usage.CacheWriteTokens += modelUsage.CacheWriteTokens
+				usage.ReasoningTokens += modelUsage.ReasoningTokens
+				usage.TotalTokens += modelUsage.TotalTokens
+			}
+		}
+	}
+	if statistics.TokenUsage.IsSome() {
+		statistics.TokenUsage = mo.Some(usage)
+	}
+	return statistics
 }
 
 // Snapshot returns the provider-neutral history owned by the active session.

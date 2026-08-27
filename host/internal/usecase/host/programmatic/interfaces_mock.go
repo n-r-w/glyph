@@ -197,6 +197,20 @@ func (mr *MockSessionControlMockRecorder) SetName(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetName", reflect.TypeOf((*MockSessionControl)(nil).SetName), arg0, arg1)
 }
 
+// Statistics mocks base method.
+func (m *MockSessionControl) Statistics() session.Statistics {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Statistics")
+	ret0, _ := ret[0].(session.Statistics)
+	return ret0
+}
+
+// Statistics indicates an expected call of Statistics.
+func (mr *MockSessionControlMockRecorder) Statistics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Statistics", reflect.TypeOf((*MockSessionControl)(nil).Statistics))
+}
+
 // MockSelectionFailure is a mock of SelectionFailure interface.
 type MockSelectionFailure struct {
 	ctrl     *gomock.Controller

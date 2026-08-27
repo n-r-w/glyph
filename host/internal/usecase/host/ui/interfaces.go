@@ -58,8 +58,8 @@ type SessionControl interface {
 	SetName(context.Context, string) (session.Info, error)
 	// List returns ordered persisted-session summaries.
 	List(context.Context) ([]session.Summary, error)
-	// Info returns the current active-session snapshot.
-	Info() session.Info
+	// Information returns metadata and statistics from one coherent active-session snapshot.
+	Information() session.InformationSnapshot
 }
 
 // Authenticator keeps credential interpretation and refresh inside the provider.

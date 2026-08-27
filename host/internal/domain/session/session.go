@@ -109,3 +109,41 @@ type Summary struct {
 	// TotalMessages counts client-visible terminal messages.
 	TotalMessages int
 }
+
+// TokenUsage contains disjoint normalized token buckets and their derived total.
+type TokenUsage struct {
+	// InputTokens excludes cache-read and cache-write tokens.
+	InputTokens int64
+	// OutputTokens includes the reasoning-token subset.
+	OutputTokens int64
+	// CacheReadTokens contains provider-reported cached input.
+	CacheReadTokens int64
+	// CacheWriteTokens contains provider-reported cache creation input.
+	CacheWriteTokens int64
+	// ReasoningTokens is a subset of OutputTokens.
+	ReasoningTokens int64
+	// TotalTokens is derived without adding ReasoningTokens again.
+	TotalTokens int64
+}
+
+// Statistics contains counts that are always available and optional complete token totals.
+type Statistics struct {
+	// UserMessages counts durable user entries.
+	UserMessages int
+	// ModelResponses counts every durable terminal model entry, including failures.
+	ModelResponses int
+	// ToolCalls counts finalized calls inside durable model responses.
+	ToolCalls int
+	// ToolResults counts durable tool-result entries.
+	ToolResults int
+	// TotalMessages is user messages plus model responses plus tool results.
+	TotalMessages int
+	// TokenUsage is available only when every durable model response has usage.
+	TokenUsage mo.Option[TokenUsage]
+}
+
+// InformationSnapshot contains coherent active-session metadata and accounting.
+type InformationSnapshot struct {
+	Info       Info
+	Statistics Statistics
+}

@@ -31,6 +31,8 @@ type SessionControl interface {
 	Info() session.Info
 	// Entries returns immutable active-session records.
 	Entries() []session.Entry
+	// Statistics returns active-session counts and complete token totals.
+	Statistics() session.Statistics
 }
 
 // SelectionCode identifies a model catalog selection failure.

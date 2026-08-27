@@ -21,14 +21,23 @@ import (
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
+// TestSetSessionNamePreservesTranscriptFrameKind verifies naming returns information with current statistics.
 func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a successful name change and current empty-session statistics.
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
 	info := session.Info{}
 	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
+	control.EXPECT().Information().Return(session.InformationSnapshot{
+		Info: info,
+		Statistics: session.Statistics{
+			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
+			TokenUsage: mo.Some(session.TokenUsage{}),
+		},
+	})
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		assert.Equal(t, domainui.FrameSessionInformation, frame.Kind)
 		assert.Equal(t, info, frame.SessionInfo.MustGet())
@@ -36,6 +45,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 	})
 	usecase := NewSession(channel, nil, nil, nil, control, nil)
 
+	// Act by applying the name command.
 	handled, err := usecase.applySessionCommand(t.Context(), domainui.Command{
 		Kind:            domainui.CommandSetSessionName,
 		Text:            mo.None[string](),
@@ -45,6 +55,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 		SessionID:       mo.None[string](),
 		SessionName:     mo.Some("renamed"),
 	})
+	// Assert the command is handled and the information frame is sent.
 	require.NoError(t, err)
 	assert.True(t, handled)
 }

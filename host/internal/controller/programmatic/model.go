@@ -28,6 +28,7 @@ const (
 	CommandSetSessionName
 	CommandGetSessionInfo
 	CommandGetSessionEntries
+	CommandGetSessionStats
 )
 
 // Command is one correlated transport-independent controller operation.
@@ -60,6 +61,7 @@ const (
 	ResponseSessionInfo
 	ResponseSessions
 	ResponseSessionEntries
+	ResponseSessionStats
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -92,7 +94,9 @@ type Response struct {
 	Sessions []session.Summary
 	// SessionEntries contains detailed active-session text entries.
 	SessionEntries []SessionEntry
-	Rejection      mo.Option[Rejection]
+	// SessionStatistics is present only for a statistics result.
+	SessionStatistics mo.Option[session.Statistics]
+	Rejection         mo.Option[Rejection]
 }
 
 // SessionEntry contains stable metadata and one public terminal payload.

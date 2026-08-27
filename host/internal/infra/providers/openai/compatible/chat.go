@@ -404,14 +404,14 @@ func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle r
 		state.responseModel = chunk.Model
 	}
 	if chunk.JSON.Usage.Valid() {
-		state.usage = mo.Some(model.Usage{
+		state.usage = mo.Some(model.NormalizeUsage(model.Usage{
 			InputTokens:       chunk.Usage.PromptTokens,
 			OutputTokens:      chunk.Usage.CompletionTokens,
 			CachedInputTokens: chunk.Usage.PromptTokensDetails.CachedTokens,
 			CacheWriteTokens:  0,
 			ReasoningTokens:   chunk.Usage.CompletionTokensDetails.ReasoningTokens,
 			TotalTokens:       chunk.Usage.TotalTokens,
-		})
+		}))
 	}
 	for choiceIndex := range chunk.Choices {
 		if err := state.consumeChoice(&chunk.Choices[choiceIndex], handle); err != nil {

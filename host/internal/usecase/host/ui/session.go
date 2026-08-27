@@ -274,13 +274,14 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		if !present {
 			return true, s.sendInformation("A session name is required.")
 		}
-		info, err := s.sessionControl.SetName(ctx, name)
-		if err != nil {
+		if _, err := s.sessionControl.SetName(ctx, name); err != nil {
 			return true, s.sendInformation("Session naming is unavailable.")
 		}
-		return true, s.channel.Send(sessionInfoFrame(domainui.FrameSessionInformation, info))
+		snapshot := s.sessionControl.Information()
+		return true, s.channel.Send(sessionInformationFrame(snapshot.Info, snapshot.Statistics))
 	case domainui.CommandGetSessionInfo:
-		return true, s.channel.Send(sessionInfoFrame(domainui.FrameSessionInformation, s.sessionControl.Info()))
+		snapshot := s.sessionControl.Information()
+		return true, s.channel.Send(sessionInformationFrame(snapshot.Info, snapshot.Statistics))
 	case domainui.CommandSubmit, domainui.CommandStop, domainui.CommandRetryAuthentication,
 		domainui.CommandQuit, domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
 		return false, nil

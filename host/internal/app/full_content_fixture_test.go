@@ -26,6 +26,17 @@ const (
 // appendFullContentFixture adds one provider-compatible turn and one private extension entry.
 func appendFullContentFixture(t *testing.T, paths persistence.Paths, sessionID string) {
 	t.Helper()
+	appendFullContentFixtureWithUsage(t, paths, sessionID, mo.None[model.Usage]())
+}
+
+// appendFullContentFixtureWithUsage adds the full-content turn with explicit model usage presence.
+func appendFullContentFixtureWithUsage(
+	t *testing.T,
+	paths persistence.Paths,
+	sessionID string,
+	usage mo.Option[model.Usage],
+) {
+	t.Helper()
 
 	canonical, err := sessionstore.CanonicalWorkingDirectory("")
 	require.NoError(t, err)
@@ -81,7 +92,7 @@ func appendFullContentFixture(t *testing.T, paths persistence.Paths, sessionID s
 				Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
 				Provider: mo.Some(model.ProviderID("openai-codex")), Model: mo.Some(model.ID("selected-model")),
 				ResponseModel: mo.Some(model.ID("selected-model")), ResponseID: mo.Some("full-response"),
-				Usage:       mo.None[model.Usage](),
+				Usage:       usage,
 				Diagnostics: []model.Diagnostic{{Code: "full_notice", Message: "full diagnostic"}},
 			}),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),

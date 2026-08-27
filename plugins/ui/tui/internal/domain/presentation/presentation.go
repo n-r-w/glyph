@@ -194,6 +194,26 @@ type SessionInfo struct {
 	UpdatedAt time.Time
 }
 
+// TokenUsage contains disjoint token buckets rendered by /session.
+type TokenUsage struct {
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	TotalTokens      int64
+}
+
+// SessionStatistics contains available counts and optional complete token totals.
+type SessionStatistics struct {
+	UserMessages   int
+	ModelResponses int
+	ToolCalls      int
+	ToolResults    int
+	TotalMessages  int
+	TokenUsage     mo.Option[TokenUsage]
+}
+
 // SessionSummary contains one selector row.
 type SessionSummary struct {
 	// Info supplies the row identity, name, and update time.
@@ -233,6 +253,8 @@ type Event struct {
 	SessionInfo mo.Option[SessionInfo]
 	// Sessions carries ordered selector data on a list event.
 	Sessions []SessionSummary
+	// SessionStatistics is present only on a session-information event.
+	SessionStatistics mo.Option[SessionStatistics]
 }
 
 // LineKind controls the plain prefix used to render one transcript line.

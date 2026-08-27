@@ -615,6 +615,7 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 			ModelSelection:      mo.None[domainui.ModelSelection](),
 			SessionInfo:         mo.None[session.Info](),
 			Sessions:            nil,
+			SessionStatistics:   mo.None[session.Statistics](),
 		})
 		require.Error(t, err)
 	}
@@ -803,6 +804,7 @@ func testInitializationFrame() domainui.Frame {
 		Sessions:            nil,
 		SessionInfo: mo.None[session.
 			Info](),
+		SessionStatistics: mo.None[session.Statistics](),
 	}
 }
 
@@ -835,6 +837,7 @@ func testLifecycleFrame() domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -852,6 +855,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 			ModelSelection:      mo.None[domainui.ModelSelection](),
 			SessionInfo:         mo.None[session.Info](),
 			Sessions:            nil,
+			SessionStatistics:   mo.None[session.Statistics](),
 		}
 	}
 	return domainui.Frame{
@@ -865,6 +869,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -881,6 +886,7 @@ func testErrorFrame() domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -899,8 +905,9 @@ func testModelSelectionFrame() domainui.Frame {
 			ModelID:         "sonnet",
 			ReasoningChoice: domainui.ReasoningChoiceHigh,
 		}),
-		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil,
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
 	}
 }
 

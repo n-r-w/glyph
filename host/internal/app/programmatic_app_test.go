@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -182,6 +183,12 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.NotEmpty(t, initial.GetId())
 	assert.False(t, initial.HasName())
 	assert.False(t, initial.HasStoragePath())
+	emptyStats := send("initial-stats", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	}).GetSessionStats().GetStatistics()
+	assert.Zero(t, emptyStats.GetTotalMessages())
+	assert.True(t, emptyStats.HasTokens())
+	assert.Zero(t, emptyStats.GetTokens().GetTotalTokens())
 
 	named := send("name", func(request *programmaticv1.OpenRequest) {
 		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("named")}.Build())
@@ -220,6 +227,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
 	require.Len(t, beforeRestartEntries, 4)
+	beforeRestartStats := send("before-restart-stats", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	}).GetSessionStats().GetStatistics()
+	assert.Equal(t, int64(4), beforeRestartStats.GetTotalMessages())
+	assert.False(t, beforeRestartStats.HasTokens())
 	named = send("after-turn-information", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
@@ -249,6 +261,12 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Equal(t, named.GetWorkingDirectory(), restartedInfo.GetWorkingDirectory())
 	assert.True(t, restartedInfo.HasCreatedTime())
 	assert.True(t, restartedInfo.HasUpdateTime())
+	restartedEmptyStats := restartSend("restart-empty-stats", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	}).GetSessionStats().GetStatistics()
+	assert.Zero(t, restartedEmptyStats.GetTotalMessages())
+	assert.True(t, restartedEmptyStats.HasTokens())
+	assert.Zero(t, restartedEmptyStats.GetTokens().GetTotalTokens())
 	restartedList := restartSend("restart-list", func(request *programmaticv1.OpenRequest) {
 		request.SetListSessions(new(programmaticv1.ListSessions))
 	}).GetSessions().GetSessions()
@@ -284,6 +302,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	assert.Equal(t, named.GetId(), restartedActive.GetId())
+	restartedStats := restartSend("restart-resumed-stats", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	}).GetSessionStats().GetStatistics()
+	assert.Equal(t, int64(7), restartedStats.GetTotalMessages())
+	assert.False(t, restartedStats.HasTokens())
 
 	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
 		request.SetGetMessages(new(programmaticv1.GetMessages))
@@ -905,4 +928,115 @@ func selectReasoningRequest(
 		SetSessionName: nil,
 		GetSessionInfo: nil,
 	}.Build()
+}
+
+// TestSessionUsageAvailabilitySurvivesRestart verifies present-zero and nonzero usage through the real RPC process.
+func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesRestart() {
+	t := testSuite.T()
+	tests := []struct {
+		name      string
+		usageJSON string
+		expected  *programmaticv1.TokenUsage
+	}{
+		{
+			name: "present zero", usageJSON: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			expected: programmaticv1.TokenUsage_builder{
+				InputTokens: new(int64(0)), OutputTokens: new(int64(0)), CacheReadTokens: new(int64(0)),
+				CacheWriteTokens: new(int64(0)), ReasoningTokens: new(int64(0)), TotalTokens: new(int64(0)),
+			}.Build(),
+		},
+		{
+			name: "available nonzero", usageJSON: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			expected: programmaticv1.TokenUsage_builder{
+				InputTokens: new(int64(7)), OutputTokens: new(int64(4)), CacheReadTokens: new(int64(2)),
+				CacheWriteTokens: new(int64(1)), ReasoningTokens: new(int64(3)), TotalTokens: new(int64(14)),
+			}.Build(),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Arrange one terminal provider response and persistent process paths.
+			paths := testPaths(t, codexSettings(""))
+			accessToken := semanticAccessToken(t, "account")
+			credentials := fmt.Sprintf(
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				accessToken,
+			)
+			require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
+			previousTransport := http.DefaultTransport
+			http.DefaultTransport = usageCodexTransport{usageJSON: test.usageJSON}
+			t.Cleanup(func() { http.DefaultTransport = previousTransport })
+			fixture := startProgrammaticFixture(t, paths)
+
+			// Act by running one turn and querying statistics before and after process restart.
+			require.NoError(t, fixture.stream.Send(userRequest("usage", "usage request")))
+			_, err := fixture.stream.Recv()
+			require.NoError(t, err)
+			waitProgrammaticSettled(t, fixture)
+			before := requestProgrammaticStatistics(t, fixture.stream, "before")
+			info := requestProgrammaticInfo(t, fixture.stream, "info")
+			fixture.closeOwner(t)
+			restarted := startProgrammaticFixture(t, paths)
+			defer restarted.closeOwner(t)
+			request := new(programmaticv1.OpenRequest)
+			request.SetCorrelationId("resume")
+			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(info.GetId())}.Build())
+			require.NoError(t, restarted.stream.Send(request))
+			_, err = restarted.stream.Recv()
+			require.NoError(t, err)
+			after := requestProgrammaticStatistics(t, restarted.stream, "after")
+
+			// Assert counts and exact token presence and values survive JSONL reopen.
+			for index, statistics := range []*programmaticv1.SessionStatistics{before, after} {
+				assert.Equal(t, int64(1), statistics.GetUserMessages())
+				assert.Equal(t, int64(1), statistics.GetModelResponses())
+				assert.Equal(t, int64(2), statistics.GetTotalMessages())
+				require.True(t, statistics.HasTokens(), "statistics index %d", index)
+				assert.Equal(t, test.expected, statistics.GetTokens())
+			}
+		})
+	}
+}
+
+func requestProgrammaticStatistics(
+	t *testing.T,
+	stream grpc.BidiStreamingClient[programmaticv1.OpenRequest, programmaticv1.OpenResponse],
+	correlationID string,
+) *programmaticv1.SessionStatistics {
+	t.Helper()
+	request := new(programmaticv1.OpenRequest)
+	request.SetCorrelationId(correlationID)
+	request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	require.NoError(t, stream.Send(request))
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	return response.GetCommandResponse().GetSessionStats().GetStatistics()
+}
+
+func requestProgrammaticInfo(
+	t *testing.T,
+	stream grpc.BidiStreamingClient[programmaticv1.OpenRequest, programmaticv1.OpenResponse],
+	correlationID string,
+) *programmaticv1.SessionInfo {
+	t.Helper()
+	request := new(programmaticv1.OpenRequest)
+	request.SetCorrelationId(correlationID)
+	request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+	require.NoError(t, stream.Send(request))
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	return response.GetCommandResponse().GetSessionInfo().GetInfo()
+}
+
+type usageCodexTransport struct {
+	usageJSON string
+}
+
+func (transport usageCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	body := fmt.Sprintf("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"usage-response\",\"model\":\"selected-model\",\"status\":\"completed\",\"service_tier\":\"default\",\"metadata\":{},\"usage\":%s,\"output\":[]}}\n\ndata: [DONE]\n\n", transport.usageJSON)
+	return &http.Response{
+		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header),
+		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,
+		Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
+	}, nil
 }

@@ -388,18 +388,18 @@ func (mr *MockSessionControlMockRecorder) Create(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionControl)(nil).Create), arg0)
 }
 
-// Info mocks base method.
-func (m *MockSessionControl) Info() session.Info {
+// Information mocks base method.
+func (m *MockSessionControl) Information() session.InformationSnapshot {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info")
-	ret0, _ := ret[0].(session.Info)
+	ret := m.ctrl.Call(m, "Information")
+	ret0, _ := ret[0].(session.InformationSnapshot)
 	return ret0
 }
 
-// Info indicates an expected call of Info.
-func (mr *MockSessionControlMockRecorder) Info() *gomock.Call {
+// Information indicates an expected call of Information.
+func (mr *MockSessionControlMockRecorder) Information() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockSessionControl)(nil).Info))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Information", reflect.TypeOf((*MockSessionControl)(nil).Information))
 }
 
 // List mocks base method.

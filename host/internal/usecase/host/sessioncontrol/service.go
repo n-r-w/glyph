@@ -63,3 +63,9 @@ func (s *Service) Info() session.Info { return s.active.ActiveInfo() }
 
 // Entries returns immutable active-session records while runs continue.
 func (s *Service) Entries() []session.Entry { return s.active.ActiveEntries() }
+
+// Statistics returns active-session counts and complete token totals.
+func (s *Service) Statistics() session.Statistics { return s.active.ActiveStatistics() }
+
+// Information returns metadata and statistics from one locked active snapshot.
+func (s *Service) Information() session.InformationSnapshot { return s.active.ActiveInformation() }

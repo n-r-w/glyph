@@ -77,7 +77,8 @@ func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (C
 		programmaticv1.OpenRequest_ResumeSession_case,
 		programmaticv1.OpenRequest_SetSessionName_case,
 		programmaticv1.OpenRequest_GetSessionInfo_case,
-		programmaticv1.OpenRequest_GetSessionEntries_case:
+		programmaticv1.OpenRequest_GetSessionEntries_case,
+		programmaticv1.OpenRequest_GetSessionStats_case:
 		return Command{}, status.Error(codes.Internal, "session command was not mapped")
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
@@ -107,6 +108,8 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		command.Kind = CommandGetSessionInfo
 	case programmaticv1.OpenRequest_GetSessionEntries_case:
 		command.Kind = CommandGetSessionEntries
+	case programmaticv1.OpenRequest_GetSessionStats_case:
+		command.Kind = CommandGetSessionStats
 	case programmaticv1.OpenRequest_Command_not_set_case,
 		programmaticv1.OpenRequest_UserRequest_case, programmaticv1.OpenRequest_Abort_case,
 		programmaticv1.OpenRequest_GetRunState_case, programmaticv1.OpenRequest_GetMessages_case,

@@ -1,0 +1,44 @@
+package programmatic
+
+import (
+	"testing"
+
+	"github.com/samber/mo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
+	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
+)
+
+// TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun verifies statistics are an immediate query.
+func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an active-run query and a consumer-owned session control expectation.
+	control := NewMockSessionControl(gomock.NewController(t))
+	statistics := session.Statistics{
+		UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
+		TokenUsage: mo.Some(session.TokenUsage{}),
+	}
+	control.EXPECT().Statistics().Return(statistics)
+	service := New(nil, nil, nil, nil, control, nil)
+	command := controller.Command{
+		CorrelationID: "stats", Kind: controller.CommandGetSessionStats,
+		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
+	}
+
+	// Act by handling the query while an active run marker is present.
+	response, handled, err := service.handleImmediate(t.Context(), command, new(activeRun))
+
+	// Assert the query is handled without run coordination and returns the snapshot.
+	require.NoError(t, err)
+	assert.True(t, handled)
+	assert.Equal(t, controller.ResponseSessionStats, response.Kind)
+	actual, present := response.SessionStatistics.Get()
+	assert.True(t, present)
+	assert.Equal(t, statistics, actual)
+}

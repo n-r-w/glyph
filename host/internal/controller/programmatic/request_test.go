@@ -87,6 +87,7 @@ func sessionCommand(correlationID string, kind CommandKind) Command {
 func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 	t.Parallel()
 
+	// Arrange every supported request variant and its transport-independent command.
 	tests := map[string]struct {
 		request *programmaticv1.OpenRequest
 		want    Command
@@ -95,6 +96,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries:     nil,
+				GetSessionStats:       nil,
 				CorrelationId:         new("missing"),
 				UserRequest:           nil,
 				Abort:                 nil,
@@ -318,7 +320,9 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Act by mapping the selected request variant.
 			got, err := mapOpenRequest(test.request)
+			// Assert the exact command and optional arguments are preserved.
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
 		})
@@ -431,6 +435,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
 	return programmaticv1.OpenRequest_builder{
 		GetSessionEntries:     nil,
+		GetSessionStats:       nil,
 		CorrelationId:         new(correlationID),
 		UserRequest:           nil,
 		Abort:                 nil,

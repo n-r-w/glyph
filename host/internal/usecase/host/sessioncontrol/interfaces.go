@@ -23,6 +23,10 @@ type ActiveSessions interface {
 	ActiveInfo() session.Info
 	// ActiveEntries returns immutable active-session entries in stored order.
 	ActiveEntries() []session.Entry
+	// ActiveStatistics derives counts and complete token totals from durable entries.
+	ActiveStatistics() session.Statistics
+	// ActiveInformation returns metadata and statistics from one locked active snapshot.
+	ActiveInformation() session.InformationSnapshot
 }
 
 // OperationGate reserves active-session replacement against agent execution.

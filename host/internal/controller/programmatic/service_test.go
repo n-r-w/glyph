@@ -89,16 +89,17 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 			SessionID:       mo.None[domainsession.ID](),
 			SessionName:     mo.None[string](),
 		}).Return(Response{
-			SessionEntries: nil,
-			CorrelationID:  "user",
-			Kind:           ResponseUserRequestAccepted,
-			State:          mo.None[RunStateResult](),
-			Messages:       nil,
-			Models:         mo.None[ModelsResult](),
-			Selection:      mo.None[model.Selection](),
-			Rejection:      mo.None[Rejection](),
-			SessionInfo:    mo.None[domainsession.Info](),
-			Sessions:       nil,
+			SessionEntries:    nil,
+			SessionStatistics: mo.None[domainsession.Statistics](),
+			CorrelationID:     "user",
+			Kind:              ResponseUserRequestAccepted,
+			State:             mo.None[RunStateResult](),
+			Messages:          nil,
+			Models:            mo.None[ModelsResult](),
+			Selection:         mo.None[model.Selection](),
+			Rejection:         mo.None[Rejection](),
+			SessionInfo:       mo.None[domainsession.Info](),
+			Sessions:          nil,
 		}, operation, nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 			<-started
@@ -117,9 +118,10 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		}).DoAndReturn(func(context.Context, Command) (Response, Operation, error) {
 			close(stateHandled)
 			return Response{
-				SessionEntries: nil,
-				CorrelationID:  "state",
-				Kind:           ResponseRunState,
+				SessionEntries:    nil,
+				SessionStatistics: mo.None[domainsession.Statistics](),
+				CorrelationID:     "state",
+				Kind:              ResponseRunState,
 				State: mo.Some(RunStateResult{
 					State:               RunStateRunning,
 					ActiveCorrelationID: mo.Some("user"),
@@ -189,8 +191,9 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	s.Empty(service.Completions())
 }
 
-// TestCorrelatedMissingCommandReachesHost verifies that payload rejection remains in HostSession.
+// TestAcceptedResponseDeliveryFailureDoesNotStartOperation verifies failed acceptance delivery prevents run start.
 func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation() {
+	// Arrange an accepted operation whose response cannot reach the client.
 	ctrl := gomock.NewController(s.T())
 	session := NewMockHostSession(ctrl)
 	operation := NewMockOperation(ctrl)
@@ -206,8 +209,9 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 	events := make(chan AgentEvent)
 	stream.EXPECT().Recv().Return(request, nil)
 	session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-		SessionEntries: nil,
-		CorrelationID:  "accepted", Kind: ResponseUserRequestAccepted, State: mo.None[RunStateResult](),
+		SessionEntries:    nil,
+		SessionStatistics: mo.None[domainsession.Statistics](),
+		CorrelationID:     "accepted", Kind: ResponseUserRequestAccepted, State: mo.None[RunStateResult](),
 		Messages: nil, Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](),
 		Rejection: mo.None[Rejection](), SessionInfo: mo.None[domainsession.Info](), Sessions: nil,
 	}, operation, nil)
@@ -217,14 +221,18 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 	session.EXPECT().CancelAndWait(gomock.Any()).Return(nil)
 
 	service := New(s.T().Context(), session)
+	// Act by opening the controller stream.
 	err := service.open(stream)
+	// Assert transport failure ends the session before the operation starts.
 	s.Require().Error(err)
 	s.Equal(codes.Unavailable, status.Code(err))
 	completion := <-service.Completions()
 	s.Equal(SessionCompletionTransportFailure, completion.Cause)
 }
 
+// TestCorrelatedMissingCommandReachesHost verifies an empty correlated oneof is rejected by Host policy.
 func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
+	// Arrange a correlated request with no selected command variant.
 	ctrl := gomock.NewController(s.T())
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
@@ -232,6 +240,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries:     nil,
+		GetSessionStats:       nil,
 		CorrelationId:         new("missing"),
 		UserRequest:           nil,
 		Abort:                 nil,
@@ -258,9 +267,10 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 			SessionID:       mo.None[domainsession.ID](),
 			SessionName:     mo.None[string](),
 		}).Return(Response{
-			SessionEntries: nil,
-			CorrelationID:  "missing",
-			Kind:           ResponseRejected,
+			SessionEntries:    nil,
+			SessionStatistics: mo.None[domainsession.Statistics](),
+			CorrelationID:     "missing",
+			Kind:              ResponseRejected,
 			Rejection: mo.Some(Rejection{
 				Command: CommandUnspecified,
 				Code:    RejectionInvalidArgument,
@@ -282,7 +292,10 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 	)
 	service := New(s.T().Context(), session)
 
-	s.Require().NoError(service.open(stream))
+	// Act by opening the controller stream until client EOF.
+	err := service.open(stream)
+	// Assert Host rejection is delivered and the stream closes normally.
+	s.Require().NoError(err)
 	<-service.Completions()
 }
 
@@ -346,8 +359,9 @@ func (s *ServiceSuite) TestEmptyCorrelationIsTerminal() {
 	s.Equal(codes.InvalidArgument, status.Code(completion.Err))
 }
 
-// TestOperationProtocolInvariantIsTerminal verifies only acceptance can own an operation.
+// TestOperationProtocolInvariantIsTerminal verifies an immediate response cannot carry an asynchronous operation.
 func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
+	// Arrange a run-state response paired with an invalid operation handle.
 	ctrl := gomock.NewController(s.T())
 	session := NewMockHostSession(ctrl)
 	operation := NewMockOperation(ctrl)
@@ -367,9 +381,10 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			SessionEntries: nil,
-			CorrelationID:  "state",
-			Kind:           ResponseRunState,
+			SessionEntries:    nil,
+			SessionStatistics: mo.None[domainsession.Statistics](),
+			CorrelationID:     "state",
+			Kind:              ResponseRunState,
 			State: mo.Some(RunStateResult{
 				State:               RunStateIdle,
 				ActiveCorrelationID: mo.None[string](),
@@ -385,13 +400,16 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	)
 	service := New(s.T().Context(), session)
 
+	// Act by opening the controller stream.
 	err := service.open(stream)
+	// Assert the invariant violation terminates with a protocol failure.
 	s.Equal(codes.Internal, status.Code(err))
 	s.Equal(SessionCompletionProtocolFailure, (<-service.Completions()).Cause)
 }
 
-// TestAcceptedResponseRequiresOperation verifies acceptance always provides event ownership.
+// TestAcceptedResponseRequiresOperation verifies acceptance requires a runnable operation handle.
 func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
+	// Arrange an accepted response without an operation handle.
 	ctrl := gomock.NewController(s.T())
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
@@ -412,28 +430,32 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			SessionEntries: nil,
-			CorrelationID:  "user",
-			Kind:           ResponseUserRequestAccepted,
-			State:          mo.None[RunStateResult](),
-			Messages:       nil,
-			Models:         mo.None[ModelsResult](),
-			Selection:      mo.None[model.Selection](),
-			Rejection:      mo.None[Rejection](),
-			SessionInfo:    mo.None[domainsession.Info](),
-			Sessions:       nil,
+			SessionEntries:    nil,
+			SessionStatistics: mo.None[domainsession.Statistics](),
+			CorrelationID:     "user",
+			Kind:              ResponseUserRequestAccepted,
+			State:             mo.None[RunStateResult](),
+			Messages:          nil,
+			Models:            mo.None[ModelsResult](),
+			Selection:         mo.None[model.Selection](),
+			Rejection:         mo.None[Rejection](),
+			SessionInfo:       mo.None[domainsession.Info](),
+			Sessions:          nil,
 		}, nil, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
 	service := New(s.T().Context(), session)
 
+	// Act by opening the controller stream.
 	err := service.open(stream)
+	// Assert the missing operation handle terminates with a protocol failure.
 	s.Equal(codes.Internal, status.Code(err))
 	s.Equal(SessionCompletionProtocolFailure, (<-service.Completions()).Cause)
 }
 
-// TestAcceptedOperationRequiresEventStream verifies malformed operations are not acknowledged or started.
+// TestAcceptedOperationRequiresEventStream verifies a runnable operation must expose its event stream.
 func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
+	// Arrange an accepted operation with no event stream.
 	ctrl := gomock.NewController(s.T())
 	session := NewMockHostSession(ctrl)
 	operation := NewMockOperation(ctrl)
@@ -455,23 +477,26 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			SessionEntries: nil,
-			CorrelationID:  "user",
-			Kind:           ResponseUserRequestAccepted,
-			State:          mo.None[RunStateResult](),
-			Messages:       nil,
-			Models:         mo.None[ModelsResult](),
-			Selection:      mo.None[model.Selection](),
-			Rejection:      mo.None[Rejection](),
-			SessionInfo:    mo.None[domainsession.Info](),
-			Sessions:       nil,
+			SessionEntries:    nil,
+			SessionStatistics: mo.None[domainsession.Statistics](),
+			CorrelationID:     "user",
+			Kind:              ResponseUserRequestAccepted,
+			State:             mo.None[RunStateResult](),
+			Messages:          nil,
+			Models:            mo.None[ModelsResult](),
+			Selection:         mo.None[model.Selection](),
+			Rejection:         mo.None[Rejection](),
+			SessionInfo:       mo.None[domainsession.Info](),
+			Sessions:          nil,
 		}, operation, nil),
 		operation.EXPECT().Events().Return(nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
 	service := New(s.T().Context(), session)
 
+	// Act by opening the controller stream.
 	err := service.open(stream)
+	// Assert the missing event stream terminates with a protocol failure.
 	s.Equal(codes.Internal, status.Code(err))
 	s.Equal(SessionCompletionProtocolFailure, (<-service.Completions()).Cause)
 }
@@ -641,6 +666,7 @@ func TestApplicationCancellationEndsBlockedReceive(t *testing.T) {
 func TestEventFailureEndsBlockedReceive(t *testing.T) {
 	t.Parallel()
 
+	// Arrange mapping and transport failures that occur while request receive is blocked.
 	tests := map[string]struct {
 		event        AgentEvent
 		sendErr      error
@@ -751,16 +777,17 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				gomock.InOrder(
 					stream.EXPECT().Recv().Return(request, nil),
 					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-						SessionEntries: nil,
-						CorrelationID:  "user",
-						Kind:           ResponseUserRequestAccepted,
-						State:          mo.None[RunStateResult](),
-						Messages:       nil,
-						Models:         mo.None[ModelsResult](),
-						Selection:      mo.None[model.Selection](),
-						Rejection:      mo.None[Rejection](),
-						SessionInfo:    mo.None[domainsession.Info](),
-						Sessions:       nil,
+						SessionEntries:    nil,
+						SessionStatistics: mo.None[domainsession.Statistics](),
+						CorrelationID:     "user",
+						Kind:              ResponseUserRequestAccepted,
+						State:             mo.None[RunStateResult](),
+						Messages:          nil,
+						Models:            mo.None[ModelsResult](),
+						Selection:         mo.None[model.Selection](),
+						Rejection:         mo.None[Rejection](),
+						SessionInfo:       mo.None[domainsession.Info](),
+						Sessions:          nil,
 					}, operation, nil),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
@@ -775,12 +802,14 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 					stream.EXPECT().Send(gomock.Any()).Return(test.sendErr)
 				}
 				service := New(t.Context(), session)
+				// Act by delivering the terminal event after receive blocks.
 				openDone := make(chan error, 1)
 				go func() { openDone <- service.open(stream) }()
 				<-receiveBlocked
 				events <- test.event
 				synctest.Wait()
 
+				// Assert event failure terminates the controller before receive is released.
 				select {
 				case err := <-openDone:
 					assert.Equal(t, test.wantCode, status.Code(err))

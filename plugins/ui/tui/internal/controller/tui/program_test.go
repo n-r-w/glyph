@@ -49,6 +49,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		},
 		input, output,
 		func(command presentationdomain.Command) error {
@@ -119,6 +120,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		},
 		bytes.NewBuffer(nil), output,
 		func(presentationdomain.Command) error { return nil },
@@ -156,6 +158,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	program.Quit()
 

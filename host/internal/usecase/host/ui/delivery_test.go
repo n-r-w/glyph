@@ -72,6 +72,7 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{

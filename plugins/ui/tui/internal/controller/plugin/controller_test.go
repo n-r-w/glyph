@@ -422,6 +422,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			}, initial)
 			return program
 		},
@@ -454,6 +455,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		contentKind, ok := event.ModelContentKind.Get()
@@ -1435,6 +1437,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, event)
 }
 
@@ -1705,6 +1708,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 		{
@@ -1749,6 +1753,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 		{
@@ -1793,6 +1798,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 		{
@@ -1846,6 +1852,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 		{
@@ -1890,6 +1897,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 		{
@@ -1934,6 +1942,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 				Sessions:             nil,
+				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 			},
 		},
 	}
@@ -2832,6 +2841,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, event)
 }
 

@@ -723,14 +723,14 @@ func responsesModelResponse(
 	if outcome == model.OutcomeStop && hasToolCall {
 		outcome = model.OutcomeToolUse
 	}
-	usage := model.Usage{
+	usage := model.NormalizeUsage(model.Usage{
 		InputTokens:       response.Usage.InputTokens,
 		OutputTokens:      response.Usage.OutputTokens,
 		CachedInputTokens: response.Usage.InputTokensDetails.CachedTokens,
 		CacheWriteTokens:  response.Usage.InputTokensDetails.CacheWriteTokens,
 		ReasoningTokens:   response.Usage.OutputTokensDetails.ReasoningTokens,
 		TotalTokens:       response.Usage.TotalTokens,
-	}
+	})
 	responseUsage := mo.None[model.Usage]()
 	if response.JSON.Usage.Valid() {
 		responseUsage = mo.Some(usage)

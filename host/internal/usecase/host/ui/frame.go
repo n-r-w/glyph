@@ -21,6 +21,7 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -37,6 +38,7 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -53,6 +55,7 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -69,6 +72,7 @@ func informationFrame(text string) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -85,6 +89,7 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
@@ -101,6 +106,7 @@ func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Fram
 		ModelSelection:      mo.Some(selection),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 

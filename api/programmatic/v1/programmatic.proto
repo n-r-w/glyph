@@ -32,6 +32,7 @@ message OpenRequest {
     SetSessionName set_session_name = 12;
     GetSessionInfo get_session_info = 13;
     GetSessionEntries get_session_entries = 14;
+    GetSessionStats get_session_stats = 15;
   }
 }
 
@@ -91,6 +92,9 @@ message GetSessionInfo {}
 // GetSessionEntries requests detailed active-session text entries.
 message GetSessionEntries {}
 
+// GetSessionStats requests active-session counts and token totals.
+message GetSessionStats {}
+
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
   // The correlation identifier associated with the response.
@@ -116,6 +120,7 @@ message CommandResponse {
     SessionInfoResult session_info = 8;
     SessionsResult sessions = 9;
     SessionEntriesResult session_entries = 10;
+    SessionStatsResult session_stats = 11;
   }
 }
 
@@ -219,6 +224,44 @@ message SessionSummary {
   string first_user_text = 2;
   // The number of stored public messages.
   int64 total_messages = 3;
+}
+
+// SessionStatsResult contains active-session counts and token totals.
+message SessionStatsResult {
+  // The active-session statistics.
+  SessionStatistics statistics = 1;
+}
+
+// SessionStatistics contains counts and complete normalized token totals.
+message SessionStatistics {
+  // The number of stored user entries.
+  int64 user_messages = 1;
+  // The number of stored terminal model entries, including failures.
+  int64 model_responses = 2;
+  // The number of finalized tool calls inside model entries.
+  int64 tool_calls = 3;
+  // The number of stored tool-result entries.
+  int64 tool_results = 4;
+  // User messages plus model responses plus tool results.
+  int64 total_messages = 5;
+  // Tokens is absent when any stored model response has no usage.
+  TokenUsage tokens = 6;
+}
+
+// TokenUsage contains disjoint normalized token buckets.
+message TokenUsage {
+  // Uncached input tokens.
+  int64 input_tokens = 1;
+  // Output tokens, including reasoning tokens.
+  int64 output_tokens = 2;
+  // Cached input tokens.
+  int64 cache_read_tokens = 3;
+  // Cache creation input tokens.
+  int64 cache_write_tokens = 4;
+  // Reasoning tokens are a subset of output tokens.
+  int64 reasoning_tokens = 5;
+  // The sum of input, output, cache-read, and cache-write tokens.
+  int64 total_tokens = 6;
 }
 
 // CommandRejected describes a command that was not executed.
@@ -509,6 +552,8 @@ enum CommandType {
   COMMAND_TYPE_GET_SESSION_INFO = 12;
   // An active-session entry query.
   COMMAND_TYPE_GET_SESSION_ENTRIES = 13;
+  // An active-session statistics query.
+  COMMAND_TYPE_GET_SESSION_STATS = 14;
 }
 
 // RejectionCode identifies why a command was rejected.

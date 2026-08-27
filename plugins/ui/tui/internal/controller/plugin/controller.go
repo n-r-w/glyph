@@ -197,6 +197,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		}, nil
 	}
 	if changed := request.GetModelSelectionChanged(); changed != nil {
@@ -227,6 +228,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			ModelSelection:       mo.Some(selection),
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
+			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 		}, nil
 	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
@@ -274,6 +276,7 @@ func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, 
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}, true, nil
 }
 
@@ -290,6 +293,7 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 		}
 		return sessionEvent(
 			presentationdomain.EventSessionList, mo.None[presentationdomain.SessionInfo](), summaries, nil,
+			mo.None[presentationdomain.SessionStatistics](),
 		), true, nil
 	}
 	if changed := request.GetSessionChanged(); changed != nil {
@@ -303,6 +307,7 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 		}
 		return sessionEvent(
 			presentationdomain.EventSessionChanged, mo.Some(info), nil, restored,
+			mo.None[presentationdomain.SessionStatistics](),
 		), true, nil
 	}
 	if information := request.GetSessionInformation(); information != nil {
@@ -310,8 +315,12 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 		if err != nil {
 			return presentationdomain.Event{}, true, err
 		}
+		statistics, err := mapSessionStatistics(information.GetStatistics())
+		if err != nil {
+			return presentationdomain.Event{}, true, err
+		}
 		return sessionEvent(
-			presentationdomain.EventSessionInformation, mo.Some(info), nil, nil,
+			presentationdomain.EventSessionInformation, mo.Some(info), nil, nil, mo.Some(statistics),
 		), true, nil
 	}
 	return presentationdomain.Event{}, false, nil
@@ -323,6 +332,7 @@ func sessionEvent(
 	info mo.Option[presentationdomain.SessionInfo],
 	sessions []presentationdomain.SessionSummary,
 	restored []presentationdomain.Line,
+	statistics mo.Option[presentationdomain.SessionStatistics],
 ) presentationdomain.Event {
 	return presentationdomain.Event{
 		RestoredTranscript:   restored,
@@ -347,6 +357,7 @@ func sessionEvent(
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          info,
 		Sessions:             sessions,
+		SessionStatistics:    statistics,
 	}
 }
 
@@ -502,6 +513,26 @@ func imagePlaceholder(mediaType string, size int) string {
 	return fmt.Sprintf("[image %s, %d bytes]", mediaType, size)
 }
 
+// mapSessionStatistics validates and reconstructs optional token usage from the UI wire boundary.
+func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomain.SessionStatistics, error) {
+	if statistics == nil {
+		return presentationdomain.SessionStatistics{}, errors.New("map session statistics: value is required")
+	}
+	result := presentationdomain.SessionStatistics{
+		UserMessages: int(statistics.GetUserMessages()), ModelResponses: int(statistics.GetModelResponses()),
+		ToolCalls: int(statistics.GetToolCalls()), ToolResults: int(statistics.GetToolResults()),
+		TotalMessages: int(statistics.GetTotalMessages()), TokenUsage: mo.None[presentationdomain.TokenUsage](),
+	}
+	if tokens := statistics.GetTokens(); tokens != nil {
+		result.TokenUsage = mo.Some(presentationdomain.TokenUsage{
+			InputTokens: tokens.GetInputTokens(), OutputTokens: tokens.GetOutputTokens(),
+			CacheReadTokens: tokens.GetCacheReadTokens(), CacheWriteTokens: tokens.GetCacheWriteTokens(),
+			ReasoningTokens: tokens.GetReasoningTokens(), TotalTokens: tokens.GetTotalTokens(),
+		})
+	}
+	return result, nil
+}
+
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
 func mapSessionInfo(value *uiv1.SessionInfo) (presentationdomain.SessionInfo, error) {
 	if value == nil || !value.HasId() || !value.HasWorkingDirectory() ||
@@ -592,6 +623,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		ModelSelection:       mo.Some(selection),
 		SessionInfo:          mo.Some(sessionInfo),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}
 	return event, nil
 }
@@ -773,6 +805,7 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	}
 
 	var err error

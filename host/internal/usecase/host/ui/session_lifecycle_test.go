@@ -25,6 +25,10 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 
 	// Arrange create, list, resume, and information commands with expected frames.
 	info := testSessionInfo("stored")
+	statistics := session.Statistics{
+		UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
+		TokenUsage: mo.Some(session.TokenUsage{}),
+	}
 	summary := session.Summary{Info: info, FirstUserText: mo.None[string](), TotalMessages: 0}
 	tests := []struct {
 		name          string
@@ -65,9 +69,16 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			name: "information", command: testSessionCommand(domainui.CommandGetSessionInfo, mo.None[string](), mo.None[string]()),
 			expectedKind: domainui.FrameSessionInformation,
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Info().Return(info)
+				control.EXPECT().Information().Return(session.InformationSnapshot{
+					Info: info, Statistics: statistics,
+				})
 			},
-			assertFrame: func(t *testing.T, frame domainui.Frame) { assert.Equal(t, info, frame.SessionInfo.MustGet()) },
+			assertFrame: func(t *testing.T, frame domainui.Frame) {
+				assert.Equal(t, info, frame.SessionInfo.MustGet())
+				actual, present := frame.SessionStatistics.Get()
+				assert.True(t, present)
+				assert.Equal(t, statistics, actual)
+			},
 		},
 	}
 	for _, test := range tests {
@@ -336,9 +347,11 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 	}
 }
 
+// TestSessionNameAndQueriesRemainAvailableDuringActiveRun verifies session queries include statistics without stopping a run.
 func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	t.Parallel()
 
+	// Arrange busy replacements and successful name, list, information, and statistics queries.
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
@@ -347,7 +360,13 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Replacement{}, session.ErrBusy)
 	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
 	control.EXPECT().List(gomock.Any()).Return([]session.Summary{}, nil)
-	control.EXPECT().Info().Return(info)
+	control.EXPECT().Information().Return(session.InformationSnapshot{
+		Info: info,
+		Statistics: session.Statistics{
+			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
+			TokenUsage: mo.Some(session.TokenUsage{}),
+		},
+	}).Times(2)
 	channel.EXPECT().Send(gomock.Any()).Times(5)
 	usecase := NewSession(channel, nil, nil, nil, control, nil)
 	cancel := func() {}
@@ -358,10 +377,12 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 		testSessionCommand(domainui.CommandListSessions, mo.None[string](), mo.None[string]()),
 		testSessionCommand(domainui.CommandGetSessionInfo, mo.None[string](), mo.None[string]()),
 	}
+	// Act by applying all session commands while run availability is active.
 	for _, command := range commands {
 		availability, activeCancel, activeKind, err := usecase.applyCommand(
 			t.Context(), domainui.AvailabilityRunning, cancel, operationRun, command, make(chan operationResult),
 		)
+		// Assert each command preserves active run state and remains handled.
 		require.NoError(t, err)
 		assert.Equal(t, domainui.AvailabilityRunning, availability)
 		assert.Equal(t, operationRun, activeKind)

@@ -49,7 +49,7 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
 			return nil, err
 		}
-	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseRejected:
+	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats, ResponseRejected:
 		return nil, errors.New("map command response: handled response was not mapped")
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
@@ -87,6 +87,15 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 		result.SetEntries(entries)
 		wire.SetSessionEntries(result)
 		return true, nil
+	case ResponseSessionStats:
+		statistics, present := response.SessionStatistics.Get()
+		if !present {
+			return true, errors.New("map session statistics: result is absent")
+		}
+		result := new(programmaticv1.SessionStatsResult)
+		result.SetStatistics(mapSessionStatistics(statistics))
+		wire.SetSessionStats(result)
+		return true, nil
 	case ResponseRejected:
 		return true, mapRejectionCommandResponse(wire, response.Rejection)
 	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
@@ -110,6 +119,27 @@ func mapSessionInfo(info session.Info) *programmaticv1.SessionInfo {
 	}
 	wire.SetCreatedTime(timestamppb.New(info.CreatedAt))
 	wire.SetUpdateTime(timestamppb.New(info.UpdatedAt))
+	return wire
+}
+
+// mapSessionStatistics preserves message counts and optional complete token usage.
+func mapSessionStatistics(statistics session.Statistics) *programmaticv1.SessionStatistics {
+	wire := new(programmaticv1.SessionStatistics)
+	wire.SetUserMessages(int64(statistics.UserMessages))
+	wire.SetModelResponses(int64(statistics.ModelResponses))
+	wire.SetToolCalls(int64(statistics.ToolCalls))
+	wire.SetToolResults(int64(statistics.ToolResults))
+	wire.SetTotalMessages(int64(statistics.TotalMessages))
+	if usage, present := statistics.TokenUsage.Get(); present {
+		tokens := new(programmaticv1.TokenUsage)
+		tokens.SetInputTokens(usage.InputTokens)
+		tokens.SetOutputTokens(usage.OutputTokens)
+		tokens.SetCacheReadTokens(usage.CacheReadTokens)
+		tokens.SetCacheWriteTokens(usage.CacheWriteTokens)
+		tokens.SetReasoningTokens(usage.ReasoningTokens)
+		tokens.SetTotalTokens(usage.TotalTokens)
+		wire.SetTokens(tokens)
+	}
 	return wire
 }
 
@@ -844,6 +874,7 @@ func mapReasoningChoice(level model.ReasoningChoice) (programmaticv1.ReasoningCh
 	}
 }
 
+//nolint:gocyclo // The exhaustive switch maps every closed command kind explicitly.
 func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 	switch kind {
 	case CommandUnspecified:
@@ -874,6 +905,8 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_INFO, nil
 	case CommandGetSessionEntries:
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES, nil
+	case CommandGetSessionStats:
+		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_STATS, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}

@@ -274,10 +274,11 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	)
 }
 
-// TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies rich input and terminal values.
+// TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies terminal Codex usage is normalized into disjoint buckets.
 func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a Codex response with overlapping input, cache buckets, and reasoning above output.
 	accountID := "account-image"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -315,13 +316,14 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 			assert.Equal(t, "data:image/png;base64,AQID", content[1].(map[string]any)["image_url"])
 			writeSSE(
 				writer,
-				`{"type":"response.completed","response":{"id":"resp-rich","model":"gpt-actual","status":"completed","service_tier":"default","metadata":{"region":"test"},"usage":{"input_tokens":10,"output_tokens":7,"total_tokens":17,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`,
+				`{"type":"response.completed","response":{"id":"resp-rich","model":"gpt-actual","status":"completed","service_tier":"default","metadata":{"region":"test"},"usage":{"input_tokens":10,"output_tokens":2,"total_tokens":99,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`,
 			)
 		}),
 	)
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
+	// Act by collecting the terminal adapter response.
 	events, err := collectStreamEvents(
 		service,
 		t.Context(),
@@ -363,6 +365,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	)
 	response := terminalResponse(events)
 
+	// Assert provider metadata is retained and usage is normalized before delivery.
 	require.NoError(t, err)
 	assert.Equal(t, model.ProviderID(ProviderID), response.Provider.OrEmpty())
 	assert.Equal(t, model.ID("gpt-selected"), response.Model.OrEmpty())
@@ -374,12 +377,12 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	assert.True(t, response.ResponseID.IsSome())
 	assert.True(t, response.Usage.IsSome())
 	assert.Equal(t, model.Usage{
-		InputTokens:       10,
-		OutputTokens:      7,
+		InputTokens:       5,
+		OutputTokens:      2,
 		CachedInputTokens: 4,
 		CacheWriteTokens:  1,
-		ReasoningTokens:   3,
-		TotalTokens:       17,
+		ReasoningTokens:   2,
+		TotalTokens:       12,
 	}, response.Usage.OrEmpty())
 }
 

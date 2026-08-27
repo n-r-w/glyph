@@ -69,6 +69,34 @@ func (mr *MockActiveSessionsMockRecorder) ActiveInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveInfo", reflect.TypeOf((*MockActiveSessions)(nil).ActiveInfo))
 }
 
+// ActiveInformation mocks base method.
+func (m *MockActiveSessions) ActiveInformation() session.InformationSnapshot {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveInformation")
+	ret0, _ := ret[0].(session.InformationSnapshot)
+	return ret0
+}
+
+// ActiveInformation indicates an expected call of ActiveInformation.
+func (mr *MockActiveSessionsMockRecorder) ActiveInformation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveInformation", reflect.TypeOf((*MockActiveSessions)(nil).ActiveInformation))
+}
+
+// ActiveStatistics mocks base method.
+func (m *MockActiveSessions) ActiveStatistics() session.Statistics {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveStatistics")
+	ret0, _ := ret[0].(session.Statistics)
+	return ret0
+}
+
+// ActiveStatistics indicates an expected call of ActiveStatistics.
+func (mr *MockActiveSessionsMockRecorder) ActiveStatistics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveStatistics", reflect.TypeOf((*MockActiveSessions)(nil).ActiveStatistics))
+}
+
 // CreateActive mocks base method.
 func (m *MockActiveSessions) CreateActive(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()

@@ -157,7 +157,7 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
 				controller.CommandListSessions, controller.CommandGetSessionInfo,
-				controller.CommandGetSessionEntries:
+				controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -326,8 +326,9 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		assert.Equal(t, controller.Response{
 			SessionEntries: nil,
 			CorrelationID:  "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
-			SessionInfo: mo.None[session.Info](),
-			Sessions:    nil,
+			SessionInfo:       mo.None[session.Info](),
+			Sessions:          nil,
+			SessionStatistics: mo.None[session.Statistics](),
 		}, response)
 		require.NotNil(t, operation)
 		select {
@@ -552,8 +553,9 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 				SessionEntries: nil,
 				CorrelationID:  "models", Kind: controller.ResponseModels,
 				Models: mo.Some(controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)}), State: mo.None[controller.RunStateResult](), Messages: nil, Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
-				SessionInfo: mo.None[session.Info](),
-				Sessions:    nil,
+				SessionInfo:       mo.None[session.Info](),
+				Sessions:          nil,
+				SessionStatistics: mo.None[session.Statistics](),
 			},
 		},
 		{
@@ -565,8 +567,9 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			want: controller.Response{
 				SessionEntries: nil,
 				CorrelationID:  "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
-				SessionInfo: mo.None[session.Info](),
-				Sessions:    nil,
+				SessionInfo:       mo.None[session.Info](),
+				Sessions:          nil,
+				SessionStatistics: mo.None[session.Statistics](),
 			},
 		},
 		{
@@ -579,8 +582,9 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			want: controller.Response{
 				SessionEntries: nil,
 				CorrelationID:  "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
-				SessionInfo: mo.None[session.Info](),
-				Sessions:    nil,
+				SessionInfo:       mo.None[session.Info](),
+				Sessions:          nil,
+				SessionStatistics: mo.None[session.Statistics](),
 			},
 		},
 	}
@@ -674,6 +678,7 @@ func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
 
 // TestConcurrentReservationRejectsOneRequest verifies active reservation is atomic.
 func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
+	// Arrange two run preparations that cross the reservation boundary together.
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
@@ -690,6 +695,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 		return "run-2", nil
 	}).Times(2)
 
+	// Act by submitting both requests concurrently.
 	type result struct {
 		response  controller.Response
 		operation controller.Operation
@@ -712,6 +718,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	}
 	calls.Wait()
 
+	// Assert exactly one request owns the reservation and the other is rejected as busy.
 	accepted := 0
 	rejected := 0
 	for _, result := range results {
@@ -731,7 +738,8 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			controller.ResponseModelSelection,
 			controller.ResponseSessionInfo,
 			controller.ResponseSessions,
-			controller.ResponseSessionEntries:
+			controller.ResponseSessionEntries,
+			controller.ResponseSessionStats:
 			s.Fail("unexpected response", "kind %d", result.response.Kind)
 		}
 	}
@@ -819,8 +827,9 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		SessionEntries: nil,
 		CorrelationID:  "state", Kind: controller.ResponseRunState,
 		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
-		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil,
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
 	}, response)
 
 	responseModel := model.ID("response-model")

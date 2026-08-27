@@ -17,11 +17,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	testsupporttui "github.com/n-r-w/glyph/internal/testsupport/tui"
 )
@@ -203,12 +205,26 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID:")
+	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
 	restartID := lastSessionID(observer.String())
 	require.NotEmpty(t, restartID)
 	testsupporttui.Write(t, input, "read input.txt")
 	observer.WaitNext(t, "read input.txt|")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Request complete.")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+restartID)
+	observer.WaitNext(t, "Name: restart session")
+	observer.WaitNext(t, "Working directory:")
+	observer.WaitNext(t, "Storage path:")
+	observer.WaitNext(t, "Created:")
+	observer.WaitNext(t, "Updated:")
+	observer.WaitNext(t, "Messages: 1 user, 2 model, 1 tool results, 4 total")
+	observer.WaitNext(t, "Tool calls: 1")
+	observer.WaitNext(t, "Tokens: 14 input, 8 output, 4 cache read, 2 cache write, 28 total")
+	observer.WaitNext(t, "Reasoning tokens: 6, included in output")
 
 	// Create a second active session so the stored restart target remains one complete tool turn.
 	testsupporttui.Write(t, input, "/new")
@@ -219,13 +235,26 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Name: <absent>")
+	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
 	activeID := lastSessionID(observer.String())
 	require.NotEmpty(t, activeID)
-	appendFullContentFixture(t, paths, restartID)
+	appendFullContentFixtureWithUsage(t, paths, restartID, mo.Some(model.Usage{
+		InputTokens: 7, OutputTokens: 4, CachedInputTokens: 2,
+		CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 14,
+	}))
 	testsupporttui.Write(t, input, "active history")
 	observer.WaitNext(t, "active history|")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Request complete.")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+activeID)
+	observer.WaitNext(t, "Name: <absent>")
+	observer.WaitNext(t, "Messages: 1 user, 1 model, 0 tool results, 2 total")
+	observer.WaitNext(t, "Tool calls: 0")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Reasoning tokens: 0, included in output")
 
 	testsupporttui.Write(t, input, "blocked request")
 	observer.WaitNext(t, "blocked request|")
@@ -235,6 +264,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID: "+activeID)
+	observer.WaitNext(t, "Messages: 2 user, 1 model, 0 tool results, 3 total")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
@@ -290,10 +321,47 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Storage path:")
 	observer.WaitNext(t, "Created:")
 	observer.WaitNext(t, "Updated:")
+	observer.WaitNext(t, "Messages: 2 user, 3 model, 2 tool results, 7 total")
+	observer.WaitNext(t, "Tool calls: 2")
+	observer.WaitNext(t, "Tokens: 21 input, 12 output, 6 cache read, 3 cache write, 42 total")
+	observer.WaitNext(t, "Reasoning tokens: 9, included in output")
+
+	// Resume the second stored session and prove present-zero usage also survives reconstruction.
+	testsupporttui.Write(t, input, "/resume")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Sessions:")
+	testsupporttui.Write(t, input, "\x1b[B")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "user: blocked request")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+activeID)
+	observer.WaitNext(t, "Name: <absent>")
+	observer.WaitNext(t, "Working directory:")
+	observer.WaitNext(t, "Storage path:")
+	observer.WaitNext(t, "Created:")
+	observer.WaitNext(t, "Updated:")
+	observer.WaitNext(t, "Messages: 2 user, 2 model, 0 tool results, 4 total")
+	observer.WaitNext(t, "Tool calls: 0")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Reasoning tokens: 0, included in output")
+
+	// Resume the nonzero-usage session again before continuation.
+	testsupporttui.Write(t, input, "/resume")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Sessions:")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "[tool:done] bash full tool output")
 	testsupporttui.Write(t, input, "continue")
 	observer.WaitNext(t, "continue|")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Request complete.")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+restartID)
+	observer.WaitNext(t, "Messages: 3 user, 4 model, 2 tool results, 9 total")
+	observer.WaitNext(t, "Tool calls: 2")
+	observer.WaitNext(t, "Tokens: unavailable")
 	testsupporttui.Write(t, input, string([]byte{17}))
 	require.NoError(t, input.Close())
 	runErr := waiter.Wait(ptyContext)
@@ -352,7 +420,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	lastBody := &atomic.Value{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = &blockingStandardTUITransport{
-		delegate: deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody},
+		delegate: standardTUIUsageTransport{requestCount: requestCount, lastBody: lastBody},
 		release:  providerRelease, requestCount: new(atomic.Int32),
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
@@ -437,6 +505,41 @@ func serveStandardTUIControl(
 		}
 	}
 	return nil
+}
+
+type standardTUIUsageTransport struct {
+	requestCount *atomic.Int32
+	lastBody     *atomic.Value
+}
+
+func (transport standardTUIUsageTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		return nil, err
+	}
+	transport.lastBody.Store(body)
+	requestNumber := transport.requestCount.Add(1)
+	responseBody := finalResponseSSE
+	if requestNumber == 1 {
+		responseBody = toolResponseSSE
+	}
+	usage := `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`
+	if requestNumber == 1 || requestNumber == 2 {
+		usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`
+	}
+	if requestNumber != 5 {
+		responseBody = strings.Replace(
+			responseBody,
+			`"status":"completed","output":[]`,
+			`"status":"completed","usage":`+usage+`,"output":[]`,
+			1,
+		)
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(responseBody)), Header: make(http.Header),
+		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,
+		Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
+	}, nil
 }
 
 type blockingStandardTUITransport struct {

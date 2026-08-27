@@ -335,6 +335,8 @@ type Frame struct {
 	Sessions []session.Summary
 	// SessionEntries replaces the transcript on a session-change frame.
 	SessionEntries []SessionEntry
+	// SessionStatistics is present only on a session-information frame.
+	SessionStatistics mo.Option[session.Statistics]
 }
 
 // SessionEntry carries one restored public terminal item.

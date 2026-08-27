@@ -109,6 +109,9 @@ func (s *Service) handleImmediate(
 	command controller.Command,
 	current *activeRun,
 ) (controller.Response, bool, error) {
+	if response, handled := s.handleSessionImmediate(ctx, command); handled {
+		return response, true, nil
+	}
 	switch command.Kind {
 	case controller.CommandAbort:
 		response, err := s.abort(command.CorrelationID, current)
@@ -124,24 +127,42 @@ func (s *Service) handleImmediate(
 		return s.selectModel(ctx, command), true, nil
 	case controller.CommandSelectReasoningChoice:
 		return s.selectReasoningChoice(command), true, nil
-	case controller.CommandCreateSession:
-		return s.createSession(ctx, command), true, nil
-	case controller.CommandListSessions:
-		return s.listSessions(ctx, command), true, nil
-	case controller.CommandResumeSession:
-		return s.resumeSession(ctx, command), true, nil
-	case controller.CommandSetSessionName:
-		return s.setSessionName(ctx, command), true, nil
-	case controller.CommandGetSessionInfo:
-		return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info()), true, nil
-	case controller.CommandGetSessionEntries:
-		return s.sessionEntries(command), true, nil
 	case controller.CommandUnspecified:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
 	case controller.CommandUserRequest:
 		return controller.Response{}, false, nil
+	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandResumeSession,
+		controller.CommandSetSessionName, controller.CommandGetSessionInfo, controller.CommandGetSessionEntries,
+		controller.CommandGetSessionStats:
+		return controller.Response{}, false, nil
 	default:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
+	}
+}
+
+// handleSessionImmediate routes session commands that do not require run coordination.
+func (s *Service) handleSessionImmediate(ctx context.Context, command controller.Command) (controller.Response, bool) {
+	switch command.Kind {
+	case controller.CommandCreateSession:
+		return s.createSession(ctx, command), true
+	case controller.CommandListSessions:
+		return s.listSessions(ctx, command), true
+	case controller.CommandResumeSession:
+		return s.resumeSession(ctx, command), true
+	case controller.CommandSetSessionName:
+		return s.setSessionName(ctx, command), true
+	case controller.CommandGetSessionInfo:
+		return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info()), true
+	case controller.CommandGetSessionEntries:
+		return s.sessionEntries(command), true
+	case controller.CommandGetSessionStats:
+		return sessionStatisticsResponse(command.CorrelationID, s.sessionControl.Statistics()), true
+	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
+		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
+		return controller.Response{}, false
+	default:
+		return controller.Response{}, false
 	}
 }
 
@@ -319,6 +340,23 @@ func sessionInfoResponse(correlationID string, info session.Info) controller.Res
 	return response
 }
 
+// sessionStatisticsResponse initializes the complete statistics response variant.
+func sessionStatisticsResponse(correlationID string, statistics session.Statistics) controller.Response {
+	return controller.Response{
+		SessionEntries:    nil,
+		CorrelationID:     correlationID,
+		Kind:              controller.ResponseSessionStats,
+		State:             mo.None[controller.RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[controller.ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.Some(statistics),
+		Rejection:         mo.None[controller.Rejection](),
+	}
+}
+
 func (s *Service) preflight(
 	command controller.Command,
 ) (*activeRun, *controller.Response, error) {
@@ -361,7 +399,7 @@ func invalidCommand(command controller.Command) bool {
 		return invalidReasoningSelection(command)
 	case controller.CommandCreateSession, controller.CommandListSessions,
 		controller.CommandResumeSession, controller.CommandSetSessionName,
-		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries:
+		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
 		return true
 	case controller.CommandUnspecified:
 		return true
@@ -373,7 +411,7 @@ func invalidCommand(command controller.Command) bool {
 func invalidSessionCommand(command controller.Command) (invalid, handled bool) {
 	switch command.Kind {
 	case controller.CommandCreateSession, controller.CommandListSessions,
-		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries:
+		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
 		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command), true
 	case controller.CommandResumeSession:
 		id, present := command.SessionID.Get()
@@ -471,16 +509,17 @@ func removeCancellation(err error) error {
 
 func emptyResponse(correlationID string, kind controller.ResponseKind) controller.Response {
 	return controller.Response{
-		SessionEntries: nil,
-		CorrelationID:  correlationID,
-		Kind:           kind,
-		State:          mo.None[controller.RunStateResult](),
-		Messages:       nil,
-		Models:         mo.None[controller.ModelsResult](),
-		Selection:      mo.None[model.Selection](),
-		SessionInfo:    mo.None[session.Info](),
-		Sessions:       nil,
-		Rejection:      mo.None[controller.Rejection](),
+		SessionEntries:    nil,
+		CorrelationID:     correlationID,
+		Kind:              kind,
+		State:             mo.None[controller.RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[controller.ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		Rejection:         mo.None[controller.Rejection](),
 	}
 }
 

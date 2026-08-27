@@ -37,8 +37,11 @@ func TestDriverSuite(t *testing.T) {
 	suite.Run(t, new(serviceSuite))
 }
 
+// TestChatCompletionsMapsRequestAndStream verifies Chat Completions normalizes usage before terminal delivery.
 func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	t := s.T()
+
+	// Arrange a Chat Completions stream with cached input and a provider-derived total.
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		assert.Equal(t, "/v1/chat/completions", request.URL.Path)
@@ -51,7 +54,7 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"refusal":"no"}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"fi"}}]}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le\"}"}}]},"finish_reason":"tool_calls"}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19,"prompt_tokens_details":{"cached_tokens":3},"completion_tokens_details":{"reasoning_tokens":2}}}`,
+			`{"id":"chat-1","model":"actual-model","choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":99,"prompt_tokens_details":{"cached_tokens":3},"completion_tokens_details":{"reasoning_tokens":2}}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -65,12 +68,15 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	require.NoError(t, err)
 	models["demo"] = APIResponses
 
+	// Act by collecting the terminal adapter response.
 	events := streamEvents(t, service, richRequest("openrouter", "demo"))
+
+	// Assert input excludes cached tokens and total uses normalized buckets.
 	require.NotEmpty(t, events)
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventDone, terminal.Kind)
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
-	assert.Equal(t, model.Usage{InputTokens: 12, OutputTokens: 7, CachedInputTokens: 3, ReasoningTokens: 2, TotalTokens: 19, CacheWriteTokens: 0}, terminal.Response.OrEmpty().Usage.OrEmpty())
+	assert.Equal(t, model.Usage{InputTokens: 9, OutputTokens: 7, CachedInputTokens: 3, ReasoningTokens: 2, TotalTokens: 19, CacheWriteTokens: 0}, terminal.Response.OrEmpty().Usage.OrEmpty())
 	assert.Equal(t, "actual-model", string(terminal.Response.OrEmpty().ResponseModel.OrEmpty()))
 	assert.Equal(t, "high", body["reasoning_effort"])
 	assert.Equal(t, false, body["parallel_tool_calls"])
@@ -458,8 +464,11 @@ func (s *serviceSuite) TestResponsesOmitsIncompatibleContextAndKeepsVisibleReaso
 	}
 }
 
+// TestResponsesStreamsRefusalAndFragmentedToolCall verifies Responses clamps overlapping usage into disjoint buckets.
 func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	t := s.T()
+
+	// Arrange a Responses stream with cache buckets above input and reasoning above output.
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer,
@@ -468,7 +477,7 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 			`{"type":"response.function_call_arguments.delta","output_index":8,"item_id":"item-1","delta":"{\"path\":\"fi"}`,
 			`{"type":"response.function_call_arguments.delta","output_index":8,"item_id":"item-1","delta":"le\"}"}`,
 			`{"type":"response.function_call_arguments.done","output_index":8,"item_id":"item-1","name":"read","arguments":"{\"path\":\"file\"}"}`,
-			`{"type":"response.completed","response":{"id":"resp-2","model":"actual","status":"completed","output":[{"id":"m-1","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"blocked"}]},{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file\"}","status":"completed"}]}}`,
+			`{"type":"response.completed","response":{"id":"resp-2","model":"actual","status":"completed","usage":{"input_tokens":2,"output_tokens":2,"total_tokens":99,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[{"id":"m-1","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"blocked"}]},{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file\"}","status":"completed"}]}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -477,12 +486,16 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
+	// Act by collecting the terminal adapter response.
 	events := streamEvents(t, service, richRequest("local", "demo"))
+
+	// Assert lifecycle content and normalized usage both leave the adapter intact.
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallStart)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallEnd)
 	terminal := events[len(events)-1]
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
+	assert.Equal(t, model.Usage{InputTokens: 0, OutputTokens: 2, CachedInputTokens: 4, CacheWriteTokens: 1, ReasoningTokens: 2, TotalTokens: 7}, terminal.Response.OrEmpty().Usage.OrEmpty())
 	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("blocked"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
 }
 

@@ -187,6 +187,40 @@ message UserImage {
 message SessionInformation {
   // The active-session information.
   SessionInfo info = 1;
+  // The active-session counts and token totals.
+  SessionStatistics statistics = 2;
+}
+
+// SessionStatistics contains counts and complete normalized token totals.
+message SessionStatistics {
+  // The number of stored user entries.
+  int64 user_messages = 1;
+  // The number of stored terminal model entries, including failures.
+  int64 model_responses = 2;
+  // The number of finalized tool calls inside model entries.
+  int64 tool_calls = 3;
+  // The number of stored tool-result entries.
+  int64 tool_results = 4;
+  // User messages plus model responses plus tool results.
+  int64 total_messages = 5;
+  // Tokens is absent when any stored model response has no usage.
+  TokenUsage tokens = 6;
+}
+
+// TokenUsage contains disjoint normalized token buckets.
+message TokenUsage {
+  // Uncached input tokens.
+  int64 input_tokens = 1;
+  // Output tokens, including reasoning tokens.
+  int64 output_tokens = 2;
+  // Cached input tokens.
+  int64 cache_read_tokens = 3;
+  // Cache creation input tokens.
+  int64 cache_write_tokens = 4;
+  // Reasoning tokens are a subset of output tokens.
+  int64 reasoning_tokens = 5;
+  // The sum of input, output, cache-read, and cache-write tokens.
+  int64 total_tokens = 6;
 }
 
 // ReasoningChoice identifies a configured model reasoning choice.

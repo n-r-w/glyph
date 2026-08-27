@@ -27,12 +27,13 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            append([]session.Summary(nil), listed...),
 		SessionEntries:      nil,
+		SessionStatistics:   mo.None[session.Statistics](),
 	}
 }
 
 // sessionChangedFrame confirms replacement and carries the complete restored transcript.
 func sessionChangedFrame(info session.Info, entries []session.Entry) (domainui.Frame, error) {
-	frame := sessionInfoFrame(domainui.FrameSessionChanged, info)
+	frame := sessionInfoFrame(domainui.FrameSessionChanged, info, mo.None[session.Statistics]())
 	frame.SessionEntries = make([]domainui.SessionEntry, 0, len(entries))
 	for position := range entries {
 		entry := &entries[position]
@@ -90,8 +91,17 @@ func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
 	}
 }
 
+// sessionInformationFrame composes current metadata and statistics without replacing the transcript.
+func sessionInformationFrame(info session.Info, statistics session.Statistics) domainui.Frame {
+	return sessionInfoFrame(domainui.FrameSessionInformation, info, mo.Some(statistics))
+}
+
 // sessionInfoFrame builds the selected session information frame kind.
-func sessionInfoFrame(kind domainui.FrameKind, info session.Info) domainui.Frame {
+func sessionInfoFrame(
+	kind domainui.FrameKind,
+	info session.Info,
+	statistics mo.Option[session.Statistics],
+) domainui.Frame {
 	return domainui.Frame{
 		Kind:                kind,
 		Initialization:      mo.None[domainui.Initialization](),
@@ -103,5 +113,6 @@ func sessionInfoFrame(kind domainui.FrameKind, info session.Info) domainui.Frame
 		SessionInfo:         mo.Some(info),
 		Sessions:            nil,
 		SessionEntries:      nil,
+		SessionStatistics:   statistics,
 	}
 }
