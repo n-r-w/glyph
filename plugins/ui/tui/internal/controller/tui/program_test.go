@@ -18,7 +18,7 @@ import (
 func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a Bubble Tea program with pipe input and captured commands.
 	service := presentationusecase.New()
 	factory := NewFactory(service.Apply)
 	input, writeInput := io.Pipe()
@@ -45,11 +45,10 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			// Act by executing the scenario.
-			Models:         nil,
-			ModelSelection: mo.None[presentationdomain.ModelSelection](),
-			SessionInfo:    mo.None[presentationdomain.SessionInfo](),
-			Sessions:       nil,
+			Models:               nil,
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		},
 		input, output,
 		func(command presentationdomain.Command) error {
@@ -57,6 +56,8 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			return nil
 		},
 	)
+
+	// Act by starting the program and writing submitted Unicode input.
 	runResult := make(chan error, 1)
 	go func() { runResult <- program.Run() }()
 	select {
@@ -65,8 +66,9 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 		t.Fatal("Bubble Tea did not start")
 	}
 	_, err := io.WriteString(writeInput, "héllo🙂\r")
-	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
+
+	// Assert the program emits the complete submit command and exits cleanly.
 	select {
 	case command := <-emitted:
 		assert.Equal(t, presentationdomain.Command{
@@ -89,7 +91,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a program with caller-supplied input and notifying output.
 	service := presentationusecase.New()
 	factory := NewFactory(service.Apply)
 	output := newNotifyingWriter()
@@ -118,10 +120,11 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 		},
-		// Act by executing the scenario.
 		bytes.NewBuffer(nil), output,
 		func(presentationdomain.Command) error { return nil },
 	)
+
+	// Act by running the program, sending an event, and requesting shutdown.
 	runResult := make(chan error, 1)
 	go func() { runResult <- program.Run() }()
 
@@ -155,7 +158,8 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		Sessions:             nil,
 	})
 	program.Quit()
-	// Assert the scenario produces the required observable result.
+
+	// Assert shutdown succeeds and the supplied output receives rendered content.
 	require.NoError(t, <-runResult)
 	assert.NotEmpty(t, output.String())
 }

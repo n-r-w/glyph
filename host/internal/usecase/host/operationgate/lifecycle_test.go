@@ -73,9 +73,11 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	require.Equal(t, resumedInfo.ID, resumed.Info.ID)
 }
 
+// TestProgrammaticSessionCommandsRespectGateBeforeStorage verifies gate checks precede session persistence.
 func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 	t.Parallel()
 
+	// Arrange programmatic session control with a shared operation gate.
 	controller := gomock.NewController(t)
 	active := sessioncontrol.NewMockActiveSessions(controller)
 	gate := operationgate.New()
@@ -85,9 +87,12 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 		func() []agent.HistoryEntry { return nil }, control, programmatic.NewDelivery(),
 	)
 
+	// Act by issuing invalid, busy, query, and post-settlement session commands.
 	response, operation, err := service.Handle(t.Context(), programmaticSessionCommand(
 		"invalid-resume", programmaticcontroller.CommandResumeSession, mo.None[session.ID](), mo.None[string](),
 	))
+
+	// Assert each command observes gate precedence and permitted queries avoid storage replacement.
 	require.NoError(t, err)
 	require.Nil(t, operation)
 	require.Equal(t, programmaticcontroller.RejectionInvalidArgument, response.Rejection.MustGet().Code)
@@ -172,7 +177,7 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a real active-session service behind an acquired operation gate.
 	controller := gomock.NewController(t)
 	repository := hostsessions.NewMockRepository(controller)
 	active := hostsessions.New(
@@ -189,13 +194,14 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
 
-	// Act by executing the scenario.
+	// Act by requesting resume before and after releasing the gate.
 	response, operation, err := service.Handle(t.Context(), programmaticSessionCommand(
 		"busy", programmaticcontroller.CommandResumeSession, mo.Some(session.ID("stored")), mo.None[string](),
 	))
+
+	// Assert the busy request is rejected before repository access.
 	require.NoError(t, err)
 	require.Nil(t, operation)
-	// Assert the scenario produces the required observable result.
 	require.Equal(t, programmaticcontroller.RejectionBusy, response.Rejection.MustGet().Code)
 	release()
 

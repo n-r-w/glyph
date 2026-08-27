@@ -112,7 +112,7 @@ func TestModelEditsUnicodeSingleLineInput(t *testing.T) {
 func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a command sink and model with a populated draft.
 	var commands []presentationdomain.Command
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -127,7 +127,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		IsRepeat:    false,
 	}))
 
-	// Act by executing the scenario.
+	// Act by submitting the draft across unavailable, running, failed, and idle states.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        tea.KeyEnter,
 		Text:        "",
@@ -164,7 +164,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		BaseCode:    0,
 		IsRepeat:    false,
 	}))
-	// Assert the scenario produces the required observable result.
+	// Assert only idle submission emits and successful emission clears the draft.
 	assert.Nil(t, emptyCommand)
 
 	model = updateModel(t, model, presentationdomain.Event{
@@ -306,8 +306,9 @@ func TestModelSelectionShortcutsRespectAuthenticationAvailability(t *testing.T) 
 func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange one configured model and every model or reasoning cycle key.
 	service := presentationusecase.New()
+	// Act by applying each cycle key to a single-selection model.
 	for _, key := range []tea.Key{
 		{
 			Code:        'p',
@@ -335,7 +336,6 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 		},
 	} {
 		model := NewModel(presentationdomain.Event{
-			// Act by executing the scenario.
 			RestoredTranscript: nil,
 			Kind:               presentationdomain.EventInitialization,
 			Availability:       mo.Some(presentationdomain.AvailabilityIdle),
@@ -372,7 +372,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 		})
 
 		_, command := model.Update(tea.KeyPressMsg(key))
-		// Assert the scenario produces the required observable result.
+		// Assert redundant selection never emits a command.
 		assert.Nil(t, command)
 	}
 }
@@ -381,7 +381,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a model whose only reasoning choice is fixed.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -420,7 +420,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	})
 
 	assert.NotContains(t, model.View().Content, "Shift+Tab reasoning")
-	// Act by executing the scenario.
+	// Act by applying reasoning toggle and transcript events.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        tea.KeyTab,
 		Mod:         tea.ModShift,
@@ -459,7 +459,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert fixed reasoning stays hidden while display state remains intact.
 	assert.False(t, model.reasoningExpanded)
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        't',
@@ -578,7 +578,7 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange eight configured models in a constrained terminal.
 	service := presentationusecase.New()
 	models := make([]presentationdomain.ConfiguredModel, 8)
 	for index := range models {
@@ -637,6 +637,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 	}
 	originalTranscript := slices.Clone(model.state.Transcript)
 
+	// Act by opening the selector at the first configured model.
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'l',
 		Mod:         tea.ModCtrl,
@@ -646,6 +647,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	view := model.View().Content
+	// Assert the initial selector page fits and hides rows below the viewport.
 	assert.LessOrEqual(t, len(strings.Split(view, "\n")), model.height)
 	assert.Contains(t, view, "> provider / model-0")
 	assert.Contains(t, view, "Up/Down navigate | Enter confirm | Escape cancel")
@@ -669,7 +671,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	assert.Contains(t, model.View().Content, "> provider / model-0")
-	// Act by executing the scenario.
+	// Act by navigating from the first selector row to the last.
 	for range 7 {
 		model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 			Code:        tea.KeyDown,
@@ -681,7 +683,8 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		}))
 	}
 	view = model.View().Content
-	// Assert the scenario produces the required observable result.
+
+	// Assert navigation reaches the final row without changing the draft or transcript.
 	assert.LessOrEqual(t, len(strings.Split(view, "\n")), model.height)
 	assert.Contains(t, view, "> provider / model-7")
 	assert.Equal(t, "draft", string(model.input))
@@ -720,12 +723,13 @@ func TestTypedModelCommandIsConsumedWhenOpeningSelector(t *testing.T) {
 func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a running model with command capture.
 	var commands []presentationdomain.Command
 	model := newSelectionTestModel(t, presentationdomain.AvailabilityRunning, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
 		return nil
 	})
+	// Act by cycling provider, model, and reasoning choices during the run.
 	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'p',
 		Mod:         tea.ModCtrl,
@@ -751,6 +755,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		IsRepeat:    false,
 	}))
 
+	// Assert the model emits selection commands but waits for host confirmation before display changes.
 	assert.Equal(t, []presentationdomain.Command{
 		{
 			Kind:            presentationdomain.CommandSelectModel,
@@ -773,15 +778,13 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		{
 			Kind:            presentationdomain.CommandSelectReasoningChoice,
 			ReasoningChoice: mo.Some(presentationdomain.ReasoningChoiceHigh),
-			// Act by executing the scenario.
-			Text:        mo.None[string](),
-			ProviderID:  mo.None[string](),
-			ModelID:     mo.None[string](),
-			SessionID:   mo.None[string](),
-			SessionName: mo.None[string](),
+			Text:            mo.None[string](),
+			ProviderID:      mo.None[string](),
+			ModelID:         mo.None[string](),
+			SessionID:       mo.None[string](),
+			SessionName:     mo.None[string](),
 		},
 	}, commands)
-	// Assert the scenario produces the required observable result.
 	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
 		ProviderID:      "openai-codex",
 		ModelID:         "gpt",
@@ -848,13 +851,14 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange models in running, failed, and idle states with command capture.
 	var commands []presentationdomain.Command
 	emit := func(command presentationdomain.Command) error {
 		commands = append(commands, command)
 		return nil
 	}
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, emit)
+	// Act by applying the documented stop, retry, and quit keys.
 	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'c',
 		Mod:         tea.ModCtrl,
@@ -896,7 +900,6 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		IsRepeat:    false,
 	}))
 
-	// Act by executing the scenario.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        'q',
 		Mod:         tea.ModCtrl,
@@ -906,7 +909,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	model = next.(Model)
-	// Assert the scenario produces the required observable result.
+	// Assert each key emits the documented command or quit message.
 	require.NotNil(t, command)
 	message := command()
 	assert.IsType(t, emissionResultMsg{}, message)
@@ -950,7 +953,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange startup warnings and extension identity paths.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -971,7 +974,6 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 				Contents: mo.None[[]presentationdomain.Content](),
 			},
 		},
-		// Act by executing the scenario.
 		Extensions: []presentationdomain.Extension{{
 			ID:    "glyph-tools",
 			Path:  "/plugins/extension/glyph-tools",
@@ -997,8 +999,9 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 		Sessions:             nil,
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 
+	// Act by rendering the initialized model.
 	view := model.View().Content
-	// Assert the scenario produces the required observable result.
+	// Assert the view shows each warning and extension path once.
 	assert.Contains(t, view, "[warning] excluded UI optional at /plugins/ui/optional")
 	assert.Contains(t, view, "[info] UI glyph-tui; extension glyph-tools at /plugins/extension/glyph-tools: read")
 	assert.Equal(t, 1, strings.Count(view, "glyph-tools at /plugins/extension/glyph-tools"))
@@ -1008,7 +1011,7 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange startup content, transcript, active output, authorization, and window events.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1040,6 +1043,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
+	// Act by applying lifecycle updates and resizing the terminal.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
@@ -1064,7 +1068,6 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -1126,8 +1129,8 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		IsRepeat:    false,
 	}))
 
+	// Assert the alternate-screen view contains each projected state and fits the new size.
 	view := model.View()
-	// Assert the scenario produces the required observable result.
 	assert.True(t, view.AltScreen)
 	assert.Contains(t, view.Content, "Glyph session initialized.")
 	assert.Contains(t, view.Content, "[info] Ready.")
@@ -1142,8 +1145,9 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange streamed model text and a terminal response at another position.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
+	// Act by applying the terminal response after streamed text.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -1169,15 +1173,14 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelDelta,
-		Position:           mo.Some(1),
-		Text:               mo.Some("complete answer"),
-		Startup:            nil,
-		Extensions:         nil,
-		Availability:       mo.None[presentationdomain.Availability](),
-		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
-		// Act by executing the scenario.
+		RestoredTranscript:   nil,
+		Kind:                 presentationdomain.EventModelDelta,
+		Position:             mo.Some(1),
+		Text:                 mo.Some("complete answer"),
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
@@ -1221,17 +1224,18 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Sessions:         nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert the model clears active fragments and renders the completed text once.
 	assert.Empty(t, model.state.ActiveModel)
 	assert.Equal(t, 1, strings.Count(model.View().Content, "complete answer"))
 }
 
-// TestModelRendersProvisionalToolCallNameFieldsAndPrefix verifies model renders provisional tool call name fields and prefix.
+// TestModelRendersProvisionalToolCallNameFieldsAndPrefix verifies provisional complete and prefix fields remain visible.
 func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a provisional tool call with complete and prefix fields.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, func(presentationdomain.Command) error { return nil })
+	// Act by applying and rendering the provisional call.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventToolCallPreview,
@@ -1251,7 +1255,6 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 					Prefix: mo.Some("hel"),
 					Value:  mo.None[any](),
 				},
-				// Act by executing the scenario.
 			},
 			Arguments: nil,
 		}),
@@ -1277,7 +1280,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	})
 
 	view := model.View().Content
-	// Assert the scenario produces the required observable result.
+	// Assert the view includes the call name, complete field, and prefix field.
 	assert.Contains(t, view, "[tool:call] read (provisional)")
 	assert.Contains(t, view, `path="file.txt"`)
 	assert.Contains(t, view, "query=hel")
@@ -1288,7 +1291,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange reasoning transcript lines in a narrow terminal.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
 	model.state.Transcript = append(model.state.Transcript,
 		presentationdomain.Line{
@@ -1333,6 +1336,7 @@ func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 
 	model.emitting = true
 	model.selectorOpen = true
+	// Act by toggling reasoning expansion and rendering the expanded lines.
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'o',
 		Mod:         tea.ModCtrl,
@@ -1357,9 +1361,8 @@ func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 	expanded := strings.Join(expandedLines, "\n")
 	assert.Contains(t, expanded, "first")
 	assert.Contains(t, expanded, "second")
-	// Act by executing the scenario.
+	// Assert expanded reasoning remains within terminal width.
 	for _, line := range expandedLines {
-		// Assert the scenario produces the required observable result.
 		assert.LessOrEqual(t, ansi.StringWidth(line), 12)
 	}
 }
@@ -1368,7 +1371,7 @@ func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange completed mixed Unicode content in a narrow terminal.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1402,9 +1405,9 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 		Height: 0,
 	})
 
-	// Act by executing the scenario.
+	// Act by computing visible wrapped body lines.
 	lines := model.visibleBodyLines(0)
-	// Assert the scenario produces the required observable result.
+	// Assert completed content wraps at cell boundaries without corrupting Unicode.
 	assert.Equal(t, []string{"assistant:", "readable words", "wrap cleanly", "你好 世界"}, lines)
 	for _, line := range lines {
 		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
@@ -1415,7 +1418,7 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 func TestModelWrapsActiveContent(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange active model content with a long unbroken word.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1446,9 +1449,9 @@ func TestModelWrapsActiveContent(t *testing.T) {
 		Height: 0,
 	})
 
-	// Act by executing the scenario.
+	// Act by computing visible wrapped body lines.
 	lines := model.visibleBodyLines(0)
-	// Assert the scenario produces the required observable result.
+	// Assert active content wraps words and clips long tokens to terminal width.
 	assert.Equal(t, []string{"assistant:", "active words and", "supercalifragili", "stic"}, lines)
 	for _, line := range lines {
 		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
@@ -1459,7 +1462,7 @@ func TestModelWrapsActiveContent(t *testing.T) {
 func TestModelClipsAfterWrapping(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange wrapped active content and two terminal heights.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1475,22 +1478,22 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		// Act by executing the scenario.
-		Contents:       mo.None[[]presentationdomain.Content](),
-		ErrorText:      mo.None[string](),
-		ExitCode:       mo.None[int](),
-		Failure:        mo.None[bool](),
-		ToolCall:       mo.None[presentationdomain.ToolCallState](),
-		Models:         nil,
-		ModelSelection: mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
-		Sessions:       nil,
+		Contents:             mo.None[[]presentationdomain.Content](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
+	// Act by resizing after content wrapping.
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
 		Height: fixedViewLineCount + 2,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert clipping retains only lines that fit each terminal height.
 	assert.Equal(t, []string{"supercalifragili", "stic"}, model.visibleBodyLines(0))
 
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1504,7 +1507,7 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange five transcript lines, an editor draft, and a short terminal.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
 	for _, text := range []string{"oldest", "older", "middle", "newer", "latest"} {
 		model = updateModel(t, model, presentationdomain.Event{
@@ -1522,15 +1525,14 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Contents:             mo.None[[]presentationdomain.Content](),
-			// Act by executing the scenario.
-			ErrorText:      mo.None[string](),
-			ExitCode:       mo.None[int](),
-			Failure:        mo.None[bool](),
-			ToolCall:       mo.None[presentationdomain.ToolCallState](),
-			Models:         nil,
-			ModelSelection: mo.None[presentationdomain.ModelSelection](),
-			SessionInfo:    mo.None[presentationdomain.SessionInfo](),
-			Sessions:       nil,
+			ErrorText:            mo.None[string](),
+			ExitCode:             mo.None[int](),
+			Failure:              mo.None[bool](),
+			ToolCall:             mo.None[presentationdomain.ToolCallState](),
+			Models:               nil,
+			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+			Sessions:             nil,
 		})
 	}
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1538,8 +1540,9 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 		Height: 7,
 	})
 
+	// Act by rendering the constrained terminal view.
 	view := model.View().Content
-	// Assert the scenario produces the required observable result.
+	// Assert the editor and latest transcript remain visible while older lines are clipped.
 	assert.LessOrEqual(t, len(strings.Split(view, "\n")), 7)
 	assert.NotContains(t, view, "oldest")
 	assert.Contains(t, view, "newer")
@@ -1554,8 +1557,9 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a completed first response followed by an idle second draft.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
+	// Act by settling the first turn and entering the second request.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventModelEnd,
@@ -1584,15 +1588,14 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		Sessions:         nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventAgentSettled,
-		Text:               mo.Some("completed"),
-		Startup:            nil,
-		Extensions:         nil,
-		Availability:       mo.None[presentationdomain.Availability](),
-		Position:           mo.None[int](),
-		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
-		// Act by executing the scenario.
+		RestoredTranscript:   nil,
+		Kind:                 presentationdomain.EventAgentSettled,
+		Text:                 mo.Some("completed"),
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
@@ -1641,7 +1644,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		IsRepeat:    false,
 	}))
 
-	// Assert the scenario produces the required observable result.
+	// Assert the first transcript and second draft remain visible together.
 	assert.Contains(t, model.View().Content, "assistant: first response")
 	assert.Contains(t, model.View().Content, "Request: second request|")
 }
@@ -1650,25 +1653,28 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 func TestRenderLineDistinguishesRefusal(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
-	assert.Equal(t, "[refusal] cannot help", renderLine(presentationdomain.Line{
-		Kind: presentationdomain.LineRefusal,
-		// Act by executing the scenario.
+	// Arrange a refusal transcript line.
+	line := presentationdomain.Line{
+		Kind:     presentationdomain.LineRefusal,
 		Text:     mo.Some("cannot help"),
 		ToolName: mo.None[string](),
-
 		Status:   mo.None[string](),
 		Contents: mo.None[[]presentationdomain.Content](),
-		// Assert the scenario produces the required observable result.
-	}))
+	}
+
+	// Act by rendering the refusal line.
+	result := renderLine(line)
+
+	// Assert the rendered prefix distinguishes refusal from model text.
+	assert.Equal(t, "[refusal] cannot help", result)
 }
 
 // newSelectionTestModel builds a model with configured selections and deterministic presentation behavior.
-// TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies model clears session command only after host confirms replacement.
+// TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies rejected replacement keeps the draft until confirmation.
 func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a pending session command and delayed host confirmation.
 	commands := make([]presentationdomain.Command, 0, 1)
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -1677,6 +1683,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	model.input = []rune("/new")
 	model.cursor = len(model.input)
 
+	// Act by submitting the command and then applying confirmed session replacement.
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	require.Len(t, commands, 1)
 	assert.Equal(t, presentationdomain.CommandCreateSession, commands[0].Kind)
@@ -1710,13 +1717,12 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			WorkingDirectory: "/project",
 			StoragePath:      "",
 			StoragePresent:   false,
-			// Act by executing the scenario.
-			CreatedAt: time.Unix(1, 0),
-			UpdatedAt: time.Unix(1, 0),
+			CreatedAt:        time.Unix(1, 0),
+			UpdatedAt:        time.Unix(1, 0),
 		}),
 		Sessions: nil,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert the draft clears only after host confirmation.
 	assert.Empty(t, model.input)
 	assert.Zero(t, model.cursor)
 
@@ -1768,11 +1774,11 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	assert.Contains(t, view, "Updated: 1970-01-01T00:00:02Z")
 }
 
-// TestModelResumeSelectorEmitsSelectedSession verifies model resume selector emits selected session.
+// TestModelResumeSelectorEmitsSelectedSession verifies selector navigation emits the chosen ID without mutating the draft.
 func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a resume selector with two sessions and a preserved draft.
 	commands := make([]presentationdomain.Command, 0, 2)
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -1830,15 +1836,15 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		Text: mo.Some("existing transcript"), Contents: mo.None[[]presentationdomain.Content](),
 	}}
 	model.input = []rune("preserved draft")
-	// Act by executing the scenario.
 	model.cursor = len(model.input)
+	// Act by selecting the second session and confirming resume.
 	model = updateModel(t, model, tea.KeyPressMsg(testKey(tea.KeyDown)))
 	beforeSessions := append([]presentationdomain.SessionSummary(nil), model.state.Sessions...)
 	beforeTranscript := append([]presentationdomain.Line(nil), model.state.Transcript...)
 	beforeInfo := model.state.SessionInfo
 	beforeInput := append([]rune(nil), model.input...)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
-	// Assert the scenario produces the required observable result.
+	// Assert the selected session command is emitted without mutating the selector data or draft.
 	require.Len(t, commands, 2)
 	assert.Equal(t, presentationdomain.CommandResumeSession, commands[1].Kind)
 	assert.Equal(t, "second", commands[1].SessionID.MustGet())
@@ -1972,10 +1978,17 @@ func TestFormatSessionInfoShowsAbsentOptionalFields(t *testing.T) {
 	assert.Contains(t, text, "Storage path: <absent>")
 }
 
+// TestEllipsizeUsesTerminalCellWidth verifies wide runes respect the cell-width limit.
 func TestEllipsizeUsesTerminalCellWidth(t *testing.T) {
 	t.Parallel()
 
-	result := ellipsize("界界界", 4)
+	// Arrange wide Unicode text and a four-cell limit.
+	text := "界界界"
+
+	// Act by ellipsizing the text to the terminal width.
+	result := ellipsize(text, 4)
+
+	// Assert the result fits the cell limit and ends with an ellipsis.
 	assert.LessOrEqual(t, ansi.StringWidth(result), 4)
 	assert.True(t, strings.HasSuffix(result, "…"))
 }

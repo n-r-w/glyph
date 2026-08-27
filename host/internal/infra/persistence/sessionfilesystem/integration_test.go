@@ -20,11 +20,11 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestAppendCreatesVersionedSynchronizedSessionFile verifies append creates versioned synchronized session file.
+// TestAppendCreatesVersionedSynchronizedSessionFile verifies the first named entry creates one private JSONL file.
 func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange an initialized filesystem repository and a named session entry.
 	root := filepath.Join(t.TempDir(), "sessions")
 	canonical, err := sessionstore.CanonicalWorkingDirectory(t.TempDir())
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
-	// Act by executing the scenario.
+	// Act by appending the first durable record.
 	result, err := repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
@@ -46,7 +46,7 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 		hex.EncodeToString(digest[:]),
 		"20260826T200000.000000000Z-session-id.jsonl",
 	)
-	// Assert the scenario produces the required observable result.
+	// Assert the repository creates a private, synchronized, versioned session file.
 	require.Equal(t, expectedStoragePath, result.StoragePath)
 	info, err := os.Stat(result.StoragePath)
 	require.NoError(t, err)
@@ -63,11 +63,11 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	require.Equal(t, result.StoragePath, stored.StoragePath)
 }
 
-// TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject verifies canonical working directory treats symlink as same project.
+// TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject verifies canonical and symlink paths reopen the same session.
 func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange canonical and symlink paths to the same project directory.
 	base := t.TempDir()
 	project := filepath.Join(base, "project")
 	require.NoError(t, os.Mkdir(project, 0o700))
@@ -79,11 +79,9 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, canonicalProject, canonicalLink)
 
-	// Act by executing the scenario.
-
+	// Act by persisting through the canonical path and reopening through the symlink path.
 	root := filepath.Join(base, "sessions")
 	canonicalRepository := sessionstore.New(root, canonicalProject, sessionfilesystem.New())
-	// Assert the scenario produces the required observable result.
 	require.NoError(t, canonicalRepository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	_, err = canonicalRepository.Append(t.Context(), hostsessions.AppendCommand{
@@ -96,13 +94,17 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	symlinkRepository := sessionstore.New(root, canonicalLink, sessionfilesystem.New())
 	require.NoError(t, symlinkRepository.Initialize(t.Context()))
 	loaded, err := symlinkRepository.Load(t.Context(), "shared-id")
+
+	// Assert both paths address the same stored session.
 	require.NoError(t, err)
 	require.Equal(t, session.ID("shared-id"), loaded.Header.ID)
 }
 
+// TestActiveSessionCreatesNoFileBeforeNaming verifies initialization remains memory-only.
 func TestActiveSessionCreatesNoFileBeforeNaming(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an empty repository and deterministic active-session identity.
 	root := filepath.Join(t.TempDir(), "sessions")
 	project, err := sessionstore.CanonicalWorkingDirectory(t.TempDir())
 	require.NoError(t, err)
@@ -113,8 +115,12 @@ func TestActiveSessionCreatesNoFileBeforeNaming(t *testing.T) {
 	ids.EXPECT().NewID().Return("startup-id", nil)
 	clock.EXPECT().Now().Return(time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC))
 	active := hostsessions.New(repository, ids, clock, project)
+
+	// Act by initializing the active session without assigning a name.
 	require.NoError(t, active.Initialize(t.Context()))
 	projects, err := os.ReadDir(root)
+
+	// Assert project directories contain no session file and storage path remains absent.
 	require.NoError(t, err)
 	require.Len(t, projects, 1)
 	files, err := os.ReadDir(filepath.Join(root, projects[0].Name()))
@@ -123,26 +129,25 @@ func TestActiveSessionCreatesNoFileBeforeNaming(t *testing.T) {
 	require.False(t, active.ActiveInfo().StoragePath.IsPresent())
 }
 
-// TestRepositoryReopensListsKnownSessionAndRejectsUnknownID verifies repository reopens lists known session and rejects unknown id.
+// TestRepositoryReopensListsKnownSessionAndRejectsUnknownID verifies reopening retains one known session and rejects an unknown ID.
 func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange an initialized repository and one append command for a known session.
 	root := filepath.Join(t.TempDir(), "sessions")
 	project, err := sessionstore.CanonicalWorkingDirectory(t.TempDir())
 	require.NoError(t, err)
 	repository := sessionstore.New(root, project, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	// Act by executing the scenario.
 	command := hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Entry: session.Entry{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute), Information: mo.Some(session.Information{Name: "known session"}), Extension: mo.None[session.ExtensionEnvelope]()},
 	}
+	// Act by appending, reopening, loading, listing, and requesting an unknown session.
 	created, err := repository.Append(t.Context(), command)
-	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
 	_, err = repository.Append(t.Context(), command)
 	require.Error(t, err)
@@ -156,14 +161,16 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	require.Len(t, listed, 1)
 	require.Equal(t, session.ID("known-id"), listed[0].Header.ID)
 	_, err = reopened.Load(t.Context(), "unknown-id")
+
+	// Assert the known session survives reopening and the unknown identifier is rejected.
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
-// TestRepositoryReopensNameLargerThanScannerToken verifies repository reopens name larger than scanner token.
+// TestRepositoryReopensNameLargerThanScannerToken verifies framing retains a name beyond the scanner token limit.
 func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a session name larger than the default scanner token limit.
 	root := filepath.Join(t.TempDir(), "sessions")
 	project, err := sessionstore.CanonicalWorkingDirectory(t.TempDir())
 	require.NoError(t, err)
@@ -171,42 +178,43 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	largeName := strings.Repeat("n", bufio.MaxScanTokenSize+1024)
-	// Act by executing the scenario.
+	// Act by appending the large name and loading it from a reopened repository.
 	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Entry: session.Entry{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope]()},
 	})
-	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
 	require.NoError(t, reopened.Initialize(t.Context()))
 	loaded, err := reopened.Load(t.Context(), "large-name")
+
+	// Assert the complete name survives record framing and reconstruction.
 	require.NoError(t, err)
 	require.Equal(t, largeName, loaded.Entries[0].Information.MustGet().Name)
 }
 
-// TestAppendRejectsStoragePathOutsideProjectDirectory verifies append rejects storage path outside project directory.
+// TestAppendRejectsStoragePathOutsideProjectDirectory verifies an outside sentinel file cannot become session storage.
 func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange an initialized repository and a sentinel file outside its project directory.
 	base := t.TempDir()
 	canonical, err := sessionstore.CanonicalWorkingDirectory(t.TempDir())
 	require.NoError(t, err)
 	repository := sessionstore.New(filepath.Join(base, "sessions"), canonical, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
 	outsidePath := filepath.Join(base, "outside.jsonl")
-	// Act by executing the scenario.
 	require.NoError(t, os.WriteFile(outsidePath, []byte("sentinel"), 0o600))
+	// Act by attempting to append through the outside storage path.
 	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
 		Entry: session.Entry{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}), Extension: mo.None[session.ExtensionEnvelope]()},
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert the append fails and leaves the sentinel file unchanged.
 	require.Error(t, err)
 	content, readErr := os.ReadFile(outsidePath)
 	require.NoError(t, readErr)

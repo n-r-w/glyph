@@ -177,7 +177,7 @@ func mapModelResponseProjection(response model.Response) (controller.ModelRespon
 	}, nil
 }
 
-// mapModelDiagnostics keeps diagnostics on live responses and excludes them from continuation history.
+// mapModelDiagnostics copies restored diagnostics into the public response.
 func mapModelDiagnostics(diagnostics []model.Diagnostic) []controller.ModelDiagnostic {
 	return lo.Map(diagnostics, func(diagnostic model.Diagnostic, _ int) controller.ModelDiagnostic {
 		return controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
@@ -246,7 +246,7 @@ func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPrevie
 	}
 }
 
-// mapPublicToolResult keeps only terminal text blocks in session and history projections.
+// mapToolResult preserves valid ordered text and image blocks with owned image bytes.
 func mapToolResult(result agent.ToolResult) controller.ToolResult {
 	contents := lo.FilterMap(
 		result.Contents,

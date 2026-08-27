@@ -384,7 +384,7 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 	return lines, nil
 }
 
-// mapRestoredModelResponse keeps stored model content and terminal failures in their display order.
+// mapRestoredContents maps ordered user text and images with owned image bytes.
 func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Content, string, error) {
 	mapped := make([]presentationdomain.Content, 0, len(contents))
 	var text strings.Builder
@@ -418,6 +418,7 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Con
 	return mapped, text.String(), nil
 }
 
+// mapRestoredModelResponse keeps stored model content and diagnostics in display order.
 func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomain.Line, error) {
 	lines := make([]presentationdomain.Line, 0, len(response.GetContent()))
 	for _, content := range response.GetContent() {

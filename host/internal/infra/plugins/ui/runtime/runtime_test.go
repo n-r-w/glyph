@@ -82,6 +82,7 @@ func TestChannelCloseUnblocksPendingReceive(t *testing.T) {
 func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a runtime stream with every frame and command contract variant.
 	service := &runtimeContractService{
 		UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
 		received:                     make(chan *uipb.OpenRequest, 6),
@@ -105,9 +106,11 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 		testModelSelectionFrame(),
 	}
 
+	// Act by sending every host frame and receiving every UI command.
 	for _, frame := range frames {
 		require.NoError(t, transport.Send(frame))
 	}
+	// Assert every frame reaches the service and every command maps exactly.
 	for range frames {
 		assert.NotNil(t, <-service.received)
 	}
@@ -173,7 +176,6 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 	}
 }
 
-// TestMapCommandRequiresSelectedScalarPresence verifies omission is rejected at the plugin boundary.
 // TestRestoredSessionImageDataPresence verifies restored image presence and ownership after UI serialization.
 func TestRestoredSessionImageDataPresence(t *testing.T) {
 	t.Parallel()

@@ -439,11 +439,11 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 	}
 }
 
-// TestToolResultContentsSliceStateRoundTrip verifies tool result contents slice state round trip.
+// TestToolResultContentsSliceStateRoundTrip verifies JSONL preserves nil, empty, and ordered result content.
 func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange nil, empty, and populated tool-result content slices.
 	contentsCases := []struct {
 		name     string
 		contents []tool.ResultContent
@@ -455,7 +455,8 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 			{Kind: tool.ResultContentText, Text: mo.Some("second"), Image: mo.None[tool.ResultImage]()},
 		}},
 	}
-	// Act by executing the scenario.
+
+	// Act by encoding and decoding each content-slice state.
 	for _, test := range contentsCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -468,11 +469,11 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 			}
 
 			encoded, err := encodeEntry(entry)
-			// Assert the scenario produces the required observable result.
 			require.NoError(t, err)
 			decoded, err := decodeEntry(encoded)
-			require.NoError(t, err)
 
+			// Assert round-trip decoding preserves the exact slice state.
+			require.NoError(t, err)
 			actual := decoded.ToolResult.MustGet().Contents
 			require.Equal(t, test.contents, actual)
 			require.Equal(t, test.contents == nil, actual == nil)
@@ -480,11 +481,11 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 	}
 }
 
-// TestProviderContextPayloadSliceStateRoundTrip verifies provider context payload slice state round trip.
+// TestProviderContextPayloadSliceStateRoundTrip verifies JSONL preserves nil, empty, and opaque provider payloads.
 func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange nil, empty, and opaque provider-context payloads.
 	payloadCases := []struct {
 		name    string
 		payload []byte
@@ -493,7 +494,8 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 		{name: "non-nil empty", payload: []byte{}},
 		{name: "opaque bytes", payload: []byte{0, 1, 255}},
 	}
-	// Act by executing the scenario.
+
+	// Act by encoding and decoding each provider-context payload state.
 	for _, test := range payloadCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -521,11 +523,11 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 			}
 
 			encoded, err := encodeEntry(entry)
-			// Assert the scenario produces the required observable result.
 			require.NoError(t, err)
 			decoded, err := decodeEntry(encoded)
-			require.NoError(t, err)
 
+			// Assert round-trip decoding preserves payload presence and bytes.
+			require.NoError(t, err)
 			actual := decoded.Model.MustGet().Content[0].ProviderContext.MustGet().Payload
 			require.Equal(t, test.payload, actual)
 			require.Equal(t, test.payload == nil, actual == nil)

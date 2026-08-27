@@ -58,12 +58,15 @@ func (s *ServiceSuite) TestInitializeCreatesUnpersistedActiveSession() {
 	}, service.ActiveInfo())
 }
 
+// TestCreateReplacesActiveSessionWithIndependentSnapshot verifies caller mutation cannot alter the new active session.
 func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() {
+	// Arrange deterministic identity and time for a new active session.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.ids.EXPECT().NewID().Return("created-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 	service := New(s.repository, s.ids, s.clock, "/project")
 
+	// Act by creating the active session and mutating the returned replacement.
 	created, err := service.CreateActive(s.T().Context())
 	s.Require().NoError(err)
 	s.Equal(session.ID("created-id"), created.Info.ID)
@@ -73,15 +76,16 @@ func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() 
 	s.Empty(created.Entries)
 	created.Info.Name = mo.Some("caller mutation")
 
+	// Assert the service retains independent active-session metadata.
 	active := service.ActiveInfo()
 	s.Equal(session.ID("created-id"), active.ID)
 	s.False(active.Name.IsPresent())
 	s.False(active.StoragePath.IsPresent())
 }
 
-// TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot verifies set name persists normalized name before updating snapshot.
+// TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot verifies a whitespace-heavy name becomes durable before publication.
 func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange an initialized session and an append expectation for the normalized name.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
@@ -95,7 +99,6 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 			ID:               "session-id",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
-			// Act by executing the scenario.
 		},
 		StoragePath: "",
 		Entry: session.Entry{
@@ -107,11 +110,12 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 			Extension:   mo.None[session.ExtensionEnvelope]()},
 	}).Return(AppendResult{StoragePath: "/sessions/file.jsonl"}, nil)
 
+	// Act by initializing the service and setting a whitespace-heavy name.
 	service := New(s.repository, s.ids, s.clock, "/project")
-	// Assert the scenario produces the required observable result.
 	s.Require().NoError(service.Initialize(s.T().Context()))
 	info, err := service.SetActiveName(s.T().Context(), "  release\r\n\nnotes  ")
 	s.Require().NoError(err)
+	// Assert the normalized name is persisted before the active snapshot changes.
 	s.Equal(mo.Some("release notes"), info.Name)
 	s.Equal(mo.Some("/sessions/file.jsonl"), info.StoragePath)
 	s.Equal(updatedAt, info.UpdatedAt)
@@ -169,7 +173,9 @@ func (s *ServiceSuite) TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps() {
 	s.Equal(secondUpdate, info.UpdatedAt)
 }
 
+// TestListOrdersUpdatesAndUsesUnnamedIDFallbackData verifies unnamed summaries are ordered without invented display data.
 func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
+	// Arrange stored unnamed sessions with tied and distinct update times.
 	base := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
 		{Header: session.Header{Version: 1, ID: "older", CreatedAt: base, WorkingDirectory: "/project"}, StoragePath: "/older.jsonl", Entries: nil},
@@ -178,7 +184,9 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, "/project")
 
+	// Act by listing reconstructed session summaries.
 	listed, err := service.ListStored(s.T().Context())
+	// Assert summaries use deterministic update order and absent fallback fields.
 	s.Require().NoError(err)
 	s.Require().Len(listed, 3)
 	s.Equal(session.ID("a-id"), listed[0].Info.ID)
@@ -191,9 +199,9 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	}
 }
 
-// TestListCountsStoredToolResultsAsTerminalMessages verifies list counts stored tool results as terminal messages.
+// TestListCountsStoredToolResultsAsTerminalMessages verifies model and tool-result entries both contribute to the summary count.
 func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a stored session containing model and tool-result terminal entries.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
 		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
@@ -210,7 +218,6 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 					Content: nil, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-					// Act by executing the scenario.
 				}),
 				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			},
@@ -226,17 +233,18 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	}}, nil)
 	service := New(s.repository, s.ids, s.clock, "/project")
 
+	// Act by listing the stored session.
 	listed, err := service.ListStored(s.T().Context())
 
-	// Assert the scenario produces the required observable result.
+	// Assert the summary counts every terminal message including tool results.
 	s.Require().NoError(err)
 	s.Require().Len(listed, 1)
 	s.Equal(3, listed[0].TotalMessages)
 }
 
-// TestResumeReturnsIndependentSnapshot verifies resume returns independent snapshot.
+// TestResumeReturnsIndependentSnapshot verifies source and replacement mutations cannot alter active metadata.
 func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a stored session with caller-owned entry metadata.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	entries := []session.Entry{
 		{
@@ -248,27 +256,64 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header:      session.Header{Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
 		StoragePath: "/sessions/stored.jsonl",
-		// Act by executing the scenario.
-		Entries: entries,
+		Entries:     entries,
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, "/project")
 
+	// Act by resuming and mutating source and returned replacement values.
 	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
-	// Assert the scenario produces the required observable result.
 	s.Require().NoError(err)
 	s.Require().Len(replacement.Entries, 1)
 	entries[0].Information = mo.Some(session.Information{Name: "mutated source"})
 	replacement.Info.Name = mo.Some("mutated result")
 	replacement.Entries[0].Information = mo.Some(session.Information{Name: "mutated replacement"})
+	// Assert the active session retains independently owned metadata.
 	active := service.ActiveInfo()
 	s.Equal(session.ID("stored-id"), active.ID)
 	s.Equal(mo.Some("stored name"), active.Name)
 	s.Equal(mo.Some("/sessions/stored.jsonl"), active.StoragePath)
 }
 
-// TestResumeSerializesWithCompletedTextAppend verifies resume serializes with completed text append.
+// TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots verifies every active-session boundary owns extension bytes.
+func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
+	// Arrange a loaded session with one present extension envelope and caller-owned JSON bytes.
+	createdAt := time.Date(2026, 8, 27, 4, 0, 0, 0, time.UTC)
+	want := []byte(`{"checkpoint":true}`)
+	repositoryBytes := append([]byte(nil), want...)
+	entries := []session.Entry{{
+		ID: "extension-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+		ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.Some(session.ExtensionEnvelope{
+			ExtensionID: "example.extension", EntryType: "checkpoint", Data: repositoryBytes,
+		}),
+	}}
+	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
+		Header: session.Header{
+			Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project",
+		},
+		StoragePath: "/sessions/stored.jsonl", Entries: entries,
+	}, nil)
+	service := New(s.repository, s.ids, s.clock, "/project")
+
+	// Act by resuming, then mutating repository input, returned replacement, and one active snapshot.
+	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
+	s.Require().NoError(err)
+	repositoryBytes[0] = 'X'
+	replacement.Entries[0].Extension.MustGet().Data[1] = 'Y'
+	firstSnapshot := service.ActiveEntries()
+	firstSnapshot[0].Extension.MustGet().Data[2] = 'Z'
+	laterSnapshot := service.ActiveEntries()
+
+	// Assert the later snapshot retains extension presence and the original independently owned bytes.
+	s.Require().Len(laterSnapshot, 1)
+	s.Require().True(laterSnapshot[0].Extension.IsPresent())
+	s.Equal(want, laterSnapshot[0].Extension.MustGet().Data)
+}
+
+// TestResumeSerializesWithCompletedTextAppend verifies resume cannot redirect an append that already owns the service lock.
 func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a blocked repository load and a concurrent completed text append.
 	createdAt := time.Date(2026, 8, 27, 2, 0, 0, 0, time.UTC)
 	s.ids.EXPECT().NewID().Return("old-session", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
@@ -296,7 +341,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 		},
 	)
 	resumeDone := make(chan error, 1)
-	// Act by executing the scenario.
+	// Act by starting resume and append operations while controlling load release.
 	go func() {
 		_, resumeErr := service.ResumeActive(s.T().Context(), "stored")
 		resumeDone <- resumeErr
@@ -323,7 +368,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	}()
 	<-appendStarted
 	close(releaseLoad)
-	// Assert the scenario produces the required observable result.
+	// Assert serialization keeps the completed append on its original session.
 	s.Require().NoError(<-resumeDone)
 	s.Require().NoError(<-appendDone)
 	s.Equal(session.ID("stored"), appendCommand.Header.ID)
@@ -334,9 +379,9 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	s.Equal("appended text", entries[1].User.MustGet().Content[0].Text.MustGet())
 }
 
-// TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies history append persists text before publishing immutable snapshot.
+// TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies complete user and model entries become durable before publication.
 func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange persistence expectations for complete user and model history entries.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	userAt := createdAt.Add(time.Minute)
 	modelAt := createdAt.Add(2 * time.Minute)
@@ -378,11 +423,11 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	service := New(s.repository, s.ids, s.clock, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
 
+	// Act by appending user and model entries before reading snapshots.
 	s.Require().NoError(service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}))
-	// Act by executing the scenario.
 	response := model.Response{
 		Content: []model.Content{
 			{
@@ -409,12 +454,12 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 		ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
 		Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	// Assert the scenario produces the required observable result.
 	s.Require().NoError(service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
 		Model: mo.Some(response), ToolResult: mo.None[agent.ToolResult](),
 	}))
 
+	// Assert durable entries publish complete, independently owned provider history.
 	history := service.Snapshot()
 	s.Require().Len(history, 2)
 	s.Equal("hello", history[0].User.MustGet().Content[0].Text.MustGet())
@@ -589,7 +634,9 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 	}
 }
 
+// TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged verifies failed durability prevents tool-result publication.
 func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged() {
+	// Arrange an initialized session and a tool-result append that fails during sync.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
@@ -605,10 +652,12 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("sync failed")),
 	)
 
+	// Act by appending the terminal tool result.
 	err := active.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(result),
 	})
+	// Assert the error leaves durable entries and provider history unchanged.
 	s.Require().ErrorContains(err, "sync failed")
 	s.Empty(active.ActiveEntries())
 	s.Empty(active.Snapshot())
@@ -656,7 +705,9 @@ func (s *ServiceSuite) TestImageOnlyToolResultBecomesDurable() {
 	s.Equal(result, active.Snapshot()[0].ToolResult.MustGet())
 }
 
+// TestTerminalToolResultProjectionPreservesContentsSliceState verifies nil and empty result slices remain distinct.
 func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceState() {
+	// Arrange repository callbacks for nil and present-empty tool-result content slices.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
@@ -685,6 +736,7 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 			},
 		),
 	)
+	// Act by appending terminal tool results with both slice states.
 	for _, contents := range [][]tool.ResultContent{nil, {}} {
 		s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 			Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
@@ -693,11 +745,14 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 			}),
 		}))
 	}
+
+	// Assert both durable projections completed and became active entries.
+	s.Len(active.ActiveEntries(), 2)
 }
 
-// TestNextProviderRequestPreservesCompleteRestartedToolHistory verifies next provider request preserves complete restarted tool history.
+// TestNextProviderRequestPreservesCompleteRestartedToolHistory verifies restart retains complete tool history and independently owned bytes.
 func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHistory() {
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a resumed history containing images, refusal, reasoning, tool calls, and tool results.
 	base := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	idIndex := 0
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
@@ -717,6 +772,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 			return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
 		},
 	).AnyTimes()
+	// Act by reconstructing the session, mutating escaped snapshots, and taking the next provider snapshot.
 	active := New(s.repository, s.ids, s.clock, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
@@ -727,7 +783,6 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 		Payload: []byte{1, 2, 3},
 	}
-	// Act by executing the scenario.
 	response := model.Response{
 		Content: []model.Content{
 			{
@@ -775,7 +830,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	}))
 	escaped := active.Snapshot()
 	escapedUser := escaped[0].User.MustGet()
-	// Assert the scenario produces the required observable result.
+	// Assert the next provider request retains complete ordered history with independent bytes.
 	s.Require().Len(escapedUser.Content, 2)
 	escapedUser.Content[1].Data.MustGet()[0] = 0
 	escapedModel := escaped[1].Model.MustGet()

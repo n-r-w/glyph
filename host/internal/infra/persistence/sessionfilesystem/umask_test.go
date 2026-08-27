@@ -21,16 +21,21 @@ import (
 
 const restrictiveUmaskHelperEnvironment = "GLYPH_SESSION_RESTRICTIVE_UMASK_HELPER"
 
+// TestInitialSessionFileHasExactModeUnderRestrictiveUmask verifies file mode ignores a restrictive inherited umask.
 func TestInitialSessionFileHasExactModeUnderRestrictiveUmask(t *testing.T) {
 	t.Parallel()
 
+	// Arrange helper mode or a subprocess configured to enter helper mode.
 	if os.Getenv(restrictiveUmaskHelperEnvironment) == "1" {
 		runRestrictiveUmaskAppend(t)
 		return
 	}
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestInitialSessionFileHasExactModeUnderRestrictiveUmask$")
 	command.Env = append(os.Environ(), restrictiveUmaskHelperEnvironment+"=1")
+	// Act by running the append in the isolated subprocess.
 	output, err := command.CombinedOutput()
+
+	// Assert the helper completes its exact-mode check successfully.
 	require.NoError(t, err, string(output))
 }
 

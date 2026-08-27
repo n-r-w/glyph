@@ -19,9 +19,11 @@ import (
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
+// TestSessionLifecycleCommandsSendTypedFrames verifies each session command emits its typed UI frame.
 func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 	t.Parallel()
 
+	// Arrange create, list, resume, and information commands with expected frames.
 	info := testSessionInfo("stored")
 	summary := session.Summary{Info: info, FirstUserText: mo.None[string](), TotalMessages: 0}
 	tests := []struct {
@@ -80,7 +82,9 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 				test.assertFrame(t, frame)
 				return nil
 			})
+			// Act by applying the session command.
 			handled, err := NewSession(channel, nil, nil, nil, control, nil).applySessionCommand(t.Context(), test.command)
+			// Assert the command is handled and sends the expected typed frame.
 			require.NoError(t, err)
 			assert.True(t, handled)
 		})
@@ -124,11 +128,11 @@ func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestSessionReplacementFrameUsesOneCommittedSnapshot verifies session replacement frame uses one committed snapshot.
+// TestSessionReplacementFrameUsesOneCommittedSnapshot verifies an overlapping replacement cannot mix session identity and entries.
 func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange overlapping session replacements with different committed snapshots.
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
@@ -154,6 +158,7 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 		frameSent <- frame
 		return nil
 	})
+	// Act by blocking the first replacement while a second replacement completes.
 	done := make(chan error, 1)
 	go func() {
 		_, err := NewSession(channel, nil, nil, nil, control, nil).applySessionCommand(
@@ -166,9 +171,8 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	close(releaseFirstReplacement)
 	require.NoError(t, <-done)
-	// Act by executing the scenario.
 	frame := <-frameSent
-	// Assert the scenario produces the required observable result.
+	// Assert the emitted frame contains only the first operation committed snapshot.
 	require.Equal(t, infoA, frame.SessionInfo.MustGet())
 	require.Empty(t, frame.SessionEntries)
 }

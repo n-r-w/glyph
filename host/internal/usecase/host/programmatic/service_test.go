@@ -122,10 +122,12 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 	}
 }
 
+// TestSessionErrorsUseExistingRejectionCodes verifies session failures reuse public rejection semantics.
 func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 	t.Parallel()
 
-	for _, test := range []struct {
+	// Arrange domain, lookup, and persistence failures with expected public codes.
+	tests := []struct {
 		name         string
 		kind         controller.CommandKind
 		sessionID    mo.Option[session.ID]
@@ -137,7 +139,10 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument},
 		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound},
 		{name: "persistence", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("name"), operationErr: errors.New("disk failed"), expected: controller.RejectionInternal},
-	} {
+	}
+
+	// Act by handling each failing session command in an independent subtest.
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			control := NewMockSessionControl(gomock.NewController(t))
@@ -164,6 +169,8 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Nil(t, operation)
+
+			// Assert the failure maps to the established rejection code without an operation.
 			assert.Equal(t, test.expected, response.Rejection.MustGet().Code)
 		})
 	}
@@ -735,6 +742,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 
 // TestDisconnectPreventsLateReservation verifies in-flight acceptance cannot outlive session cleanup.
 func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
+	// Arrange a run preparation that completes only after disconnect begins.
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
@@ -751,6 +759,7 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 		operation controller.Operation
 		err       error
 	}
+	// Act by starting the request, disconnecting, and then releasing preparation.
 	result := make(chan handleResult)
 	go func() {
 		response, operation, err := service.Handle(s.T().Context(), controller.Command{
@@ -766,13 +775,13 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	close(prepared)
 	handled := <-result
 
+	// Assert the late prepared run is rejected and never reserved.
 	s.Require().NoError(handled.err)
 	s.Nil(handled.operation)
 	s.Equal(controller.ResponseRejected, handled.response.Kind)
 	s.Equal(controller.RejectionBusy, handled.response.Rejection.OrEmpty().Code)
 }
 
-// TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies state correlation and history mapping.
 // TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies live queries expose complete owned public history.
 func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	// Arrange a running service with full user, model, diagnostic, and tool-result history.

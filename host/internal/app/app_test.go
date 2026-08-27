@@ -164,11 +164,15 @@ type appUIService struct {
 func TestUIPluginHelperProcess(t *testing.T) {
 	t.Parallel()
 
+	// Arrange helper mode through the subprocess environment.
 	if os.Getenv(appUIHelperEnvironment) == "serve" {
+		// Act by serving the test UI protocol in the helper process.
 		uisdk.Serve(&appUIService{
 			UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
 		})
 	}
+
+	// Assert helper protocol behavior is observed by the parent process tests.
 }
 
 // GetCapabilities declares a non-terminal fake UI for application composition tests.
@@ -977,12 +981,14 @@ func TestRunWithPathsUIKeepsSelectionWarningsInInitialization(t *testing.T) {
 
 // TestRunWithPathsUIUsesSelectedStreamAndCleansProcess verifies real UI process composition.
 func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
+	// Arrange a selected UI helper, trace path, and application paths.
 	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Fake_UI")
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
 	t.Setenv(appUITraceEnvironment, tracePath)
 
+	// Act by running UI mode through the selected plugin stream.
 	err := runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeUI,
 		Headless: headless.Command{
@@ -995,6 +1001,7 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
+	// Assert the stream completes, the plugin process exits, and structured logs describe the selection.
 	require.NoError(t, err)
 	trace, err := os.ReadFile(tracePath)
 	require.NoError(t, err)
@@ -1016,7 +1023,6 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 	assert.Contains(t, string(logPayload), "loaded extensions")
 }
 
-// TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.
 // TestRunWithPathsUISessionLifecycleSurvivesRestart verifies Host UI restart restores full public and continuation content.
 func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	// Arrange persistent paths, credentials, provider transport, UI helper, and extension tools.

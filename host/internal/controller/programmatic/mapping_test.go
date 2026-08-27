@@ -16,13 +16,17 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestMapResponsePreservesSessionPresence verifies absent optional session fields stay absent on the wire.
 func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	t.Parallel()
 
+	// Arrange session information without a name or storage path.
 	info := session.Info{
 		ID: "stored", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.None[string](), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(2, 0),
 	}
+
+	// Act by mapping information and list responses for the same session.
 	mapped, err := mapResponse(Response{
 		SessionEntries: nil,
 		CorrelationID:  "information", Kind: ResponseSessionInfo,
@@ -30,6 +34,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 		Selection: mo.None[model.Selection](), SessionInfo: mo.Some(info), Sessions: nil,
 		Rejection: mo.None[Rejection](),
 	})
+	// Assert optional presence and summary values survive protobuf mapping.
 	require.NoError(t, err)
 	wireInfo := mapped.GetCommandResponse().GetSessionInfo().GetInfo()
 	assert.Equal(t, "stored", wireInfo.GetId())
@@ -732,7 +737,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 func TestMappingRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange malformed response and event variants for every mapping boundary.
 	tests := map[string]func() error{
 		"response": func() error {
 			_, err := mapResponse(Response{
@@ -989,11 +994,13 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			return err
 		},
 	}
-	// Act by executing the scenario.
+
+	// Act by mapping each malformed value in an independent subtest.
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			// Assert the scenario produces the required observable result.
+
+			// Assert the mapper rejects the malformed variant.
 			assert.Error(t, test())
 		})
 	}

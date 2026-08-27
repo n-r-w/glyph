@@ -472,7 +472,7 @@ func cloneEntries(entries []session.Entry) []session.Entry {
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Information: entry.Information,
 			User: entry.User.MapValue(cloneMessage), Model: entry.Model.MapValue(cloneModelResponse),
 			ToolResult: entry.ToolResult.MapValue(cloneToolResult),
-			// Extension bytes stay opaque, but each snapshot owns its mutable backing array.
+			// Each active-session snapshot owns its opaque extension bytes.
 			Extension: entry.Extension.MapValue(func(value session.ExtensionEnvelope) session.ExtensionEnvelope {
 				value.Data = bytes.Clone(value.Data)
 				return value

@@ -36,11 +36,11 @@ const (
 	standardTUIHostJoinTimeout          = 5 * time.Second
 )
 
-// TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount verifies standard tui evidence rejects cleared busy state and wrong restart count.
+// TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount verifies incomplete or corrupted restart transcripts fail validation.
 func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange complete and incomplete transcripts for busy resume and restart evidence.
 	activeID := "active-id"
 	complete := strings.Join([]string{
 		"user: active history", "assistant: Request complete.", "user: blocked request",
@@ -54,9 +54,10 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 	require.NoError(t, validateRestartRow(complete))
 
 	preConfirmation := strings.Replace(complete, "Session status: Session replacement is unavailable.", "", 1)
-	// Act by executing the scenario.
+	// Act by validating a transcript before busy-state confirmation.
 	err := validateBusyPreservation(preConfirmation, activeID)
-	// Assert the scenario produces the required observable result.
+
+	// Assert missing confirmation and later transcript corruptions are rejected.
 	require.EqualError(t, err, "busy redraw did not occur after the rejection")
 	clearedEditor := strings.Replace(complete, "Request: /resume|", "Request: |", 1)
 	err = validateBusyPreservation(clearedEditor, activeID)
@@ -131,7 +132,6 @@ func lastSessionID(output string) string {
 	return fields[0]
 }
 
-// TestStandardTUIHostSmoke verifies terminal input and rendered Host output through the real standard TUI.
 // TestStandardTUIHostSmoke verifies a real TUI restart restores full visible and continuation content.
 func TestStandardTUIHostSmoke(t *testing.T) {
 	t.Parallel()
@@ -314,7 +314,6 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	assert.Contains(t, observer.String(), "PASS")
 }
 
-// TestStandardTUIHostSmokeInner runs two Host instances inside the pseudo-terminal owned by the outer test.
 // TestStandardTUIHostSmokeInner verifies two Host runs reuse persistent state and send complete provider history.
 func TestStandardTUIHostSmokeInner(t *testing.T) {
 	t.Parallel()

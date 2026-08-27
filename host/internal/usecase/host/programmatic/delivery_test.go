@@ -19,7 +19,7 @@ import (
 func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange every supported agent event with complete public payloads.
 	response := model.Response{
 		ErrorMessage:  mo.None[string](),
 		ResponseModel: mo.None[model.ID](),
@@ -688,13 +688,14 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		},
 	}
 
-	// Act by executing the scenario.
+	// Act by delivering each event through an independently reserved active run.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			delivery := NewDelivery()
 			active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
-			// Assert the scenario produces the required observable result.
+
+			// Assert reservation and delivery preserve the expected event mapping.
 			require.True(t, delivery.reserve(active))
 			delivered := make(chan error)
 			go func() { delivered <- delivery.DeliverAgent(t.Context(), test.event) }()

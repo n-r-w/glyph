@@ -15,7 +15,7 @@ import (
 func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a presentation service and a complete initialization state.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -74,6 +74,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 	assert.Equal(t, presentationdomain.LineError, state.Startup[1].Kind)
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
 
+	// Act by applying model, tool, error, authorization, and settlement lifecycle events.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -98,7 +99,6 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -185,6 +185,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
 		Sessions:         nil,
 	})
+	// Assert the projected state contains the ordered transcript and leaves host-owned selections unchanged.
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:     presentationdomain.LineModel,
 		Text:     mo.Some("Hello"),
@@ -371,7 +372,6 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		Sessions:       nil,
 	})
 
-	// Assert the scenario produces the required observable result.
 	assert.Equal(t, []presentationdomain.Line{
 		{
 			Kind:     presentationdomain.LineModel,
@@ -444,7 +444,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange configured models and an initial host-confirmed selection.
 	service := New()
 	models := []presentationdomain.ConfiguredModel{{
 		ProviderID: "openai-codex",
@@ -456,6 +456,8 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		ModelID:         "gpt",
 		ReasoningChoice: presentationdomain.ReasoningChoiceLow,
 	}
+
+	// Act by applying host initialization.
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInitialization,
@@ -481,9 +483,10 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		Sessions:             nil,
 	})
 
+	// Assert initialization establishes the configured models and selection.
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 	assert.Equal(t, models, state.Models)
-	// Act by executing the scenario.
+	// Act by applying unrelated and selection-confirmation events.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventError,
@@ -508,7 +511,7 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert the rejected change preserves the host-confirmed selection.
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 
 	confirmed := presentationdomain.ModelSelection{
@@ -540,15 +543,16 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
+
+	// Assert host confirmation updates the selected reasoning choice.
 	assert.Equal(t, mo.Some(confirmed), state.ModelSelection)
 }
 
-// TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies one complete terminal model line.
-// TestServiceReplacesProvisionalToolCallBeforeExecutionStart verifies service replaces provisional tool call before execution start.
+// TestServiceReplacesProvisionalToolCallBeforeExecutionStart verifies final arguments replace provisional fields before execution.
 func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a provisional tool call in presentation state.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -586,7 +590,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		Sessions:             nil,
 	})
 	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
-	// Act by executing the scenario.
+	// Act by applying final-call and execution-start events.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventToolCallFinal,
@@ -618,7 +622,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert the final call replaces provisional fields before execution starts.
 	require.False(t, state.ActiveToolCalls["call-1"].Provisional)
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -674,11 +678,11 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	require.Equal(t, mo.Some("started"), state.Transcript[1].Status)
 }
 
-// TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies service model end finalizes complete message across stream positions.
+// TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies terminal content merges deltas from distinct stream positions.
 func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange model deltas that occupy distinct stream positions.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -704,7 +708,7 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying later deltas and the terminal model response.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -758,7 +762,7 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 		Sessions:       nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert the finalized transcript contains one complete ordered model message.
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:     presentationdomain.LineModel,
 		Text:     mo.Some("complete answer"),
@@ -773,7 +777,7 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a streamed refusal followed by terminal response content.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -799,7 +803,7 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying the model-end event.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventModelEnd,
@@ -834,7 +838,7 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 		Sessions:         nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert the transcript retains the refusal kind and text.
 	assert.Equal(t, []presentationdomain.Line{
 		{
 			Kind:     presentationdomain.LineModel,
@@ -858,7 +862,7 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange an active model fragment with no terminal content.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -884,7 +888,7 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying an empty model-end event.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelEnd,
@@ -910,7 +914,7 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 		Sessions:             nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert stale fragments are cleared without adding a transcript line.
 	assert.Empty(t, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
 }
@@ -919,7 +923,7 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a running tool call and its typed result content.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -945,7 +949,7 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying the terminal tool-result event.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventToolResult,
@@ -975,7 +979,7 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 		Sessions:       nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert the tool is finalized once with status and result content.
 	assert.Equal(t, []presentationdomain.Line{
 		{
 			Kind:     presentationdomain.LineToolDone,
@@ -1002,7 +1006,7 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange terminal lifecycle events that carry the same safe error.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1028,7 +1032,7 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying every terminal event.
 	for _, event := range []presentationdomain.Event{
 		{
 			RestoredTranscript:   nil,
@@ -1134,7 +1138,7 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 		state = service.Apply(state, event)
 	}
 
-	// Assert the scenario produces the required observable result.
+	// Assert the transcript contains one safe error line.
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:     presentationdomain.LineError,
 		Text:     mo.Some("Provider failed."),
@@ -1150,7 +1154,7 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a completed first turn and a second active turn.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1176,6 +1180,7 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
+	// Act by settling the first turn and applying the second turn.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAvailability,
@@ -1200,7 +1205,6 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventModelEnd,
@@ -1304,7 +1308,7 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		Sessions:         nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert settlement state and both turns remain projected in order.
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
 	assert.Equal(t, mo.Some(true), state.Settled)
 	assert.Equal(t, []presentationdomain.Line{
@@ -1329,14 +1333,14 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 func TestServiceCopiesTypedToolResultImage(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange typed tool-result image content with caller-owned bytes.
 	service := New()
 	content := presentationdomain.Content{
 		MediaType: mo.Some("image/png"),
 		Data:      mo.Some([]byte{1, 2, 3}),
 		Text:      mo.None[string](),
 	}
-	// Act by executing the scenario.
+	// Act by applying the result and mutating the caller-owned bytes.
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventToolResult,
@@ -1363,10 +1367,10 @@ func TestServiceCopiesTypedToolResultImage(t *testing.T) {
 		Sessions:       nil,
 	})
 	data, ok := content.Data.Get()
-	// Assert the scenario produces the required observable result.
 	require.True(t, ok)
 	data[0] = 9
 
+	// Assert the stored transcript retains independently owned image bytes.
 	require.Len(t, state.Transcript, 1)
 	contents, ok := state.Transcript[0].Contents.Get()
 	require.True(t, ok)
@@ -1455,8 +1459,8 @@ func TestServiceClonesContentsAcrossStateSnapshots(t *testing.T) {
 func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
-	state := New().Apply(presentationdomain.State{}, presentationdomain.Event{
+	// Arrange an event with ordered text and image tool-result content.
+	event := presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventToolResult,
 		ToolName:           mo.Some("read"),
@@ -1474,8 +1478,7 @@ func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 			{
 				Text:      mo.Some("last"),
 				MediaType: mo.None[string](),
-				// Act by executing the scenario.
-				Data: mo.None[[]byte](),
+				Data:      mo.None[[]byte](),
 			},
 		}),
 		Startup:              nil,
@@ -1496,9 +1499,12 @@ func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
-	})
+	}
 
-	// Assert the scenario produces the required observable result.
+	// Act by applying the typed tool result.
+	state := New().Apply(presentationdomain.State{}, event)
+
+	// Assert the transcript text projection preserves content order.
 	require.Len(t, state.Transcript, 1)
 	assert.Equal(t, mo.Some("first\n[image: image/png]\nlast"), state.Transcript[0].Text)
 }
@@ -1507,7 +1513,7 @@ func TestServiceProjectsTypedToolResultTextInOrder(t *testing.T) {
 func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange authorization, information, and safe-error lifecycle events.
 	service := New()
 	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1533,7 +1539,7 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Act by executing the scenario.
+	// Act by applying the information and safe-error events.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
@@ -1607,7 +1613,7 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		Sessions:             nil,
 	})
 
-	// Assert the scenario produces the required observable result.
+	// Assert authorization state and safe transcript lines are projected.
 	assert.Equal(t, mo.Some("https://example.test/oauth"), state.AuthorizationURL)
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityAuthenticationFailed), state.Availability)
 	assert.Equal(t, []presentationdomain.Line{
@@ -1632,7 +1638,7 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange absent optional state and nested caller-owned JSON values.
 	value := map[string]any{
 		"nested": []any{[]byte{1, 2, 3}},
 	}
@@ -1681,7 +1687,7 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 	assert.True(t, state.Settled.IsNone())
 	assert.True(t, state.ModelSelection.IsNone())
 
-	// Act by executing the scenario.
+	// Act by applying content with absent text and optional JSON.
 	state = New().Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -1706,7 +1712,7 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
-	// Assert the scenario produces the required observable result.
+	// Assert absence is preserved and nested JSON is independently owned.
 	assert.Equal(t, mo.Some(presentationdomain.ModelContentText), state.ActiveModel[0].Kind)
 	assert.True(t, state.ActiveModel[0].Text.IsNone())
 
@@ -1741,8 +1747,8 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 func TestServiceIgnoresMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
-	state := New().Apply(presentationdomain.State{}, presentationdomain.Event{
+	// Arrange an information event without any selected payload.
+	event := presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
 		Startup:              nil,
@@ -1752,29 +1758,33 @@ func TestServiceIgnoresMissingSelectedPayload(t *testing.T) {
 		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
-		// Act by executing the scenario.
-		ToolName:       mo.None[string](),
-		Status:         mo.None[string](),
-		Stream:         mo.None[presentationdomain.OutputStream](),
-		Text:           mo.None[string](),
-		Contents:       mo.None[[]presentationdomain.Content](),
-		ErrorText:      mo.None[string](),
-		ExitCode:       mo.None[int](),
-		Failure:        mo.None[bool](),
-		ToolCall:       mo.None[presentationdomain.ToolCallState](),
-		Models:         nil,
-		ModelSelection: mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
-		Sessions:       nil,
-	})
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Text:                 mo.None[string](),
+		Contents:             mo.None[[]presentationdomain.Content](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
+	}
 
-	// Assert the scenario produces the required observable result.
+	// Act by applying the incomplete information event.
+	state := New().Apply(presentationdomain.State{}, event)
+
+	// Assert the incomplete event adds no transcript content.
 	assert.Empty(t, state.Transcript)
 }
 
+// TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange verifies replacement waits for session identity.
 func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an existing transcript, restored entries, and pending and confirmed session events.
 	oldLine := textLine(presentationdomain.LineUser, mo.Some("old"))
 	restored := []presentationdomain.Line{
 		textLine(presentationdomain.LineUser, mo.Some("prior-user")),
@@ -1788,8 +1798,12 @@ func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *tes
 		AuthorizationURL: mo.None[string](), ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 	}
+	// Act by applying a pending replacement before session identity is confirmed.
 	pending := testSessionEvent(presentationdomain.EventSessionChanged, mo.None[presentationdomain.SessionInfo](), restored)
 	state = service.Apply(state, pending)
+
+	// Assert the pending event retains the existing transcript.
+
 	require.Equal(t, []presentationdomain.Line{oldLine}, state.Transcript)
 
 	timestamp := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
@@ -1797,8 +1811,11 @@ func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *tes
 		ID: "stored", Name: "", NamePresent: false, WorkingDirectory: "/project",
 		StoragePath: "", StoragePresent: false, CreatedAt: timestamp, UpdatedAt: timestamp,
 	}
+	// Act by applying the confirmed replacement twice.
 	confirmed := testSessionEvent(presentationdomain.EventSessionChanged, mo.Some(info), restored)
 	state = service.Apply(state, confirmed)
+
+	// Assert confirmation replaces the transcript and repeated delivery is idempotent.
 	require.Equal(t, restored, state.Transcript)
 	state = service.Apply(state, confirmed)
 	require.Equal(t, restored, state.Transcript)

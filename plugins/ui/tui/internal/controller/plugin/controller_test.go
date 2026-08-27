@@ -70,10 +70,11 @@ func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 	}
 }
 
-// TestOpenRejectsNonInitializationBeforeOpeningTerminal verifies initialization-first enforcement.
+// TestSessionChangedMapsOrderedRestoredTranscript verifies restored session entries retain transcript order.
 func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a session-changed request with user, model, tool-call, and tool-result entries.
 	createdAt := timestamppb.New(time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC))
 	id := "stored"
 	workingDirectory := "/project"
@@ -131,7 +132,9 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 		},
 	}.Build()}.Build()
 
+	// Act by mapping the restored session request.
 	event, err := mapRequest(request)
+	// Assert the event preserves transcript order and public content.
 	require.NoError(t, err)
 	require.Empty(t, event.Startup)
 	require.Len(t, event.RestoredTranscript, 4)
@@ -353,7 +356,7 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange terminal, program, and stream expectations for initialization and lifecycle frames.
 	mockController := gomock.NewController(t)
 	terminal := NewMockTerminal(mockController)
 	session := NewMockTerminalSession(mockController)
@@ -441,21 +444,19 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
-		// Act by executing the scenario.
-		Stream:         mo.None[presentationdomain.OutputStream](),
-		Contents:       mo.None[[]presentationdomain.Content](),
-		ErrorText:      mo.None[string](),
-		ExitCode:       mo.None[int](),
-		Failure:        mo.None[bool](),
-		ToolCall:       mo.None[presentationdomain.ToolCallState](),
-		Models:         nil,
-		ModelSelection: mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
-		Sessions:       nil,
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Contents:             mo.None[[]presentationdomain.Content](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
 	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		contentKind, ok := event.ModelContentKind.Get()
-		// Assert the scenario produces the required observable result.
 		require.True(t, ok)
 		position, ok := event.Position.Get()
 		require.True(t, ok)
@@ -477,6 +478,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	program.EXPECT().Quit().Do(func() { close(runDone) })
 	session.EXPECT().Close().Return(nil)
 
+	// Act by opening the stream, sending ordered frames, and closing the client side.
 	client := uisdk.TestClient(t, New(terminal, factory))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
@@ -550,6 +552,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
+	// Assert the server closes normally with EOF after delivering every frame.
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
 }
@@ -903,7 +906,7 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 // TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer mapping.
 func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	t.Parallel()
-	// Arrange test dependencies and scenario inputs.
+	// Arrange the semantic lifecycle fixture and an initialized presentation state.
 	payload, err := os.ReadFile(filepath.Join(repositoryRoot(t), "testdata", "semantic-ui-lifecycle.json"))
 	require.NoError(t, err)
 	var sequence []semanticFrame
@@ -912,7 +915,7 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	service := presentationusecase.New()
 	initial, err := mapRequest(initializationRequest())
 	require.NoError(t, err)
-	// Act by executing the scenario.
+	// Act by mapping and applying every fixture frame.
 	state := service.Apply(presentationdomain.State{}, initial)
 	for _, frame := range sequence {
 		request := lifecycleRequest(frame)
@@ -923,6 +926,7 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 
 	assert.Equal(t, mo.Some(true), state.Settled)
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
+	// Assert the final state contains the expected model and tool transcript entries.
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:     presentationdomain.LineModel,
 		Text:     mo.Some("Request complete."),
@@ -930,7 +934,6 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 		Status:   mo.None[string](),
 		Contents: mo.None[[]presentationdomain.Content](),
 	})
-	// Assert the scenario produces the required observable result.
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:     presentationdomain.LineToolDone,
 		ToolName: mo.Some("bash"),
@@ -1334,8 +1337,8 @@ func TestOpenReturnsProgramErrorAndClosesTerminal(t *testing.T) {
 func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
-	event, err := mapInitialization(uiv1.Initialization_builder{
+	// Arrange initialization with a warning and an extension filesystem path.
+	initialization := uiv1.Initialization_builder{
 		SelectedUiId: new("glyph-tui"),
 		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
 			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING),
@@ -1350,8 +1353,7 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openai-codex"),
 			ModelId:    new("gpt"),
-			// Act by executing the scenario.
-			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId:      new("openai-codex"),
@@ -1359,9 +1361,12 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 		SessionInfo: testSessionInfo(),
-	}.Build())
+	}.Build()
 
-	// Assert the scenario produces the required observable result.
+	// Act by mapping the initialization payload.
+	event, err := mapInitialization(initialization)
+
+	// Assert warning severity and extension path survive mapping.
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:     presentationdomain.LineWarning,
@@ -1381,19 +1386,16 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange unknown lifecycle and safe-error requests.
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	_, err := mapRequest(uiv1.OpenRequest_builder{
+	unknownLifecycle := uiv1.OpenRequest_builder{
 		Lifecycle:          &uiv1.LifecycleEvent{},
 		SessionList:        nil,
 		SessionChanged:     nil,
 		SessionInformation: nil,
-	}.Build())
-	require.Error(t, err)
-
+	}.Build()
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
-	// Act by executing the scenario.
-	event, err := mapRequest(uiv1.OpenRequest_builder{
+	safeError := uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("safe error"),
 			RetryAuthentication: new(false),
@@ -1401,8 +1403,14 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		SessionList:        nil,
 		SessionChanged:     nil,
 		SessionInformation: nil,
-	}.Build())
-	// Assert the scenario produces the required observable result.
+	}.Build()
+
+	// Act by mapping both requests.
+	_, unknownErr := mapRequest(unknownLifecycle)
+	event, err := mapRequest(safeError)
+
+	// Assert the unknown lifecycle fails while the safe error maps without private data.
+	require.Error(t, unknownErr)
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1516,7 +1524,7 @@ func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange model lifecycle frames whose terminal response uses another stream position.
 	projection := presentationusecase.New()
 	state := presentationdomain.State{}
 	frames := []*uiv1.LifecycleEvent{
@@ -1607,7 +1615,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			ToolResultContents: nil,
 		}.Build(),
 	}
-	// Act by executing the scenario.
+	// Act by mapping and applying the lifecycle frame sequence.
 	for _, lifecycle := range frames {
 		//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 		event, err := mapRequest(uiv1.OpenRequest_builder{
@@ -1616,11 +1624,11 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			SessionChanged:     nil,
 			SessionInformation: nil,
 		}.Build())
-		// Assert the scenario produces the required observable result.
 		require.NoError(t, err)
 		state = projection.Apply(state, event)
 	}
 
+	// Assert the terminal response finalizes the complete ordered transcript without active fragments.
 	assert.Equal(t, []presentationdomain.Line{
 		{
 			Kind:     presentationdomain.LineReasoning,
@@ -1644,7 +1652,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange valid model, tool, settlement, and availability lifecycle cases.
 	testCases := []struct {
 		name      string
 		lifecycle *uiv1.LifecycleEvent
@@ -1930,12 +1938,12 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		},
 	}
 
-	// Act by executing the scenario.
+	// Act by mapping each lifecycle case independently.
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			event, err := mapLifecycle(testCase.lifecycle)
-			// Assert the scenario produces the required observable result.
+			// Assert every lifecycle maps to its exact presentation event.
 			require.NoError(t, err)
 			assert.Equal(t, testCase.expected, event)
 		})
@@ -2784,9 +2792,9 @@ func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *ui
 func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	t.Parallel()
 
-	// Arrange test dependencies and scenario inputs.
+	// Arrange a safe authentication error that permits manual retry.
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
-	event, err := mapRequest(uiv1.OpenRequest_builder{
+	request := uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("Authentication failed."),
 			RetryAuthentication: new(true),
@@ -2794,12 +2802,16 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		SessionList:        nil,
 		SessionChanged:     nil,
 		SessionInformation: nil,
-	}.Build())
+	}.Build()
+
+	// Act by mapping the authentication error request.
+	event, err := mapRequest(request)
+
+	// Assert the event exposes retry availability and only the safe message.
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventError,
-		// Act by executing the scenario.
+		RestoredTranscript:   nil,
+		Kind:                 presentationdomain.EventError,
 		Text:                 mo.Some("Authentication failed."),
 		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
 		Startup:              nil,
@@ -2820,7 +2832,6 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
-		// Assert the scenario produces the required observable result.
 	}, event)
 }
 

@@ -99,11 +99,15 @@ func TestProgrammaticAppSuite(t *testing.T) {
 
 // TestModelCommandsUseSharedCatalog verifies Programmatic Control application composition.
 func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
+	// Arrange a programmatic fixture backed by the configured model catalog.
 	t := testSuite.T()
 	fixture := startProgrammaticFixture(t, testPaths(t, codexSettings("")))
 
+	// Act by querying models and selecting the model and reasoning choice.
 	require.NoError(t, fixture.stream.Send(getModelsRequest("models")))
 	modelsResponse, err := fixture.stream.Recv()
+
+	// Assert every response uses the same catalog and confirmed selection.
 	require.NoError(t, err)
 	assert.Equal(t, "models", modelsResponse.GetCorrelationId())
 	models := modelsResponse.GetCommandResponse().GetModels()
@@ -640,13 +644,17 @@ func (testSuite *ProgrammaticAppSuite) TestSocketCleanupFailureReturnsNonzero() 
 
 // TestAutomaticSocketDirectoryIsRemoved verifies process-owned directory cleanup.
 func (testSuite *ProgrammaticAppSuite) TestAutomaticSocketDirectoryIsRemoved() {
+	// Arrange a fixture with an automatically allocated socket directory.
 	t := testSuite.T()
 	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixtureAtPath(t, paths, t.TempDir(), "")
 	directory := filepath.Dir(fixture.socketPath)
 
+	// Act by closing the owning programmatic stream.
 	fixture.closeOwner(t)
 	_, err := os.Stat(directory)
+
+	// Assert shutdown removes the automatically created directory.
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 

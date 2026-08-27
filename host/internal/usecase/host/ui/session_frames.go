@@ -67,7 +67,7 @@ func sessionChangedFrame(info session.Info, entries []session.Entry) (domainui.F
 	return frame, nil
 }
 
-// cloneRestoredToolResult gives an in-flight UI frame independent result ownership.
+// cloneRestoredUser copies ordered user content and image bytes for frame ownership.
 func cloneRestoredUser(message model.Message) model.Message {
 	message.Content = slices.Clone(message.Content)
 	for index := range message.Content {
@@ -76,6 +76,7 @@ func cloneRestoredUser(message model.Message) model.Message {
 	return message
 }
 
+// cloneRestoredToolResult copies ordered tool-result content and image bytes for frame ownership.
 func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
 	contents := append([]tool.ResultContent(nil), result.Contents...)
 	for index := range contents {
@@ -89,8 +90,7 @@ func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
 	}
 }
 
-// sessionInformationFrame reports active identity without replacing TUI transcript state.
-// sessionInfoFrame initializes exactly one information-bearing lifecycle variant.
+// sessionInfoFrame builds the selected session information frame kind.
 func sessionInfoFrame(kind domainui.FrameKind, info session.Info) domainui.Frame {
 	return domainui.Frame{
 		Kind:                kind,
