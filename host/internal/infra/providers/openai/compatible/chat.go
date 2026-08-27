@@ -255,7 +255,7 @@ func chatAssistantMessage(
 ) (openai.ChatCompletionMessageParamUnion, bool, error) {
 	var text strings.Builder
 	var reasoning strings.Builder
-	var refusal string
+	var refusal strings.Builder
 	calls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
 	for index := range response.Content {
 		item := &response.Content[index]
@@ -271,7 +271,7 @@ func chatAssistantMessage(
 			if !present {
 				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("model content %d has no text", index)
 			}
-			refusal += value
+			refusal.WriteString(value)
 		case model.ContentReasoning:
 			visibleText, present := item.Text.Get()
 			if !present || visibleText == "" {
@@ -292,7 +292,7 @@ func chatAssistantMessage(
 			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
 		}
 	}
-	return buildChatAssistantMessage(text.String(), reasoning.String(), refusal, calls)
+	return buildChatAssistantMessage(text.String(), reasoning.String(), refusal.String(), calls)
 }
 
 // buildChatAssistantMessage creates the external assistant union from accumulated content.

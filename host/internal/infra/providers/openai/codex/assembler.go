@@ -431,10 +431,7 @@ func (a *semanticAssembler) allocatePosition(outputIndex int64, width int) (int,
 	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
 		return 0, safeError(requestFailedMessage)
 	}
-	position := int(outputIndex)
-	if position < a.next {
-		position = a.next
-	}
+	position := max(int(outputIndex), a.next)
 	a.next = position + width
 	return position, nil
 }

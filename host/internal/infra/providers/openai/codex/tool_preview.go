@@ -177,10 +177,8 @@ func scalarPrefix(raw []byte) string {
 	if len(value) == 0 || !utf8.Valid(value) {
 		return ""
 	}
-	for _, current := range value {
-		if current == '\\' {
-			return ""
-		}
+	if slices.Contains(value, '\\') {
+		return ""
 	}
 	return string(value)
 }

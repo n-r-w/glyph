@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainsession "github.com/n-r-w/glyph/host/internal/domain/session"
@@ -42,9 +41,9 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	userRequest := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("user"),
+		CorrelationId:     new("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
-			Text: proto.String("request"),
+			Text: new("request"),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -55,7 +54,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	stateRequest := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("state"),
+		CorrelationId:     new("state"),
 		GetRunState:       programmaticv1.GetRunState_builder{}.Build(),
 		CreateSession:     nil,
 		ListSessions:      nil,
@@ -200,8 +199,8 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("accepted"),
-		UserRequest:       programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+		CorrelationId:     new("accepted"),
+		UserRequest:       programmaticv1.UserRequest_builder{Text: new("request")}.Build(),
 		CreateSession:     nil, ListSessions: nil, ResumeSession: nil, SetSessionName: nil, GetSessionInfo: nil,
 	}.Build()
 	events := make(chan AgentEvent)
@@ -233,7 +232,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries:     nil,
-		CorrelationId:         proto.String("missing"),
+		CorrelationId:         new("missing"),
 		UserRequest:           nil,
 		Abort:                 nil,
 		GetRunState:           nil,
@@ -357,7 +356,7 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("state"),
+		CorrelationId:     new("state"),
 		GetRunState:       programmaticv1.GetRunState_builder{}.Build(),
 		CreateSession:     nil,
 		ListSessions:      nil,
@@ -400,9 +399,9 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("user"),
+		CorrelationId:     new("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
-			Text: proto.String("request"),
+			Text: new("request"),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -443,9 +442,9 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
-		CorrelationId:     proto.String("user"),
+		CorrelationId:     new("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
-			Text: proto.String("request"),
+			Text: new("request"),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -734,9 +733,9 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 				request := programmaticv1.OpenRequest_builder{
 					GetSessionEntries: nil,
-					CorrelationId:     proto.String("user"),
+					CorrelationId:     new("user"),
 					UserRequest: programmaticv1.UserRequest_builder{
-						Text: proto.String("request"),
+						Text: new("request"),
 					}.Build(),
 					CreateSession:  nil,
 					ListSessions:   nil,
