@@ -134,6 +134,8 @@ func (s *Service) handleImmediate(
 		return s.setSessionName(ctx, command), true, nil
 	case controller.CommandGetSessionInfo:
 		return s.sessionInfo(command), true, nil
+	case controller.CommandGetSessionEntries:
+		return s.sessionEntries(command), true, nil
 	case controller.CommandUnspecified:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
 	case controller.CommandUserRequest:
@@ -241,11 +243,11 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 
 // createSession returns replacement information only after the shared gate and active state commit succeed.
 func (s *Service) createSession(ctx context.Context, command controller.Command) controller.Response {
-	info, err := s.sessionControl.Create(ctx)
+	replacement, err := s.sessionControl.Create(ctx)
 	if err != nil {
 		return s.sessionRejection(command, err)
 	}
-	return sessionInfoResponse(command.CorrelationID, info)
+	return sessionInfoResponse(command.CorrelationID, replacement.Info)
 }
 
 // listSessions maps the ordered persisted-session view without changing active state.
@@ -265,11 +267,11 @@ func (s *Service) resumeSession(ctx context.Context, command controller.Command)
 	if !present || id == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, "session ID is required")
 	}
-	info, err := s.sessionControl.Resume(ctx, id)
+	replacement, err := s.sessionControl.Resume(ctx, id)
 	if err != nil {
 		return s.sessionRejection(command, err)
 	}
-	return sessionInfoResponse(command.CorrelationID, info)
+	return sessionInfoResponse(command.CorrelationID, replacement.Info)
 }
 
 // setSessionName returns the information snapshot produced by the durable name append.
@@ -288,6 +290,13 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 // sessionInfo returns the current active-session snapshot without taking the replacement gate.
 func (s *Service) sessionInfo(command controller.Command) controller.Response {
 	return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info())
+}
+
+func (s *Service) sessionEntries(command controller.Command) controller.Response {
+	entries := mapSessionEntries(s.sessionControl.Entries())
+	response := emptyResponse(command.CorrelationID, controller.ResponseSessionEntries)
+	response.SessionEntries = entries
+	return response
 }
 
 // sessionRejection maps domain failures to stable client-safe rejection codes and messages.
@@ -353,7 +362,7 @@ func invalidCommand(command controller.Command) bool {
 		return invalidReasoningSelection(command)
 	case controller.CommandCreateSession, controller.CommandListSessions,
 		controller.CommandResumeSession, controller.CommandSetSessionName,
-		controller.CommandGetSessionInfo:
+		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries:
 		return true
 	case controller.CommandUnspecified:
 		return true
@@ -364,7 +373,8 @@ func invalidCommand(command controller.Command) bool {
 // invalidSessionCommand validates exact argument presence for lifecycle commands.
 func invalidSessionCommand(command controller.Command) (invalid, handled bool) {
 	switch command.Kind {
-	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandGetSessionInfo:
+	case controller.CommandCreateSession, controller.CommandListSessions,
+		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries:
 		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command), true
 	case controller.CommandResumeSession:
 		id, present := command.SessionID.Get()
@@ -462,15 +472,16 @@ func removeCancellation(err error) error {
 
 func emptyResponse(correlationID string, kind controller.ResponseKind) controller.Response {
 	return controller.Response{
-		CorrelationID: correlationID,
-		Kind:          kind,
-		State:         mo.None[controller.RunStateResult](),
-		Messages:      nil,
-		Models:        mo.None[controller.ModelsResult](),
-		Selection:     mo.None[model.Selection](),
-		SessionInfo:   mo.None[session.Info](),
-		Sessions:      nil,
-		Rejection:     mo.None[controller.Rejection](),
+		SessionEntries: nil,
+		CorrelationID:  correlationID,
+		Kind:           kind,
+		State:          mo.None[controller.RunStateResult](),
+		Messages:       nil,
+		Models:         mo.None[controller.ModelsResult](),
+		Selection:      mo.None[model.Selection](),
+		SessionInfo:    mo.None[session.Info](),
+		Sessions:       nil,
+		Rejection:      mo.None[controller.Rejection](),
 	}
 }
 

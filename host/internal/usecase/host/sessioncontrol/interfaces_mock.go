@@ -41,6 +41,20 @@ func (m *MockActiveSessions) EXPECT() *MockActiveSessionsMockRecorder {
 	return m.recorder
 }
 
+// ActiveEntries mocks base method.
+func (m *MockActiveSessions) ActiveEntries() []session.Entry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveEntries")
+	ret0, _ := ret[0].([]session.Entry)
+	return ret0
+}
+
+// ActiveEntries indicates an expected call of ActiveEntries.
+func (mr *MockActiveSessionsMockRecorder) ActiveEntries() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveEntries", reflect.TypeOf((*MockActiveSessions)(nil).ActiveEntries))
+}
+
 // ActiveInfo mocks base method.
 func (m *MockActiveSessions) ActiveInfo() session.Info {
 	m.ctrl.T.Helper()
@@ -56,10 +70,10 @@ func (mr *MockActiveSessionsMockRecorder) ActiveInfo() *gomock.Call {
 }
 
 // CreateActive mocks base method.
-func (m *MockActiveSessions) CreateActive(arg0 context.Context) (session.Info, error) {
+func (m *MockActiveSessions) CreateActive(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateActive", arg0)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -86,10 +100,10 @@ func (mr *MockActiveSessionsMockRecorder) ListStored(arg0 any) *gomock.Call {
 }
 
 // ResumeActive mocks base method.
-func (m *MockActiveSessions) ResumeActive(arg0 context.Context, arg1 session.ID) (session.Info, error) {
+func (m *MockActiveSessions) ResumeActive(arg0 context.Context, arg1 session.ID) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResumeActive", arg0, arg1)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

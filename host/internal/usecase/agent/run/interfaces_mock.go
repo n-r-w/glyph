@@ -19,6 +19,58 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockHistoryStore is a mock of HistoryStore interface.
+type MockHistoryStore struct {
+	ctrl     *gomock.Controller
+	recorder *MockHistoryStoreMockRecorder
+	isgomock struct{}
+}
+
+// MockHistoryStoreMockRecorder is the mock recorder for MockHistoryStore.
+type MockHistoryStoreMockRecorder struct {
+	mock *MockHistoryStore
+}
+
+// NewMockHistoryStore creates a new mock instance.
+func NewMockHistoryStore(ctrl *gomock.Controller) *MockHistoryStore {
+	mock := &MockHistoryStore{ctrl: ctrl}
+	mock.recorder = &MockHistoryStoreMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHistoryStore) EXPECT() *MockHistoryStoreMockRecorder {
+	return m.recorder
+}
+
+// Append mocks base method.
+func (m *MockHistoryStore) Append(arg0 context.Context, arg1 agent.HistoryEntry) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Append", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Append indicates an expected call of Append.
+func (mr *MockHistoryStoreMockRecorder) Append(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockHistoryStore)(nil).Append), arg0, arg1)
+}
+
+// Snapshot mocks base method.
+func (m *MockHistoryStore) Snapshot() []agent.HistoryEntry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].([]agent.HistoryEntry)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockHistoryStoreMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockHistoryStore)(nil).Snapshot))
+}
+
 // MockModelRuntime is a mock of ModelRuntime interface.
 type MockModelRuntime struct {
 	ctrl     *gomock.Controller

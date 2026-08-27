@@ -2,6 +2,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -328,7 +330,28 @@ type Frame struct {
 	SessionInfo mo.Option[session.Info]
 	// Sessions is populated only by a list frame.
 	Sessions []session.Summary
+	// SessionEntries replaces the transcript on a session-change frame.
+	SessionEntries []SessionEntry
 }
+
+// SessionEntry carries one restored public text item.
+type SessionEntry struct {
+	ID        string
+	CreatedAt time.Time
+	Kind      SessionEntryKind
+	UserText  mo.Option[string]
+	Model     mo.Option[ModelResponse]
+}
+
+// SessionEntryKind identifies restored transcript ownership.
+type SessionEntryKind uint8
+
+const (
+	// SessionEntryUser is one restored user text item.
+	SessionEntryUser SessionEntryKind = iota + 1
+	// SessionEntryModel is one restored model text item.
+	SessionEntryModel
+)
 
 // CommandKind identifies one UI-to-Host command.
 type CommandKind uint8

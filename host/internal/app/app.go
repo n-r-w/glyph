@@ -130,7 +130,9 @@ func runProgrammaticWithPaths(
 	}
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
-	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(
 		coordinator, providerCatalog, agentCore.State, agentCore.History, sessionServices.control, delivery,
@@ -248,7 +250,9 @@ func runHeadlessWithPaths(
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
-	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
@@ -347,7 +351,9 @@ func runUIWithPaths(
 		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
 	}
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
-	agentCore := agentrun.New(codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
 		channel,

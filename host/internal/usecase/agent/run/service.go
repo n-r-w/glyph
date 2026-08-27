@@ -30,17 +30,17 @@ var (
 	ErrSettlement = errors.New("agent run cannot be settled")
 )
 
-// Service owns in-memory history and one active run state.
+// Service owns one active run state and orders dependent work around canonical history ownership.
 type Service struct {
 	instructions string
 	runtime      ModelRuntime
 	hooks        hooks.ContextRunner
 	tools        ToolRuntime
 	events       EventSink
+	historyStore HistoryStore
 
-	mutex   sync.RWMutex
-	state   State
-	history []agent.HistoryEntry
+	mutex sync.RWMutex
+	state State
 }
 
 // New creates an Agent Core run service.
@@ -50,6 +50,7 @@ func New(
 	hookRunner hooks.ContextRunner,
 	tools ToolRuntime,
 	events EventSink,
+	historyStore HistoryStore,
 ) *Service {
 	return &Service{
 		instructions: instructions,
@@ -57,6 +58,7 @@ func New(
 		hooks:        hookRunner,
 		tools:        tools,
 		events:       events,
+		historyStore: historyStore,
 		mutex:        sync.RWMutex{},
 		state: State{
 			Status:          StatusIdle,
@@ -64,7 +66,6 @@ func New(
 			PartialResponse: mo.None[model.Response](),
 			ToolPreviews:    nil,
 		},
-		history: nil,
 	}
 }
 
@@ -79,6 +80,13 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 		return s.finish(
 			ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr,
 		)
+	}
+	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
+	if err := s.historyStore.Append(ctx, agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(request.UserText)),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	}); err != nil {
+		return s.finish(ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
 	}
 
 	for {
@@ -126,32 +134,22 @@ func (s *Service) State() State {
 
 // History returns an immutable ordered history snapshot.
 func (s *Service) History() []agent.HistoryEntry {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return cloneHistory(s.history)
+	return s.historyStore.Snapshot()
 }
 
 // ProjectHistory returns provider-visible history with temporary skipped results.
 func (s *Service) ProjectHistory() []agent.HistoryEntry {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return projectHistory(s.history)
+	return projectHistory(s.historyStore.Snapshot())
 }
 
-// begin reserves the only run slot and stores the user message.
+// begin reserves the only run slot before the user entry ownership transfer.
 func (s *Service) begin(request Request) (int, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusIdle {
 		return 0, ErrRunActive
 	}
-	startIndex := len(s.history)
-	s.history = append(s.history, agent.HistoryEntry{
-		Kind:       agent.HistoryEntryUser,
-		User:       mo.Some(model.TextMessage(request.UserText)),
-		Model:      mo.None[model.Response](),
-		ToolResult: mo.None[agent.ToolResult](),
-	})
+	startIndex := len(s.historyStore.Snapshot())
 	s.state = State{
 		Status:          StatusRunning,
 		RunID:           mo.Some(request.RunID),
@@ -260,7 +258,10 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 
 	response = normalizeTerminalResponse(cloneModelResponse(response))
 	s.clearPartial()
-	s.appendModel(response)
+	// The terminal model response must transfer to history ownership before completion is exposed.
+	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
+		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+	}
 	messageEnd := newEvent(EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	if err := s.deliver(context.WithoutCancel(ctx), messageEnd); err != nil {
@@ -355,8 +356,13 @@ func (s *Service) finalizeProviderError(
 			ErrorMessage: mo.EmptyableToOption(errorMessage),
 		}, false, errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
 	}
-	s.appendModel(response)
 	terminalContext := context.WithoutCancel(ctx)
+	if err := s.appendModel(terminalContext, response); err != nil {
+		return Result{
+			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+			ErrorMessage: mo.Some(err.Error()),
+		}, false, errors.Join(providerErr, err)
+	}
 	messageEnd := newEvent(EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	deliveryErr := s.deliver(terminalContext, messageEnd)
@@ -417,7 +423,9 @@ func (s *Service) applyOutcome(
 			result := agent.ToolResult{
 				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
 			}
-			s.appendToolResult(result)
+			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
+				return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+			}
 			results = append(results, result)
 			toolResult := newEvent(EventToolResult, runID)
 			toolResult.ToolResult = mo.Some(result)
@@ -485,7 +493,9 @@ func (s *Service) executeCalls(
 		}
 		result.CallID = call.ID
 		result.ToolName = call.Name
-		s.appendToolResult(result)
+		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
+			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+		}
 		results = append(results, result)
 		toolEnd := newEvent(EventToolExecutionEnd, runID)
 		toolEnd.ToolCall = mo.Some(call)
@@ -562,8 +572,9 @@ func (s *Service) finish(
 	errorMessage mo.Option[string],
 	runErr error,
 ) (Result, error) {
+	history := s.historyStore.Snapshot()
+	added := cloneHistory(history[startIndex:])
 	s.mutex.Lock()
-	added := cloneHistory(s.history[startIndex:])
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           mo.Some(runID),
@@ -620,28 +631,20 @@ func (s *Service) clearPartial() {
 	s.mutex.Unlock()
 }
 
-// appendModel stores one finalized model response.
-func (s *Service) appendModel(response model.Response) {
-	s.mutex.Lock()
-	s.history = append(s.history, agent.HistoryEntry{
-		Kind:       agent.HistoryEntryModel,
-		User:       mo.None[model.Message](),
-		Model:      mo.Some(cloneModelResponse(response)),
-		ToolResult: mo.None[agent.ToolResult](),
+// appendModel transfers one finalized model response to canonical history ownership.
+func (s *Service) appendModel(ctx context.Context, response model.Response) error {
+	return s.historyStore.Append(ctx, agent.HistoryEntry{
+		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
+		Model: mo.Some(cloneModelResponse(response)), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.mutex.Unlock()
 }
 
-// appendToolResult stores one completed tool call result.
-func (s *Service) appendToolResult(result agent.ToolResult) {
-	s.mutex.Lock()
-	s.history = append(s.history, agent.HistoryEntry{
-		Kind:       agent.HistoryEntryToolResult,
-		User:       mo.None[model.Message](),
-		Model:      mo.None[model.Response](),
-		ToolResult: mo.Some(cloneToolResult(result)),
+// appendToolResult transfers one completed tool result to the active history owner.
+func (s *Service) appendToolResult(ctx context.Context, result agent.ToolResult) error {
+	return s.historyStore.Append(ctx, agent.HistoryEntry{
+		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](),
+		Model: mo.None[model.Response](), ToolResult: mo.Some(cloneToolResult(result)),
 	})
-	s.mutex.Unlock()
 }
 
 // deliver performs one synchronous Host event call without queuing or retry.

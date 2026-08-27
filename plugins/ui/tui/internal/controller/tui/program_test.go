@@ -26,6 +26,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 	emitted := make(chan presentationdomain.Command, 1)
 	program := factory.New(
 		presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventInitialization,
 			Availability:         mo.Some(presentationdomain.AvailabilityIdle),
 			Startup:              nil,
@@ -90,6 +91,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 	output := newNotifyingWriter()
 	program := factory.New(
 		presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventInitialization,
 			Availability:         mo.Some(presentationdomain.AvailabilityIdle),
 			Startup:              nil,
@@ -124,6 +126,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		t.Fatal("Bubble Tea did not write to the supplied terminal output")
 	}
 	program.Send(presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
 		Text:                 mo.Some("stream event"),
 		Startup:              nil,

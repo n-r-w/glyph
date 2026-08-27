@@ -11,6 +11,7 @@ import (
 // initializationFrame creates the one complete startup frame.
 func initializationFrame(initialization domainui.Initialization) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameInitialization,
 		Initialization:      mo.Some(initialization),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -26,6 +27,7 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 // lifecycleFrame creates one complete lifecycle frame.
 func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameLifecycle,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.Some(lifecycle),
@@ -41,6 +43,7 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 // authorizationFrame creates one complete OAuth URL frame.
 func authorizationFrame(authorizationURL string) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameAuthorization,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -56,6 +59,7 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 // informationFrame creates one complete notification frame.
 func informationFrame(text string) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameInformation,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -71,6 +75,7 @@ func informationFrame(text string) domainui.Frame {
 // errorFrame creates one complete safe error frame.
 func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameError,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -86,6 +91,7 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 // modelSelectionChangedFrame confirms one committed catalog selection.
 func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameModelSelectionChanged,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),

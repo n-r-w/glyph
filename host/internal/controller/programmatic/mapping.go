@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -49,7 +50,7 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
 			return nil, err
 		}
-	case ResponseSessionInfo, ResponseSessions, ResponseRejected:
+	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseRejected:
 		return nil, errors.New("map command response: handled response was not mapped")
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
@@ -77,6 +78,15 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 			return mapSessionSummary(summary)
 		}))
 		wire.SetSessions(result)
+		return true, nil
+	case ResponseSessionEntries:
+		entries, err := mapSessionEntries(response.SessionEntries)
+		if err != nil {
+			return true, err
+		}
+		result := new(programmaticv1.SessionEntriesResult)
+		result.SetEntries(entries)
+		wire.SetSessionEntries(result)
 		return true, nil
 	case ResponseRejected:
 		return true, mapRejectionCommandResponse(wire, response.Rejection)
@@ -393,6 +403,41 @@ func mapTerminalEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	return nil
 }
 
+func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, error) {
+	return lo.MapErr(entries, func(entry SessionEntry, index int) (*programmaticv1.SessionEntry, error) {
+		wire := new(programmaticv1.SessionEntry)
+		wire.SetId(entry.ID)
+		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
+		switch entry.Kind {
+		case HistoryEntryUser:
+			text, present := entry.UserText.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing user payload", index)
+			}
+			content := new(programmaticv1.UserContent)
+			content.SetText(text)
+			user := new(programmaticv1.UserMessage)
+			user.SetContent([]*programmaticv1.UserContent{content})
+			wire.SetUser(user)
+		case HistoryEntryModel:
+			response, present := entry.Model.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing model payload", index)
+			}
+			mapped, err := mapTextModelResponseWire(response)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", index, err)
+			}
+			wire.SetModel(mapped)
+		case HistoryEntryUnspecified, HistoryEntryToolResult:
+			return nil, fmt.Errorf("map session entry %d: unsupported kind %d", index, entry.Kind)
+		default:
+			return nil, fmt.Errorf("map session entry %d: unknown kind %d", index, entry.Kind)
+		}
+		return wire, nil
+	})
+}
+
 func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, error) {
 	return lo.MapErr(entries, func(entry HistoryEntry, index int) (*programmaticv1.HistoryEntry, error) {
 		wire := new(programmaticv1.HistoryEntry)
@@ -402,15 +447,17 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 			if !ok {
 				return nil, fmt.Errorf("map history entry %d: missing user payload", index)
 			}
+			content := new(programmaticv1.UserContent)
+			content.SetText(userText)
 			user := new(programmaticv1.UserMessage)
-			user.SetText(userText)
+			user.SetContent([]*programmaticv1.UserContent{content})
 			wire.SetUser(user)
 		case HistoryEntryModel:
 			modelValue, ok := entry.Model.Get()
 			if !ok {
 				return nil, fmt.Errorf("map history entry %d: missing model payload", index)
 			}
-			modelResponse, err := mapModelResponse(modelValue)
+			modelResponse, err := mapTextModelResponseWire(modelValue)
 			if err != nil {
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
@@ -566,6 +613,31 @@ func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
 	mapped.SetToolName(result.ToolName)
 	mapped.SetContents(contents)
 	mapped.SetIsError(result.IsError)
+	return mapped, nil
+}
+
+func mapTextModelResponseWire(response ModelResponse) (*programmaticv1.ModelResponse, error) {
+	content := make([]*programmaticv1.ModelResponseItem, 0, len(response.Content))
+	var text strings.Builder
+	for index := range response.Content {
+		item := &response.Content[index]
+		if item.Kind != ModelResponseContentText {
+			continue
+		}
+		value, present := item.Text.Get()
+		if !present {
+			return nil, fmt.Errorf("map model response content %d: text is missing", index)
+		}
+		finalText := new(programmaticv1.FinalText)
+		finalText.SetText(value)
+		mappedItem := new(programmaticv1.ModelResponseItem)
+		mappedItem.SetText(finalText)
+		content = append(content, mappedItem)
+		text.WriteString(value)
+	}
+	mapped := new(programmaticv1.ModelResponse)
+	mapped.SetText(text.String())
+	mapped.SetContent(content)
 	return mapped, nil
 }
 
@@ -779,6 +851,8 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_SET_SESSION_NAME, nil
 	case CommandGetSessionInfo:
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_INFO, nil
+	case CommandGetSessionEntries:
+		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}

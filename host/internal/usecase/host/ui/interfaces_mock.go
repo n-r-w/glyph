@@ -374,10 +374,10 @@ func (m *MockSessionControl) EXPECT() *MockSessionControlMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockSessionControl) Create(arg0 context.Context) (session.Info, error) {
+func (m *MockSessionControl) Create(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -418,10 +418,10 @@ func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
 }
 
 // Resume mocks base method.
-func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Info, error) {
+func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resume", arg0, arg1)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

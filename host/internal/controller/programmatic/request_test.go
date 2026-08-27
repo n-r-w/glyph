@@ -95,6 +95,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"missing command": {
 
 			request: programmaticv1.OpenRequest_builder{
+				GetSessionEntries:     nil,
 				CorrelationId:         proto.String("missing"),
 				UserRequest:           nil,
 				Abort:                 nil,
@@ -123,7 +124,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"user request": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("user"),
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("user"),
 				UserRequest: programmaticv1.UserRequest_builder{
 					Text: proto.String("  exact text  "),
 				}.Build(),
@@ -147,7 +149,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"invalid user request": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("invalid"),
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("invalid"),
 				UserRequest: programmaticv1.UserRequest_builder{
 					Text: proto.String(" \t\n"),
 				}.Build(),
@@ -171,13 +174,14 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"abort": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId:  proto.String("abort"),
-				Abort:          programmaticv1.Abort_builder{}.Build(),
-				CreateSession:  nil,
-				ListSessions:   nil,
-				ResumeSession:  nil,
-				SetSessionName: nil,
-				GetSessionInfo: nil,
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("abort"),
+				Abort:             programmaticv1.Abort_builder{}.Build(),
+				CreateSession:     nil,
+				ListSessions:      nil,
+				ResumeSession:     nil,
+				SetSessionName:    nil,
+				GetSessionInfo:    nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "abort",
@@ -193,13 +197,14 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"get run state": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId:  proto.String("state"),
-				GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
-				CreateSession:  nil,
-				ListSessions:   nil,
-				ResumeSession:  nil,
-				SetSessionName: nil,
-				GetSessionInfo: nil,
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("state"),
+				GetRunState:       programmaticv1.GetRunState_builder{}.Build(),
+				CreateSession:     nil,
+				ListSessions:      nil,
+				ResumeSession:     nil,
+				SetSessionName:    nil,
+				GetSessionInfo:    nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "state",
@@ -215,13 +220,14 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"get messages": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId:  proto.String("messages"),
-				GetMessages:    programmaticv1.GetMessages_builder{}.Build(),
-				CreateSession:  nil,
-				ListSessions:   nil,
-				ResumeSession:  nil,
-				SetSessionName: nil,
-				GetSessionInfo: nil,
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("messages"),
+				GetMessages:       programmaticv1.GetMessages_builder{}.Build(),
+				CreateSession:     nil,
+				ListSessions:      nil,
+				ResumeSession:     nil,
+				SetSessionName:    nil,
+				GetSessionInfo:    nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "messages",
@@ -237,13 +243,14 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"get models": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId:  proto.String("models"),
-				GetModels:      programmaticv1.GetModels_builder{}.Build(),
-				CreateSession:  nil,
-				ListSessions:   nil,
-				ResumeSession:  nil,
-				SetSessionName: nil,
-				GetSessionInfo: nil,
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("models"),
+				GetModels:         programmaticv1.GetModels_builder{}.Build(),
+				CreateSession:     nil,
+				ListSessions:      nil,
+				ResumeSession:     nil,
+				SetSessionName:    nil,
+				GetSessionInfo:    nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "models",
@@ -259,7 +266,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"select model": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("select-model"),
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("select-model"),
 				SelectModel: programmaticv1.SelectModel_builder{
 					ProviderId: proto.String("provider"),
 					ModelId:    proto.String("model"),
@@ -284,7 +292,8 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		"select reasoning": {
 			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 			request: programmaticv1.OpenRequest_builder{
-				CorrelationId: proto.String("select-reasoning"),
+				GetSessionEntries: nil,
+				CorrelationId:     proto.String("select-reasoning"),
 				SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
 					Choice: programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX.Enum(),
 				}.Build(),
@@ -402,7 +411,8 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 	for level, want := range tests {
 		//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 		request := programmaticv1.OpenRequest_builder{
-			CorrelationId: proto.String(level.String()),
+			GetSessionEntries: nil,
+			CorrelationId:     proto.String(level.String()),
 			SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
 				Choice: level.Enum(),
 			}.Build(),
@@ -421,6 +431,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 // testOpenRequest builds an empty correlated request for selected-variant tests.
 func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
 	return programmaticv1.OpenRequest_builder{
+		GetSessionEntries:     nil,
 		CorrelationId:         proto.String(correlationID),
 		UserRequest:           nil,
 		Abort:                 nil,
@@ -443,12 +454,13 @@ func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	request := programmaticv1.OpenRequest_builder{
-		Abort:          programmaticv1.Abort_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionEntries: nil,
+		Abort:             programmaticv1.Abort_builder{}.Build(),
+		CreateSession:     nil,
+		ListSessions:      nil,
+		ResumeSession:     nil,
+		SetSessionName:    nil,
+		GetSessionInfo:    nil,
 	}.Build()
 	_, err := mapOpenRequest(request)
 	require.Error(t, err)

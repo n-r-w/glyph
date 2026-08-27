@@ -19,6 +19,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
@@ -52,6 +53,22 @@ type informationRecord struct {
 	CreatedAt string `json:"createdAt"`
 	// Name is already normalized by the use case.
 	Name string `json:"name"`
+}
+
+// userTextRecord stores one terminal user text entry.
+type userTextRecord struct {
+	Type      string `json:"type"`
+	ID        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	Text      string `json:"text"`
+}
+
+// modelTextRecord stores provider-neutral terminal model text.
+type modelTextRecord struct {
+	Type      string   `json:"type"`
+	ID        string   `json:"id"`
+	CreatedAt string   `json:"createdAt"`
+	Content   []string `json:"content"`
 }
 
 // recordType reads only the discriminator used to select the current record shape.
@@ -308,39 +325,131 @@ func decodeEntries(reader *bufio.Reader) ([]session.Entry, error) {
 	}
 }
 
-// decodeEntry accepts only a complete session-information record.
+// decodeEntry accepts one complete session-information or text record.
 func decodeEntry(data []byte) (session.Entry, error) {
 	var kind recordType
-	if err := decodeRecord(data, &kind); err != nil || kind.Type != "session_info" {
+	if err := decodeRecord(data, &kind); err != nil {
 		return session.Entry{}, errors.New("invalid session entry")
 	}
-	var record informationRecord
+	switch kind.Type {
+	case "session_info":
+		var record informationRecord
+		if err := decodeRecord(data, &record); err != nil {
+			return session.Entry{}, err
+		}
+		entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+		if err != nil || record.ID == "" || record.Name == "" {
+			return session.Entry{}, errors.New("invalid session information entry")
+		}
+		return session.Entry{
+			ID: record.ID, CreatedAt: entryTime, Information: mo.Some(session.Information{Name: record.Name}),
+			User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		}, nil
+	case "user_text":
+		var record userTextRecord
+		if err := decodeRecord(data, &record); err != nil {
+			return session.Entry{}, err
+		}
+		entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+		if err != nil || record.ID == "" {
+			return session.Entry{}, errors.New("invalid user text entry")
+		}
+		return session.Entry{
+			ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
+			User: mo.Some(model.TextMessage(record.Text)), Model: mo.None[model.Response](),
+		}, nil
+	case "model_text":
+		return decodeModelText(data)
+	default:
+		return session.Entry{}, errors.New("invalid session entry")
+	}
+}
+
+func decodeModelText(data []byte) (session.Entry, error) {
+	var record modelTextRecord
 	if err := decodeRecord(data, &record); err != nil {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" || record.Name == "" {
-		return session.Entry{}, errors.New("invalid session information entry")
+	if err != nil || record.ID == "" {
+		return session.Entry{}, errors.New("invalid model text entry")
+	}
+	content := make([]model.Content, 0, len(record.Content))
+	for _, text := range record.Content {
+		content = append(content, model.Content{
+			Kind: model.ContentText, Text: mo.Some(text), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+		})
+	}
+	response := model.Response{
+		Content: content, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	return session.Entry{
-		ID:          record.ID,
-		CreatedAt:   entryTime,
-		Information: mo.Some(session.Information{Name: record.Name}),
+		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
+		User: mo.None[model.Message](), Model: mo.Some(response),
 	}, nil
 }
 
 // encodeEntry validates the active lifecycle variant before JSON encoding.
 func encodeEntry(entry session.Entry) ([]byte, error) {
-	information, ok := entry.Information.Get()
-	if !ok || entry.ID == "" || information.Name == "" {
+	if entry.ID == "" {
 		return nil, errors.New("invalid session entry")
 	}
-	return encodeLine(informationRecord{
-		Type:      "session_info",
-		ID:        entry.ID,
-		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
-		Name:      information.Name,
+	if information, ok := entry.Information.Get(); ok {
+		if information.Name == "" || entry.User.IsSome() || entry.Model.IsSome() {
+			return nil, errors.New("invalid session entry")
+		}
+		return encodeLine(informationRecord{
+			Type: "session_info", ID: entry.ID,
+			CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Name: information.Name,
+		})
+	}
+	if user, ok := entry.User.Get(); ok {
+		if entry.Model.IsSome() {
+			return nil, errors.New("invalid session entry")
+		}
+		return encodeLine(userTextRecord{
+			Type: "user_text", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
+			Text: userText(user),
+		})
+	}
+	if response, ok := entry.Model.Get(); ok {
+		return encodeModelTextEntry(entry, response)
+	}
+	return nil, errors.New("invalid session entry")
+}
+
+func encodeModelTextEntry(entry session.Entry, response model.Response) ([]byte, error) {
+	outcome, present := response.Outcome.Get()
+	if !present || outcome != model.OutcomeStop {
+		return nil, errors.New("invalid model text entry")
+	}
+	content := make([]string, 0, len(response.Content))
+	for index := range response.Content {
+		item := &response.Content[index]
+		text, hasText := item.Text.Get()
+		if !hasText || item.Kind != model.ContentText {
+			return nil, errors.New("invalid model text content")
+		}
+		content = append(content, text)
+	}
+	return encodeLine(modelTextRecord{
+		Type: "model_text", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Content: content,
 	})
+}
+
+func userText(message model.Message) string {
+	var text strings.Builder
+	for _, content := range message.Content {
+		if content.Kind == model.InputContentText {
+			if value, present := content.Text.Get(); present {
+				text.WriteString(value)
+			}
+		}
+	}
+	return text.String()
 }
 
 // encodeLine adds the record delimiter included in each synchronized append.

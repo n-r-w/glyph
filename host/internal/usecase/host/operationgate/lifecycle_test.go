@@ -33,10 +33,10 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		ID: "idle", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
-	active.EXPECT().CreateActive(gomock.Any()).Return(idleInfo, nil)
+	active.EXPECT().CreateActive(gomock.Any()).Return(session.Replacement{Info: idleInfo, Entries: nil}, nil)
 	created, err := control.Create(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, idleInfo.ID, created.ID)
+	require.Equal(t, idleInfo.ID, created.Info.ID)
 
 	started := make(chan struct{})
 	settle := make(chan struct{})
@@ -65,10 +65,12 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		ID: "stored", Name: mo.Some("stored"), WorkingDirectory: "/project", StoragePath: mo.Some("/sessions/stored.jsonl"),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
-	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(resumedInfo, nil)
+	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
+		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
+	)
 	resumed, err := control.Resume(t.Context(), "stored")
 	require.NoError(t, err)
-	require.Equal(t, resumedInfo.ID, resumed.ID)
+	require.Equal(t, resumedInfo.ID, resumed.Info.ID)
 }
 
 func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
@@ -154,7 +156,9 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 		ID: "stored", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.Some("/stored"),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
-	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(resumedInfo, nil)
+	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
+		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
+	)
 	response, operation, err = service.Handle(t.Context(), programmaticSessionCommand(
 		"resumed", programmaticcontroller.CommandResumeSession, mo.Some(session.ID("stored")), mo.None[string](),
 	))
@@ -197,10 +201,12 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 			Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/stored.jsonl",
-		Entries: []session.Entry{{
-			ID: "entry", CreatedAt: createdAt.Add(time.Second),
-			Information: mo.Some(session.Information{Name: "stored"}),
-		}},
+		Entries: []session.Entry{
+			{
+				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				ID: "entry", CreatedAt: createdAt.Add(time.Second),
+				Information: mo.Some(session.Information{Name: "stored"}),
+			}},
 	}, nil)
 	response, operation, err = service.Handle(t.Context(), programmaticSessionCommand(
 		"resumed", programmaticcontroller.CommandResumeSession, mo.Some(session.ID("stored")), mo.None[string](),
@@ -253,11 +259,11 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	require.Zero(t, agentStarts.Load())
 
 	active := sessioncontrol.NewMockActiveSessions(controller)
-	active.EXPECT().CreateActive(gomock.Any()).Return(session.Info{
+	active.EXPECT().CreateActive(gomock.Any()).Return(session.Replacement{Info: session.Info{
 		ID: "next", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
-	}, nil)
+	}, Entries: nil}, nil)
 	created, err := sessioncontrol.New(active, gate).Create(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, session.ID("next"), created.ID)
+	require.Equal(t, session.ID("next"), created.Info.ID)
 }

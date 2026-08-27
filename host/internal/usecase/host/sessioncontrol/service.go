@@ -27,10 +27,10 @@ func New(active ActiveSessions, gate OperationGate) *Service {
 }
 
 // Create replaces the active session while holding the operation gate.
-func (s *Service) Create(ctx context.Context) (session.Info, error) {
+func (s *Service) Create(ctx context.Context) (session.Replacement, error) {
 	release, acquired := s.gate.TryAcquire()
 	if !acquired {
-		return session.Info{}, session.ErrBusy
+		return session.Replacement{}, session.ErrBusy
 	}
 	// The orchestrator owns release until active replacement returns on every terminal path.
 	defer release()
@@ -38,10 +38,10 @@ func (s *Service) Create(ctx context.Context) (session.Info, error) {
 }
 
 // Resume loads and replaces the active session while holding the operation gate.
-func (s *Service) Resume(ctx context.Context, id session.ID) (session.Info, error) {
+func (s *Service) Resume(ctx context.Context, id session.ID) (session.Replacement, error) {
 	release, acquired := s.gate.TryAcquire()
 	if !acquired {
-		return session.Info{}, session.ErrBusy
+		return session.Replacement{}, session.ErrBusy
 	}
 	// Loading and validation remain inside the reservation so a run cannot observe partial replacement.
 	defer release()
@@ -60,3 +60,6 @@ func (s *Service) List(ctx context.Context) ([]session.Summary, error) {
 
 // Info returns active session information.
 func (s *Service) Info() session.Info { return s.active.ActiveInfo() }
+
+// Entries returns immutable active-session records while runs continue.
+func (s *Service) Entries() []session.Entry { return s.active.ActiveEntries() }

@@ -31,6 +31,7 @@ message OpenRequest {
     ResumeSession resume_session = 11;
     SetSessionName set_session_name = 12;
     GetSessionInfo get_session_info = 13;
+    GetSessionEntries get_session_entries = 14;
   }
 }
 
@@ -87,6 +88,9 @@ message SetSessionName {
 // GetSessionInfo requests active-session information.
 message GetSessionInfo {}
 
+// GetSessionEntries requests detailed active-session text entries.
+message GetSessionEntries {}
+
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
   // The correlation identifier associated with the response.
@@ -111,6 +115,7 @@ message CommandResponse {
     ModelSelectionResult model_selection = 7;
     SessionInfoResult session_info = 8;
     SessionsResult sessions = 9;
+    SessionEntriesResult session_entries = 10;
   }
 }
 
@@ -226,6 +231,25 @@ message CommandRejected {
   string message = 3;
 }
 
+// SessionEntriesResult contains ordered detailed active-session entries.
+message SessionEntriesResult {
+  // The ordered active-session entries.
+  repeated SessionEntry entries = 1;
+}
+
+// SessionEntry contains stable metadata and one public text payload.
+message SessionEntry {
+  // The persisted entry identifier.
+  string id = 1;
+  // The persisted entry timestamp.
+  google.protobuf.Timestamp created_time = 2;
+  // The entry payload.
+  oneof entry {
+    UserMessage user = 3;
+    ModelResponse model = 4;
+  }
+}
+
 // HistoryEntry carries one public message history item.
 message HistoryEntry {
   // The history item payload.
@@ -238,8 +262,18 @@ message HistoryEntry {
 
 // UserMessage carries one user history item.
 message UserMessage {
-  // The user message text.
-  string text = 1;
+  reserved 1;
+  reserved text;
+  // The ordered provider-neutral user content.
+  repeated UserContent content = 2;
+}
+
+// UserContent carries one user text item.
+message UserContent {
+  // The content payload.
+  oneof content {
+    string text = 1;
+  }
 }
 
 // AgentEvent carries one correlated agent lifecycle event.
@@ -463,6 +497,8 @@ enum CommandType {
   COMMAND_TYPE_SET_SESSION_NAME = 11;
   // An active-session information query.
   COMMAND_TYPE_GET_SESSION_INFO = 12;
+  // An active-session entry query.
+  COMMAND_TYPE_GET_SESSION_ENTRIES = 13;
 }
 
 // RejectionCode identifies why a command was rejected.

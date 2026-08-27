@@ -369,6 +369,9 @@ func runSessionRestartUI(
 		return errors.New("second Host did not initialize a new unpersisted session")
 	}
 	observation.NewStartup = startup
+	if err := configureRestartSelection(stream); err != nil {
+		return err
+	}
 
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
@@ -382,8 +385,9 @@ func runSessionRestartUI(
 	if len(listed) != 1 || observeSessionInfo(listed[0].GetInfo()) != observation.NamedSession {
 		return errors.New("stored session list did not preserve every session information field and presence state")
 	}
-	if listed[0].HasFirstUserText() || listed[0].GetTotalMessages() != 0 {
-		return errors.New("stored named session unexpectedly contained transcript data")
+	if !listed[0].HasFirstUserText() || listed[0].GetFirstUserText() != "restart text" ||
+		listed[0].GetTotalMessages() != 2 {
+		return errors.New("stored session summary did not preserve the completed text turn")
 	}
 
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
@@ -399,6 +403,16 @@ func runSessionRestartUI(
 	if observeSessionInfo(changedFrame.GetSessionChanged().GetInfo()) != observation.NamedSession {
 		return errors.New("resumed session did not preserve every session information field and presence state")
 	}
+	entries := changedFrame.GetSessionChanged().GetEntries()
+	if len(entries) != 2 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
+		len(entries[0].GetUser().GetContent()) != 1 || len(entries[1].GetModel().GetContent()) != 1 ||
+		entries[0].GetUser().GetContent()[0].GetText() != "restart text" ||
+		entries[1].GetModel().GetContent()[0].GetText() != "Request complete." {
+		return errors.New("resumed session did not restore ordered user and model text")
+	}
+	if err = submitRestartTurn(stream, "continue"); err != nil {
+		return err
+	}
 
 	// A second information query proves that no replay lifecycle frame was inserted after replacement.
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
@@ -409,9 +423,13 @@ func runSessionRestartUI(
 	if err != nil {
 		return err
 	}
-	if observeSessionInfo(infoFrame.GetSessionInformation().GetInfo()) != observation.NamedSession {
-		return errors.New("active session information changed after resume")
+	active := observeSessionInfo(infoFrame.GetSessionInformation().GetInfo())
+	if active.ID != observation.NamedSession.ID || active.Name != observation.NamedSession.Name ||
+		active.WorkingDirectory != observation.NamedSession.WorkingDirectory ||
+		active.StoragePath != observation.NamedSession.StoragePath || active.CreatedTime != observation.NamedSession.CreatedTime {
+		return errors.New("active session identity changed after resumed continuation")
 	}
+	observation.NamedSession = active
 	observation.Complete = true
 	encoded, err := json.Marshal(observation)
 	if err != nil {
@@ -434,6 +452,9 @@ func nameStartupSession(
 	if startup.ID == "" || startup.NamePresent || startup.StoragePathPresent {
 		return errors.New("first Host did not initialize an unpersisted session")
 	}
+	if err := configureRestartSelection(stream); err != nil {
+		return err
+	}
 	name := "restart session"
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
@@ -447,6 +468,20 @@ func nameStartupSession(
 	if named.ID != startup.ID || !named.NamePresent || named.Name != name || !named.StoragePathPresent {
 		return errors.New("Host did not persist the startup session name")
 	}
+	if err = submitRestartTurn(stream, "restart text"); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		return err
+	}
+	frame, err = receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	if err != nil {
+		return err
+	}
+	named = observeSessionInfo(frame.GetSessionInformation().GetInfo())
 	encoded, err := json.Marshal(sessionRestartObservation{
 		NamedSession: named,
 		NewStartup:   sessionInfoObservation{},
@@ -463,6 +498,71 @@ func nameStartupSession(
 }
 
 // receiveSessionFrame rejects replay content while waiting for one lifecycle response.
+func configureRestartSelection(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+) error {
+	providerID := "openai-codex"
+	modelID := "selected-model"
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectModel field.
+	if err := stream.Send(uipb.OpenResponse_builder{SelectModel: uipb.SelectModelCommand_builder{
+		ProviderId: &providerID, ModelId: &modelID,
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetModelSelectionChanged() != nil
+	})
+	if err != nil {
+		return err
+	}
+	selection := frame.GetModelSelectionChanged().GetSelection()
+	if selection.GetProviderId() != providerID || selection.GetModelId() != modelID {
+		return errors.New("Host did not commit the selected provider and model")
+	}
+	high := uipb.ReasoningChoice_REASONING_CHOICE_HIGH
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
+	if err = stream.Send(uipb.OpenResponse_builder{SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
+		Choice: &high,
+	}.Build()}.Build()); err != nil {
+		return err
+	}
+	frame, err = receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetModelSelectionChanged() != nil
+	})
+	if err != nil {
+		return err
+	}
+	selection = frame.GetModelSelectionChanged().GetSelection()
+	if selection.GetProviderId() != providerID || selection.GetModelId() != modelID ||
+		selection.GetReasoningChoice() != high {
+		return errors.New("Host did not commit the selected reasoning choice")
+	}
+	return nil
+}
+
+func submitRestartTurn(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	text string,
+) error {
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+	if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: &text}.Build()}.Build()); err != nil {
+		return err
+	}
+	for {
+		frame, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if hostError := frame.GetError(); hostError != nil {
+			return fmt.Errorf("restart turn failed: %s", hostError.GetText())
+		}
+		lifecycle := frame.GetLifecycle()
+		if lifecycle != nil && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
+			return nil
+		}
+	}
+}
+
 func receiveSessionFrame(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	matches func(*uipb.OpenRequest) bool,
@@ -890,28 +990,18 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 
 // TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.
 func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
-	paths := testPaths(t, `defaultProvider: local
-defaultModel: local-model
-providers:
-  openai-codex:
-    type: openai-codex
-    models:
-      - id: codex-model
-        reasoning:
-          supported: false
-          choices: [off]
-          default: off
-  local:
-    type: openai-compatible
-    baseURL: http://localhost:11434/v1
-    api: chat-completions
-    models:
-      - id: local-model
-        reasoning:
-          supported: false
-          choices: [off]
-          default: off
-`)
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	)), 0o600))
+	requestCount := new(atomic.Int32)
+	requestCount.Store(1)
+	lastBody := new(atomic.Value)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Session_Restart_UI")
 	tracePath := filepath.Join(t.TempDir(), "session-restart.json")
@@ -939,6 +1029,16 @@ providers:
 	require.True(t, observation.NewStartup.UpdateTimePresent)
 	require.False(t, observation.NewStartup.NamePresent)
 	require.False(t, observation.NewStartup.StoragePathPresent)
+	require.Equal(t, int32(3), requestCount.Load())
+	body, ok := lastBody.Load().([]byte)
+	require.True(t, ok)
+	require.Contains(t, string(body), `"model":"selected-model"`)
+	require.Contains(t, string(body), `"effort":"high"`)
+	require.Contains(t, string(body), "restart text")
+	require.Contains(t, string(body), "Request complete.")
+	require.Contains(t, string(body), "continue")
+	require.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte("Request complete.")))
+	require.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 }
 
 //nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.
@@ -1059,6 +1159,7 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = deterministicCodexTransport{
 		requestCount: requestCount,
+		lastBody:     nil,
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
@@ -1279,9 +1380,19 @@ func (transport countingFailureTransport) RoundTrip(*http.Request) (*http.Respon
 	return nil, errors.New("provider request must not start")
 }
 
-type deterministicCodexTransport struct{ requestCount *atomic.Int32 }
+type deterministicCodexTransport struct {
+	requestCount *atomic.Int32
+	lastBody     *atomic.Value
+}
 
-func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {
+func (transport deterministicCodexTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if transport.lastBody != nil {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			return nil, err
+		}
+		transport.lastBody.Store(body)
+	}
 	requestNumber := transport.requestCount.Add(1)
 	switch requestNumber {
 	case 1:
@@ -1301,7 +1412,7 @@ func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Res
 			Request:          nil,
 			TLS:              nil,
 		}, nil
-	case 2:
+	case 2, 3, 4, 5:
 		return &http.Response{
 			StatusCode:       http.StatusOK,
 			Body:             io.NopCloser(strings.NewReader(finalResponseSSE)),
@@ -1319,7 +1430,7 @@ func (transport deterministicCodexTransport) RoundTrip(*http.Request) (*http.Res
 			TLS:              nil,
 		}, nil
 	default:
-		return nil, errors.New("deterministic Codex transport received more than two requests")
+		return nil, errors.New("deterministic Codex transport received more than three requests")
 	}
 }
 
@@ -1481,6 +1592,32 @@ func writeConfiguredUIExecutable(t *testing.T, directory, name, tracePath, mode 
 }
 
 // codexSettings returns the strict default Codex fixture used by application tests.
+func restartSelectionSettings() string {
+	return `defaultProvider: local
+defaultModel: local-model
+providers:
+  local:
+    type: openai-compatible
+    baseURL: http://localhost:11434/v1
+    api: chat-completions
+    models:
+      - id: local-model
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
+  openai-codex:
+    type: openai-codex
+    models:
+      - id: selected-model
+        reasoning:
+          supported: true
+          choices: [low, high]
+          default: low
+          wireFormat: openai-responses
+`
+}
+
 func codexSettings(extra string) string {
 	return `defaultProvider: openai-codex
 defaultModel: gpt-test

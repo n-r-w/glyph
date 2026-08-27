@@ -1,6 +1,8 @@
 package programmatic
 
 import (
+	"time"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -25,6 +27,7 @@ const (
 	CommandResumeSession
 	CommandSetSessionName
 	CommandGetSessionInfo
+	CommandGetSessionEntries
 )
 
 // Command is one correlated transport-independent controller operation.
@@ -56,6 +59,7 @@ const (
 	ResponseModelSelection
 	ResponseSessionInfo
 	ResponseSessions
+	ResponseSessionEntries
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -85,8 +89,19 @@ type Response struct {
 	// SessionInfo is present for create, resume, name, and information results.
 	SessionInfo mo.Option[session.Info]
 	// Sessions contains the ordered list result.
-	Sessions  []session.Summary
-	Rejection mo.Option[Rejection]
+	Sessions []session.Summary
+	// SessionEntries contains detailed active-session text entries.
+	SessionEntries []SessionEntry
+	Rejection      mo.Option[Rejection]
+}
+
+// SessionEntry contains stable metadata and one public text payload.
+type SessionEntry struct {
+	ID        string
+	CreatedAt time.Time
+	Kind      HistoryEntryKind
+	UserText  mo.Option[string]
+	Model     mo.Option[ModelResponse]
 }
 
 // ModelsResult contains configured models and the active selection.

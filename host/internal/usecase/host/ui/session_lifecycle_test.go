@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
@@ -31,7 +33,7 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			name: "create", command: testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
 			expectedKind: domainui.FrameSessionChanged,
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Create(gomock.Any()).Return(info, nil)
+				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
 			},
 			assertFrame: func(t *testing.T, frame domainui.Frame) { assert.Equal(t, info, frame.SessionInfo.MustGet()) },
 		},
@@ -49,7 +51,9 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			name: "resume", command: testSessionCommand(domainui.CommandResumeSession, mo.Some("stored"), mo.None[string]()),
 			expectedKind: domainui.FrameSessionChanged,
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(info, nil)
+				control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(
+					session.Replacement{Info: info, Entries: nil}, nil,
+				)
 			},
 			assertFrame: func(t *testing.T, frame domainui.Frame) { assert.Equal(t, info, frame.SessionInfo.MustGet()) },
 		},
@@ -81,6 +85,50 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 	}
 }
 
+func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	control := NewMockSessionControl(controller)
+	infoA := testSessionInfo("session-a")
+	infoB := testSessionInfo("session-b")
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	entryB := session.Entry{
+		ID: "entry-b", CreatedAt: createdAt, Information: mo.None[session.Information](),
+		User:  mo.Some(model.TextMessage("session-b-text")),
+		Model: mo.None[session.ModelResponse](),
+	}
+	firstReplacementReady := make(chan struct{})
+	releaseFirstReplacement := make(chan struct{})
+	control.EXPECT().Create(gomock.Any()).DoAndReturn(func(context.Context) (session.Replacement, error) {
+		close(firstReplacementReady)
+		<-releaseFirstReplacement
+		return session.Replacement{Info: infoA, Entries: nil}, nil
+	})
+	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: infoB, Entries: []session.Entry{entryB}}, nil)
+	frameSent := make(chan domainui.Frame, 1)
+	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		frameSent <- frame
+		return nil
+	})
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewSession(channel, nil, nil, nil, control, nil).applySessionCommand(
+			t.Context(), testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
+		)
+		done <- err
+	}()
+	<-firstReplacementReady
+	_, err := control.Create(t.Context())
+	require.NoError(t, err)
+	close(releaseFirstReplacement)
+	require.NoError(t, <-done)
+	frame := <-frameSent
+	require.Equal(t, infoA, frame.SessionInfo.MustGet())
+	require.Empty(t, frame.SessionEntries)
+}
+
 func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 	t.Parallel()
 
@@ -105,7 +153,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 			command:      testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
 			expectedText: "Session replacement is unavailable.",
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Create(gomock.Any()).Return(session.Info{}, session.ErrBusy)
+				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, session.ErrBusy)
 			},
 		},
 		{
@@ -113,7 +161,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("missing"), mo.None[string]()),
 			expectedText: "Session replacement is unavailable.",
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("missing")).Return(session.Info{}, os.ErrNotExist)
+				control.EXPECT().Resume(gomock.Any(), session.ID("missing")).Return(session.Replacement{}, os.ErrNotExist)
 			},
 		},
 		{
@@ -159,8 +207,8 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
 	info := testSessionInfo("active")
-	control.EXPECT().Create(gomock.Any()).Return(session.Info{}, session.ErrBusy)
-	control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Info{}, session.ErrBusy)
+	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, session.ErrBusy)
+	control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Replacement{}, session.ErrBusy)
 	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
 	control.EXPECT().List(gomock.Any()).Return([]session.Summary{}, nil)
 	control.EXPECT().Info().Return(info)

@@ -248,11 +248,11 @@ func (s *Session) applySubmit(
 func (s *Session) applySessionCommand(ctx context.Context, command domainui.Command) (bool, error) {
 	switch command.Kind {
 	case domainui.CommandCreateSession:
-		info, err := s.sessionControl.Create(ctx)
+		replacement, err := s.sessionControl.Create(ctx)
 		if err != nil {
 			return true, s.sendInformation("Session replacement is unavailable.")
 		}
-		return true, s.channel.Send(sessionChangedFrame(info))
+		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandListSessions:
 		listed, err := s.sessionControl.List(ctx)
 		if err != nil {
@@ -264,11 +264,11 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		if !present || id == "" {
 			return true, s.sendInformation("A session ID is required.")
 		}
-		info, err := s.sessionControl.Resume(ctx, session.ID(id))
+		replacement, err := s.sessionControl.Resume(ctx, session.ID(id))
 		if err != nil {
 			return true, s.sendInformation("Session replacement is unavailable.")
 		}
-		return true, s.channel.Send(sessionChangedFrame(info))
+		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandSetSessionName:
 		name, present := command.SessionName.Get()
 		if !present {
@@ -459,6 +459,11 @@ func (s *Session) shutdown(
 // sendAvailability emits one ordered lifecycle availability update.
 func (s *Session) sendAvailability(availability domainui.Availability) error {
 	return s.channel.Send(lifecycleFrame(availabilityLifecycle(availability)))
+}
+
+// sendSessionChanged replaces public session text only after Host replacement commits.
+func (s *Session) sendSessionChanged(replacement session.Replacement) error {
+	return s.channel.Send(sessionChangedFrame(replacement.Info, replacement.Entries))
 }
 
 // sendInformation emits one non-terminal command rejection or notification.

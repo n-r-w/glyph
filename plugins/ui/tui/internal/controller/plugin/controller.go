@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/samber/lo"
@@ -173,6 +174,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			availability = mo.Some(presentationdomain.AvailabilityAuthenticationFailed)
 		}
 		return presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventError,
 			Startup:              nil,
 			Extensions:           nil,
@@ -202,6 +204,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			return presentationdomain.Event{}, err
 		}
 		return presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventModelSelectionChanged,
 			Startup:              nil,
 			Extensions:           nil,
@@ -248,6 +251,7 @@ func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, 
 		return presentationdomain.Event{}, false, nil
 	}
 	return presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 kind,
 		Startup:              nil,
 		Extensions:           nil,
@@ -284,7 +288,7 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 			summaries = append(summaries, mapped)
 		}
 		return sessionEvent(
-			presentationdomain.EventSessionList, mo.None[presentationdomain.SessionInfo](), summaries,
+			presentationdomain.EventSessionList, mo.None[presentationdomain.SessionInfo](), summaries, nil,
 		), true, nil
 	}
 	if changed := request.GetSessionChanged(); changed != nil {
@@ -292,14 +296,18 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 		if err != nil {
 			return presentationdomain.Event{}, true, err
 		}
-		return sessionEvent(presentationdomain.EventSessionChanged, mo.Some(info), nil), true, nil
+		return sessionEvent(
+			presentationdomain.EventSessionChanged, mo.Some(info), nil, mapRestoredTranscript(changed.GetEntries()),
+		), true, nil
 	}
 	if information := request.GetSessionInformation(); information != nil {
 		info, err := mapSessionInfo(information.GetInfo())
 		if err != nil {
 			return presentationdomain.Event{}, true, err
 		}
-		return sessionEvent(presentationdomain.EventSessionInformation, mo.Some(info), nil), true, nil
+		return sessionEvent(
+			presentationdomain.EventSessionInformation, mo.Some(info), nil, nil,
+		), true, nil
 	}
 	return presentationdomain.Event{}, false, nil
 }
@@ -309,8 +317,10 @@ func sessionEvent(
 	kind presentationdomain.EventKind,
 	info mo.Option[presentationdomain.SessionInfo],
 	sessions []presentationdomain.SessionSummary,
+	restored []presentationdomain.Line,
 ) presentationdomain.Event {
 	return presentationdomain.Event{
+		RestoredTranscript:   restored,
 		Kind:                 kind,
 		Startup:              nil,
 		Extensions:           nil,
@@ -333,6 +343,41 @@ func sessionEvent(
 		SessionInfo:          info,
 		Sessions:             sessions,
 	}
+}
+
+func mapRestoredTranscript(entries []*uiv1.SessionEntry) []presentationdomain.Line {
+	lines := make([]presentationdomain.Line, 0, len(entries))
+	for _, entry := range entries {
+		if user := entry.GetUser(); user != nil {
+			var text strings.Builder
+			for _, content := range user.GetContent() {
+				text.WriteString(content.GetText())
+			}
+			lines = append(lines, presentationdomain.Line{
+				Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text: mo.Some(text.String()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			})
+			continue
+		}
+		if response := entry.GetModel(); response != nil {
+			for _, content := range response.GetContent() {
+				kind := presentationdomain.LineModel
+				switch content.GetKind() {
+				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED,
+					uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
+				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
+					kind = presentationdomain.LineRefusal
+				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
+					kind = presentationdomain.LineReasoning
+				}
+				lines = append(lines, presentationdomain.Line{
+					Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
+					Text: mo.Some(content.GetText()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				})
+			}
+		}
+	}
+	return lines
 }
 
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
@@ -403,6 +448,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		return presentationdomain.Event{}, err
 	}
 	event := presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInitialization,
 		Startup:              startup,
 		Extensions:           extensions,
@@ -583,6 +629,7 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		return presentationdomain.Event{}, err
 	}
 	event := presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventUnspecified,
 		Startup:              nil,
 		Extensions:           nil,

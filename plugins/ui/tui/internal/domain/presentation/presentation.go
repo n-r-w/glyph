@@ -208,8 +208,10 @@ type SessionSummary struct {
 
 // Event contains the fields used by one presentation update.
 type Event struct {
-	Kind                 EventKind
-	Startup              []Line
+	Kind    EventKind
+	Startup []Line
+	// RestoredTranscript replaces transcript state only after Host confirms session replacement.
+	RestoredTranscript   []Line
 	Extensions           []Extension
 	Availability         mo.Option[Availability]
 	Position             mo.Option[int]

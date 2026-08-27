@@ -140,7 +140,19 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 
 func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	t := testSuite.T()
-	paths := testPaths(t, codexSettings(""))
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	credentials := fmt.Sprintf(
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	)
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
+	requestCount := &atomic.Int32{}
+	requestCount.Store(1)
+	lastBody := &atomic.Value{}
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixture(t, paths)
 
 	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
@@ -175,6 +187,28 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.Len(t, listed, 1)
 	assert.Equal(t, initial.GetId(), listed[0].GetInfo().GetId())
 
+	selectedModel := send("select-model", func(request *programmaticv1.OpenRequest) {
+		request.SetSelectModel(programmaticv1.SelectModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("selected-model"),
+		}.Build())
+	}).GetModelSelection().GetSelection()
+	assert.Equal(t, "openai-codex", selectedModel.GetProviderId())
+	assert.Equal(t, "selected-model", selectedModel.GetModelId())
+	selectedReasoning := send("select-reasoning", func(request *programmaticv1.OpenRequest) {
+		request.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
+			Choice: new(programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+		}.Build())
+	}).GetModelSelection().GetSelection()
+	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, selectedReasoning.GetReasoningChoice())
+
+	require.NoError(t, fixture.stream.Send(userRequest("first-turn", "restart text")))
+	accepted, err := fixture.stream.Recv()
+	require.NoError(t, err)
+	assert.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	waitProgrammaticSettled(t, fixture)
+	named = send("after-turn-information", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+	}).GetSessionInfo().GetInfo()
 	fixture.closeOwner(t)
 
 	restarted := startProgrammaticFixture(t, paths)
@@ -205,6 +239,21 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	}).GetSessions().GetSessions()
 	require.Len(t, restartedList, 1)
 	assertProgrammaticSessionInfoEqual(t, named, restartedList[0].GetInfo())
+	assert.Equal(t, int64(2), restartedList[0].GetTotalMessages())
+
+	restartedModel := restartSend("restart-select-model", func(request *programmaticv1.OpenRequest) {
+		request.SetSelectModel(programmaticv1.SelectModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("selected-model"),
+		}.Build())
+	}).GetModelSelection().GetSelection()
+	assert.Equal(t, "openai-codex", restartedModel.GetProviderId())
+	assert.Equal(t, "selected-model", restartedModel.GetModelId())
+	restartedReasoning := restartSend("restart-select-reasoning", func(request *programmaticv1.OpenRequest) {
+		request.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
+			Choice: new(programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+		}.Build())
+	}).GetModelSelection().GetSelection()
+	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, restartedReasoning.GetReasoningChoice())
 
 	restartedResume := restartSend("restart-resume", func(request *programmaticv1.OpenRequest) {
 		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
@@ -213,7 +262,47 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	restartedActive := restartSend("restart-resumed-information", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
-	assertProgrammaticSessionInfoEqual(t, named, restartedActive)
+	assert.Equal(t, named.GetId(), restartedActive.GetId())
+
+	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
+		request.SetGetMessages(new(programmaticv1.GetMessages))
+	}).GetMessages().GetEntries()
+	require.Len(t, messages, 2)
+	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
+	assert.Equal(t, "Request complete.", messages[1].GetModel().GetText())
+	entries := restartSend("restart-entries", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+	}).GetSessionEntries().GetEntries()
+	require.Len(t, entries, 2)
+	assert.NotEmpty(t, entries[0].GetId())
+	assert.True(t, entries[0].HasCreatedTime())
+
+	require.NoError(t, restarted.stream.Send(userRequest("continued-turn", "continue")))
+	accepted, err = restarted.stream.Recv()
+	require.NoError(t, err)
+	assert.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	waitProgrammaticSettled(t, restarted)
+	body, ok := lastBody.Load().([]byte)
+	require.True(t, ok)
+	assert.Contains(t, string(body), "restart text")
+	assert.Contains(t, string(body), "Request complete.")
+	assert.Contains(t, string(body), "continue")
+	assert.Contains(t, string(body), `"model":"selected-model"`)
+	assert.Contains(t, string(body), `"effort":"high"`)
+	assert.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte("Request complete.")))
+	assert.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
+	assert.Equal(t, int32(3), requestCount.Load())
+}
+
+func waitProgrammaticSettled(t *testing.T, fixture *programmaticFixture) {
+	t.Helper()
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+			return
+		}
+	}
 }
 
 func assertProgrammaticSessionInfoEqual(

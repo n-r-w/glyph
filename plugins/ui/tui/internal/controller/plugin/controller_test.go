@@ -45,6 +45,54 @@ func TestGetCapabilitiesIsPure(t *testing.T) {
 }
 
 // TestOpenRejectsNonInitializationBeforeOpeningTerminal verifies initialization-first enforcement.
+func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
+	t.Parallel()
+
+	createdAt := timestamppb.New(time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC))
+	id := "stored"
+	workingDirectory := "/project"
+	userText := "prior-user"
+	modelText := "prior-model"
+	//nolint:exhaustruct // OpenRequest_builder sets only the active SessionChanged field.
+	request := uiv1.OpenRequest_builder{SessionChanged: uiv1.SessionChanged_builder{
+		Info: uiv1.SessionInfo_builder{
+			Id: &id, Name: nil, WorkingDirectory: &workingDirectory, StoragePath: nil,
+			CreatedTime: createdAt, UpdateTime: createdAt,
+		}.Build(),
+		Entries: []*uiv1.SessionEntry{
+			//nolint:exhaustruct // SessionEntry_builder sets only the active User field.
+			uiv1.SessionEntry_builder{
+				Id: &id, CreatedTime: createdAt, Model: nil,
+				User: uiv1.UserMessage_builder{Content: []*uiv1.UserContent{
+					uiv1.UserContent_builder{Text: &userText}.Build(),
+				}}.Build(),
+			}.Build(),
+			//nolint:exhaustruct // SessionEntry_builder sets only the active Model field.
+			uiv1.SessionEntry_builder{
+				Id: &id, CreatedTime: createdAt, User: nil,
+				Model: uiv1.ModelResponse_builder{
+					Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+					ResponseId: nil, Usage: nil, Diagnostics: nil, ResponseModel: nil,
+					Content: []*uiv1.ModelResponseContent{
+						uiv1.ModelResponseContent_builder{
+							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: &modelText,
+						}.Build(),
+					},
+				}.Build(),
+			}.Build(),
+		},
+	}.Build()}.Build()
+
+	event, err := mapRequest(request)
+	require.NoError(t, err)
+	require.Empty(t, event.Startup)
+	require.Len(t, event.RestoredTranscript, 2)
+	assert.Equal(t, presentationdomain.LineUser, event.RestoredTranscript[0].Kind)
+	assert.Equal(t, mo.Some(userText), event.RestoredTranscript[0].Text)
+	assert.Equal(t, presentationdomain.LineModel, event.RestoredTranscript[1].Kind)
+	assert.Equal(t, mo.Some(modelText), event.RestoredTranscript[1].Text)
+}
+
 func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 	t.Parallel()
 
@@ -91,7 +139,8 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	factory.EXPECT().New(gomock.Any(), input, output, gomock.Any()).DoAndReturn(
 		func(initial presentationdomain.Event, _ io.Reader, _ io.Writer, _ Emit) Program {
 			assert.Equal(t, presentationdomain.Event{
-				Kind: presentationdomain.EventInitialization,
+				RestoredTranscript: nil,
+				Kind:               presentationdomain.EventInitialization,
 				Startup: []presentationdomain.Line{{
 					Kind:               presentationdomain.LineInformation,
 					Text:               mo.Some("ready"),
@@ -149,6 +198,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		return nil
 	})
 	program.EXPECT().Send(presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
 		Text:                 mo.Some("information"),
 		Startup:              nil,
@@ -1113,6 +1163,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventError,
 		Text:                 mo.Some("safe error"),
 		Startup:              nil,
@@ -1378,6 +1429,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
+				RestoredTranscript:   nil,
 				Kind:                 presentationdomain.EventModelDelta,
 				Position:             mo.Some(2),
 				Text:                 mo.Some("delta"),
@@ -1421,6 +1473,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
+				RestoredTranscript:   nil,
 				Kind:                 presentationdomain.EventToolStarted,
 				ToolCallID:           mo.Some("call-1"),
 				ToolName:             mo.Some("read"),
@@ -1464,6 +1517,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
+				RestoredTranscript:   nil,
 				Kind:                 presentationdomain.EventToolOutput,
 				ToolCallID:           mo.Some("call-1"),
 				Stream:               mo.Some(presentationdomain.OutputStderr),
@@ -1512,10 +1566,11 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				FinalToolCall:   nil,
 			}.Build(),
 			expected: presentationdomain.Event{
-				Kind:       presentationdomain.EventToolResult,
-				ToolCallID: mo.Some("call-1"),
-				ToolName:   mo.Some("read"),
-				Failure:    mo.Some(true),
+				RestoredTranscript: nil,
+				Kind:               presentationdomain.EventToolResult,
+				ToolCallID:         mo.Some("call-1"),
+				ToolName:           mo.Some("read"),
+				Failure:            mo.Some(true),
 				ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
 					Text:      mo.Some("denied"),
 					MediaType: mo.None[string](),
@@ -1559,6 +1614,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
+				RestoredTranscript:   nil,
 				Kind:                 presentationdomain.EventAgentSettled,
 				Text:                 mo.Some("safe failure"),
 				ErrorText:            mo.Some("safe failure"),
@@ -1602,6 +1658,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolResultContents: nil,
 			}.Build(),
 			expected: presentationdomain.Event{
+				RestoredTranscript:   nil,
 				Kind:                 presentationdomain.EventAvailability,
 				Availability:         mo.Some(presentationdomain.AvailabilityRunning),
 				Startup:              nil,
@@ -2491,6 +2548,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventError,
 		Text:                 mo.Some("Authentication failed."),
 		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),

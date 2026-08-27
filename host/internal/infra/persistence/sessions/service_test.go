@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,8 +14,58 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
+
+func TestModelTextRecordContainsOnlyOrderedCompletedText(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	encoded, err := encodeEntry(session.Entry{
+		ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+		User: mo.None[model.Message](),
+		Model: mo.Some(model.Response{
+			Content: []model.Content{
+				{
+					Kind: model.ContentText, Text: mo.Some("first"), Final: true,
+					ProviderContext: mo.Some(model.ProviderContext{
+						Source: model.ProviderContextSource{
+							ProviderID: "provider", API: "responses", Model: "model",
+							CompatibilityKey: mo.Some("key"),
+						},
+						Payload: []byte{1, 2, 3},
+					}),
+					ToolCall: mo.None[model.ToolCall](),
+				},
+				{
+					Kind: model.ContentText, Text: mo.Some("second"), Final: true,
+					ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+				},
+			},
+			Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.Some("must not persist"),
+			Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+			ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+	})
+	require.NoError(t, err)
+
+	var record map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &record))
+	require.Equal(t, map[string]any{
+		"type": "model_text", "id": "model-entry", "createdAt": createdAt.Format(time.RFC3339Nano),
+		"content": []any{"first", "second"},
+	}, record)
+
+	decoded, err := decodeEntry(encoded)
+	require.NoError(t, err)
+	response := decoded.Model.MustGet()
+	require.Equal(t, mo.Some(model.OutcomeStop), response.Outcome)
+	require.Equal(t, mo.None[string](), response.ErrorMessage)
+	require.Len(t, response.Content, 2)
+}
 
 func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 	t.Parallel()

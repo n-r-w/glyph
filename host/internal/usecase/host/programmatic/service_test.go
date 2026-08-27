@@ -98,9 +98,11 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 				StoragePath: mo.Some("/sessions/session.jsonl"), CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 			}
 			if test.kind == controller.CommandCreateSession {
-				sessions.EXPECT().Create(gomock.Any()).Return(info, nil)
+				sessions.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
 			} else {
-				sessions.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(info, nil)
+				sessions.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(
+					session.Replacement{Info: info, Entries: nil}, nil,
+				)
 			}
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, sessions, NewDelivery())
 
@@ -141,15 +143,16 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 			control := NewMockSessionControl(gomock.NewController(t))
 			switch test.kind {
 			case controller.CommandCreateSession:
-				control.EXPECT().Create(gomock.Any()).Return(session.Info{}, test.operationErr)
+				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.operationErr)
 			case controller.CommandResumeSession:
-				control.EXPECT().Resume(gomock.Any(), test.sessionID.MustGet()).Return(session.Info{}, test.operationErr)
+				control.EXPECT().Resume(gomock.Any(), test.sessionID.MustGet()).Return(session.Replacement{}, test.operationErr)
 			case controller.CommandSetSessionName:
 				control.EXPECT().SetName(gomock.Any(), test.sessionName.MustGet()).Return(session.Info{}, test.operationErr)
 			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
-				controller.CommandListSessions, controller.CommandGetSessionInfo:
+				controller.CommandListSessions, controller.CommandGetSessionInfo,
+				controller.CommandGetSessionEntries:
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -189,7 +192,9 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			name: "create", kind: controller.CommandCreateSession,
 			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessionInfo,
-			expect:       func(control *MockSessionControl) { control.EXPECT().Create(gomock.Any()).Return(info, nil) },
+			expect: func(control *MockSessionControl) {
+				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
+			},
 		},
 		{
 			name: "list", kind: controller.CommandListSessions,
@@ -206,7 +211,9 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			sessionID: mo.Some(session.ID("session-id")), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessionInfo,
 			expect: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(info, nil)
+				control.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(
+					session.Replacement{Info: info, Entries: nil}, nil,
+				)
 			},
 		},
 		{
@@ -280,7 +287,8 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 
 		require.NoError(t, err)
 		assert.Equal(t, controller.Response{
-			CorrelationID: "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+			SessionEntries: nil,
+			CorrelationID:  "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 			SessionInfo: mo.None[session.Info](),
 			Sessions:    nil,
 		}, response)
@@ -504,7 +512,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 				SessionID:   mo.None[session.ID](),
 				SessionName: mo.None[string]()},
 			want: controller.Response{
-				CorrelationID: "models", Kind: controller.ResponseModels,
+				SessionEntries: nil,
+				CorrelationID:  "models", Kind: controller.ResponseModels,
 				Models: mo.Some(controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)}), State: mo.None[controller.RunStateResult](), Messages: nil, Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 				SessionInfo: mo.None[session.Info](),
 				Sessions:    nil,
@@ -517,7 +526,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 				SessionName: mo.None[string](),
 			},
 			want: controller.Response{
-				CorrelationID: "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionEntries: nil,
+				CorrelationID:  "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
 				SessionInfo: mo.None[session.Info](),
 				Sessions:    nil,
 			},
@@ -530,7 +540,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 				SessionName: mo.None[string](),
 			},
 			want: controller.Response{
-				CorrelationID: "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionEntries: nil,
+				CorrelationID:  "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
 				SessionInfo: mo.None[session.Info](),
 				Sessions:    nil,
 			},
@@ -682,7 +693,8 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			controller.ResponseModels,
 			controller.ResponseModelSelection,
 			controller.ResponseSessionInfo,
-			controller.ResponseSessions:
+			controller.ResponseSessions,
+			controller.ResponseSessionEntries:
 			s.Fail("unexpected response", "kind %d", result.response.Kind)
 		}
 	}
@@ -761,7 +773,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
-		CorrelationID: "state", Kind: controller.ResponseRunState,
+		SessionEntries: nil,
+		CorrelationID:  "state", Kind: controller.ResponseRunState,
 		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 		SessionInfo: mo.None[session.Info](),
 		Sessions:    nil,
@@ -797,18 +810,15 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.ResponseMessages, response.Kind)
-	s.Require().Len(response.Messages, 3)
+	s.Require().Len(response.Messages, 2)
 	s.Equal("hello", response.Messages[0].UserText.OrEmpty())
 	modelResponse := response.Messages[1].Model.OrEmpty()
 	s.Equal("answerpartial", modelResponse.Text)
-	s.Require().Len(modelResponse.Content, 3)
-	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[2].Kind)
-	toolResult := response.Messages[2].ToolResult.OrEmpty()
-	image, present := toolResult.Contents[1].Image.Get()
-	s.Require().True(present)
-	s.Equal([]byte{1, 2}, image.Data)
-	image.Data[0] = 9
-	s.Equal(byte(1), history[2].ToolResult.OrEmpty().Contents[1].Image.OrEmpty().Data[0])
+	s.Equal(mo.None[controller.ModelOutcome](), modelResponse.Outcome)
+	s.Equal(mo.None[string](), modelResponse.ResponseID)
+	s.Require().Len(modelResponse.Content, 2)
+	s.Equal(controller.ModelResponseContentText, modelResponse.Content[0].Kind)
+	s.Equal(controller.ModelResponseContentText, modelResponse.Content[1].Kind)
 }
 
 // TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.

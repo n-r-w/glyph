@@ -52,6 +52,8 @@ const (
 	CommandType_COMMAND_TYPE_SET_SESSION_NAME CommandType = 11
 	// An active-session information query.
 	CommandType_COMMAND_TYPE_GET_SESSION_INFO CommandType = 12
+	// An active-session entry query.
+	CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES CommandType = 13
 )
 
 // Enum value maps for CommandType.
@@ -70,6 +72,7 @@ var (
 		10: "COMMAND_TYPE_RESUME_SESSION",
 		11: "COMMAND_TYPE_SET_SESSION_NAME",
 		12: "COMMAND_TYPE_GET_SESSION_INFO",
+		13: "COMMAND_TYPE_GET_SESSION_ENTRIES",
 	}
 	CommandType_value = map[string]int32{
 		"COMMAND_TYPE_UNSPECIFIED":             0,
@@ -85,6 +88,7 @@ var (
 		"COMMAND_TYPE_RESUME_SESSION":          10,
 		"COMMAND_TYPE_SET_SESSION_NAME":        11,
 		"COMMAND_TYPE_GET_SESSION_INFO":        12,
+		"COMMAND_TYPE_GET_SESSION_ENTRIES":     13,
 	}
 )
 
@@ -780,6 +784,15 @@ func (x *OpenRequest) GetGetSessionInfo() *GetSessionInfo {
 	return nil
 }
 
+func (x *OpenRequest) GetGetSessionEntries() *GetSessionEntries {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries); ok {
+			return x.GetSessionEntries
+		}
+	}
+	return nil
+}
+
 func (x *OpenRequest) SetCorrelationId(v string) {
 	x.xxx_hidden_CorrelationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
@@ -879,6 +892,14 @@ func (x *OpenRequest) SetGetSessionInfo(v *GetSessionInfo) {
 		return
 	}
 	x.xxx_hidden_Command = &openRequest_GetSessionInfo{v}
+}
+
+func (x *OpenRequest) SetGetSessionEntries(v *GetSessionEntries) {
+	if v == nil {
+		x.xxx_hidden_Command = nil
+		return
+	}
+	x.xxx_hidden_Command = &openRequest_GetSessionEntries{v}
 }
 
 func (x *OpenRequest) HasCorrelationId() bool {
@@ -991,6 +1012,14 @@ func (x *OpenRequest) HasGetSessionInfo() bool {
 	return ok
 }
 
+func (x *OpenRequest) HasGetSessionEntries() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries)
+	return ok
+}
+
 func (x *OpenRequest) ClearCorrelationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CorrelationId = nil
@@ -1072,6 +1101,12 @@ func (x *OpenRequest) ClearGetSessionInfo() {
 	}
 }
 
+func (x *OpenRequest) ClearGetSessionEntries() {
+	if _, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries); ok {
+		x.xxx_hidden_Command = nil
+	}
+}
+
 const OpenRequest_Command_not_set_case case_OpenRequest_Command = 0
 const OpenRequest_UserRequest_case case_OpenRequest_Command = 2
 const OpenRequest_Abort_case case_OpenRequest_Command = 3
@@ -1085,6 +1120,7 @@ const OpenRequest_ListSessions_case case_OpenRequest_Command = 10
 const OpenRequest_ResumeSession_case case_OpenRequest_Command = 11
 const OpenRequest_SetSessionName_case case_OpenRequest_Command = 12
 const OpenRequest_GetSessionInfo_case case_OpenRequest_Command = 13
+const OpenRequest_GetSessionEntries_case case_OpenRequest_Command = 14
 
 func (x *OpenRequest) WhichCommand() case_OpenRequest_Command {
 	if x == nil {
@@ -1115,6 +1151,8 @@ func (x *OpenRequest) WhichCommand() case_OpenRequest_Command {
 		return OpenRequest_SetSessionName_case
 	case *openRequest_GetSessionInfo:
 		return OpenRequest_GetSessionInfo_case
+	case *openRequest_GetSessionEntries:
+		return OpenRequest_GetSessionEntries_case
 	default:
 		return OpenRequest_Command_not_set_case
 	}
@@ -1140,6 +1178,7 @@ type OpenRequest_builder struct {
 	ResumeSession         *ResumeSession
 	SetSessionName        *SetSessionName
 	GetSessionInfo        *GetSessionInfo
+	GetSessionEntries     *GetSessionEntries
 	// -- end of xxx_hidden_Command
 }
 
@@ -1186,6 +1225,9 @@ func (b0 OpenRequest_builder) Build() *OpenRequest {
 	}
 	if b.GetSessionInfo != nil {
 		x.xxx_hidden_Command = &openRequest_GetSessionInfo{b.GetSessionInfo}
+	}
+	if b.GetSessionEntries != nil {
+		x.xxx_hidden_Command = &openRequest_GetSessionEntries{b.GetSessionEntries}
 	}
 	return m0
 }
@@ -1252,6 +1294,10 @@ type openRequest_GetSessionInfo struct {
 	GetSessionInfo *GetSessionInfo `protobuf:"bytes,13,opt,name=get_session_info,json=getSessionInfo,oneof"`
 }
 
+type openRequest_GetSessionEntries struct {
+	GetSessionEntries *GetSessionEntries `protobuf:"bytes,14,opt,name=get_session_entries,json=getSessionEntries,oneof"`
+}
+
 func (*openRequest_UserRequest) isOpenRequest_Command() {}
 
 func (*openRequest_Abort) isOpenRequest_Command() {}
@@ -1275,6 +1321,8 @@ func (*openRequest_ResumeSession) isOpenRequest_Command() {}
 func (*openRequest_SetSessionName) isOpenRequest_Command() {}
 
 func (*openRequest_GetSessionInfo) isOpenRequest_Command() {}
+
+func (*openRequest_GetSessionEntries) isOpenRequest_Command() {}
 
 // UserRequest starts an agent run for user text.
 type UserRequest struct {
@@ -2017,6 +2065,50 @@ func (b0 GetSessionInfo_builder) Build() *GetSessionInfo {
 	return m0
 }
 
+// GetSessionEntries requests detailed active-session text entries.
+type GetSessionEntries struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSessionEntries) Reset() {
+	*x = GetSessionEntries{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSessionEntries) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSessionEntries) ProtoMessage() {}
+
+func (x *GetSessionEntries) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type GetSessionEntries_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 GetSessionEntries_builder) Build() *GetSessionEntries {
+	m0 := &GetSessionEntries{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
 // OpenResponse carries one correlated command response or agent event.
 type OpenResponse struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
@@ -2030,7 +2122,7 @@ type OpenResponse struct {
 
 func (x *OpenResponse) Reset() {
 	*x = OpenResponse{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[13]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2042,7 +2134,7 @@ func (x *OpenResponse) String() string {
 func (*OpenResponse) ProtoMessage() {}
 
 func (x *OpenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[13]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2204,7 +2296,7 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 type case_OpenResponse_Content protoreflect.FieldNumber
 
 func (x case_OpenResponse_Content) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[13].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[14].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2237,7 +2329,7 @@ type CommandResponse struct {
 
 func (x *CommandResponse) Reset() {
 	*x = CommandResponse{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[14]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2249,7 +2341,7 @@ func (x *CommandResponse) String() string {
 func (*CommandResponse) ProtoMessage() {}
 
 func (x *CommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[14]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2341,6 +2433,15 @@ func (x *CommandResponse) GetSessions() *SessionsResult {
 	return nil
 }
 
+func (x *CommandResponse) GetSessionEntries() *SessionEntriesResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries); ok {
+			return x.SessionEntries
+		}
+	}
+	return nil
+}
+
 func (x *CommandResponse) SetUserRequestAccepted(v *UserRequestAccepted) {
 	if v == nil {
 		x.xxx_hidden_Result = nil
@@ -2411,6 +2512,14 @@ func (x *CommandResponse) SetSessions(v *SessionsResult) {
 		return
 	}
 	x.xxx_hidden_Result = &commandResponse_Sessions{v}
+}
+
+func (x *CommandResponse) SetSessionEntries(v *SessionEntriesResult) {
+	if v == nil {
+		x.xxx_hidden_Result = nil
+		return
+	}
+	x.xxx_hidden_Result = &commandResponse_SessionEntries{v}
 }
 
 func (x *CommandResponse) HasResult() bool {
@@ -2492,6 +2601,14 @@ func (x *CommandResponse) HasSessions() bool {
 	return ok
 }
 
+func (x *CommandResponse) HasSessionEntries() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries)
+	return ok
+}
+
 func (x *CommandResponse) ClearResult() {
 	x.xxx_hidden_Result = nil
 }
@@ -2550,6 +2667,12 @@ func (x *CommandResponse) ClearSessions() {
 	}
 }
 
+func (x *CommandResponse) ClearSessionEntries() {
+	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries); ok {
+		x.xxx_hidden_Result = nil
+	}
+}
+
 const CommandResponse_Result_not_set_case case_CommandResponse_Result = 0
 const CommandResponse_UserRequestAccepted_case case_CommandResponse_Result = 1
 const CommandResponse_AbortCompleted_case case_CommandResponse_Result = 2
@@ -2560,6 +2683,7 @@ const CommandResponse_Models_case case_CommandResponse_Result = 6
 const CommandResponse_ModelSelection_case case_CommandResponse_Result = 7
 const CommandResponse_SessionInfo_case case_CommandResponse_Result = 8
 const CommandResponse_Sessions_case case_CommandResponse_Result = 9
+const CommandResponse_SessionEntries_case case_CommandResponse_Result = 10
 
 func (x *CommandResponse) WhichResult() case_CommandResponse_Result {
 	if x == nil {
@@ -2584,6 +2708,8 @@ func (x *CommandResponse) WhichResult() case_CommandResponse_Result {
 		return CommandResponse_SessionInfo_case
 	case *commandResponse_Sessions:
 		return CommandResponse_Sessions_case
+	case *commandResponse_SessionEntries:
+		return CommandResponse_SessionEntries_case
 	default:
 		return CommandResponse_Result_not_set_case
 	}
@@ -2604,6 +2730,7 @@ type CommandResponse_builder struct {
 	ModelSelection      *ModelSelectionResult
 	SessionInfo         *SessionInfoResult
 	Sessions            *SessionsResult
+	SessionEntries      *SessionEntriesResult
 	// -- end of xxx_hidden_Result
 }
 
@@ -2638,13 +2765,16 @@ func (b0 CommandResponse_builder) Build() *CommandResponse {
 	if b.Sessions != nil {
 		x.xxx_hidden_Result = &commandResponse_Sessions{b.Sessions}
 	}
+	if b.SessionEntries != nil {
+		x.xxx_hidden_Result = &commandResponse_SessionEntries{b.SessionEntries}
+	}
 	return m0
 }
 
 type case_CommandResponse_Result protoreflect.FieldNumber
 
 func (x case_CommandResponse_Result) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[14].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[15].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2691,6 +2821,10 @@ type commandResponse_Sessions struct {
 	Sessions *SessionsResult `protobuf:"bytes,9,opt,name=sessions,oneof"`
 }
 
+type commandResponse_SessionEntries struct {
+	SessionEntries *SessionEntriesResult `protobuf:"bytes,10,opt,name=session_entries,json=sessionEntries,oneof"`
+}
+
 func (*commandResponse_UserRequestAccepted) isCommandResponse_Result() {}
 
 func (*commandResponse_AbortCompleted) isCommandResponse_Result() {}
@@ -2709,6 +2843,8 @@ func (*commandResponse_SessionInfo) isCommandResponse_Result() {}
 
 func (*commandResponse_Sessions) isCommandResponse_Result() {}
 
+func (*commandResponse_SessionEntries) isCommandResponse_Result() {}
+
 // UserRequestAccepted confirms that an agent run was accepted.
 type UserRequestAccepted struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
@@ -2718,7 +2854,7 @@ type UserRequestAccepted struct {
 
 func (x *UserRequestAccepted) Reset() {
 	*x = UserRequestAccepted{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[15]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2730,7 +2866,7 @@ func (x *UserRequestAccepted) String() string {
 func (*UserRequestAccepted) ProtoMessage() {}
 
 func (x *UserRequestAccepted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[15]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2762,7 +2898,7 @@ type AbortCompleted struct {
 
 func (x *AbortCompleted) Reset() {
 	*x = AbortCompleted{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[16]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2774,7 +2910,7 @@ func (x *AbortCompleted) String() string {
 func (*AbortCompleted) ProtoMessage() {}
 
 func (x *AbortCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[16]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2810,7 +2946,7 @@ type RunStateResult struct {
 
 func (x *RunStateResult) Reset() {
 	*x = RunStateResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[17]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2822,7 +2958,7 @@ func (x *RunStateResult) String() string {
 func (*RunStateResult) ProtoMessage() {}
 
 func (x *RunStateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[17]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2920,7 +3056,7 @@ type MessagesResult struct {
 
 func (x *MessagesResult) Reset() {
 	*x = MessagesResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[18]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2932,7 +3068,7 @@ func (x *MessagesResult) String() string {
 func (*MessagesResult) ProtoMessage() {}
 
 func (x *MessagesResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[18]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2982,7 +3118,7 @@ type ModelsResult struct {
 
 func (x *ModelsResult) Reset() {
 	*x = ModelsResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[19]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2994,7 +3130,7 @@ func (x *ModelsResult) String() string {
 func (*ModelsResult) ProtoMessage() {}
 
 func (x *ModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[19]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3072,7 +3208,7 @@ type ConfiguredModel struct {
 
 func (x *ConfiguredModel) Reset() {
 	*x = ConfiguredModel{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[20]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3084,7 +3220,7 @@ func (x *ConfiguredModel) String() string {
 func (*ConfiguredModel) ProtoMessage() {}
 
 func (x *ConfiguredModel) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[20]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3212,7 +3348,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3224,7 +3360,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3337,7 +3473,7 @@ type ModelSelection struct {
 
 func (x *ModelSelection) Reset() {
 	*x = ModelSelection{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3349,7 +3485,7 @@ func (x *ModelSelection) String() string {
 func (*ModelSelection) ProtoMessage() {}
 
 func (x *ModelSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3480,7 +3616,7 @@ type ModelSelectionResult struct {
 
 func (x *ModelSelectionResult) Reset() {
 	*x = ModelSelectionResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3492,7 +3628,7 @@ func (x *ModelSelectionResult) String() string {
 func (*ModelSelectionResult) ProtoMessage() {}
 
 func (x *ModelSelectionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3550,7 +3686,7 @@ type SessionInfoResult struct {
 
 func (x *SessionInfoResult) Reset() {
 	*x = SessionInfoResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3562,7 +3698,7 @@ func (x *SessionInfoResult) String() string {
 func (*SessionInfoResult) ProtoMessage() {}
 
 func (x *SessionInfoResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3620,7 +3756,7 @@ type SessionsResult struct {
 
 func (x *SessionsResult) Reset() {
 	*x = SessionsResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3632,7 +3768,7 @@ func (x *SessionsResult) String() string {
 func (*SessionsResult) ProtoMessage() {}
 
 func (x *SessionsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3688,7 +3824,7 @@ type SessionInfo struct {
 
 func (x *SessionInfo) Reset() {
 	*x = SessionInfo{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3700,7 +3836,7 @@ func (x *SessionInfo) String() string {
 func (*SessionInfo) ProtoMessage() {}
 
 func (x *SessionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3919,7 +4055,7 @@ type SessionSummary struct {
 
 func (x *SessionSummary) Reset() {
 	*x = SessionSummary{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3931,7 +4067,7 @@ func (x *SessionSummary) String() string {
 func (*SessionSummary) ProtoMessage() {}
 
 func (x *SessionSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4056,7 +4192,7 @@ type CommandRejected struct {
 
 func (x *CommandRejected) Reset() {
 	*x = CommandRejected{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4068,7 +4204,7 @@ func (x *CommandRejected) String() string {
 func (*CommandRejected) ProtoMessage() {}
 
 func (x *CommandRejected) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4188,6 +4324,303 @@ func (b0 CommandRejected_builder) Build() *CommandRejected {
 	return m0
 }
 
+// SessionEntriesResult contains ordered detailed active-session entries.
+type SessionEntriesResult struct {
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Entries *[]*SessionEntry       `protobuf:"bytes,1,rep,name=entries"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SessionEntriesResult) Reset() {
+	*x = SessionEntriesResult{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionEntriesResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionEntriesResult) ProtoMessage() {}
+
+func (x *SessionEntriesResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SessionEntriesResult) GetEntries() []*SessionEntry {
+	if x != nil {
+		if x.xxx_hidden_Entries != nil {
+			return *x.xxx_hidden_Entries
+		}
+	}
+	return nil
+}
+
+func (x *SessionEntriesResult) SetEntries(v []*SessionEntry) {
+	x.xxx_hidden_Entries = &v
+}
+
+type SessionEntriesResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ordered active-session entries.
+	Entries []*SessionEntry
+}
+
+func (b0 SessionEntriesResult_builder) Build() *SessionEntriesResult {
+	m0 := &SessionEntriesResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Entries = &b.Entries
+	return m0
+}
+
+// SessionEntry contains stable metadata and one public text payload.
+type SessionEntry struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_CreatedTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_time,json=createdTime"`
+	xxx_hidden_Entry       isSessionEntry_Entry   `protobuf_oneof:"entry"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *SessionEntry) Reset() {
+	*x = SessionEntry{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionEntry) ProtoMessage() {}
+
+func (x *SessionEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SessionEntry) GetId() string {
+	if x != nil {
+		if x.xxx_hidden_Id != nil {
+			return *x.xxx_hidden_Id
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SessionEntry) GetCreatedTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_CreatedTime
+	}
+	return nil
+}
+
+func (x *SessionEntry) GetUser() *UserMessage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Entry.(*sessionEntry_User); ok {
+			return x.User
+		}
+	}
+	return nil
+}
+
+func (x *SessionEntry) GetModel() *ModelResponse {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Entry.(*sessionEntry_Model); ok {
+			return x.Model
+		}
+	}
+	return nil
+}
+
+func (x *SessionEntry) SetId(v string) {
+	x.xxx_hidden_Id = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *SessionEntry) SetCreatedTime(v *timestamppb.Timestamp) {
+	x.xxx_hidden_CreatedTime = v
+}
+
+func (x *SessionEntry) SetUser(v *UserMessage) {
+	if v == nil {
+		x.xxx_hidden_Entry = nil
+		return
+	}
+	x.xxx_hidden_Entry = &sessionEntry_User{v}
+}
+
+func (x *SessionEntry) SetModel(v *ModelResponse) {
+	if v == nil {
+		x.xxx_hidden_Entry = nil
+		return
+	}
+	x.xxx_hidden_Entry = &sessionEntry_Model{v}
+}
+
+func (x *SessionEntry) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *SessionEntry) HasCreatedTime() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_CreatedTime != nil
+}
+
+func (x *SessionEntry) HasEntry() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Entry != nil
+}
+
+func (x *SessionEntry) HasUser() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Entry.(*sessionEntry_User)
+	return ok
+}
+
+func (x *SessionEntry) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Entry.(*sessionEntry_Model)
+	return ok
+}
+
+func (x *SessionEntry) ClearId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Id = nil
+}
+
+func (x *SessionEntry) ClearCreatedTime() {
+	x.xxx_hidden_CreatedTime = nil
+}
+
+func (x *SessionEntry) ClearEntry() {
+	x.xxx_hidden_Entry = nil
+}
+
+func (x *SessionEntry) ClearUser() {
+	if _, ok := x.xxx_hidden_Entry.(*sessionEntry_User); ok {
+		x.xxx_hidden_Entry = nil
+	}
+}
+
+func (x *SessionEntry) ClearModel() {
+	if _, ok := x.xxx_hidden_Entry.(*sessionEntry_Model); ok {
+		x.xxx_hidden_Entry = nil
+	}
+}
+
+const SessionEntry_Entry_not_set_case case_SessionEntry_Entry = 0
+const SessionEntry_User_case case_SessionEntry_Entry = 3
+const SessionEntry_Model_case case_SessionEntry_Entry = 4
+
+func (x *SessionEntry) WhichEntry() case_SessionEntry_Entry {
+	if x == nil {
+		return SessionEntry_Entry_not_set_case
+	}
+	switch x.xxx_hidden_Entry.(type) {
+	case *sessionEntry_User:
+		return SessionEntry_User_case
+	case *sessionEntry_Model:
+		return SessionEntry_Model_case
+	default:
+		return SessionEntry_Entry_not_set_case
+	}
+}
+
+type SessionEntry_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The persisted entry identifier.
+	Id *string
+	// The persisted entry timestamp.
+	CreatedTime *timestamppb.Timestamp
+	// The entry payload.
+
+	// Fields of oneof xxx_hidden_Entry:
+	User  *UserMessage
+	Model *ModelResponse
+	// -- end of xxx_hidden_Entry
+}
+
+func (b0 SessionEntry_builder) Build() *SessionEntry {
+	m0 := &SessionEntry{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Id != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Id = b.Id
+	}
+	x.xxx_hidden_CreatedTime = b.CreatedTime
+	if b.User != nil {
+		x.xxx_hidden_Entry = &sessionEntry_User{b.User}
+	}
+	if b.Model != nil {
+		x.xxx_hidden_Entry = &sessionEntry_Model{b.Model}
+	}
+	return m0
+}
+
+type case_SessionEntry_Entry protoreflect.FieldNumber
+
+func (x case_SessionEntry_Entry) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[31].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isSessionEntry_Entry interface {
+	isSessionEntry_Entry()
+}
+
+type sessionEntry_User struct {
+	User *UserMessage `protobuf:"bytes,3,opt,name=user,oneof"`
+}
+
+type sessionEntry_Model struct {
+	Model *ModelResponse `protobuf:"bytes,4,opt,name=model,oneof"`
+}
+
+func (*sessionEntry_User) isSessionEntry_Entry() {}
+
+func (*sessionEntry_Model) isSessionEntry_Entry() {}
+
 // HistoryEntry carries one public message history item.
 type HistoryEntry struct {
 	state            protoimpl.MessageState `protogen:"opaque.v1"`
@@ -4198,7 +4631,7 @@ type HistoryEntry struct {
 
 func (x *HistoryEntry) Reset() {
 	*x = HistoryEntry{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4210,7 +4643,7 @@ func (x *HistoryEntry) String() string {
 func (*HistoryEntry) ProtoMessage() {}
 
 func (x *HistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4377,7 +4810,7 @@ func (b0 HistoryEntry_builder) Build() *HistoryEntry {
 type case_HistoryEntry_Entry protoreflect.FieldNumber
 
 func (x case_HistoryEntry_Entry) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[29].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[32].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4408,17 +4841,15 @@ func (*historyEntry_ToolResult) isHistoryEntry_Entry() {}
 
 // UserMessage carries one user history item.
 type UserMessage struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Content *[]*UserContent        `protobuf:"bytes,2,rep,name=content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *UserMessage) Reset() {
 	*x = UserMessage{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4430,7 +4861,7 @@ func (x *UserMessage) String() string {
 func (*UserMessage) ProtoMessage() {}
 
 func (x *UserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4441,50 +4872,159 @@ func (x *UserMessage) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *UserMessage) GetText() string {
+func (x *UserMessage) GetContent() []*UserContent {
 	if x != nil {
-		if x.xxx_hidden_Text != nil {
-			return *x.xxx_hidden_Text
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
 		}
-		return ""
 	}
-	return ""
+	return nil
 }
 
-func (x *UserMessage) SetText(v string) {
-	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
-}
-
-func (x *UserMessage) HasText() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *UserMessage) ClearText() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Text = nil
+func (x *UserMessage) SetContent(v []*UserContent) {
+	x.xxx_hidden_Content = &v
 }
 
 type UserMessage_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The user message text.
-	Text *string
+	// The ordered provider-neutral user content.
+	Content []*UserContent
 }
 
 func (b0 UserMessage_builder) Build() *UserMessage {
 	m0 := &UserMessage{}
 	b, x := &b0, m0
 	_, _ = b, x
+	x.xxx_hidden_Content = &b.Content
+	return m0
+}
+
+// UserContent carries one user text item.
+type UserContent struct {
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Content isUserContent_Content  `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *UserContent) Reset() {
+	*x = UserContent{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserContent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserContent) ProtoMessage() {}
+
+func (x *UserContent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *UserContent) GetText() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*userContent_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
+}
+
+func (x *UserContent) SetText(v string) {
+	x.xxx_hidden_Content = &userContent_Text{v}
+}
+
+func (x *UserContent) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *UserContent) HasText() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*userContent_Text)
+	return ok
+}
+
+func (x *UserContent) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *UserContent) ClearText() {
+	if _, ok := x.xxx_hidden_Content.(*userContent_Text); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const UserContent_Content_not_set_case case_UserContent_Content = 0
+const UserContent_Text_case case_UserContent_Content = 1
+
+func (x *UserContent) WhichContent() case_UserContent_Content {
+	if x == nil {
+		return UserContent_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *userContent_Text:
+		return UserContent_Text_case
+	default:
+		return UserContent_Content_not_set_case
+	}
+}
+
+type UserContent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The content payload.
+
+	// Fields of oneof xxx_hidden_Content:
+	Text *string
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 UserContent_builder) Build() *UserContent {
+	m0 := &UserContent{}
+	b, x := &b0, m0
+	_, _ = b, x
 	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
-		x.xxx_hidden_Text = b.Text
+		x.xxx_hidden_Content = &userContent_Text{*b.Text}
 	}
 	return m0
 }
+
+type case_UserContent_Content protoreflect.FieldNumber
+
+func (x case_UserContent_Content) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[34].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isUserContent_Content interface {
+	isUserContent_Content()
+}
+
+type userContent_Text struct {
+	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
+}
+
+func (*userContent_Text) isUserContent_Content() {}
 
 // AgentEvent carries one correlated agent lifecycle event.
 type AgentEvent struct {
@@ -4500,7 +5040,7 @@ type AgentEvent struct {
 
 func (x *AgentEvent) Reset() {
 	*x = AgentEvent{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4512,7 +5052,7 @@ func (x *AgentEvent) String() string {
 func (*AgentEvent) ProtoMessage() {}
 
 func (x *AgentEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4972,7 +5512,7 @@ func (b0 AgentEvent_builder) Build() *AgentEvent {
 type case_AgentEvent_Payload protoreflect.FieldNumber
 
 func (x case_AgentEvent_Payload) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[31].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[35].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -5051,7 +5591,7 @@ type ModelContent struct {
 
 func (x *ModelContent) Reset() {
 	*x = ModelContent{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5063,7 +5603,7 @@ func (x *ModelContent) String() string {
 func (*ModelContent) ProtoMessage() {}
 
 func (x *ModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5197,7 +5737,7 @@ type ToolCallPreview struct {
 
 func (x *ToolCallPreview) Reset() {
 	*x = ToolCallPreview{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5209,7 +5749,7 @@ func (x *ToolCallPreview) String() string {
 func (*ToolCallPreview) ProtoMessage() {}
 
 func (x *ToolCallPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5387,7 +5927,7 @@ type ToolCallPreviewField struct {
 
 func (x *ToolCallPreviewField) Reset() {
 	*x = ToolCallPreviewField{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5399,7 +5939,7 @@ func (x *ToolCallPreviewField) String() string {
 func (*ToolCallPreviewField) ProtoMessage() {}
 
 func (x *ToolCallPreviewField) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5557,7 +6097,7 @@ func (b0 ToolCallPreviewField_builder) Build() *ToolCallPreviewField {
 type case_ToolCallPreviewField_Content protoreflect.FieldNumber
 
 func (x case_ToolCallPreviewField_Content) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[34].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[38].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -5595,7 +6135,7 @@ type FinalToolCall struct {
 
 func (x *FinalToolCall) Reset() {
 	*x = FinalToolCall{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5607,7 +6147,7 @@ func (x *FinalToolCall) String() string {
 func (*FinalToolCall) ProtoMessage() {}
 
 func (x *FinalToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5764,7 +6304,7 @@ type ToolExecution struct {
 
 func (x *ToolExecution) Reset() {
 	*x = ToolExecution{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5776,7 +6316,7 @@ func (x *ToolExecution) String() string {
 func (*ToolExecution) ProtoMessage() {}
 
 func (x *ToolExecution) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5878,7 +6418,7 @@ type ToolProgress struct {
 
 func (x *ToolProgress) Reset() {
 	*x = ToolProgress{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5890,7 +6430,7 @@ func (x *ToolProgress) String() string {
 func (*ToolProgress) ProtoMessage() {}
 
 func (x *ToolProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5993,7 +6533,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6005,7 +6545,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6150,7 +6690,7 @@ type ToolResultContent struct {
 
 func (x *ToolResultContent) Reset() {
 	*x = ToolResultContent{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6162,7 +6702,7 @@ func (x *ToolResultContent) String() string {
 func (*ToolResultContent) ProtoMessage() {}
 
 func (x *ToolResultContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6287,7 +6827,7 @@ func (b0 ToolResultContent_builder) Build() *ToolResultContent {
 type case_ToolResultContent_Content protoreflect.FieldNumber
 
 func (x case_ToolResultContent_Content) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[39].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[43].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -6323,7 +6863,7 @@ type ToolResultImage struct {
 
 func (x *ToolResultImage) Reset() {
 	*x = ToolResultImage{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6335,7 +6875,7 @@ func (x *ToolResultImage) String() string {
 func (*ToolResultImage) ProtoMessage() {}
 
 func (x *ToolResultImage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6445,7 +6985,7 @@ type ModelResponse struct {
 
 func (x *ModelResponse) Reset() {
 	*x = ModelResponse{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6457,7 +6997,7 @@ func (x *ModelResponse) String() string {
 func (*ModelResponse) ProtoMessage() {}
 
 func (x *ModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6777,7 +7317,7 @@ type ModelResponseItem struct {
 
 func (x *ModelResponseItem) Reset() {
 	*x = ModelResponseItem{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6789,7 +7329,7 @@ func (x *ModelResponseItem) String() string {
 func (*ModelResponseItem) ProtoMessage() {}
 
 func (x *ModelResponseItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6994,7 +7534,7 @@ func (b0 ModelResponseItem_builder) Build() *ModelResponseItem {
 type case_ModelResponseItem_Content protoreflect.FieldNumber
 
 func (x case_ModelResponseItem_Content) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[42].Descriptor()
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[46].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -7041,7 +7581,7 @@ type FinalText struct {
 
 func (x *FinalText) Reset() {
 	*x = FinalText{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7053,7 +7593,7 @@ func (x *FinalText) String() string {
 func (*FinalText) ProtoMessage() {}
 
 func (x *FinalText) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7126,7 +7666,7 @@ type ModelUsage struct {
 
 func (x *ModelUsage) Reset() {
 	*x = ModelUsage{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[44]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7138,7 +7678,7 @@ func (x *ModelUsage) String() string {
 func (*ModelUsage) ProtoMessage() {}
 
 func (x *ModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[44]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7354,7 +7894,7 @@ type ModelDiagnostic struct {
 
 func (x *ModelDiagnostic) Reset() {
 	*x = ModelDiagnostic{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[45]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7366,7 +7906,7 @@ func (x *ModelDiagnostic) String() string {
 func (*ModelDiagnostic) ProtoMessage() {}
 
 func (x *ModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[45]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7466,7 +8006,7 @@ type TurnSummary struct {
 
 func (x *TurnSummary) Reset() {
 	*x = TurnSummary{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[46]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7478,7 +8018,7 @@ func (x *TurnSummary) String() string {
 func (*TurnSummary) ProtoMessage() {}
 
 func (x *TurnSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[46]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7555,7 +8095,7 @@ type AgentSummary struct {
 
 func (x *AgentSummary) Reset() {
 	*x = AgentSummary{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[47]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7567,7 +8107,7 @@ func (x *AgentSummary) String() string {
 func (*AgentSummary) ProtoMessage() {}
 
 func (x *AgentSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[47]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7659,7 +8199,7 @@ var File_api_programmatic_v1_programmatic_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\n" +
-	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\a\n" +
+	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\b\n" +
 	"\vOpenRequest\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12G\n" +
 	"\fuser_request\x18\x02 \x01(\v2\".glyph.programmatic.v1.UserRequestH\x00R\vuserRequest\x124\n" +
@@ -7675,7 +8215,8 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	" \x01(\v2#.glyph.programmatic.v1.ListSessionsH\x00R\flistSessions\x12M\n" +
 	"\x0eresume_session\x18\v \x01(\v2$.glyph.programmatic.v1.ResumeSessionH\x00R\rresumeSession\x12Q\n" +
 	"\x10set_session_name\x18\f \x01(\v2%.glyph.programmatic.v1.SetSessionNameH\x00R\x0esetSessionName\x12Q\n" +
-	"\x10get_session_info\x18\r \x01(\v2%.glyph.programmatic.v1.GetSessionInfoH\x00R\x0egetSessionInfoB\t\n" +
+	"\x10get_session_info\x18\r \x01(\v2%.glyph.programmatic.v1.GetSessionInfoH\x00R\x0egetSessionInfo\x12Z\n" +
+	"\x13get_session_entries\x18\x0e \x01(\v2(.glyph.programmatic.v1.GetSessionEntriesH\x00R\x11getSessionEntriesB\t\n" +
 	"\acommand\"!\n" +
 	"\vUserRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"\a\n" +
@@ -7696,13 +8237,14 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"$\n" +
 	"\x0eSetSessionName\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x10\n" +
-	"\x0eGetSessionInfo\"\xdb\x01\n" +
+	"\x0eGetSessionInfo\"\x13\n" +
+	"\x11GetSessionEntries\"\xdb\x01\n" +
 	"\fOpenResponse\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12S\n" +
 	"\x10command_response\x18\x02 \x01(\v2&.glyph.programmatic.v1.CommandResponseH\x00R\x0fcommandResponse\x12D\n" +
 	"\vagent_event\x18\x03 \x01(\v2!.glyph.programmatic.v1.AgentEventH\x00R\n" +
 	"agentEventB\t\n" +
-	"\acontent\"\xcb\x05\n" +
+	"\acontent\"\xa3\x06\n" +
 	"\x0fCommandResponse\x12`\n" +
 	"\x15user_request_accepted\x18\x01 \x01(\v2*.glyph.programmatic.v1.UserRequestAcceptedH\x00R\x13userRequestAccepted\x12P\n" +
 	"\x0fabort_completed\x18\x02 \x01(\v2%.glyph.programmatic.v1.AbortCompletedH\x00R\x0eabortCompleted\x12D\n" +
@@ -7712,7 +8254,9 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x06models\x18\x06 \x01(\v2#.glyph.programmatic.v1.ModelsResultH\x00R\x06models\x12V\n" +
 	"\x0fmodel_selection\x18\a \x01(\v2+.glyph.programmatic.v1.ModelSelectionResultH\x00R\x0emodelSelection\x12M\n" +
 	"\fsession_info\x18\b \x01(\v2(.glyph.programmatic.v1.SessionInfoResultH\x00R\vsessionInfo\x12C\n" +
-	"\bsessions\x18\t \x01(\v2%.glyph.programmatic.v1.SessionsResultH\x00R\bsessionsB\b\n" +
+	"\bsessions\x18\t \x01(\v2%.glyph.programmatic.v1.SessionsResultH\x00R\bsessions\x12V\n" +
+	"\x0fsession_entries\x18\n" +
+	" \x01(\v2+.glyph.programmatic.v1.SessionEntriesResultH\x00R\x0esessionEntriesB\b\n" +
 	"\x06result\"\x15\n" +
 	"\x13UserRequestAccepted\"\x10\n" +
 	"\x0eAbortCompleted\"{\n" +
@@ -7759,15 +8303,26 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x0fCommandRejected\x12<\n" +
 	"\acommand\x18\x01 \x01(\x0e2\".glyph.programmatic.v1.CommandTypeR\acommand\x128\n" +
 	"\x04code\x18\x02 \x01(\x0e2$.glyph.programmatic.v1.RejectionCodeR\x04code\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"\xd5\x01\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"U\n" +
+	"\x14SessionEntriesResult\x12=\n" +
+	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\aentries\"\xde\x01\n" +
+	"\fSessionEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12=\n" +
+	"\fcreated_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x128\n" +
+	"\x04user\x18\x03 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
+	"\x05model\x18\x04 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05modelB\a\n" +
+	"\x05entry\"\xd5\x01\n" +
 	"\fHistoryEntry\x128\n" +
 	"\x04user\x18\x01 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
 	"\x05model\x18\x02 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05model\x12D\n" +
 	"\vtool_result\x18\x03 \x01(\v2!.glyph.programmatic.v1.ToolResultH\x00R\n" +
 	"toolResultB\a\n" +
-	"\x05entry\"!\n" +
-	"\vUserMessage\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\x82\x06\n" +
+	"\x05entry\"W\n" +
+	"\vUserMessage\x12<\n" +
+	"\acontent\x18\x02 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontentJ\x04\b\x01\x10\x02R\x04text\".\n" +
+	"\vUserContent\x12\x14\n" +
+	"\x04text\x18\x01 \x01(\tH\x00R\x04textB\t\n" +
+	"\acontent\"\x82\x06\n" +
 	"\n" +
 	"AgentEvent\x129\n" +
 	"\x04type\x18\x01 \x01(\x0e2%.glyph.programmatic.v1.AgentEventTypeR\x04type\x12\x15\n" +
@@ -7861,7 +8416,7 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"p\n" +
 	"\fAgentSummary\x12;\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
-	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\xaf\x03\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\xd5\x03\n" +
 	"\vCommandType\x12\x1c\n" +
 	"\x18COMMAND_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19COMMAND_TYPE_USER_REQUEST\x10\x01\x12\x16\n" +
@@ -7876,7 +8431,8 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x1bCOMMAND_TYPE_RESUME_SESSION\x10\n" +
 	"\x12!\n" +
 	"\x1dCOMMAND_TYPE_SET_SESSION_NAME\x10\v\x12!\n" +
-	"\x1dCOMMAND_TYPE_GET_SESSION_INFO\x10\f*\xc6\x02\n" +
+	"\x1dCOMMAND_TYPE_GET_SESSION_INFO\x10\f\x12$\n" +
+	" COMMAND_TYPE_GET_SESSION_ENTRIES\x10\r*\xc6\x02\n" +
 	"\rRejectionCode\x12\x1e\n" +
 	"\x1aREJECTION_CODE_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fREJECTION_CODE_INVALID_ARGUMENT\x10\x01\x12\x17\n" +
@@ -7948,7 +8504,7 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x04Open\x12\".glyph.programmatic.v1.OpenRequest\x1a#.glyph.programmatic.v1.OpenResponse(\x010\x01B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
 var file_api_programmatic_v1_programmatic_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_api_programmatic_v1_programmatic_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_api_programmatic_v1_programmatic_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_api_programmatic_v1_programmatic_proto_goTypes = []any{
 	(CommandType)(0),              // 0: glyph.programmatic.v1.CommandType
 	(RejectionCode)(0),            // 1: glyph.programmatic.v1.RejectionCode
@@ -7972,44 +8528,48 @@ var file_api_programmatic_v1_programmatic_proto_goTypes = []any{
 	(*ResumeSession)(nil),         // 19: glyph.programmatic.v1.ResumeSession
 	(*SetSessionName)(nil),        // 20: glyph.programmatic.v1.SetSessionName
 	(*GetSessionInfo)(nil),        // 21: glyph.programmatic.v1.GetSessionInfo
-	(*OpenResponse)(nil),          // 22: glyph.programmatic.v1.OpenResponse
-	(*CommandResponse)(nil),       // 23: glyph.programmatic.v1.CommandResponse
-	(*UserRequestAccepted)(nil),   // 24: glyph.programmatic.v1.UserRequestAccepted
-	(*AbortCompleted)(nil),        // 25: glyph.programmatic.v1.AbortCompleted
-	(*RunStateResult)(nil),        // 26: glyph.programmatic.v1.RunStateResult
-	(*MessagesResult)(nil),        // 27: glyph.programmatic.v1.MessagesResult
-	(*ModelsResult)(nil),          // 28: glyph.programmatic.v1.ModelsResult
-	(*ConfiguredModel)(nil),       // 29: glyph.programmatic.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil), // 30: glyph.programmatic.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),        // 31: glyph.programmatic.v1.ModelSelection
-	(*ModelSelectionResult)(nil),  // 32: glyph.programmatic.v1.ModelSelectionResult
-	(*SessionInfoResult)(nil),     // 33: glyph.programmatic.v1.SessionInfoResult
-	(*SessionsResult)(nil),        // 34: glyph.programmatic.v1.SessionsResult
-	(*SessionInfo)(nil),           // 35: glyph.programmatic.v1.SessionInfo
-	(*SessionSummary)(nil),        // 36: glyph.programmatic.v1.SessionSummary
-	(*CommandRejected)(nil),       // 37: glyph.programmatic.v1.CommandRejected
-	(*HistoryEntry)(nil),          // 38: glyph.programmatic.v1.HistoryEntry
-	(*UserMessage)(nil),           // 39: glyph.programmatic.v1.UserMessage
-	(*AgentEvent)(nil),            // 40: glyph.programmatic.v1.AgentEvent
-	(*ModelContent)(nil),          // 41: glyph.programmatic.v1.ModelContent
-	(*ToolCallPreview)(nil),       // 42: glyph.programmatic.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil),  // 43: glyph.programmatic.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),         // 44: glyph.programmatic.v1.FinalToolCall
-	(*ToolExecution)(nil),         // 45: glyph.programmatic.v1.ToolExecution
-	(*ToolProgress)(nil),          // 46: glyph.programmatic.v1.ToolProgress
-	(*ToolResult)(nil),            // 47: glyph.programmatic.v1.ToolResult
-	(*ToolResultContent)(nil),     // 48: glyph.programmatic.v1.ToolResultContent
-	(*ToolResultImage)(nil),       // 49: glyph.programmatic.v1.ToolResultImage
-	(*ModelResponse)(nil),         // 50: glyph.programmatic.v1.ModelResponse
-	(*ModelResponseItem)(nil),     // 51: glyph.programmatic.v1.ModelResponseItem
-	(*FinalText)(nil),             // 52: glyph.programmatic.v1.FinalText
-	(*ModelUsage)(nil),            // 53: glyph.programmatic.v1.ModelUsage
-	(*ModelDiagnostic)(nil),       // 54: glyph.programmatic.v1.ModelDiagnostic
-	(*TurnSummary)(nil),           // 55: glyph.programmatic.v1.TurnSummary
-	(*AgentSummary)(nil),          // 56: glyph.programmatic.v1.AgentSummary
-	(*timestamppb.Timestamp)(nil), // 57: google.protobuf.Timestamp
-	(*structpb.Value)(nil),        // 58: google.protobuf.Value
-	(*structpb.Struct)(nil),       // 59: google.protobuf.Struct
+	(*GetSessionEntries)(nil),     // 22: glyph.programmatic.v1.GetSessionEntries
+	(*OpenResponse)(nil),          // 23: glyph.programmatic.v1.OpenResponse
+	(*CommandResponse)(nil),       // 24: glyph.programmatic.v1.CommandResponse
+	(*UserRequestAccepted)(nil),   // 25: glyph.programmatic.v1.UserRequestAccepted
+	(*AbortCompleted)(nil),        // 26: glyph.programmatic.v1.AbortCompleted
+	(*RunStateResult)(nil),        // 27: glyph.programmatic.v1.RunStateResult
+	(*MessagesResult)(nil),        // 28: glyph.programmatic.v1.MessagesResult
+	(*ModelsResult)(nil),          // 29: glyph.programmatic.v1.ModelsResult
+	(*ConfiguredModel)(nil),       // 30: glyph.programmatic.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil), // 31: glyph.programmatic.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),        // 32: glyph.programmatic.v1.ModelSelection
+	(*ModelSelectionResult)(nil),  // 33: glyph.programmatic.v1.ModelSelectionResult
+	(*SessionInfoResult)(nil),     // 34: glyph.programmatic.v1.SessionInfoResult
+	(*SessionsResult)(nil),        // 35: glyph.programmatic.v1.SessionsResult
+	(*SessionInfo)(nil),           // 36: glyph.programmatic.v1.SessionInfo
+	(*SessionSummary)(nil),        // 37: glyph.programmatic.v1.SessionSummary
+	(*CommandRejected)(nil),       // 38: glyph.programmatic.v1.CommandRejected
+	(*SessionEntriesResult)(nil),  // 39: glyph.programmatic.v1.SessionEntriesResult
+	(*SessionEntry)(nil),          // 40: glyph.programmatic.v1.SessionEntry
+	(*HistoryEntry)(nil),          // 41: glyph.programmatic.v1.HistoryEntry
+	(*UserMessage)(nil),           // 42: glyph.programmatic.v1.UserMessage
+	(*UserContent)(nil),           // 43: glyph.programmatic.v1.UserContent
+	(*AgentEvent)(nil),            // 44: glyph.programmatic.v1.AgentEvent
+	(*ModelContent)(nil),          // 45: glyph.programmatic.v1.ModelContent
+	(*ToolCallPreview)(nil),       // 46: glyph.programmatic.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil),  // 47: glyph.programmatic.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),         // 48: glyph.programmatic.v1.FinalToolCall
+	(*ToolExecution)(nil),         // 49: glyph.programmatic.v1.ToolExecution
+	(*ToolProgress)(nil),          // 50: glyph.programmatic.v1.ToolProgress
+	(*ToolResult)(nil),            // 51: glyph.programmatic.v1.ToolResult
+	(*ToolResultContent)(nil),     // 52: glyph.programmatic.v1.ToolResultContent
+	(*ToolResultImage)(nil),       // 53: glyph.programmatic.v1.ToolResultImage
+	(*ModelResponse)(nil),         // 54: glyph.programmatic.v1.ModelResponse
+	(*ModelResponseItem)(nil),     // 55: glyph.programmatic.v1.ModelResponseItem
+	(*FinalText)(nil),             // 56: glyph.programmatic.v1.FinalText
+	(*ModelUsage)(nil),            // 57: glyph.programmatic.v1.ModelUsage
+	(*ModelDiagnostic)(nil),       // 58: glyph.programmatic.v1.ModelDiagnostic
+	(*TurnSummary)(nil),           // 59: glyph.programmatic.v1.TurnSummary
+	(*AgentSummary)(nil),          // 60: glyph.programmatic.v1.AgentSummary
+	(*timestamppb.Timestamp)(nil), // 61: google.protobuf.Timestamp
+	(*structpb.Value)(nil),        // 62: google.protobuf.Value
+	(*structpb.Struct)(nil),       // 63: google.protobuf.Struct
 }
 var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
 	10, // 0: glyph.programmatic.v1.OpenRequest.user_request:type_name -> glyph.programmatic.v1.UserRequest
@@ -8024,72 +8584,79 @@ var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
 	19, // 9: glyph.programmatic.v1.OpenRequest.resume_session:type_name -> glyph.programmatic.v1.ResumeSession
 	20, // 10: glyph.programmatic.v1.OpenRequest.set_session_name:type_name -> glyph.programmatic.v1.SetSessionName
 	21, // 11: glyph.programmatic.v1.OpenRequest.get_session_info:type_name -> glyph.programmatic.v1.GetSessionInfo
-	2,  // 12: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	23, // 13: glyph.programmatic.v1.OpenResponse.command_response:type_name -> glyph.programmatic.v1.CommandResponse
-	40, // 14: glyph.programmatic.v1.OpenResponse.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
-	24, // 15: glyph.programmatic.v1.CommandResponse.user_request_accepted:type_name -> glyph.programmatic.v1.UserRequestAccepted
-	25, // 16: glyph.programmatic.v1.CommandResponse.abort_completed:type_name -> glyph.programmatic.v1.AbortCompleted
-	26, // 17: glyph.programmatic.v1.CommandResponse.run_state:type_name -> glyph.programmatic.v1.RunStateResult
-	27, // 18: glyph.programmatic.v1.CommandResponse.messages:type_name -> glyph.programmatic.v1.MessagesResult
-	37, // 19: glyph.programmatic.v1.CommandResponse.rejected:type_name -> glyph.programmatic.v1.CommandRejected
-	28, // 20: glyph.programmatic.v1.CommandResponse.models:type_name -> glyph.programmatic.v1.ModelsResult
-	32, // 21: glyph.programmatic.v1.CommandResponse.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
-	33, // 22: glyph.programmatic.v1.CommandResponse.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
-	34, // 23: glyph.programmatic.v1.CommandResponse.sessions:type_name -> glyph.programmatic.v1.SessionsResult
-	3,  // 24: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
-	38, // 25: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
-	29, // 26: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
-	31, // 27: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
-	30, // 28: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
-	2,  // 29: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
-	2,  // 30: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	2,  // 31: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	31, // 32: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
-	35, // 33: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
-	36, // 34: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
-	57, // 35: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
-	57, // 36: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
-	35, // 37: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
-	0,  // 38: glyph.programmatic.v1.CommandRejected.command:type_name -> glyph.programmatic.v1.CommandType
-	1,  // 39: glyph.programmatic.v1.CommandRejected.code:type_name -> glyph.programmatic.v1.RejectionCode
-	39, // 40: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	50, // 41: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	47, // 42: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	4,  // 43: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
-	41, // 44: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
-	42, // 45: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
-	44, // 46: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	45, // 47: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
-	46, // 48: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
-	47, // 49: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	50, // 50: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
-	55, // 51: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
-	56, // 52: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	5,  // 53: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	43, // 54: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	58, // 55: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	59, // 56: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	6,  // 57: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	48, // 58: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	49, // 59: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	7,  // 60: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	53, // 61: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	54, // 62: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	51, // 63: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	52, // 64: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	52, // 65: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	52, // 66: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	44, // 67: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	50, // 68: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	47, // 69: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	8,  // 70: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	9,  // 71: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
-	22, // 72: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
-	72, // [72:73] is the sub-list for method output_type
-	71, // [71:72] is the sub-list for method input_type
-	71, // [71:71] is the sub-list for extension type_name
-	71, // [71:71] is the sub-list for extension extendee
-	0,  // [0:71] is the sub-list for field type_name
+	22, // 12: glyph.programmatic.v1.OpenRequest.get_session_entries:type_name -> glyph.programmatic.v1.GetSessionEntries
+	2,  // 13: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	24, // 14: glyph.programmatic.v1.OpenResponse.command_response:type_name -> glyph.programmatic.v1.CommandResponse
+	44, // 15: glyph.programmatic.v1.OpenResponse.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
+	25, // 16: glyph.programmatic.v1.CommandResponse.user_request_accepted:type_name -> glyph.programmatic.v1.UserRequestAccepted
+	26, // 17: glyph.programmatic.v1.CommandResponse.abort_completed:type_name -> glyph.programmatic.v1.AbortCompleted
+	27, // 18: glyph.programmatic.v1.CommandResponse.run_state:type_name -> glyph.programmatic.v1.RunStateResult
+	28, // 19: glyph.programmatic.v1.CommandResponse.messages:type_name -> glyph.programmatic.v1.MessagesResult
+	38, // 20: glyph.programmatic.v1.CommandResponse.rejected:type_name -> glyph.programmatic.v1.CommandRejected
+	29, // 21: glyph.programmatic.v1.CommandResponse.models:type_name -> glyph.programmatic.v1.ModelsResult
+	33, // 22: glyph.programmatic.v1.CommandResponse.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
+	34, // 23: glyph.programmatic.v1.CommandResponse.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
+	35, // 24: glyph.programmatic.v1.CommandResponse.sessions:type_name -> glyph.programmatic.v1.SessionsResult
+	39, // 25: glyph.programmatic.v1.CommandResponse.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
+	3,  // 26: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
+	41, // 27: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
+	30, // 28: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
+	32, // 29: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
+	31, // 30: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
+	2,  // 31: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
+	2,  // 32: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	2,  // 33: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	32, // 34: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
+	36, // 35: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
+	37, // 36: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
+	61, // 37: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
+	61, // 38: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
+	36, // 39: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
+	0,  // 40: glyph.programmatic.v1.CommandRejected.command:type_name -> glyph.programmatic.v1.CommandType
+	1,  // 41: glyph.programmatic.v1.CommandRejected.code:type_name -> glyph.programmatic.v1.RejectionCode
+	40, // 42: glyph.programmatic.v1.SessionEntriesResult.entries:type_name -> glyph.programmatic.v1.SessionEntry
+	61, // 43: glyph.programmatic.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
+	42, // 44: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	54, // 45: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	42, // 46: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	54, // 47: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	51, // 48: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	43, // 49: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	4,  // 50: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
+	45, // 51: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
+	46, // 52: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
+	48, // 53: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	49, // 54: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
+	50, // 55: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
+	51, // 56: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	54, // 57: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
+	59, // 58: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
+	60, // 59: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
+	5,  // 60: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	47, // 61: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	62, // 62: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	63, // 63: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	6,  // 64: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	52, // 65: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	53, // 66: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	7,  // 67: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	57, // 68: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	58, // 69: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	55, // 70: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	56, // 71: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	56, // 72: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	56, // 73: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	48, // 74: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	54, // 75: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	51, // 76: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	8,  // 77: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	9,  // 78: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
+	23, // 79: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
+	79, // [79:80] is the sub-list for method output_type
+	78, // [78:79] is the sub-list for method input_type
+	78, // [78:78] is the sub-list for extension type_name
+	78, // [78:78] is the sub-list for extension extendee
+	0,  // [0:78] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_programmatic_proto_init() }
@@ -8110,12 +8677,13 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*openRequest_ResumeSession)(nil),
 		(*openRequest_SetSessionName)(nil),
 		(*openRequest_GetSessionInfo)(nil),
+		(*openRequest_GetSessionEntries)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[14].OneofWrappers = []any{
 		(*openResponse_CommandResponse)(nil),
 		(*openResponse_AgentEvent)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[14].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[15].OneofWrappers = []any{
 		(*commandResponse_UserRequestAccepted)(nil),
 		(*commandResponse_AbortCompleted)(nil),
 		(*commandResponse_RunState)(nil),
@@ -8125,13 +8693,21 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*commandResponse_ModelSelection)(nil),
 		(*commandResponse_SessionInfo)(nil),
 		(*commandResponse_Sessions)(nil),
+		(*commandResponse_SessionEntries)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[29].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[31].OneofWrappers = []any{
+		(*sessionEntry_User)(nil),
+		(*sessionEntry_Model)(nil),
+	}
+	file_api_programmatic_v1_programmatic_proto_msgTypes[32].OneofWrappers = []any{
 		(*historyEntry_User)(nil),
 		(*historyEntry_Model)(nil),
 		(*historyEntry_ToolResult)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[31].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[34].OneofWrappers = []any{
+		(*userContent_Text)(nil),
+	}
+	file_api_programmatic_v1_programmatic_proto_msgTypes[35].OneofWrappers = []any{
 		(*agentEvent_ModelContent)(nil),
 		(*agentEvent_ToolCallPreview)(nil),
 		(*agentEvent_FinalToolCall)(nil),
@@ -8142,15 +8718,15 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*agentEvent_Turn)(nil),
 		(*agentEvent_Agent)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[34].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[38].OneofWrappers = []any{
 		(*toolCallPreviewField_Value)(nil),
 		(*toolCallPreviewField_Prefix)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[39].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[43].OneofWrappers = []any{
 		(*toolResultContent_Text)(nil),
 		(*toolResultContent_Image)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[42].OneofWrappers = []any{
+	file_api_programmatic_v1_programmatic_proto_msgTypes[46].OneofWrappers = []any{
 		(*modelResponseItem_Text)(nil),
 		(*modelResponseItem_Refusal)(nil),
 		(*modelResponseItem_Reasoning)(nil),
@@ -8162,7 +8738,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_programmatic_proto_rawDesc), len(file_api_programmatic_v1_programmatic_proto_rawDesc)),
 			NumEnums:      9,
-			NumMessages:   48,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

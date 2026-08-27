@@ -130,6 +130,35 @@ message SessionList {
 message SessionChanged {
   // The replacement active-session information.
   SessionInfo info = 1;
+  // The complete replacement transcript in stored order.
+  repeated SessionEntry entries = 2;
+}
+
+// SessionEntry contains one restored public text payload.
+message SessionEntry {
+  // The persisted entry identifier.
+  string id = 1;
+  // The persisted entry timestamp.
+  google.protobuf.Timestamp created_time = 2;
+  // The entry payload.
+  oneof entry {
+    UserMessage user = 3;
+    ModelResponse model = 4;
+  }
+}
+
+// UserMessage carries ordered provider-neutral user content.
+message UserMessage {
+  // The ordered user content.
+  repeated UserContent content = 1;
+}
+
+// UserContent carries one user text item.
+message UserContent {
+  // The content payload.
+  oneof content {
+    string text = 1;
+  }
 }
 
 // SessionInformation carries active-session information.

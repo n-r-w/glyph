@@ -51,9 +51,9 @@ type ModelCatalog interface {
 // SessionControl provides UI session lifecycle operations.
 type SessionControl interface {
 	// Create replaces active state with a new empty session.
-	Create(context.Context) (session.Info, error)
+	Create(context.Context) (session.Replacement, error)
 	// Resume validates and replaces active state by opaque ID.
-	Resume(context.Context, session.ID) (session.Info, error)
+	Resume(context.Context, session.ID) (session.Replacement, error)
 	// SetName persists a normalized active-session name.
 	SetName(context.Context, string) (session.Info, error)
 	// List returns ordered persisted-session summaries.

@@ -114,11 +114,9 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 	}
 	switch event.Kind {
 	case presentationdomain.EventSessionList:
-		// The Host accepted /resume and returned the selector data, so the command draft is now consumed.
+		// The list refreshes selection data, while confirmation or cancellation still owns the draft.
 		model.resumePending = false
 		model.resumeStatus = ""
-		model.input = nil
-		model.cursor = 0
 		model.selectorOpen = len(model.state.Sessions) > 0
 		model.sessionSelector = model.selectorOpen
 		model.selectorRow = 0
@@ -161,6 +159,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 	model.emitting = false
 	if message.err != nil {
 		model.state = model.apply(model.state, presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventError,
 			Startup:              nil,
 			Extensions:           nil,
@@ -192,6 +191,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			return model, nil
 		}
 		model.state = model.apply(model.state, presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventUserSubmitted,
 			Startup:              nil,
 			Extensions:           nil,
@@ -429,19 +429,13 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 	}
 	if rowCount == 0 {
 		if key.Code == tea.KeyEscape {
-			model.selectorOpen = false
-			model.sessionSelector = false
-			model.resumePending = false
-			model.resumeStatus = ""
+			model = model.cancelSelector()
 		}
 		return model, nil
 	}
 	if model.sessionSelector && model.resumePending {
 		if key.Code == tea.KeyEscape {
-			model.selectorOpen = false
-			model.sessionSelector = false
-			model.resumePending = false
-			model.resumeStatus = ""
+			model = model.cancelSelector()
 		}
 		return model, nil
 	}
@@ -470,12 +464,22 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 			SessionName:     mo.None[string](),
 		})
 	case tea.KeyEscape:
-		model.selectorOpen = false
-		model.sessionSelector = false
-		model.resumePending = false
-		model.resumeStatus = ""
+		model = model.cancelSelector()
 	}
 	return model, nil
+}
+
+// cancelSelector discards a resume draft only when the user cancels its selector.
+func (model Model) cancelSelector() Model {
+	if model.sessionSelector {
+		model.input = nil
+		model.cursor = 0
+	}
+	model.selectorOpen = false
+	model.sessionSelector = false
+	model.resumePending = false
+	model.resumeStatus = ""
+	return model
 }
 
 // cycleModel emits the configured neighbor of the Host-confirmed model.
@@ -595,6 +599,7 @@ func formatSessionInfo(info presentationdomain.SessionInfo) string {
 // sessionInformationEvent adapts formatted session metadata to a non-session-changing information event.
 func sessionInformationEvent(text string) presentationdomain.Event {
 	return presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
 		Startup:              nil,
 		Extensions:           nil,

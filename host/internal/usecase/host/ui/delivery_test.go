@@ -62,6 +62,7 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 
 	channel := NewMockChannel(gomock.NewController(t))
 	channel.EXPECT().Send(domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameError,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),

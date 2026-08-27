@@ -41,7 +41,8 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	userRequest := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("user"),
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
 			Text: proto.String("request"),
 		}.Build(),
@@ -53,13 +54,14 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	}.Build()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	stateRequest := programmaticv1.OpenRequest_builder{
-		CorrelationId:  proto.String("state"),
-		GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("state"),
+		GetRunState:       programmaticv1.GetRunState_builder{}.Build(),
+		CreateSession:     nil,
+		ListSessions:      nil,
+		ResumeSession:     nil,
+		SetSessionName:    nil,
+		GetSessionInfo:    nil,
 	}.Build()
 	events := make(chan AgentEvent)
 	acceptanceSent := make(chan struct{})
@@ -88,15 +90,16 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 			SessionID:       mo.None[domainsession.ID](),
 			SessionName:     mo.None[string](),
 		}).Return(Response{
-			CorrelationID: "user",
-			Kind:          ResponseUserRequestAccepted,
-			State:         mo.None[RunStateResult](),
-			Messages:      nil,
-			Models:        mo.None[ModelsResult](),
-			Selection:     mo.None[model.Selection](),
-			Rejection:     mo.None[Rejection](),
-			SessionInfo:   mo.None[domainsession.Info](),
-			Sessions:      nil,
+			SessionEntries: nil,
+			CorrelationID:  "user",
+			Kind:           ResponseUserRequestAccepted,
+			State:          mo.None[RunStateResult](),
+			Messages:       nil,
+			Models:         mo.None[ModelsResult](),
+			Selection:      mo.None[model.Selection](),
+			Rejection:      mo.None[Rejection](),
+			SessionInfo:    mo.None[domainsession.Info](),
+			Sessions:       nil,
 		}, operation, nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 			<-started
@@ -115,8 +118,9 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		}).DoAndReturn(func(context.Context, Command) (Response, Operation, error) {
 			close(stateHandled)
 			return Response{
-				CorrelationID: "state",
-				Kind:          ResponseRunState,
+				SessionEntries: nil,
+				CorrelationID:  "state",
+				Kind:           ResponseRunState,
 				State: mo.Some(RunStateResult{
 					State:               RunStateRunning,
 					ActiveCorrelationID: mo.Some("user"),
@@ -195,14 +199,16 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("accepted"),
-		UserRequest:   programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
-		CreateSession: nil, ListSessions: nil, ResumeSession: nil, SetSessionName: nil, GetSessionInfo: nil,
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("accepted"),
+		UserRequest:       programmaticv1.UserRequest_builder{Text: proto.String("request")}.Build(),
+		CreateSession:     nil, ListSessions: nil, ResumeSession: nil, SetSessionName: nil, GetSessionInfo: nil,
 	}.Build()
 	events := make(chan AgentEvent)
 	stream.EXPECT().Recv().Return(request, nil)
 	session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-		CorrelationID: "accepted", Kind: ResponseUserRequestAccepted, State: mo.None[RunStateResult](),
+		SessionEntries: nil,
+		CorrelationID:  "accepted", Kind: ResponseUserRequestAccepted, State: mo.None[RunStateResult](),
 		Messages: nil, Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](),
 		Rejection: mo.None[Rejection](), SessionInfo: mo.None[domainsession.Info](), Sessions: nil,
 	}, operation, nil)
@@ -226,6 +232,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 
 	request := programmaticv1.OpenRequest_builder{
+		GetSessionEntries:     nil,
 		CorrelationId:         proto.String("missing"),
 		UserRequest:           nil,
 		Abort:                 nil,
@@ -252,8 +259,9 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 			SessionID:       mo.None[domainsession.ID](),
 			SessionName:     mo.None[string](),
 		}).Return(Response{
-			CorrelationID: "missing",
-			Kind:          ResponseRejected,
+			SessionEntries: nil,
+			CorrelationID:  "missing",
+			Kind:           ResponseRejected,
 			Rejection: mo.Some(Rejection{
 				Command: CommandUnspecified,
 				Code:    RejectionInvalidArgument,
@@ -318,12 +326,13 @@ func (s *ServiceSuite) TestEmptyCorrelationIsTerminal() {
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	request := programmaticv1.OpenRequest_builder{
-		Abort:          programmaticv1.Abort_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionEntries: nil,
+		Abort:             programmaticv1.Abort_builder{}.Build(),
+		CreateSession:     nil,
+		ListSessions:      nil,
+		ResumeSession:     nil,
+		SetSessionName:    nil,
+		GetSessionInfo:    nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -347,19 +356,21 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId:  proto.String("state"),
-		GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("state"),
+		GetRunState:       programmaticv1.GetRunState_builder{}.Build(),
+		CreateSession:     nil,
+		ListSessions:      nil,
+		ResumeSession:     nil,
+		SetSessionName:    nil,
+		GetSessionInfo:    nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "state",
-			Kind:          ResponseRunState,
+			SessionEntries: nil,
+			CorrelationID:  "state",
+			Kind:           ResponseRunState,
 			State: mo.Some(RunStateResult{
 				State:               RunStateIdle,
 				ActiveCorrelationID: mo.None[string](),
@@ -388,7 +399,8 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("user"),
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
 			Text: proto.String("request"),
 		}.Build(),
@@ -401,15 +413,16 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "user",
-			Kind:          ResponseUserRequestAccepted,
-			State:         mo.None[RunStateResult](),
-			Messages:      nil,
-			Models:        mo.None[ModelsResult](),
-			Selection:     mo.None[model.Selection](),
-			Rejection:     mo.None[Rejection](),
-			SessionInfo:   mo.None[domainsession.Info](),
-			Sessions:      nil,
+			SessionEntries: nil,
+			CorrelationID:  "user",
+			Kind:           ResponseUserRequestAccepted,
+			State:          mo.None[RunStateResult](),
+			Messages:       nil,
+			Models:         mo.None[ModelsResult](),
+			Selection:      mo.None[model.Selection](),
+			Rejection:      mo.None[Rejection](),
+			SessionInfo:    mo.None[domainsession.Info](),
+			Sessions:       nil,
 		}, nil, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -429,7 +442,8 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String("user"),
+		GetSessionEntries: nil,
+		CorrelationId:     proto.String("user"),
 		UserRequest: programmaticv1.UserRequest_builder{
 			Text: proto.String("request"),
 		}.Build(),
@@ -442,15 +456,16 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
 		session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-			CorrelationID: "user",
-			Kind:          ResponseUserRequestAccepted,
-			State:         mo.None[RunStateResult](),
-			Messages:      nil,
-			Models:        mo.None[ModelsResult](),
-			Selection:     mo.None[model.Selection](),
-			Rejection:     mo.None[Rejection](),
-			SessionInfo:   mo.None[domainsession.Info](),
-			Sessions:      nil,
+			SessionEntries: nil,
+			CorrelationID:  "user",
+			Kind:           ResponseUserRequestAccepted,
+			State:          mo.None[RunStateResult](),
+			Messages:       nil,
+			Models:         mo.None[ModelsResult](),
+			Selection:      mo.None[model.Selection](),
+			Rejection:      mo.None[Rejection](),
+			SessionInfo:    mo.None[domainsession.Info](),
+			Sessions:       nil,
 		}, operation, nil),
 		operation.EXPECT().Events().Return(nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
@@ -718,7 +733,8 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				stream.EXPECT().Context().Return(streamContext).AnyTimes()
 				//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 				request := programmaticv1.OpenRequest_builder{
-					CorrelationId: proto.String("user"),
+					GetSessionEntries: nil,
+					CorrelationId:     proto.String("user"),
 					UserRequest: programmaticv1.UserRequest_builder{
 						Text: proto.String("request"),
 					}.Build(),
@@ -736,15 +752,16 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				gomock.InOrder(
 					stream.EXPECT().Recv().Return(request, nil),
 					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-						CorrelationID: "user",
-						Kind:          ResponseUserRequestAccepted,
-						State:         mo.None[RunStateResult](),
-						Messages:      nil,
-						Models:        mo.None[ModelsResult](),
-						Selection:     mo.None[model.Selection](),
-						Rejection:     mo.None[Rejection](),
-						SessionInfo:   mo.None[domainsession.Info](),
-						Sessions:      nil,
+						SessionEntries: nil,
+						CorrelationID:  "user",
+						Kind:           ResponseUserRequestAccepted,
+						State:          mo.None[RunStateResult](),
+						Messages:       nil,
+						Models:         mo.None[ModelsResult](),
+						Selection:      mo.None[model.Selection](),
+						Rejection:      mo.None[Rejection](),
+						SessionInfo:    mo.None[domainsession.Info](),
+						Sessions:       nil,
 					}, operation, nil),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {

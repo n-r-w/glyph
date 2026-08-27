@@ -14,54 +14,85 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error) {
-	return lo.MapErr(history, func(entry agent.HistoryEntry, position int) (controller.HistoryEntry, error) {
+	result := make([]controller.HistoryEntry, 0, len(history))
+	for position := range history {
+		entry := &history[position]
 		switch entry.Kind {
 		case agent.HistoryEntryUser:
 			user, present := entry.User.Get()
 			if !present {
-				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: user payload is missing", position)
+				return nil, fmt.Errorf("map history entry %d: user payload is missing", position)
 			}
-			return controller.HistoryEntry{
-				Kind:       controller.HistoryEntryUser,
-				UserText:   mo.Some(publicInputText(user)),
-				Model:      mo.None[controller.ModelResponse](),
-				ToolResult: mo.None[controller.ToolResult](),
-			}, nil
+			result = append(result, controller.HistoryEntry{
+				Kind: controller.HistoryEntryUser, UserText: mo.Some(publicInputText(user)),
+				Model: mo.None[controller.ModelResponse](), ToolResult: mo.None[controller.ToolResult](),
+			})
 		case agent.HistoryEntryModel:
-			modelResponse, present := entry.Model.Get()
+			response, present := entry.Model.Get()
 			if !present {
-				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: model payload is missing", position)
+				return nil, fmt.Errorf("map history entry %d: model payload is missing", position)
 			}
-			mapped, err := mapModelResponse(modelResponse)
-			if err != nil {
-				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: %w", position, err)
+			outcome, terminal := response.Outcome.Get()
+			if !terminal || outcome != model.OutcomeStop {
+				continue
 			}
-			return controller.HistoryEntry{
-				Kind:       controller.HistoryEntryModel,
-				UserText:   mo.None[string](),
-				Model:      mo.Some(mapped),
-				ToolResult: mo.None[controller.ToolResult](),
-			}, nil
+			result = append(result, controller.HistoryEntry{
+				Kind: controller.HistoryEntryModel, UserText: mo.None[string](),
+				Model: mo.Some(mapTextModelResponse(response)), ToolResult: mo.None[controller.ToolResult](),
+			})
 		case agent.HistoryEntryToolResult:
-			toolResult, present := entry.ToolResult.Get()
-			if !present {
-				return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: tool result payload is missing", position)
-			}
-			return controller.HistoryEntry{
-				Kind:       controller.HistoryEntryToolResult,
-				UserText:   mo.None[string](),
-				Model:      mo.None[controller.ModelResponse](),
-				ToolResult: mo.Some(mapToolResult(toolResult)),
-			}, nil
+			continue
 		default:
-			return controller.HistoryEntry{}, fmt.Errorf("map history entry %d: unknown kind %d", position, entry.Kind)
+			return nil, fmt.Errorf("map history entry %d: unknown kind %d", position, entry.Kind)
 		}
+	}
+	return result, nil
+}
+
+func mapTextModelResponse(response model.Response) controller.ModelResponse {
+	var text strings.Builder
+	content := lo.FilterMap(response.Content, func(item model.Content, _ int) (controller.ModelResponseContent, bool) {
+		value, present := item.Text.Get()
+		if item.Kind != model.ContentText || !present {
+			return controller.ModelResponseContent{}, false
+		}
+		text.WriteString(value)
+		return controller.ModelResponseContent{
+			Kind: controller.ModelResponseContentText, Text: mo.Some(value), ToolCall: mo.None[controller.FinalToolCall](),
+		}, true
 	})
+	return controller.ModelResponse{
+		Text: text.String(), Outcome: mo.None[controller.ModelOutcome](), ErrorMessage: mo.None[string](),
+		Provider: mo.None[string](), Model: mo.None[string](), ResponseModel: mo.None[string](),
+		ResponseID: mo.None[string](), Usage: mo.None[controller.ModelUsage](), Diagnostics: nil, Content: content,
+	}
+}
+
+func mapSessionEntries(entries []session.Entry) []controller.SessionEntry {
+	result := make([]controller.SessionEntry, 0, len(entries))
+	for position := range entries {
+		entry := &entries[position]
+		if user, present := entry.User.Get(); present {
+			result = append(result, controller.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
+				UserText: mo.Some(publicInputText(user)), Model: mo.None[controller.ModelResponse](),
+			})
+			continue
+		}
+		if response, present := entry.Model.Get(); present {
+			result = append(result, controller.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryModel,
+				UserText: mo.None[string](), Model: mo.Some(mapTextModelResponse(response)),
+			})
+		}
+	}
+	return result
 }
 
 func publicInputText(message model.Message) string {

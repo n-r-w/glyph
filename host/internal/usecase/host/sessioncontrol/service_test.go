@@ -34,17 +34,17 @@ func TestResumeHoldsGateThroughActiveReplacement(t *testing.T) {
 	gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
 	service := New(active, gate)
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).DoAndReturn(
-		func(_ any, _ session.ID) (session.Info, error) {
+		func(_ any, _ session.ID) (session.Replacement, error) {
 			require.False(t, released)
-			return session.Info{
+			return session.Replacement{Info: session.Info{
 				ID: "stored", Name: mo.None[string](), WorkingDirectory: "",
 				StoragePath: mo.None[string](), CreatedAt: time.Time{}, UpdatedAt: time.Time{},
-			}, nil
+			}, Entries: nil}, nil
 		},
 	)
 
-	info, err := service.Resume(t.Context(), "stored")
+	replacement, err := service.Resume(t.Context(), "stored")
 	require.NoError(t, err)
-	require.Equal(t, session.ID("stored"), info.ID)
+	require.Equal(t, session.ID("stored"), replacement.Info.ID)
 	require.True(t, released)
 }

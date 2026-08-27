@@ -2,21 +2,31 @@
 package sessions
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 )
 
 const formatVersion = 1
+
+var _ agentrun.HistoryStore = (*Service)(nil)
 
 var lineBreaks = regexp.MustCompile(`[\r\n]+`)
 
@@ -32,8 +42,10 @@ type Service struct {
 	clock Clock
 	// workingDirectory binds created and resumed sessions to this process project.
 	workingDirectory string
-	// active is replaced only after create succeeds or resume fully validates its target.
+	// active contains durable session records and public metadata.
 	active LoadedSession
+	// history is the complete provider-neutral in-process history owned by this store.
+	history []agent.HistoryEntry
 }
 
 var _ sessioncontrol.ActiveSessions = (*Service)(nil)
@@ -47,6 +59,7 @@ func New(repository Repository, ids IDGenerator, clock Clock, workingDirectory s
 		clock:            clock,
 		workingDirectory: workingDirectory,
 		active:           LoadedSession{},
+		history:          nil,
 	}
 }
 
@@ -60,10 +73,10 @@ func (s *Service) Initialize(ctx context.Context) error {
 }
 
 // CreateActive replaces the active session with an empty session.
-func (s *Service) CreateActive(_ context.Context) (session.Info, error) {
+func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 	id, err := s.ids.NewID()
 	if err != nil {
-		return session.Info{}, fmt.Errorf("create session ID: %w", err)
+		return session.Replacement{}, fmt.Errorf("create session ID: %w", err)
 	}
 	createdAt := s.clock.Now()
 	loaded := LoadedSession{
@@ -78,24 +91,30 @@ func (s *Service) CreateActive(_ context.Context) (session.Info, error) {
 	}
 	s.mutex.Lock()
 	s.active = loaded
+	s.history = nil
+	replacement := replacementFromLoaded(s.active)
 	s.mutex.Unlock()
-	return infoFromLoaded(loaded), nil
+	return replacement, nil
 }
 
 // ResumeActive replaces the active session with a stored session.
-func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Info, error) {
+func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Replacement, error) {
+	// The lock spans load and replacement so stale loaded state cannot overwrite a completed append or name change.
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	loaded, err := s.repository.Load(ctx, id)
 	if err != nil {
-		return session.Info{}, fmt.Errorf("load session: %w", err)
+		return session.Replacement{}, fmt.Errorf("load session: %w", err)
 	}
 	if loaded.Header.WorkingDirectory != s.workingDirectory {
-		return session.Info{}, errors.New("session working directory does not match")
+		return session.Replacement{}, errors.New("session working directory does not match")
 	}
 	loaded = cloneLoaded(loaded)
-	s.mutex.Lock()
+	history := historyFromEntries(loaded.Entries)
 	s.active = loaded
-	s.mutex.Unlock()
-	return infoFromLoaded(loaded), nil
+	s.history = history
+	return replacementFromLoaded(s.active), nil
 }
 
 // SetActiveName persists a normalized session name.
@@ -104,18 +123,20 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	if name == "" {
 		return session.Info{}, session.ErrInvalidName
 	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	entryID, err := s.ids.NewID()
 	if err != nil {
 		return session.Info{}, fmt.Errorf("create session entry ID: %w", err)
 	}
 	entry := session.Entry{
+		User:        mo.None[session.UserMessage](),
+		Model:       mo.None[session.ModelResponse](),
 		ID:          entryID,
 		CreatedAt:   s.clock.Now(),
 		Information: mo.Some(session.Information{Name: name}),
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	result, err := s.repository.Append(ctx, AppendCommand{
 		Header:      s.active.Header,
 		StoragePath: s.active.StoragePath,
@@ -138,10 +159,27 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 	}
 	result := make([]session.Summary, 0, len(loaded))
 	for _, item := range loaded {
+		firstUserText := mo.None[string]()
+		totalMessages := 0
+		for entryIndex := range item.Entries {
+			entry := &item.Entries[entryIndex]
+			if user, present := entry.User.Get(); present {
+				totalMessages++
+				if firstUserText.IsNone() {
+					text := strings.TrimSpace(lineBreaks.ReplaceAllString(publicUserText(user), " "))
+					if text != "" {
+						firstUserText = mo.Some(text)
+					}
+				}
+			}
+			if entry.Model.IsSome() {
+				totalMessages++
+			}
+		}
 		result = append(result, session.Summary{
 			Info:          infoFromLoaded(item),
-			FirstUserText: mo.None[string](),
-			TotalMessages: 0,
+			FirstUserText: firstUserText,
+			TotalMessages: totalMessages,
 		})
 	}
 	sort.Slice(result, func(left int, right int) bool {
@@ -160,11 +198,261 @@ func (s *Service) ActiveInfo() session.Info {
 	return infoFromLoaded(s.active)
 }
 
+// ActiveEntries returns immutable active-session records in stored order.
+func (s *Service) ActiveEntries() []session.Entry {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return cloneEntries(s.active.Entries)
+}
+
+// Snapshot returns the provider-neutral history owned by the active session.
+func (s *Service) Snapshot() []agent.HistoryEntry {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return cloneHistory(s.history)
+}
+
+// Append transfers one history entry to active ownership and persists only this unit's text projection.
+func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error {
+	owned, err := cloneValidatedHistoryEntry(history)
+	if err != nil {
+		return err
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	projection, durable, err := durableTextEntry(owned)
+	if err != nil {
+		return err
+	}
+	if !durable {
+		// Non-stop model responses and tool results remain complete but process-local.
+		s.history = append(s.history, owned)
+		return nil
+	}
+	entryID, err := s.ids.NewID()
+	if err != nil {
+		return fmt.Errorf("create session entry ID: %w", err)
+	}
+	projection.ID = entryID
+	projection.CreatedAt = s.clock.Now()
+	result, err := s.repository.Append(ctx, AppendCommand{
+		Header:      s.active.Header,
+		StoragePath: s.active.StoragePath,
+		Entry:       projection,
+	})
+	if err != nil {
+		return fmt.Errorf("append session history: %w", err)
+	}
+	// Ownership moves only after the synchronized text append succeeds, so dependent work can trust Snapshot.
+	s.active.StoragePath = result.StoragePath
+	s.active.Entries = append(s.active.Entries, projection)
+	s.history = append(s.history, owned)
+	return nil
+}
+
+func durableTextEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
+	entry := session.Entry{
+		ID: "", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+		User: mo.None[model.Message](), Model: mo.None[model.Response](),
+	}
+	switch history.Kind {
+	case agent.HistoryEntryUser:
+		entry.User = mo.Some(textMessage(publicUserText(history.User.MustGet())))
+		return entry, true, nil
+	case agent.HistoryEntryModel:
+		response := history.Model.MustGet()
+		outcome, terminal := response.Outcome.Get()
+		if !terminal || outcome != model.OutcomeStop {
+			return session.Entry{}, false, nil
+		}
+		entry.Model = mo.Some(completedTextResponse(response))
+		return entry, true, nil
+	case agent.HistoryEntryToolResult:
+		return session.Entry{}, false, nil
+	default:
+		return session.Entry{}, false, fmt.Errorf("unsupported history entry kind %d", history.Kind)
+	}
+}
+
+func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
+	history := make([]agent.HistoryEntry, 0, len(entries))
+	for entryIndex := range entries {
+		entry := &entries[entryIndex]
+		if user, present := entry.User.Get(); present {
+			history = append(history, agent.HistoryEntry{
+				Kind: agent.HistoryEntryUser, User: mo.Some(textMessage(publicUserText(user))),
+				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+			})
+		}
+		if response, present := entry.Model.Get(); present {
+			history = append(history, agent.HistoryEntry{
+				Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
+				Model: mo.Some(completedTextResponse(response)), ToolResult: mo.None[agent.ToolResult](),
+			})
+		}
+	}
+	return history
+}
+
+func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
+	cloned := slices.Clone(history)
+	for index := range cloned {
+		cloned[index], _ = cloneValidatedHistoryEntry(cloned[index])
+	}
+	return cloned
+}
+
+func cloneValidatedHistoryEntry(entry agent.HistoryEntry) (agent.HistoryEntry, error) {
+	switch entry.Kind {
+	case agent.HistoryEntryUser:
+		message, present := entry.User.Get()
+		if !present {
+			return agent.HistoryEntry{}, errors.New("user history payload is missing")
+		}
+		return agent.HistoryEntry{
+			Kind: entry.Kind, User: mo.Some(cloneMessage(message)), Model: mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		}, nil
+	case agent.HistoryEntryModel:
+		response, present := entry.Model.Get()
+		if !present {
+			return agent.HistoryEntry{}, errors.New("model history payload is missing")
+		}
+		return agent.HistoryEntry{
+			Kind: entry.Kind, User: mo.None[model.Message](), Model: mo.Some(cloneModelResponse(response)),
+			ToolResult: mo.None[agent.ToolResult](),
+		}, nil
+	case agent.HistoryEntryToolResult:
+		result, present := entry.ToolResult.Get()
+		if !present {
+			return agent.HistoryEntry{}, errors.New("tool-result history payload is missing")
+		}
+		return agent.HistoryEntry{
+			Kind: entry.Kind, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+			ToolResult: mo.Some(cloneToolResult(result)),
+		}, nil
+	default:
+		return agent.HistoryEntry{}, fmt.Errorf("unsupported history entry kind %d", entry.Kind)
+	}
+}
+
+func cloneMessage(message model.Message) model.Message {
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
+	}
+	return message
+}
+
+func cloneModelResponse(response model.Response) model.Response {
+	content := slices.Clone(response.Content)
+	for index := range content {
+		cloneContext := func(value model.ProviderContext) model.ProviderContext {
+			value.Payload = bytes.Clone(value.Payload)
+			return value
+		}
+		content[index].ProviderContext = content[index].ProviderContext.MapValue(cloneContext)
+		content[index].ToolCall = content[index].ToolCall.MapValue(func(value model.ToolCall) model.ToolCall {
+			value.Arguments = cloneArguments(value.Arguments)
+			return value
+		})
+	}
+	return model.Response{
+		Content: content, Outcome: response.Outcome, ErrorMessage: response.ErrorMessage,
+		Provider: response.Provider, Model: response.Model, ResponseModel: response.ResponseModel,
+		ResponseID: response.ResponseID, Usage: response.Usage, Diagnostics: slices.Clone(response.Diagnostics),
+	}
+}
+
+func cloneArguments(arguments map[string]any) map[string]any {
+	if arguments == nil {
+		return nil
+	}
+	cloned := maps.Clone(arguments)
+	for name, value := range cloned {
+		cloned[name] = cloneJSONValue(value)
+	}
+	return cloned
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneArguments(typed)
+	case []any:
+		cloned := slices.Clone(typed)
+		for index := range cloned {
+			cloned[index] = cloneJSONValue(cloned[index])
+		}
+		return cloned
+	default:
+		return value
+	}
+}
+
+func cloneToolResult(result agent.ToolResult) agent.ToolResult {
+	contents := append([]tool.ResultContent(nil), result.Contents...)
+	for index := range contents {
+		if image, present := contents[index].Image.Get(); present {
+			image.Data = append([]byte(nil), image.Data...)
+			contents[index].Image = mo.Some(image)
+		}
+	}
+	return agent.ToolResult{
+		CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
+	}
+}
+
+func publicUserText(message model.Message) string {
+	var text strings.Builder
+	for _, content := range message.Content {
+		if content.Kind == model.InputContentText {
+			if value, present := content.Text.Get(); present {
+				text.WriteString(value)
+			}
+		}
+	}
+	return text.String()
+}
+
+func textMessage(text string) model.Message {
+	return model.TextMessage(text)
+}
+
+func completedTextResponse(response model.Response) model.Response {
+	content := make([]model.Content, 0, len(response.Content))
+	for index := range response.Content {
+		item := &response.Content[index]
+		if item.Kind != model.ContentText {
+			continue
+		}
+		text, present := item.Text.Get()
+		if !present {
+			continue
+		}
+		content = append(content, model.Content{
+			Kind: model.ContentText, Text: mo.Some(text), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+		})
+	}
+	return model.Response{
+		Content: content, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+}
+
 // infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
+func replacementFromLoaded(loaded LoadedSession) session.Replacement {
+	return session.Replacement{Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Entries)}
+}
+
 func infoFromLoaded(loaded LoadedSession) session.Info {
 	name := mo.None[string]()
 	updatedAt := loaded.Header.CreatedAt
-	for _, entry := range loaded.Entries {
+	for index := range loaded.Entries {
+		entry := &loaded.Entries[index]
 		if information, ok := entry.Information.Get(); ok {
 			name = mo.Some(information.Name)
 		}
@@ -184,11 +472,24 @@ func infoFromLoaded(loaded LoadedSession) session.Info {
 	}
 }
 
-// cloneLoaded prevents repository-owned entry slices from becoming mutable active state.
+// cloneLoaded prevents repository-owned entries from becoming mutable active state.
 func cloneLoaded(value LoadedSession) LoadedSession {
 	return LoadedSession{
-		Header:      value.Header,
-		StoragePath: value.StoragePath,
-		Entries:     append([]session.Entry(nil), value.Entries...),
+		Header: value.Header, StoragePath: value.StoragePath, Entries: cloneEntries(value.Entries),
 	}
+}
+
+func cloneEntries(entries []session.Entry) []session.Entry {
+	cloned := make([]session.Entry, len(entries))
+	for index := range entries {
+		entry := &entries[index]
+		cloned[index] = session.Entry{
+			ID: entry.ID, CreatedAt: entry.CreatedAt, Information: entry.Information,
+			User: entry.User.MapValue(func(value model.Message) model.Message {
+				return textMessage(publicUserText(value))
+			}),
+			Model: entry.Model.MapValue(completedTextResponse),
+		}
+	}
+	return cloned
 }

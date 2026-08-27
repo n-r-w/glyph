@@ -206,7 +206,9 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 			return nil, true, errors.New("map UI frame: session information is required")
 		}
 		if frame.Kind == domainui.FrameSessionChanged {
-			request.SetSessionChanged(uipb.SessionChanged_builder{Info: mapSessionInfo(info)}.Build())
+			request.SetSessionChanged(uipb.SessionChanged_builder{
+				Info: mapSessionInfo(info), Entries: mapRestoredSessionEntries(frame.SessionEntries),
+			}.Build())
 		} else {
 			request.SetSessionInformation(uipb.SessionInformation_builder{Info: mapSessionInfo(info)}.Build())
 		}
@@ -217,6 +219,25 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 	default:
 		return nil, false, nil
 	}
+}
+
+func mapRestoredSessionEntries(entries []domainui.SessionEntry) []*uipb.SessionEntry {
+	return lo.Map(entries, func(entry domainui.SessionEntry, _ int) *uipb.SessionEntry {
+		wire := new(uipb.SessionEntry)
+		wire.SetId(entry.ID)
+		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
+		switch entry.Kind {
+		case domainui.SessionEntryUser:
+			text, _ := entry.UserText.Get()
+			content := new(uipb.UserContent)
+			content.SetText(text)
+			wire.SetUser(uipb.UserMessage_builder{Content: []*uipb.UserContent{content}}.Build())
+		case domainui.SessionEntryModel:
+			response, _ := entry.Model.Get()
+			wire.SetModel(mapModelResponse(response))
+		}
+		return wire
+	})
 }
 
 // mapInitializationFrame validates and maps the selected initialization payload.

@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
@@ -19,12 +22,56 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            append([]session.Summary(nil), listed...),
+		SessionEntries:      nil,
 	}
 }
 
-// sessionChangedFrame confirms that active replacement has committed.
-func sessionChangedFrame(info session.Info) domainui.Frame {
-	return sessionInfoFrame(domainui.FrameSessionChanged, info)
+// sessionChangedFrame confirms replacement and carries the complete restored transcript.
+func sessionChangedFrame(info session.Info, entries []session.Entry) domainui.Frame {
+	frame := sessionInfoFrame(domainui.FrameSessionChanged, info)
+	frame.SessionEntries = make([]domainui.SessionEntry, 0, len(entries))
+	for position := range entries {
+		entry := &entries[position]
+		if user, present := entry.User.Get(); present {
+			var text strings.Builder
+			for _, content := range user.Content {
+				if value, ok := content.Text.Get(); content.Kind == model.InputContentText && ok {
+					text.WriteString(value)
+				}
+			}
+			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
+				UserText: mo.Some(text.String()), Model: mo.None[domainui.ModelResponse](),
+			})
+			continue
+		}
+		if response, present := entry.Model.Get(); present {
+			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
+				UserText: mo.None[string](), Model: mo.Some(mapRestoredTextResponse(response)),
+			})
+		}
+	}
+	return frame
+}
+
+func mapRestoredTextResponse(response model.Response) domainui.ModelResponse {
+	var text strings.Builder
+	content := make([]domainui.ModelResponseContent, 0, len(response.Content))
+	for index := range response.Content {
+		item := &response.Content[index]
+		value, present := item.Text.Get()
+		if item.Kind != model.ContentText || !present {
+			continue
+		}
+		text.WriteString(value)
+		content = append(content, domainui.ModelResponseContent{Kind: domainui.ModelContentKindText, Text: value})
+	}
+	return domainui.ModelResponse{
+		Text: text.String(), Outcome: mo.None[string](), ErrorMessage: mo.None[string](), Provider: mo.None[string](),
+		Model: mo.None[string](), ResponseModel: mo.None[string](), ResponseID: mo.None[string](), Content: content,
+		Usage: mo.None[domainui.ModelUsage](), Diagnostics: nil,
+	}
 }
 
 // sessionInformationFrame reports active identity without replacing TUI transcript state.
@@ -44,5 +91,6 @@ func sessionInfoFrame(kind domainui.FrameKind, info session.Info) domainui.Frame
 		ModelSelection:      mo.None[domainui.ModelSelection](),
 		SessionInfo:         mo.Some(info),
 		Sessions:            nil,
+		SessionEntries:      nil,
 	}
 }

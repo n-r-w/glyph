@@ -499,6 +499,7 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 		domainui.FrameModelSelectionChanged,
 	} {
 		_, err := mapFrame(domainui.Frame{
+			SessionEntries:      nil,
 			Kind:                kind,
 			Initialization:      mo.None[domainui.Initialization](),
 			Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -670,7 +671,8 @@ func runtimeCommandResponses(text string, providerID string, modelID string) []*
 // testInitializationFrame creates one complete initialization mapping fixture.
 func testInitializationFrame() domainui.Frame {
 	return domainui.Frame{
-		Kind: domainui.FrameInitialization,
+		SessionEntries: nil,
+		Kind:           domainui.FrameInitialization,
 		Initialization: mo.Some(domainui.Initialization{
 			SelectedUIID: "ui",
 			StartupContent: []domainui.StartupContent{{
@@ -701,6 +703,7 @@ func testInitializationFrame() domainui.Frame {
 // testLifecycleFrame creates one complete lifecycle mapping fixture.
 func testLifecycleFrame() domainui.Frame {
 	return domainui.Frame{
+		SessionEntries: nil,
 		Kind:           domainui.FrameLifecycle,
 		Initialization: mo.None[domainui.Initialization](),
 		Lifecycle: mo.Some(domainui.Lifecycle{
@@ -733,6 +736,7 @@ func testLifecycleFrame() domainui.Frame {
 func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 	if kind == domainui.FrameAuthorization {
 		return domainui.Frame{
+			SessionEntries:      nil,
 			Kind:                kind,
 			Initialization:      mo.None[domainui.Initialization](),
 			Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -745,6 +749,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 		}
 	}
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                kind,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -760,6 +765,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 // testErrorFrame creates one retryable error mapping fixture.
 func testErrorFrame() domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameError,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),
@@ -775,6 +781,7 @@ func testErrorFrame() domainui.Frame {
 // testModelSelectionFrame creates one Host-confirmed selection frame.
 func testModelSelectionFrame() domainui.Frame {
 	return domainui.Frame{
+		SessionEntries:      nil,
 		Kind:                domainui.FrameModelSelectionChanged,
 		Initialization:      mo.None[domainui.Initialization](),
 		Lifecycle:           mo.None[domainui.Lifecycle](),

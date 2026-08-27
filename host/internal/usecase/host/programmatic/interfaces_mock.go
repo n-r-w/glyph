@@ -110,10 +110,10 @@ func (m *MockSessionControl) EXPECT() *MockSessionControlMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockSessionControl) Create(arg0 context.Context) (session.Info, error) {
+func (m *MockSessionControl) Create(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -122,6 +122,20 @@ func (m *MockSessionControl) Create(arg0 context.Context) (session.Info, error) 
 func (mr *MockSessionControlMockRecorder) Create(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionControl)(nil).Create), arg0)
+}
+
+// Entries mocks base method.
+func (m *MockSessionControl) Entries() []session.Entry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Entries")
+	ret0, _ := ret[0].([]session.Entry)
+	return ret0
+}
+
+// Entries indicates an expected call of Entries.
+func (mr *MockSessionControlMockRecorder) Entries() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Entries", reflect.TypeOf((*MockSessionControl)(nil).Entries))
 }
 
 // Info mocks base method.
@@ -154,10 +168,10 @@ func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
 }
 
 // Resume mocks base method.
-func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Info, error) {
+func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Replacement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resume", arg0, arg1)
-	ret0, _ := ret[0].(session.Info)
+	ret0, _ := ret[0].(session.Replacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

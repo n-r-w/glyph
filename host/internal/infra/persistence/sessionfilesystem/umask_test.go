@@ -50,6 +50,7 @@ func runRestrictiveUmaskAppend(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ID: "entry", CreatedAt: createdAt,
 			Information: mo.Some(session.Information{Name: "restricted"}),
 		},

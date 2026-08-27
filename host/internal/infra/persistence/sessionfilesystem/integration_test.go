@@ -33,7 +33,8 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	result, err := repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
-		Entry:       session.Entry{ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"})},
+		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"})},
 	})
 	require.NoError(t, err)
 	digest := sha256.Sum256([]byte(canonical))
@@ -79,7 +80,8 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	_, err = canonicalRepository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
 		StoragePath: "",
-		Entry:       session.Entry{ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"})},
+		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"})},
 	})
 	require.NoError(t, err)
 	symlinkRepository := sessionstore.New(root, canonicalLink, sessionfilesystem.New())
@@ -124,7 +126,8 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	command := hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Entry:       session.Entry{ID: "entry-id", CreatedAt: createdAt.Add(time.Minute), Information: mo.Some(session.Information{Name: "known session"})},
+		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute), Information: mo.Some(session.Information{Name: "known session"})},
 	}
 	created, err := repository.Append(t.Context(), command)
 	require.NoError(t, err)
@@ -156,7 +159,8 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Entry:       session.Entry{ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName})},
+		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName})},
 	})
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
@@ -179,7 +183,8 @@ func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
-		Entry:       session.Entry{ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"})},
+		Entry: session.Entry{
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"})},
 	})
 	require.Error(t, err)
 	content, readErr := os.ReadFile(outsidePath)

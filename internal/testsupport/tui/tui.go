@@ -95,6 +95,42 @@ func (observer *OutputObserver) WaitNext(t *testing.T, expected string) {
 	}
 }
 
+// WaitForOutputAfter waits until the terminal writes bytes after one checkpoint.
+func (observer *OutputObserver) WaitForOutputAfter(t *testing.T, checkpoint int) {
+	t.Helper()
+	for {
+		observer.mutex.Lock()
+		advanced := observer.content.Len() > checkpoint
+		content := observer.content.String()
+		observer.mutex.Unlock()
+		if advanced {
+			return
+		}
+		select {
+		case <-observer.notification:
+		case <-observer.context.Done():
+			t.Fatalf("terminal output did not advance after checkpoint:\n%s", content)
+		}
+	}
+}
+
+// Checkpoint returns the current output boundary for later state-sensitive assertions.
+func (observer *OutputObserver) Checkpoint() int {
+	observer.mutex.Lock()
+	defer observer.mutex.Unlock()
+	return observer.content.Len()
+}
+
+// StringFrom returns output captured at or after one checkpoint.
+func (observer *OutputObserver) StringFrom(checkpoint int) string {
+	observer.mutex.Lock()
+	defer observer.mutex.Unlock()
+	if checkpoint < 0 || checkpoint > observer.content.Len() {
+		return ""
+	}
+	return observer.content.String()[checkpoint:]
+}
+
 // String returns a stable copy of all recorded terminal output.
 func (observer *OutputObserver) String() string {
 	observer.mutex.Lock()

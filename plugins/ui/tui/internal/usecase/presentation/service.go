@@ -119,8 +119,8 @@ func applySessionEvent(state *presentationdomain.State, event presentationdomain
 	case presentationdomain.EventSessionChanged:
 		if event.SessionInfo.IsSome() {
 			state.SessionInfo = event.SessionInfo
-			// Transcript and in-flight render state belong to the old session and cannot cross replacement.
-			state.Transcript = nil
+			// Transcript ownership changes atomically with the confirmed active session.
+			state.Transcript = append([]presentationdomain.Line(nil), event.RestoredTranscript...)
 			state.ActiveModel = make(map[int]presentationdomain.ActiveModelContent)
 			state.ActiveToolCalls = make(map[string]presentationdomain.ToolCallState)
 			state.ActiveTools = make(map[string]string)

@@ -259,7 +259,9 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
 	}, nil)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events)
+	service := New(
+		testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, newMockHistoryStore(t),
+	)
 	result := make(chan error, 1)
 	go func() {
 		_, err := service.Run(t.Context(), Request{RunID: "runtime-switch", UserText: "go"})
@@ -746,6 +748,82 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 	}
 }
 
+func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	runtime := NewMockModelRuntime(controller)
+	tools := NewMockToolRuntime(controller)
+	events := NewMockEventSink(controller)
+	store := NewMockHistoryStore(controller)
+	persistErr := errors.New("persist user")
+	store.EXPECT().Snapshot().Return(nil).AnyTimes()
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
+	observed := make([]EventType, 0, 2)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+		observed = append(observed, event.Type)
+		return nil
+	}).Times(2)
+	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+	_, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
+
+	require.ErrorIs(t, err, persistErr)
+	assert.Equal(t, []EventType{EventAgentStart, EventAgentEnd}, observed)
+	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+}
+
+func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	runtime := NewMockModelRuntime(controller)
+	provider := NewMockModelProvider(controller)
+	tools := NewMockToolRuntime(controller)
+	events := NewMockEventSink(controller)
+	store := NewMockHistoryStore(controller)
+	persistErr := errors.New("persist model")
+	history := make([]agent.HistoryEntry, 0, 1)
+	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, entry agent.HistoryEntry) error {
+			history = append(history, cloneHistoryEntry(entry))
+			return nil
+		},
+	)
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
+	runtime.EXPECT().Current().Return(RuntimeSelection{
+		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
+	})
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+			return handle(StreamEvent{
+				Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
+				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](),
+				Response: mo.Some(model.Response{
+					Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop),
+					ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](),
+					Diagnostics: nil,
+				}),
+			})
+		},
+	)
+	observed := make([]EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+		observed = append(observed, event.Type)
+		return nil
+	}).AnyTimes()
+	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+	_, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})
+
+	require.ErrorIs(t, err, persistErr)
+	assert.NotContains(t, observed, EventMessageEnd)
+	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+}
+
 // TestServiceRunEventDeliveryFailure ends the run, attempts agent_end, and starts no provider or tool work.
 func TestServiceRunEventDeliveryFailure(t *testing.T) {
 	t.Parallel()
@@ -772,7 +850,7 @@ func TestServiceRunEventDeliveryFailure(t *testing.T) {
 
 	require.ErrorIs(t, err, deliveryErr)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
-	require.Len(t, service.History(), 1)
+	require.Empty(t, service.History())
 	_, err = service.Run(t.Context(), Request{RunID: "blocked", UserText: "no"})
 	require.ErrorIs(t, err, ErrRunActive)
 }
@@ -824,7 +902,23 @@ func newTestService(
 	runtime.EXPECT().Current().Return(RuntimeSelection{
 		Model: descriptor, ReasoningChoice: level, Provider: provider,
 	}).AnyTimes()
-	return New(instructions, runtime, hookRunner, tools, events)
+	return New(instructions, runtime, hookRunner, tools, events, newMockHistoryStore(t))
+}
+
+func newMockHistoryStore(t *testing.T) *MockHistoryStore {
+	t.Helper()
+	store := NewMockHistoryStore(gomock.NewController(t))
+	history := make([]agent.HistoryEntry, 0)
+	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry {
+		return cloneHistory(history)
+	}).AnyTimes()
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, entry agent.HistoryEntry) error {
+			history = append(history, cloneHistoryEntry(entry))
+			return nil
+		},
+	).AnyTimes()
+	return store
 }
 
 // testTextItem creates one complete text content item.

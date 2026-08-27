@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // ID is the opaque public identifier of one session.
@@ -36,6 +38,12 @@ type Information struct {
 	Name string
 }
 
+// UserMessage is the provider-neutral user content stored in a session.
+type UserMessage = model.Message
+
+// ModelResponse is the provider-neutral terminal model text stored in a session.
+type ModelResponse = model.Response
+
 // Entry is one ordered session record.
 type Entry struct {
 	// ID uniquely identifies this record within the session.
@@ -44,6 +52,18 @@ type Entry struct {
 	CreatedAt time.Time
 	// Information contains the name change carried by this lifecycle entry.
 	Information mo.Option[Information]
+	// User contains one terminal user message.
+	User mo.Option[UserMessage]
+	// Model contains one terminal model response.
+	Model mo.Option[ModelResponse]
+}
+
+// Replacement is one atomic active-session identity and durable transcript snapshot.
+type Replacement struct {
+	// Info identifies the committed active session.
+	Info Info
+	// Entries contains cloned durable entries from the same committed state.
+	Entries []Entry
 }
 
 // Info describes one active or persisted session.

@@ -30,6 +30,14 @@ type RuntimeSelection struct {
 	Provider        ModelProvider
 }
 
+// HistoryStore owns canonical provider-neutral history for the active session.
+type HistoryStore interface {
+	// Snapshot returns an immutable copy that includes complete process-local history.
+	Snapshot() []agent.HistoryEntry
+	// Append transfers one owned history entry before dependent work starts.
+	Append(context.Context, agent.HistoryEntry) error
+}
+
 // ModelRuntime supplies the active selection immediately before a provider request.
 type ModelRuntime interface {
 	Current() RuntimeSelection

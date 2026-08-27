@@ -165,6 +165,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 	assert.Nil(t, emptyCommand)
 
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAvailability,
 		Availability:         mo.Some(presentationdomain.AvailabilityRunning),
 		Startup:              nil,
@@ -330,8 +331,9 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 		},
 	} {
 		model := NewModel(presentationdomain.Event{
-			Kind:         presentationdomain.EventInitialization,
-			Availability: mo.Some(presentationdomain.AvailabilityIdle),
+			RestoredTranscript: nil,
+			Kind:               presentationdomain.EventInitialization,
+			Availability:       mo.Some(presentationdomain.AvailabilityIdle),
 			Models: []presentationdomain.ConfiguredModel{{
 				ProviderID: "openai-codex",
 				ModelID:    "gpt",
@@ -375,8 +377,9 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
-		Kind:         presentationdomain.EventInitialization,
-		Availability: mo.Some(presentationdomain.AvailabilityIdle),
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInitialization,
+		Availability:       mo.Some(presentationdomain.AvailabilityIdle),
 		Models: []presentationdomain.ConfiguredModel{{
 			ProviderID: "ollama",
 			ModelID:    "ornith",
@@ -421,7 +424,8 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	model = next.(Model)
 	assert.Nil(t, command)
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelSelectionChanged,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelSelectionChanged,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "ollama",
 			ModelID:         "ornith",
@@ -457,7 +461,8 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelSelectionChanged,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelSelectionChanged,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "ollama",
 			ModelID:         "ornith",
@@ -574,9 +579,10 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		}
 	}
 	model := NewModel(presentationdomain.Event{
-		Kind:         presentationdomain.EventInitialization,
-		Availability: mo.Some(presentationdomain.AvailabilityIdle),
-		Models:       models,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInitialization,
+		Availability:       mo.Some(presentationdomain.AvailabilityIdle),
+		Models:             models,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "provider",
 			ModelID:         "model-0",
@@ -768,6 +774,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	}), model.state.ModelSelection)
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventError,
 		Text:                 mo.Some("selection failed"),
 		Startup:              nil,
@@ -792,7 +799,8 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelSelectionChanged,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelSelectionChanged,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "openai-codex",
 			ModelID:         "gpt",
@@ -840,6 +848,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAvailability,
 		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
 		Startup:              nil,
@@ -925,7 +934,8 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
-		Kind: presentationdomain.EventInitialization,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInitialization,
 		Startup: []presentationdomain.Line{
 			{
 				Kind:               presentationdomain.LineWarning,
@@ -979,7 +989,8 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
-		Kind: presentationdomain.EventInitialization,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInitialization,
 		Startup: []presentationdomain.Line{{
 			Kind:               presentationdomain.LineInformation,
 			Text:               mo.Some("Glyph session initialized."),
@@ -1008,6 +1019,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		Sessions:             nil,
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInformation,
 		Text:                 mo.Some("Ready."),
 		Startup:              nil,
@@ -1031,6 +1043,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
 		Position:             mo.Some(1),
 		Text:                 mo.Some("Working"),
@@ -1054,6 +1067,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAuthorization,
 		Text:                 mo.Some("https://example.test/oauth"),
 		Startup:              nil,
@@ -1106,6 +1120,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
 		Position:             mo.Some(0),
 		Startup:              nil,
@@ -1129,6 +1144,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
 		Position:             mo.Some(1),
 		Text:                 mo.Some("complete answer"),
@@ -1152,8 +1168,9 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind:     presentationdomain.EventModelEnd,
-		Position: mo.None[int](),
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelEnd,
+		Position:           mo.None[int](),
 		ModelResponseContent: []presentationdomain.ModelResponseContent{{
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("complete answer"),
@@ -1187,7 +1204,8 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, func(presentationdomain.Command) error { return nil })
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventToolCallPreview,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventToolCallPreview,
 		ToolCall: mo.Some(presentationdomain.ToolCallState{
 			CallID:      "call-1",
 			Name:        "read",
@@ -1318,7 +1336,8 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelEnd,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelEnd,
 		ModelResponseContent: []presentationdomain.ModelResponseContent{{
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("readable words wrap cleanly\n你好 世界"),
@@ -1361,6 +1380,7 @@ func TestModelWrapsActiveContent(t *testing.T) {
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
 		Position:             mo.Some(1),
 		Text:                 mo.Some("active words and supercalifragilistic"),
@@ -1401,6 +1421,7 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
 		Position:             mo.Some(1),
 		Text:                 mo.Some("active words and supercalifragilistic"),
@@ -1443,6 +1464,7 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
 	for _, text := range []string{"oldest", "older", "middle", "newer", "latest"} {
 		model = updateModel(t, model, presentationdomain.Event{
+			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventInformation,
 			Text:                 mo.Some(text),
 			Startup:              nil,
@@ -1488,7 +1510,8 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventModelEnd,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelEnd,
 		ModelResponseContent: []presentationdomain.ModelResponseContent{{
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("first response"),
@@ -1514,6 +1537,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		Sessions:           nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAgentSettled,
 		Text:                 mo.Some("completed"),
 		Startup:              nil,
@@ -1537,6 +1561,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventAvailability,
 		Availability:         mo.Some(presentationdomain.AvailabilityIdle),
 		Startup:              nil,
@@ -1604,6 +1629,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	assert.Equal(t, "/new", string(model.input))
 
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventSessionChanged,
 		Startup:              nil,
 		Extensions:           nil,
@@ -1643,6 +1669,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	assert.Equal(t, "/session", string(model.input))
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventSessionInformation,
 		Startup:              nil,
 		Extensions:           nil,
@@ -1701,6 +1728,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	model.resumeStatus = "stale rejection"
 
 	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventSessionList,
 		Startup:              nil,
 		Extensions:           nil,
@@ -1733,7 +1761,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	model.width = 100
 	assert.Contains(t, model.View().Content, "Sessions:")
 	assert.Contains(t, model.View().Content, "id-fallback")
-	assert.Empty(t, model.input)
+	assert.Equal(t, "/resume", string(model.input))
 
 	model.state.SessionInfo = mo.Some(presentationdomain.SessionInfo{
 		ID: "active", Name: "active", NamePresent: true, WorkingDirectory: "/project",
@@ -1762,7 +1790,8 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	assert.Len(t, commands, 2)
 
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventInformation, Startup: nil, Extensions: nil,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInformation, Startup: nil, Extensions: nil,
 		Availability: mo.None[presentationdomain.Availability](), Position: mo.None[int](),
 		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
 		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
@@ -1788,8 +1817,19 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	assert.True(t, model.resumePending)
 	assert.NotContains(t, model.View().Content, "Session replacement is unavailable.")
 
+	restored := []presentationdomain.Line{
+		{
+			Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some("prior-user"), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		},
+		{
+			Kind: presentationdomain.LineModel, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some("prior-model"), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		},
+	}
 	model = updateModel(t, model, presentationdomain.Event{
-		Kind: presentationdomain.EventSessionChanged, Startup: nil, Extensions: nil,
+		RestoredTranscript: restored,
+		Kind:               presentationdomain.EventSessionChanged, Startup: nil, Extensions: nil,
 		Availability: mo.None[presentationdomain.Availability](), Position: mo.None[int](),
 		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
 		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
@@ -1801,8 +1841,10 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	})
 	assert.False(t, model.selectorOpen)
 	assert.False(t, model.sessionSelector)
-	assert.Empty(t, model.state.Transcript)
+	assert.Equal(t, restored, model.state.Transcript)
 	assert.Empty(t, model.resumeStatus)
+	assert.Empty(t, model.input)
+	assert.Zero(t, model.cursor)
 }
 
 func TestModelResumeRejectionReservesHeightAndFitsTerminalWidth(t *testing.T) {
@@ -1838,6 +1880,8 @@ func TestModelEscapeClearsResumeRejection(t *testing.T) {
 	model.selectorOpen = true
 	model.sessionSelector = true
 	model.resumeStatus = "Session replacement is unavailable."
+	model.input = []rune("/resume")
+	model.cursor = len(model.input)
 	model.state.Sessions = []presentationdomain.SessionSummary{{
 		Info: presentationdomain.SessionInfo{
 			ID: "stored", Name: "", NamePresent: false, WorkingDirectory: "/project",
@@ -1852,6 +1896,8 @@ func TestModelEscapeClearsResumeRejection(t *testing.T) {
 	assert.False(t, model.selectorOpen)
 	assert.False(t, model.sessionSelector)
 	assert.Empty(t, model.resumeStatus)
+	assert.Empty(t, model.input)
+	assert.Zero(t, model.cursor)
 	assert.NotContains(t, model.View().Content, "Session replacement is unavailable.")
 }
 
@@ -1878,8 +1924,9 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 	t.Helper()
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
-		Kind:         presentationdomain.EventInitialization,
-		Availability: mo.Some(availability),
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventInitialization,
+		Availability:       mo.Some(availability),
 		Models: []presentationdomain.ConfiguredModel{
 			{
 				ProviderID: "openai-codex",
@@ -1932,6 +1979,7 @@ func newTestModel(t *testing.T, availability presentationdomain.Availability, em
 		emit = func(presentationdomain.Command) error { return nil }
 	}
 	return NewModel(presentationdomain.Event{
+		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventInitialization,
 		Availability:         mo.Some(availability),
 		Startup:              nil,
