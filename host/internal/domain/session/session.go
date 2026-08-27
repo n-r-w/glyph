@@ -21,6 +21,8 @@ var (
 	ErrInvalidName = errors.New("session name is required")
 	// ErrUnavailable reports a stored session that cannot be validated or recovered.
 	ErrUnavailable = errors.New("session is unavailable")
+	// ErrPersistenceUnavailable reports an active session that cannot accept mutations.
+	ErrPersistenceUnavailable = errors.New("session persistence failed")
 )
 
 // Header is the first record in a persisted session.

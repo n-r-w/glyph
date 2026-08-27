@@ -47,6 +47,8 @@ type Service struct {
 	active LoadedSession
 	// history is the complete provider-neutral in-process history owned by this store.
 	history []agent.HistoryEntry
+	// writeUnavailable blocks mutations after this process observes a persistence failure.
+	writeUnavailable bool
 }
 
 var _ sessioncontrol.ActiveSessions = (*Service)(nil)
@@ -68,6 +70,7 @@ func New(
 		workingDirectory: workingDirectory,
 		active:           LoadedSession{},
 		history:          nil,
+		writeUnavailable: false,
 	}
 }
 
@@ -100,6 +103,8 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 	s.mutex.Lock()
 	s.active = loaded
 	s.history = nil
+	// Active replacement creates a new process-local write state independent from the replaced session.
+	s.writeUnavailable = false
 	replacement := replacementFromLoaded(s.active)
 	s.mutex.Unlock()
 	return replacement, nil
@@ -113,6 +118,9 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 
 	loaded, err := s.repository.Load(ctx, id)
 	if err != nil {
+		if errors.Is(err, session.ErrPersistenceUnavailable) {
+			logPersistenceFailure(ctx, persistenceOperationResume, "", err)
+		}
 		return session.Replacement{}, fmt.Errorf("load session: %w", err)
 	}
 	if loaded.Header.WorkingDirectory != s.workingDirectory {
@@ -122,6 +130,8 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 	history := historyFromEntries(loaded.Entries)
 	s.active = loaded
 	s.history = history
+	// Successful validation and replacement are the only resume path that restores mutation access.
+	s.writeUnavailable = false
 	return replacementFromLoaded(s.active), nil
 }
 
@@ -133,6 +143,9 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if s.writeUnavailable {
+		return session.Info{}, session.ErrPersistenceUnavailable
+	}
 	entryID, err := s.ids.NewID()
 	if err != nil {
 		return session.Info{}, fmt.Errorf("create session entry ID: %w", err)
@@ -153,7 +166,10 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 		Entry:       entry,
 	})
 	if err != nil {
-		return session.Info{}, fmt.Errorf("append session information: %w", err)
+		logPersistenceFailure(ctx, persistenceOperationName, s.active.Header.ID, err)
+		// Keep the last durable snapshot readable while blocking later process-local mutations.
+		s.writeUnavailable = true
+		return session.Info{}, fmt.Errorf("%w: append session information: %w", session.ErrPersistenceUnavailable, err)
 	}
 	// The active snapshot advances only after the synchronized repository append succeeds.
 	s.active.StoragePath = result.StoragePath
@@ -401,6 +417,9 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if s.writeUnavailable {
+		return errors.Join(session.ErrPersistenceUnavailable, agentrun.ErrPersistenceUnavailable)
+	}
 	projection, durable, err := terminalContinuationEntry(owned)
 	if err != nil {
 		return err
@@ -425,7 +444,15 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 		Entry:       projection,
 	})
 	if err != nil {
-		return fmt.Errorf("append session history: %w", err)
+		logPersistenceFailure(ctx, persistenceOperationHistory, s.active.Header.ID, err)
+		// Keep the last durable snapshot readable while blocking later process-local mutations.
+		s.writeUnavailable = true
+		return fmt.Errorf(
+			"%w: %w: append session history: %w",
+			session.ErrPersistenceUnavailable,
+			agentrun.ErrPersistenceUnavailable,
+			err,
+		)
 	}
 	// Publish active ownership only after the repository append is synchronized.
 	// Callers can start dependent work after Append returns.
@@ -642,11 +669,12 @@ func publicUserText(message model.Message) string {
 	return text.String()
 }
 
-// infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
+// replacementFromLoaded returns independent public state for an active-session replacement.
 func replacementFromLoaded(loaded LoadedSession) session.Replacement {
 	return session.Replacement{Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Entries)}
 }
 
+// infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
 func infoFromLoaded(loaded LoadedSession) session.Info {
 	name := mo.None[string]()
 	updatedAt := loaded.Header.CreatedAt

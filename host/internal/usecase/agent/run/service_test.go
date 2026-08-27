@@ -756,15 +756,17 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 	}
 }
 
+// TestServiceRunStopsBeforeProviderWhenUserPersistenceFails verifies safe terminal failure precedes dependent work.
 func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a first-user persistence failure and event capture without provider or tool expectations.
 	controller := gomock.NewController(t)
 	runtime := NewMockModelRuntime(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := errors.New("persist user")
+	persistErr := fmt.Errorf("%w: /secret/path user-content provider-context", ErrPersistenceUnavailable)
 	store.EXPECT().Snapshot().Return(nil).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
 	observed := make([]EventType, 0, 2)
@@ -774,23 +776,28 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	}).Times(2)
 	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
 
-	_, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
+	// Act by starting a run whose first durable user entry fails.
+	result, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
 
-	require.ErrorIs(t, err, persistErr)
+	// Assert only safe terminal events and text escape before settlement.
+	require.ErrorIs(t, err, ErrPersistenceUnavailable)
+	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
 	assert.Equal(t, []EventType{EventAgentStart, EventAgentEnd}, observed)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
+// TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails verifies external effect retention without dependent values.
 func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.T) {
 	t.Parallel()
 
+	// Arrange one completed tool effect followed by terminal tool-result persistence failure.
 	controller := gomock.NewController(t)
 	runtime := NewMockModelRuntime(controller)
 	provider := NewMockModelProvider(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := errors.New("persist tool result")
+	persistErr := fmt.Errorf("%w: /secret/path tool-result provider-context", ErrPersistenceUnavailable)
 	call := model.ToolCall{ID: "call", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
 	response := model.Response{
 		Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
@@ -846,25 +853,30 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	}).AnyTimes()
 	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
 
-	_, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
+	// Act by running through one completed tool invocation whose result cannot become durable.
+	result, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
 
-	require.ErrorIs(t, err, persistErr)
+	// Assert the external effect remains complete while terminal values and continuation stay hidden.
+	require.ErrorIs(t, err, ErrPersistenceUnavailable)
+	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
 	assert.NotContains(t, observed, EventToolExecutionEnd)
 	assert.NotContains(t, observed, EventToolResult)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
+// TestServiceRunHidesMessageEndWhenModelPersistenceFails verifies terminal model data stays hidden before durability.
 func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a terminal model persistence failure after one provider response.
 	controller := gomock.NewController(t)
 	runtime := NewMockModelRuntime(controller)
 	provider := NewMockModelProvider(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := errors.New("persist model")
+	persistErr := fmt.Errorf("%w: /secret/path model-content provider-context", ErrPersistenceUnavailable)
 	history := make([]agent.HistoryEntry, 0, 1)
 	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -899,9 +911,12 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	}).AnyTimes()
 	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
 
-	_, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})
+	// Act by completing a provider response that cannot become durable.
+	result, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})
 
-	require.ErrorIs(t, err, persistErr)
+	// Assert no terminal model event or unsafe infrastructure text escapes.
+	require.ErrorIs(t, err, ErrPersistenceUnavailable)
+	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
 	assert.NotContains(t, observed, EventMessageEnd)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }

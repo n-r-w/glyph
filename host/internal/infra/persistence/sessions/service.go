@@ -354,6 +354,9 @@ func (s *Service) Load(ctx context.Context, id session.ID) (hostsessions.LoadedS
 		}
 		prepared, loadErr := s.loadPath(ctx, entry.Name(), loadForMatchedResume)
 		if loadErr != nil {
+			if prepared.interrupted {
+				return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, loadErr)
+			}
 			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrUnavailable, loadErr)
 		}
 		if !prepared.interrupted {
@@ -361,7 +364,7 @@ func (s *Service) Load(ctx context.Context, id session.ID) (hostsessions.LoadedS
 		}
 		recovered, loadErr := s.loadPath(ctx, entry.Name(), loadForTailRecovery)
 		if loadErr != nil {
-			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrUnavailable, loadErr)
+			return hostsessions.LoadedSession{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, loadErr)
 		}
 		return recovered.loaded, nil
 	}

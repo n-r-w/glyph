@@ -106,7 +106,7 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 	}
 }
 
-// mapRunStateCommandResponse maps one run-state response after response-kind dispatch.
+// mapSessionInfo maps one active-session snapshot to its Programmatic representation.
 func mapSessionInfo(info session.Info) *programmaticv1.SessionInfo {
 	wire := new(programmaticv1.SessionInfo)
 	wire.SetId(string(info.ID))
@@ -180,6 +180,7 @@ func mapSessionSummary(summary session.Summary) *programmaticv1.SessionSummary {
 	return wire
 }
 
+// mapRunStateCommandResponse maps one run-state response after response-kind dispatch.
 func mapRunStateCommandResponse(
 	wire *programmaticv1.CommandResponse,
 	response mo.Option[RunStateResult],
@@ -961,6 +962,8 @@ func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) 
 		return programmaticv1.RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE, nil
 	case RejectionSessionUnavailable:
 		return programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, nil
+	case RejectionPersistenceUnavailable:
+		return programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, nil
 	case RejectionUnspecified:
 		return 0, errors.New("map rejection code: unspecified value")
 	default:

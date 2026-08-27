@@ -1694,7 +1694,6 @@ func TestRenderLineDistinguishesRefusal(t *testing.T) {
 	assert.Equal(t, "[refusal] cannot help", result)
 }
 
-// newSelectionTestModel builds a model with configured selections and deterministic presentation behavior.
 // TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies rejected replacement keeps the draft until confirmation.
 func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T) {
 	t.Parallel()
@@ -1889,7 +1888,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		Availability: mo.None[presentationdomain.Availability](), Position: mo.None[int](),
 		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
 		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
-		Stream: mo.None[presentationdomain.OutputStream](), Text: mo.Some("Session replacement is unavailable."),
+		Stream: mo.None[presentationdomain.OutputStream](), Text: mo.Some("session persistence failed"),
 		Contents: mo.None[[]presentationdomain.Content](), ErrorText: mo.None[string](),
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
@@ -1904,13 +1903,13 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	assert.Equal(t, beforeTranscript, model.state.Transcript)
 	assert.Equal(t, beforeInfo, model.state.SessionInfo)
 	assert.Equal(t, beforeInput, model.input)
-	assert.Contains(t, model.View().Content, "Session replacement is unavailable.")
+	assert.Contains(t, model.View().Content, "session persistence failed")
 
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	require.Len(t, commands, 3)
 	assert.Equal(t, presentationdomain.CommandResumeSession, commands[2].Kind)
 	assert.True(t, model.resumePending)
-	assert.NotContains(t, model.View().Content, "Session replacement is unavailable.")
+	assert.NotContains(t, model.View().Content, "session persistence failed")
 
 	restored := []presentationdomain.Line{
 		{
@@ -2023,6 +2022,7 @@ func TestEllipsizeUsesTerminalCellWidth(t *testing.T) {
 	assert.True(t, strings.HasSuffix(result, "…"))
 }
 
+// newSelectionTestModel builds a model with configured selections and deterministic presentation behavior.
 func newSelectionTestModel(t *testing.T, availability presentationdomain.Availability, emit Emit) Model {
 	t.Helper()
 	service := presentationusecase.New()
@@ -2109,13 +2109,14 @@ func newTestModel(t *testing.T, availability presentationdomain.Availability, em
 	}, service.Apply, emit)
 }
 
-// updateModel applies one Bubble Tea message and requires the concrete model result.
+// testKey builds one unmodified Bubble Tea key for controller tests.
 func testKey(code rune) tea.Key {
 	return tea.Key{
 		Code: code, Text: "", Mod: 0, ShiftedCode: 0, BaseCode: 0, IsRepeat: false,
 	}
 }
 
+// updateModel applies one Bubble Tea message and requires the concrete model result.
 func updateModel(t *testing.T, model Model, message tea.Msg) Model {
 	t.Helper()
 	next, _ := model.Update(message)

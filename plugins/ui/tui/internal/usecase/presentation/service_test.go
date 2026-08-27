@@ -1030,6 +1030,44 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 	}, state.Transcript)
 }
 
+// TestServiceClearsUnconfirmedModelOnPersistenceFailure verifies terminal write failure removes only transient output.
+func TestServiceClearsUnconfirmedModelOnPersistenceFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one confirmed user line and one streamed model fragment without a terminal model event.
+	service := New()
+	state := service.Apply(presentationdomain.State{}, testPresentationEvent(
+		presentationdomain.EventUserSubmitted,
+		mo.Some("durable user"),
+		mo.None[int](),
+	))
+	state = service.Apply(state, testPresentationEvent(
+		presentationdomain.EventModelDelta,
+		mo.Some("unconfirmed model"),
+		mo.Some(0),
+	))
+
+	// Act by applying the exact safe Host error after terminal model persistence fails.
+	state = service.Apply(state, testPresentationEvent(
+		presentationdomain.EventError,
+		mo.Some("session persistence failed"),
+		mo.None[int](),
+	))
+
+	// Assert confirmed transcript state remains while unconfirmed model output is discarded.
+	assert.Empty(t, state.ActiveModel)
+	assert.Equal(t, []presentationdomain.Line{
+		{
+			Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some("durable user"), Contents: mo.None[[]presentationdomain.Content](),
+		},
+		{
+			Kind: presentationdomain.LineError, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some("session persistence failed"), Contents: mo.None[[]presentationdomain.Content](),
+		},
+	}, state.Transcript)
+}
+
 // TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents verifies layered failures are not duplicated.
 func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 	t.Parallel()
@@ -1910,6 +1948,25 @@ func TestServiceOwnsRestoredUserImageBytes(t *testing.T) {
 
 	// Assert presentation state retains an independent copy of the original image.
 	require.Equal(t, []byte{1, 2, 3}, state.Transcript[0].Contents.MustGet()[0].Data.MustGet())
+}
+
+func testPresentationEvent(
+	kind presentationdomain.EventKind,
+	text mo.Option[string],
+	position mo.Option[int],
+) presentationdomain.Event {
+	return presentationdomain.Event{
+		RestoredTranscript: nil, Kind: kind, Startup: nil, Extensions: nil,
+		Availability: mo.None[presentationdomain.Availability](), Position: position,
+		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
+		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
+		Stream: mo.None[presentationdomain.OutputStream](), Text: text,
+		Contents: mo.None[[]presentationdomain.Content](), ErrorText: mo.None[string](),
+		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
+		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+	}
 }
 
 func testSessionEvent(

@@ -100,9 +100,10 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (
 	}
 	defer release()
 	result, runErr := c.execute(ctx, run.Request{RunID: runID, UserText: userText})
-	if len(result.AddedHistory) == 0 {
+	if len(result.AddedHistory) == 0 && !errors.Is(runErr, run.ErrPersistenceUnavailable) {
 		return result.Outcome, runErr
 	}
+	// A classified persistence failure settles before gate release even when its first append added no history.
 	terminalContext := context.WithoutCancel(ctx)
 	settleErr := c.settle(runID)
 	settledErr := c.events.DeliverSettled(terminalContext, runID)

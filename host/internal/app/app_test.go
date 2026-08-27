@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -44,12 +45,15 @@ import (
 )
 
 const (
-	appUIHelperEnvironment    = "GLYPH_APP_UI_HELPER"
-	appUITraceEnvironment     = "GLYPH_APP_UI_TRACE"
-	appUITerminalEnvironment  = "GLYPH_APP_UI_TERMINAL"
-	appUIBehaviorEnvironment  = "GLYPH_APP_UI_BEHAVIOR"
-	appUICostStateEnvironment = "GLYPH_APP_UI_COST_STATE"
-	appUIPTYInnerEnvironment  = "GLYPH_APP_PTY_INNER"
+	appUIHelperEnvironment         = "GLYPH_APP_UI_HELPER"
+	appUITraceEnvironment          = "GLYPH_APP_UI_TRACE"
+	appUITerminalEnvironment       = "GLYPH_APP_UI_TERMINAL"
+	appUIBehaviorEnvironment       = "GLYPH_APP_UI_BEHAVIOR"
+	appUICostStateEnvironment      = "GLYPH_APP_UI_COST_STATE"
+	appUIPTYInnerEnvironment       = "GLYPH_APP_PTY_INNER"
+	appUIRuntimeDataEnvironment    = "GLYPH_APP_UI_RUNTIME_DATA"
+	appUIRuntimeEffectEnvironment  = "GLYPH_APP_UI_RUNTIME_EFFECT"
+	appUIRuntimeReleaseEnvironment = "GLYPH_APP_UI_RUNTIME_RELEASE"
 )
 
 // TestNewProviderCatalogBuildsEveryConfiguredProvider verifies deterministic composition and defaults.
@@ -217,6 +221,9 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 	if behavior == "session-recovery" {
 		return runSessionRecoveryUI(stream, initialization)
 	}
+	if behavior == "runtime-failure" {
+		return runRuntimeFailureUI(stream, initialization)
+	}
 	if behavior != "semantic" {
 		if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
 			return err
@@ -356,9 +363,10 @@ type sessionInfoObservation struct {
 }
 
 type sessionRestartObservation struct {
-	NamedSession sessionInfoObservation `json:"named_session"`
-	NewStartup   sessionInfoObservation `json:"new_startup"`
-	Complete     bool                   `json:"complete"`
+	NamedSession       sessionInfoObservation `json:"named_session"`
+	NewStartup         sessionInfoObservation `json:"new_startup"`
+	RuntimeFailureText string                 `json:"runtime_failure_text,omitempty"`
+	Complete           bool                   `json:"complete"`
 }
 
 // runSessionRestartUI verifies one persisted session across two independent Host constructions.
@@ -561,9 +569,14 @@ func runSessionRecoveryUI(
 	}.Build()}.Build()); err != nil {
 		return err
 	}
-	changed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	changed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionChanged() != nil || frame.GetInformation() != nil
+	})
 	if err != nil {
 		return err
+	}
+	if information := changed.GetInformation(); information != nil {
+		return completeRuntimeRecoveryFailure(stream, tracePath, observation, startup, information.GetText())
 	}
 	entries := changed.GetSessionChanged().GetEntries()
 	if changed.GetSessionChanged().GetInfo().GetId() != interruptedRecoveryID || len(entries) != 1 {
@@ -574,6 +587,43 @@ func runSessionRecoveryUI(
 		return errors.New("interrupted-tail resume did not restore the preceding user entry")
 	}
 	observation.NewStartup = startup
+	observation.Complete = true
+	encoded, err := json.Marshal(observation)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
+		return err
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+func completeRuntimeRecoveryFailure(
+	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
+	tracePath string,
+	observation sessionRestartObservation,
+	startup sessionInfoObservation,
+	failureText string,
+) error {
+	if failureText != "session persistence failed" {
+		return fmt.Errorf("runtime recovery failure text: %s", failureText)
+	}
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		return err
+	}
+	active, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	if err != nil {
+		return err
+	}
+	if active.GetSessionInformation().GetInfo().GetId() != startup.ID {
+		return errors.New("runtime recovery failure replaced the previous active session")
+	}
+	observation.NewStartup = startup
+	observation.RuntimeFailureText = failureText
 	observation.Complete = true
 	encoded, err := json.Marshal(observation)
 	if err != nil {
@@ -611,9 +661,10 @@ func nameRecoveryStartupSession(
 		return errors.New("Host did not persist the recovery startup session")
 	}
 	encoded, err := json.Marshal(sessionRestartObservation{
-		NamedSession: named,
-		NewStartup:   sessionInfoObservation{},
-		Complete:     false,
+		NamedSession:       named,
+		NewStartup:         sessionInfoObservation{},
+		RuntimeFailureText: "",
+		Complete:           false,
 	})
 	if err != nil {
 		return err
@@ -674,9 +725,10 @@ func nameStartupSession(
 		return errors.New("completed session did not expose counts with unavailable token totals")
 	}
 	encoded, err := json.Marshal(sessionRestartObservation{
-		NamedSession: named,
-		NewStartup:   sessionInfoObservation{},
-		Complete:     false,
+		NamedSession:       named,
+		NewStartup:         sessionInfoObservation{},
+		RuntimeFailureText: "",
+		Complete:           false,
 	})
 	if err != nil {
 		return err
@@ -714,7 +766,7 @@ func assertUIStatistics(
 	return nil
 }
 
-// receiveSessionFrame rejects replay content while waiting for one lifecycle response.
+// configureRestartSelection commits one model selection before restart behavior runs.
 func configureRestartSelection(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) error {
@@ -780,6 +832,7 @@ func submitRestartTurn(
 	}
 }
 
+// receiveSessionFrame rejects replay content while waiting for one lifecycle response.
 func receiveSessionFrame(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	matches func(*uipb.OpenRequest) bool,
@@ -1330,6 +1383,125 @@ func TestRunWithPathsUISessionRecoveryPaths(t *testing.T) {
 	info, err := os.Stat(fixtures.interruptedPath)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+type runtimeFailureProcessObservation struct {
+	NamingSafe        bool `json:"naming_safe"`
+	FirstUserSafe     bool `json:"first_user_safe"`
+	ModelSafe         bool `json:"model_safe"`
+	ToolSafe          bool `json:"tool_safe"`
+	ToolCompleted     bool `json:"tool_completed"`
+	ResumeSafe        bool `json:"resume_safe"`
+	ContentionBusy    bool `json:"contention_busy"`
+	GateReleased      bool `json:"gate_released"`
+	QueriesReadable   bool `json:"queries_readable"`
+	IdentityPreserved bool `json:"identity_preserved"`
+	Complete          bool `json:"complete"`
+}
+
+// TestRunWithPathsUIRuntimePersistenceFailurePaths verifies all runtime failures through a real UI helper process.
+func TestRunWithPathsUIRuntimePersistenceFailurePaths(t *testing.T) {
+	// Arrange a real Host, deterministic provider, real tool extension, and a dedicated UI helper behavior.
+	if runtime.GOOS != "darwin" {
+		t.Skip("runtime recovery injection uses Darwin immutable-file flags")
+	}
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	), 0o600))
+	uiDirectory := t.TempDir()
+	tracePath := filepath.Join(t.TempDir(), "runtime-failure.json")
+	writeUIExecutable(t, uiDirectory, "Runtime_Failure_UI")
+	effectPath := filepath.Join(t.TempDir(), "tool-effect.txt")
+	releasePath := filepath.Join(t.TempDir(), "provider-release.fifo")
+	require.NoError(t, syscall.Mkfifo(releasePath, 0o600))
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "runtime-failure")
+	t.Setenv(appUIRuntimeDataEnvironment, paths.Directory)
+	t.Setenv(appUIRuntimeEffectEnvironment, effectPath)
+	t.Setenv(appUIRuntimeReleaseEnvironment, releasePath)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = &uiRuntimeFailureTransport{
+		dataDirectory: paths.Directory,
+		effectPath:    effectPath,
+		releasePath:   releasePath,
+		requestCount:  atomic.Int32{},
+	}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	extensionDirectory := buildToolsExecutable(t)
+	command := cli.Command{
+		Mode:               cli.ModeUI,
+		Headless:           headless.Command{UserText: "", ExtensionDirectory: extensionDirectory},
+		ExtensionDirectory: extensionDirectory, UIDirectory: uiDirectory,
+		UIID: "runtime-failure-ui", SocketPath: "",
+	}
+
+	// Act by running the dedicated UI helper-process scenario.
+	runErr := runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{})
+	payload, readErr := os.ReadFile(tracePath)
+
+	// Assert the helper reports complete process evidence for every approved path.
+	require.NoError(t, runErr)
+	require.NoError(t, readErr)
+	var observation runtimeFailureProcessObservation
+	require.NoError(t, json.Unmarshal(payload, &observation))
+	assert.Equal(t, runtimeFailureProcessObservation{
+		NamingSafe: true, FirstUserSafe: true, ModelSafe: true, ToolSafe: true,
+		ToolCompleted: true, ResumeSafe: true, ContentionBusy: true, GateReleased: true,
+		QueriesReadable: true, IdentityPreserved: true, Complete: true,
+	}, observation)
+}
+
+// TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText verifies failed tail truncation is a safe runtime error.
+func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
+	// Arrange the existing recovery helper, one persisted session, and an immutable interrupted-tail target.
+	if runtime.GOOS != "darwin" {
+		t.Skip("immutable-file recovery failure uses Darwin chflags")
+	}
+	paths := testPaths(t, restartSelectionSettings())
+	accessToken := semanticAccessToken(t, "account")
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		accessToken,
+	), 0o600))
+	uiDirectory := t.TempDir()
+	writeUIExecutable(t, uiDirectory, "Runtime_Recovery_UI")
+	tracePath := filepath.Join(t.TempDir(), "runtime-recovery.json")
+	t.Setenv(appUITraceEnvironment, tracePath)
+	t.Setenv(appUIBehaviorEnvironment, "session-recovery")
+	command := cli.Command{
+		Mode:               cli.ModeUI,
+		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
+		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "runtime-recovery-ui", SocketPath: "",
+	}
+	require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+	partialPayload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	var partial sessionRestartObservation
+	require.NoError(t, json.Unmarshal(partialPayload, &partial))
+	fixtures := writeSessionRecoveryFixture(t, partial.NamedSession.StoragePath, partial.NamedSession.WorkingDirectory)
+	require.NoError(t, os.Chmod(fixtures.interruptedPath, 0o600))
+	immutable := exec.CommandContext(t.Context(), "/usr/bin/chflags", "uchg", fixtures.interruptedPath)
+	require.NoError(t, immutable.Run())
+	t.Cleanup(func() {
+		clearCommand := exec.CommandContext(context.WithoutCancel(t.Context()), "/usr/bin/chflags", "nouchg", fixtures.interruptedPath)
+		_ = clearCommand.Run()
+	})
+
+	// Act by asking the existing helper process to resume the interrupted immutable session.
+	runErr := runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{})
+	payload, readErr := os.ReadFile(tracePath)
+
+	// Assert the helper observes exact text and the previous active identity after failed recovery.
+	require.NoError(t, runErr)
+	require.NoError(t, readErr)
+	var observation sessionRestartObservation
+	require.NoError(t, json.Unmarshal(payload, &observation))
+	assert.True(t, observation.Complete)
+	assert.Equal(t, "session persistence failed", observation.RuntimeFailureText)
+	assert.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
 }
 
 //nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.
@@ -1887,7 +2059,7 @@ func writeConfiguredUIExecutable(t *testing.T, directory, name, tracePath, mode 
 	require.NoError(t, os.WriteFile(filepath.Join(directory, name), []byte(script), 0o755))
 }
 
-// codexSettings returns the strict default Codex fixture used by application tests.
+// restartSelectionSettings returns the local provider fixture used by restart tests.
 func restartSelectionSettings() string {
 	return `defaultProvider: local
 defaultModel: local-model
@@ -1944,6 +2116,7 @@ func pricedCodexSettings() string {
 	)
 }
 
+// codexSettings returns the strict default Codex fixture used by application tests.
 func codexSettings(extra string) string {
 	return `defaultProvider: openai-codex
 defaultModel: gpt-test

@@ -11,6 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // operationKind identifies the single active asynchronous Host operation.
@@ -250,7 +251,7 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 	case domainui.CommandCreateSession:
 		replacement, err := s.sessionControl.Create(ctx)
 		if err != nil {
-			return true, s.sendInformation("Session replacement is unavailable.")
+			return true, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable."))
 		}
 		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandListSessions:
@@ -266,7 +267,7 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		}
 		replacement, err := s.sessionControl.Resume(ctx, session.ID(id))
 		if err != nil {
-			return true, s.sendInformation("Session replacement is unavailable.")
+			return true, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable."))
 		}
 		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandSetSessionName:
@@ -275,7 +276,7 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 			return true, s.sendInformation("A session name is required.")
 		}
 		if _, err := s.sessionControl.SetName(ctx, name); err != nil {
-			return true, s.sendInformation("Session naming is unavailable.")
+			return true, s.sendInformation(sessionFailureText(err, "Session naming is unavailable."))
 		}
 		snapshot := s.sessionControl.Information()
 		return true, s.channel.Send(sessionInformationFrame(snapshot.Info, snapshot.Statistics))
@@ -403,7 +404,7 @@ func (s *Session) applyRunResult(
 			}
 			return domainui.AvailabilityAuthenticationFailed, nil, 0, nil
 		}
-		if err := s.channel.Send(errorFrame(runErr.Error(), false)); err != nil {
+		if err := s.channel.Send(errorFrame(runFailureText(runErr), false)); err != nil {
 			return availability, nil, 0, err
 		}
 	}
@@ -469,6 +470,22 @@ func (s *Session) sendSessionChanged(replacement session.Replacement) error {
 		return err
 	}
 	return s.channel.Send(frame)
+}
+
+// runFailureText hides infrastructure details from terminal run failures.
+func runFailureText(err error) string {
+	if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+		return agentrun.ErrPersistenceUnavailable.Error()
+	}
+	return err.Error()
+}
+
+// sessionFailureText maps persistence failure to its exact safe text and preserves each existing fallback.
+func sessionFailureText(err error, fallback string) string {
+	if errors.Is(err, session.ErrPersistenceUnavailable) {
+		return session.ErrPersistenceUnavailable.Error()
+	}
+	return fallback
 }
 
 // sendInformation emits one non-terminal command rejection or notification.

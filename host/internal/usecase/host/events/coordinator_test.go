@@ -100,6 +100,44 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 	assert.Equal(t, []string{"run-fixed", "run-fixed", "run-fixed", "run-fixed"}, seenRunIDs)
 }
 
+// TestCoordinatorSettlesPersistenceFailureWithoutHistory verifies terminal cleanup and gate release after the first append fails.
+func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a begun failed run with no durable history and an observable operation-gate release.
+	controller := gomock.NewController(t)
+	gate := NewMockOperationGate(controller)
+	released := 0
+	gate.EXPECT().TryAcquire().Return(func() { released++ }, true)
+	settled := 0
+	settle := 0
+	coordinator := newCoordinator(
+		func(context.Context, run.Request) (run.Result, error) {
+			return run.Result{
+				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+				ErrorMessage: mo.Some("session persistence failed"),
+			}, run.ErrPersistenceUnavailable
+		},
+		func(string) error { settle++; return nil },
+		NewDispatcher(func(context.Context, run.Event) error { return nil }, func(context.Context, string) error {
+			settled++
+			return nil
+		}),
+		func() (string, error) { return "failed-run", nil },
+		gate,
+	)
+
+	// Act by running the accepted request through terminal persistence failure.
+	outcome, err := coordinator.Run(t.Context(), "request")
+
+	// Assert Agent Core settles, the client receives settlement, and the operation gate releases once.
+	require.ErrorIs(t, err, run.ErrPersistenceUnavailable)
+	assert.Equal(t, agent.RunOutcomeFailed, outcome)
+	assert.Equal(t, 1, settle)
+	assert.Equal(t, 1, settled)
+	assert.Equal(t, 1, released)
+}
+
 // TestCoordinatorSettlesAfterDeliveryFailures verifies one attempt per terminal step without retry.
 func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	t.Parallel()
@@ -267,7 +305,7 @@ func TestGenerateRunIDProducesUniqueNonemptyValues(t *testing.T) {
 	assert.NotEqual(t, first, second)
 }
 
-// completedResult identifies a run that entered Agent Core and completed.
+// newAvailableOperationGate returns a gate that accepts every test operation.
 func newAvailableOperationGate(t *testing.T) *MockOperationGate {
 	t.Helper()
 	gate := NewMockOperationGate(gomock.NewController(t))
@@ -275,6 +313,7 @@ func newAvailableOperationGate(t *testing.T) *MockOperationGate {
 	return gate
 }
 
+// completedResult identifies a run that entered Agent Core and completed.
 func completedResult() run.Result {
 	return run.Result{
 		Outcome: agent.RunOutcomeCompleted,

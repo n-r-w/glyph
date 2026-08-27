@@ -246,6 +246,32 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestAppendEncodingFailureDoesNotAccessFilesystem verifies invalid extension JSON stops before storage.
+func TestAppendEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a repository with a generated filesystem mock and one invalid extension envelope.
+	fileSystem := NewMockFileSystem(gomock.NewController(t))
+	repository := New(t.TempDir(), t.TempDir(), fileSystem)
+	createdAt := time.Date(2026, 8, 27, 13, 0, 0, 0, time.UTC)
+	command := hostsessions.AppendCommand{
+		Header:      session.Header{Version: 1, ID: "session", CreatedAt: createdAt, WorkingDirectory: repository.workingDirectory},
+		StoragePath: "",
+		Entry: session.Entry{
+			ID: "entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			ToolResult: mo.None[session.ToolResult](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")}),
+		},
+	}
+
+	// Act by appending an entry that cannot be encoded as compact JSONL.
+	_, err := repository.Append(t.Context(), command)
+
+	// Assert encoding fails before the mock filesystem receives any call.
+	require.ErrorContains(t, err, "invalid extension entry")
+}
+
 // TestEncodeModelContentShape verifies encoding accepts only provider-neutral terminal content shapes.
 func TestEncodeModelContentShape(t *testing.T) {
 	t.Parallel()
@@ -619,7 +645,7 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 	t.Parallel()
 
 	// Arrange each filesystem failure stage as an independent scenario.
-	for _, stage := range []string{"open", "mode", "write", "sync", "close"} {
+	for _, stage := range []string{"permission", "open", "mode", "short write", "write", "sync", "close"} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
 			controller := gomock.NewController(t)
@@ -645,7 +671,7 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			_, err = active.SetActiveName(t.Context(), "must not commit")
 
 			// Assert the error leaves active identity and storage unchanged.
-			require.Error(t, err)
+			require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
 			require.Equal(t, before, active.ActiveInfo())
 		})
 	}
@@ -733,12 +759,23 @@ func expectInitialAppendFailure(
 	}
 	successfulWrite := func(payload []byte) (int, error) { return len(payload), nil }
 	switch stage {
+	case "permission":
+		open().Return(nil, os.ErrPermission)
 	case "open":
 		open().Return(nil, errors.New("open failed"))
 	case "mode":
 		gomock.InOrder(
 			open().Return(file, nil),
 			file.EXPECT().Chmod(os.FileMode(fileMode)).Return(errors.New("mode failed")),
+			file.EXPECT().Close().Return(nil),
+		)
+	case "short write":
+		gomock.InOrder(
+			open().Return(file, nil),
+			file.EXPECT().Chmod(os.FileMode(fileMode)).Return(nil),
+			file.EXPECT().WritePayload(gomock.Any()).DoAndReturn(func(payload []byte) (int, error) {
+				return len(payload) - 1, nil
+			}),
 			file.EXPECT().Close().Return(nil),
 		)
 	case "write":

@@ -3,6 +3,7 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -128,18 +129,19 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 
 	// Arrange domain, lookup, and persistence failures with expected public codes.
 	tests := []struct {
-		name         string
-		kind         controller.CommandKind
-		sessionID    mo.Option[session.ID]
-		sessionName  mo.Option[string]
-		operationErr error
-		expected     controller.RejectionCode
+		name            string
+		kind            controller.CommandKind
+		sessionID       mo.Option[session.ID]
+		sessionName     mo.Option[string]
+		operationErr    error
+		expected        controller.RejectionCode
+		expectedMessage string
 	}{
-		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy},
-		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument},
-		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound},
-		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: session.ErrUnavailable, expected: controller.RejectionSessionUnavailable},
-		{name: "persistence", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("name"), operationErr: errors.New("disk failed"), expected: controller.RejectionInternal},
+		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy, expectedMessage: "another operation is active"},
+		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument, expectedMessage: "session name is required"},
+		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound, expectedMessage: "session was not found"},
+		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: session.ErrUnavailable, expected: controller.RejectionSessionUnavailable, expectedMessage: "session is unavailable"},
+		{name: "persistence unavailable", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("secret session name"), operationErr: fmt.Errorf("%w: /secret/path provider-context extension-json disk failed", session.ErrPersistenceUnavailable), expected: controller.RejectionPersistenceUnavailable, expectedMessage: "session persistence failed"},
 	}
 
 	// Act by handling each failing session command in an independent subtest.
@@ -171,8 +173,9 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 			require.NoError(t, err)
 			assert.Nil(t, operation)
 
-			// Assert the failure maps to the established rejection code without an operation.
+			// Assert the failure maps to the established rejection code and exact safe message without an operation.
 			assert.Equal(t, test.expected, response.Rejection.MustGet().Code)
+			assert.Equal(t, test.expectedMessage, response.Rejection.MustGet().Message)
 		})
 	}
 }

@@ -308,7 +308,7 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 	return sessionInfoResponse(command.CorrelationID, info)
 }
 
-// sessionInfo returns the current active-session snapshot without taking the replacement gate.
+// sessionEntries returns the current active-session entries without taking the replacement gate.
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
 	entries, err := mapSessionEntries(s.sessionControl.Entries())
 	if err != nil {
@@ -326,6 +326,8 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionBusy, "another operation is active")
 	case errors.Is(err, session.ErrInvalidName):
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	case errors.Is(err, session.ErrPersistenceUnavailable):
+		return s.rejection(command, controller.RejectionPersistenceUnavailable, session.ErrPersistenceUnavailable.Error())
 	case errors.Is(err, session.ErrUnavailable):
 		return s.rejection(command, controller.RejectionSessionUnavailable, "session is unavailable")
 	case errors.Is(err, os.ErrNotExist):

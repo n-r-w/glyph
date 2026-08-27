@@ -79,6 +79,7 @@ const (
 	RejectionReasoningUnsupported
 	RejectionCredentialUnavailable
 	RejectionSessionUnavailable
+	RejectionPersistenceUnavailable
 )
 
 // Response is the single result of one correlated command.

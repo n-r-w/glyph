@@ -86,7 +86,7 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(request.UserText)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}); err != nil {
-		return s.finish(ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+		return s.finish(ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(publicPersistenceError(err)), err)
 	}
 
 	for {
@@ -260,7 +260,10 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	s.clearPartial()
 	// The terminal model response must transfer to history ownership before completion is exposed.
 	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+		return Result{
+			Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+			ErrorMessage: mo.Some(publicPersistenceError(err)),
+		}, false, err
 	}
 	messageEnd := newEvent(EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
@@ -360,7 +363,7 @@ func (s *Service) finalizeProviderError(
 	if err := s.appendModel(terminalContext, response); err != nil {
 		return Result{
 			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
-			ErrorMessage: mo.Some(err.Error()),
+			ErrorMessage: mo.Some(publicPersistenceError(err)),
 		}, false, errors.Join(providerErr, err)
 	}
 	messageEnd := newEvent(EventMessageEnd, runID)
@@ -424,7 +427,10 @@ func (s *Service) applyOutcome(
 				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
 			}
 			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-				return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+				return Result{
+					Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+					ErrorMessage: mo.Some(publicPersistenceError(err)),
+				}, false, err
 			}
 			results = append(results, result)
 			toolResult := newEvent(EventToolResult, runID)
@@ -494,7 +500,10 @@ func (s *Service) executeCalls(
 		result.CallID = call.ID
 		result.ToolName = call.Name
 		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+			return Result{
+				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+				ErrorMessage: mo.Some(publicPersistenceError(err)),
+			}, false, err
 		}
 		results = append(results, result)
 		toolEnd := newEvent(EventToolExecutionEnd, runID)
@@ -629,6 +638,14 @@ func (s *Service) clearPartial() {
 	s.state.PartialResponse = mo.None[model.Response]()
 	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
+}
+
+// publicPersistenceError hides infrastructure details from terminal Agent events.
+func publicPersistenceError(err error) string {
+	if errors.Is(err, ErrPersistenceUnavailable) {
+		return ErrPersistenceUnavailable.Error()
+	}
+	return err.Error()
 }
 
 // appendModel transfers one finalized model response to canonical history ownership.

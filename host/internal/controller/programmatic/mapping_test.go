@@ -1107,6 +1107,21 @@ func TestSessionUnavailableRejectionMapsExactly(t *testing.T) {
 	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, mapped)
 }
 
+// TestPersistenceUnavailableRejectionMapsExactly verifies active storage failure has a dedicated transport code.
+func TestPersistenceUnavailableRejectionMapsExactly(t *testing.T) {
+	t.Parallel()
+
+	// Arrange the internal rejection for an active session that cannot accept mutations.
+	code := RejectionPersistenceUnavailable
+
+	// Act by mapping the rejection to the Programmatic protobuf contract.
+	mapped, err := mapRejectionCode(code)
+
+	// Assert the dedicated persistence-unavailable code is emitted.
+	require.NoError(t, err)
+	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, mapped)
+}
+
 // TestMapModelContentPreservesPresentZeroValues verifies zero position and empty text remain present values.
 func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
 	t.Parallel()

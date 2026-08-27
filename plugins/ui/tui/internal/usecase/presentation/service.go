@@ -93,12 +93,7 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 			state.Transcript = append(state.Transcript, textLine(presentationdomain.LineInformation, event.Text))
 		}
 	case presentationdomain.EventError:
-		if event.Availability.IsSome() {
-			state.Availability = event.Availability
-		}
-		if event.Text.IsSome() {
-			state.Transcript = append(state.Transcript, textLine(presentationdomain.LineError, event.Text))
-		}
+		applyError(&state, event)
 	case presentationdomain.EventModelSelectionChanged:
 		if event.ModelSelection.IsSome() {
 			state.ModelSelection = event.ModelSelection
@@ -109,6 +104,23 @@ func (*Service) Apply(state presentationdomain.State, event presentationdomain.E
 	}
 
 	return state
+}
+
+// applyError removes unconfirmed turn state before rendering a terminal persistence failure.
+func applyError(state *presentationdomain.State, event presentationdomain.Event) {
+	if event.Availability.IsSome() {
+		state.Availability = event.Availability
+	}
+	if event.Text.IsNone() {
+		return
+	}
+	if event.Text.OrEmpty() == "session persistence failed" {
+		// Failed terminal persistence discards only unconfirmed model and tool presentation state.
+		clear(state.ActiveModel)
+		clear(state.ActiveToolCalls)
+		clear(state.ActiveTools)
+	}
+	state.Transcript = append(state.Transcript, textLine(presentationdomain.LineError, event.Text))
 }
 
 // applySessionEvent replaces transcript-owned state when the active session changes.

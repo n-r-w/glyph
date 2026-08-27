@@ -608,6 +608,8 @@ enum RejectionCode {
   REJECTION_CODE_CREDENTIAL_UNAVAILABLE = 8;
   // The requested session file cannot be resumed.
   REJECTION_CODE_SESSION_UNAVAILABLE = 9;
+  // The active session cannot accept persistence mutations.
+  REJECTION_CODE_PERSISTENCE_UNAVAILABLE = 10;
 }
 
 // ReasoningChoice identifies provider-neutral reasoning behavior.

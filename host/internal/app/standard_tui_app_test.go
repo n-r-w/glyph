@@ -462,11 +462,28 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Tool calls: 2")
 	observer.WaitNext(t, "Tokens: unavailable")
 
-	// Resume the interrupted session and prove the real TUI receives only its complete prefix.
+	// Arrange a realistic runtime truncation failure without changing the readable interrupted prefix.
+	require.NoError(t, os.Chmod(recoveryFixtures.interruptedPath, 0o600))
+	immutable := exec.CommandContext(t.Context(), "/usr/bin/chflags", "uchg", recoveryFixtures.interruptedPath)
+	require.NoError(t, immutable.Run())
+	t.Cleanup(func() {
+		clearCommand := exec.CommandContext(context.WithoutCancel(t.Context()), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
+		_ = clearCommand.Run()
+	})
+
+	// Act by selecting the interrupted session while its real file rejects truncate.
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
 	testsupporttui.Write(t, input, "\x1b[B\x1b[B\x1b[B\x1b[B")
+	failureCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "\x1b[13u")
+
+	// Assert exact runtime-persistence text before clearing the fault and retrying successful recovery.
+	observer.WaitNext(t, "Session status:")
+	assert.Contains(t, observer.StringFrom(failureCheckpoint), "Session status: session persistence failed")
+	clearCommand := exec.CommandContext(t.Context(), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
+	require.NoError(t, clearCommand.Run())
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "user: preceding tail text")
 	testsupporttui.Write(t, input, "/session")

@@ -30,6 +30,9 @@ type RuntimeSelection struct {
 	Provider        ModelProvider
 }
 
+// ErrPersistenceUnavailable classifies a history mutation that cannot become durable.
+var ErrPersistenceUnavailable = errors.New("session persistence failed")
+
 // HistoryStore owns canonical provider-neutral history for the active session.
 type HistoryStore interface {
 	// Snapshot returns an immutable copy that includes complete process-local history.
