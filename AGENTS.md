@@ -2,6 +2,8 @@
 
 NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 
+NO OVERENGINEERING: REMEMBER, we're not building a "spaceship," just a local developer tool. ALWAYS CRITICALLY EVALUATE need to address edge cases based on their REALISM.
+
 ## Language
 1. All documentation and code comments MUST be written in English.
 
