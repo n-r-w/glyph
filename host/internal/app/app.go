@@ -59,6 +59,14 @@ func Run(ctx context.Context, command cli.Command, stdout, stderr io.Writer) err
 	return runWithPaths(ctx, paths, command, stdout, stderr)
 }
 
+// publicApplicationError keeps internal classification while limiting persistence failures to fixed public text.
+func publicApplicationError(err error) error {
+	if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+		return agentrun.ErrPersistenceUnavailable
+	}
+	return err
+}
+
 // runWithPaths selects an isolated composition path for the requested mode.
 func runWithPaths(
 	ctx context.Context,
@@ -148,7 +156,7 @@ func runProgrammaticWithPaths(
 	}
 	defer func() {
 		closeTools()
-		returnErr = errors.Join(returnErr, socketService.Close())
+		returnErr = publicApplicationError(errors.Join(returnErr, socketService.Close()))
 	}()
 	if err = json.NewEncoder(stdout).Encode(struct {
 		Socket string `json:"socket"`
@@ -257,11 +265,7 @@ func runHeadlessWithPaths(
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
-	executionErr := controller.Execute(ctx, command.UserText)
-	if errors.Is(executionErr, agentrun.ErrPersistenceUnavailable) {
-		// The application boundary keeps persistence classification while exposing only its fixed public text.
-		executionErr = agentrun.ErrPersistenceUnavailable
-	}
+	executionErr := publicApplicationError(controller.Execute(ctx, command.UserText))
 	if executionErr != nil {
 		slog.ErrorContext(context.WithoutCancel(ctx), "headless Glyph application failed", "error", executionErr)
 		return executionErr
