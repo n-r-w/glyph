@@ -44,17 +44,19 @@ import (
 )
 
 const (
-	appUIHelperEnvironment   = "GLYPH_APP_UI_HELPER"
-	appUITraceEnvironment    = "GLYPH_APP_UI_TRACE"
-	appUITerminalEnvironment = "GLYPH_APP_UI_TERMINAL"
-	appUIBehaviorEnvironment = "GLYPH_APP_UI_BEHAVIOR"
-	appUIPTYInnerEnvironment = "GLYPH_APP_PTY_INNER"
+	appUIHelperEnvironment    = "GLYPH_APP_UI_HELPER"
+	appUITraceEnvironment     = "GLYPH_APP_UI_TRACE"
+	appUITerminalEnvironment  = "GLYPH_APP_UI_TERMINAL"
+	appUIBehaviorEnvironment  = "GLYPH_APP_UI_BEHAVIOR"
+	appUICostStateEnvironment = "GLYPH_APP_UI_COST_STATE"
+	appUIPTYInnerEnvironment  = "GLYPH_APP_PTY_INNER"
 )
 
 // TestNewProviderCatalogBuildsEveryConfiguredProvider verifies deterministic composition and defaults.
 func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	t.Parallel()
 
+	// Arrange all supported provider types with deterministic identifiers and defaults.
 	configured := settingstore.Settings{
 		DefaultProvider: "a-compatible",
 		DefaultModel:    "a-second",
@@ -65,12 +67,12 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 					{
 						ID:        "codex-first",
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
-						API:       "",
+						API:       "", Pricing: mo.None[model.Pricing](),
 					},
 					{
 						ID:        "codex-second",
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow),
-						API:       "",
+						API:       "", Pricing: mo.None[model.Pricing](),
 					},
 				},
 				BaseURL: "",
@@ -90,7 +92,7 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 						WireFormat:       settingstore.ReasoningWireFormatOllamaOrnith,
 						CompatibilityKey: mo.None[string](),
 					},
-					API: "",
+					API: "", Pricing: mo.None[model.Pricing](),
 				}},
 				APIKey: mo.None[settingstore.APIKey](),
 			},
@@ -107,12 +109,12 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 					{
 						ID:        "a-first",
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
-						API:       "",
+						API:       "", Pricing: mo.None[model.Pricing](),
 					},
 					{
 						ID:        "a-second",
 						API:       settingstore.APIResponses,
-						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh),
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh), Pricing: mo.None[model.Pricing](),
 					},
 				},
 			},
@@ -127,8 +129,10 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		LogFile:         "",
 	}
 
+	// Act by building the shared Host provider catalog.
 	catalog, err := newProviderCatalog(configured, paths, interactions.New(), hookrunner.New(nil, nil, nil))
 
+	// Assert every configured model, order, and default selection are exact.
 	require.NoError(t, err)
 	models := catalog.Models()
 	require.Len(t, models, 5)
@@ -1709,6 +1713,11 @@ providers:
     api: chat-completions
     models:
       - id: local-model
+        pricing:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
         reasoning:
           supported: false
           choices: [off]
@@ -1717,12 +1726,37 @@ providers:
     type: openai-codex
     models:
       - id: selected-model
+        pricing:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
         reasoning:
           supported: true
           choices: [low, high]
           default: low
           wireFormat: openai-responses
 `
+}
+
+// pricedRestartSelectionSettings applies nonzero selected-model rates for cost reconstruction tests.
+func pricedRestartSelectionSettings() string {
+	return strings.Replace(
+		restartSelectionSettings(),
+		"      - id: selected-model\n        pricing:\n          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
+		"      - id: selected-model\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 3\n          cacheWrite: 4",
+		1,
+	)
+}
+
+// pricedCodexSettings uses distinct rates so every mapped cost bucket is observable.
+func pricedCodexSettings() string {
+	return strings.Replace(
+		codexSettings(""),
+		"          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
+		"          input: 1\n          output: 2\n          cacheRead: 3\n          cacheWrite: 4",
+		1,
+	)
 }
 
 func codexSettings(extra string) string {
@@ -1733,6 +1767,11 @@ defaultModel: gpt-test
     type: openai-codex
     models:
       - id: gpt-test
+        pricing:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
         reasoning:
           supported: false
           choices: [off]
@@ -1782,6 +1821,16 @@ type tokenUsageObservation struct {
 	TotalTokens      int64 `json:"total_tokens"`
 }
 
+// costObservation records optional cost presence and all five public fields.
+type costObservation struct {
+	Present    bool    `json:"present"`
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cache_read"`
+	CacheWrite float64 `json:"cache_write"`
+	Total      float64 `json:"total"`
+}
+
 type statisticsObservation struct {
 	UserMessages   int64                 `json:"user_messages"`
 	ModelResponses int64                 `json:"model_responses"`
@@ -1789,6 +1838,11 @@ type statisticsObservation struct {
 	ToolResults    int64                 `json:"tool_results"`
 	TotalMessages  int64                 `json:"total_messages"`
 	Tokens         tokenUsageObservation `json:"tokens"`
+	EstimatedCost  costObservation       `json:"estimated_cost"`
+	CostGroupCount int                   `json:"cost_group_count"`
+	GroupProvider  string                `json:"group_provider"`
+	GroupModel     string                `json:"group_model"`
+	GroupCost      costObservation       `json:"group_cost"`
 }
 
 type sessionUsageRestartObservation struct {
@@ -1864,7 +1918,11 @@ func recordInitialSessionUsage(
 	if err := configureRestartSelection(stream); err != nil {
 		return err
 	}
-	if err := submitRestartTurn(stream, "usage request"); err != nil {
+	if os.Getenv(appUICostStateEnvironment) == "empty" {
+		if err := persistEmptyUsageSession(stream); err != nil {
+			return err
+		}
+	} else if err := submitRestartTurn(stream, "usage request"); err != nil {
 		return err
 	}
 	frame, err := requestUISessionInformation(stream)
@@ -1885,6 +1943,21 @@ func recordInitialSessionUsage(
 	}
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
+}
+
+// persistEmptyUsageSession names the empty session so the next Host process can resume it.
+func persistEmptyUsageSession(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse]) error {
+	name := "empty cost session"
+	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	if err := stream.Send(uipb.OpenResponse_builder{
+		SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build(),
+	}.Build()); err != nil {
+		return err
+	}
+	_, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
+		return frame.GetSessionInformation() != nil
+	})
+	return err
 }
 
 func requestUISessionInformation(
@@ -1908,6 +1981,15 @@ func observeUIStatistics(statistics *uipb.SessionStatistics) statisticsObservati
 		UserMessages: statistics.GetUserMessages(), ModelResponses: statistics.GetModelResponses(),
 		ToolCalls: statistics.GetToolCalls(), ToolResults: statistics.GetToolResults(),
 		TotalMessages: statistics.GetTotalMessages(), Tokens: tokenUsageObservation{},
+		EstimatedCost:  observeUICost(statistics.GetEstimatedCost()),
+		CostGroupCount: len(statistics.GetCostBreakdown()), GroupProvider: "", GroupModel: "",
+		GroupCost: costObservation{},
+	}
+	if len(statistics.GetCostBreakdown()) == 1 {
+		group := statistics.GetCostBreakdown()[0]
+		observation.GroupProvider = group.GetProviderId()
+		observation.GroupModel = group.GetModelId()
+		observation.GroupCost = observeUICost(group.GetEstimatedCost())
 	}
 	if tokens := statistics.GetTokens(); tokens != nil {
 		observation.Tokens = tokenUsageObservation{
@@ -1919,28 +2001,121 @@ func observeUIStatistics(statistics *uipb.SessionStatistics) statisticsObservati
 	return observation
 }
 
-// TestRunWithPathsUISessionUsageSurvivesRestart verifies available usage through the real UI helper process.
+// observeUICost preserves optional UI cost fields for process-boundary assertions.
+func observeUICost(cost *uipb.EstimatedCost) costObservation {
+	if cost == nil {
+		return costObservation{}
+	}
+	return costObservation{
+		Present: true, Input: cost.GetInput(), Output: cost.GetOutput(),
+		CacheRead: cost.GetCacheRead(), CacheWrite: cost.GetCacheWrite(), Total: cost.GetTotal(),
+	}
+}
+
+// assertStatisticsObservation compares every count, token, cost, and provider-model field.
+func assertStatisticsObservation(t *testing.T, expected, actual statisticsObservation) {
+	t.Helper()
+
+	assert.Equal(t, expected.UserMessages, actual.UserMessages)
+	assert.Equal(t, expected.ModelResponses, actual.ModelResponses)
+	assert.Equal(t, expected.ToolCalls, actual.ToolCalls)
+	assert.Equal(t, expected.ToolResults, actual.ToolResults)
+	assert.Equal(t, expected.TotalMessages, actual.TotalMessages)
+	assert.Equal(t, expected.Tokens, actual.Tokens)
+	assertCostObservation(t, expected.EstimatedCost, actual.EstimatedCost)
+	assert.Equal(t, expected.CostGroupCount, actual.CostGroupCount)
+	assert.Equal(t, expected.GroupProvider, actual.GroupProvider)
+	assert.Equal(t, expected.GroupModel, actual.GroupModel)
+	assertCostObservation(t, expected.GroupCost, actual.GroupCost)
+}
+
+// assertCostObservation compares presence and all five cost fields with floating tolerance.
+func assertCostObservation(t *testing.T, expected, actual costObservation) {
+	t.Helper()
+
+	assert.Equal(t, expected.Present, actual.Present)
+	assert.InDelta(t, expected.Input, actual.Input, 1e-12)
+	assert.InDelta(t, expected.Output, actual.Output, 1e-12)
+	assert.InDelta(t, expected.CacheRead, actual.CacheRead, 1e-12)
+	assert.InDelta(t, expected.CacheWrite, actual.CacheWrite, 1e-12)
+	assert.InDelta(t, expected.Total, actual.Total, 1e-12)
+}
+
+// TestRunWithPathsUISessionUsageSurvivesRestart verifies all cost states through Host reconstruction.
 func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
+	// Arrange the complete cost-state matrix for the existing UI helper process.
 	tests := []struct {
-		name     string
-		usage    string
-		expected tokenUsageObservation
+		name        string
+		state       string
+		usage       string
+		namePresent bool
+		expected    statisticsObservation
 	}{
 		{
-			name:     "present zero",
-			usage:    `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
-			expected: tokenUsageObservation{Present: true, InputTokens: 0, OutputTokens: 0, CacheReadTokens: 0, CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0},
+			name: "empty session", state: "empty", usage: "", namePresent: true,
+			expected: statisticsObservation{
+				UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
+				Tokens: tokenUsageObservation{
+					Present: true, InputTokens: 0, OutputTokens: 0, CacheReadTokens: 0,
+					CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+				},
+				EstimatedCost: costObservation{
+					Present: true, Input: 0, Output: 0, CacheRead: 0, CacheWrite: 0, Total: 0,
+				},
+				CostGroupCount: 0, GroupProvider: "", GroupModel: "", GroupCost: costObservation{},
+			},
 		},
 		{
-			name:     "available nonzero",
-			usage:    `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
-			expected: tokenUsageObservation{Present: true, InputTokens: 7, OutputTokens: 4, CacheReadTokens: 2, CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 14},
+			name: "known zero", state: "known-zero", namePresent: false,
+			usage: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			expected: statisticsObservation{
+				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
+				Tokens: tokenUsageObservation{
+					Present: true, InputTokens: 0, OutputTokens: 0, CacheReadTokens: 0,
+					CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 0,
+				},
+				EstimatedCost: costObservation{
+					Present: true, Input: 0, Output: 0, CacheRead: 0, CacheWrite: 0, Total: 0,
+				},
+				CostGroupCount: 1, GroupProvider: "openai-codex", GroupModel: "selected-model",
+				GroupCost: costObservation{
+					Present: true, Input: 0, Output: 0, CacheRead: 0, CacheWrite: 0, Total: 0,
+				},
+			},
+		},
+		{
+			name: "available nonzero", state: "nonzero", namePresent: false,
+			usage: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			expected: statisticsObservation{
+				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
+				Tokens: tokenUsageObservation{
+					Present: true, InputTokens: 7, OutputTokens: 4, CacheReadTokens: 2,
+					CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 14,
+				},
+				EstimatedCost: costObservation{
+					Present: true, Input: 0.000007, Output: 0.000008,
+					CacheRead: 0.000006, CacheWrite: 0.000004, Total: 0.000025,
+				},
+				CostGroupCount: 1, GroupProvider: "openai-codex", GroupModel: "selected-model",
+				GroupCost: costObservation{
+					Present: true, Input: 0.000007, Output: 0.000008,
+					CacheRead: 0.000006, CacheWrite: 0.000004, Total: 0.000025,
+				},
+			},
+		},
+		{
+			name: "unavailable", state: "unavailable", usage: "", namePresent: false,
+			expected: statisticsObservation{
+				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
+				Tokens: tokenUsageObservation{}, EstimatedCost: costObservation{}, CostGroupCount: 1,
+				GroupProvider: "openai-codex", GroupModel: "selected-model", GroupCost: costObservation{},
+			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// Arrange persistent Host paths, a real UI helper process, and one provider usage response.
-			paths := testPaths(t, restartSelectionSettings())
+			// Arrange persistent Host paths, the real UI helper process, and one matrix state.
+			paths := testPaths(t, pricedRestartSelectionSettings())
 			accessToken := semanticAccessToken(t, "account")
 			require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
 				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
@@ -1954,6 +2129,7 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			tracePath := filepath.Join(t.TempDir(), "session-usage-restart.json")
 			t.Setenv(appUITraceEnvironment, tracePath)
 			t.Setenv(appUIBehaviorEnvironment, "session-usage-restart")
+			t.Setenv(appUICostStateEnvironment, test.state)
 			command := cli.Command{
 				Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: t.TempDir()},
 				ExtensionDirectory: t.TempDir(), UIDirectory: uiDirectory,
@@ -1977,12 +2153,9 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			assert.True(t, observation.BeforeInfo.StoragePathPresent)
 			assert.True(t, observation.BeforeInfo.CreatedTimePresent)
 			assert.True(t, observation.BeforeInfo.UpdateTimePresent)
-			assert.False(t, observation.BeforeInfo.NamePresent)
-			assert.Equal(t, statisticsObservation{
-				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0,
-				TotalMessages: 2, Tokens: test.expected,
-			}, observation.BeforeStatistics)
-			assert.Equal(t, observation.BeforeStatistics, observation.AfterStatistics)
+			assert.Equal(t, test.namePresent, observation.BeforeInfo.NamePresent)
+			assertStatisticsObservation(t, test.expected, observation.BeforeStatistics)
+			assertStatisticsObservation(t, test.expected, observation.AfterStatistics)
 		})
 	}
 }

@@ -184,6 +184,7 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 		repository,
 		hostsessions.NewMockIDGenerator(controller),
 		hostsessions.NewMockClock(controller),
+		nil,
 		"/project",
 	)
 	gate := operationgate.New()
@@ -216,7 +217,7 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 				ID: "entry", CreatedAt: createdAt.Add(time.Second),
-				Information: mo.Some(session.Information{Name: "stored"}),
+				Information: mo.Some(session.Information{Name: "stored"}), EstimatedCost: mo.None[session.EstimatedCost](),
 			}},
 	}, nil)
 	response, operation, err = service.Handle(t.Context(), programmaticSessionCommand(

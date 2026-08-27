@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/samber/mo"
 	"go.yaml.in/yaml/v3"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 )
 
@@ -92,6 +94,7 @@ type Model struct {
 	ID        string
 	API       API
 	Reasoning Reasoning
+	Pricing   mo.Option[model.Pricing]
 }
 
 // Provider contains one validated provider instance.
@@ -144,9 +147,26 @@ type apiKeyFile struct {
 }
 
 type modelFile struct {
-	ID        string        `yaml:"id"`
-	API       API           `yaml:"api"`
-	Reasoning reasoningFile `yaml:"reasoning"`
+	ID        string                 `yaml:"id"`
+	API       API                    `yaml:"api"`
+	Reasoning reasoningFile          `yaml:"reasoning"`
+	Pricing   mo.Option[pricingFile] `yaml:"pricing"`
+}
+
+type pricingFile struct {
+	Input      mo.Option[float64] `yaml:"input"`
+	Output     mo.Option[float64] `yaml:"output"`
+	CacheRead  mo.Option[float64] `yaml:"cacheRead"`
+	CacheWrite mo.Option[float64] `yaml:"cacheWrite"`
+	Tiers      []pricingTierFile  `yaml:"tiers"`
+}
+
+type pricingTierFile struct {
+	InputTokensAbove mo.Option[int64]   `yaml:"inputTokensAbove"`
+	Input            mo.Option[float64] `yaml:"input"`
+	Output           mo.Option[float64] `yaml:"output"`
+	CacheRead        mo.Option[float64] `yaml:"cacheRead"`
+	CacheWrite       mo.Option[float64] `yaml:"cacheWrite"`
 }
 
 type reasoningFile struct {
@@ -235,18 +255,75 @@ func (configured *apiKeyFile) UnmarshalYAML(node *yaml.Node) error {
 }
 
 func (configured *modelFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "id", "api", "reasoning")
+	fields, err := decodeYAMLMapping(node, "id", "api", "reasoning", "pricing")
 	if err != nil {
 		return err
 	}
 	var decoded modelFile
-	if decodeErr := decodeYAMLField(fields, "id", &decoded.ID); decodeErr != nil {
+	pricing, decodeErr := decodeYAMLOption[pricingFile](fields, "pricing")
+	if decodeErr != nil {
 		return decodeErr
 	}
-	if decodeErr := decodeYAMLField(fields, "api", &decoded.API); decodeErr != nil {
+	decoded.Pricing = pricing
+	if fieldErr := decodeYAMLField(fields, "reasoning", &decoded.Reasoning); fieldErr != nil {
+		return fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, "api", &decoded.API); fieldErr != nil {
+		return fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, "id", &decoded.ID); fieldErr != nil {
+		return fieldErr
+	}
+	*configured = decoded
+	return nil
+}
+
+func (configured *pricingFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "input", "output", "cacheRead", "cacheWrite", "tiers")
+	if err != nil {
+		return err
+	}
+	var decoded pricingFile
+	var decodeErr error
+	if decoded.Input, decodeErr = decodeYAMLOption[float64](fields, "input"); decodeErr != nil {
 		return decodeErr
 	}
-	if decodeErr := decodeYAMLField(fields, "reasoning", &decoded.Reasoning); decodeErr != nil {
+	if decoded.Output, decodeErr = decodeYAMLOption[float64](fields, "output"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.CacheRead, decodeErr = decodeYAMLOption[float64](fields, "cacheRead"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.CacheWrite, decodeErr = decodeYAMLOption[float64](fields, "cacheWrite"); decodeErr != nil {
+		return decodeErr
+	}
+	if tiersDecodeErr := decodeYAMLField(fields, "tiers", &decoded.Tiers); tiersDecodeErr != nil {
+		return tiersDecodeErr
+	}
+	*configured = decoded
+	return nil
+}
+
+func (configured *pricingTierFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "inputTokensAbove", "input", "output", "cacheRead", "cacheWrite")
+	if err != nil {
+		return err
+	}
+	var decoded pricingTierFile
+	var decodeErr error
+	if decoded.InputTokensAbove, decodeErr = decodeYAMLOption[int64](fields, "inputTokensAbove"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.Input, decodeErr = decodeYAMLOption[float64](fields, "input"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.Output, decodeErr = decodeYAMLOption[float64](fields, "output"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.CacheRead, decodeErr = decodeYAMLOption[float64](fields, "cacheRead"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.CacheWrite, decodeErr = decodeYAMLOption[float64](fields, "cacheWrite"); decodeErr != nil {
 		return decodeErr
 	}
 	*configured = decoded
@@ -459,16 +536,16 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 	}
 
 	seenModels := make(map[string]struct{}, len(configured.Models))
-	for _, configuredModel := range configured.Models {
-		model, err := validateModel(providerID, configured.Type, configured.API, configuredModel)
+	for modelIndex := range configured.Models {
+		validatedModel, err := validateModel(providerID, configured.Type, configured.API, configured.Models[modelIndex])
 		if err != nil {
 			return Provider{}, err
 		}
-		if _, duplicate := seenModels[model.ID]; duplicate {
-			return Provider{}, fmt.Errorf("provider %q has duplicate model ID %q", providerID, model.ID)
+		if _, duplicate := seenModels[validatedModel.ID]; duplicate {
+			return Provider{}, fmt.Errorf("provider %q has duplicate model ID %q", providerID, validatedModel.ID)
 		}
-		seenModels[model.ID] = struct{}{}
-		provider.Models = append(provider.Models, model)
+		seenModels[validatedModel.ID] = struct{}{}
+		provider.Models = append(provider.Models, validatedModel)
 	}
 	return provider, nil
 }
@@ -505,7 +582,90 @@ func validateModel(providerID string, providerType ProviderType, providerAPI API
 	if err != nil {
 		return Model{}, err
 	}
-	return Model{ID: configured.ID, API: configured.API, Reasoning: reasoning}, nil
+	pricing, err := validatePricing(providerID, configured.ID, configured.Pricing)
+	if err != nil {
+		return Model{}, err
+	}
+	return Model{
+		ID: configured.ID, API: configured.API, Reasoning: reasoning, Pricing: pricing,
+	}, nil
+}
+
+// validatePricing preserves configured zero rates while rejecting incomplete or invalid mappings.
+func validatePricing(
+	providerID string,
+	modelID string,
+	configured mo.Option[pricingFile],
+) (mo.Option[model.Pricing], error) {
+	pricing, present := configured.Get()
+	if !present {
+		return mo.None[model.Pricing](), nil
+	}
+	rates, err := validatePricingRates(pricing.Input, pricing.Output, pricing.CacheRead, pricing.CacheWrite)
+	if err != nil {
+		return mo.None[model.Pricing](), fmt.Errorf("provider %q model %q pricing: %w", providerID, modelID, err)
+	}
+	var tiers []model.PricingTier
+	if pricing.Tiers != nil {
+		tiers = make([]model.PricingTier, len(pricing.Tiers))
+	}
+	var previousThreshold int64
+	for tierIndex := range pricing.Tiers {
+		tier := pricing.Tiers[tierIndex]
+		threshold, thresholdPresent := tier.InputTokensAbove.Get()
+		if !thresholdPresent || threshold <= 0 || threshold <= previousThreshold {
+			return mo.None[model.Pricing](), fmt.Errorf(
+				"provider %q model %q pricing tier thresholds must be positive and strictly increasing",
+				providerID,
+				modelID,
+			)
+		}
+		tierRates, rateErr := validatePricingRates(tier.Input, tier.Output, tier.CacheRead, tier.CacheWrite)
+		if rateErr != nil {
+			return mo.None[model.Pricing](), fmt.Errorf(
+				"provider %q model %q pricing tier: %w", providerID, modelID, rateErr,
+			)
+		}
+		tiers[tierIndex] = model.PricingTier{
+			InputTokensAbove: threshold,
+			Input:            tierRates.input, Output: tierRates.output,
+			CacheRead: tierRates.cacheRead, CacheWrite: tierRates.cacheWrite,
+		}
+		previousThreshold = threshold
+	}
+	return mo.Some(model.Pricing{
+		Input: rates.input, Output: rates.output,
+		CacheRead: rates.cacheRead, CacheWrite: rates.cacheWrite, Tiers: tiers,
+	}), nil
+}
+
+type pricingRates struct {
+	input      float64
+	output     float64
+	cacheRead  float64
+	cacheWrite float64
+}
+
+// validatePricingRates returns all four required finite nonnegative rates without changing zero values.
+func validatePricingRates(
+	inputOption mo.Option[float64],
+	outputOption mo.Option[float64],
+	cacheReadOption mo.Option[float64],
+	cacheWriteOption mo.Option[float64],
+) (pricingRates, error) {
+	input, inputPresent := inputOption.Get()
+	output, outputPresent := outputOption.Get()
+	cacheRead, cacheReadPresent := cacheReadOption.Get()
+	cacheWrite, cacheWritePresent := cacheWriteOption.Get()
+	if !inputPresent || !outputPresent || !cacheReadPresent || !cacheWritePresent {
+		return pricingRates{}, errors.New("all rates are required")
+	}
+	for _, rate := range []float64{input, output, cacheRead, cacheWrite} {
+		if rate < 0 || math.IsNaN(rate) || math.IsInf(rate, 0) {
+			return pricingRates{}, errors.New("rates must be finite and nonnegative")
+		}
+	}
+	return pricingRates{input: input, output: output, cacheRead: cacheRead, cacheWrite: cacheWrite}, nil
 }
 
 // validateReasoning validates one closed capability shape and its provider wire format.

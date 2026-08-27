@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 type SettingsSuite struct{ suite.Suite }
@@ -231,18 +233,113 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 	})
 }
 
-// TestLoadRejectsUnknownYAMLFields verifies strict decoding at every handwritten settings level.
-func (s *SettingsSuite) TestLoadRejectsUnknownYAMLFields() {
+// TestLoadPreservesOptionalPricing verifies absent, flat, zero, and tiered model pricing.
+func (s *SettingsSuite) TestLoadPreservesOptionalPricing() {
+	// Arrange valid model pricing forms and their exact expected values.
+	testCases := map[string]struct {
+		yaml    string
+		pricing mo.Option[model.Pricing]
+	}{
+		"absent": {yaml: "", pricing: mo.None[model.Pricing]()},
+		"flat": {
+			yaml: "        pricing:\n          input: 1.25\n          output: 10\n          cacheRead: 0.125\n          cacheWrite: 1.25",
+			pricing: mo.Some(model.Pricing{
+				Input: 1.25, Output: 10, CacheRead: 0.125, CacheWrite: 1.25, Tiers: nil,
+			}),
+		},
+		"zero": {
+			yaml: "        pricing:\n          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
+			pricing: mo.Some(model.Pricing{
+				Input: 0, Output: 0, CacheRead: 0, CacheWrite: 0, Tiers: nil,
+			}),
+		},
+		"tiered": {
+			yaml: "        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.1\n          cacheWrite: 0.5\n          tiers:\n            - inputTokensAbove: 100\n              input: 3\n              output: 4\n              cacheRead: 0.3\n              cacheWrite: 0.7\n            - inputTokensAbove: 200\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+			pricing: mo.Some(model.Pricing{
+				Input: 1, Output: 2, CacheRead: 0.1, CacheWrite: 0.5,
+				Tiers: []model.PricingTier{
+					{InputTokensAbove: 100, Input: 3, Output: 4, CacheRead: 0.3, CacheWrite: 0.7},
+					{InputTokensAbove: 200, Input: 5, Output: 6, CacheRead: 0.5, CacheWrite: 0.9},
+				},
+			}),
+		},
+	}
+	for name, testCase := range testCases {
+		s.Run(name, func() {
+			content := validSettings("")
+			if testCase.yaml != "" {
+				content = replace(content, "      - id: compatible", "      - id: compatible\n"+testCase.yaml)
+			}
+
+			// Act by loading the settings through the strict decoder and validator.
+			settings, err := New(writeSettings(s.T(), content)).Load()
+
+			// Assert pricing presence and configured values are preserved exactly.
+			s.Require().NoError(err)
+			s.Require().Equal(testCase.pricing, settings.Providers["compatible"].Models[0].Pricing)
+		})
+	}
+}
+
+// TestLoadRejectsInvalidPricing verifies required finite rates and strictly increasing positive thresholds.
+func (s *SettingsSuite) TestLoadRejectsInvalidPricing() {
+	// Arrange complete flat and tiered mappings used to isolate each invalid field.
+	flat := "        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.1\n          cacheWrite: 0.5"
+	tiered := flat + "\n          tiers:\n            - inputTokensAbove: 100\n              input: 3\n              output: 4\n              cacheRead: 0.3\n              cacheWrite: 0.7"
 	testCases := map[string]string{
-		"settings":  validSettings("extra: value"),
-		"provider":  replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
-		"API key":   validSettings("    apiKey:\n      command: echo-key"),
-		"model":     replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
-		"reasoning": replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          budget: high"),
+		"missing input":            strings.Replace(flat, "          input: 1\n", "", 1),
+		"missing output":           strings.Replace(flat, "          output: 2\n", "", 1),
+		"missing cache read":       strings.Replace(flat, "          cacheRead: 0.1\n", "", 1),
+		"missing cache write":      strings.Replace(flat, "          cacheWrite: 0.5", "", 1),
+		"negative input":           strings.Replace(flat, "input: 1", "input: -1", 1),
+		"negative output":          strings.Replace(flat, "output: 2", "output: -2", 1),
+		"negative cache read":      strings.Replace(flat, "cacheRead: 0.1", "cacheRead: -0.1", 1),
+		"negative cache write":     strings.Replace(flat, "cacheWrite: 0.5", "cacheWrite: -0.5", 1),
+		"NaN rate":                 strings.Replace(flat, "input: 1", "input: .nan", 1),
+		"positive infinity rate":   strings.Replace(flat, "output: 2", "output: .inf", 1),
+		"negative infinity rate":   strings.Replace(flat, "cacheRead: 0.1", "cacheRead: -.inf", 1),
+		"missing tier threshold":   strings.Replace(tiered, "            - inputTokensAbove: 100\n", "            -\n", 1),
+		"missing tier input":       strings.Replace(tiered, "              input: 3\n", "", 1),
+		"missing tier output":      strings.Replace(tiered, "              output: 4\n", "", 1),
+		"missing tier cache read":  strings.Replace(tiered, "              cacheRead: 0.3\n", "", 1),
+		"missing tier cache write": strings.Replace(tiered, "              cacheWrite: 0.7", "", 1),
+		"negative tier rate":       strings.Replace(tiered, "input: 3", "input: -3", 1),
+		"zero threshold":           strings.Replace(tiered, "inputTokensAbove: 100", "inputTokensAbove: 0", 1),
+		"negative threshold":       strings.Replace(tiered, "inputTokensAbove: 100", "inputTokensAbove: -1", 1),
+		"duplicate thresholds":     tiered + "\n            - inputTokensAbove: 100\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+		"unordered thresholds":     strings.Replace(tiered, "inputTokensAbove: 100", "inputTokensAbove: 200", 1) + "\n            - inputTokensAbove: 100\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+	}
+	for name, pricing := range testCases {
+		s.Run(name, func() {
+			content := replace(validSettings(""), "      - id: compatible", "      - id: compatible\n"+pricing)
+
+			// Act by loading the invalid pricing mapping.
+			_, err := New(writeSettings(s.T(), content)).Load()
+
+			// Assert invalid pricing rejects the complete settings file.
+			s.Require().Error(err)
+		})
+	}
+}
+
+// TestLoadRejectsUnknownYAMLFields verifies strict decoding at every settings mapping level.
+func (s *SettingsSuite) TestLoadRejectsUnknownYAMLFields() {
+	// Arrange valid settings with one unknown field at each mapping level.
+	testCases := map[string]string{
+		"settings":     validSettings("extra: value"),
+		"provider":     replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
+		"API key":      validSettings("    apiKey:\n      command: echo-key"),
+		"model":        replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
+		"pricing":      replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          currency: USD"),
+		"pricing tier": replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          tiers:\n            - inputTokensAbove: 100\n              input: 2\n              output: 3\n              cacheRead: 1\n              cacheWrite: 2\n              currency: USD"),
+		"reasoning":    replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          budget: high"),
 	}
 	for name, content := range testCases {
 		s.Run(name, func() {
+			// Act by loading the settings through the strict decoder.
 			_, err := New(writeSettings(s.T(), content)).Load()
+
+			// Assert the unknown field rejects the complete settings file.
 			s.Require().Error(err)
 		})
 	}

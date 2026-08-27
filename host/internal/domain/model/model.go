@@ -45,12 +45,31 @@ type ReasoningCapabilities struct {
 	Default   ReasoningChoice
 }
 
+// PricingTier overrides all rates when request input exceeds InputTokensAbove.
+type PricingTier struct {
+	InputTokensAbove int64
+	Input            float64
+	Output           float64
+	CacheRead        float64
+	CacheWrite       float64
+}
+
+// Pricing contains USD rates per one million tokens and ordered request-wide tiers.
+type Pricing struct {
+	Input      float64
+	Output     float64
+	CacheRead  float64
+	CacheWrite float64
+	Tiers      []PricingTier
+}
+
 // Descriptor describes one configured model and its capabilities.
 type Descriptor struct {
 	Provider              ProviderID
 	Model                 ID
 	ReasoningCapabilities ReasoningCapabilities
 	ToolCapabilities      ToolCapabilities
+	Pricing               mo.Option[Pricing]
 }
 
 // ToolCapabilities describes provider-neutral constrained tool support.

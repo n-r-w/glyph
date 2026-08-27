@@ -128,6 +128,7 @@ func runProgrammaticWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	sessionServices.pricing.Bind(providerCatalog)
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
@@ -249,6 +250,7 @@ func runHeadlessWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	sessionServices.pricing.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
@@ -350,6 +352,7 @@ func runUIWithPaths(
 		tools.Close()
 		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
 	}
+	sessionServices.pricing.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
@@ -406,17 +409,20 @@ func newProviderCatalog(
 			credentials := credentialstore.New(paths.CredentialsFile, codex.ProviderID)
 			modelIDs := make([]model.ID, len(providerConfig.Models))
 			compatibilityKeys := make(map[model.ID]mo.Option[string], len(providerConfig.Models))
-			for index, configuredModel := range providerConfig.Models {
+			for modelIndex := range providerConfig.Models {
+				configuredModel := &providerConfig.Models[modelIndex]
 				modelID := model.ID(configuredModel.ID)
-				modelIDs[index] = modelID
+				modelIDs[modelIndex] = modelID
 				compatibilityKeys[modelID] = configuredModel.Reasoning.CompatibilityKey
 			}
 			provider := codex.New(codex.Config{
 				Hooks: hookRunner, Models: modelIDs, ReasoningCompatibilityKeys: compatibilityKeys,
 			}, credentials, interaction)
-			for _, configuredModel := range providerConfig.Models {
+			for modelIndex := range providerConfig.Models {
+				configuredModel := &providerConfig.Models[modelIndex]
 				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
 				descriptor.ReasoningCapabilities = reasoningCapabilities(configuredModel.Reasoning)
+				descriptor.Pricing = configuredModel.Pricing
 				entries = append(entries, providers.Entry{
 					Descriptor: descriptor, Provider: provider,
 					SelectionCredentialValidator: nil, Authentication: provider,
@@ -429,7 +435,8 @@ func newProviderCatalog(
 			modelAPIs := make(map[model.ID]compatible.API, len(providerConfig.Models))
 			wireFormats := make(map[model.ID]string, len(providerConfig.Models))
 			compatibilityKeys := make(map[model.ID]mo.Option[string], len(providerConfig.Models))
-			for _, configuredModel := range providerConfig.Models {
+			for modelIndex := range providerConfig.Models {
+				configuredModel := &providerConfig.Models[modelIndex]
 				modelID := model.ID(configuredModel.ID)
 				modelAPIs[modelID] = compatible.API(configuredModel.API)
 				wireFormats[modelID] = string(configuredModel.Reasoning.WireFormat)
@@ -443,7 +450,8 @@ func newProviderCatalog(
 			if err != nil {
 				return nil, fmt.Errorf("create provider %q: %w", providerID, err)
 			}
-			for _, configuredModel := range providerConfig.Models {
+			for modelIndex := range providerConfig.Models {
+				configuredModel := &providerConfig.Models[modelIndex]
 				entries = append(entries, providers.Entry{
 					Descriptor: model.Descriptor{
 						Provider: model.ProviderID(providerID), Model: model.ID(configuredModel.ID),
@@ -451,7 +459,7 @@ func newProviderCatalog(
 						ToolCapabilities: model.ToolCapabilities{
 							StrictJSONSchema: false,
 							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
-						},
+						}, Pricing: configuredModel.Pricing,
 					},
 					Provider: provider, SelectionCredentialValidator: resolver, Authentication: nil,
 				})
@@ -464,7 +472,7 @@ func newProviderCatalog(
 	defaultModel := settingstore.Model{
 		ID: "", API: "", Reasoning: settingstore.Reasoning{
 			Supported: false, Choices: nil, Default: "", CompatibilityKey: mo.None[string](), WireFormat: "",
-		},
+		}, Pricing: mo.None[model.Pricing](),
 	}
 	defaultModelIndex := slices.IndexFunc(defaultProvider.Models, func(configuredModel settingstore.Model) bool {
 		return configuredModel.ID == configured.DefaultModel

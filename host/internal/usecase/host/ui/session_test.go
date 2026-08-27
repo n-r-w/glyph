@@ -35,7 +35,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 		Info: info,
 		Statistics: session.Statistics{
 			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-			TokenUsage: mo.Some(session.TokenUsage{}),
+			TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
 		},
 	})
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {

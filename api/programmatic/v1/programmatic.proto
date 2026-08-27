@@ -246,6 +246,34 @@ message SessionStatistics {
   int64 total_messages = 5;
   // Tokens is absent when any stored model response has no usage.
   TokenUsage tokens = 6;
+  // Estimated cost is absent when any stored model response has no persisted cost.
+  EstimatedCost estimated_cost = 7;
+  // Cost breakdown is ordered by provider identifier and then model identifier.
+  repeated ProviderModelCost cost_breakdown = 8;
+}
+
+// EstimatedCost contains calculated USD cost for disjoint token buckets.
+message EstimatedCost {
+  // Uncached input cost.
+  double input = 1;
+  // Output cost, including reasoning cost.
+  double output = 2;
+  // Cache-read cost.
+  double cache_read = 3;
+  // Cache-write cost.
+  double cache_write = 4;
+  // The sum of all four cost buckets.
+  double total = 5;
+}
+
+// ProviderModelCost groups persisted cost by configured provider and requested model.
+message ProviderModelCost {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The requested model identifier.
+  string model_id = 2;
+  // Estimated cost is absent when any response in this group has no persisted cost.
+  EstimatedCost estimated_cost = 3;
 }
 
 // TokenUsage contains disjoint normalized token buckets.
@@ -292,6 +320,8 @@ message SessionEntry {
     ModelResponse model = 4;
     ToolResult tool_result = 5;
   }
+  // Estimated cost is present only for a model entry with calculated cost.
+  EstimatedCost estimated_cost = 6;
 }
 
 // HistoryEntry carries one public message history item.

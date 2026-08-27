@@ -262,7 +262,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 						},
 						Default: model.ReasoningChoiceHigh,
 					},
-					ToolCapabilities: model.ToolCapabilities{},
+					ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 				}, {
 					Provider: "ollama",
 					Model:    "ornith",
@@ -271,7 +271,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 						Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
 						Default:   model.ReasoningChoiceOn,
 					},
-					ToolCapabilities: model.ToolCapabilities{},
+					ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 				}},
 				ActiveSelection: mo.Some(model.Selection{
 					Provider:        "provider",

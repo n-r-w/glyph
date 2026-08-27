@@ -24,7 +24,11 @@ import (
 
 const testInstructions = "resolved coding instructions"
 
-var testModelDescriptor = model.Descriptor{Provider: "openai-codex", Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
+var testModelDescriptor = model.Descriptor{
+	Provider: "openai-codex", Model: "gpt-test",
+	ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{},
+	Pricing: mo.None[model.Pricing](),
+}
 
 // TestServiceRunStop preserves ordered history, streaming state, events, run ID, and settlement.
 func TestServiceRunStop(t *testing.T) {
@@ -201,13 +205,14 @@ func TestServiceRunToolUse(t *testing.T) {
 func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	t.Parallel()
 
+	// Arrange old and new runtimes around a blocked first provider request.
 	oldProvider := NewMockModelProvider(gomock.NewController(t))
 	newProvider := NewMockModelProvider(gomock.NewController(t))
 	runtime := NewMockModelRuntime(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
-	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}}
+	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
+	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
 	committed := false
 	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
 		if committed {
@@ -263,6 +268,8 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 		testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, newMockHistoryStore(t),
 	)
 	result := make(chan error, 1)
+
+	// Act by switching the runtime while the first provider request is active.
 	go func() {
 		_, err := service.Run(t.Context(), Request{RunID: "runtime-switch", UserText: "go"})
 		result <- err
@@ -272,6 +279,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	committed = true
 	close(releaseRequest)
 
+	// Assert the continuation uses the new runtime and preserves prior history.
 	require.NoError(t, <-result)
 	require.Len(t, service.History(), 4)
 	assert.Equal(t, "done", service.History()[3].Model.OrEmpty().Content[0].Text.OrEmpty())

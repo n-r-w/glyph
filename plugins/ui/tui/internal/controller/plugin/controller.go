@@ -513,7 +513,7 @@ func imagePlaceholder(mediaType string, size int) string {
 	return fmt.Sprintf("[image %s, %d bytes]", mediaType, size)
 }
 
-// mapSessionStatistics validates and reconstructs optional token usage from the UI wire boundary.
+// mapSessionStatistics validates and reconstructs optional token and cost values from the UI wire boundary.
 func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomain.SessionStatistics, error) {
 	if statistics == nil {
 		return presentationdomain.SessionStatistics{}, errors.New("map session statistics: value is required")
@@ -522,6 +522,7 @@ func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomai
 		UserMessages: int(statistics.GetUserMessages()), ModelResponses: int(statistics.GetModelResponses()),
 		ToolCalls: int(statistics.GetToolCalls()), ToolResults: int(statistics.GetToolResults()),
 		TotalMessages: int(statistics.GetTotalMessages()), TokenUsage: mo.None[presentationdomain.TokenUsage](),
+		EstimatedCost: mo.None[presentationdomain.EstimatedCost](), CostBreakdown: nil,
 	}
 	if tokens := statistics.GetTokens(); tokens != nil {
 		result.TokenUsage = mo.Some(presentationdomain.TokenUsage{
@@ -530,7 +531,44 @@ func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomai
 			ReasoningTokens: tokens.GetReasoningTokens(), TotalTokens: tokens.GetTotalTokens(),
 		})
 	}
+	if cost := statistics.GetEstimatedCost(); cost != nil {
+		mapped, err := mapEstimatedCost(cost)
+		if err != nil {
+			return presentationdomain.SessionStatistics{}, err
+		}
+		result.EstimatedCost = mo.Some(mapped)
+	}
+	result.CostBreakdown = make([]presentationdomain.ProviderModelCost, len(statistics.GetCostBreakdown()))
+	for groupIndex, group := range statistics.GetCostBreakdown() {
+		if group == nil || !group.HasProviderId() || !group.HasModelId() {
+			return presentationdomain.SessionStatistics{}, errors.New("map provider-model cost: identity is required")
+		}
+		mapped := presentationdomain.ProviderModelCost{
+			ProviderID: group.GetProviderId(), ModelID: group.GetModelId(),
+			EstimatedCost: mo.None[presentationdomain.EstimatedCost](),
+		}
+		if cost := group.GetEstimatedCost(); cost != nil {
+			groupCost, err := mapEstimatedCost(cost)
+			if err != nil {
+				return presentationdomain.SessionStatistics{}, err
+			}
+			mapped.EstimatedCost = mo.Some(groupCost)
+		}
+		result.CostBreakdown[groupIndex] = mapped
+	}
 	return result, nil
+}
+
+// mapEstimatedCost requires all five persisted values and preserves configured zero.
+func mapEstimatedCost(cost *uiv1.EstimatedCost) (presentationdomain.EstimatedCost, error) {
+	if cost == nil || !cost.HasInput() || !cost.HasOutput() || !cost.HasCacheRead() ||
+		!cost.HasCacheWrite() || !cost.HasTotal() {
+		return presentationdomain.EstimatedCost{}, errors.New("map estimated cost: all values are required")
+	}
+	return presentationdomain.EstimatedCost{
+		Input: cost.GetInput(), Output: cost.GetOutput(), CacheRead: cost.GetCacheRead(),
+		CacheWrite: cost.GetCacheWrite(), Total: cost.GetTotal(),
+	}, nil
 }
 
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.

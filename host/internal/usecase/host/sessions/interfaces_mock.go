@@ -14,7 +14,9 @@ import (
 	reflect "reflect"
 	time "time"
 
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -99,6 +101,44 @@ func (m *MockRepository) Load(arg0 context.Context, arg1 session.ID) (LoadedSess
 func (mr *MockRepositoryMockRecorder) Load(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockRepository)(nil).Load), arg0, arg1)
+}
+
+// MockPricingCatalog is a mock of PricingCatalog interface.
+type MockPricingCatalog struct {
+	ctrl     *gomock.Controller
+	recorder *MockPricingCatalogMockRecorder
+	isgomock struct{}
+}
+
+// MockPricingCatalogMockRecorder is the mock recorder for MockPricingCatalog.
+type MockPricingCatalogMockRecorder struct {
+	mock *MockPricingCatalog
+}
+
+// NewMockPricingCatalog creates a new mock instance.
+func NewMockPricingCatalog(ctrl *gomock.Controller) *MockPricingCatalog {
+	mock := &MockPricingCatalog{ctrl: ctrl}
+	mock.recorder = &MockPricingCatalogMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPricingCatalog) EXPECT() *MockPricingCatalogMockRecorder {
+	return m.recorder
+}
+
+// Pricing mocks base method.
+func (m *MockPricingCatalog) Pricing(arg0 model.ProviderID, arg1 model.ID) mo.Option[model.Pricing] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pricing", arg0, arg1)
+	ret0, _ := ret[0].(mo.Option[model.Pricing])
+	return ret0
+}
+
+// Pricing indicates an expected call of Pricing.
+func (mr *MockPricingCatalogMockRecorder) Pricing(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pricing", reflect.TypeOf((*MockPricingCatalog)(nil).Pricing), arg0, arg1)
 }
 
 // MockIDGenerator is a mock of IDGenerator interface.

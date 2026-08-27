@@ -72,7 +72,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
 				User: mo.Some(clonePublicMessage(user)), Model: mo.None[controller.ModelResponse](),
-				ToolResult: mo.None[controller.ToolResult](),
+				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
 			})
 			continue
 		}
@@ -83,7 +83,8 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 			}
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryModel,
-				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[controller.ToolResult](),
+				User: mo.None[model.Message](), Model: mo.Some(mapped),
+				EstimatedCost: entry.EstimatedCost, ToolResult: mo.None[controller.ToolResult](),
 			})
 			continue
 		}
@@ -91,7 +92,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryToolResult,
 				User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
-				ToolResult: mo.Some(mapToolResult(toolResult)),
+				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.Some(mapToolResult(toolResult)),
 			})
 		}
 	}

@@ -3,6 +3,7 @@ package codex
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -12,8 +13,13 @@ import (
 func TestModelDescriptorAdvertisesKnownCapabilities(t *testing.T) {
 	t.Parallel()
 
-	descriptor := ModelDescriptor("gpt-5.6-luna")
+	// Arrange the exact model ID with approved constrained-sampling capabilities.
+	modelID := model.ID("gpt-5.6-luna")
 
+	// Act by resolving its provider-owned descriptor.
+	descriptor := ModelDescriptor(modelID)
+
+	// Assert the known model advertises its exact capabilities and no pricing.
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna",
@@ -30,6 +36,7 @@ func TestModelDescriptorAdvertisesKnownCapabilities(t *testing.T) {
 			StrictJSONSchema: true,
 			Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
 		},
+		Pricing: mo.None[model.Pricing](),
 	}, descriptor)
 }
 
@@ -37,8 +44,13 @@ func TestModelDescriptorAdvertisesKnownCapabilities(t *testing.T) {
 func TestModelDescriptorDoesNotInferUnknownCapabilities(t *testing.T) {
 	t.Parallel()
 
-	descriptor := ModelDescriptor("gpt-5.6-luna-preview")
+	// Arrange a model ID that only shares a prefix with the known constrained model.
+	modelID := model.ID("gpt-5.6-luna-preview")
 
+	// Act by resolving its provider-owned descriptor.
+	descriptor := ModelDescriptor(modelID)
+
+	// Assert the unknown model keeps default tool capabilities and no pricing.
 	assert.Equal(t, model.Descriptor{
 		Provider: ProviderID,
 		Model:    "gpt-5.6-luna-preview",
@@ -53,6 +65,6 @@ func TestModelDescriptorDoesNotInferUnknownCapabilities(t *testing.T) {
 		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
-		},
+		}, Pricing: mo.None[model.Pricing](),
 	}, descriptor)
 }

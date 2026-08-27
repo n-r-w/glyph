@@ -204,7 +204,23 @@ type TokenUsage struct {
 	TotalTokens      int64
 }
 
-// SessionStatistics contains available counts and optional complete token totals.
+// EstimatedCost contains calculated USD cost for disjoint token buckets.
+type EstimatedCost struct {
+	Input      float64
+	Output     float64
+	CacheRead  float64
+	CacheWrite float64
+	Total      float64
+}
+
+// ProviderModelCost groups persisted cost by configured provider and requested model.
+type ProviderModelCost struct {
+	ProviderID    string
+	ModelID       string
+	EstimatedCost mo.Option[EstimatedCost]
+}
+
+// SessionStatistics contains available counts and optional complete token and cost totals.
 type SessionStatistics struct {
 	UserMessages   int
 	ModelResponses int
@@ -212,6 +228,8 @@ type SessionStatistics struct {
 	ToolResults    int
 	TotalMessages  int
 	TokenUsage     mo.Option[TokenUsage]
+	EstimatedCost  mo.Option[EstimatedCost]
+	CostBreakdown  []ProviderModelCost
 }
 
 // SessionSummary contains one selector row.

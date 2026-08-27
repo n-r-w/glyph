@@ -122,7 +122,7 @@ func mapSessionInfo(info session.Info) *programmaticv1.SessionInfo {
 	return wire
 }
 
-// mapSessionStatistics preserves message counts and optional complete token usage.
+// mapSessionStatistics preserves message counts and optional complete token and cost values.
 func mapSessionStatistics(statistics session.Statistics) *programmaticv1.SessionStatistics {
 	wire := new(programmaticv1.SessionStatistics)
 	wire.SetUserMessages(int64(statistics.UserMessages))
@@ -140,7 +140,33 @@ func mapSessionStatistics(statistics session.Statistics) *programmaticv1.Session
 		tokens.SetTotalTokens(usage.TotalTokens)
 		wire.SetTokens(tokens)
 	}
+	if cost, present := statistics.EstimatedCost.Get(); present {
+		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	breakdown := make([]*programmaticv1.ProviderModelCost, len(statistics.CostBreakdown))
+	for groupIndex := range statistics.CostBreakdown {
+		group := &statistics.CostBreakdown[groupIndex]
+		mapped := new(programmaticv1.ProviderModelCost)
+		mapped.SetProviderId(string(group.Provider))
+		mapped.SetModelId(string(group.Model))
+		if cost, present := group.EstimatedCost.Get(); present {
+			mapped.SetEstimatedCost(mapEstimatedCost(cost))
+		}
+		breakdown[groupIndex] = mapped
+	}
+	wire.SetCostBreakdown(breakdown)
 	return wire
+}
+
+// mapEstimatedCost preserves all calculated disjoint cost buckets and their stored total.
+func mapEstimatedCost(cost session.EstimatedCost) *programmaticv1.EstimatedCost {
+	mapped := new(programmaticv1.EstimatedCost)
+	mapped.SetInput(cost.Input)
+	mapped.SetOutput(cost.Output)
+	mapped.SetCacheRead(cost.CacheRead)
+	mapped.SetCacheWrite(cost.CacheWrite)
+	mapped.SetTotal(cost.Total)
+	return mapped
 }
 
 // mapSessionSummary preserves optional display text and lifecycle information in the public contract.
@@ -472,6 +498,9 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 			return nil, fmt.Errorf("map session entry %d: unsupported kind %d", index, entry.Kind)
 		default:
 			return nil, fmt.Errorf("map session entry %d: unknown kind %d", index, entry.Kind)
+		}
+		if cost, present := entry.EstimatedCost.Get(); present {
+			wire.SetEstimatedCost(mapEstimatedCost(cost))
 		}
 		return wire, nil
 	})

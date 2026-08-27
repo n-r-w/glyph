@@ -78,10 +78,19 @@ type inputContentRecord struct {
 
 // modelRecord stores one provider-neutral terminal model response.
 type modelRecord struct {
-	Type      string              `json:"type"`
-	ID        string              `json:"id"`
-	CreatedAt string              `json:"createdAt"`
-	Response  modelResponseRecord `json:"response"`
+	Type          string               `json:"type"`
+	ID            string               `json:"id"`
+	CreatedAt     string               `json:"createdAt"`
+	Response      modelResponseRecord  `json:"response"`
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitempty"`
+}
+
+type estimatedCostRecord struct {
+	Input      *float64 `json:"input"`
+	Output     *float64 `json:"output"`
+	CacheRead  *float64 `json:"cacheRead"`
+	CacheWrite *float64 `json:"cacheWrite"`
+	Total      *float64 `json:"total"`
 }
 
 type modelResponseRecord struct {
@@ -436,6 +445,7 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			ID: record.ID, CreatedAt: entryTime, Information: mo.Some(session.Information{Name: record.Name}),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 		}, nil
 	case "user":
 		return decodeUser(data)
@@ -474,6 +484,7 @@ func decodeUser(data []byte) (session.Entry, error) {
 		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
 		User: mo.Some(model.Message{Content: content}), Model: mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
 	}, nil
 }
 
@@ -519,7 +530,7 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(record.Data),
-		}),
+		}), EstimatedCost: mo.None[session.EstimatedCost](),
 	}, nil
 }
 
@@ -536,10 +547,14 @@ func decodeModel(data []byte) (session.Entry, error) {
 	if err != nil {
 		return session.Entry{}, err
 	}
+	estimatedCost, err := decodeEstimatedCost(record.EstimatedCost)
+	if err != nil {
+		return session.Entry{}, err
+	}
 	return session.Entry{
 		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: estimatedCost,
 	}, nil
 }
 
@@ -570,7 +585,7 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 			CallID: record.Result.CallID, ToolName: record.Result.ToolName,
 			Contents: contents, IsError: record.Result.IsError,
 		}),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}, nil
 }
 
@@ -666,9 +681,32 @@ func encodeModelEntry(entry session.Entry, response model.Response) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
+	var estimatedCost *estimatedCostRecord
+	if cost, present := entry.EstimatedCost.Get(); present {
+		estimatedCost = &estimatedCostRecord{
+			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+		}
+	}
 	return encodeLine(modelRecord{
-		Type: "model", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Response: record,
+		Type: "model", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
+		Response: record, EstimatedCost: estimatedCost,
 	})
+}
+
+// decodeEstimatedCost preserves configured zero and rejects incomplete persisted cost objects.
+func decodeEstimatedCost(record *estimatedCostRecord) (mo.Option[session.EstimatedCost], error) {
+	if record == nil {
+		return mo.None[session.EstimatedCost](), nil
+	}
+	if record.Input == nil || record.Output == nil || record.CacheRead == nil ||
+		record.CacheWrite == nil || record.Total == nil {
+		return mo.None[session.EstimatedCost](), errors.New("invalid estimated cost")
+	}
+	return mo.Some(session.EstimatedCost{
+		Input: *record.Input, Output: *record.Output, CacheRead: *record.CacheRead,
+		CacheWrite: *record.CacheWrite, Total: *record.Total,
+	}), nil
 }
 
 func encodeToolResultEntry(entry session.Entry, result agent.ToolResult) ([]byte, error) {

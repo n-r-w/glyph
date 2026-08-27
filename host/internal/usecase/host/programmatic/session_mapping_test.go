@@ -108,17 +108,17 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 		{
 			ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
@@ -127,6 +127,7 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 			Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "example.extension", EntryType: "checkpoint", Data: []byte(`{"private":true}`),
 			}),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 	}
 

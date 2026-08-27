@@ -28,7 +28,8 @@ func TestActiveStatisticsReturnsAvailableZeroTokensForEmptySession(t *testing.T)
 	// Assert all counts and available token totals are zero.
 	assert.Equal(t, session.Statistics{
 		UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-		TokenUsage: mo.Some(session.TokenUsage{}),
+		TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.Some(session.EstimatedCost{}),
+		CostBreakdown: nil,
 	}, statistics)
 }
 
@@ -48,14 +49,14 @@ func TestActiveStatisticsCountsTerminalEntriesAndCompleteUsage(t *testing.T) {
 		{
 			ID: "information", CreatedAt: time.Time{}, Information: mo.Some(session.Information{Name: "name"}),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}),
+			}), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 	}
 	service := serviceWithEntries(entries)
@@ -69,7 +70,7 @@ func TestActiveStatisticsCountsTerminalEntriesAndCompleteUsage(t *testing.T) {
 		TokenUsage: mo.Some(session.TokenUsage{
 			InputTokens: 1, OutputTokens: 4, CacheReadTokens: 2,
 			CacheWriteTokens: 3, ReasoningTokens: 2, TotalTokens: 10,
-		}),
+		}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
 	}, statistics)
 }
 
@@ -87,14 +88,14 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 		{
 			ID: "information", CreatedAt: time.Time{}, Information: mo.Some(session.Information{Name: "name"}),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}),
+			}), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 	}
 	loaded := LoadedSession{
@@ -104,7 +105,7 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 		StoragePath: "/sessions/stored.jsonl", Entries: entries,
 	}
 	repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{loaded}, nil)
-	service := New(repository, nil, nil, "/project")
+	service := New(repository, nil, nil, nil, "/project")
 	service.active = loaded
 
 	// Act by reading the stored summary and active statistics for the same entries.
@@ -145,7 +146,7 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 			return AppendResult{StoragePath: "/sessions/active-updated.jsonl"}, nil
 		},
 	)
-	service := New(repository, ids, clock, "/project")
+	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
 			Version: 1, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project",
@@ -189,7 +190,8 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 	assert.Equal(t, mo.Some("/sessions/active-updated.jsonl"), snapshot.Info.StoragePath)
 	assert.Equal(t, session.Statistics{
 		UserMessages: 1, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 1,
-		TokenUsage: mo.Some(session.TokenUsage{}),
+		TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.Some(session.EstimatedCost{}),
+		CostBreakdown: nil,
 	}, snapshot.Statistics)
 }
 
@@ -233,7 +235,7 @@ func TestActiveStatisticsKeepsPresentZeroUsageAvailable(t *testing.T) {
 }
 
 func serviceWithEntries(entries []session.Entry) *Service {
-	service := New(nil, nil, nil, "")
+	service := New(nil, nil, nil, nil, "")
 	service.active = LoadedSession{
 		Header: session.Header{}, StoragePath: "", Entries: entries,
 	}
@@ -244,7 +246,7 @@ func testStatisticsUserEntry() session.Entry {
 	return session.Entry{
 		ID: "user", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 		User: mo.Some(model.TextMessage("request")), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 }
 
@@ -265,7 +267,7 @@ func testStatisticsModelEntry(outcome model.Outcome, usage mo.Option[model.Usage
 			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
 			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: usage, Diagnostics: nil,
 		}),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 }
 
@@ -276,6 +278,6 @@ func testStatisticsToolResultEntry() session.Entry {
 		ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call", ToolName: "tool", Contents: nil, IsError: false,
 		}),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 }

@@ -26,7 +26,9 @@ const (
 // appendFullContentFixture adds one provider-compatible turn and one private extension entry.
 func appendFullContentFixture(t *testing.T, paths persistence.Paths, sessionID string) {
 	t.Helper()
-	appendFullContentFixtureWithUsage(t, paths, sessionID, mo.None[model.Usage]())
+	appendFullContentFixtureWithUsage(
+		t, paths, sessionID, mo.None[model.Usage](), mo.None[session.EstimatedCost](),
+	)
 }
 
 // appendFullContentFixtureWithUsage adds the full-content turn with explicit model usage presence.
@@ -35,6 +37,7 @@ func appendFullContentFixtureWithUsage(
 	paths persistence.Paths,
 	sessionID string,
 	usage mo.Option[model.Usage],
+	estimatedCost mo.Option[session.EstimatedCost],
 ) {
 	t.Helper()
 
@@ -47,7 +50,8 @@ func appendFullContentFixtureWithUsage(
 	loaded, err := repository.Load(t.Context(), session.ID(sessionID))
 	require.NoError(t, err)
 	require.NotEmpty(t, loaded.Entries)
-	createdAt := loaded.Entries[len(loaded.Entries)-1].CreatedAt
+	// Keep this fixture newest while later real-time interactions exercise other sessions.
+	createdAt := loaded.Entries[len(loaded.Entries)-1].CreatedAt.Add(time.Hour)
 	storagePath := loaded.StoragePath
 	call := model.ToolCall{
 		ID: "full-call", Name: "bash", Arguments: map[string]any{"command": "printf full-tool"},
@@ -62,7 +66,7 @@ func appendFullContentFixtureWithUsage(
 				{Kind: model.InputContentText, Text: mo.Some("after image"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 			}}),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
@@ -96,6 +100,7 @@ func appendFullContentFixtureWithUsage(
 				Diagnostics: []model.Diagnostic{{Code: "full_notice", Message: "full diagnostic"}},
 			}),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: estimatedCost,
 		},
 		{
 			ID: "full-tool-entry", CreatedAt: createdAt.Add(3 * time.Second),
@@ -108,7 +113,7 @@ func appendFullContentFixtureWithUsage(
 					{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{9, 8, 7, 6}})},
 				},
 			}),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
@@ -117,7 +122,7 @@ func appendFullContentFixtureWithUsage(
 			Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "example.extension", EntryType: "checkpoint",
 				Data: []byte(`{"private":"full-extension"}`),
-			}),
+			}), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 	}
 	for index := range entries {

@@ -217,6 +217,7 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an authenticated endpoint that streams one grammar-constrained tool call.
 	accountID := "account-grammar"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -273,10 +274,12 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		},
 	}
 	events := make([]run.StreamEvent, 0)
+
+	// Act by streaming the grammar tool request and collecting lifecycle events.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{
 			Provider: ProviderID, Model: "gpt-test",
-			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
 		History: history, Tools: []tool.Descriptor{descriptor},
 	}, func(event run.StreamEvent) error {
@@ -284,6 +287,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		return nil
 	})
 
+	// Assert request mapping, replay, preview deltas, and final arguments are exact.
 	require.NoError(t, err)
 	require.Len(t, events, 4)
 	assert.Equal(t, run.StreamEventToolCallStart, events[0].Kind)
@@ -305,6 +309,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an unknown model with no constrained-sampling capabilities.
 	accountID := "account-missing-capabilities"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -319,14 +324,17 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
+
+	// Act by requesting a constraint that requires unadvertised support.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 
+	// Assert validation fails locally and emits one terminal error event.
 	require.Error(t, err)
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)
@@ -337,6 +345,7 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an unknown model and a preferred strictness constraint.
 	accountID := "account-prefer-fallback"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -364,11 +373,14 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+
+	// Act by streaming the preferred constraint through the provider endpoint.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})}, History: nil,
 	}, func(run.StreamEvent) error { return nil })
 
+	// Assert the request is sent once with non-strict schema handling.
 	require.NoError(t, err)
 	assert.Equal(t, 1, requests)
 }
@@ -377,6 +389,7 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
+	// Arrange malformed constrained-sampling descriptors for each closed validation rule.
 	grammar := tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}
 	testCases := map[string]tool.Descriptor{
 		"unknown kind": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
@@ -433,6 +446,8 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 	for name, descriptor := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			// Arrange an endpoint that records any invalid remote dispatch.
 			accountID := "account-malformed"
 			accessToken := testJWT(t, map[string]any{
 				"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -449,6 +464,8 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+
+			// Act by streaming a request with the malformed descriptor.
 			err := service.Stream(t.Context(), run.ModelRequest{
 				Instructions: "test",
 				Model: model.Descriptor{
@@ -456,13 +473,14 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 					ToolCapabilities: model.ToolCapabilities{
 						Grammar: model.GrammarCapabilities{Regex: true, Lark: true}, StrictJSONSchema: true,
 					},
-					ReasoningCapabilities: model.ReasoningCapabilities{},
+					ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
 				},
 				ReasoningChoice: model.ReasoningChoiceOn,
 				History:         nil,
 				Tools:           []tool.Descriptor{descriptor},
 			}, func(run.StreamEvent) error { return nil })
 
+			// Assert validation fails before any provider request.
 			require.Error(t, err)
 			assert.Zero(t, requests.Load())
 		})
@@ -473,6 +491,7 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a regex-only model and a tool that offers only Lark grammar.
 	accountID := "account-unsupported-grammar"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -487,10 +506,12 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	t.Cleanup(server.Close)
 	selectedModel := model.Descriptor{
 		Provider: ProviderID, Model: "gpt-regex-only",
-		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{},
+		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
+
+	// Act by requesting the unsupported grammar variant.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: selectedModel,
 		Tools: []tool.Descriptor{constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()})}, History: nil,
@@ -499,6 +520,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		return nil
 	})
 
+	// Assert grammar validation fails locally with one terminal error.
 	require.ErrorContains(t, err, "no supported grammar variant")
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)
@@ -509,6 +531,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a model without strict-schema support and a required strict constraint.
 	accountID := "account-unsupported"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -523,14 +546,17 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
+
+	// Act by requesting the unsupported required constraint.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 
+	// Assert validation fails before dispatch and returns one failed response.
 	require.Error(t, err)
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)

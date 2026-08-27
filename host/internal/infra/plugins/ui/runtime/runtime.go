@@ -598,12 +598,13 @@ func mapSessionInfo(info session.Info) *uipb.SessionInfo {
 	return wire
 }
 
-// mapSessionStatistics preserves counts and optional complete token usage on the UI wire boundary.
+// mapSessionStatistics preserves counts and optional complete token and cost values on the UI wire boundary.
 func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics {
 	wire := uipb.SessionStatistics_builder{
 		UserMessages: new(int64(statistics.UserMessages)), ModelResponses: new(int64(statistics.ModelResponses)),
 		ToolCalls: new(int64(statistics.ToolCalls)), ToolResults: new(int64(statistics.ToolResults)),
 		TotalMessages: new(int64(statistics.TotalMessages)), Tokens: nil,
+		EstimatedCost: nil, CostBreakdown: nil,
 	}.Build()
 	if usage, present := statistics.TokenUsage.Get(); present {
 		wire.SetTokens(uipb.TokenUsage_builder{
@@ -612,7 +613,30 @@ func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics
 			ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
 		}.Build())
 	}
+	if cost, present := statistics.EstimatedCost.Get(); present {
+		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	breakdown := make([]*uipb.ProviderModelCost, len(statistics.CostBreakdown))
+	for groupIndex := range statistics.CostBreakdown {
+		group := &statistics.CostBreakdown[groupIndex]
+		mapped := uipb.ProviderModelCost_builder{
+			ProviderId: new(string(group.Provider)), ModelId: new(string(group.Model)), EstimatedCost: nil,
+		}.Build()
+		if cost, present := group.EstimatedCost.Get(); present {
+			mapped.SetEstimatedCost(mapEstimatedCost(cost))
+		}
+		breakdown[groupIndex] = mapped
+	}
+	wire.SetCostBreakdown(breakdown)
 	return wire
+}
+
+// mapEstimatedCost preserves calculated cost buckets and their stored total.
+func mapEstimatedCost(cost session.EstimatedCost) *uipb.EstimatedCost {
+	return uipb.EstimatedCost_builder{
+		Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+		CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+	}.Build()
 }
 
 // mapSessionSummary preserves optional row labels while mapping an ordered list entry.

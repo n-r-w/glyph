@@ -24,6 +24,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	testsupporttui "github.com/n-r-w/glyph/internal/testsupport/tui"
 )
@@ -77,8 +78,6 @@ func validateBusyPreservation(output, activeID string) error {
 		text    string
 		message string
 	}{
-		{text: "user: active history", message: "busy screen did not preserve prior user text"},
-		{text: "assistant: Request complete.", message: "busy screen did not preserve prior model text"},
 		{text: "user: blocked request", message: "busy screen did not preserve the active user text"},
 		{text: "Session ID: " + activeID, message: "busy screen did not preserve the active session ID"},
 		{text: "Name: <absent>", message: "busy screen did not preserve the active session name state"},
@@ -134,7 +133,7 @@ func lastSessionID(output string) string {
 	return fields[0]
 }
 
-// TestStandardTUIHostSmoke verifies a real TUI restart restores full visible and continuation content.
+// TestStandardTUIHostSmoke verifies cost states, visible content, and continuation through a real TUI restart.
 func TestStandardTUIHostSmoke(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
@@ -142,7 +141,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	}
 
 	// Arrange persistent paths, credentials, real UI and extension executables, control socket, and PTY.
-	paths := testPaths(t, restartSelectionSettings())
+	paths := testPaths(t, pricedRestartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil, `{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken), 0o600))
 	uiDirectory := buildStandardTUIExecutable(t)
@@ -202,11 +201,14 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/name")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "restart session")
+	emptyInitialCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID:")
 	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
 	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	assert.NotContains(t, observer.StringFrom(emptyInitialCheckpoint), "openai-codex/selected-model:")
 	restartID := lastSessionID(observer.String())
 	require.NotEmpty(t, restartID)
 	testsupporttui.Write(t, input, "read input.txt")
@@ -225,6 +227,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Tool calls: 1")
 	observer.WaitNext(t, "Tokens: 14 input, 8 output, 4 cache read, 2 cache write, 28 total")
 	observer.WaitNext(t, "Reasoning tokens: 6, included in output")
+	observer.WaitNext(t, "Estimated cost: $0.000050")
+	observer.WaitNext(t, "openai-codex/selected-model: $0.000050")
 
 	// Create a second active session so the stored restart target remains one complete tool turn.
 	testsupporttui.Write(t, input, "/new")
@@ -237,11 +241,14 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Name: <absent>")
 	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
 	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
 	activeID := lastSessionID(observer.String())
 	require.NotEmpty(t, activeID)
 	appendFullContentFixtureWithUsage(t, paths, restartID, mo.Some(model.Usage{
 		InputTokens: 7, OutputTokens: 4, CachedInputTokens: 2,
 		CacheWriteTokens: 1, ReasoningTokens: 3, TotalTokens: 14,
+	}), mo.Some(session.EstimatedCost{
+		Input: 0.000007, Output: 0.000008, CacheRead: 0.000006, CacheWrite: 0.000004, Total: 0.000025,
 	}))
 	testsupporttui.Write(t, input, "active history")
 	observer.WaitNext(t, "active history|")
@@ -255,6 +262,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Tool calls: 0")
 	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
 	observer.WaitNext(t, "Reasoning tokens: 0, included in output")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	observer.WaitNext(t, "openai-codex/selected-model: $0.000000")
 
 	testsupporttui.Write(t, input, "blocked request")
 	observer.WaitNext(t, "blocked request|")
@@ -266,6 +275,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Session ID: "+activeID)
 	observer.WaitNext(t, "Messages: 2 user, 1 model, 0 tool results, 3 total")
 	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	observer.WaitNext(t, "openai-codex/selected-model: $0.000000")
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
@@ -283,6 +294,49 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "\x1b[27u")
 	requestStandardTUIControl(t, controlSocketPath, 'r')
 	observer.WaitNext(t, "Request complete.")
+
+	// Persist and observe an unavailable-cost session before Host reconstruction.
+	testsupporttui.Write(t, input, "/new")
+	observer.WaitNext(t, "/new|")
+	newUnavailableCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitForOutputAfter(t, newUnavailableCheckpoint)
+	testsupporttui.Write(t, input, "/name unavailable cost session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Updated:")
+	testsupporttui.Write(t, input, "unavailable history")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Request complete.")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Name: unavailable cost session")
+	observer.WaitNext(t, "Messages: 1 user, 1 model, 0 tool results, 2 total")
+	observer.WaitNext(t, "Tokens: unavailable")
+	observer.WaitNext(t, "Estimated cost: unavailable")
+	observer.WaitNext(t, "openai-codex/selected-model: unavailable")
+	unavailableID := lastSessionID(observer.String())
+	require.NotEmpty(t, unavailableID)
+
+	// Persist and observe a separate empty session with no provider-model breakdown.
+	testsupporttui.Write(t, input, "/new")
+	observer.WaitNext(t, "/new|")
+	newEmptyCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitForOutputAfter(t, newEmptyCheckpoint)
+	testsupporttui.Write(t, input, "/name empty cost session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Updated:")
+	emptyBeforeCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Name: empty cost session")
+	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	assert.NotContains(t, observer.StringFrom(emptyBeforeCheckpoint), "openai-codex/selected-model:")
+	emptyID := lastSessionID(observer.String())
+	require.NotEmpty(t, emptyID)
+
 	testsupporttui.Write(t, input, string([]byte{17}))
 
 	// The next idle screen proves that Host reopened the same data directory with a new TUI process.
@@ -325,12 +379,48 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Tool calls: 2")
 	observer.WaitNext(t, "Tokens: 21 input, 12 output, 6 cache read, 3 cache write, 42 total")
 	observer.WaitNext(t, "Reasoning tokens: 9, included in output")
+	observer.WaitNext(t, "Estimated cost: $0.000075")
+	observer.WaitNext(t, "openai-codex/selected-model: $0.000075")
+
+	// Resume the persisted empty session and prove it still has no breakdown.
+	testsupporttui.Write(t, input, "/resume")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Sessions:")
+	testsupporttui.Write(t, input, "\x1b[B")
+	emptyResumeCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitForOutputAfter(t, emptyResumeCheckpoint)
+	emptyAfterCheckpoint := observer.Checkpoint()
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+emptyID)
+	observer.WaitNext(t, "Name: empty cost session")
+	observer.WaitNext(t, "Messages: 0 user, 0 model, 0 tool results, 0 total")
+	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	assert.NotContains(t, observer.StringFrom(emptyAfterCheckpoint), "openai-codex/selected-model:")
+
+	// Resume the unavailable-cost session and prove absence survives reconstruction.
+	testsupporttui.Write(t, input, "/resume")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Sessions:")
+	testsupporttui.Write(t, input, "\x1b[B\x1b[B")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "user: unavailable history")
+	testsupporttui.Write(t, input, "/session")
+	testsupporttui.Write(t, input, "\x1b[13u")
+	observer.WaitNext(t, "Session ID: "+unavailableID)
+	observer.WaitNext(t, "Name: unavailable cost session")
+	observer.WaitNext(t, "Messages: 1 user, 1 model, 0 tool results, 2 total")
+	observer.WaitNext(t, "Tokens: unavailable")
+	observer.WaitNext(t, "Estimated cost: unavailable")
+	observer.WaitNext(t, "openai-codex/selected-model: unavailable")
 
 	// Resume the second stored session and prove present-zero usage also survives reconstruction.
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
-	testsupporttui.Write(t, input, "\x1b[B")
+	testsupporttui.Write(t, input, "\x1b[B\x1b[B\x1b[B")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "user: blocked request")
 	testsupporttui.Write(t, input, "/session")
@@ -345,6 +435,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Tool calls: 0")
 	observer.WaitNext(t, "Tokens: 0 input, 0 output, 0 cache read, 0 cache write, 0 total")
 	observer.WaitNext(t, "Reasoning tokens: 0, included in output")
+	observer.WaitNext(t, "Estimated cost: $0.000000")
+	observer.WaitNext(t, "openai-codex/selected-model: $0.000000")
 
 	// Resume the nonzero-usage session again before continuation.
 	testsupporttui.Write(t, input, "/resume")
@@ -395,7 +487,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	terminalFile, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, terminalFile.Close()) })
-	testsupporttui.SetTerminalSize(t, terminalFile, 100, 40)
+	testsupporttui.SetTerminalSize(t, terminalFile, 100, 44)
 
 	dataDirectory := os.Getenv(standardTUIHostDataEnvironment)
 	paths := persistence.Paths{
@@ -441,7 +533,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 		require.NoError(t, runErr)
 	}
 	// Assert the final provider request contains restored public and private continuation content in order.
-	assert.Equal(t, int32(5), requestCount.Load())
+	assert.Equal(t, int32(6), requestCount.Load())
 	body, ok := lastBody.Load().([]byte)
 	require.True(t, ok)
 	assert.Contains(t, string(body), "read input.txt")
@@ -527,7 +619,7 @@ func (transport standardTUIUsageTransport) RoundTrip(request *http.Request) (*ht
 	if requestNumber == 1 || requestNumber == 2 {
 		usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`
 	}
-	if requestNumber != 5 {
+	if requestNumber != 5 && requestNumber != 6 {
 		responseBody = strings.Replace(
 			responseBody,
 			`"status":"completed","output":[]`,

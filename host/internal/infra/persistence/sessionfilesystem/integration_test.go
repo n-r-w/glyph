@@ -37,7 +37,7 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
 		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope]()},
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
 	})
 	require.NoError(t, err)
 	digest := sha256.Sum256([]byte(canonical))
@@ -88,7 +88,7 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
 		StoragePath: "",
 		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"}), Extension: mo.None[session.ExtensionEnvelope]()},
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
 	})
 	require.NoError(t, err)
 	symlinkRepository := sessionstore.New(root, canonicalLink, sessionfilesystem.New())
@@ -114,7 +114,7 @@ func TestActiveSessionCreatesNoFileBeforeNaming(t *testing.T) {
 	clock := hostsessions.NewMockClock(controller)
 	ids.EXPECT().NewID().Return("startup-id", nil)
 	clock.EXPECT().Now().Return(time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC))
-	active := hostsessions.New(repository, ids, clock, project)
+	active := hostsessions.New(repository, ids, clock, nil, project)
 
 	// Act by initializing the active session without assigning a name.
 	require.NoError(t, active.Initialize(t.Context()))
@@ -144,8 +144,14 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute), Information: mo.Some(session.Information{Name: "known session"}), Extension: mo.None[session.ExtensionEnvelope]()},
+			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
+			Information: mo.Some(session.Information{Name: "known session"}),
+			User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
+			Extension: mo.None[session.ExtensionEnvelope](),
+		},
 	}
+
 	// Act by appending, reopening, loading, listing, and requesting an unknown session.
 	created, err := repository.Append(t.Context(), command)
 	require.NoError(t, err)
@@ -183,7 +189,7 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope]()},
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
 	})
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
@@ -212,8 +218,13 @@ func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
 		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}), Extension: mo.None[session.ExtensionEnvelope]()},
+			ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}),
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
+			Extension: mo.None[session.ExtensionEnvelope](),
+		},
 	})
+
 	// Assert the append fails and leaves the sentinel file unchanged.
 	require.Error(t, err)
 	content, readErr := os.ReadFile(outsidePath)

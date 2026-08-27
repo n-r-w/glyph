@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -395,6 +396,62 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	assert.True(t, catalog.IsSignInRequired(signInRequired))
 }
 
+// TestCatalogPricingUsesExactProviderModelPair verifies overlapping model IDs cannot cross provider boundaries.
+func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two configured providers with the same model ID and different prices.
+	provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+	priceA := model.Pricing{
+		Input: 1, Output: 2, CacheRead: 0.1, CacheWrite: 0.5,
+		Tiers: []model.PricingTier{{
+			InputTokensAbove: 100, Input: 3, Output: 4, CacheRead: 0.3, CacheWrite: 0.7,
+		}},
+	}
+	priceB := model.Pricing{Input: 5, Output: 6, CacheRead: 0.5, CacheWrite: 0.9, Tiers: nil}
+	catalog, err := New([]Entry{
+		{
+			Descriptor: model.Descriptor{
+				Provider: "provider-a", Model: "shared", Pricing: mo.Some(priceA),
+				ReasoningCapabilities: model.ReasoningCapabilities{
+					Supported: false, Choices: []model.ReasoningChoice{model.ReasoningChoiceOff},
+					Default: model.ReasoningChoiceOff,
+				},
+				ToolCapabilities: model.ToolCapabilities{
+					StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
+				},
+			},
+			Provider: provider, SelectionCredentialValidator: nil, Authentication: nil,
+		},
+		{
+			Descriptor: model.Descriptor{
+				Provider: "provider-b", Model: "shared", Pricing: mo.Some(priceB),
+				ReasoningCapabilities: model.ReasoningCapabilities{
+					Supported: false, Choices: []model.ReasoningChoice{model.ReasoningChoiceOff},
+					Default: model.ReasoningChoiceOff,
+				},
+				ToolCapabilities: model.ToolCapabilities{
+					StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
+				},
+			},
+			Provider: provider, SelectionCredentialValidator: nil, Authentication: nil,
+		},
+	}, model.Selection{Provider: "provider-a", Model: "shared", ReasoningChoice: model.ReasoningChoiceOff})
+	require.NoError(t, err)
+
+	// Act by resolving exact and unknown provider-model pairs.
+	actualA := catalog.Pricing("provider-a", "shared")
+	actualB := catalog.Pricing("provider-b", "shared")
+	unknownProvider := catalog.Pricing("provider-c", "shared")
+	unknownModel := catalog.Pricing("provider-a", "missing")
+
+	// Assert each exact pair owns its price and unknown pairs remain absent.
+	assert.Equal(t, mo.Some(priceA), actualA)
+	assert.Equal(t, mo.Some(priceB), actualB)
+	assert.True(t, unknownProvider.IsAbsent())
+	assert.True(t, unknownModel.IsAbsent())
+}
+
 func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningChoice) model.Descriptor {
 	return model.Descriptor{
 		Provider: provider,
@@ -410,6 +467,6 @@ func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.Rea
 				Lark:  false,
 				Regex: false,
 			},
-		},
+		}, Pricing: mo.None[model.Pricing](),
 	}
 }

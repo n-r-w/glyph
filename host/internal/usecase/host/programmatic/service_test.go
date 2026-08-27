@@ -185,7 +185,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	control.EXPECT().Entries().Return([]session.Entry{{
 		ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(invalidStoredModelResponse()),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}})
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 
@@ -509,6 +509,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 
 // TestModelCommandsUseCatalogDuringActiveRun verifies independent catalog commands.
 func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
+	// Arrange an active run and catalog responses for each independent model command.
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
@@ -531,7 +532,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
 			Default: model.ReasoningChoiceLow,
-		}, ToolCapabilities: model.ToolCapabilities{},
+		}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}}
 	initial := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	selectedModel := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceLow}
@@ -588,8 +589,12 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			},
 		},
 	}
+
+	// Act by handling each catalog command while the run remains active.
 	for _, test := range tests {
 		response, operation, handleErr := service.Handle(commandContext, test.command)
+
+		// Assert the command returns its exact catalog response without a new operation.
 		s.Require().NoError(handleErr)
 		s.Nil(operation)
 		s.Equal(test.want, response)

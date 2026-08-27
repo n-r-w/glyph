@@ -8,9 +8,12 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -81,6 +84,7 @@ type Catalog struct {
 
 var _ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
 var _ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
+var _ hostsessions.PricingCatalog = (*Catalog)(nil)
 
 var (
 	_ agentrun.ModelRuntime = (*Catalog)(nil)
@@ -125,6 +129,20 @@ func (c *Catalog) Models() []model.Descriptor {
 		models[index] = cloneDescriptor(c.entries[index].Descriptor)
 	}
 	return models
+}
+
+// Pricing returns a defensive price for one exact configured provider and requested model pair.
+func (c *Catalog) Pricing(providerID model.ProviderID, modelID model.ID) mo.Option[model.Pricing] {
+	entryIndex, found := c.entryIndex(providerID, modelID)
+	if !found {
+		return mo.None[model.Pricing]()
+	}
+	pricing, present := c.entries[entryIndex].Descriptor.Pricing.Get()
+	if !present {
+		return mo.None[model.Pricing]()
+	}
+	pricing.Tiers = slices.Clone(pricing.Tiers)
+	return mo.Some(pricing)
 }
 
 // Selection returns the active immutable selection.
@@ -331,6 +349,10 @@ func validReasoningChoice(choice model.ReasoningChoice) bool {
 // cloneDescriptor keeps configured capability slices immutable to catalog callers.
 func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
 	descriptor.ReasoningCapabilities.Choices = slices.Clone(descriptor.ReasoningCapabilities.Choices)
+	if pricing, present := descriptor.Pricing.Get(); present {
+		pricing.Tiers = slices.Clone(pricing.Tiers)
+		descriptor.Pricing = mo.Some(pricing)
+	}
 	return descriptor
 }
 

@@ -16,11 +16,19 @@ import (
 func TestSessionInformationFrameCarriesInfoAndStatistics(t *testing.T) {
 	t.Parallel()
 
-	// Arrange active information and unavailable token totals with available counts.
+	// Arrange active information, available counts, unavailable tokens, and available cost.
 	info := testSessionInfo("active")
 	statistics := session.Statistics{
 		UserMessages: 1, ModelResponses: 2, ToolCalls: 3, ToolResults: 4, TotalMessages: 7,
 		TokenUsage: mo.None[session.TokenUsage](),
+		EstimatedCost: mo.Some(session.EstimatedCost{
+			Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+		}),
+		CostBreakdown: []session.ProviderModelCost{{
+			Provider: "provider", Model: "model", EstimatedCost: mo.Some(session.EstimatedCost{
+				Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+			}),
+		}},
 	}
 
 	// Act by building the current session-information frame.
@@ -49,6 +57,14 @@ func TestSessionInformationCommandMapsOneSnapshotWithoutAlteration(t *testing.T)
 				InputTokens: 6, OutputTokens: 7, CacheReadTokens: 8,
 				CacheWriteTokens: 9, ReasoningTokens: 10, TotalTokens: 30,
 			}),
+			EstimatedCost: mo.Some(session.EstimatedCost{
+				Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+			}),
+			CostBreakdown: []session.ProviderModelCost{{
+				Provider: "provider", Model: "model", EstimatedCost: mo.Some(session.EstimatedCost{
+					Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+				}),
+			}},
 		},
 	}
 	control.EXPECT().Information().Return(snapshot)

@@ -698,6 +698,8 @@ func (s *serviceSuite) TestResponsesFailedEventIsTerminalError() {
 // TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
 func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection() {
 	t := s.T()
+
+	// Arrange a selected runtime whose endpoint rejects replayed reasoning context.
 	var calls atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		calls.Add(1)
@@ -730,7 +732,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 				Supported: true,
 				Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},
 				Default:   model.ReasoningChoiceHigh,
-			}, ToolCapabilities: model.ToolCapabilities{},
+			}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
 		Provider: driver, SelectionCredentialValidator: nil, Authentication: nil,
 	}}, selection)
@@ -750,11 +752,13 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	})
 	var events []run.StreamEvent
 
+	// Act by streaming the request with rejected opaque context.
 	err = runtime.Provider.Stream(t.Context(), request, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 
+	// Assert rejection is terminal and does not mutate catalog selection.
 	require.Error(t, err)
 	assert.Equal(t, int64(1), calls.Load())
 	require.NotEmpty(t, events)
@@ -867,7 +871,7 @@ func appendHistoryModelContent(request *run.ModelRequest, content ...model.Conte
 
 func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 	return run.ModelRequest{
-		Instructions: "be useful", Model: model.Descriptor{Provider: provider, Model: modelID, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}},
+		Instructions: "be useful", Model: model.Descriptor{Provider: provider, Model: modelID, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		ReasoningChoice: model.ReasoningChoiceHigh,
 		History: []agent.HistoryEntry{
 			{

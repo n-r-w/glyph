@@ -6,11 +6,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence/sessionfilesystem"
 	sessionstore "github.com/n-r-w/glyph/host/internal/infra/persistence/sessions"
 	"github.com/n-r-w/glyph/host/internal/infra/sessionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
@@ -23,6 +27,31 @@ type sessionComposition struct {
 	control *sessioncontrol.Service
 	// gate serializes session replacement with agent execution across all client paths.
 	gate *operationgate.Service
+	// pricing binds the provider catalog after storage initialization and before client execution.
+	pricing *pricingCatalogBinding
+}
+
+// pricingCatalogBinding preserves storage-first startup while binding the UI-dependent provider catalog once.
+type pricingCatalogBinding struct {
+	catalog *providers.Catalog
+}
+
+var _ hostsessions.PricingCatalog = (*pricingCatalogBinding)(nil)
+
+// Bind completes application assembly before Agent Core or any client can append a model response.
+func (b *pricingCatalogBinding) Bind(catalog *providers.Catalog) {
+	if b.catalog != nil || catalog == nil {
+		panic("pricing catalog binding must be completed exactly once")
+	}
+	b.catalog = catalog
+}
+
+// Pricing delegates exact provider-model lookup after application assembly is complete.
+func (b *pricingCatalogBinding) Pricing(providerID model.ProviderID, modelID model.ID) mo.Option[model.Pricing] {
+	if b.catalog == nil {
+		panic("pricing catalog lookup before application assembly")
+	}
+	return b.catalog.Pricing(providerID, modelID)
 }
 
 // newSessionComposition prepares project storage before providers, clients, or agent runs start.
@@ -38,7 +67,10 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 	repository := sessionstore.New(
 		filepath.Join(paths.Directory, "sessions"), canonical, sessionfilesystem.New(),
 	)
-	active := hostsessions.New(repository, sessionruntime.CryptoIDGenerator{}, sessionruntime.SystemClock{}, canonical)
+	pricing := &pricingCatalogBinding{catalog: nil}
+	active := hostsessions.New(
+		repository, sessionruntime.CryptoIDGenerator{}, sessionruntime.SystemClock{}, pricing, canonical,
+	)
 	if initializeErr := active.Initialize(ctx); initializeErr != nil {
 		return sessionComposition{}, initializeErr
 	}
@@ -47,5 +79,6 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 		active:  active,
 		control: sessioncontrol.New(active, gate),
 		gate:    gate,
+		pricing: pricing,
 	}, nil
 }

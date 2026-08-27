@@ -334,7 +334,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 				ReasoningCapabilities: model.ReasoningCapabilities{},
 				ToolCapabilities:      model.ToolCapabilities{},
 				Provider:              ProviderID,
-				Model:                 "gpt-selected",
+				Model:                 "gpt-selected", Pricing: mo.None[model.Pricing](),
 			},
 			History: []agent.HistoryEntry{
 				{
@@ -508,9 +508,11 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	}, events[1].ToolCall.OrEmpty())
 }
 
+// TestDriverStreamRejectsInvalidFinalFunctionArguments verifies malformed final arguments terminate without a tool-call end.
 func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an authenticated stream with malformed final function arguments.
 	accountID := "account-invalid-tool"
 	accessToken := testJWT(t, map[string]any{
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
@@ -540,6 +542,8 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	events := make([]run.StreamEvent, 0)
+
+	// Act by consuming the malformed provider stream.
 	err := service.Stream(t.Context(), run.ModelRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
@@ -550,6 +554,8 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		events = append(events, event)
 		return nil
 	})
+
+	// Assert the request fails without publishing a completed tool call.
 	require.Error(t, err)
 	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
@@ -1637,7 +1643,7 @@ func testModelDescriptor(modelID string) model.Descriptor {
 				Lark:  true,
 				Regex: true,
 			},
-		},
+		}, Pricing: mo.None[model.Pricing](),
 	}
 }
 

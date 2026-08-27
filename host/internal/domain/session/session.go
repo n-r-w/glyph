@@ -70,6 +70,8 @@ type Entry struct {
 	User mo.Option[UserMessage]
 	// Model contains one terminal model response.
 	Model mo.Option[ModelResponse]
+	// EstimatedCost contains the calculated cost persisted with a model response.
+	EstimatedCost mo.Option[EstimatedCost]
 	// ToolResult contains one terminal tool execution result.
 	ToolResult mo.Option[ToolResult]
 	// Extension contains one session-only extension entry.
@@ -126,7 +128,23 @@ type TokenUsage struct {
 	TotalTokens int64
 }
 
-// Statistics contains counts that are always available and optional complete token totals.
+// EstimatedCost contains calculated USD cost for disjoint token buckets.
+type EstimatedCost struct {
+	Input      float64
+	Output     float64
+	CacheRead  float64
+	CacheWrite float64
+	Total      float64
+}
+
+// ProviderModelCost groups persisted cost by configured provider and requested model.
+type ProviderModelCost struct {
+	Provider      model.ProviderID
+	Model         model.ID
+	EstimatedCost mo.Option[EstimatedCost]
+}
+
+// Statistics contains counts and optional complete token and cost totals.
 type Statistics struct {
 	// UserMessages counts durable user entries.
 	UserMessages int
@@ -140,6 +158,10 @@ type Statistics struct {
 	TotalMessages int
 	// TokenUsage is available only when every durable model response has usage.
 	TokenUsage mo.Option[TokenUsage]
+	// EstimatedCost is available only when every durable model response has persisted cost.
+	EstimatedCost mo.Option[EstimatedCost]
+	// CostBreakdown groups persisted cost by configured provider and requested model.
+	CostBreakdown []ProviderModelCost
 }
 
 // InformationSnapshot contains coherent active-session metadata and accounting.

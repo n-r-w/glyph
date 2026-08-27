@@ -59,7 +59,7 @@ func runRestrictiveUmaskAppend(t *testing.T) {
 			ToolResult: mo.None[session.ToolResult](),
 			ID:         "entry", CreatedAt: createdAt,
 			Information: mo.Some(session.Information{Name: "restricted"}),
-			Extension:   mo.None[session.ExtensionEnvelope]()},
+			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
 	})
 	require.NoError(t, err)
 	info, err := os.Stat(result.StoragePath)

@@ -24,6 +24,7 @@ type ServiceSuite struct {
 	repository *MockRepository
 	ids        *MockIDGenerator
 	clock      *MockClock
+	pricing    *MockPricingCatalog
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -37,17 +38,24 @@ func (s *ServiceSuite) SetupTest() {
 	s.repository = NewMockRepository(controller)
 	s.ids = NewMockIDGenerator(controller)
 	s.clock = NewMockClock(controller)
+	s.pricing = NewMockPricingCatalog(controller)
+	s.pricing.EXPECT().Pricing(gomock.Any(), gomock.Any()).Return(mo.None[model.Pricing]()).AnyTimes()
 }
 
+// TestInitializeCreatesUnpersistedActiveSession verifies initialization creates only an in-memory active session.
 func (s *ServiceSuite) TestInitializeCreatesUnpersistedActiveSession() {
+	// Arrange deterministic session identity and creation time.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
+
+	// Act by initializing the active-session service.
 	s.Require().NoError(service.Initialize(s.T().Context()))
 
+	// Assert the active session has no durable name or storage path.
 	s.Equal(session.Info{
 		ID:               "session-id",
 		Name:             mo.None[string](),
@@ -64,7 +72,7 @@ func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() 
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.ids.EXPECT().NewID().Return("created-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by creating the active session and mutating the returned replacement.
 	created, err := service.CreateActive(s.T().Context())
@@ -107,11 +115,11 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 			ID:          "entry-id",
 			CreatedAt:   updatedAt,
 			Information: mo.Some(session.Information{Name: "release notes"}),
-			Extension:   mo.None[session.ExtensionEnvelope]()},
+			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
 	}).Return(AppendResult{StoragePath: "/sessions/file.jsonl"}, nil)
 
 	// Act by initializing the service and setting a whitespace-heavy name.
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
 	info, err := service.SetActiveName(s.T().Context(), "  release\r\n\nnotes  ")
 	s.Require().NoError(err)
@@ -121,20 +129,27 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 	s.Equal(updatedAt, info.UpdatedAt)
 }
 
+// TestSetNameRejectsWhitespaceWithoutPersistence verifies blank normalized names do not reach persistence.
 func (s *ServiceSuite) TestSetNameRejectsWhitespaceWithoutPersistence() {
+	// Arrange an initialized unnamed active session.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
 
+	// Act by assigning a whitespace-only name.
 	_, err := service.SetActiveName(s.T().Context(), " \r\n\t ")
+
+	// Assert validation rejects the name and preserves the unnamed state.
 	s.Require().ErrorIs(err, session.ErrInvalidName)
 	s.Equal(mo.None[string](), service.ActiveInfo().Name)
 }
 
+// TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps verifies each name update owns a new entry identity and time.
 func (s *ServiceSuite) TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps() {
+	// Arrange two ordered name updates with distinct IDs and timestamps.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	firstUpdate := createdAt.Add(time.Minute)
 	secondUpdate := createdAt.Add(2 * time.Minute)
@@ -163,11 +178,15 @@ func (s *ServiceSuite) TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps() {
 		),
 	)
 
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
+
+	// Act by assigning two consecutive durable names.
 	_, err := service.SetActiveName(s.T().Context(), "first")
 	s.Require().NoError(err)
 	info, err := service.SetActiveName(s.T().Context(), "second")
+
+	// Assert the second unique entry and supplied time become active.
 	s.Require().NoError(err)
 	s.Equal(mo.Some("second"), info.Name)
 	s.Equal(secondUpdate, info.UpdatedAt)
@@ -182,7 +201,7 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 		{Header: session.Header{Version: 1, ID: "z-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/z.jsonl", Entries: nil},
 		{Header: session.Header{Version: 1, ID: "a-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/a.jsonl", Entries: nil},
 	}, nil)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by listing reconstructed session summaries.
 	listed, err := service.ListStored(s.T().Context())
@@ -210,7 +229,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 			{
 				ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 				User: mo.Some(model.TextMessage("question")), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			{
 				ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
@@ -219,7 +238,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			{
 				ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
@@ -227,11 +246,11 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 		},
 	}}, nil)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by listing the stored session.
 	listed, err := service.ListStored(s.T().Context())
@@ -251,14 +270,14 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
-			Information: mo.Some(session.Information{Name: "stored name"}),
+			Information: mo.Some(session.Information{Name: "stored name"}), EstimatedCost: mo.None[session.EstimatedCost](),
 		}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header:      session.Header{Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
 		StoragePath: "/sessions/stored.jsonl",
 		Entries:     entries,
 	}, nil)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming and mutating source and returned replacement values.
 	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
@@ -286,7 +305,7 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 		ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: "example.extension", EntryType: "checkpoint", Data: repositoryBytes,
-		}),
+		}), EstimatedCost: mo.None[session.EstimatedCost](),
 	}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header: session.Header{
@@ -294,7 +313,7 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 		},
 		StoragePath: "/sessions/stored.jsonl", Entries: entries,
 	}, nil)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming, then mutating repository input, returned replacement, and one active snapshot.
 	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
@@ -317,7 +336,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	createdAt := time.Date(2026, 8, 27, 2, 0, 0, 0, time.UTC)
 	s.ids.EXPECT().NewID().Return("old-session", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	_, err := service.CreateActive(s.T().Context())
 	s.Require().NoError(err)
 
@@ -335,7 +354,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 				Entries: []session.Entry{{
 					ID: "stored-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 					User: mo.Some(model.TextMessage("stored text")), Model: mo.None[model.Response](),
-					ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+					ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 				}},
 			}, nil
 		},
@@ -420,7 +439,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 			},
 		),
 	)
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
 
 	// Act by appending user and model entries before reading snapshots.
@@ -479,14 +498,16 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	s.Equal(2, listed[0].TotalMessages)
 }
 
+// TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication verifies terminal history is durable and independently owned.
 func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication() {
+	// Arrange terminal model and tool-result entries with ordered persistence expectations.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	modelAt := createdAt.Add(time.Second)
 	toolAt := createdAt.Add(2 * time.Second)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
@@ -530,6 +551,8 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 			},
 		),
 	)
+
+	// Act by appending the terminal model response and its tool result.
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](), Model: mo.Some(response),
 		ToolResult: mo.None[agent.ToolResult](),
@@ -539,6 +562,7 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 		ToolResult: mo.Some(result),
 	}))
 
+	// Assert durable entries precede publication and escaped snapshots cannot mutate active state.
 	entries := active.ActiveEntries()
 	s.Require().Len(entries, 2)
 	s.Equal(response, entries[0].Model.MustGet())
@@ -555,12 +579,14 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 	s.Equal("result", active.Snapshot()[1].ToolResult.MustGet().Contents[0].Text.MustGet())
 }
 
+// TestTerminalModelProjectionPreservesContentSliceStateAndOrder verifies nil, empty, and ordered content remain distinct.
 func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndOrder() {
+	// Arrange terminal responses for each supported content slice state.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
 	ordered := []model.Content{
@@ -613,6 +639,7 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 		)
 	}
 
+	// Act by appending each terminal model response.
 	for index := range cases {
 		test := cases[index]
 		response := model.Response{
@@ -625,6 +652,7 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 			ToolResult: mo.None[agent.ToolResult](),
 		}))
 
+		// Assert durable and provider-history projections preserve state and order.
 		durableContent := active.ActiveEntries()[index].Model.MustGet().Content
 		s.Equal(test.content == nil, durableContent == nil)
 		s.Equal(test.content, durableContent)
@@ -641,7 +669,7 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 	result := agent.ToolResult{
 		CallID: "call", ToolName: "read", Contents: tool.TextContents("completed effect"), IsError: false,
@@ -670,7 +698,7 @@ func (s *ServiceSuite) TestImageOnlyToolResultBecomesDurable() {
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 	result := agent.ToolResult{
 		CallID: "call", ToolName: "read",
@@ -712,7 +740,7 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
 	gomock.InOrder(
@@ -773,7 +801,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 	).AnyTimes()
 	// Act by reconstructing the session, mutating escaped snapshots, and taking the next provider snapshot.
-	active := New(s.repository, s.ids, s.clock, "/project")
+	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
 	call := model.ToolCall{ID: "call-1", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
@@ -849,7 +877,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 		StoragePath: "/sessions/history.jsonl", Entries: persisted,
 	}, nil)
-	restarted := New(s.repository, s.ids, s.clock, "/project")
+	restarted := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	_, err := restarted.ResumeActive(s.T().Context(), "session-id")
 	s.Require().NoError(err)
 	persistedUser := persisted[0].User.MustGet()
@@ -871,7 +899,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	runtime.EXPECT().Current().Return(agentrun.RuntimeSelection{
 		Model: model.Descriptor{
 			Provider: "provider", Model: "model", ReasoningCapabilities: model.ReasoningCapabilities{},
-			ToolCapabilities: model.ToolCapabilities{},
+			ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
 		ReasoningChoice: model.ReasoningChoiceOff,
 		Provider:        provider,
@@ -903,7 +931,9 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	s.Require().ErrorIs(err, providerErr)
 }
 
+// TestSetNameAppendFailurePreservesExistingNameAndStoragePath verifies failed renaming keeps prior durable metadata.
 func (s *ServiceSuite) TestSetNameAppendFailurePreservesExistingNameAndStoragePath() {
+	// Arrange one successful name append followed by one failed append.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
@@ -917,12 +947,16 @@ func (s *ServiceSuite) TestSetNameAppendFailurePreservesExistingNameAndStoragePa
 		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("write failed")),
 	)
 
-	service := New(s.repository, s.ids, s.clock, "/project")
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(service.Initialize(s.T().Context()))
 	_, err := service.SetActiveName(s.T().Context(), "stable name")
 	s.Require().NoError(err)
 	before := service.ActiveInfo()
+
+	// Act by attempting the failing second name update.
 	_, err = service.SetActiveName(s.T().Context(), "lost name")
+
+	// Assert the prior name and storage path remain active.
 	s.Require().Error(err)
 	s.Equal(mo.Some("stable name"), before.Name)
 	s.Equal(mo.Some("/sessions/file.jsonl"), before.StoragePath)

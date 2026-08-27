@@ -105,9 +105,10 @@ type SessionEntry struct {
 	CreatedAt time.Time
 	Kind      HistoryEntryKind
 	// User carries ordered public text and image content for detailed session entries.
-	User       mo.Option[model.Message]
-	Model      mo.Option[ModelResponse]
-	ToolResult mo.Option[ToolResult]
+	User          mo.Option[model.Message]
+	Model         mo.Option[ModelResponse]
+	EstimatedCost mo.Option[session.EstimatedCost]
+	ToolResult    mo.Option[ToolResult]
 }
 
 // ModelsResult contains configured models and the active selection.

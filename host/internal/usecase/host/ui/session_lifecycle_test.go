@@ -27,7 +27,7 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 	info := testSessionInfo("stored")
 	statistics := session.Statistics{
 		UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-		TokenUsage: mo.Some(session.TokenUsage{}),
+		TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
 	}
 	summary := session.Summary{Info: info, FirstUserText: mo.None[string](), TotalMessages: 0}
 	tests := []struct {
@@ -132,6 +132,7 @@ func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
 			ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 		}},
 	})
 
@@ -155,7 +156,7 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 		User:       mo.Some(model.TextMessage("session-b-text")),
 		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](),
-		Extension:  mo.None[session.ExtensionEnvelope]()}
+		Extension:  mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()}
 	firstReplacementReady := make(chan struct{})
 	releaseFirstReplacement := make(chan struct{})
 	control.EXPECT().Create(gomock.Any()).DoAndReturn(func(context.Context) (session.Replacement, error) {
@@ -237,23 +238,26 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 		{
 			ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 		{
 			ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "example", EntryType: "private", Data: []byte(`{"private":true}`)}),
+			Extension: mo.Some(session.ExtensionEnvelope{
+				ExtensionID: "example", EntryType: "private", Data: []byte(`{"private":true}`),
+			}),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 		},
 	})
 
@@ -364,7 +368,7 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 		Info: info,
 		Statistics: session.Statistics{
 			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-			TokenUsage: mo.Some(session.TokenUsage{}),
+			TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
 		},
 	}).Times(2)
 	channel.EXPECT().Send(gomock.Any()).Times(5)

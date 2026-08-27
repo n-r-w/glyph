@@ -581,34 +581,67 @@ func (model Model) emitSessionCommand(kind presentationdomain.CommandKind, id, n
 	return model.emitCommand(command)
 }
 
-// formatSessionInformation renders metadata, message counts, and optional token usage.
+// formatSessionInformation renders metadata, message counts, and optional token and cost values.
 func formatSessionInformation(
 	info presentationdomain.SessionInfo,
 	statistics mo.Option[presentationdomain.SessionStatistics],
 ) string {
 	lines := []string{formatSessionInfo(info)}
-	if values, present := statistics.Get(); present {
-		lines = append(lines,
-			fmt.Sprintf(
-				"Messages: %d user, %d model, %d tool results, %d total",
-				values.UserMessages, values.ModelResponses, values.ToolResults, values.TotalMessages,
-			),
-			fmt.Sprintf("Tool calls: %d", values.ToolCalls),
-		)
-		if tokens, available := values.TokenUsage.Get(); available {
-			lines = append(lines,
-				fmt.Sprintf(
-					"Tokens: %d input, %d output, %d cache read, %d cache write, %d total",
-					tokens.InputTokens, tokens.OutputTokens, tokens.CacheReadTokens,
-					tokens.CacheWriteTokens, tokens.TotalTokens,
-				),
-				fmt.Sprintf("Reasoning tokens: %d, included in output", tokens.ReasoningTokens),
-			)
+	values, present := statistics.Get()
+	if !present {
+		return strings.Join(lines, "\n")
+	}
+	lines = append(lines,
+		fmt.Sprintf(
+			"Messages: %d user, %d model, %d tool results, %d total",
+			values.UserMessages, values.ModelResponses, values.ToolResults, values.TotalMessages,
+		),
+		fmt.Sprintf("Tool calls: %d", values.ToolCalls),
+	)
+	lines = appendSessionTokenLines(lines, values.TokenUsage)
+	lines = appendSessionCostLines(lines, values)
+	return strings.Join(lines, "\n")
+}
+
+// appendSessionTokenLines renders token availability without affecting count lines.
+func appendSessionTokenLines(
+	lines []string,
+	usage mo.Option[presentationdomain.TokenUsage],
+) []string {
+	tokens, available := usage.Get()
+	if !available {
+		return append(lines, "Tokens: unavailable")
+	}
+	return append(lines,
+		fmt.Sprintf(
+			"Tokens: %d input, %d output, %d cache read, %d cache write, %d total",
+			tokens.InputTokens, tokens.OutputTokens, tokens.CacheReadTokens,
+			tokens.CacheWriteTokens, tokens.TotalTokens,
+		),
+		fmt.Sprintf("Reasoning tokens: %d, included in output", tokens.ReasoningTokens),
+	)
+}
+
+// appendSessionCostLines renders aggregate and ordered provider-model cost availability.
+func appendSessionCostLines(
+	lines []string,
+	statistics presentationdomain.SessionStatistics,
+) []string {
+	if cost, available := statistics.EstimatedCost.Get(); available {
+		lines = append(lines, fmt.Sprintf("Estimated cost: $%.6f", cost.Total))
+	} else {
+		lines = append(lines, "Estimated cost: unavailable")
+	}
+	for groupIndex := range statistics.CostBreakdown {
+		group := &statistics.CostBreakdown[groupIndex]
+		label := group.ProviderID + "/" + group.ModelID
+		if cost, available := group.EstimatedCost.Get(); available {
+			lines = append(lines, fmt.Sprintf("%s: $%.6f", label, cost.Total))
 		} else {
-			lines = append(lines, "Tokens: unavailable")
+			lines = append(lines, label+": unavailable")
 		}
 	}
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 // formatSessionInfo renders lifecycle-only session metadata as safe presentation text.

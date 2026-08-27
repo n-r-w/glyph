@@ -22,6 +22,14 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 	statistics := session.Statistics{
 		UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 		TokenUsage: mo.Some(session.TokenUsage{}),
+		EstimatedCost: mo.Some(session.EstimatedCost{
+			Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+		}),
+		CostBreakdown: []session.ProviderModelCost{{
+			Provider: "provider", Model: "model", EstimatedCost: mo.Some(session.EstimatedCost{
+				Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+			}),
+		}},
 	}
 	control.EXPECT().Statistics().Return(statistics)
 	service := New(nil, nil, nil, nil, control, nil)

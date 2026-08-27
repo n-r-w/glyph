@@ -5,6 +5,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
@@ -46,6 +49,11 @@ type LoadedSession struct {
 	StoragePath string
 	// Entries preserves validated file order.
 	Entries []session.Entry
+}
+
+// PricingCatalog resolves configured pricing by exact provider and requested model identity.
+type PricingCatalog interface {
+	Pricing(model.ProviderID, model.ID) mo.Option[model.Pricing]
 }
 
 // IDGenerator creates opaque session and entry identifiers.

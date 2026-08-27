@@ -64,8 +64,9 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	modelEntry := session.Entry{
 		ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}
+
 	// Act by round-tripping terminal model and tool-result records through JSONL.
 	encodedModel, err := encodeEntry(modelEntry)
 	require.NoError(t, err)
@@ -83,7 +84,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	toolEntry := session.Entry{
 		ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 	encodedTool, err := encodeEntry(toolEntry)
 	require.NoError(t, err)
@@ -113,7 +114,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: test.responseID, Usage: test.usage, Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			}
 			encoded, encodeErr := encodeEntry(entry)
 			require.NoError(t, encodeErr)
@@ -151,7 +152,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 				}}),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -177,7 +178,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					Usage:       mo.None[model.Usage](),
 					Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -199,7 +200,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 						{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/webp", Data: []byte{3, 2, 1, 0}})},
 					},
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -217,7 +218,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 				Extension: mo.Some(session.ExtensionEnvelope{
 					ExtensionID: "example.extension", EntryType: "checkpoint",
 					Data: []byte("{\n  \"text\": \"line\\nvalue\", \"items\": [1, 2]\n}"),
-				}),
+				}), EstimatedCost: mo.None[session.EstimatedCost](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -294,6 +295,7 @@ func TestDecodeModelContentShape(t *testing.T) {
 						Outcome: model.OutcomeStop, ErrorMessage: nil, Provider: nil, Model: nil,
 						ResponseModel: nil, ResponseID: nil, Usage: nil, Diagnostics: nil,
 					},
+					EstimatedCost: nil,
 				})
 				require.NoError(t, err)
 				_, err = decodeEntry(line)
@@ -403,8 +405,9 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 					Data: mo.Some(test.data),
 				}}}),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			}
+
 			// Act by round-tripping user and tool-result images through JSONL.
 			encoded, err := encodeEntry(userEntry)
 			require.NoError(t, err)
@@ -426,7 +429,7 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: test.data}),
 					}},
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			}
 			encoded, err = encodeEntry(toolEntry)
 			require.NoError(t, err)
@@ -465,7 +468,7 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "tool", Contents: test.contents, IsError: false,
-				}), Extension: mo.None[session.ExtensionEnvelope](),
+				}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			}
 
 			encoded, err := encodeEntry(entry)
@@ -519,7 +522,7 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 					Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 			}
 
 			encoded, err := encodeEntry(entry)
@@ -539,9 +542,11 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation verifies durability precedes active publication.
 func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 	t.Parallel()
 
+	// Arrange the active service and ordered filesystem expectations.
 	controller := gomock.NewController(t)
 	fileSystem := NewMockFileSystem(controller)
 	file := NewMockFile(controller)
@@ -552,7 +557,7 @@ func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 	require.NoError(t, err)
 	repository := New(root, project, fileSystem)
 	repositoryMock := hostsessions.NewMockRepository(controller)
-	active := hostsessions.New(repositoryMock, ids, clock, project)
+	active := hostsessions.New(repositoryMock, ids, clock, nil, project)
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Second)
 	repositoryMock.EXPECT().Initialize(gomock.Any()).DoAndReturn(repository.Initialize)
@@ -597,16 +602,21 @@ func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 			return nil
 		}),
 	)
+	// Act by assigning the first durable session name.
 	info, err := active.SetActiveName(t.Context(), "ordered")
+
+	// Assert mode, write, sync, and close finish before active state changes.
 	require.NoError(t, err)
 	require.Equal(t, []string{"open", "mode", "write", "sync", "close", "repository return"}, steps)
 	require.Equal(t, mo.Some("ordered"), info.Name)
 	require.True(t, info.StoragePath.IsPresent())
 }
 
+// TestNameAppendFailuresPreserveActiveState verifies each initial-write failure keeps the active snapshot unchanged.
 func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 	t.Parallel()
 
+	// Arrange each filesystem failure stage as an independent scenario.
 	for _, stage := range []string{"open", "mode", "write", "sync", "close"} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
@@ -619,7 +629,7 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			project, err := CanonicalWorkingDirectory(t.TempDir())
 			require.NoError(t, err)
 			repository := New(root, project, fileSystem)
-			active := hostsessions.New(repository, ids, clock, project)
+			active := hostsessions.New(repository, ids, clock, nil, project)
 			createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 			ids.EXPECT().NewID().Return("session-id", nil)
 			clock.EXPECT().Now().Return(createdAt)
@@ -628,7 +638,11 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			ids.EXPECT().NewID().Return("entry-id", nil)
 			clock.EXPECT().Now().Return(createdAt.Add(time.Second))
 			expectInitialAppendFailure(t, stage, repository, fileSystem, file)
+
+			// Act by assigning a name through the failing append stage.
 			_, err = active.SetActiveName(t.Context(), "must not commit")
+
+			// Assert the error leaves active identity and storage unchanged.
 			require.Error(t, err)
 			require.Equal(t, before, active.ActiveInfo())
 		})

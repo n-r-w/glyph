@@ -65,6 +65,7 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a shared catalog with supported reasoning choices and one selection.
 	catalog := NewMockModelCatalog(gomock.NewController(t))
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
 		Provider: "openai-codex",
@@ -78,7 +79,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 			},
 			Default: model.ReasoningChoiceHigh,
 		},
-		ToolCapabilities: model.ToolCapabilities{},
+		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}, {
 		Provider: "ollama",
 		Model:    "ornith",
@@ -87,7 +88,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 			Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
 			Default:   model.ReasoningChoiceOn,
 		},
-		ToolCapabilities: model.ToolCapabilities{},
+		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
 		Provider:        "openai-codex",
@@ -95,8 +96,10 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoiceHigh,
 	})
 
+	// Act by building the UI initialization snapshot.
 	initialization := BuildInitialization("selected", toolservice.LoadReport{}, nil, catalog)
 
+	// Assert all catalog models and the active selection are mapped exactly.
 	require.Len(t, initialization.Models, 2)
 	assert.Equal(t, "openai-codex", initialization.Models[0].ProviderID)
 	assert.Equal(t, "gpt", initialization.Models[0].ModelID)
@@ -146,7 +149,7 @@ func testModelCatalog(t *testing.T) ModelCatalog {
 			Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},
 			Default:   model.ReasoningChoiceHigh,
 		},
-		ToolCapabilities: model.ToolCapabilities{},
+		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}})
 	catalog.EXPECT().Selection().Return(model.Selection{
 		Provider:        "openai-codex",
