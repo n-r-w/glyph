@@ -30,6 +30,7 @@ NO BACKWARDS COMPATIBILITY AT ALL. This is new project
 1. Use `t.Context()` instead of `context.Background()`
 2. Use `go.uber.org/mock` for mocks. Custom mocks are FORBIDDEN. Use `//go:generate go tool mockgen ...` to generate mocks
 3. Use `github.com/stretchr/testify` and `testify/suite`
+4. Use `t.Parallel()` if possible
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
 1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
