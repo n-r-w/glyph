@@ -258,6 +258,10 @@ func runHeadlessWithPaths(
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
+	if errors.Is(executionErr, agentrun.ErrPersistenceUnavailable) {
+		// The application boundary keeps persistence classification while exposing only its fixed public text.
+		executionErr = agentrun.ErrPersistenceUnavailable
+	}
 	if executionErr != nil {
 		slog.ErrorContext(context.WithoutCancel(ctx), "headless Glyph application failed", "error", executionErr)
 		return executionErr

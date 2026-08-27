@@ -14,6 +14,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // TestExecuteMapsCompletedRunToZero verifies one parsed request reaches concrete composition.
@@ -80,6 +81,26 @@ func TestExecuteRejectsUIAndInvalidCardinalityWithUsageExit(t *testing.T) {
 			assert.Contains(t, stderr.String(), "[error]")
 		})
 	}
+}
+
+// TestExecuteWritesSafePersistenceFailure verifies the final CLI renderer preserves exact public persistence text.
+func TestExecuteWritesSafePersistenceFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one parsed headless command whose application boundary returns the safe classified error.
+	var stderr bytes.Buffer
+
+	// Act by executing through the final CLI return and rendering boundary.
+	exitCode := execute(
+		t.Context(), []string{"run", "request"}, &bytes.Buffer{}, &stderr,
+		func(context.Context, cli.Command, io.Writer, io.Writer) error {
+			return agentrun.ErrPersistenceUnavailable
+		},
+	)
+
+	// Assert the process result fails and stderr contains only the exact public persistence text.
+	assert.Equal(t, 1, exitCode)
+	assert.Equal(t, "[error] session persistence failed\n", stderr.String())
 }
 
 // TestExecuteMapsRuntimeAndCancellationErrorsToNonzero verifies terminal failures are rendered once.

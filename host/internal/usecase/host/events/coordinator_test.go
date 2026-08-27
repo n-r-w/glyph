@@ -108,7 +108,11 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 	controller := gomock.NewController(t)
 	gate := NewMockOperationGate(controller)
 	released := 0
-	gate.EXPECT().TryAcquire().Return(func() { released++ }, true)
+	sequence := make([]string, 0, 3)
+	gate.EXPECT().TryAcquire().Return(func() {
+		released++
+		sequence = append(sequence, "release")
+	}, true)
 	settled := 0
 	settle := 0
 	coordinator := newCoordinator(
@@ -118,9 +122,14 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 				ErrorMessage: mo.Some("session persistence failed"),
 			}, run.ErrPersistenceUnavailable
 		},
-		func(string) error { settle++; return nil },
+		func(string) error {
+			settle++
+			sequence = append(sequence, "settle")
+			return nil
+		},
 		NewDispatcher(func(context.Context, run.Event) error { return nil }, func(context.Context, string) error {
 			settled++
+			sequence = append(sequence, "settled")
 			return nil
 		}),
 		func() (string, error) { return "failed-run", nil },
@@ -136,6 +145,7 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 	assert.Equal(t, 1, settle)
 	assert.Equal(t, 1, settled)
 	assert.Equal(t, 1, released)
+	assert.Equal(t, []string{"settle", "settled", "release"}, sequence)
 }
 
 // TestCoordinatorSettlesAfterDeliveryFailures verifies one attempt per terminal step without retry.
