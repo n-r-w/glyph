@@ -170,7 +170,8 @@ func TestListWarnsOnceForNonregularSessionFile(t *testing.T) {
 	assert.Equal(t, "WARN", warning["level"])
 	assert.Equal(t, "session file is unavailable", warning["msg"])
 	assert.Equal(t, "list", warning["operation"])
-	assert.Equal(t, "session file is not regular", warning["error"])
+	assert.Equal(t, "nonregular_session_file", warning["diagnostic"])
+	assert.NotContains(t, warning, "error")
 	assert.NotContains(t, warning, "session_id")
 	for _, forbidden := range []string{
 		projectDirectory, "user-derived-id", "Stored", "provider-context", "extension-json", "secret-content",

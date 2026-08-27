@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -673,6 +675,73 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			// Assert the error leaves active identity and storage unchanged.
 			require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
 			require.Equal(t, before, active.ActiveInfo())
+		})
+	}
+}
+
+// TestInvalidListWarningsDiscardRawErrorDetails verifies raw storage and decode failures cannot enter JSON logs.
+//
+//nolint:paralleltest // The test temporarily captures the process-global structured logger.
+func TestInvalidListWarningsDiscardRawErrorDetails(t *testing.T) {
+	// Arrange path, decoder, timestamp, and extension errors with distinct secret markers.
+	tests := []struct {
+		name      string
+		err       error
+		forbidden []string
+	}{
+		{
+			name: "path error",
+			err: &os.PathError{
+				Op: "open-secret-operation", Path: "/secret/absolute/secret-stored-id.jsonl",
+				Err: os.ErrPermission,
+			},
+			forbidden: []string{"open-secret-operation", "/secret/absolute", "secret-stored-id"},
+		},
+		{
+			name: "decoder error",
+			err: &json.UnmarshalTypeError{
+				Value: "secret-stored-id-secret-persisted-scalar", Type: reflect.TypeFor[int64](),
+				Offset: 0, Struct: "", Field: "usage.totalTokens",
+			},
+			forbidden: []string{"secret-persisted-scalar", "usage.totalTokens", "cannot unmarshal"},
+		},
+		{
+			name: "timestamp error",
+			err: &time.ParseError{
+				Layout: time.RFC3339, Value: "secret-stored-id-secret-timestamp",
+				LayoutElem: "2006", ValueElem: "secret-timestamp", Message: "",
+			},
+			forbidden: []string{"secret-timestamp", "cannot parse"},
+		},
+		{
+			name:      "extension JSON error",
+			err:       errors.New("invalid extension JSON secret-stored-id secret-extension-json raw-wrapper-text"),
+			forbidden: []string{"secret-extension-json", "raw-wrapper-text", "invalid extension JSON"},
+		},
+	}
+	previousLogger := slog.Default()
+	defer slog.SetDefault(previousLogger)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+
+			// Act by sending the raw failure through the invalid-list warning boundary.
+			warnUnavailableSession(t.Context(), "list", safeListWarningDiagnostic(test.err))
+
+			// Assert the warning retains only operation and a closed diagnostic category.
+			var warning map[string]any
+			require.NoError(t, json.Unmarshal(bytes.TrimSpace(output.Bytes()), &warning))
+			assert.Equal(t, "WARN", warning["level"])
+			assert.Equal(t, "session file is unavailable", warning["msg"])
+			assert.Equal(t, "list", warning["operation"])
+			assert.Equal(t, "invalid_session_file", warning["diagnostic"])
+			assert.NotContains(t, warning, "error")
+			assert.NotContains(t, warning, "session_id")
+			for _, marker := range append(test.forbidden, "secret-stored-id") {
+				assert.NotContains(t, output.String(), marker)
+			}
 		})
 	}
 }

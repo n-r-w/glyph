@@ -322,12 +322,12 @@ func (s *Service) List(ctx context.Context) ([]hostsessions.LoadedSession, error
 			continue
 		}
 		if !entry.Type().IsRegular() {
-			warnUnavailableSession(ctx, "list", "", errors.New("session file is not regular"))
+			warnUnavailableSession(ctx, "list", listDiagnosticNonregularSessionFile)
 			continue
 		}
 		pathResult, loadErr := s.loadPath(ctx, entry.Name(), loadForList)
 		if loadErr != nil {
-			warnUnavailableSession(ctx, "list", pathResult.loaded.Header.ID, loadErr)
+			warnUnavailableSession(ctx, "list", safeListWarningDiagnostic(loadErr))
 			continue
 		}
 		result = append(result, pathResult.loaded)
@@ -392,7 +392,7 @@ func (s *Service) loadPath(
 		return loadedPath{}, fmt.Errorf("inspect session file: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return loadedPath{}, errors.New("session file is not regular")
+		return loadedPath{}, nonregularSessionFileError{}
 	}
 	payload, err := readPayload(file)
 	if err != nil {
@@ -541,14 +541,34 @@ func decodeEntries(payload []byte) ([]session.Entry, error) {
 	return entries, nil
 }
 
-// warnUnavailableSession records validation context without stored record content.
-func warnUnavailableSession(ctx context.Context, operation string, id session.ID, err error) {
-	attributes := []any{"operation", operation}
-	if id != "" {
-		attributes = append(attributes, "session_id", id)
+type listWarningDiagnostic string
+
+const (
+	listDiagnosticInvalidSessionFile    listWarningDiagnostic = "invalid_session_file"
+	listDiagnosticNonregularSessionFile listWarningDiagnostic = "nonregular_session_file"
+)
+
+type nonregularSessionFileError struct{}
+
+func (nonregularSessionFileError) Error() string { return "session file is not regular" }
+
+// safeListWarningDiagnostic classifies failures without allowing raw storage or decode errors into logs.
+func safeListWarningDiagnostic(err error) listWarningDiagnostic {
+	var nonregular nonregularSessionFileError
+	if errors.As(err, &nonregular) {
+		return listDiagnosticNonregularSessionFile
 	}
-	attributes = append(attributes, "error", err)
-	slog.WarnContext(ctx, "session file is unavailable", attributes...)
+	return listDiagnosticInvalidSessionFile
+}
+
+// warnUnavailableSession accepts only closed diagnostics so raw errors and IDs cannot enter list logs.
+func warnUnavailableSession(ctx context.Context, operation string, diagnostic listWarningDiagnostic) {
+	slog.WarnContext(
+		ctx,
+		"session file is unavailable",
+		"operation", operation,
+		"diagnostic", diagnostic,
+	)
 }
 
 // warnRecoveredSession records a completed tail repair without stored record content.
