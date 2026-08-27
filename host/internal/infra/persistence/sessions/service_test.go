@@ -1,9 +1,11 @@
 package sessions
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,15 +23,21 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
+// TestTerminalModelAndToolResultRecordsRoundTripContinuationData verifies terminal identity and continuation data persist.
 func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T) {
 	t.Parallel()
 
+	// Arrange terminal model content, provider context, tool identity, usage, and tool output.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	call := model.ToolCall{ID: "call-1", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
 	response := model.Response{
 		Content: []model.Content{
 			{
 				Kind: model.ContentText, Text: mo.Some("before tool"), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
 				ProviderContext: mo.Some(model.ProviderContext{
 					Source: model.ProviderContextSource{
 						ProviderID: "provider", API: "responses", Model: "model",
@@ -56,9 +64,12 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	modelEntry := session.Entry{
 		ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.None[session.ExtensionEnvelope](),
 	}
+	// Act by round-tripping terminal model and tool-result records through JSONL.
 	encodedModel, err := encodeEntry(modelEntry)
 	require.NoError(t, err)
+	// Assert identity, outcomes, usage, provider context, and tool output survive exactly.
 	var modelRecord map[string]any
 	require.NoError(t, json.Unmarshal(encodedModel, &modelRecord))
 	require.Equal(t, "model", modelRecord["type"])
@@ -72,6 +83,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	toolEntry := session.Entry{
 		ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
+		Extension: mo.None[session.ExtensionEnvelope](),
 	}
 	encodedTool, err := encodeEntry(toolEntry)
 	require.NoError(t, err)
@@ -101,7 +113,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: test.responseID, Usage: test.usage, Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			}
 			encoded, encodeErr := encodeEntry(entry)
 			require.NoError(t, encodeErr)
@@ -112,9 +124,326 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	}
 }
 
+// TestFullContentRecordsRoundTrip verifies every durable content kind survives one compact JSONL record.
+func TestFullContentRecordsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one entry for each durable content family.
+	createdAt := time.Date(2026, 8, 27, 2, 0, 0, 0, time.UTC)
+	providerContext := model.ProviderContext{
+		Source: model.ProviderContextSource{
+			ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("compatible"),
+		},
+		Payload: []byte{0, 1, 2, 255},
+	}
+	tests := []struct {
+		name  string
+		entry session.Entry
+		check func(*testing.T, []byte, session.Entry)
+	}{
+		{
+			name: "ordered user text and image",
+			entry: session.Entry{
+				ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+				User: mo.Some(model.Message{Content: []model.InputContent{
+					{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+					{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{0, 10, 255})},
+					{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+				}}),
+				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+				Extension: mo.None[session.ExtensionEnvelope](),
+			},
+			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
+				t.Helper()
+				require.Len(t, decoded.User.MustGet().Content, 3)
+				require.Equal(t, "image/png", decoded.User.MustGet().Content[1].MediaType.MustGet())
+				require.Equal(t, []byte{0, 10, 255}, decoded.User.MustGet().Content[1].Data.MustGet())
+				require.Equal(t, 1, bytes.Count(encoded, []byte{'\n'}))
+			},
+		},
+		{
+			name: "visible model content diagnostics and opaque context",
+			entry: session.Entry{
+				ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](),
+				Model: mo.Some(model.Response{
+					Content: []model.Content{
+						{Kind: model.ContentRefusal, Text: mo.Some("refused"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+						{Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()},
+					},
+					Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+					Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+					ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
+					Usage:       mo.None[model.Usage](),
+					Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
+				}),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			},
+			check: func(t *testing.T, _ []byte, decoded session.Entry) {
+				t.Helper()
+				response := decoded.Model.MustGet()
+				require.Equal(t, "visible reasoning", response.Content[1].Text.MustGet())
+				require.Equal(t, []byte{0, 1, 2, 255}, response.Content[1].ProviderContext.MustGet().Payload)
+				require.Equal(t, []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}}, response.Diagnostics)
+			},
+		},
+		{
+			name: "ordered tool result image",
+			entry: session.Entry{
+				ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				ToolResult: mo.Some(agent.ToolResult{
+					CallID: "call", ToolName: "render", IsError: false,
+					Contents: []tool.ResultContent{
+						{Kind: tool.ResultContentText, Text: mo.Some("preview"), Image: mo.None[tool.ResultImage]()},
+						{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/webp", Data: []byte{3, 2, 1, 0}})},
+					},
+				}),
+				Extension: mo.None[session.ExtensionEnvelope](),
+			},
+			check: func(t *testing.T, _ []byte, decoded session.Entry) {
+				t.Helper()
+				image := decoded.ToolResult.MustGet().Contents[1].Image.MustGet()
+				require.Equal(t, "image/webp", image.MediaType)
+				require.Equal(t, []byte{3, 2, 1, 0}, image.Data)
+			},
+		},
+		{
+			name: "compact extension JSON",
+			entry: session.Entry{
+				ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+				Extension: mo.Some(session.ExtensionEnvelope{
+					ExtensionID: "example.extension", EntryType: "checkpoint",
+					Data: []byte("{\n  \"text\": \"line\\nvalue\", \"items\": [1, 2]\n}"),
+				}),
+			},
+			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
+				t.Helper()
+				require.Equal(t, 1, bytes.Count(encoded, []byte{'\n'}))
+				require.JSONEq(t, `{ "text": "line\nvalue", "items": [1, 2] }`, string(decoded.Extension.MustGet().Data))
+			},
+		},
+	}
+
+	// Act by encoding and decoding every entry through one JSONL record.
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			encoded, err := encodeEntry(test.entry)
+			require.NoError(t, err)
+			decoded, err := decodeEntry(encoded)
+
+			// Assert identity, content, framing, and opaque bytes survive exactly.
+			require.NoError(t, err)
+			require.Equal(t, test.entry.ID, decoded.ID)
+			test.check(t, encoded, decoded)
+		})
+	}
+}
+
+// TestEncodeModelContentShape verifies encoding accepts only provider-neutral terminal content shapes.
+func TestEncodeModelContentShape(t *testing.T) {
+	t.Parallel()
+
+	// Arrange all content kinds and all text, context, and tool-call presence masks.
+	kinds := []model.ContentKind{
+		model.ContentText, model.ContentToolCall, model.ContentReasoning, model.ContentRefusal,
+	}
+
+	// Act by validating each domain content shape during encoding.
+	for _, kind := range kinds {
+		for mask := range 8 {
+			name := fmt.Sprintf("%s/%03b", modelContentKindName(kind), mask)
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				content := modelContentShape(kind, mask)
+				_, err := encodeModelContent(&content)
+
+				// Assert only the shape allowed for this content kind succeeds.
+				if validModelContentShape(kind, mask) {
+					require.NoError(t, err)
+					return
+				}
+				require.Error(t, err)
+			})
+		}
+	}
+}
+
+// TestDecodeModelContentShape verifies JSONL decoding rejects every invalid terminal content shape.
+func TestDecodeModelContentShape(t *testing.T) {
+	t.Parallel()
+
+	// Arrange every JSONL field-presence mask for each model content kind.
+	kinds := []model.ContentKind{
+		model.ContentText, model.ContentToolCall, model.ContentReasoning, model.ContentRefusal,
+	}
+
+	// Act by decoding a strict JSONL model record for each shape.
+	for _, kind := range kinds {
+		for mask := range 8 {
+			name := fmt.Sprintf("%s/%03b", modelContentKindName(kind), mask)
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				line, err := encodeLine(modelRecord{
+					Type: "model", ID: "entry", CreatedAt: time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
+					Response: modelResponseRecord{
+						Content: []modelContentRecord{modelContentRecordShape(kind, mask)},
+						Outcome: model.OutcomeStop, ErrorMessage: nil, Provider: nil, Model: nil,
+						ResponseModel: nil, ResponseID: nil, Usage: nil, Diagnostics: nil,
+					},
+				})
+				require.NoError(t, err)
+				_, err = decodeEntry(line)
+
+				// Assert only the shape allowed for this content kind succeeds.
+				if validModelContentShape(kind, mask) {
+					require.NoError(t, err)
+					return
+				}
+				require.Error(t, err)
+			})
+		}
+	}
+}
+
+func modelContentShape(kind model.ContentKind, mask int) model.Content {
+	content := model.Content{
+		Kind: kind, Text: mo.None[string](), Final: true,
+		ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+	}
+	if mask&1 != 0 {
+		content.Text = mo.Some("visible")
+	}
+	if mask&2 != 0 {
+		content.ProviderContext = mo.Some(model.ProviderContext{
+			Source: model.ProviderContextSource{
+				ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.None[string](),
+			},
+			Payload: []byte("opaque"),
+		})
+	}
+	if mask&4 != 0 {
+		content.ToolCall = mo.Some(model.ToolCall{
+			ID: "call", Name: "tool", Arguments: map[string]any{"key": "value"},
+		})
+	}
+	return content
+}
+
+func modelContentRecordShape(kind model.ContentKind, mask int) modelContentRecord {
+	record := modelContentRecord{Kind: kind, Text: nil, ProviderContext: nil, ToolCall: nil}
+	if mask&1 != 0 {
+		record.Text = new("visible")
+	}
+	if mask&2 != 0 {
+		record.ProviderContext = &providerContextRecord{
+			ProviderID: "provider", API: "responses", Model: "model",
+			CompatibilityKey: nil, Payload: []byte("opaque"),
+		}
+	}
+	if mask&4 != 0 {
+		record.ToolCall = &toolCallRecord{
+			ID: "call", Name: "tool", Arguments: map[string]any{"key": "value"},
+		}
+	}
+	return record
+}
+
+func validModelContentShape(kind model.ContentKind, mask int) bool {
+	switch kind {
+	case model.ContentText, model.ContentRefusal:
+		return mask == 1
+	case model.ContentToolCall:
+		return mask == 4
+	case model.ContentReasoning:
+		return mask == 1 || mask == 2 || mask == 3
+	default:
+		return false
+	}
+}
+
+func modelContentKindName(kind model.ContentKind) string {
+	switch kind {
+	case model.ContentText:
+		return "text"
+	case model.ContentToolCall:
+		return "tool_call"
+	case model.ContentReasoning:
+		return "reasoning"
+	case model.ContentRefusal:
+		return "refusal"
+	default:
+		return "unknown"
+	}
+}
+
+// TestImageByteSliceStateRoundTrip verifies nil, empty, and nonempty image bytes keep their slice state.
+func TestImageByteSliceStateRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	// Arrange nil, non-nil empty, and nonempty image byte slices.
+	for _, test := range []struct {
+		name string
+		data []byte
+	}{
+		{name: "nil", data: nil},
+		{name: "non-nil empty", data: []byte{}},
+		{name: "nonempty", data: []byte{1, 2, 3}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			createdAt := time.Date(2026, 8, 27, 3, 0, 0, 0, time.UTC)
+			userEntry := session.Entry{
+				ID: "user-image", CreatedAt: createdAt, Information: mo.None[session.Information](),
+				User: mo.Some(model.Message{Content: []model.InputContent{{
+					Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"),
+					Data: mo.Some(test.data),
+				}}}),
+				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+				Extension: mo.None[session.ExtensionEnvelope](),
+			}
+			// Act by round-tripping user and tool-result images through JSONL.
+			encoded, err := encodeEntry(userEntry)
+			require.NoError(t, err)
+			decoded, err := decodeEntry(encoded)
+
+			// Assert byte values and nil versus non-nil slice state are exact.
+			require.NoError(t, err)
+			userData := decoded.User.MustGet().Content[0].Data.MustGet()
+			require.Equal(t, test.data, userData)
+			require.Equal(t, test.data == nil, userData == nil)
+
+			toolEntry := session.Entry{
+				ID: "tool-image", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				ToolResult: mo.Some(agent.ToolResult{
+					CallID: "call", ToolName: "render", IsError: false,
+					Contents: []tool.ResultContent{{
+						Kind: tool.ResultContentImage, Text: mo.None[string](),
+						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: test.data}),
+					}},
+				}),
+				Extension: mo.None[session.ExtensionEnvelope](),
+			}
+			encoded, err = encodeEntry(toolEntry)
+			require.NoError(t, err)
+			decoded, err = decodeEntry(encoded)
+			require.NoError(t, err)
+			toolData := decoded.ToolResult.MustGet().Contents[0].Image.MustGet().Data
+			require.Equal(t, test.data, toolData)
+			require.Equal(t, test.data == nil, toolData == nil)
+		})
+	}
+}
+
+// TestToolResultContentsSliceStateRoundTrip verifies tool result contents slice state round trip.
 func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	contentsCases := []struct {
 		name     string
 		contents []tool.ResultContent
@@ -126,6 +455,7 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 			{Kind: tool.ResultContentText, Text: mo.Some("second"), Image: mo.None[tool.ResultImage]()},
 		}},
 	}
+	// Act by executing the scenario.
 	for _, test := range contentsCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -134,10 +464,11 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "tool", Contents: test.contents, IsError: false,
-				}),
+				}), Extension: mo.None[session.ExtensionEnvelope](),
 			}
 
 			encoded, err := encodeEntry(entry)
+			// Assert the scenario produces the required observable result.
 			require.NoError(t, err)
 			decoded, err := decodeEntry(encoded)
 			require.NoError(t, err)
@@ -149,9 +480,11 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestProviderContextPayloadSliceStateRoundTrip verifies provider context payload slice state round trip.
 func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	payloadCases := []struct {
 		name    string
 		payload []byte
@@ -160,6 +493,7 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 		{name: "non-nil empty", payload: []byte{}},
 		{name: "opaque bytes", payload: []byte{0, 1, 255}},
 	}
+	// Act by executing the scenario.
 	for _, test := range payloadCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -183,10 +517,11 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 					Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			}
 
 			encoded, err := encodeEntry(entry)
+			// Assert the scenario produces the required observable result.
 			require.NoError(t, err)
 			decoded, err := decodeEntry(encoded)
 			require.NoError(t, err)

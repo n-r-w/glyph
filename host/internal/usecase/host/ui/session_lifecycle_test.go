@@ -87,9 +87,48 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 	}
 }
 
+// TestSessionChangedReportsInvalidStoredModelProjection verifies invalid restored content stops frame delivery.
+func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a restored refusal that illegally contains provider context.
+	channel := NewMockChannel(gomock.NewController(t))
+	channel.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	response := model.Response{
+		Content: []model.Content{{
+			Kind: model.ContentRefusal, Text: mo.Some("refusal"), Final: true,
+			ProviderContext: mo.Some(model.ProviderContext{
+				Source: model.ProviderContextSource{
+					ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.None[string](),
+				},
+				Payload: []byte("opaque"),
+			}),
+			ToolCall: mo.None[model.ToolCall](),
+		}},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+
+	// Act by preparing and sending the SessionChanged frame.
+	err := NewSession(channel, nil, nil, nil, nil, nil).sendSessionChanged(session.Replacement{
+		Info: testSessionInfo("stored"),
+		Entries: []session.Entry{{
+			ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
+			User: mo.None[session.UserMessage](), Model: mo.Some(response),
+			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		}},
+	})
+
+	// Assert mapping fails before a partial frame can be delivered.
+	require.Error(t, err)
+}
+
+// TestSessionReplacementFrameUsesOneCommittedSnapshot verifies session replacement frame uses one committed snapshot.
 func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
@@ -101,7 +140,7 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 		User:       mo.Some(model.TextMessage("session-b-text")),
 		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](),
-	}
+		Extension:  mo.None[session.ExtensionEnvelope]()}
 	firstReplacementReady := make(chan struct{})
 	releaseFirstReplacement := make(chan struct{})
 	control.EXPECT().Create(gomock.Any()).DoAndReturn(func(context.Context) (session.Replacement, error) {
@@ -127,20 +166,24 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	close(releaseFirstReplacement)
 	require.NoError(t, <-done)
+	// Act by executing the scenario.
 	frame := <-frameSent
+	// Assert the scenario produces the required observable result.
 	require.Equal(t, infoA, frame.SessionInfo.MustGet())
 	require.Empty(t, frame.SessionEntries)
 }
 
-func TestSessionChangedFrameProjectsToolContinuationWithoutProviderContext(t *testing.T) {
+// TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData verifies restored UI frames exclude private data.
+func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *testing.T) {
 	t.Parallel()
 
+	// Arrange public user, model, and tool content plus a private extension entry.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
 	response := model.Response{
 		Content: []model.Content{
 			{
-				Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
+				Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 				ProviderContext: mo.Some(model.ProviderContext{
 					Source: model.ProviderContextSource{
 						ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("key"),
@@ -150,6 +193,10 @@ func TestSessionChangedFrameProjectsToolContinuationWithoutProviderContext(t *te
 				ToolCall: mo.None[model.ToolCall](),
 			},
 			{
+				Kind: model.ContentRefusal, Text: mo.Some("visible refusal"), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
 				Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
 				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call),
 			},
@@ -157,32 +204,61 @@ func TestSessionChangedFrameProjectsToolContinuationWithoutProviderContext(t *te
 		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
 		Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
 		ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
-		Usage: mo.Some(model.Usage{}), Diagnostics: nil,
+		Usage: mo.Some(model.Usage{}), Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 	}
 	result := agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
+		CallID: call.ID, ToolName: call.Name, IsError: false,
+		Contents: []tool.ResultContent{
+			{Kind: tool.ResultContentText, Text: mo.Some("result"), Image: mo.None[tool.ResultImage]()},
+			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{7, 8, 9}})},
+		},
 	}
-	frame := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
+	user := model.Message{Content: []model.InputContent{
+		{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+		{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{4, 5, 6})},
+	}}
+	// Act by creating the confirmed replacement frame.
+	frame, err := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
 		{
-			ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+			ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+			Extension: mo.None[session.ExtensionEnvelope](),
 		},
 		{
-			ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+			ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+			Extension: mo.None[session.ExtensionEnvelope](),
+		},
+		{
+			ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
+			Extension: mo.None[session.ExtensionEnvelope](),
+		},
+		{
+			ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+			Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "example", EntryType: "private", Data: []byte(`{"private":true}`)}),
 		},
 	})
 
-	require.Len(t, frame.SessionEntries, 2)
-	publicResponse := frame.SessionEntries[0].Model.MustGet()
+	// Assert public content remains ordered and private data is excluded.
+	require.NoError(t, err)
+	require.Len(t, frame.SessionEntries, 3)
+	require.True(t, frame.SessionEntries[0].User.IsPresent())
+	require.Equal(t, user, frame.SessionEntries[0].User.MustGet())
+	publicResponse := frame.SessionEntries[1].Model.MustGet()
 	require.Equal(t, mo.Some("tool_use"), publicResponse.Outcome)
 	require.Equal(t, mo.Some("response-id"), publicResponse.ResponseID)
 	require.True(t, publicResponse.Usage.IsPresent())
-	require.Len(t, publicResponse.Content, 1)
-	require.Equal(t, call.ID, publicResponse.Content[0].ToolCall.MustGet().CallID)
-	require.Equal(t, 1, publicResponse.Content[0].ToolCall.MustGet().Position)
-	require.Equal(t, domainui.SessionEntryToolResult, frame.SessionEntries[1].Kind)
-	require.Equal(t, result, frame.SessionEntries[1].ToolResult.MustGet())
+	require.Equal(t, []domainui.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}}, publicResponse.Diagnostics)
+	require.Len(t, publicResponse.Content, 3)
+	require.Equal(t, "visible reasoning", publicResponse.Content[0].Text)
+	require.Equal(t, "visible refusal", publicResponse.Content[1].Text)
+	require.Equal(t, call.ID, publicResponse.Content[2].ToolCall.MustGet().CallID)
+	require.Equal(t, 2, publicResponse.Content[2].ToolCall.MustGet().Position)
+	require.Equal(t, domainui.SessionEntryToolResult, frame.SessionEntries[2].Kind)
+	require.Equal(t, result, frame.SessionEntries[2].ToolResult.MustGet())
 }
 
 func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {

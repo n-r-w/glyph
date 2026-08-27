@@ -188,7 +188,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.Some(safeError.GetText()),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -218,7 +218,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.None[string](),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -265,7 +265,7 @@ func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, 
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.Some(text),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -338,7 +338,7 @@ func sessionEvent(
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -355,13 +355,13 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 	lines := make([]presentationdomain.Line, 0, len(entries))
 	for _, entry := range entries {
 		if user := entry.GetUser(); user != nil {
-			var text strings.Builder
-			for _, content := range user.GetContent() {
-				text.WriteString(content.GetText())
+			contents, text, err := mapRestoredContents(user.GetContent())
+			if err != nil {
+				return nil, err
 			}
 			lines = append(lines, presentationdomain.Line{
 				Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
-				Text: mo.Some(text.String()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Text: mo.Some(text), Contents: mo.Some(contents),
 			})
 			continue
 		}
@@ -385,6 +385,39 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 }
 
 // mapRestoredModelResponse keeps stored model content and terminal failures in their display order.
+func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Content, string, error) {
+	mapped := make([]presentationdomain.Content, 0, len(contents))
+	var text strings.Builder
+	for index, content := range contents {
+		if content == nil {
+			return nil, "", fmt.Errorf("restored user content %d is missing", index)
+		}
+		switch content.WhichContent() {
+		case uiv1.UserContent_Text_case:
+			value := content.GetText()
+			mapped = append(mapped, presentationdomain.Content{
+				Text: mo.Some(value), MediaType: mo.None[string](), Data: mo.None[[]byte](),
+			})
+			text.WriteString(value)
+		case uiv1.UserContent_Image_case:
+			image := content.GetImage()
+			if image == nil || image.GetMediaType() == "" {
+				return nil, "", fmt.Errorf("restored user image %d is invalid", index)
+			}
+			data := bytes.Clone(image.GetData())
+			mapped = append(mapped, presentationdomain.Content{
+				Text: mo.None[string](), MediaType: mo.Some(image.GetMediaType()), Data: mo.Some(data),
+			})
+			text.WriteString(imagePlaceholder(image.GetMediaType(), len(data)))
+		case uiv1.UserContent_Content_not_set_case:
+			return nil, "", fmt.Errorf("restored user content %d is missing", index)
+		default:
+			return nil, "", fmt.Errorf("restored user content %d is invalid", index)
+		}
+	}
+	return mapped, text.String(), nil
+}
+
 func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomain.Line, error) {
 	lines := make([]presentationdomain.Line, 0, len(response.GetContent()))
 	for _, content := range response.GetContent() {
@@ -396,7 +429,7 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomai
 			lines = append(lines, presentationdomain.Line{
 				Kind: presentationdomain.LineToolStatus, ToolName: mo.Some(call.GetName()),
 				Status: mo.Some("arguments"), Text: mo.Some(string(arguments)),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Contents: mo.None[[]presentationdomain.Content](),
 			})
 			continue
 		}
@@ -411,15 +444,21 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomai
 		}
 		lines = append(lines, presentationdomain.Line{
 			Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
-			Text: mo.Some(content.GetText()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Text: mo.Some(content.GetText()), Contents: mo.None[[]presentationdomain.Content](),
+		})
+	}
+	for _, diagnostic := range response.GetDiagnostics() {
+		lines = append(lines, presentationdomain.Line{
+			Kind: presentationdomain.LineInformation, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text:     mo.Some(diagnostic.GetCode() + ": " + diagnostic.GetMessage()),
+			Contents: mo.None[[]presentationdomain.Content](),
 		})
 	}
 	if outcome := response.GetOutcome(); outcome == "aborted" || outcome == "failed" {
 		if response.HasErrorMessage() {
 			lines = append(lines, presentationdomain.Line{
 				Kind: presentationdomain.LineError, ToolName: mo.None[string](), Status: mo.None[string](),
-				Text:               mo.Some(response.GetErrorMessage()),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Text: mo.Some(response.GetErrorMessage()), Contents: mo.None[[]presentationdomain.Content](),
 			})
 		}
 	}
@@ -428,7 +467,7 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomai
 
 // mapRestoredToolResult uses the same terminal line kinds as live tool completion.
 func mapRestoredToolResult(result *uiv1.ToolResult) (presentationdomain.Line, error) {
-	contents, err := mapToolResultContents(result.GetContents())
+	contents, err := mapContents(result.GetContents(), true)
 	if err != nil {
 		return presentationdomain.Line{}, fmt.Errorf("map restored tool result: %w", err)
 	}
@@ -438,18 +477,28 @@ func mapRestoredToolResult(result *uiv1.ToolResult) (presentationdomain.Line, er
 	}
 	return presentationdomain.Line{
 		Kind: kind, ToolName: mo.Some(result.GetToolName()), Status: mo.None[string](),
-		Text: mo.Some(restoredToolResultText(contents)), ToolResultContents: mo.Some(contents),
+		Text: mo.Some(restoredToolResultText(contents)), Contents: mo.Some(contents),
 	}, nil
 }
 
-func restoredToolResultText(contents []presentationdomain.ToolResultContent) string {
+func restoredToolResultText(contents []presentationdomain.Content) string {
 	var result strings.Builder
 	for _, content := range contents {
 		if text, present := content.Text.Get(); present {
 			result.WriteString(text)
+			continue
+		}
+		mediaType, hasMediaType := content.MediaType.Get()
+		data, hasData := content.Data.Get()
+		if hasMediaType && hasData {
+			result.WriteString(imagePlaceholder(mediaType, len(data)))
 		}
 	}
 	return result.String()
+}
+
+func imagePlaceholder(mediaType string, size int) string {
+	return fmt.Sprintf("[image %s, %d bytes]", mediaType, size)
 }
 
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
@@ -533,7 +582,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -569,11 +618,11 @@ func mapInitializationStartup(contents []*uiv1.StartupContent) ([]presentationdo
 			return presentationdomain.Line{}, fmt.Errorf("unknown startup content severity %d", content.GetSeverity())
 		}
 		return presentationdomain.Line{
-			Kind:               kind,
-			Text:               mo.Some(content.GetText()),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     kind,
+			Text:     mo.Some(content.GetText()),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		}, nil
 	})
 }
@@ -714,7 +763,7 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -789,7 +838,7 @@ const (
 	lifecycleFieldModelResponse
 	lifecycleFieldToolCallPreview
 	lifecycleFieldFinalToolCall
-	lifecycleFieldToolResultContents
+	lifecycleFieldContents
 )
 
 // validateLifecycleEnvelope validates shared fields and rejects fields owned by inactive variants.
@@ -831,7 +880,7 @@ func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, 
 			lifecycleFieldIsError | lifecycleFieldErrorMessage, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
 		return base | lifecycleFieldToolCallID | lifecycleFieldToolName | lifecycleFieldText |
-			lifecycleFieldIsError | lifecycleFieldErrorMessage | lifecycleFieldToolResultContents, nil
+			lifecycleFieldIsError | lifecycleFieldErrorMessage | lifecycleFieldContents, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END:
 		return base | lifecycleFieldText | lifecycleFieldIsError |
 			lifecycleFieldOutcome | lifecycleFieldErrorMessage, nil
@@ -899,7 +948,7 @@ func presentLifecycleFields(lifecycle *uiv1.LifecycleEvent) lifecycleFields {
 		fields |= lifecycleFieldFinalToolCall
 	}
 	if len(lifecycle.GetToolResultContents()) != 0 {
-		fields |= lifecycleFieldToolResultContents
+		fields |= lifecycleFieldContents
 	}
 	return fields
 }
@@ -1073,12 +1122,12 @@ func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEve
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
 		return errors.New("tool result is missing")
 	}
-	contents, err := mapToolResultContents(lifecycle.GetToolResultContents())
+	contents, err := mapContents(lifecycle.GetToolResultContents(), false)
 	if err != nil {
 		return err
 	}
 	event.Kind = presentationdomain.EventToolResult
-	event.ToolResultContents = mo.Some(contents)
+	event.Contents = mo.Some(contents)
 	event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
 	return nil
 }
@@ -1124,38 +1173,41 @@ func validateTerminalLifecyclePresence(lifecycle *uiv1.LifecycleEvent) error {
 	return nil
 }
 
-// mapToolResultContents rejects malformed blocks before they reach presentation state.
-func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdomain.ToolResultContent, error) {
-	if len(contents) == 0 {
+// mapContents rejects malformed blocks before they reach presentation state.
+func mapContents(contents []*uiv1.ToolResultContent, allowEmpty bool) ([]presentationdomain.Content, error) {
+	if len(contents) == 0 && !allowEmpty {
 		return nil, errors.New("tool result contents are empty")
+	}
+	if contents == nil {
+		return nil, nil
 	}
 	return lo.MapErr(
 		contents,
-		func(content *uiv1.ToolResultContent, index int) (presentationdomain.ToolResultContent, error) {
+		func(content *uiv1.ToolResultContent, index int) (presentationdomain.Content, error) {
 			if content == nil {
-				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
+				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is missing", index)
 			}
 			switch content.WhichContent() {
 			case uiv1.ToolResultContent_Text_case:
-				return presentationdomain.ToolResultContent{
+				return presentationdomain.Content{
 					Text:      mo.Some(content.GetText()),
 					MediaType: mo.None[string](),
 					Data:      mo.None[[]byte](),
 				}, nil
 			case uiv1.ToolResultContent_Image_case:
 				image := content.GetImage()
-				if image == nil || image.GetMediaType() == "" || len(image.GetData()) == 0 {
-					return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result image %d is invalid", index)
+				if image == nil || image.GetMediaType() == "" || !image.HasData() {
+					return presentationdomain.Content{}, fmt.Errorf("tool result image %d is invalid", index)
 				}
-				return presentationdomain.ToolResultContent{
+				return presentationdomain.Content{
 					MediaType: mo.Some(image.GetMediaType()),
 					Data:      mo.Some(bytes.Clone(image.GetData())),
 					Text:      mo.None[string](),
 				}, nil
 			case uiv1.ToolResultContent_Content_not_set_case:
-				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is missing", index)
+				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is missing", index)
 			default:
-				return presentationdomain.ToolResultContent{}, fmt.Errorf("tool result content %d is invalid", index)
+				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is invalid", index)
 			}
 		},
 	)

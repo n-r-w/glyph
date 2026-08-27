@@ -133,7 +133,7 @@ func (s *Service) handleImmediate(
 	case controller.CommandSetSessionName:
 		return s.setSessionName(ctx, command), true, nil
 	case controller.CommandGetSessionInfo:
-		return s.sessionInfo(command), true, nil
+		return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info()), true, nil
 	case controller.CommandGetSessionEntries:
 		return s.sessionEntries(command), true, nil
 	case controller.CommandUnspecified:
@@ -288,12 +288,11 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 }
 
 // sessionInfo returns the current active-session snapshot without taking the replacement gate.
-func (s *Service) sessionInfo(command controller.Command) controller.Response {
-	return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info())
-}
-
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
-	entries := mapSessionEntries(s.sessionControl.Entries())
+	entries, err := mapSessionEntries(s.sessionControl.Entries())
+	if err != nil {
+		return s.rejection(command, controller.RejectionInternal, "Session entries are unavailable.")
+	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseSessionEntries)
 	response.SessionEntries = entries
 	return response

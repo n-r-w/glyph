@@ -120,7 +120,7 @@ func applySessionEvent(state *presentationdomain.State, event presentationdomain
 		if event.SessionInfo.IsSome() {
 			state.SessionInfo = event.SessionInfo
 			// Transcript ownership changes atomically with the confirmed active session.
-			state.Transcript = append([]presentationdomain.Line(nil), event.RestoredTranscript...)
+			state.Transcript = cloneLines(event.RestoredTranscript)
 			state.ActiveModel = make(map[int]presentationdomain.ActiveModelContent)
 			state.ActiveToolCalls = make(map[string]presentationdomain.ToolCallState)
 			state.ActiveTools = make(map[string]string)
@@ -149,11 +149,11 @@ func applySessionEvent(state *presentationdomain.State, event presentationdomain
 // textLine creates one text variant without activating tool payloads.
 func textLine(kind presentationdomain.LineKind, text mo.Option[string]) presentationdomain.Line {
 	return presentationdomain.Line{
-		Kind:               kind,
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		Text:               text,
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     kind,
+		ToolName: mo.None[string](),
+		Status:   mo.None[string](),
+		Text:     text,
+		Contents: mo.None[[]presentationdomain.Content](),
 	}
 }
 
@@ -206,22 +206,22 @@ func applyToolStarted(state *presentationdomain.State, event presentationdomain.
 		if call, ok := state.ActiveToolCalls[callID]; ok && !call.Provisional {
 			arguments, _ := json.Marshal(call.Arguments)
 			state.Transcript = append(state.Transcript, presentationdomain.Line{
-				Kind:               presentationdomain.LineToolStatus,
-				ToolName:           mo.Some(call.Name),
-				Status:             mo.Some("arguments"),
-				Text:               mo.Some(string(arguments)),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Kind:     presentationdomain.LineToolStatus,
+				ToolName: mo.Some(call.Name),
+				Status:   mo.Some("arguments"),
+				Text:     mo.Some(string(arguments)),
+				Contents: mo.None[[]presentationdomain.Content](),
 			})
 			delete(state.ActiveToolCalls, callID)
 		}
 		state.ActiveTools[callID] = name
 	}
 	state.Transcript = append(state.Transcript, presentationdomain.Line{
-		Kind:               presentationdomain.LineToolStatus,
-		ToolName:           mo.Some(name),
-		Status:             event.Status,
-		Text:               event.Text,
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineToolStatus,
+		ToolName: mo.Some(name),
+		Status:   event.Status,
+		Text:     event.Text,
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
 }
 
@@ -231,11 +231,11 @@ func applyToolProgress(state *presentationdomain.State, event presentationdomain
 		return
 	}
 	state.Transcript = append(state.Transcript, presentationdomain.Line{
-		Kind:               presentationdomain.LineToolStatus,
-		ToolName:           toolName(*state, event),
-		Status:             event.Status,
-		Text:               event.Text,
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineToolStatus,
+		ToolName: toolName(*state, event),
+		Status:   event.Status,
+		Text:     event.Text,
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
 }
 
@@ -250,11 +250,11 @@ func applyToolOutput(state *presentationdomain.State, event presentationdomain.E
 		kind = presentationdomain.LineToolStderr
 	}
 	state.Transcript = append(state.Transcript, presentationdomain.Line{
-		Kind:               kind,
-		ToolName:           toolName(*state, event),
-		Status:             mo.None[string](),
-		Text:               event.Text,
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     kind,
+		ToolName: toolName(*state, event),
+		Status:   mo.None[string](),
+		Text:     event.Text,
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
 }
 
@@ -269,17 +269,17 @@ func applyToolEnded(state *presentationdomain.State, event presentationdomain.Ev
 		kind = presentationdomain.LineToolError
 	}
 	state.Transcript = append(state.Transcript, presentationdomain.Line{
-		Kind:               kind,
-		ToolName:           event.ToolName,
-		Status:             event.Status,
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     kind,
+		ToolName: event.ToolName,
+		Status:   event.Status,
+		Text:     mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
 }
 
 // applyToolResult clones and appends a validated terminal result payload.
 func applyToolResult(state *presentationdomain.State, event presentationdomain.Event) {
-	contents, contentsOK := event.ToolResultContents.Get()
+	contents, contentsOK := event.Contents.Get()
 	failure, failureOK := event.Failure.Get()
 	if !contentsOK || !failureOK {
 		return
@@ -290,11 +290,11 @@ func applyToolResult(state *presentationdomain.State, event presentationdomain.E
 		kind = presentationdomain.LineToolError
 	}
 	state.Transcript = append(state.Transcript, presentationdomain.Line{
-		Kind:               kind,
-		ToolName:           toolName(*state, event),
-		Status:             mo.None[string](),
-		Text:               mo.Some(toolResultText(contents)),
-		ToolResultContents: mo.Some(cloneToolResultContents(contents)),
+		Kind:     kind,
+		ToolName: toolName(*state, event),
+		Status:   mo.None[string](),
+		Text:     mo.Some(toolResultText(contents)),
+		Contents: mo.Some(cloneContents(contents)),
 	})
 	if callID, ok := event.ToolCallID.Get(); ok {
 		delete(state.ActiveTools, callID)
@@ -320,11 +320,11 @@ func appendFinalModelContent(
 		text, ok := item.Text.Get()
 		if kind != presentationdomain.LineUnspecified && ok && text != "" {
 			transcript = append(transcript, presentationdomain.Line{
-				Kind:               kind,
-				Text:               mo.Some(text),
-				ToolName:           mo.None[string](),
-				Status:             mo.None[string](),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Kind:     kind,
+				Text:     mo.Some(text),
+				ToolName: mo.None[string](),
+				Status:   mo.None[string](),
+				Contents: mo.None[[]presentationdomain.Content](),
 			})
 		}
 	}
@@ -347,11 +347,11 @@ func cloneState(state presentationdomain.State) presentationdomain.State {
 	return state
 }
 
-// cloneLines isolates optional tool result slices and image bytes in retained snapshots.
+// cloneLines isolates optional public content and image bytes in retained snapshots.
 func cloneLines(lines []presentationdomain.Line) []presentationdomain.Line {
 	cloned := slices.Clone(lines)
 	for index := range cloned {
-		cloned[index].ToolResultContents = cloned[index].ToolResultContents.MapValue(cloneToolResultContents)
+		cloned[index].Contents = cloned[index].Contents.MapValue(cloneContents)
 	}
 	return cloned
 }
@@ -366,8 +366,8 @@ func cloneModels(models []presentationdomain.ConfiguredModel) []presentationdoma
 }
 
 // toolResultText creates a readable transcript for text-only terminal rendering.
-func toolResultText(contents []presentationdomain.ToolResultContent) string {
-	parts := lo.FilterMap(contents, func(content presentationdomain.ToolResultContent, _ int) (string, bool) {
+func toolResultText(contents []presentationdomain.Content) string {
+	parts := lo.FilterMap(contents, func(content presentationdomain.Content, _ int) (string, bool) {
 		if mediaType, ok := content.MediaType.Get(); ok {
 			return "[image: " + mediaType + "]", true
 		}
@@ -376,11 +376,8 @@ func toolResultText(contents []presentationdomain.ToolResultContent) string {
 	return strings.Join(parts, "\n")
 }
 
-// cloneToolResultContents isolates mutable image bytes in presentation state.
-func cloneToolResultContents(contents []presentationdomain.ToolResultContent) []presentationdomain.ToolResultContent {
-	if contents == nil {
-		return nil
-	}
+// cloneContents isolates mutable image bytes in presentation state.
+func cloneContents(contents []presentationdomain.Content) []presentationdomain.Content {
 	cloned := slices.Clone(contents)
 	for index := range cloned {
 		cloned[index].Data = cloned[index].Data.MapValue(bytes.Clone)

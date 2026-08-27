@@ -169,6 +169,36 @@ func TestSessionErrorsUseExistingRejectionCodes(t *testing.T) {
 	}
 }
 
+// TestInvalidStoredSessionEntryProjectionIsRejected verifies invalid stored content returns a safe rejection.
+func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
+	t.Parallel()
+
+	// Arrange session control to return an invalid stored model response.
+	control := NewMockSessionControl(gomock.NewController(t))
+	control.EXPECT().Entries().Return([]session.Entry{{
+		ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
+		User: mo.None[session.UserMessage](), Model: mo.Some(invalidStoredModelResponse()),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+	}})
+	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+
+	// Act by requesting the active session entries.
+	response, operation, err := service.Handle(t.Context(), controller.Command{
+		CorrelationID: "entries", Kind: controller.CommandGetSessionEntries,
+		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
+		SessionName: mo.None[string](),
+	})
+
+	// Assert the service returns a safe internal rejection without partial entries.
+	require.NoError(t, err)
+	require.Nil(t, operation)
+	require.Equal(t, controller.ResponseRejected, response.Kind)
+	require.True(t, response.Rejection.IsPresent())
+	require.Equal(t, controller.RejectionInternal, response.Rejection.MustGet().Code)
+	require.Nil(t, response.SessionEntries)
+}
+
 func TestSessionLifecycleCommands(t *testing.T) {
 	t.Parallel()
 
@@ -743,7 +773,9 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 }
 
 // TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies state correlation and history mapping.
+// TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies live queries expose complete owned public history.
 func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
+	// Arrange a running service with full user, model, diagnostic, and tool-result history.
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
@@ -756,6 +788,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	var history []agent.HistoryEntry
 	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, nil, delivery)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
+
+	// Act by accepting a run and querying state and messages while it remains active.
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:   mo.None[session.ID](),
@@ -796,7 +830,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 				InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
 				CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
 			}),
-			Diagnostics: []model.Diagnostic{{Code: "later", Message: "must not project"}},
+			Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 		},
 		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
@@ -813,13 +847,14 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		SessionID:   mo.None[session.ID](),
 		SessionName: mo.None[string](),
 	})
+	// Assert the query includes ordered public content without private provider context.
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.ResponseMessages, response.Kind)
 	s.Require().Len(response.Messages, 3)
-	s.Equal("hello", response.Messages[0].UserText.OrEmpty())
+	s.Equal(model.TextMessage("hello"), response.Messages[0].User.MustGet())
 	modelResponse := response.Messages[1].Model.OrEmpty()
-	s.Equal("answerpartial", modelResponse.Text)
+	s.Equal("answerpartialrefusal", modelResponse.Text)
 	s.Equal(mo.Some(controller.ModelOutcomeStop), modelResponse.Outcome)
 	s.Equal(mo.Some("provider"), modelResponse.Provider)
 	s.Equal(mo.Some("model"), modelResponse.Model)
@@ -829,14 +864,17 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
 		CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
 	}), modelResponse.Usage)
-	s.Empty(modelResponse.Diagnostics)
-	s.Require().Len(modelResponse.Content, 2)
+	s.Equal([]controller.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}}, modelResponse.Diagnostics)
+	s.Require().Len(modelResponse.Content, 4)
 	s.Equal(controller.ModelResponseContentText, modelResponse.Content[0].Kind)
 	s.Equal(controller.ModelResponseContentText, modelResponse.Content[1].Kind)
+	s.Equal(controller.ModelResponseContentReasoning, modelResponse.Content[2].Kind)
+	s.Equal(controller.ModelResponseContentRefusal, modelResponse.Content[3].Kind)
 	publicToolResult := response.Messages[2].ToolResult.OrEmpty()
 	s.Equal("call", publicToolResult.CallID)
-	s.Require().Len(publicToolResult.Contents, 1)
+	s.Require().Len(publicToolResult.Contents, 2)
 	s.Equal("output", publicToolResult.Contents[0].Text.OrEmpty())
+	s.Equal([]byte{1, 2}, publicToolResult.Contents[1].Image.MustGet().Data)
 }
 
 // TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.

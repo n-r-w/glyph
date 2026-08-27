@@ -319,7 +319,7 @@ func mapProgrammaticModelEvent(event run.Event, mapped *controller.AgentEvent) e
 		if !present {
 			return errors.New("message end event requires model response")
 		}
-		response, err := mapModelResponse(message)
+		response, err := mapModelResponseProjection(message)
 		if err != nil {
 			return err
 		}
@@ -390,7 +390,7 @@ func mapProgrammaticTerminalEvent(event run.Event, mapped *controller.AgentEvent
 		toolResults := lo.Map(turn.ToolResults, func(result agent.ToolResult, _ int) controller.ToolResult {
 			return mapToolResult(result)
 		})
-		response, err := mapModelResponse(turn.Response)
+		response, err := mapModelResponseProjection(turn.Response)
 		if err != nil {
 			return err
 		}

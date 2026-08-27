@@ -382,12 +382,22 @@ func runSessionRestartUI(
 		return err
 	}
 	listed := listedFrame.GetSessionList().GetSessions()
-	if len(listed) != 1 || observeSessionInfo(listed[0].GetInfo()) != observation.NamedSession {
-		return errors.New("stored session list did not preserve every session information field and presence state")
+	if len(listed) != 1 {
+		return errors.New("stored session list did not preserve the named session")
 	}
+	listedInfo := observeSessionInfo(listed[0].GetInfo())
+	if listedInfo.ID != observation.NamedSession.ID || listedInfo.Name != observation.NamedSession.Name ||
+		listedInfo.WorkingDirectory != observation.NamedSession.WorkingDirectory ||
+		listedInfo.StoragePath != observation.NamedSession.StoragePath ||
+		listedInfo.CreatedTime != observation.NamedSession.CreatedTime ||
+		!listedInfo.IDPresent || !listedInfo.NamePresent || !listedInfo.WorkingDirectoryPresent ||
+		!listedInfo.StoragePathPresent || !listedInfo.CreatedTimePresent || !listedInfo.UpdateTimePresent {
+		return errors.New("stored session list did not preserve session identity and presence state")
+	}
+	observation.NamedSession = listedInfo
 	if !listed[0].HasFirstUserText() || listed[0].GetFirstUserText() != "restart text" ||
-		listed[0].GetTotalMessages() != 4 {
-		return errors.New("stored session summary did not preserve the completed tool turn")
+		listed[0].GetTotalMessages() != 7 {
+		return errors.New("stored session summary did not include the full-content turn")
 	}
 
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
@@ -404,16 +414,29 @@ func runSessionRestartUI(
 		return errors.New("resumed session did not preserve every session information field and presence state")
 	}
 	entries := changedFrame.GetSessionChanged().GetEntries()
-	if len(entries) != 4 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
-		entries[2].GetToolResult() == nil || entries[3].GetModel() == nil ||
-		len(entries[0].GetUser().GetContent()) != 1 || len(entries[1].GetModel().GetContent()) != 1 ||
+	if len(entries) != 7 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
+		entries[2].GetToolResult() == nil || entries[3].GetModel() == nil || entries[4].GetUser() == nil ||
+		entries[5].GetModel() == nil || entries[6].GetToolResult() == nil ||
+		len(entries[0].GetUser().GetContent()) != 1 || len(entries[1].GetModel().GetContent()) != 2 ||
 		entries[0].GetUser().GetContent()[0].GetText() != "restart text" ||
 		entries[1].GetModel().GetResponseId() != "resp-1" ||
-		entries[1].GetModel().GetContent()[0].GetToolCall().GetCallId() != "call-1" ||
+		entries[1].GetModel().GetContent()[1].GetToolCall().GetCallId() != "call-1" ||
 		entries[2].GetToolResult().GetCallId() != "call-1" ||
 		!strings.Contains(entries[2].GetToolResult().GetContents()[0].GetText(), "tool-ok") ||
-		entries[3].GetModel().GetContent()[0].GetText() != "Request complete." {
-		return errors.New("resumed session did not restore ordered tool continuation")
+		entries[3].GetModel().GetContent()[0].GetText() != "Request complete." ||
+		len(entries[4].GetUser().GetContent()) != 3 ||
+		entries[4].GetUser().GetContent()[0].GetText() != "full user" ||
+		!bytes.Equal(entries[4].GetUser().GetContent()[1].GetImage().GetData(), []byte{1, 2, 3, 4}) ||
+		len(entries[5].GetModel().GetContent()) != 3 ||
+		entries[5].GetModel().GetContent()[0].GetText() != "full reasoning" ||
+		entries[5].GetModel().GetContent()[1].GetText() != "full refusal" ||
+		entries[5].GetModel().GetContent()[2].GetToolCall().GetCallId() != "full-call" ||
+		len(entries[5].GetModel().GetDiagnostics()) != 1 ||
+		entries[5].GetModel().GetDiagnostics()[0].GetCode() != "full_notice" ||
+		entries[5].GetModel().GetDiagnostics()[0].GetMessage() != "full diagnostic" ||
+		len(entries[6].GetToolResult().GetContents()) != 2 ||
+		!bytes.Equal(entries[6].GetToolResult().GetContents()[1].GetImage().GetData(), []byte{9, 8, 7, 6}) {
+		return errors.New("resumed session did not restore ordered full content")
 	}
 	if err = submitRestartTurn(stream, "continue"); err != nil {
 		return err
@@ -994,13 +1017,15 @@ func TestRunWithPathsUIUsesSelectedStreamAndCleansProcess(t *testing.T) {
 }
 
 // TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen verifies terminal capture is a startup gate.
+// TestRunWithPathsUISessionLifecycleSurvivesRestart verifies Host UI restart restores full public and continuation content.
 func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
+	// Arrange persistent paths, credentials, provider transport, UI helper, and extension tools.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
-	)), 0o600))
+	), 0o600))
 	requestCount := new(atomic.Int32)
 	requestCount.Store(0)
 	lastBody := new(atomic.Value)
@@ -1021,13 +1046,20 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 		ExtensionDirectory: extensionDirectory, UIDirectory: uiDirectory, UIID: "session-restart-ui", SocketPath: "",
 	}
 
-	for range 2 {
-		require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
-	}
+	// Act by running once, appending full content, restarting, and explicitly resuming the named session.
+	require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
+	partialPayload, err := os.ReadFile(tracePath)
+	require.NoError(t, err)
+	var partial sessionRestartObservation
+	require.NoError(t, json.Unmarshal(partialPayload, &partial))
+	require.False(t, partial.Complete)
+	appendFullContentFixture(t, paths, partial.NamedSession.ID)
+	require.NoError(t, runWithPaths(t.Context(), paths, command, &bytes.Buffer{}, &bytes.Buffer{}))
 	payload, err := os.ReadFile(tracePath)
 	require.NoError(t, err)
 	var observation sessionRestartObservation
 	require.NoError(t, json.Unmarshal(payload, &observation))
+	// Assert public restoration, provider continuation, selection, ordering, and private-data exclusion.
 	require.True(t, observation.Complete)
 	require.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
 	require.Equal(t, observation.NamedSession.WorkingDirectory, observation.NewStartup.WorkingDirectory)
@@ -1047,6 +1079,14 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	require.Contains(t, string(body), "call-1")
 	require.Contains(t, string(body), "tool-ok")
 	require.Contains(t, string(body), "Request complete.")
+	require.Contains(t, string(body), "full user")
+	require.Contains(t, string(body), fullContentUserImageBase64)
+	require.Contains(t, string(body), "enc-full")
+	require.Contains(t, string(body), "full refusal")
+	require.Contains(t, string(body), "full-call")
+	require.Contains(t, string(body), "full tool output")
+	require.Contains(t, string(body), fullContentToolImageBase64)
+	require.NotContains(t, string(body), "full-extension")
 	require.Contains(t, string(body), "continue")
 	require.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte(`"type":"function_call"`)))
 	require.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
@@ -1165,9 +1205,10 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 
 // TestHostSemanticClientMatchesHeadlessOutcome verifies shared public semantics.
 func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
+	// Arrange shared paths, credentials, provider transport, and extension executable.
 	paths := testPaths(t, codexSettings(""))
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken)), 0o600))
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil, `{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken), 0o600))
 	requestCount := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = deterministicCodexTransport{
@@ -1178,6 +1219,7 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 
 	extensionDirectory := buildToolsExecutable(t)
 	var headlessStdout, headlessStderr bytes.Buffer
+	// Act by running equivalent headless and Host UI tool turns.
 	headlessErr := runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeHeadless,
 		Headless: headless.Command{
@@ -1224,6 +1266,7 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	require.NoError(t, uiErr)
 	assert.Equal(t, int32(2), requestCount.Load())
 	ui := parseUIObservation(t, tracePath)
+	// Assert both clients expose the same lifecycle and terminal outcome.
 	assert.Equal(t, loadSemanticLifecycle(t), ui.Records)
 	assert.Equal(t, expected, ui.Shared)
 	assert.Equal(t, headlessObservation, ui.Shared)
@@ -1267,7 +1310,7 @@ func parseHeadlessOutcome(stdout, stderr string, err error) sharedOutcome {
 		ToolStarted:      false,
 		ToolEnded:        false,
 	}
-	for _, line := range strings.Split(stderr, "\n") {
+	for line := range strings.SplitSeq(stderr, "\n") {
 		switch {
 		case strings.HasPrefix(line, "[tool:start] "):
 			observation.ToolName = strings.TrimPrefix(line, "[tool:start] ")
@@ -1294,7 +1337,7 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 	var finalText, toolName, toolStatus string
 	var toolStarted, toolEnded, agentCompleted, settled bool
 	var toolStartName, toolEndName string
-	for _, line := range strings.Split(strings.TrimSpace(string(payload)), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(payload)), "\n") {
 		var item struct {
 			Type               uipb.LifecycleType `json:"type"`
 			Text               string             `json:"text"`

@@ -30,20 +30,21 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 				return nil, fmt.Errorf("map history entry %d: user payload is missing", position)
 			}
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryUser, UserText: mo.Some(publicInputText(user)),
-				Model: mo.None[controller.ModelResponse](), ToolResult: mo.None[controller.ToolResult](),
+				Kind: controller.HistoryEntryUser, User: mo.Some(clonePublicMessage(user)),
+				Model:      mo.None[controller.ModelResponse](),
+				ToolResult: mo.None[controller.ToolResult](),
 			})
 		case agent.HistoryEntryModel:
 			response, present := entry.Model.Get()
 			if !present {
 				return nil, fmt.Errorf("map history entry %d: model payload is missing", position)
 			}
-			mapped, ok := mapStoredModelResponse(response)
-			if !ok {
-				continue
+			mapped, err := mapModelResponseProjection(response)
+			if err != nil {
+				return nil, fmt.Errorf("map history entry %d: %w", position, err)
 			}
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryModel, UserText: mo.None[string](),
+				Kind: controller.HistoryEntryModel, User: mo.None[model.Message](),
 				Model: mo.Some(mapped), ToolResult: mo.None[controller.ToolResult](),
 			})
 		case agent.HistoryEntryToolResult:
@@ -51,13 +52,9 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 			if !present {
 				return nil, fmt.Errorf("map history entry %d: tool result payload is missing", position)
 			}
-			publicToolResult := mapPublicToolResult(toolResult)
-			// A nonempty result without terminal text has no durable public projection.
-			if len(toolResult.Contents) > 0 && len(publicToolResult.Contents) == 0 {
-				continue
-			}
+			publicToolResult := mapToolResult(toolResult)
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryToolResult, UserText: mo.None[string](),
+				Kind: controller.HistoryEntryToolResult, User: mo.None[model.Message](),
 				Model: mo.None[controller.ModelResponse](), ToolResult: mo.Some(publicToolResult),
 			})
 		default:
@@ -67,68 +64,49 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 	return result, nil
 }
 
-func mapSessionEntries(entries []session.Entry) []controller.SessionEntry {
+func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, error) {
 	result := make([]controller.SessionEntry, 0, len(entries))
 	for position := range entries {
 		entry := &entries[position]
 		if user, present := entry.User.Get(); present {
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
-				UserText: mo.Some(publicInputText(user)), Model: mo.None[controller.ModelResponse](),
+				User: mo.Some(clonePublicMessage(user)), Model: mo.None[controller.ModelResponse](),
 				ToolResult: mo.None[controller.ToolResult](),
 			})
 			continue
 		}
 		if response, present := entry.Model.Get(); present {
-			mapped, ok := mapStoredModelResponse(response)
-			if !ok {
-				continue
+			mapped, err := mapModelResponseProjection(response)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", position, err)
 			}
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryModel,
-				UserText: mo.None[string](), Model: mo.Some(mapped), ToolResult: mo.None[controller.ToolResult](),
+				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[controller.ToolResult](),
 			})
 			continue
 		}
 		if toolResult, present := entry.ToolResult.Get(); present {
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryToolResult,
-				UserText: mo.None[string](), Model: mo.None[controller.ModelResponse](),
-				ToolResult: mo.Some(mapPublicToolResult(toolResult)),
+				User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
+				ToolResult: mo.Some(mapToolResult(toolResult)),
 			})
 		}
 	}
-	return result
+	return result, nil
 }
 
-// mapStoredModelResponse removes opaque context carriers before public projection.
-func mapStoredModelResponse(response model.Response) (controller.ModelResponse, bool) {
-	mapped, err := mapModelResponseProjection(response, true)
-	return mapped, err == nil
-}
-
-func publicInputText(message model.Message) string {
-	var text strings.Builder
-	for _, content := range message.Content {
-		if content.Kind != model.InputContentText {
-			continue
-		}
-		contentText, ok := content.Text.Get()
-		if ok {
-			text.WriteString(contentText)
-		}
+func clonePublicMessage(message model.Message) model.Message {
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
 	}
-	return text.String()
+	return message
 }
 
-func mapModelResponse(response model.Response) (controller.ModelResponse, error) {
-	return mapModelResponseProjection(response, false)
-}
-
-func mapModelResponseProjection(
-	response model.Response,
-	continuationOnly bool,
-) (controller.ModelResponse, error) {
+func mapModelResponseProjection(response model.Response) (controller.ModelResponse, error) {
 	if err := run.ValidateTerminalContent(response); err != nil {
 		return controller.ModelResponse{}, fmt.Errorf("map model response: %w", err)
 	}
@@ -136,9 +114,6 @@ func mapModelResponseProjection(
 		item model.Content,
 		position int,
 	) (mo.Option[controller.ModelResponseContent], error) {
-		if !includeModelResponseContent(item.Kind, continuationOnly) {
-			return mo.None[controller.ModelResponseContent](), nil
-		}
 		return mapModelResponseContent(position, item)
 	})
 	if err != nil {
@@ -172,7 +147,7 @@ func mapModelResponseProjection(
 	if modelID, ok := response.Model.Get(); ok {
 		configuredModel = mo.Some(string(modelID))
 	}
-	diagnostics := mapModelDiagnostics(response.Diagnostics, continuationOnly)
+	diagnostics := mapModelDiagnostics(response.Diagnostics)
 	outcome := mo.None[controller.ModelOutcome]()
 	if modelOutcome, ok := response.Outcome.Get(); ok {
 		outcome = mo.Some(mapModelOutcome(modelOutcome))
@@ -203,20 +178,10 @@ func mapModelResponseProjection(
 }
 
 // mapModelDiagnostics keeps diagnostics on live responses and excludes them from continuation history.
-func mapModelDiagnostics(
-	diagnostics []model.Diagnostic,
-	continuationOnly bool,
-) []controller.ModelDiagnostic {
-	if continuationOnly {
-		return []controller.ModelDiagnostic{}
-	}
+func mapModelDiagnostics(diagnostics []model.Diagnostic) []controller.ModelDiagnostic {
 	return lo.Map(diagnostics, func(diagnostic model.Diagnostic, _ int) controller.ModelDiagnostic {
 		return controller.ModelDiagnostic{Code: diagnostic.Code, Message: diagnostic.Message}
 	})
-}
-
-func includeModelResponseContent(kind model.ContentKind, continuationOnly bool) bool {
-	return !continuationOnly || kind == model.ContentText || kind == model.ContentToolCall
 }
 
 func mapModelResponseContent(
@@ -282,14 +247,6 @@ func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPrevie
 }
 
 // mapPublicToolResult keeps only terminal text blocks in session and history projections.
-func mapPublicToolResult(result agent.ToolResult) controller.ToolResult {
-	public := result
-	public.Contents = lo.Filter(result.Contents, func(content tool.ResultContent, _ int) bool {
-		return content.Kind == tool.ResultContentText && content.Text.IsSome()
-	})
-	return mapToolResult(public)
-}
-
 func mapToolResult(result agent.ToolResult) controller.ToolResult {
 	contents := lo.FilterMap(
 		result.Contents,

@@ -19,7 +19,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 )
@@ -133,6 +132,7 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 		User:        mo.None[session.UserMessage](),
 		Model:       mo.None[session.ModelResponse](),
 		ToolResult:  mo.None[session.ToolResult](),
+		Extension:   mo.None[session.ExtensionEnvelope](),
 		ID:          entryID,
 		CreatedAt:   s.clock.Now(),
 		Information: mo.Some(session.Information{Name: name}),
@@ -216,8 +216,8 @@ func (s *Service) Snapshot() []agent.HistoryEntry {
 	return cloneHistory(s.history)
 }
 
-// Append transfers one history entry to active ownership. User text, every terminal model outcome,
-// and terminal text tool-result content are durable when Append succeeds.
+// Append transfers one history entry to active ownership. Complete valid user, terminal model,
+// and tool-result history is durable when Append succeeds.
 func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error {
 	owned, err := cloneValidatedHistoryEntry(history)
 	if err != nil {
@@ -231,7 +231,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 		return err
 	}
 	if !durable {
-		// Unsupported partial model responses and later-content-only tool results remain complete but process-local.
+		// Unsupported partial model responses remain complete but process-local.
 		s.history = append(s.history, owned)
 		return nil
 	}
@@ -261,25 +261,20 @@ func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool,
 	entry := session.Entry{
 		ID: "", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 	}
 	switch history.Kind {
 	case agent.HistoryEntryUser:
-		entry.User = mo.Some(textMessage(publicUserText(history.User.MustGet())))
+		entry.User = mo.Some(cloneMessage(history.User.MustGet()))
 	case agent.HistoryEntryModel:
 		response := history.Model.MustGet()
 		outcome, terminal := response.Outcome.Get()
 		if !terminal || outcome < model.OutcomeStop || outcome > model.OutcomeFailed {
 			return session.Entry{}, false, nil
 		}
-		entry.Model = mo.Some(continuationResponse(response))
+		entry.Model = mo.Some(cloneModelResponse(response))
 	case agent.HistoryEntryToolResult:
-		result := history.ToolResult.MustGet()
-		continuation := continuationToolResult(result)
-		if len(result.Contents) > 0 && len(continuation.Contents) == 0 {
-			return session.Entry{}, false, nil
-		}
-		entry.ToolResult = mo.Some(continuation)
+		entry.ToolResult = mo.Some(cloneToolResult(history.ToolResult.MustGet()))
 	default:
 		return session.Entry{}, false, fmt.Errorf("unsupported history entry kind %d", history.Kind)
 	}
@@ -292,7 +287,7 @@ func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
 		entry := &entries[entryIndex]
 		if user, present := entry.User.Get(); present {
 			history = append(history, agent.HistoryEntry{
-				Kind: agent.HistoryEntryUser, User: mo.Some(textMessage(publicUserText(user))),
+				Kind: agent.HistoryEntryUser, User: mo.Some(cloneMessage(user)),
 				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			})
 		}
@@ -433,53 +428,6 @@ func publicUserText(message model.Message) string {
 	return text.String()
 }
 
-func textMessage(text string) model.Message {
-	return model.TextMessage(text)
-}
-
-// continuationResponse removes later public content while retaining provider replay context and tool order.
-func continuationResponse(response model.Response) model.Response {
-	result := cloneModelResponse(response)
-	result.Diagnostics = nil
-	var content []model.Content
-	if result.Content != nil {
-		content = make([]model.Content, 0, len(result.Content))
-	}
-	for index := range result.Content {
-		item := result.Content[index]
-		switch item.Kind {
-		case model.ContentText, model.ContentToolCall:
-			content = append(content, item)
-		case model.ContentRefusal, model.ContentReasoning:
-			if item.ProviderContext.IsAbsent() {
-				continue
-			}
-			// Opaque replay context remains attached to its provider content position without storing later public content.
-			item.Text = mo.None[string]()
-			item.ToolCall = mo.None[model.ToolCall]()
-			content = append(content, item)
-		}
-	}
-	result.Content = content
-	return result
-}
-
-// continuationToolResult keeps only terminal text blocks in durable continuation history.
-func continuationToolResult(result agent.ToolResult) agent.ToolResult {
-	owned := cloneToolResult(result)
-	var contents []tool.ResultContent
-	if owned.Contents != nil {
-		contents = make([]tool.ResultContent, 0, len(owned.Contents))
-	}
-	for _, content := range owned.Contents {
-		if content.Kind == tool.ResultContentText && content.Text.IsPresent() {
-			contents = append(contents, content)
-		}
-	}
-	owned.Contents = contents
-	return owned
-}
-
 // infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
 func replacementFromLoaded(loaded LoadedSession) session.Replacement {
 	return session.Replacement{Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Entries)}
@@ -522,11 +470,13 @@ func cloneEntries(entries []session.Entry) []session.Entry {
 		entry := &entries[index]
 		cloned[index] = session.Entry{
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Information: entry.Information,
-			User: entry.User.MapValue(func(value model.Message) model.Message {
-				return textMessage(publicUserText(value))
-			}),
-			Model:      entry.Model.MapValue(cloneModelResponse),
+			User: entry.User.MapValue(cloneMessage), Model: entry.Model.MapValue(cloneModelResponse),
 			ToolResult: entry.ToolResult.MapValue(cloneToolResult),
+			// Extension bytes stay opaque, but each snapshot owns its mutable backing array.
+			Extension: entry.Extension.MapValue(func(value session.ExtensionEnvelope) session.ExtensionEnvelope {
+				value.Data = bytes.Clone(value.Data)
+				return value
+			}),
 		}
 	}
 	return cloned

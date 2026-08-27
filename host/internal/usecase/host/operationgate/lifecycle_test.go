@@ -168,9 +168,11 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 	require.Equal(t, resumedInfo, response.SessionInfo.MustGet())
 }
 
+// TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease verifies programmatic busy resume skips repository until gate release.
 func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	controller := gomock.NewController(t)
 	repository := hostsessions.NewMockRepository(controller)
 	active := hostsessions.New(
@@ -187,11 +189,13 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
 
+	// Act by executing the scenario.
 	response, operation, err := service.Handle(t.Context(), programmaticSessionCommand(
 		"busy", programmaticcontroller.CommandResumeSession, mo.Some(session.ID("stored")), mo.None[string](),
 	))
 	require.NoError(t, err)
 	require.Nil(t, operation)
+	// Assert the scenario produces the required observable result.
 	require.Equal(t, programmaticcontroller.RejectionBusy, response.Rejection.MustGet().Code)
 	release()
 
@@ -204,8 +208,8 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 		Entries: []session.Entry{
 			{
 				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](),
-				ID:         "entry", CreatedAt: createdAt.Add(time.Second),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+				ID: "entry", CreatedAt: createdAt.Add(time.Second),
 				Information: mo.Some(session.Information{Name: "stored"}),
 			}},
 	}, nil)

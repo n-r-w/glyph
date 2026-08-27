@@ -112,6 +112,7 @@ func TestModelEditsUnicodeSingleLineInput(t *testing.T) {
 func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	var commands []presentationdomain.Command
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -126,6 +127,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		IsRepeat:    false,
 	}))
 
+	// Act by executing the scenario.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        tea.KeyEnter,
 		Text:        "",
@@ -162,6 +164,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		BaseCode:    0,
 		IsRepeat:    false,
 	}))
+	// Assert the scenario produces the required observable result.
 	assert.Nil(t, emptyCommand)
 
 	model = updateModel(t, model, presentationdomain.Event{
@@ -178,7 +181,7 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -303,6 +306,7 @@ func TestModelSelectionShortcutsRespectAuthenticationAvailability(t *testing.T) 
 func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	for _, key := range []tea.Key{
 		{
@@ -331,6 +335,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 		},
 	} {
 		model := NewModel(presentationdomain.Event{
+			// Act by executing the scenario.
 			RestoredTranscript: nil,
 			Kind:               presentationdomain.EventInitialization,
 			Availability:       mo.Some(presentationdomain.AvailabilityIdle),
@@ -354,7 +359,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.None[string](),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -367,6 +372,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 		})
 
 		_, command := model.Update(tea.KeyPressMsg(key))
+		// Assert the scenario produces the required observable result.
 		assert.Nil(t, command)
 	}
 }
@@ -375,6 +381,7 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -400,7 +407,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -413,6 +420,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	})
 
 	assert.NotContains(t, model.View().Content, "Shift+Tab reasoning")
+	// Act by executing the scenario.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        tea.KeyTab,
 		Mod:         tea.ModShift,
@@ -442,7 +450,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -451,6 +459,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
+	// Assert the scenario produces the required observable result.
 	assert.False(t, model.reasoningExpanded)
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        't',
@@ -479,7 +488,7 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -569,6 +578,7 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	models := make([]presentationdomain.ConfiguredModel, 8)
 	for index := range models {
@@ -598,7 +608,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -611,18 +621,18 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 	model.cursor = len(model.input)
 	model.state.Transcript = []presentationdomain.Line{
 		{
-			Kind:               presentationdomain.LineModel,
-			Text:               mo.Some("first"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineModel,
+			Text:     mo.Some("first"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 		{
-			Kind:               presentationdomain.LineModel,
-			Text:               mo.Some("second"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineModel,
+			Text:     mo.Some("second"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 	}
 	originalTranscript := slices.Clone(model.state.Transcript)
@@ -659,6 +669,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	assert.Contains(t, model.View().Content, "> provider / model-0")
+	// Act by executing the scenario.
 	for range 7 {
 		model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 			Code:        tea.KeyDown,
@@ -670,6 +681,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		}))
 	}
 	view = model.View().Content
+	// Assert the scenario produces the required observable result.
 	assert.LessOrEqual(t, len(strings.Split(view, "\n")), model.height)
 	assert.Contains(t, view, "> provider / model-7")
 	assert.Equal(t, "draft", string(model.input))
@@ -708,6 +720,7 @@ func TestTypedModelCommandIsConsumedWhenOpeningSelector(t *testing.T) {
 func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	var commands []presentationdomain.Command
 	model := newSelectionTestModel(t, presentationdomain.AvailabilityRunning, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -760,13 +773,15 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		{
 			Kind:            presentationdomain.CommandSelectReasoningChoice,
 			ReasoningChoice: mo.Some(presentationdomain.ReasoningChoiceHigh),
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
+			// Act by executing the scenario.
+			Text:        mo.None[string](),
+			ProviderID:  mo.None[string](),
+			ModelID:     mo.None[string](),
+			SessionID:   mo.None[string](),
+			SessionName: mo.None[string](),
 		},
 	}, commands)
+	// Assert the scenario produces the required observable result.
 	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
 		ProviderID:      "openai-codex",
 		ModelID:         "gpt",
@@ -787,7 +802,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -817,7 +832,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -833,6 +848,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	var commands []presentationdomain.Command
 	emit := func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -861,7 +877,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -880,6 +896,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		IsRepeat:    false,
 	}))
 
+	// Act by executing the scenario.
 	next, command := model.Update(tea.KeyPressMsg(tea.Key{
 		Code:        'q',
 		Mod:         tea.ModCtrl,
@@ -889,6 +906,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		IsRepeat:    false,
 	}))
 	model = next.(Model)
+	// Assert the scenario produces the required observable result.
 	require.NotNil(t, command)
 	message := command()
 	assert.IsType(t, emissionResultMsg{}, message)
@@ -932,26 +950,28 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventInitialization,
 		Startup: []presentationdomain.Line{
 			{
-				Kind:               presentationdomain.LineWarning,
-				Text:               mo.Some("excluded UI optional at /plugins/ui/optional"),
-				ToolName:           mo.None[string](),
-				Status:             mo.None[string](),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Kind:     presentationdomain.LineWarning,
+				Text:     mo.Some("excluded UI optional at /plugins/ui/optional"),
+				ToolName: mo.None[string](),
+				Status:   mo.None[string](),
+				Contents: mo.None[[]presentationdomain.Content](),
 			},
 			{
-				Kind:               presentationdomain.LineInformation,
-				Text:               mo.Some("UI glyph-tui; extension glyph-tools at /plugins/extension/glyph-tools: read"),
-				ToolName:           mo.None[string](),
-				Status:             mo.None[string](),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Kind:     presentationdomain.LineInformation,
+				Text:     mo.Some("UI glyph-tui; extension glyph-tools at /plugins/extension/glyph-tools: read"),
+				ToolName: mo.None[string](),
+				Status:   mo.None[string](),
+				Contents: mo.None[[]presentationdomain.Content](),
 			},
 		},
+		// Act by executing the scenario.
 		Extensions: []presentationdomain.Extension{{
 			ID:    "glyph-tools",
 			Path:  "/plugins/extension/glyph-tools",
@@ -966,7 +986,7 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -978,6 +998,7 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 
 	view := model.View().Content
+	// Assert the scenario produces the required observable result.
 	assert.Contains(t, view, "[warning] excluded UI optional at /plugins/ui/optional")
 	assert.Contains(t, view, "[info] UI glyph-tui; extension glyph-tools at /plugins/extension/glyph-tools: read")
 	assert.Equal(t, 1, strings.Count(view, "glyph-tools at /plugins/extension/glyph-tools"))
@@ -987,16 +1008,17 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	model := NewModel(presentationdomain.Event{
 		RestoredTranscript: nil,
 		Kind:               presentationdomain.EventInitialization,
 		Startup: []presentationdomain.Line{{
-			Kind:               presentationdomain.LineInformation,
-			Text:               mo.Some("Glyph session initialized."),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineInformation,
+			Text:     mo.Some("Glyph session initialized."),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		}},
 		Availability:         mo.Some(presentationdomain.AvailabilityIdle),
 		Extensions:           nil,
@@ -1008,7 +1030,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1032,7 +1054,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1042,6 +1064,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 	})
+	// Act by executing the scenario.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventModelDelta,
@@ -1056,7 +1079,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1080,7 +1103,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1104,6 +1127,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 	}))
 
 	view := model.View()
+	// Assert the scenario produces the required observable result.
 	assert.True(t, view.AltScreen)
 	assert.Contains(t, view.Content, "Glyph session initialized.")
 	assert.Contains(t, view.Content, "[info] Ready.")
@@ -1118,6 +1142,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1133,7 +1158,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1144,20 +1169,21 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		Sessions:             nil,
 	})
 	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventModelDelta,
-		Position:             mo.Some(1),
-		Text:                 mo.Some("complete answer"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventModelDelta,
+		Position:           mo.Some(1),
+		Text:               mo.Some("complete answer"),
+		Startup:            nil,
+		Extensions:         nil,
+		Availability:       mo.None[presentationdomain.Availability](),
+		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
+		// Act by executing the scenario.
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1175,33 +1201,36 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("complete answer"),
 		}},
-		Startup:            nil,
-		Extensions:         nil,
-		Availability:       mo.None[presentationdomain.Availability](),
-		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:         mo.None[string](),
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		Stream:             mo.None[presentationdomain.OutputStream](),
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
-		ErrorText:          mo.None[string](),
-		ExitCode:           mo.None[int](),
-		Failure:            mo.None[bool](),
-		ToolCall:           mo.None[presentationdomain.ToolCallState](),
-		Models:             nil,
-		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
-		Sessions:           nil,
+		Startup:          nil,
+		Extensions:       nil,
+		Availability:     mo.None[presentationdomain.Availability](),
+		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:       mo.None[string](),
+		ToolName:         mo.None[string](),
+		Status:           mo.None[string](),
+		Stream:           mo.None[presentationdomain.OutputStream](),
+		Text:             mo.None[string](),
+		Contents:         mo.None[[]presentationdomain.Content](),
+		ErrorText:        mo.None[string](),
+		ExitCode:         mo.None[int](),
+		Failure:          mo.None[bool](),
+		ToolCall:         mo.None[presentationdomain.ToolCallState](),
+		Models:           nil,
+		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
+		Sessions:         nil,
 	})
 
+	// Assert the scenario produces the required observable result.
 	assert.Empty(t, model.state.ActiveModel)
 	assert.Equal(t, 1, strings.Count(model.View().Content, "complete answer"))
 }
 
+// TestModelRendersProvisionalToolCallNameFieldsAndPrefix verifies model renders provisional tool call name fields and prefix.
 func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, func(presentationdomain.Command) error { return nil })
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1222,6 +1251,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 					Prefix: mo.Some("hel"),
 					Value:  mo.None[any](),
 				},
+				// Act by executing the scenario.
 			},
 			Arguments: nil,
 		}),
@@ -1236,7 +1266,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1247,6 +1277,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	})
 
 	view := model.View().Content
+	// Assert the scenario produces the required observable result.
 	assert.Contains(t, view, "[tool:call] read (provisional)")
 	assert.Contains(t, view, `path="file.txt"`)
 	assert.Contains(t, view, "query=hel")
@@ -1257,28 +1288,29 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
 	model.state.Transcript = append(model.state.Transcript,
 		presentationdomain.Line{
-			Kind:               presentationdomain.LineReasoning,
-			Text:               mo.Some("first reasoning block"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineReasoning,
+			Text:     mo.Some("first reasoning block"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 		presentationdomain.Line{
-			Kind:               presentationdomain.LineModel,
-			Text:               mo.Some("between blocks"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineModel,
+			Text:     mo.Some("between blocks"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 		presentationdomain.Line{
-			Kind:               presentationdomain.LineReasoning,
-			Text:               mo.Some("second reasoning block"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineReasoning,
+			Text:     mo.Some("second reasoning block"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 	)
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1325,7 +1357,9 @@ func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 	expanded := strings.Join(expandedLines, "\n")
 	assert.Contains(t, expanded, "first")
 	assert.Contains(t, expanded, "second")
+	// Act by executing the scenario.
 	for _, line := range expandedLines {
+		// Assert the scenario produces the required observable result.
 		assert.LessOrEqual(t, ansi.StringWidth(line), 12)
 	}
 }
@@ -1334,6 +1368,7 @@ func TestModelReasoningUsesOneLocalCollapsedToggle(t *testing.T) {
 func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1342,32 +1377,34 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("readable words wrap cleanly\n你好 世界"),
 		}},
-		Startup:            nil,
-		Extensions:         nil,
-		Availability:       mo.None[presentationdomain.Availability](),
-		Position:           mo.None[int](),
-		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:         mo.None[string](),
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		Stream:             mo.None[presentationdomain.OutputStream](),
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
-		ErrorText:          mo.None[string](),
-		ExitCode:           mo.None[int](),
-		Failure:            mo.None[bool](),
-		ToolCall:           mo.None[presentationdomain.ToolCallState](),
-		Models:             nil,
-		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
-		Sessions:           nil,
+		Startup:          nil,
+		Extensions:       nil,
+		Availability:     mo.None[presentationdomain.Availability](),
+		Position:         mo.None[int](),
+		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:       mo.None[string](),
+		ToolName:         mo.None[string](),
+		Status:           mo.None[string](),
+		Stream:           mo.None[presentationdomain.OutputStream](),
+		Text:             mo.None[string](),
+		Contents:         mo.None[[]presentationdomain.Content](),
+		ErrorText:        mo.None[string](),
+		ExitCode:         mo.None[int](),
+		Failure:          mo.None[bool](),
+		ToolCall:         mo.None[presentationdomain.ToolCallState](),
+		Models:           nil,
+		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
+		Sessions:         nil,
 	})
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
 		Height: 0,
 	})
 
+	// Act by executing the scenario.
 	lines := model.visibleBodyLines(0)
+	// Assert the scenario produces the required observable result.
 	assert.Equal(t, []string{"assistant:", "readable words", "wrap cleanly", "你好 世界"}, lines)
 	for _, line := range lines {
 		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
@@ -1378,6 +1415,7 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 func TestModelWrapsActiveContent(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1393,7 +1431,7 @@ func TestModelWrapsActiveContent(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1408,7 +1446,9 @@ func TestModelWrapsActiveContent(t *testing.T) {
 		Height: 0,
 	})
 
+	// Act by executing the scenario.
 	lines := model.visibleBodyLines(0)
+	// Assert the scenario produces the required observable result.
 	assert.Equal(t, []string{"assistant:", "active words and", "supercalifragili", "stic"}, lines)
 	for _, line := range lines {
 		assert.LessOrEqual(t, ansi.StringWidth(line), 16)
@@ -1419,6 +1459,7 @@ func TestModelWrapsActiveContent(t *testing.T) {
 func TestModelClipsAfterWrapping(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1434,20 +1475,22 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
+		// Act by executing the scenario.
+		Contents:       mo.None[[]presentationdomain.Content](),
+		ErrorText:      mo.None[string](),
+		ExitCode:       mo.None[int](),
+		Failure:        mo.None[bool](),
+		ToolCall:       mo.None[presentationdomain.ToolCallState](),
+		Models:         nil,
+		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
 		Height: fixedViewLineCount + 2,
 	})
+	// Assert the scenario produces the required observable result.
 	assert.Equal(t, []string{"supercalifragili", "stic"}, model.visibleBodyLines(0))
 
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1461,6 +1504,7 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
 	for _, text := range []string{"oldest", "older", "middle", "newer", "latest"} {
 		model = updateModel(t, model, presentationdomain.Event{
@@ -1477,15 +1521,16 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 			ToolName:             mo.None[string](),
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
-			ErrorText:            mo.None[string](),
-			ExitCode:             mo.None[int](),
-			Failure:              mo.None[bool](),
-			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			Models:               nil,
-			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-			Sessions:             nil,
+			Contents:             mo.None[[]presentationdomain.Content](),
+			// Act by executing the scenario.
+			ErrorText:      mo.None[string](),
+			ExitCode:       mo.None[int](),
+			Failure:        mo.None[bool](),
+			ToolCall:       mo.None[presentationdomain.ToolCallState](),
+			Models:         nil,
+			ModelSelection: mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+			Sessions:       nil,
 		})
 	}
 	model = updateModel(t, model, tea.WindowSizeMsg{
@@ -1494,6 +1539,7 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 	})
 
 	view := model.View().Content
+	// Assert the scenario produces the required observable result.
 	assert.LessOrEqual(t, len(strings.Split(view, "\n")), 7)
 	assert.NotContains(t, view, "oldest")
 	assert.Contains(t, view, "newer")
@@ -1508,6 +1554,7 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -1516,41 +1563,42 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("first response"),
 		}},
+		Startup:          nil,
+		Extensions:       nil,
+		Availability:     mo.None[presentationdomain.Availability](),
+		Position:         mo.None[int](),
+		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
+		ToolCallID:       mo.None[string](),
+		ToolName:         mo.None[string](),
+		Status:           mo.None[string](),
+		Stream:           mo.None[presentationdomain.OutputStream](),
+		Text:             mo.None[string](),
+		Contents:         mo.None[[]presentationdomain.Content](),
+		ErrorText:        mo.None[string](),
+		ExitCode:         mo.None[int](),
+		Failure:          mo.None[bool](),
+		ToolCall:         mo.None[presentationdomain.ToolCallState](),
+		Models:           nil,
+		ModelSelection:   mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:      mo.None[presentationdomain.SessionInfo](),
+		Sessions:         nil,
+	})
+	model = updateModel(t, model, presentationdomain.Event{
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventAgentSettled,
+		Text:               mo.Some("completed"),
 		Startup:            nil,
 		Extensions:         nil,
 		Availability:       mo.None[presentationdomain.Availability](),
 		Position:           mo.None[int](),
 		ModelContentKind:   mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:         mo.None[string](),
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		Stream:             mo.None[presentationdomain.OutputStream](),
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
-		ErrorText:          mo.None[string](),
-		ExitCode:           mo.None[int](),
-		Failure:            mo.None[bool](),
-		ToolCall:           mo.None[presentationdomain.ToolCallState](),
-		Models:             nil,
-		ModelSelection:     mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
-		Sessions:           nil,
-	})
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventAgentSettled,
-		Text:                 mo.Some("completed"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		// Act by executing the scenario.
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1574,7 +1622,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1593,6 +1641,7 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 		IsRepeat:    false,
 	}))
 
+	// Assert the scenario produces the required observable result.
 	assert.Contains(t, model.View().Content, "assistant: first response")
 	assert.Contains(t, model.View().Content, "Request: second request|")
 }
@@ -1601,20 +1650,25 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 func TestRenderLineDistinguishesRefusal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	assert.Equal(t, "[refusal] cannot help", renderLine(presentationdomain.Line{
-		Kind:     presentationdomain.LineRefusal,
+		Kind: presentationdomain.LineRefusal,
+		// Act by executing the scenario.
 		Text:     mo.Some("cannot help"),
 		ToolName: mo.None[string](),
 
-		Status:             mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Status:   mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
+		// Assert the scenario produces the required observable result.
 	}))
 }
 
 // newSelectionTestModel builds a model with configured selections and deterministic presentation behavior.
+// TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies model clears session command only after host confirms replacement.
 func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	commands := make([]presentationdomain.Command, 0, 1)
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -1642,7 +1696,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1656,11 +1710,13 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			WorkingDirectory: "/project",
 			StoragePath:      "",
 			StoragePresent:   false,
-			CreatedAt:        time.Unix(1, 0),
-			UpdatedAt:        time.Unix(1, 0),
+			// Act by executing the scenario.
+			CreatedAt: time.Unix(1, 0),
+			UpdatedAt: time.Unix(1, 0),
 		}),
 		Sessions: nil,
 	})
+	// Assert the scenario produces the required observable result.
 	assert.Empty(t, model.input)
 	assert.Zero(t, model.cursor)
 
@@ -1682,7 +1738,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1712,9 +1768,11 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	assert.Contains(t, view, "Updated: 1970-01-01T00:00:02Z")
 }
 
+// TestModelResumeSelectorEmitsSelectedSession verifies model resume selector emits selected session.
 func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	commands := make([]presentationdomain.Command, 0, 2)
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
 		commands = append(commands, command)
@@ -1741,7 +1799,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1769,9 +1827,10 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	})
 	model.state.Transcript = []presentationdomain.Line{{
 		Kind: presentationdomain.LineInformation, ToolName: mo.None[string](), Status: mo.None[string](),
-		Text: mo.Some("existing transcript"), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Text: mo.Some("existing transcript"), Contents: mo.None[[]presentationdomain.Content](),
 	}}
 	model.input = []rune("preserved draft")
+	// Act by executing the scenario.
 	model.cursor = len(model.input)
 	model = updateModel(t, model, tea.KeyPressMsg(testKey(tea.KeyDown)))
 	beforeSessions := append([]presentationdomain.SessionSummary(nil), model.state.Sessions...)
@@ -1779,6 +1838,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	beforeInfo := model.state.SessionInfo
 	beforeInput := append([]rune(nil), model.input...)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
+	// Assert the scenario produces the required observable result.
 	require.Len(t, commands, 2)
 	assert.Equal(t, presentationdomain.CommandResumeSession, commands[1].Kind)
 	assert.Equal(t, "second", commands[1].SessionID.MustGet())
@@ -1796,7 +1856,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
 		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
 		Stream: mo.None[presentationdomain.OutputStream](), Text: mo.Some("Session replacement is unavailable."),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](), ErrorText: mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](), ErrorText: mo.None[string](),
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
@@ -1820,11 +1880,11 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	restored := []presentationdomain.Line{
 		{
 			Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
-			Text: mo.Some("prior-user"), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Text: mo.Some("prior-user"), Contents: mo.None[[]presentationdomain.Content](),
 		},
 		{
 			Kind: presentationdomain.LineModel, ToolName: mo.None[string](), Status: mo.None[string](),
-			Text: mo.Some("prior-model"), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Text: mo.Some("prior-model"), Contents: mo.None[[]presentationdomain.Content](),
 		},
 	}
 	model = updateModel(t, model, presentationdomain.Event{
@@ -1834,7 +1894,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
 		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
 		Stream: mo.None[presentationdomain.OutputStream](), Text: mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](), ErrorText: mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](), ErrorText: mo.None[string](),
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.Some(model.state.Sessions[1].Info), Sessions: nil,
@@ -1954,7 +2014,7 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1963,11 +2023,11 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 		Sessions:             nil,
 	}, service.Apply, emit)
 	model.state.Transcript = []presentationdomain.Line{{
-		Kind:               presentationdomain.LineModel,
-		Text:               mo.Some("existing"),
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineModel,
+		Text:     mo.Some("existing"),
+		ToolName: mo.None[string](),
+		Status:   mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
 	}}
 	return model
 }
@@ -1992,7 +2052,7 @@ func newTestModel(t *testing.T, availability presentationdomain.Availability, em
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),

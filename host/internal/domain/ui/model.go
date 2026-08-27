@@ -7,6 +7,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
@@ -338,10 +339,11 @@ type Frame struct {
 
 // SessionEntry carries one restored public terminal item.
 type SessionEntry struct {
-	ID         string
-	CreatedAt  time.Time
-	Kind       SessionEntryKind
-	UserText   mo.Option[string]
+	ID        string
+	CreatedAt time.Time
+	Kind      SessionEntryKind
+	// User carries ordered public text and image content for restored transcripts.
+	User       mo.Option[model.Message]
 	Model      mo.Option[ModelResponse]
 	ToolResult mo.Option[agent.ToolResult]
 }

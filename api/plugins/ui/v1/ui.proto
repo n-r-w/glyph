@@ -166,12 +166,21 @@ message UserMessage {
   repeated UserContent content = 1;
 }
 
-// UserContent carries one user text item.
+// UserContent carries one ordered user content item.
 message UserContent {
   // The content payload.
   oneof content {
     string text = 1;
+    UserImage image = 2;
   }
+}
+
+// UserImage carries exact binary image data and its media type.
+message UserImage {
+  // The image media type.
+  string media_type = 1;
+  // The exact binary image data.
+  bytes data = 2;
 }
 
 // SessionInformation carries active-session information.

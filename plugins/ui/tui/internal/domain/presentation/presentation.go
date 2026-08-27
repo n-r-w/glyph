@@ -167,8 +167,8 @@ type Extension struct {
 	Tools []string
 }
 
-// ToolResultContent is one terminal tool result block received from the Host.
-type ToolResultContent struct {
+// Content is one ordered public text or image block received from the Host.
+type Content struct {
 	Text      mo.Option[string]
 	MediaType mo.Option[string]
 	Data      mo.Option[[]byte]
@@ -222,7 +222,7 @@ type Event struct {
 	Status               mo.Option[string]
 	Stream               mo.Option[OutputStream]
 	Text                 mo.Option[string]
-	ToolResultContents   mo.Option[[]ToolResultContent]
+	Contents             mo.Option[[]Content]
 	ErrorText            mo.Option[string]
 	ExitCode             mo.Option[int]
 	Failure              mo.Option[bool]
@@ -269,11 +269,11 @@ const (
 
 // Line is one readable startup or transcript entry.
 type Line struct {
-	Kind               LineKind
-	ToolName           mo.Option[string]
-	Status             mo.Option[string]
-	Text               mo.Option[string]
-	ToolResultContents mo.Option[[]ToolResultContent]
+	Kind     LineKind
+	ToolName mo.Option[string]
+	Status   mo.Option[string]
+	Text     mo.Option[string]
+	Contents mo.Option[[]Content]
 }
 
 // ToolCallField is one rendered argument field.

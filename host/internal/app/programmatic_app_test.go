@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -138,8 +137,11 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	fixture.closeOwner(t)
 }
 
+// TestSessionLifecycleRoundTrip verifies Programmatic restart restores full public and continuation content.
 func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	t := testSuite.T()
+
+	// Arrange persistent paths, provider transport, extension tools, and a Programmatic stream.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	credentials := fmt.Sprintf(
@@ -168,9 +170,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 		return response.GetCommandResponse()
 	}
 
+	// Act by creating, naming, selecting, persisting, restarting, and resuming one session.
 	initial := send("initial", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
+	// Assert session presence state before checking the complete restart sequence.
 	require.NotEmpty(t, initial.GetId())
 	assert.False(t, initial.HasName())
 	assert.False(t, initial.HasStoragePath())
@@ -216,6 +220,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	fixture.closeOwner(t)
+	appendFullContentFixture(t, paths, named.GetId())
 
 	restarted := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 	defer restarted.closeOwner(t)
@@ -244,8 +249,14 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 		request.SetListSessions(new(programmaticv1.ListSessions))
 	}).GetSessions().GetSessions()
 	require.Len(t, restartedList, 1)
-	assertProgrammaticSessionInfoEqual(t, named, restartedList[0].GetInfo())
-	assert.Equal(t, int64(4), restartedList[0].GetTotalMessages())
+	storedInfo := restartedList[0].GetInfo()
+	assert.Equal(t, named.GetId(), storedInfo.GetId())
+	assert.Equal(t, named.GetName(), storedInfo.GetName())
+	assert.Equal(t, named.GetWorkingDirectory(), storedInfo.GetWorkingDirectory())
+	assert.Equal(t, named.GetStoragePath(), storedInfo.GetStoragePath())
+	assert.Equal(t, named.GetCreatedTime().AsTime(), storedInfo.GetCreatedTime().AsTime())
+	assert.True(t, storedInfo.GetUpdateTime().AsTime().After(named.GetUpdateTime().AsTime()))
+	assert.Equal(t, int64(7), restartedList[0].GetTotalMessages())
 
 	restartedModel := restartSend("restart-select-model", func(request *programmaticv1.OpenRequest) {
 		request.SetSelectModel(programmaticv1.SelectModel_builder{
@@ -264,7 +275,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	restartedResume := restartSend("restart-resume", func(request *programmaticv1.OpenRequest) {
 		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
 	}).GetSessionInfo().GetInfo()
-	assertProgrammaticSessionInfoEqual(t, named, restartedResume)
+	assertProgrammaticSessionInfoEqual(t, storedInfo, restartedResume)
 	restartedActive := restartSend("restart-resumed-information", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
@@ -273,18 +284,33 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
 		request.SetGetMessages(new(programmaticv1.GetMessages))
 	}).GetMessages().GetEntries()
-	require.Len(t, messages, 4)
+	require.Len(t, messages, 7)
 	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
 	assert.Equal(t, "resp-1", messages[1].GetModel().GetResponseId())
-	require.Len(t, messages[1].GetModel().GetContent(), 1)
-	assert.Equal(t, "call-1", messages[1].GetModel().GetContent()[0].GetToolCall().GetCallId())
+	require.Len(t, messages[1].GetModel().GetContent(), 2)
+	assert.Equal(t, programmaticv1.ModelResponseItem_Reasoning_case, messages[1].GetModel().GetContent()[0].WhichContent())
+	assert.Equal(t, "call-1", messages[1].GetModel().GetContent()[1].GetToolCall().GetCallId())
 	assert.Equal(t, "call-1", messages[2].GetToolResult().GetCallId())
 	assert.Contains(t, messages[2].GetToolResult().GetContents()[0].GetText(), "tool-ok")
 	assert.Equal(t, "Request complete.", messages[3].GetModel().GetText())
+	require.Len(t, messages[4].GetUser().GetContent(), 3)
+	assert.Equal(t, "full user", messages[4].GetUser().GetContent()[0].GetText())
+	assert.Equal(t, "image/png", messages[4].GetUser().GetContent()[1].GetImage().GetMediaType())
+	assert.Equal(t, []byte{1, 2, 3, 4}, messages[4].GetUser().GetContent()[1].GetImage().GetData())
+	fullModel := messages[5].GetModel()
+	require.Len(t, fullModel.GetContent(), 3)
+	assert.Equal(t, "full reasoning", fullModel.GetContent()[0].GetReasoning().GetText())
+	assert.Equal(t, "full refusal", fullModel.GetContent()[1].GetRefusal().GetText())
+	assert.Equal(t, "full-call", fullModel.GetContent()[2].GetToolCall().GetCallId())
+	require.Len(t, fullModel.GetDiagnostics(), 1)
+	assert.Equal(t, "full_notice", fullModel.GetDiagnostics()[0].GetCode())
+	assert.Equal(t, "full diagnostic", fullModel.GetDiagnostics()[0].GetMessage())
+	require.Len(t, messages[6].GetToolResult().GetContents(), 2)
+	assert.Equal(t, []byte{9, 8, 7, 6}, messages[6].GetToolResult().GetContents()[1].GetImage().GetData())
 	entries := restartSend("restart-entries", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
-	require.Len(t, entries, 4)
+	require.Len(t, entries, 7)
 	assert.NotEmpty(t, entries[0].GetId())
 	assert.True(t, entries[0].HasCreatedTime())
 
@@ -300,6 +326,14 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Contains(t, string(body), "call-1")
 	assert.Contains(t, string(body), "tool-ok")
 	assert.Contains(t, string(body), "Request complete.")
+	assert.Contains(t, string(body), "full user")
+	assert.Contains(t, string(body), fullContentUserImageBase64)
+	assert.Contains(t, string(body), "enc-full")
+	assert.Contains(t, string(body), "full refusal")
+	assert.Contains(t, string(body), "full-call")
+	assert.Contains(t, string(body), "full tool output")
+	assert.Contains(t, string(body), fullContentToolImageBase64)
+	assert.NotContains(t, string(body), "full-extension")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)
@@ -479,12 +513,14 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 // TestProtocolFailureReturnsNonzero verifies that invalid input terminates the owning process as an error.
 func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 	t := testSuite.T()
+
+	// Arrange a Programmatic stream and a request without correlation identity.
 	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixture(t, paths)
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	invalid := programmaticv1.OpenRequest_builder{
 		UserRequest: programmaticv1.UserRequest_builder{
-			Text: proto.String("missing correlation"),
+			Text: new("missing correlation"),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -492,10 +528,12 @@ func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 		SetSessionName: nil,
 		GetSessionInfo: nil,
 	}.Build()
+	// Act by sending the invalid protocol request and receiving stream termination.
 	require.NoError(t, fixture.stream.Send(invalid))
 	_, receiveErr := fixture.stream.Recv()
 	require.Error(t, receiveErr)
 	runErr := <-fixture.result
+	// Assert the application exits nonzero with the safe protocol error.
 	require.Error(t, runErr)
 	require.ErrorContains(t, runErr, "correlation ID is required")
 	fixture.assertClosed(t)
@@ -771,9 +809,9 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID),
+		CorrelationId: new(correlationID),
 		UserRequest: programmaticv1.UserRequest_builder{
-			Text: proto.String(text),
+			Text: new(text),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -787,7 +825,7 @@ func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
 func abortRequest(correlationID string) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  proto.String(correlationID),
+		CorrelationId:  new(correlationID),
 		Abort:          programmaticv1.Abort_builder{}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -801,7 +839,7 @@ func abortRequest(correlationID string) *programmaticv1.OpenRequest {
 func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  proto.String(correlationID),
+		CorrelationId:  new(correlationID),
 		GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -815,7 +853,7 @@ func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  proto.String(correlationID),
+		CorrelationId:  new(correlationID),
 		GetModels:      programmaticv1.GetModels_builder{}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -829,10 +867,10 @@ func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
 func selectModelRequest(correlationID, providerID, modelID string) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID),
+		CorrelationId: new(correlationID),
 		SelectModel: programmaticv1.SelectModel_builder{
-			ProviderId: proto.String(providerID),
-			ModelId:    proto.String(modelID),
+			ProviderId: new(providerID),
+			ModelId:    new(modelID),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,
@@ -849,7 +887,7 @@ func selectReasoningRequest(
 ) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 	return programmaticv1.OpenRequest_builder{
-		CorrelationId: proto.String(correlationID),
+		CorrelationId: new(correlationID),
 		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
 			Choice: level.Enum(),
 		}.Build(),

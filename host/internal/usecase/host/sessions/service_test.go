@@ -79,7 +79,9 @@ func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() 
 	s.False(active.StoragePath.IsPresent())
 }
 
+// TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot verifies set name persists normalized name before updating snapshot.
 func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot() {
+	// Arrange test dependencies and scenario inputs.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
@@ -93,6 +95,7 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 			ID:               "session-id",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
+			// Act by executing the scenario.
 		},
 		StoragePath: "",
 		Entry: session.Entry{
@@ -101,10 +104,11 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 			ID:          "entry-id",
 			CreatedAt:   updatedAt,
 			Information: mo.Some(session.Information{Name: "release notes"}),
-		},
+			Extension:   mo.None[session.ExtensionEnvelope]()},
 	}).Return(AppendResult{StoragePath: "/sessions/file.jsonl"}, nil)
 
 	service := New(s.repository, s.ids, s.clock, "/project")
+	// Assert the scenario produces the required observable result.
 	s.Require().NoError(service.Initialize(s.T().Context()))
 	info, err := service.SetActiveName(s.T().Context(), "  release\r\n\nnotes  ")
 	s.Require().NoError(err)
@@ -187,7 +191,9 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	}
 }
 
+// TestListCountsStoredToolResultsAsTerminalMessages verifies list counts stored tool results as terminal messages.
 func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
+	// Arrange test dependencies and scenario inputs.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
 		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
@@ -196,7 +202,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 			{
 				ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 				User: mo.Some(model.TextMessage("question")), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			},
 			{
 				ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
@@ -204,8 +210,9 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 					Content: nil, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+					// Act by executing the scenario.
 				}),
-				ToolResult: mo.None[session.ToolResult](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			},
 			{
 				ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
@@ -213,6 +220,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
 				}),
+				Extension: mo.None[session.ExtensionEnvelope](),
 			},
 		},
 	}}, nil)
@@ -220,28 +228,33 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 
 	listed, err := service.ListStored(s.T().Context())
 
+	// Assert the scenario produces the required observable result.
 	s.Require().NoError(err)
 	s.Require().Len(listed, 1)
 	s.Equal(3, listed[0].TotalMessages)
 }
 
+// TestResumeReturnsIndependentSnapshot verifies resume returns independent snapshot.
 func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
+	// Arrange test dependencies and scenario inputs.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	entries := []session.Entry{
 		{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](),
-			ID:         "entry-id", CreatedAt: createdAt.Add(time.Minute),
+			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
 			Information: mo.Some(session.Information{Name: "stored name"}),
 		}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header:      session.Header{Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
 		StoragePath: "/sessions/stored.jsonl",
-		Entries:     entries,
+		// Act by executing the scenario.
+		Entries: entries,
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, "/project")
 
 	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
+	// Assert the scenario produces the required observable result.
 	s.Require().NoError(err)
 	s.Require().Len(replacement.Entries, 1)
 	entries[0].Information = mo.Some(session.Information{Name: "mutated source"})
@@ -253,7 +266,9 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	s.Equal(mo.Some("/sessions/stored.jsonl"), active.StoragePath)
 }
 
+// TestResumeSerializesWithCompletedTextAppend verifies resume serializes with completed text append.
 func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
+	// Arrange test dependencies and scenario inputs.
 	createdAt := time.Date(2026, 8, 27, 2, 0, 0, 0, time.UTC)
 	s.ids.EXPECT().NewID().Return("old-session", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
@@ -275,12 +290,13 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 				Entries: []session.Entry{{
 					ID: "stored-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 					User: mo.Some(model.TextMessage("stored text")), Model: mo.None[model.Response](),
-					ToolResult: mo.None[session.ToolResult](),
+					ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 				}},
 			}, nil
 		},
 	)
 	resumeDone := make(chan error, 1)
+	// Act by executing the scenario.
 	go func() {
 		_, resumeErr := service.ResumeActive(s.T().Context(), "stored")
 		resumeDone <- resumeErr
@@ -307,6 +323,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	}()
 	<-appendStarted
 	close(releaseLoad)
+	// Assert the scenario produces the required observable result.
 	s.Require().NoError(<-resumeDone)
 	s.Require().NoError(<-appendDone)
 	s.Equal(session.ID("stored"), appendCommand.Header.ID)
@@ -317,7 +334,9 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	s.Equal("appended text", entries[1].User.MustGet().Content[0].Text.MustGet())
 }
 
+// TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies history append persists text before publishing immutable snapshot.
 func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot() {
+	// Arrange test dependencies and scenario inputs.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	userAt := createdAt.Add(time.Minute)
 	modelAt := createdAt.Add(2 * time.Minute)
@@ -340,12 +359,14 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, command AppendCommand) (AppendResult, error) {
 				stored := command.Entry.Model.MustGet()
-				s.Require().Len(stored.Content, 2)
+				s.Require().Len(stored.Content, 3)
 				s.Equal(model.ContentText, stored.Content[0].Kind)
 				s.Equal("world", stored.Content[0].Text.MustGet())
-				s.Equal(model.ContentReasoning, stored.Content[1].Kind)
-				s.False(stored.Content[1].Text.IsPresent())
-				s.Equal([]byte{1, 2, 3}, stored.Content[1].ProviderContext.MustGet().Payload)
+				s.Equal(model.ContentRefusal, stored.Content[1].Kind)
+				s.Equal("refusal", stored.Content[1].Text.MustGet())
+				s.Equal(model.ContentReasoning, stored.Content[2].Kind)
+				s.Equal("reasoning", stored.Content[2].Text.MustGet())
+				s.Equal([]byte{1, 2, 3}, stored.Content[2].ProviderContext.MustGet().Payload)
 				s.Equal(mo.Some(model.OutcomeStop), stored.Outcome)
 				s.Equal(mo.Some("safe terminal message"), stored.ErrorMessage)
 				s.Equal(mo.Some("response-id"), stored.ResponseID)
@@ -361,6 +382,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}))
+	// Act by executing the scenario.
 	response := model.Response{
 		Content: []model.Content{
 			{
@@ -387,6 +409,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 		ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
 		Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
+	// Assert the scenario produces the required observable result.
 	s.Require().NoError(service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
 		Model: mo.Some(response), ToolResult: mo.None[agent.ToolResult](),
@@ -591,7 +614,9 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 	s.Empty(active.Snapshot())
 }
 
-func (s *ServiceSuite) TestImageOnlyToolResultRemainsProcessLocal() {
+// TestImageOnlyToolResultBecomesDurable verifies an image-only result is persisted and retained in snapshots.
+func (s *ServiceSuite) TestImageOnlyToolResultBecomesDurable() {
+	// Arrange an active session and an image-only terminal tool result.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
@@ -607,12 +632,26 @@ func (s *ServiceSuite) TestImageOnlyToolResultRemainsProcessLocal() {
 		IsError: false,
 	}
 
+	gomock.InOrder(
+		s.ids.EXPECT().NewID().Return("tool-entry", nil),
+		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command AppendCommand) (AppendResult, error) {
+				s.Equal(result, command.Entry.ToolResult.MustGet())
+				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+			},
+		),
+	)
+
+	// Act by appending the terminal result to active history.
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(result),
 	}))
 
-	s.Empty(active.ActiveEntries())
+	// Assert the durable entry and provider snapshot retain the complete image result.
+	s.Require().Len(active.ActiveEntries(), 1)
+	s.Equal(result, active.ActiveEntries()[0].ToolResult.MustGet())
 	s.Require().Len(active.Snapshot(), 1)
 	s.Equal(result, active.Snapshot()[0].ToolResult.MustGet())
 }
@@ -656,7 +695,9 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 	}
 }
 
+// TestNextProviderRequestPreservesCompleteRestartedToolHistory verifies next provider request preserves complete restarted tool history.
 func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHistory() {
+	// Arrange test dependencies and scenario inputs.
 	base := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	idIndex := 0
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
@@ -686,8 +727,13 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 		Payload: []byte{1, 2, 3},
 	}
+	// Act by executing the scenario.
 	response := model.Response{
 		Content: []model.Content{
+			{
+				Kind: model.ContentRefusal, Text: mo.Some("refusal"), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			},
 			{
 				Kind: model.ContentReasoning, Text: mo.Some("reasoning"), Final: true,
 				ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall](),
@@ -699,13 +745,24 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.Some(model.ProviderID("provider")),
 		Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(model.ID("response-model")),
-		ResponseID: mo.Some("response-id"), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		ResponseID: mo.Some("response-id"), Usage: mo.None[model.Usage](),
+		Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 	}
 	result := agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("contents"), IsError: false,
+		CallID: call.ID, ToolName: call.Name, IsError: false,
+		Contents: []tool.ResultContent{
+			{Kind: tool.ResultContentText, Text: mo.Some("contents"), Image: mo.None[tool.ResultImage]()},
+			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{
+				MediaType: "image/png", Data: []byte{9, 8, 7},
+			})},
+		},
 	}
+	user := model.Message{Content: []model.InputContent{
+		{Kind: model.InputContentText, Text: mo.Some("first"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+		{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{4, 5, 6})},
+	}}
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
-		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("first")),
+		Kind: agent.HistoryEntryUser, User: mo.Some(user),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}))
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
@@ -717,11 +774,19 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		ToolResult: mo.Some(result),
 	}))
 	escaped := active.Snapshot()
+	escapedUser := escaped[0].User.MustGet()
+	// Assert the scenario produces the required observable result.
+	s.Require().Len(escapedUser.Content, 2)
+	escapedUser.Content[1].Data.MustGet()[0] = 0
 	escapedModel := escaped[1].Model.MustGet()
-	escapedContext := escapedModel.Content[0].ProviderContext.MustGet()
+	s.Require().Len(escapedModel.Content, 3)
+	escapedContext := escapedModel.Content[1].ProviderContext.MustGet()
 	escapedContext.Payload[0] = 9
-	escapedCall := escapedModel.Content[1].ToolCall.MustGet()
+	escapedCall := escapedModel.Content[2].ToolCall.MustGet()
 	escapedCall.Arguments["path"] = "mutated"
+	escapedToolResult := escaped[2].ToolResult.MustGet()
+	s.Require().Len(escapedToolResult.Contents, 2)
+	escapedToolResult.Contents[1].Image.MustGet().Data[0] = 0
 
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("session-id")).Return(LoadedSession{
 		Header: session.Header{
@@ -732,9 +797,16 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	restarted := New(s.repository, s.ids, s.clock, "/project")
 	_, err := restarted.ResumeActive(s.T().Context(), "session-id")
 	s.Require().NoError(err)
+	persistedUser := persisted[0].User.MustGet()
+	s.Require().Len(persistedUser.Content, 2)
+	persistedUser.Content[1].Data.MustGet()[0] = 1
 	persistedResponse := persisted[1].Model.MustGet()
-	persistedResponse.Content[0].ProviderContext.MustGet().Payload[0] = 8
-	persistedResponse.Content[1].ToolCall.MustGet().Arguments["path"] = "changed after resume"
+	s.Require().Len(persistedResponse.Content, 3)
+	persistedResponse.Content[1].ProviderContext.MustGet().Payload[0] = 8
+	persistedResponse.Content[2].ToolCall.MustGet().Arguments["path"] = "changed after resume"
+	persistedToolResult := persisted[2].ToolResult.MustGet()
+	s.Require().Len(persistedToolResult.Contents, 2)
+	persistedToolResult.Contents[1].Image.MustGet().Data[0] = 1
 
 	controller := gomock.NewController(s.T())
 	provider := agentrun.NewMockModelProvider(controller)
@@ -754,11 +826,17 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request agentrun.ModelRequest, _ agentrun.StreamHandler) error {
 			s.Require().Len(request.History, 4)
+			storedUser := request.History[0].User.MustGet()
+			s.Require().Len(storedUser.Content, 2)
+			s.Equal([]byte{4, 5, 6}, storedUser.Content[1].Data.MustGet())
 			storedModel := request.History[1].Model.MustGet()
-			s.Require().Len(storedModel.Content, 2)
-			s.Equal([]byte{1, 2, 3}, storedModel.Content[0].ProviderContext.MustGet().Payload)
-			s.Equal(call, storedModel.Content[1].ToolCall.MustGet())
+			s.Require().Len(storedModel.Content, 3)
+			s.Equal("refusal", storedModel.Content[0].Text.MustGet())
+			s.Equal("reasoning", storedModel.Content[1].Text.MustGet())
+			s.Equal([]byte{1, 2, 3}, storedModel.Content[1].ProviderContext.MustGet().Payload)
+			s.Equal(call, storedModel.Content[2].ToolCall.MustGet())
 			s.Equal("response-id", storedModel.ResponseID.MustGet())
+			s.Equal([]model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}}, storedModel.Diagnostics)
 			s.Equal(result, request.History[2].ToolResult.MustGet())
 			return providerErr
 		},

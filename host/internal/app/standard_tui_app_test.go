@@ -36,15 +36,17 @@ const (
 	standardTUIHostJoinTimeout          = 5 * time.Second
 )
 
+// TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount verifies standard tui evidence rejects cleared busy state and wrong restart count.
 func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	activeID := "active-id"
 	complete := strings.Join([]string{
 		"user: active history", "assistant: Request complete.", "user: blocked request",
 		"Session ID: " + activeID, "Name: <absent>", "Request: /resume|", "Sessions:",
 		"  active history | 2026-08-27T00:00:00Z | 3 messages",
-		"> restart session | 2026-08-27T00:00:00Z | 4 messages",
+		"> restart session | 2026-08-27T00:00:00Z | 7 messages",
 		"Selector: Up/Down navigate | Enter confirm | Escape cancel",
 		"Session status: Session replacement is unavailable.",
 	}, "\n")
@@ -52,14 +54,16 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 	require.NoError(t, validateRestartRow(complete))
 
 	preConfirmation := strings.Replace(complete, "Session status: Session replacement is unavailable.", "", 1)
+	// Act by executing the scenario.
 	err := validateBusyPreservation(preConfirmation, activeID)
+	// Assert the scenario produces the required observable result.
 	require.EqualError(t, err, "busy redraw did not occur after the rejection")
 	clearedEditor := strings.Replace(complete, "Request: /resume|", "Request: |", 1)
 	err = validateBusyPreservation(clearedEditor, activeID)
 	require.EqualError(t, err, "busy screen did not preserve the /resume editor draft")
-	wrongCount := strings.Replace(complete, "4 messages", "0 messages", 1)
+	wrongCount := strings.Replace(complete, "7 messages", "0 messages", 1)
 	err = validateRestartRow(wrongCount)
-	require.EqualError(t, err, "restart selector did not show restart session with 4 messages")
+	require.EqualError(t, err, "restart selector did not show restart session with 7 messages")
 }
 
 func validateBusyPreservation(output, activeID string) error {
@@ -94,12 +98,12 @@ func validateBusyPreservation(output, activeID string) error {
 }
 
 func validateRestartRow(output string) error {
-	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, "restart session") && strings.Contains(line, "4 messages") {
+	for line := range strings.SplitSeq(output, "\n") {
+		if strings.Contains(line, "restart session") && strings.Contains(line, "7 messages") {
 			return nil
 		}
 	}
-	return errors.New("restart selector did not show restart session with 4 messages")
+	return errors.New("restart selector did not show restart session with 7 messages")
 }
 
 func requestStandardTUIControl(t *testing.T, socketPath string, command byte) {
@@ -128,15 +132,17 @@ func lastSessionID(output string) string {
 }
 
 // TestStandardTUIHostSmoke verifies terminal input and rendered Host output through the real standard TUI.
+// TestStandardTUIHostSmoke verifies a real TUI restart restores full visible and continuation content.
 func TestStandardTUIHostSmoke(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
 		t.Skip("real PTY acceptance runs on Darwin arm64")
 	}
 
+	// Arrange persistent paths, credentials, real UI and extension executables, control socket, and PTY.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(fmt.Sprintf(`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken)), 0o600))
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil, `{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken), 0o600))
 	uiDirectory := buildStandardTUIExecutable(t)
 	extensionDirectory := buildToolsExecutable(t)
 	controlDirectory, err := os.MkdirTemp("/tmp", "glyph-tui-control-")
@@ -168,6 +174,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	require.NoError(t, err)
 	observer := testsupporttui.NewOutputObserver(ptyContext)
 	command.Stderr = observer
+	// Act by driving create, busy resume, restart, explicit resume, rendering, and continuation interactions.
 	require.NoError(t, command.Start())
 	waiter := testsupporttui.NewCommandWaiter(command)
 	outputWaiter := testsupporttui.NewOutputWaiter(observer, output)
@@ -196,6 +203,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID:")
+	restartID := lastSessionID(observer.String())
+	require.NotEmpty(t, restartID)
 	testsupporttui.Write(t, input, "read input.txt")
 	observer.WaitNext(t, "read input.txt|")
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -212,6 +221,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Name: <absent>")
 	activeID := lastSessionID(observer.String())
 	require.NotEmpty(t, activeID)
+	appendFullContentFixture(t, paths, restartID)
 	testsupporttui.Write(t, input, "active history")
 	observer.WaitNext(t, "active history|")
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -228,9 +238,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "/resume")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
-	selectionCheckpoint := observer.Checkpoint()
-	testsupporttui.Write(t, input, "\x1b[B")
-	observer.WaitForOutputAfter(t, selectionCheckpoint)
+	// The full-content append makes the restart session the newest selected row.
 	// No terminal action occurs between this checkpoint and the resume confirmation.
 	busyCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -260,13 +268,19 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
 	require.NoError(t, validateRestartRow(observer.StringFrom(restartCheckpoint)))
-	testsupporttui.Write(t, input, "\x1b[B")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	// Restored tool history proves that resume replaced the empty startup transcript in stored order.
 	observer.WaitNext(t, "user: read input.txt")
 	observer.WaitNext(t, `[tool:status] bash (arguments) {"command":"printf tool-ok"}`)
 	observer.WaitNext(t, "[tool:done] bash tool-ok")
 	observer.WaitNext(t, "assistant: Request complete.")
+	observer.WaitNext(t, "user: full user[image image/png, 4 bytes]after image")
+	observer.WaitNext(t, "[refusal] full refusal")
+	observer.WaitNext(t, "[tool:status] bash (arguments) {\"command\":\"printf full-tool\"}")
+	observer.WaitNext(t, "[info] full_notice: full diagnostic")
+	observer.WaitNext(t, "[tool:done] bash full tool output[image image/png, 4 bytes]")
+	testsupporttui.Write(t, input, string([]byte{20}))
+	observer.WaitNext(t, "reasoning: full reasoning")
 	// /session renders every Host-confirmed lifecycle field after replacement.
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -286,21 +300,29 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	copyErr := outputWaiter.Wait(ptyContext)
 	require.NoError(t, copyErr)
 	require.NoError(t, runErr, observer.String())
+	// Assert the completed PTY transcript contains every restored public content class and successful exit.
 	assert.Contains(t, observer.String(), "user: read input.txt")
 	assert.Contains(t, observer.String(), `[tool:status] bash (arguments) {"command":"printf tool-ok"}`)
 	assert.Contains(t, observer.String(), "[tool:done] bash tool-ok")
 	assert.Contains(t, observer.String(), "assistant: Request complete.")
+	assert.Contains(t, observer.String(), "user: full user[image image/png, 4 bytes]after image")
+	assert.Contains(t, observer.String(), "[refusal] full refusal")
+	assert.Contains(t, observer.String(), "[info] full_notice: full diagnostic")
+	assert.Contains(t, observer.String(), "[tool:done] bash full tool output[image image/png, 4 bytes]")
+	assert.Contains(t, observer.String(), "reasoning: full reasoning")
 	assert.Contains(t, observer.String(), "Session status: Session replacement is unavailable.")
 	assert.Contains(t, observer.String(), "PASS")
 }
 
 // TestStandardTUIHostSmokeInner runs two Host instances inside the pseudo-terminal owned by the outer test.
+// TestStandardTUIHostSmokeInner verifies two Host runs reuse persistent state and send complete provider history.
 func TestStandardTUIHostSmokeInner(t *testing.T) {
 	t.Parallel()
 	if os.Getenv(standardTUIHostInnerEnvironment) == "" {
 		return
 	}
 
+	// Arrange the inner Host paths, real terminal, control server, and deterministic provider transport.
 	testContext, cancel := context.WithTimeout(t.Context(), standardTUIHostTimeout-standardTUIHostJoinTimeout)
 	t.Cleanup(cancel)
 	terminalFile, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -336,6 +358,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
+	// Act by running two complete Host and standard TUI process cycles.
 	for range 2 {
 		runErr := runWithPaths(testContext, paths, cli.Command{
 			Mode: cli.ModeUI,
@@ -350,6 +373,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 		}, &bytes.Buffer{}, &bytes.Buffer{})
 		require.NoError(t, runErr)
 	}
+	// Assert the final provider request contains restored public and private continuation content in order.
 	assert.Equal(t, int32(5), requestCount.Load())
 	body, ok := lastBody.Load().([]byte)
 	require.True(t, ok)
@@ -358,6 +382,14 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	assert.Contains(t, string(body), "call-1")
 	assert.Contains(t, string(body), "tool-ok")
 	assert.Contains(t, string(body), "Request complete.")
+	assert.Contains(t, string(body), "full user")
+	assert.Contains(t, string(body), fullContentUserImageBase64)
+	assert.Contains(t, string(body), "enc-full")
+	assert.Contains(t, string(body), "full refusal")
+	assert.Contains(t, string(body), "full-call")
+	assert.Contains(t, string(body), "full tool output")
+	assert.Contains(t, string(body), fullContentToolImageBase64)
+	assert.NotContains(t, string(body), "full-extension")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)

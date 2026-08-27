@@ -278,9 +278,9 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		if err != nil {
 			return true, s.sendInformation("Session naming is unavailable.")
 		}
-		return true, s.channel.Send(sessionInformationFrame(info))
+		return true, s.channel.Send(sessionInfoFrame(domainui.FrameSessionInformation, info))
 	case domainui.CommandGetSessionInfo:
-		return true, s.channel.Send(sessionInformationFrame(s.sessionControl.Info()))
+		return true, s.channel.Send(sessionInfoFrame(domainui.FrameSessionInformation, s.sessionControl.Info()))
 	case domainui.CommandSubmit, domainui.CommandStop, domainui.CommandRetryAuthentication,
 		domainui.CommandQuit, domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
 		return false, nil
@@ -463,7 +463,11 @@ func (s *Session) sendAvailability(availability domainui.Availability) error {
 
 // sendSessionChanged replaces public session text only after Host replacement commits.
 func (s *Session) sendSessionChanged(replacement session.Replacement) error {
-	return s.channel.Send(sessionChangedFrame(replacement.Info, replacement.Entries))
+	frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
+	if err != nil {
+		return err
+	}
+	return s.channel.Send(frame)
 }
 
 // sendInformation emits one non-terminal command rejection or notification.

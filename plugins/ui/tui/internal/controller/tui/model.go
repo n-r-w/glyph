@@ -172,7 +172,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.Some("Could not send command: " + message.err.Error()),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -204,7 +204,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 message.command.Text,
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -334,8 +334,8 @@ func (model Model) updateEnter(availability presentationdomain.Availability) (te
 		model.cursor = 0
 		return model, nil
 	}
-	if strings.HasPrefix(text, "/name ") {
-		name := strings.TrimPrefix(text, "/name ")
+	if after, ok := strings.CutPrefix(text, "/name "); ok {
+		name := after
 		return model.emitSessionCommand(presentationdomain.CommandSetSessionName, "", name)
 	}
 	if availability != presentationdomain.AvailabilityIdle {
@@ -612,7 +612,7 @@ func sessionInformationEvent(text string) presentationdomain.Event {
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.Some(text),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -779,11 +779,11 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 		lines = appendWrappedBodyLine(
 			lines,
 			renderLine(presentationdomain.Line{
-				Kind:               kind,
-				Text:               content.Text,
-				ToolName:           mo.None[string](),
-				Status:             mo.None[string](),
-				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+				Kind:     kind,
+				Text:     content.Text,
+				ToolName: mo.None[string](),
+				Status:   mo.None[string](),
+				Contents: mo.None[[]presentationdomain.Content](),
 			}),
 			model.width,
 		)

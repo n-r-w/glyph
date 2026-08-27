@@ -17,6 +17,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
@@ -232,10 +233,39 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
 		switch entry.Kind {
 		case domainui.SessionEntryUser:
-			text, _ := entry.UserText.Get()
-			content := new(uipb.UserContent)
-			content.SetText(text)
-			wire.SetUser(uipb.UserMessage_builder{Content: []*uipb.UserContent{content}}.Build())
+			user, present := entry.User.Get()
+			if !present {
+				return nil, fmt.Errorf("map restored session entry %d: user payload is missing", index)
+			}
+			content, err := lo.MapErr(user.Content, func(item model.InputContent, contentIndex int) (*uipb.UserContent, error) {
+				wireContent := new(uipb.UserContent)
+				switch item.Kind {
+				case model.InputContentText:
+					text, hasText := item.Text.Get()
+					if !hasText || item.MediaType.IsSome() || item.Data.IsSome() {
+						return nil, fmt.Errorf("map restored user content %d: invalid text payload", contentIndex)
+					}
+					wireContent.SetText(text)
+				case model.InputContentImage:
+					mediaType, hasMediaType := item.MediaType.Get()
+					data, hasData := item.Data.Get()
+					if item.Text.IsSome() || !hasMediaType || !hasData {
+						return nil, fmt.Errorf("map restored user content %d: invalid image payload", contentIndex)
+					}
+					image := uipb.UserImage_builder{
+						MediaType: new(mediaType), Data: nil,
+					}.Build()
+					image.SetData(bytes.Clone(data))
+					wireContent.SetImage(image)
+				default:
+					return nil, fmt.Errorf("map restored user content %d: unknown kind %d", contentIndex, item.Kind)
+				}
+				return wireContent, nil
+			})
+			if err != nil {
+				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
+			}
+			wire.SetUser(uipb.UserMessage_builder{Content: content}.Build())
 		case domainui.SessionEntryModel:
 			response, _ := entry.Model.Get()
 			mapped, err := mapModelResponse(response)
@@ -855,12 +885,14 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 			if !present {
 				return nil, false
 			}
+			mappedImage := uipb.ToolResultImage_builder{
+				MediaType: &image.MediaType,
+				Data:      nil,
+			}.Build()
+			mappedImage.SetData(bytes.Clone(image.Data))
 			//nolint:exhaustruct // uipb.ToolResultContent_builder sets only the active Image field.
 			return uipb.ToolResultContent_builder{
-				Image: uipb.ToolResultImage_builder{
-					MediaType: &image.MediaType,
-					Data:      bytes.Clone(image.Data),
-				}.Build(),
+				Image: mappedImage,
 			}.Build(), true
 		}
 		return nil, false

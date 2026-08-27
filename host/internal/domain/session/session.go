@@ -48,6 +48,16 @@ type ModelResponse = model.Response
 // ToolResult is the provider-neutral terminal tool result stored in a session.
 type ToolResult = agent.ToolResult
 
+// ExtensionEnvelope stores one extension-owned opaque JSON value.
+type ExtensionEnvelope struct {
+	// ExtensionID identifies the extension that owns the entry.
+	ExtensionID string
+	// EntryType identifies the extension-defined entry kind.
+	EntryType string
+	// Data contains an owned JSON value without exposing its storage representation.
+	Data []byte
+}
+
 // Entry is one ordered session record.
 type Entry struct {
 	// ID uniquely identifies this record within the session.
@@ -62,6 +72,8 @@ type Entry struct {
 	Model mo.Option[ModelResponse]
 	// ToolResult contains one terminal tool execution result.
 	ToolResult mo.Option[ToolResult]
+	// Extension contains one session-only extension entry.
+	Extension mo.Option[ExtensionEnvelope]
 }
 
 // Replacement is one atomic active-session identity and durable transcript snapshot.

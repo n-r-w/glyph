@@ -1,12 +1,14 @@
 package programmatic
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -49,10 +51,105 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	assert.Equal(t, int64(2), rows[0].GetTotalMessages())
 }
 
-// TestMapResponsePreservesEveryResult verifies every response and history oneof.
+// TestProgrammaticImageDataPresence verifies image data presence and ownership after wire serialization.
+func TestProgrammaticImageDataPresence(t *testing.T) {
+	t.Parallel()
+
+	// Arrange image inputs for every observable data-presence state.
+	tests := []struct {
+		name        string
+		data        mo.Option[[]byte]
+		expectError bool
+		expectData  []byte
+	}{
+		{name: "absent data", data: mo.None[[]byte](), expectError: true, expectData: nil},
+		{name: "present nil data", data: mo.Some[[]byte](nil), expectError: false, expectData: []byte{}},
+		{name: "present non-nil empty data", data: mo.Some([]byte{}), expectError: false, expectData: []byte{}},
+		{name: "nonempty data", data: mo.Some([]byte{1, 2, 3}), expectError: false, expectData: []byte{1, 2, 3}},
+	}
+
+	for _, test := range tests {
+		t.Run("user "+test.name, func(t *testing.T) {
+			t.Parallel()
+			inputData := test.data
+			if data, present := test.data.Get(); present {
+				inputData = mo.Some(bytes.Clone(data))
+			}
+			message := model.Message{Content: []model.InputContent{{
+				Kind: model.InputContentImage, Text: mo.None[string](),
+				MediaType: mo.Some("image/png"), Data: inputData,
+			}}}
+
+			// Act by mapping the user image to Programmatic protobuf.
+			mapped, err := mapUserMessage(message)
+
+			// Assert validation, oneof selection, data presence, bytes, and ownership.
+			if test.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if source, present := inputData.Get(); present && len(source) != 0 {
+				source[0] = 99
+			}
+			payload, err := proto.Marshal(mapped)
+			require.NoError(t, err)
+			roundTripped := new(programmaticv1.UserMessage)
+			require.NoError(t, proto.Unmarshal(payload, roundTripped))
+			require.Len(t, roundTripped.GetContent(), 1)
+			content := roundTripped.GetContent()[0]
+			assert.Equal(t, programmaticv1.UserContent_Image_case, content.WhichContent())
+			require.NotNil(t, content.GetImage())
+			assert.True(t, content.GetImage().HasData())
+			assert.Equal(t, test.expectData, content.GetImage().GetData())
+		})
+
+		t.Run("tool result "+test.name, func(t *testing.T) {
+			t.Parallel()
+			inputData := test.data
+			if data, present := test.data.Get(); present {
+				inputData = mo.Some(bytes.Clone(data))
+			}
+			image := mo.None[ToolResultImage]()
+			if data, present := inputData.Get(); present {
+				image = mo.Some(ToolResultImage{MediaType: "image/png", Data: data})
+			}
+			// Act by mapping the tool-result image to Programmatic protobuf.
+			mapped, err := mapToolResult(ToolResult{
+				CallID: "call", ToolName: "render", IsError: false,
+				Contents: []ToolResultContent{{
+					Kind: ToolResultContentImage, Text: mo.None[string](), Image: image,
+				}},
+			})
+
+			// Assert validation, oneof selection, data presence, bytes, and ownership.
+			if test.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if source, present := inputData.Get(); present && len(source) != 0 {
+				source[0] = 99
+			}
+			payload, err := proto.Marshal(mapped)
+			require.NoError(t, err)
+			roundTripped := new(programmaticv1.ToolResult)
+			require.NoError(t, proto.Unmarshal(payload, roundTripped))
+			require.Len(t, roundTripped.GetContents(), 1)
+			content := roundTripped.GetContents()[0]
+			assert.Equal(t, programmaticv1.ToolResultContent_Image_case, content.WhichContent())
+			require.NotNil(t, content.GetImage())
+			assert.True(t, content.GetImage().HasData())
+			assert.Equal(t, test.expectData, content.GetImage().GetData())
+		})
+	}
+}
+
+// TestMapResponsePreservesEveryResult verifies every response oneof preserves complete public payloads.
 func TestMapResponsePreservesEveryResult(t *testing.T) {
 	t.Parallel()
 
+	// Arrange one response for each command result and full history content.
 	tests := map[string]Response{
 		"accepted": {
 			CorrelationID:  "accepted",
@@ -98,22 +195,19 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Kind:          ResponseMessages,
 			Messages: []HistoryEntry{
 				{
-					Kind:       HistoryEntryUser,
-					UserText:   mo.Some("user"),
-					Model:      mo.None[ModelResponse](),
-					ToolResult: mo.None[ToolResult](),
+					Kind: HistoryEntryUser, User: mo.Some(model.Message{Content: []model.InputContent{
+						{Kind: model.InputContentText, Text: mo.Some("user"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+						{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2})},
+					}}),
+					Model: mo.None[ModelResponse](), ToolResult: mo.None[ToolResult](),
 				},
 				{
-					Kind:       HistoryEntryModel,
-					Model:      mo.Some(maximalModelResponse(mo.Some(""))),
-					UserText:   mo.None[string](),
-					ToolResult: mo.None[ToolResult](),
+					Kind: HistoryEntryModel, User: mo.None[model.Message](),
+					Model: mo.Some(maximalModelResponse(mo.Some(""))), ToolResult: mo.None[ToolResult](),
 				},
 				{
-					Kind:       HistoryEntryToolResult,
-					ToolResult: mo.Some(maximalToolResult()),
-					UserText:   mo.None[string](),
-					Model:      mo.None[ModelResponse](),
+					Kind: HistoryEntryToolResult, User: mo.None[model.Message](),
+					Model: mo.None[ModelResponse](), ToolResult: mo.Some(maximalToolResult()),
 				},
 			},
 			State:          mo.None[RunStateResult](),
@@ -202,7 +296,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 	for name, response := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			// Act by mapping the internal response to protobuf.
 			got, err := mapResponse(response)
+
+			// Assert correlation, selected oneof, nested content, and field presence.
 			require.NoError(t, err)
 			assert.Equal(t, response.CorrelationID, got.GetCorrelationId())
 			wire := got.GetCommandResponse()
@@ -218,8 +316,10 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			case ResponseMessages:
 				entries := wire.GetMessages().GetEntries()
 				require.Len(t, entries, 3)
-				require.Len(t, entries[0].GetUser().GetContent(), 1)
+				require.Len(t, entries[0].GetUser().GetContent(), 2)
 				assert.Equal(t, "user", entries[0].GetUser().GetContent()[0].GetText())
+				assert.Equal(t, "image/png", entries[0].GetUser().GetContent()[1].GetImage().GetMediaType())
+				assert.Equal(t, []byte{1, 2}, entries[0].GetUser().GetContent()[1].GetImage().GetData())
 				modelEntry := entries[1].GetModel()
 				assertModelResponse(t, modelEntry, true)
 				assertToolResult(t, entries[2].GetToolResult())
@@ -280,8 +380,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				Diagnostics:   nil,
 				Content:       nil,
 			}),
-			UserText:   mo.None[string](),
-			ToolResult: mo.None[ToolResult](),
+			User: mo.None[model.Message](), ToolResult: mo.None[ToolResult](),
 		}},
 		State:       mo.None[RunStateResult](),
 		Models:      mo.None[ModelsResult](),
@@ -633,6 +732,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 func TestMappingRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	tests := map[string]func() error{
 		"response": func() error {
 			_, err := mapResponse(Response{
@@ -654,8 +754,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				SessionEntries: nil,
 				Kind:           ResponseMessages,
 				Messages: []HistoryEntry{{
-					Kind:       HistoryEntryUnspecified,
-					UserText:   mo.None[string](),
+					Kind: HistoryEntryUnspecified, User: mo.None[model.Message](),
 					Model:      mo.None[ModelResponse](),
 					ToolResult: mo.None[ToolResult](),
 				}},
@@ -890,9 +989,11 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			return err
 		},
 	}
+	// Act by executing the scenario.
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Assert the scenario produces the required observable result.
 			assert.Error(t, test())
 		})
 	}

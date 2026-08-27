@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +17,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
@@ -170,6 +174,106 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 }
 
 // TestMapCommandRequiresSelectedScalarPresence verifies omission is rejected at the plugin boundary.
+// TestRestoredSessionImageDataPresence verifies restored image presence and ownership after UI serialization.
+func TestRestoredSessionImageDataPresence(t *testing.T) {
+	t.Parallel()
+
+	// Arrange user and tool-result images for every observable data-presence state.
+	tests := []struct {
+		name        string
+		data        mo.Option[[]byte]
+		expectError bool
+		expectData  []byte
+	}{
+		{name: "absent data", data: mo.None[[]byte](), expectError: true, expectData: nil},
+		{name: "present nil data", data: mo.Some[[]byte](nil), expectError: false, expectData: []byte{}},
+		{name: "present non-nil empty data", data: mo.Some([]byte{}), expectError: false, expectData: []byte{}},
+		{name: "nonempty data", data: mo.Some([]byte{1, 2, 3}), expectError: false, expectData: []byte{1, 2, 3}},
+	}
+
+	for _, test := range tests {
+		t.Run("user "+test.name, func(t *testing.T) {
+			t.Parallel()
+			inputData := test.data
+			if data, present := test.data.Get(); present {
+				inputData = mo.Some(bytes.Clone(data))
+			}
+			// Act by mapping and serializing a restored user image.
+			mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{{
+				ID: "user", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryUser,
+				User: mo.Some(model.Message{Content: []model.InputContent{{
+					Kind: model.InputContentImage, Text: mo.None[string](),
+					MediaType: mo.Some("image/png"), Data: inputData,
+				}}}),
+				Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
+			}})
+
+			// Assert validation, oneof selection, presence, bytes, and ownership.
+			if test.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if source, present := inputData.Get(); present && len(source) != 0 {
+				source[0] = 99
+			}
+			payload, err := proto.Marshal(mapped[0])
+			require.NoError(t, err)
+			roundTripped := new(uipb.SessionEntry)
+			require.NoError(t, proto.Unmarshal(payload, roundTripped))
+			require.Len(t, roundTripped.GetUser().GetContent(), 1)
+			content := roundTripped.GetUser().GetContent()[0]
+			assert.Equal(t, uipb.UserContent_Image_case, content.WhichContent())
+			require.NotNil(t, content.GetImage())
+			assert.True(t, content.GetImage().HasData())
+			assert.Equal(t, test.expectData, content.GetImage().GetData())
+		})
+
+		t.Run("tool result "+test.name, func(t *testing.T) {
+			t.Parallel()
+			inputData := test.data
+			if data, present := test.data.Get(); present {
+				inputData = mo.Some(bytes.Clone(data))
+			}
+			image := mo.None[tool.ResultImage]()
+			if data, present := inputData.Get(); present {
+				image = mo.Some(tool.ResultImage{MediaType: "image/png", Data: data})
+			}
+			// Act by mapping and serializing a restored tool-result image.
+			mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{{
+				ID: "tool", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryToolResult,
+				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+				ToolResult: mo.Some(agent.ToolResult{
+					CallID: "call", ToolName: "render", IsError: false,
+					Contents: []tool.ResultContent{{
+						Kind: tool.ResultContentImage, Text: mo.None[string](), Image: image,
+					}},
+				}),
+			}})
+
+			// Assert absent images stay absent and present image bytes retain presence and ownership.
+			require.NoError(t, err)
+			if test.expectError {
+				require.Empty(t, mapped[0].GetToolResult().GetContents())
+				return
+			}
+			if source, present := inputData.Get(); present && len(source) != 0 {
+				source[0] = 99
+			}
+			payload, err := proto.Marshal(mapped[0])
+			require.NoError(t, err)
+			roundTripped := new(uipb.SessionEntry)
+			require.NoError(t, proto.Unmarshal(payload, roundTripped))
+			require.Len(t, roundTripped.GetToolResult().GetContents(), 1)
+			content := roundTripped.GetToolResult().GetContents()[0]
+			assert.Equal(t, uipb.ToolResultContent_Image_case, content.WhichContent())
+			require.NotNil(t, content.GetImage())
+			assert.True(t, content.GetImage().HasData())
+			assert.Equal(t, test.expectData, content.GetImage().GetData())
+		})
+	}
+}
+
 func TestMapSessionCommands(t *testing.T) {
 	t.Parallel()
 

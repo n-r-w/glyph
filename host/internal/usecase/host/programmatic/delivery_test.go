@@ -19,6 +19,7 @@ import (
 func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	response := model.Response{
 		ErrorMessage:  mo.None[string](),
 		ResponseModel: mo.None[model.ID](),
@@ -57,7 +58,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		Provider: mo.Some(model.ProviderID("provider")),
 		Model:    mo.Some(model.ID("model")),
 	}
-	mappedResponse, err := mapModelResponse(response)
+	mappedResponse, err := mapModelResponseProjection(response)
 	require.NoError(t, err)
 	toolResult := agent.ToolResult{
 		IsError:  false,
@@ -687,11 +688,13 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		},
 	}
 
+	// Act by executing the scenario.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			delivery := NewDelivery()
 			active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+			// Assert the scenario produces the required observable result.
 			require.True(t, delivery.reserve(active))
 			delivered := make(chan error)
 			go func() { delivered <- delivery.DeliverAgent(t.Context(), test.event) }()

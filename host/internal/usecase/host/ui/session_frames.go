@@ -1,7 +1,9 @@
 package ui
 
 import (
-	"strings"
+	"bytes"
+	"fmt"
+	"slices"
 
 	"github.com/samber/mo"
 
@@ -29,54 +31,51 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 }
 
 // sessionChangedFrame confirms replacement and carries the complete restored transcript.
-func sessionChangedFrame(info session.Info, entries []session.Entry) domainui.Frame {
+func sessionChangedFrame(info session.Info, entries []session.Entry) (domainui.Frame, error) {
 	frame := sessionInfoFrame(domainui.FrameSessionChanged, info)
 	frame.SessionEntries = make([]domainui.SessionEntry, 0, len(entries))
 	for position := range entries {
 		entry := &entries[position]
 		if user, present := entry.User.Get(); present {
-			var text strings.Builder
-			for _, content := range user.Content {
-				if value, ok := content.Text.Get(); content.Kind == model.InputContentText && ok {
-					text.WriteString(value)
-				}
-			}
 			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
-				UserText: mo.Some(text.String()), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.None[agent.ToolResult](),
+				User:  mo.Some(cloneRestoredUser(user)),
+				Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
 			})
 			continue
 		}
 		if response, present := entry.Model.Get(); present {
-			mapped, ok := mapRestoredResponse(response)
-			if !ok {
-				continue
+			mapped, err := mapModelResponseProjection(response, false)
+			if err != nil {
+				return domainui.Frame{}, fmt.Errorf("map restored session entry %d: %w", position, err)
 			}
 			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
-				UserText: mo.None[string](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
+				User:  mo.None[model.Message](),
+				Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
 			})
 			continue
 		}
 		if result, present := entry.ToolResult.Get(); present {
 			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryToolResult,
-				UserText: mo.None[string](), Model: mo.None[domainui.ModelResponse](),
+				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
 				ToolResult: mo.Some(cloneRestoredToolResult(result)),
 			})
 		}
 	}
-	return frame
-}
-
-// mapRestoredResponse removes opaque context carriers before UI projection.
-func mapRestoredResponse(response model.Response) (domainui.ModelResponse, bool) {
-	mapped, err := mapModelResponseProjection(response, true)
-	return mapped, err == nil
+	return frame, nil
 }
 
 // cloneRestoredToolResult gives an in-flight UI frame independent result ownership.
+func cloneRestoredUser(message model.Message) model.Message {
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
+	}
+	return message
+}
+
 func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
 	contents := append([]tool.ResultContent(nil), result.Contents...)
 	for index := range contents {
@@ -91,10 +90,6 @@ func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
 }
 
 // sessionInformationFrame reports active identity without replacing TUI transcript state.
-func sessionInformationFrame(info session.Info) domainui.Frame {
-	return sessionInfoFrame(domainui.FrameSessionInformation, info)
-}
-
 // sessionInfoFrame initializes exactly one information-bearing lifecycle variant.
 func sessionInfoFrame(kind domainui.FrameKind, info session.Info) domainui.Frame {
 	return domainui.Frame{

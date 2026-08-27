@@ -97,10 +97,11 @@ type Response struct {
 
 // SessionEntry contains stable metadata and one public terminal payload.
 type SessionEntry struct {
-	ID         string
-	CreatedAt  time.Time
-	Kind       HistoryEntryKind
-	UserText   mo.Option[string]
+	ID        string
+	CreatedAt time.Time
+	Kind      HistoryEntryKind
+	// User carries ordered public text and image content for detailed session entries.
+	User       mo.Option[model.Message]
 	Model      mo.Option[ModelResponse]
 	ToolResult mo.Option[ToolResult]
 }
@@ -147,8 +148,9 @@ const (
 
 // HistoryEntry is one ordered public conversation entry.
 type HistoryEntry struct {
-	Kind       HistoryEntryKind
-	UserText   mo.Option[string]
+	Kind HistoryEntryKind
+	// User carries ordered public text and image content.
+	User       mo.Option[model.Message]
 	Model      mo.Option[ModelResponse]
 	ToolResult mo.Option[ToolResult]
 }

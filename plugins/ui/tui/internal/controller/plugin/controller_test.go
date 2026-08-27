@@ -148,6 +148,181 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	assert.Equal(t, mo.Some(toolResultText), event.RestoredTranscript[3].Text)
 }
 
+// TestSessionChangedAcceptsStoredToolResultContentStates verifies valid empty and image states restore safely.
+func TestSessionChangedAcceptsStoredToolResultContentStates(t *testing.T) {
+	t.Parallel()
+
+	// Arrange the stored tool-result states accepted by persistence.
+	tests := []struct {
+		name             string
+		contents         func() ([]*uiv1.ToolResultContent, []byte)
+		expectNil        bool
+		expectImageData  mo.Option[[]byte]
+		expectedRendered string
+	}{
+		{
+			name: "nil contents",
+			contents: func() ([]*uiv1.ToolResultContent, []byte) {
+				return nil, nil
+			},
+			expectNil: true, expectImageData: mo.None[[]byte](), expectedRendered: "",
+		},
+		{
+			name: "non-nil empty contents",
+			contents: func() ([]*uiv1.ToolResultContent, []byte) {
+				return []*uiv1.ToolResultContent{}, nil
+			},
+			expectNil: false, expectImageData: mo.None[[]byte](), expectedRendered: "",
+		},
+		{
+			name: "present nil image bytes",
+			contents: func() ([]*uiv1.ToolResultContent, []byte) {
+				image := new(uiv1.ToolResultImage)
+				image.SetMediaType("image/png")
+				image.SetData(nil)
+				content := new(uiv1.ToolResultContent)
+				content.SetImage(image)
+				return []*uiv1.ToolResultContent{content}, nil
+			},
+			expectNil: false, expectImageData: mo.Some([]byte{}),
+			expectedRendered: "[image image/png, 0 bytes]",
+		},
+		{
+			name: "present non-nil empty image bytes",
+			contents: func() ([]*uiv1.ToolResultContent, []byte) {
+				data := []byte{}
+				image := new(uiv1.ToolResultImage)
+				image.SetMediaType("image/png")
+				image.SetData(data)
+				content := new(uiv1.ToolResultContent)
+				content.SetImage(image)
+				return []*uiv1.ToolResultContent{content}, data
+			},
+			expectNil: false, expectImageData: mo.Some([]byte{}),
+			expectedRendered: "[image image/png, 0 bytes]",
+		},
+		{
+			name: "nonempty image bytes",
+			contents: func() ([]*uiv1.ToolResultContent, []byte) {
+				data := []byte{1, 2, 3}
+				image := new(uiv1.ToolResultImage)
+				image.SetMediaType("image/png")
+				image.SetData(data)
+				content := new(uiv1.ToolResultContent)
+				content.SetImage(image)
+				return []*uiv1.ToolResultContent{content}, data
+			},
+			expectNil: false, expectImageData: mo.Some([]byte{1, 2, 3}),
+			expectedRendered: "[image image/png, 3 bytes]",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			contents, source := test.contents()
+			result := uiv1.ToolResult_builder{
+				CallId: new("call"), ToolName: new("render"), Contents: contents, IsError: new(false),
+			}.Build()
+			entry := new(uiv1.SessionEntry)
+			entry.SetToolResult(result)
+			request := new(uiv1.OpenRequest)
+			request.SetSessionChanged(uiv1.SessionChanged_builder{
+				Info: testSessionInfo(), Entries: []*uiv1.SessionEntry{entry},
+			}.Build())
+
+			// Act by mapping a complete SessionChanged request.
+			event, err := mapRequest(request)
+
+			// Assert exact slice, option, byte ownership, and rendered text state.
+			require.NoError(t, err)
+			require.Len(t, event.RestoredTranscript, 1)
+			line := event.RestoredTranscript[0]
+			require.True(t, line.Contents.IsPresent())
+			mapped := line.Contents.MustGet()
+			if test.expectNil {
+				assert.Nil(t, mapped)
+			} else {
+				assert.NotNil(t, mapped)
+			}
+			assert.Equal(t, mo.Some(test.expectedRendered), line.Text)
+			if test.expectImageData.IsPresent() {
+				require.Len(t, mapped, 1)
+				assert.Equal(t, mo.Some("image/png"), mapped[0].MediaType)
+				assert.Equal(t, test.expectImageData, mapped[0].Data)
+				if len(source) != 0 {
+					source[0] = 99
+					assert.Equal(t, test.expectImageData, mapped[0].Data)
+				}
+			}
+		})
+	}
+}
+
+// TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent verifies complete public restoration.
+func TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange user, model, and tool-result entries with every public content type.
+	createdAt := timestamppb.Now()
+	userText := "before"
+	userImage := new(uiv1.UserContent)
+	userImage.SetImage(uiv1.UserImage_builder{MediaType: new("image/png"), Data: []byte{1, 2, 3}}.Build())
+	userEntry := new(uiv1.SessionEntry)
+	userEntry.SetId("user-entry")
+	userEntry.SetCreatedTime(createdAt)
+	userEntry.SetUser(uiv1.UserMessage_builder{Content: []*uiv1.UserContent{
+		uiv1.UserContent_builder{Text: &userText, Image: nil}.Build(), userImage,
+	}}.Build())
+	reasoning := "visible reasoning"
+	refusal := "visible refusal"
+	modelEntry := new(uiv1.SessionEntry)
+	modelEntry.SetId("model-entry")
+	modelEntry.SetCreatedTime(createdAt)
+	modelEntry.SetModel(uiv1.ModelResponse_builder{
+		Text: nil, Outcome: new("stop"), ErrorMessage: nil, Provider: nil, Model: nil,
+		ResponseId: nil, Usage: nil, ResponseModel: nil,
+		Diagnostics: []*uiv1.ModelDiagnostic{
+			uiv1.ModelDiagnostic_builder{Code: new("notice"), Message: new("safe diagnostic")}.Build(),
+		},
+		Content: []*uiv1.ModelResponseContent{
+			uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING), Text: &reasoning, ToolCall: nil,
+			}.Build(),
+			uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL), Text: &refusal, ToolCall: nil,
+			}.Build(),
+		},
+	}.Build())
+	toolContent := new(uiv1.ToolResultContent)
+	toolContent.SetImage(uiv1.ToolResultImage_builder{MediaType: new("image/webp"), Data: []byte{4, 5, 6}}.Build())
+	toolEntry := new(uiv1.SessionEntry)
+	toolEntry.SetId("tool-entry")
+	toolEntry.SetCreatedTime(createdAt)
+	toolEntry.SetToolResult(uiv1.ToolResult_builder{
+		CallId: new("call"), ToolName: new("render"), Contents: []*uiv1.ToolResultContent{toolContent},
+		IsError: new(false),
+	}.Build())
+
+	// Act by mapping the ordered restored transcript.
+	lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{userEntry, modelEntry, toolEntry})
+
+	// Assert ordered line kinds, text, diagnostics, and image bytes.
+	require.NoError(t, err)
+	require.Len(t, lines, 5)
+	require.True(t, lines[0].Contents.IsPresent())
+	require.Equal(t, []byte{1, 2, 3}, lines[0].Contents.MustGet()[1].Data.MustGet())
+	require.Equal(t, presentationdomain.LineReasoning, lines[1].Kind)
+	require.Equal(t, mo.Some(reasoning), lines[1].Text)
+	require.Equal(t, presentationdomain.LineRefusal, lines[2].Kind)
+	require.Equal(t, mo.Some(refusal), lines[2].Text)
+	require.Equal(t, presentationdomain.LineInformation, lines[3].Kind)
+	require.Equal(t, mo.Some("notice: safe diagnostic"), lines[3].Text)
+	require.Equal(t, presentationdomain.LineToolDone, lines[4].Kind)
+	require.Equal(t, []byte{4, 5, 6}, lines[4].Contents.MustGet()[0].Data.MustGet())
+	require.Equal(t, mo.Some("[image image/webp, 3 bytes]"), lines[4].Text)
+}
+
 func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 	t.Parallel()
 
@@ -178,6 +353,7 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	mockController := gomock.NewController(t)
 	terminal := NewMockTerminal(mockController)
 	session := NewMockTerminalSession(mockController)
@@ -197,11 +373,11 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				RestoredTranscript: nil,
 				Kind:               presentationdomain.EventInitialization,
 				Startup: []presentationdomain.Line{{
-					Kind:               presentationdomain.LineInformation,
-					Text:               mo.Some("ready"),
-					ToolName:           mo.None[string](),
-					Status:             mo.None[string](),
-					ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+					Kind:     presentationdomain.LineInformation,
+					Text:     mo.Some("ready"),
+					ToolName: mo.None[string](),
+					Status:   mo.None[string](),
+					Contents: mo.None[[]presentationdomain.Content](),
 				}},
 				Availability: mo.Some(presentationdomain.AvailabilityIdle),
 				Extensions: []presentationdomain.Extension{{
@@ -238,7 +414,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				Status:               mo.None[string](),
 				Stream:               mo.None[presentationdomain.OutputStream](),
 				Text:                 mo.None[string](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
@@ -265,19 +441,21 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
+		// Act by executing the scenario.
+		Stream:         mo.None[presentationdomain.OutputStream](),
+		Contents:       mo.None[[]presentationdomain.Content](),
+		ErrorText:      mo.None[string](),
+		ExitCode:       mo.None[int](),
+		Failure:        mo.None[bool](),
+		ToolCall:       mo.None[presentationdomain.ToolCallState](),
+		Models:         nil,
+		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+		Sessions:       nil,
 	})
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		contentKind, ok := event.ModelContentKind.Get()
+		// Assert the scenario produces the required observable result.
 		require.True(t, ok)
 		position, ok := event.Position.Get()
 		require.True(t, ok)
@@ -725,6 +903,7 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 // TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer mapping.
 func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	t.Parallel()
+	// Arrange test dependencies and scenario inputs.
 	payload, err := os.ReadFile(filepath.Join(repositoryRoot(t), "testdata", "semantic-ui-lifecycle.json"))
 	require.NoError(t, err)
 	var sequence []semanticFrame
@@ -733,6 +912,7 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	service := presentationusecase.New()
 	initial, err := mapRequest(initializationRequest())
 	require.NoError(t, err)
+	// Act by executing the scenario.
 	state := service.Apply(presentationdomain.State{}, initial)
 	for _, frame := range sequence {
 		request := lifecycleRequest(frame)
@@ -744,24 +924,25 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	assert.Equal(t, mo.Some(true), state.Settled)
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
-		Kind:               presentationdomain.LineModel,
-		Text:               mo.Some("Request complete."),
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineModel,
+		Text:     mo.Some("Request complete."),
+		ToolName: mo.None[string](),
+		Status:   mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
+	// Assert the scenario produces the required observable result.
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
-		Kind:               presentationdomain.LineToolDone,
-		ToolName:           mo.Some("bash"),
-		Status:             mo.Some("completed"),
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineToolDone,
+		ToolName: mo.Some("bash"),
+		Status:   mo.Some("completed"),
+		Text:     mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
 	})
 	assert.Contains(t, state.Transcript, presentationdomain.Line{
 		Kind:     presentationdomain.LineToolDone,
 		ToolName: mo.Some("bash"),
 		Text:     mo.Some("tool-ok\n\n[Exit code: 0]\n"),
-		ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
+		Contents: mo.Some([]presentationdomain.Content{{
 			Text:      mo.Some("tool-ok\n\n[Exit code: 0]\n"),
 			MediaType: mo.None[string](),
 			Data:      mo.None[[]byte](),
@@ -1153,6 +1334,7 @@ func TestOpenReturnsProgramErrorAndClosesTerminal(t *testing.T) {
 func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	event, err := mapInitialization(uiv1.Initialization_builder{
 		SelectedUiId: new("glyph-tui"),
 		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
@@ -1168,7 +1350,8 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
 			ProviderId: new("openai-codex"),
 			ModelId:    new("gpt"),
-			Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+			// Act by executing the scenario.
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build()},
 		ModelSelection: uiv1.ModelSelection_builder{
 			ProviderId:      new("openai-codex"),
@@ -1178,13 +1361,14 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 		SessionInfo: testSessionInfo(),
 	}.Build())
 
+	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.Line{{
-		Kind:               presentationdomain.LineWarning,
-		ToolName:           mo.None[string](),
-		Status:             mo.None[string](),
-		Text:               mo.Some("excluded optional UI"),
-		ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		Kind:     presentationdomain.LineWarning,
+		ToolName: mo.None[string](),
+		Status:   mo.None[string](),
+		Text:     mo.Some("excluded optional UI"),
+		Contents: mo.None[[]presentationdomain.Content](),
 	}}, event.Startup)
 	assert.Equal(t, []presentationdomain.Extension{{
 		ID:    "glyph-tools",
@@ -1197,6 +1381,7 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	_, err := mapRequest(uiv1.OpenRequest_builder{
 		Lifecycle:          &uiv1.LifecycleEvent{},
@@ -1207,6 +1392,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	require.Error(t, err)
 
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	// Act by executing the scenario.
 	event, err := mapRequest(uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("safe error"),
@@ -1216,6 +1402,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		SessionChanged:     nil,
 		SessionInformation: nil,
 	}.Build())
+	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -1231,7 +1418,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -1329,6 +1516,7 @@ func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	projection := presentationusecase.New()
 	state := presentationdomain.State{}
 	frames := []*uiv1.LifecycleEvent{
@@ -1419,6 +1607,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			ToolResultContents: nil,
 		}.Build(),
 	}
+	// Act by executing the scenario.
 	for _, lifecycle := range frames {
 		//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 		event, err := mapRequest(uiv1.OpenRequest_builder{
@@ -1427,24 +1616,25 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			SessionChanged:     nil,
 			SessionInformation: nil,
 		}.Build())
+		// Assert the scenario produces the required observable result.
 		require.NoError(t, err)
 		state = projection.Apply(state, event)
 	}
 
 	assert.Equal(t, []presentationdomain.Line{
 		{
-			Kind:               presentationdomain.LineReasoning,
-			Text:               mo.Some("hidden reasoning"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineReasoning,
+			Text:     mo.Some("hidden reasoning"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 		{
-			Kind:               presentationdomain.LineModel,
-			Text:               mo.Some("complete answer"),
-			ToolName:           mo.None[string](),
-			Status:             mo.None[string](),
-			ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			Kind:     presentationdomain.LineModel,
+			Text:     mo.Some("complete answer"),
+			ToolName: mo.None[string](),
+			Status:   mo.None[string](),
+			Contents: mo.None[[]presentationdomain.Content](),
 		},
 	}, state.Transcript)
 	assert.Empty(t, state.ActiveModel)
@@ -1454,6 +1644,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	testCases := []struct {
 		name      string
 		lifecycle *uiv1.LifecycleEvent
@@ -1497,7 +1688,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolName:             mo.None[string](),
 				Status:               mo.None[string](),
 				Stream:               mo.None[presentationdomain.OutputStream](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
@@ -1541,7 +1732,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelResponseContent: nil,
 				Stream:               mo.None[presentationdomain.OutputStream](),
 				Text:                 mo.None[string](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
@@ -1585,7 +1776,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ModelResponseContent: nil,
 				ToolName:             mo.None[string](),
 				Status:               mo.None[string](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
@@ -1626,7 +1817,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCallID:         mo.Some("call-1"),
 				ToolName:           mo.Some("read"),
 				Failure:            mo.Some(true),
-				ToolResultContents: mo.Some([]presentationdomain.ToolResultContent{{
+				Contents: mo.Some([]presentationdomain.Content{{
 					Text:      mo.Some("denied"),
 					MediaType: mo.None[string](),
 					Data:      mo.None[[]byte](),
@@ -1684,7 +1875,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCallID:           mo.None[string](),
 				ToolName:             mo.None[string](),
 				Stream:               mo.None[presentationdomain.OutputStream](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ExitCode:             mo.None[int](),
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				Models:               nil,
@@ -1726,7 +1917,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				Status:               mo.None[string](),
 				Stream:               mo.None[presentationdomain.OutputStream](),
 				Text:                 mo.None[string](),
-				ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+				Contents:             mo.None[[]presentationdomain.Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
@@ -1739,10 +1930,12 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		},
 	}
 
+	// Act by executing the scenario.
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			event, err := mapLifecycle(testCase.lifecycle)
+			// Assert the scenario produces the required observable result.
 			require.NoError(t, err)
 			assert.Equal(t, testCase.expected, event)
 		})
@@ -2591,6 +2784,7 @@ func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *ui
 func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
 	event, err := mapRequest(uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
@@ -2603,8 +2797,9 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventError,
+		RestoredTranscript: nil,
+		Kind:               presentationdomain.EventError,
+		// Act by executing the scenario.
 		Text:                 mo.Some("Authentication failed."),
 		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
 		Startup:              nil,
@@ -2616,7 +2811,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -2625,6 +2820,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
+		// Assert the scenario produces the required observable result.
 	}, event)
 }
 

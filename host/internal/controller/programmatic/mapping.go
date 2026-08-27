@@ -409,15 +409,15 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
 		switch entry.Kind {
 		case HistoryEntryUser:
-			text, present := entry.UserText.Get()
+			user, present := entry.User.Get()
 			if !present {
 				return nil, fmt.Errorf("map session entry %d: missing user payload", index)
 			}
-			content := new(programmaticv1.UserContent)
-			content.SetText(text)
-			user := new(programmaticv1.UserMessage)
-			user.SetContent([]*programmaticv1.UserContent{content})
-			wire.SetUser(user)
+			mapped, err := mapUserMessage(user)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", index, err)
+			}
+			wire.SetUser(mapped)
 		case HistoryEntryModel:
 			response, present := entry.Model.Get()
 			if !present {
@@ -452,15 +452,15 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 		wire := new(programmaticv1.HistoryEntry)
 		switch entry.Kind {
 		case HistoryEntryUser:
-			userText, ok := entry.UserText.Get()
+			user, ok := entry.User.Get()
 			if !ok {
 				return nil, fmt.Errorf("map history entry %d: missing user payload", index)
 			}
-			content := new(programmaticv1.UserContent)
-			content.SetText(userText)
-			user := new(programmaticv1.UserMessage)
-			user.SetContent([]*programmaticv1.UserContent{content})
-			wire.SetUser(user)
+			mapped, err := mapUserMessage(user)
+			if err != nil {
+				return nil, fmt.Errorf("map history entry %d: %w", index, err)
+			}
+			wire.SetUser(mapped)
 		case HistoryEntryModel:
 			modelValue, ok := entry.Model.Get()
 			if !ok {
@@ -488,6 +488,43 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 		}
 		return wire, nil
 	})
+}
+
+func mapUserMessage(message model.Message) (*programmaticv1.UserMessage, error) {
+	content, err := lo.MapErr(message.Content, func(
+		item model.InputContent,
+		index int,
+	) (*programmaticv1.UserContent, error) {
+		wire := new(programmaticv1.UserContent)
+		switch item.Kind {
+		case model.InputContentText:
+			text, present := item.Text.Get()
+			if !present || item.MediaType.IsSome() || item.Data.IsSome() {
+				return nil, fmt.Errorf("map user content %d: invalid text payload", index)
+			}
+			wire.SetText(text)
+		case model.InputContentImage:
+			mediaType, hasMediaType := item.MediaType.Get()
+			data, hasData := item.Data.Get()
+			if item.Text.IsSome() || !hasMediaType || !hasData {
+				return nil, fmt.Errorf("map user content %d: invalid image payload", index)
+			}
+			image := programmaticv1.UserImage_builder{
+				MediaType: new(mediaType), Data: nil,
+			}.Build()
+			image.SetData(bytes.Clone(data))
+			wire.SetImage(image)
+		default:
+			return nil, fmt.Errorf("map user content %d: unknown kind %d", index, item.Kind)
+		}
+		return wire, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	wire := new(programmaticv1.UserMessage)
+	wire.SetContent(content)
+	return wire, nil
 }
 
 func mapModelContent(content ModelContent, requireText bool) (*programmaticv1.ModelContent, error) {

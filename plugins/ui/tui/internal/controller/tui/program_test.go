@@ -18,6 +18,7 @@ import (
 func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	factory := NewFactory(service.Apply)
 	input, writeInput := io.Pipe()
@@ -39,15 +40,16 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.None[string](),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
 			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			Models:               nil,
-			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-			Sessions:             nil,
+			// Act by executing the scenario.
+			Models:         nil,
+			ModelSelection: mo.None[presentationdomain.ModelSelection](),
+			SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+			Sessions:       nil,
 		},
 		input, output,
 		func(command presentationdomain.Command) error {
@@ -63,6 +65,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 		t.Fatal("Bubble Tea did not start")
 	}
 	_, err := io.WriteString(writeInput, "héllo🙂\r")
+	// Assert the scenario produces the required observable result.
 	require.NoError(t, err)
 	select {
 	case command := <-emitted:
@@ -86,6 +89,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 	t.Parallel()
 
+	// Arrange test dependencies and scenario inputs.
 	service := presentationusecase.New()
 	factory := NewFactory(service.Apply)
 	output := newNotifyingWriter()
@@ -104,7 +108,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
 			Text:                 mo.None[string](),
-			ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
 			Failure:              mo.None[bool](),
@@ -114,6 +118,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 		},
+		// Act by executing the scenario.
 		bytes.NewBuffer(nil), output,
 		func(presentationdomain.Command) error { return nil },
 	)
@@ -139,7 +144,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
 		Stream:               mo.None[presentationdomain.OutputStream](),
-		ToolResultContents:   mo.None[[]presentationdomain.ToolResultContent](),
+		Contents:             mo.None[[]presentationdomain.Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
@@ -150,6 +155,7 @@ func TestFactoryRunsProgramWithSuppliedTerminalIO(t *testing.T) {
 		Sessions:             nil,
 	})
 	program.Quit()
+	// Assert the scenario produces the required observable result.
 	require.NoError(t, <-runResult)
 	assert.NotEmpty(t, output.String())
 }
