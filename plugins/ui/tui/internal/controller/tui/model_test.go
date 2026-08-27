@@ -1942,9 +1942,11 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	assert.Zero(t, model.cursor)
 }
 
+// TestModelResumeRejectionReservesHeightAndFitsTerminalWidth verifies status layout consumes height without overflow.
 func TestModelResumeRejectionReservesHeightAndFitsTerminalWidth(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an open resume selector with rejection text, constrained dimensions, and stored-session rows.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(presentationdomain.Command) error { return nil })
 	model.selectorOpen = true
 	model.sessionSelector = true
@@ -1962,15 +1964,20 @@ func TestModelResumeRejectionReservesHeightAndFitsTerminalWidth(t *testing.T) {
 		})
 	}
 
+	// Act by calculating the visible selector lines.
 	lines := model.visibleSelectorLines()
+
+	// Assert the status reserves one line, remains visible, and fits the terminal cell width.
 	require.Len(t, lines, selectorFixedLineCount+1+2)
 	assert.Contains(t, lines[len(lines)-2], "Session status:")
 	assert.LessOrEqual(t, ansi.StringWidth(lines[len(lines)-2]), model.width)
 }
 
+// TestModelEscapeClearsResumeRejection verifies Escape closes the selector and clears rejection and draft state.
 func TestModelEscapeClearsResumeRejection(t *testing.T) {
 	t.Parallel()
 
+	// Arrange an open resume selector with rejection text, a resume draft, and one stored session.
 	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(presentationdomain.Command) error { return nil })
 	model.selectorOpen = true
 	model.sessionSelector = true
@@ -1986,8 +1993,10 @@ func TestModelEscapeClearsResumeRejection(t *testing.T) {
 		FirstUserText: "", TextPresent: false, TotalMessages: 0,
 	}}
 
+	// Act by sending Escape through the model update path.
 	model = updateModel(t, model, tea.KeyPressMsg(testKey(tea.KeyEscape)))
 
+	// Assert selector state, rejection text, and draft input are cleared from state and view.
 	assert.False(t, model.selectorOpen)
 	assert.False(t, model.sessionSelector)
 	assert.Empty(t, model.resumeStatus)
@@ -1996,13 +2005,19 @@ func TestModelEscapeClearsResumeRejection(t *testing.T) {
 	assert.NotContains(t, model.View().Content, "Session replacement is unavailable.")
 }
 
+// TestFormatSessionInfoShowsAbsentOptionalFields verifies absent name and storage path use explicit placeholders.
 func TestFormatSessionInfoShowsAbsentOptionalFields(t *testing.T) {
 	t.Parallel()
 
+	// Arrange session information whose optional name and storage path are absent.
+
+	// Act by formatting that session information for display.
 	text := formatSessionInfo(presentationdomain.SessionInfo{
 		ID: "startup", Name: "", NamePresent: false, WorkingDirectory: "/project",
 		StoragePath: "", StoragePresent: false, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
 	})
+
+	// Assert both absent optional fields use the explicit placeholder.
 	assert.Contains(t, text, "Name: <absent>")
 	assert.Contains(t, text, "Storage path: <absent>")
 }

@@ -1504,8 +1504,11 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	assert.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
 }
 
+// TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl verifies a blocked session root prevents provider and RPC startup.
+//
 //nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.
 func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing.T) {
+	// Arrange a non-directory session root, counting provider transport, and unused socket path.
 	paths := testPaths(t, codexSettings(""))
 	require.NoError(t, os.WriteFile(filepath.Join(paths.Directory, "sessions"), []byte("blocked"), 0o600))
 	requests := &atomic.Int32{}
@@ -1514,17 +1517,22 @@ func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	socketPath := filepath.Join(t.TempDir(), "glyph.sock")
 
+	// Act by starting Programmatic Control with the blocked session root.
 	err := runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeRPC, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
 		ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: socketPath,
 	}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	// Assert startup reports the root failure before provider traffic or socket creation.
 	require.ErrorContains(t, err, "create session root")
 	require.Zero(t, requests.Load())
 	_, statErr := os.Stat(socketPath)
 	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
+// TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization verifies a blocked project path prevents provider and UI startup.
 func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testing.T) {
+	// Arrange a blocked canonical project session path, counting transport, UI executable, and trace path.
 	paths := testPaths(t, codexSettings(""))
 	workingDirectory, err := os.Getwd()
 	require.NoError(t, err)
@@ -1543,10 +1551,13 @@ func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testi
 	tracePath := filepath.Join(t.TempDir(), "must-not-exist")
 	t.Setenv(appUITraceEnvironment, tracePath)
 
+	// Act by starting UI mode with the blocked project session path.
 	err = runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeUI, Headless: headless.Command{UserText: "", ExtensionDirectory: ""},
 		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "must-not-start-ui", SocketPath: "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	// Assert startup reports the project-path failure before provider traffic or UI execution.
 	require.ErrorContains(t, err, "create project session directory")
 	require.Zero(t, requests.Load())
 	_, statErr := os.Stat(tracePath)

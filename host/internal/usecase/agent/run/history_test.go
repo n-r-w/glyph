@@ -83,9 +83,11 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 	assert.True(t, cloned.Content[1].ProviderContext.IsNone())
 }
 
+// TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder verifies call order, skipped results, and clone ownership.
 func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.T) {
 	t.Parallel()
 
+	// Arrange ordered model calls and stored-result combinations that include missing and unexpected results.
 	calls := []model.ToolCall{
 		{ID: "call-a", Name: "tool-a", Arguments: map[string]any{}},
 		{ID: "call-b", Name: "tool-b", Arguments: map[string]any{}},
@@ -134,8 +136,10 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 				})
 			}
 
+			// Act by projecting stored history into provider-visible call order.
 			projected := projectHistory(history)
 
+			// Assert stored results keep their values, missing results become skipped, and unexpected results are omitted.
 			require.Len(t, projected, len(calls)+1)
 			for index, call := range calls {
 				result := projected[index+1].ToolResult.MustGet()

@@ -276,9 +276,11 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 	}
 }
 
+// TestMapSessionCommands verifies UI session commands retain their kind and optional session values.
 func TestMapSessionCommands(t *testing.T) {
 	t.Parallel()
 
+	// Arrange every UI session response and its expected domain command.
 	tests := []struct {
 		name     string
 		response *uipb.OpenResponse
@@ -321,7 +323,11 @@ func TestMapSessionCommands(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
+			// Act by mapping the protobuf response into a domain command.
 			actual, err := mapCommand(test.response)
+
+			// Assert the command kind and optional session value match the case.
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
 		})

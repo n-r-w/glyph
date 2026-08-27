@@ -22,9 +22,11 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
+// TestRunReservationsBlockReplacementUntilSettlement verifies run ownership blocks replacement until settlement.
 func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	t.Parallel()
 
+	// Arrange active-session control and run coordination over one operation gate.
 	controller := gomock.NewController(t)
 	active := sessioncontrol.NewMockActiveSessions(controller)
 	gate := operationgate.New()
@@ -34,7 +36,11 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
 	active.EXPECT().CreateActive(gomock.Any()).Return(session.Replacement{Info: idleInfo, Entries: nil}, nil)
+
+	// Act by creating the initial idle session.
 	created, err := control.Create(t.Context())
+
+	// Assert replacement succeeds while no run owns the gate.
 	require.NoError(t, err)
 	require.Equal(t, idleInfo.ID, created.Info.ID)
 
@@ -45,9 +51,12 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		<-settle
 		return agentrun.Result{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()}, nil
 	}, nil, nil, gate)
+	// Act by reserving a run and attempting replacement before the run starts.
 	runID, err := coordinator.PrepareRun()
 	require.NoError(t, err)
 	_, err = control.Create(t.Context())
+
+	// Assert the prepared reservation blocks creation.
 	require.ErrorIs(t, err, session.ErrBusy)
 
 	runResult := make(chan error, 1)
@@ -56,7 +65,11 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		runResult <- runErr
 	}()
 	<-started
+
+	// Act by attempting resume during execution and then settling the run.
 	_, err = control.Resume(t.Context(), "stored")
+
+	// Assert the active run blocks resume until settlement completes.
 	require.ErrorIs(t, err, session.ErrBusy)
 	close(settle)
 	require.NoError(t, <-runResult)
@@ -68,7 +81,11 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
 		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
 	)
+
+	// Act by resuming after settlement releases run ownership.
 	resumed, err := control.Resume(t.Context(), "stored")
+
+	// Assert resume succeeds with the stored session identity.
 	require.NoError(t, err)
 	require.Equal(t, resumedInfo.ID, resumed.Info.ID)
 }
@@ -242,9 +259,11 @@ func programmaticSessionCommand(
 	}
 }
 
+// TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce verifies cancellation frees the gate once without starting the run.
 func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	t.Parallel()
 
+	// Arrange real gate ownership behind a mock coordinator and an Agent Core start counter.
 	controller := gomock.NewController(t)
 	gate := operationgate.New()
 	var agentStarts atomic.Int32
@@ -258,6 +277,7 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	coordinator.EXPECT().RunPrepared(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	service := programmatic.New(coordinator, nil, func() agentrun.State { return agentrun.State{} }, func() []agent.HistoryEntry { return nil }, nil, programmatic.NewDelivery())
 
+	// Act by accepting a request and canceling its delivery twice.
 	response, operation, err := service.Handle(t.Context(), programmaticcontroller.Command{
 		CorrelationID: "accepted", Kind: programmaticcontroller.CommandUserRequest, UserText: mo.Some("request"),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
@@ -268,6 +288,8 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	require.NotNil(t, operation)
 	require.NoError(t, service.CancelAndWait(t.Context()))
 	require.NoError(t, service.CancelAndWait(t.Context()))
+
+	// Assert cancellation is idempotent and Agent Core never starts.
 	require.Zero(t, agentStarts.Load())
 
 	active := sessioncontrol.NewMockActiveSessions(controller)
@@ -275,7 +297,11 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 		ID: "next", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}, Entries: nil}, nil)
+
+	// Act by creating a session after cancellation releases the reservation.
 	created, err := sessioncontrol.New(active, gate).Create(t.Context())
+
+	// Assert the next replacement acquires the gate and succeeds.
 	require.NoError(t, err)
 	require.Equal(t, session.ID("next"), created.Info.ID)
 }

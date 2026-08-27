@@ -46,28 +46,35 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, new(ServiceSuite))
 }
 
+// TestRunPreparationBusyUsesDomainError verifies busy preparation returns a safe rejection without an operation.
 func TestRunPreparationBusyUsesDomainError(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a coordinator that rejects run preparation with the session busy error.
 	controllerMock := gomock.NewController(t)
 	coordinator := NewMockCoordinator(controllerMock)
 	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
 	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 
+	// Act by handling a user request while run preparation is busy.
 	response, operation, err := service.Handle(t.Context(), controller.Command{
 		CorrelationID: "busy", Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:       mo.None[session.ID](), SessionName: mo.None[string](),
 	})
+
+	// Assert the response is a busy rejection and no accepted operation is returned.
 	require.NoError(t, err)
 	assert.Nil(t, operation)
 	assert.Equal(t, controller.RejectionBusy, response.Rejection.MustGet().Code)
 }
 
+// TestSessionReplacementPreservesNondefaultModelSelection verifies create and resume keep runtime selection unchanged.
 func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 	t.Parallel()
 
+	// Arrange create and resume commands around one nondefault provider, model, and reasoning selection.
 	commandWithoutArguments := func(correlationID string, kind controller.CommandKind) controller.Command {
 		return controller.Command{
 			CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
@@ -107,6 +114,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			}
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, sessions, NewDelivery())
 
+			// Act by reading selection before and after replacing the active session.
 			before, _, err := service.Handle(t.Context(), commandWithoutArguments("before", controller.CommandGetModels))
 			require.NoError(t, err)
 			command := commandWithoutArguments("replace", test.kind)
@@ -116,6 +124,8 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			_, _, err = service.Handle(t.Context(), command)
 			require.NoError(t, err)
 			after, _, err := service.Handle(t.Context(), commandWithoutArguments("after", controller.CommandGetModels))
+
+			// Assert provider, model, and reasoning selection remain identical across replacement.
 			require.NoError(t, err)
 			require.Equal(t, mo.Some(selection), before.Models.MustGet().ActiveSelection)
 			require.Equal(t, before.Models.MustGet().ActiveSelection, after.Models.MustGet().ActiveSelection)
@@ -210,9 +220,11 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	require.Nil(t, response.SessionEntries)
 }
 
+// TestSessionLifecycleCommands verifies each lifecycle command dispatches and returns its public response kind.
 func TestSessionLifecycleCommands(t *testing.T) {
 	t.Parallel()
 
+	// Arrange create, list, resume, name, and information commands with session-control expectations.
 	info := session.Info{
 		ID:               "session-id",
 		Name:             mo.Some("named"),
@@ -278,6 +290,8 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			control := NewMockSessionControl(gomock.NewController(t))
 			test.expect(control)
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+
+			// Act by handling the lifecycle command through Programmatic Control.
 			response, operation, err := service.Handle(t.Context(), controller.Command{
 				CorrelationID:   test.name,
 				Kind:            test.kind,
@@ -288,6 +302,8 @@ func TestSessionLifecycleCommands(t *testing.T) {
 				SessionID:       test.sessionID,
 				SessionName:     test.sessionName,
 			})
+
+			// Assert handling succeeds without a run operation and returns the expected response kind.
 			require.NoError(t, err)
 			assert.Nil(t, operation)
 			assert.Equal(t, test.expectedKind, response.Kind)

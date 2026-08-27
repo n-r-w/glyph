@@ -14,9 +14,11 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestMapOpenRequestPreservesSessionCommands verifies every session command retains its kind and optional arguments.
 func TestMapOpenRequestPreservesSessionCommands(t *testing.T) {
 	t.Parallel()
 
+	// Arrange every session request variant and its expected transport-independent command.
 	tests := []struct {
 		name     string
 		set      func(*programmaticv1.OpenRequest)
@@ -67,7 +69,11 @@ func TestMapOpenRequestPreservesSessionCommands(t *testing.T) {
 			request := new(programmaticv1.OpenRequest)
 			request.SetCorrelationId(test.name)
 			test.set(request)
+
+			// Act by mapping the protobuf request into the controller command.
 			actual, err := mapOpenRequest(request)
+
+			// Assert the correlation ID, command kind, and optional argument match the case.
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
 		})

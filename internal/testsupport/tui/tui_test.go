@@ -31,6 +31,7 @@ func TestEarlyFailureCleanup(t *testing.T) {
 		t.Skip("real PTY cleanup runs on Darwin arm64")
 	}
 
+	// Arrange a detached helper process with process-group ownership, output waiters, and registered cleanup.
 	helperDirectory := t.TempDir()
 	groupsPath := filepath.Join(helperDirectory, "groups")
 	fifoPath := filepath.Join(helperDirectory, "hold")
@@ -66,6 +67,7 @@ func TestEarlyFailureCleanup(t *testing.T) {
 	}
 	RegisterProcessGroupCleanup(t.Context(), t, cleanup)
 
+	// Act by waiting for the forced helper failure, completing output copy, and loading its recorded process groups.
 	runErr := commandWaiter.Wait(helperContext)
 	copyErr := outputWaiter.Wait(helperContext)
 	var timeoutCleanupErr error
@@ -87,6 +89,7 @@ func TestEarlyFailureCleanup(t *testing.T) {
 		}()
 	}
 
+	// Assert cleanup completes without timeout and every recorded process group no longer exists.
 	require.NoError(t, groupsErr, observer.String())
 	require.GreaterOrEqual(t, len(processGroups), 2)
 	require.NoError(t, timeoutCleanupErr, observer.String())
@@ -105,6 +108,7 @@ func TestEarlyFailureCleanupHelper(t *testing.T) {
 		return
 	}
 
+	// Arrange a detached PTY process tree with observers and cleanup that survives test-context cancellation.
 	// Registered cleanup owns wrapper cancellation after testing cancels the helper context.
 	commandContext, cancelCommand := context.WithCancel(context.WithoutCancel(t.Context()))
 	command := exec.CommandContext(
@@ -132,13 +136,16 @@ func TestEarlyFailureCleanupHelper(t *testing.T) {
 		Timeout:       time.Second,
 	})
 
+	// Act by waiting for the wrapper, discovering its process groups, and publishing them for the parent test.
 	observer.WaitNext(t, "ready")
 	processGroups, err := discoverProcessGroups(observerContext, command.Process.Pid)
+
+	// Assert the live tree contains the wrapper and at least one descendant before cleanup.
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(processGroups), 2)
 	writeProcessGroups(t, os.Getenv(cleanupGroupsEnvironment), processGroups)
 
-	// FailNow makes testing cancel t.Context before it runs the registered cleanup.
+	// Act by forcing failure so testing cancels t.Context before it runs the registered cleanup.
 	t.FailNow()
 }
 

@@ -27,9 +27,15 @@ type ServiceSuite struct {
 	pricing    *MockPricingCatalog
 }
 
+// TestServiceSuite runs active-session persistence, projection, replacement, and failure scenarios.
 func TestServiceSuite(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a fresh active-session service suite.
+
+	// Act by running every suite scenario.
+
+	// Assert through the scenario assertions and mock expectations owned by the suite.
 	suite.Run(t, new(ServiceSuite))
 }
 

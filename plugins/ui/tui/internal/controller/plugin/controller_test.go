@@ -44,9 +44,11 @@ func TestGetCapabilitiesIsPure(t *testing.T) {
 	assert.True(t, capabilities.GetControlsTerminal())
 }
 
+// TestRestoredTerminalFailuresRemainVisible verifies aborted and failed entries restore as visible error lines.
 func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 	t.Parallel()
 
+	// Arrange restored model entries for both terminal failure outcomes and one safe message.
 	for _, outcome := range []string{"aborted", "failed"} {
 		t.Run(outcome, func(t *testing.T) {
 			t.Parallel()
@@ -60,8 +62,10 @@ func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 				Diagnostics: nil, Content: nil, ResponseModel: nil,
 			}.Build())
 
+			// Act by mapping the stored entry into restored transcript lines.
 			lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{entry})
 
+			// Assert the terminal failure remains one visible error line with the safe text.
 			require.NoError(t, err)
 			require.Len(t, lines, 1)
 			assert.Equal(t, presentationdomain.LineError, lines[0].Kind)

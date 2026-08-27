@@ -11,22 +11,29 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
+// TestCreateReturnsBusyAndPreservesActiveSession verifies gate rejection prevents active-session replacement.
 func TestCreateReturnsBusyAndPreservesActiveSession(t *testing.T) {
 	t.Parallel()
 
+	// Arrange session control with a gate that rejects acquisition and no active-session expectation.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
 	gate := NewMockOperationGate(controller)
 	gate.EXPECT().TryAcquire().Return(nil, false)
 	service := New(active, gate)
 
+	// Act by requesting creation while the gate is owned.
 	_, err := service.Create(t.Context())
+
+	// Assert the busy error is returned without invoking active replacement.
 	require.ErrorIs(t, err, session.ErrBusy)
 }
 
+// TestResumeHoldsGateThroughActiveReplacement verifies resume releases the gate only after active replacement returns.
 func TestResumeHoldsGateThroughActiveReplacement(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a release observer and an active-session replacement that checks gate ownership.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
 	gate := NewMockOperationGate(controller)
@@ -43,7 +50,10 @@ func TestResumeHoldsGateThroughActiveReplacement(t *testing.T) {
 		},
 	)
 
+	// Act by resuming the stored session through session control.
 	replacement, err := service.Resume(t.Context(), "stored")
+
+	// Assert replacement runs before release and the gate is released after the result returns.
 	require.NoError(t, err)
 	require.Equal(t, session.ID("stored"), replacement.Info.ID)
 	require.True(t, released)
