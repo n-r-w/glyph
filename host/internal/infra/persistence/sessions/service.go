@@ -19,8 +19,10 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
@@ -63,12 +65,71 @@ type userTextRecord struct {
 	Text      string `json:"text"`
 }
 
-// modelTextRecord stores provider-neutral terminal model text.
-type modelTextRecord struct {
-	Type      string   `json:"type"`
-	ID        string   `json:"id"`
-	CreatedAt string   `json:"createdAt"`
-	Content   []string `json:"content"`
+// modelRecord stores one provider-neutral terminal model response.
+type modelRecord struct {
+	Type      string              `json:"type"`
+	ID        string              `json:"id"`
+	CreatedAt string              `json:"createdAt"`
+	Response  modelResponseRecord `json:"response"`
+}
+
+type modelResponseRecord struct {
+	Content       []modelContentRecord `json:"content"`
+	Outcome       model.Outcome        `json:"outcome"`
+	ErrorMessage  *string              `json:"errorMessage,omitempty"`
+	Provider      *string              `json:"provider,omitempty"`
+	Model         *string              `json:"model,omitempty"`
+	ResponseModel *string              `json:"responseModel,omitempty"`
+	ResponseID    *string              `json:"responseId,omitempty"`
+	Usage         *usageRecord         `json:"usage,omitempty"`
+}
+
+type modelContentRecord struct {
+	Kind            model.ContentKind      `json:"kind"`
+	Text            *string                `json:"text,omitempty"`
+	ProviderContext *providerContextRecord `json:"providerContext,omitempty"`
+	ToolCall        *toolCallRecord        `json:"toolCall,omitempty"`
+}
+
+type providerContextRecord struct {
+	ProviderID       string  `json:"providerId"`
+	API              string  `json:"api"`
+	Model            string  `json:"model"`
+	CompatibilityKey *string `json:"compatibilityKey,omitempty"`
+	Payload          []byte  `json:"payload"`
+}
+
+type toolCallRecord struct {
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+}
+
+type usageRecord struct {
+	InputTokens       int64 `json:"inputTokens"`
+	OutputTokens      int64 `json:"outputTokens"`
+	CachedInputTokens int64 `json:"cachedInputTokens"`
+	CacheWriteTokens  int64 `json:"cacheWriteTokens"`
+	ReasoningTokens   int64 `json:"reasoningTokens"`
+	TotalTokens       int64 `json:"totalTokens"`
+}
+
+type toolResultRecord struct {
+	Type      string          `json:"type"`
+	ID        string          `json:"id"`
+	CreatedAt string          `json:"createdAt"`
+	Result    toolResultValue `json:"result"`
+}
+
+type toolResultValue struct {
+	CallID   string                    `json:"callId"`
+	ToolName string                    `json:"toolName"`
+	Contents []toolResultContentRecord `json:"contents"`
+	IsError  bool                      `json:"isError"`
+}
+
+type toolResultContentRecord struct {
+	Text string `json:"text"`
 }
 
 // recordType reads only the discriminator used to select the current record shape.
@@ -343,7 +404,8 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		}
 		return session.Entry{
 			ID: record.ID, CreatedAt: entryTime, Information: mo.Some(session.Information{Name: record.Name}),
-			User: mo.None[model.Message](), Model: mo.None[model.Response](),
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			ToolResult: mo.None[session.ToolResult](),
 		}, nil
 	case "user_text":
 		var record userTextRecord
@@ -356,39 +418,62 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		}
 		return session.Entry{
 			ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-			User: mo.Some(model.TextMessage(record.Text)), Model: mo.None[model.Response](),
+			User: mo.Some(model.TextMessage(record.Text)), Model: mo.None[session.ModelResponse](),
+			ToolResult: mo.None[session.ToolResult](),
 		}, nil
-	case "model_text":
-		return decodeModelText(data)
+	case "model":
+		return decodeModel(data)
+	case "tool_result":
+		return decodeToolResult(data)
 	default:
 		return session.Entry{}, errors.New("invalid session entry")
 	}
 }
 
-func decodeModelText(data []byte) (session.Entry, error) {
-	var record modelTextRecord
+func decodeModel(data []byte) (session.Entry, error) {
+	var record modelRecord
 	if err := decodeRecord(data, &record); err != nil {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" {
-		return session.Entry{}, errors.New("invalid model text entry")
+	if err != nil || record.ID == "" || !validOutcome(record.Response.Outcome) {
+		return session.Entry{}, errors.New("invalid model entry")
 	}
-	content := make([]model.Content, 0, len(record.Content))
-	for _, text := range record.Content {
-		content = append(content, model.Content{
-			Kind: model.ContentText, Text: mo.Some(text), Final: true,
-			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
-		})
-	}
-	response := model.Response{
-		Content: content, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
-		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	response, err := decodeModelResponse(record.Response)
+	if err != nil {
+		return session.Entry{}, err
 	}
 	return session.Entry{
 		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-		User: mo.None[model.Message](), Model: mo.Some(response),
+		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+	}, nil
+}
+
+func decodeToolResult(data []byte) (session.Entry, error) {
+	var record toolResultRecord
+	if err := decodeRecord(data, &record); err != nil {
+		return session.Entry{}, err
+	}
+	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	if err != nil || record.ID == "" || record.Result.CallID == "" || record.Result.ToolName == "" {
+		return session.Entry{}, errors.New("invalid tool result entry")
+	}
+	var contents []tool.ResultContent
+	if record.Result.Contents != nil {
+		contents = make([]tool.ResultContent, 0, len(record.Result.Contents))
+	}
+	for _, content := range record.Result.Contents {
+		contents = append(contents, tool.ResultContent{
+			Kind: tool.ResultContentText, Text: mo.Some(content.Text), Image: mo.None[tool.ResultImage](),
+		})
+	}
+	return session.Entry{
+		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
+		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+		ToolResult: mo.Some(agent.ToolResult{
+			CallID: record.Result.CallID, ToolName: record.Result.ToolName,
+			Contents: contents, IsError: record.Result.IsError,
+		}),
 	}, nil
 }
 
@@ -398,7 +483,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		return nil, errors.New("invalid session entry")
 	}
 	if information, ok := entry.Information.Get(); ok {
-		if information.Name == "" || entry.User.IsSome() || entry.Model.IsSome() {
+		if information.Name == "" || entry.User.IsSome() || entry.Model.IsSome() || entry.ToolResult.IsSome() {
 			return nil, errors.New("invalid session entry")
 		}
 		return encodeLine(informationRecord{
@@ -407,7 +492,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		})
 	}
 	if user, ok := entry.User.Get(); ok {
-		if entry.Model.IsSome() {
+		if entry.Model.IsSome() || entry.ToolResult.IsSome() {
 			return nil, errors.New("invalid session entry")
 		}
 		return encodeLine(userTextRecord{
@@ -416,28 +501,255 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		})
 	}
 	if response, ok := entry.Model.Get(); ok {
-		return encodeModelTextEntry(entry, response)
+		if entry.ToolResult.IsSome() {
+			return nil, errors.New("invalid session entry")
+		}
+		return encodeModelEntry(entry, response)
+	}
+	if result, ok := entry.ToolResult.Get(); ok {
+		return encodeToolResultEntry(entry, result)
 	}
 	return nil, errors.New("invalid session entry")
 }
 
-func encodeModelTextEntry(entry session.Entry, response model.Response) ([]byte, error) {
-	outcome, present := response.Outcome.Get()
-	if !present || outcome != model.OutcomeStop {
-		return nil, errors.New("invalid model text entry")
+func encodeModelEntry(entry session.Entry, response model.Response) ([]byte, error) {
+	record, err := encodeModelResponse(response)
+	if err != nil {
+		return nil, err
 	}
-	content := make([]string, 0, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		text, hasText := item.Text.Get()
-		if !hasText || item.Kind != model.ContentText {
-			return nil, errors.New("invalid model text content")
-		}
-		content = append(content, text)
-	}
-	return encodeLine(modelTextRecord{
-		Type: "model_text", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Content: content,
+	return encodeLine(modelRecord{
+		Type: "model", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Response: record,
 	})
+}
+
+func encodeToolResultEntry(entry session.Entry, result agent.ToolResult) ([]byte, error) {
+	if result.CallID == "" || result.ToolName == "" || entry.Information.IsSome() ||
+		entry.User.IsSome() || entry.Model.IsSome() {
+		return nil, errors.New("invalid tool result entry")
+	}
+	var contents []toolResultContentRecord
+	if result.Contents != nil {
+		contents = make([]toolResultContentRecord, 0, len(result.Contents))
+	}
+	for _, content := range result.Contents {
+		text, present := content.Text.Get()
+		if content.Kind != tool.ResultContentText || !present || content.Image.IsSome() {
+			return nil, errors.New("invalid tool result content")
+		}
+		contents = append(contents, toolResultContentRecord{Text: text})
+	}
+	return encodeLine(toolResultRecord{
+		Type: "tool_result", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
+		Result: toolResultValue{
+			CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
+		},
+	})
+}
+
+// encodeModelResponse preserves terminal continuation fields and their option presence.
+func encodeModelResponse(response model.Response) (modelResponseRecord, error) {
+	outcome, present := response.Outcome.Get()
+	if !present || !validOutcome(outcome) {
+		return modelResponseRecord{}, errors.New("invalid model entry")
+	}
+	var content []modelContentRecord
+	if response.Content != nil {
+		content = make([]modelContentRecord, 0, len(response.Content))
+	}
+	for index := range response.Content {
+		record, err := encodeModelContent(&response.Content[index])
+		if err != nil {
+			return modelResponseRecord{}, err
+		}
+		content = append(content, record)
+	}
+	result := modelResponseRecord{
+		Content: content, Outcome: outcome,
+		ErrorMessage:  optionStringPointer(response.ErrorMessage),
+		Provider:      optionProviderIDPointer(response.Provider),
+		Model:         optionModelIDPointer(response.Model),
+		ResponseModel: optionModelIDPointer(response.ResponseModel),
+		ResponseID:    optionStringPointer(response.ResponseID), Usage: nil,
+	}
+	if usage, ok := response.Usage.Get(); ok {
+		result.Usage = &usageRecord{
+			InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens,
+			CachedInputTokens: usage.CachedInputTokens, CacheWriteTokens: usage.CacheWriteTokens,
+			ReasoningTokens: usage.ReasoningTokens, TotalTokens: usage.TotalTokens,
+		}
+	}
+	return result, nil
+}
+
+// encodeModelContent stores public text, tool calls, and opaque replay context in response order.
+func encodeModelContent(item *model.Content) (modelContentRecord, error) {
+	record := modelContentRecord{
+		Kind: item.Kind, Text: optionStringPointer(item.Text), ProviderContext: nil, ToolCall: nil,
+	}
+	if contextValue, ok := item.ProviderContext.Get(); ok {
+		record.ProviderContext = &providerContextRecord{
+			ProviderID: string(contextValue.Source.ProviderID), API: contextValue.Source.API,
+			Model:            string(contextValue.Source.Model),
+			CompatibilityKey: optionStringPointer(contextValue.Source.CompatibilityKey),
+			Payload:          bytes.Clone(contextValue.Payload),
+		}
+	}
+	var err error
+	switch item.Kind {
+	case model.ContentText:
+		err = validateModelTextContent(item, &record)
+	case model.ContentToolCall:
+		record.ToolCall, err = encodeModelToolCall(item, &record)
+	case model.ContentReasoning, model.ContentRefusal:
+		err = validateProviderContextCarrier(item, &record)
+	default:
+		err = errors.New("unsupported model content")
+	}
+	if err != nil {
+		return modelContentRecord{}, err
+	}
+	return record, nil
+}
+
+func validateModelTextContent(item *model.Content, record *modelContentRecord) error {
+	if record.Text == nil || item.ToolCall.IsSome() || !item.Final {
+		return errors.New("invalid model text content")
+	}
+	return nil
+}
+
+func encodeModelToolCall(item *model.Content, record *modelContentRecord) (*toolCallRecord, error) {
+	call, present := item.ToolCall.Get()
+	if !present || record.Text != nil || !item.Final || call.ID == "" || call.Name == "" {
+		return nil, errors.New("invalid model tool call content")
+	}
+	return &toolCallRecord{ID: call.ID, Name: call.Name, Arguments: call.Arguments}, nil
+}
+
+func validateProviderContextCarrier(item *model.Content, record *modelContentRecord) error {
+	if record.Text != nil || item.ToolCall.IsSome() || record.ProviderContext == nil || !item.Final {
+		return errors.New("invalid provider context carrier")
+	}
+	return nil
+}
+
+// decodeModelResponse reconstructs provider history without exposing persistence DTOs.
+func decodeModelResponse(record modelResponseRecord) (model.Response, error) {
+	var content []model.Content
+	if record.Content != nil {
+		content = make([]model.Content, 0, len(record.Content))
+	}
+	for index := range record.Content {
+		value, err := decodeModelContent(&record.Content[index])
+		if err != nil {
+			return model.Response{}, err
+		}
+		content = append(content, value)
+	}
+	result := model.Response{
+		Content: content, Outcome: mo.Some(record.Outcome), ErrorMessage: pointerStringOption(record.ErrorMessage),
+		Provider:      pointerProviderIDOption(record.Provider),
+		Model:         pointerModelIDOption(record.Model),
+		ResponseModel: pointerModelIDOption(record.ResponseModel),
+		ResponseID:    pointerStringOption(record.ResponseID), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+	if record.Usage != nil {
+		result.Usage = mo.Some(model.Usage{
+			InputTokens: record.Usage.InputTokens, OutputTokens: record.Usage.OutputTokens,
+			CachedInputTokens: record.Usage.CachedInputTokens, CacheWriteTokens: record.Usage.CacheWriteTokens,
+			ReasoningTokens: record.Usage.ReasoningTokens, TotalTokens: record.Usage.TotalTokens,
+		})
+	}
+	return result, nil
+}
+
+// decodeModelContent rebuilds one owned continuation item from its stored representation.
+func decodeModelContent(item *modelContentRecord) (model.Content, error) {
+	value := model.Content{
+		Kind: item.Kind, Text: pointerStringOption(item.Text), Final: true,
+		ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+	}
+	if item.ProviderContext != nil {
+		value.ProviderContext = mo.Some(model.ProviderContext{
+			Source: model.ProviderContextSource{
+				ProviderID: model.ProviderID(item.ProviderContext.ProviderID), API: item.ProviderContext.API,
+				Model:            model.ID(item.ProviderContext.Model),
+				CompatibilityKey: pointerStringOption(item.ProviderContext.CompatibilityKey),
+			},
+			Payload: bytes.Clone(item.ProviderContext.Payload),
+		})
+	}
+	switch item.Kind {
+	case model.ContentText:
+		if item.Text == nil || item.ToolCall != nil {
+			return model.Content{}, errors.New("invalid model text content")
+		}
+	case model.ContentToolCall:
+		if item.Text != nil || item.ToolCall == nil || item.ToolCall.ID == "" || item.ToolCall.Name == "" {
+			return model.Content{}, errors.New("invalid model tool call content")
+		}
+		value.ToolCall = mo.Some(model.ToolCall{
+			ID: item.ToolCall.ID, Name: item.ToolCall.Name, Arguments: item.ToolCall.Arguments,
+		})
+	case model.ContentReasoning, model.ContentRefusal:
+		if item.Text != nil || item.ToolCall != nil || item.ProviderContext == nil {
+			return model.Content{}, errors.New("invalid provider context carrier")
+		}
+	default:
+		return model.Content{}, errors.New("unsupported model content")
+	}
+	return value, nil
+}
+
+func validOutcome(outcome model.Outcome) bool {
+	return outcome >= model.OutcomeStop && outcome <= model.OutcomeFailed
+}
+
+func optionStringPointer(option mo.Option[string]) *string {
+	value, present := option.Get()
+	if !present {
+		return nil
+	}
+	return &value
+}
+
+func pointerStringOption(value *string) mo.Option[string] {
+	if value == nil {
+		return mo.None[string]()
+	}
+	return mo.Some(*value)
+}
+
+func optionProviderIDPointer(option mo.Option[model.ProviderID]) *string {
+	value, present := option.Get()
+	if !present {
+		return nil
+	}
+	result := string(value)
+	return &result
+}
+
+func optionModelIDPointer(option mo.Option[model.ID]) *string {
+	value, present := option.Get()
+	if !present {
+		return nil
+	}
+	result := string(value)
+	return &result
+}
+
+func pointerProviderIDOption(value *string) mo.Option[model.ProviderID] {
+	if value == nil {
+		return mo.None[model.ProviderID]()
+	}
+	return mo.Some(model.ProviderID(*value))
+}
+
+func pointerModelIDOption(value *string) mo.Option[model.ID] {
+	if value == nil {
+		return mo.None[model.ID]()
+	}
+	return mo.Some(model.ID(*value))
 }
 
 func userText(message model.Message) string {

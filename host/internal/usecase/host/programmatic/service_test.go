@@ -789,8 +789,14 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 				{Kind: model.ContentText, Text: mo.Some("partial"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"secret":true}`)}), Text: mo.None[string](), Final: true, ToolCall: mo.None[model.ToolCall]()},
 				{Kind: model.ContentReasoning, Text: mo.Some("reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+				{Kind: model.ContentRefusal, Text: mo.Some("refusal"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			},
-			Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(responseModel), ErrorMessage: mo.None[string](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(responseModel), ErrorMessage: mo.None[string](), ResponseID: mo.Some("response-id"),
+			Usage: mo.Some(model.Usage{
+				InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
+				CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
+			}),
+			Diagnostics: []model.Diagnostic{{Code: "later", Message: "must not project"}},
 		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 		},
 		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
@@ -810,15 +816,27 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.ResponseMessages, response.Kind)
-	s.Require().Len(response.Messages, 2)
+	s.Require().Len(response.Messages, 3)
 	s.Equal("hello", response.Messages[0].UserText.OrEmpty())
 	modelResponse := response.Messages[1].Model.OrEmpty()
 	s.Equal("answerpartial", modelResponse.Text)
-	s.Equal(mo.None[controller.ModelOutcome](), modelResponse.Outcome)
-	s.Equal(mo.None[string](), modelResponse.ResponseID)
+	s.Equal(mo.Some(controller.ModelOutcomeStop), modelResponse.Outcome)
+	s.Equal(mo.Some("provider"), modelResponse.Provider)
+	s.Equal(mo.Some("model"), modelResponse.Model)
+	s.Equal(mo.Some("response-model"), modelResponse.ResponseModel)
+	s.Equal(mo.Some("response-id"), modelResponse.ResponseID)
+	s.Equal(mo.Some(controller.ModelUsage{
+		InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
+		CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
+	}), modelResponse.Usage)
+	s.Empty(modelResponse.Diagnostics)
 	s.Require().Len(modelResponse.Content, 2)
 	s.Equal(controller.ModelResponseContentText, modelResponse.Content[0].Kind)
 	s.Equal(controller.ModelResponseContentText, modelResponse.Content[1].Kind)
+	publicToolResult := response.Messages[2].ToolResult.OrEmpty()
+	s.Equal("call", publicToolResult.CallID)
+	s.Require().Len(publicToolResult.Contents, 1)
+	s.Equal("output", publicToolResult.Contents[0].Text.OrEmpty())
 }
 
 // TestAbortCancelsAcceptedOperationWithoutStarting verifies accepted work can be released before Start.

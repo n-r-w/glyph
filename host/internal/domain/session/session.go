@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
@@ -41,8 +42,11 @@ type Information struct {
 // UserMessage is the provider-neutral user content stored in a session.
 type UserMessage = model.Message
 
-// ModelResponse is the provider-neutral terminal model text stored in a session.
+// ModelResponse is the provider-neutral terminal model response stored in a session.
 type ModelResponse = model.Response
+
+// ToolResult is the provider-neutral terminal tool result stored in a session.
+type ToolResult = agent.ToolResult
 
 // Entry is one ordered session record.
 type Entry struct {
@@ -56,6 +60,8 @@ type Entry struct {
 	User mo.Option[UserMessage]
 	// Model contains one terminal model response.
 	Model mo.Option[ModelResponse]
+	// ToolResult contains one terminal tool execution result.
+	ToolResult mo.Option[ToolResult]
 }
 
 // Replacement is one atomic active-session identity and durable transcript snapshot.

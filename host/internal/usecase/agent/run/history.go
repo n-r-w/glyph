@@ -151,18 +151,18 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 		}
 
 		projected = append(projected, cloneHistoryEntry(entry))
-		results := make(map[string]agent.ToolResult)
+		results := make(map[string]agent.HistoryEntry)
 		next := index + 1
 		for next < len(history) && history[next].Kind == agent.HistoryEntryToolResult {
 			result, hasResult := history[next].ToolResult.Get()
 			if hasResult {
-				results[result.CallID] = result
-				projected = append(projected, cloneHistoryEntry(history[next]))
+				results[result.CallID] = history[next]
 			}
 			next++
 		}
 		for _, call := range modelToolCalls(response) {
-			if _, exists := results[call.ID]; exists {
+			if stored, exists := results[call.ID]; exists {
+				projected = append(projected, cloneHistoryEntry(stored))
 				continue
 			}
 			projected = append(projected, agent.HistoryEntry{
@@ -174,6 +174,7 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 				}),
 			})
 		}
+		// Results without a finalized model call violate the linked-result invariant and do not enter provider history.
 		index = next
 	}
 	return projected

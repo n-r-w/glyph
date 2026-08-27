@@ -4,6 +4,7 @@ package plugin
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -296,8 +297,12 @@ func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, boo
 		if err != nil {
 			return presentationdomain.Event{}, true, err
 		}
+		restored, err := mapRestoredTranscript(changed.GetEntries())
+		if err != nil {
+			return presentationdomain.Event{}, true, err
+		}
 		return sessionEvent(
-			presentationdomain.EventSessionChanged, mo.Some(info), nil, mapRestoredTranscript(changed.GetEntries()),
+			presentationdomain.EventSessionChanged, mo.Some(info), nil, restored,
 		), true, nil
 	}
 	if information := request.GetSessionInformation(); information != nil {
@@ -345,7 +350,8 @@ func sessionEvent(
 	}
 }
 
-func mapRestoredTranscript(entries []*uiv1.SessionEntry) []presentationdomain.Line {
+// mapRestoredTranscript rebuilds public transcript lines without replaying lifecycle events.
+func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.Line, error) {
 	lines := make([]presentationdomain.Line, 0, len(entries))
 	for _, entry := range entries {
 		if user := entry.GetUser(); user != nil {
@@ -360,24 +366,90 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) []presentationdomain.Li
 			continue
 		}
 		if response := entry.GetModel(); response != nil {
-			for _, content := range response.GetContent() {
-				kind := presentationdomain.LineModel
-				switch content.GetKind() {
-				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED,
-					uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
-				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
-					kind = presentationdomain.LineRefusal
-				case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
-					kind = presentationdomain.LineReasoning
-				}
-				lines = append(lines, presentationdomain.Line{
-					Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
-					Text: mo.Some(content.GetText()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
-				})
+			mapped, err := mapRestoredModelResponse(response)
+			if err != nil {
+				return nil, err
 			}
+			lines = append(lines, mapped...)
+			continue
+		}
+		if result := entry.GetToolResult(); result != nil {
+			mapped, err := mapRestoredToolResult(result)
+			if err != nil {
+				return nil, err
+			}
+			lines = append(lines, mapped)
 		}
 	}
-	return lines
+	return lines, nil
+}
+
+// mapRestoredModelResponse keeps stored model content and terminal failures in their display order.
+func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomain.Line, error) {
+	lines := make([]presentationdomain.Line, 0, len(response.GetContent()))
+	for _, content := range response.GetContent() {
+		if call := content.GetToolCall(); call != nil {
+			arguments, err := json.Marshal(call.GetArguments().AsMap())
+			if err != nil {
+				return nil, fmt.Errorf("map restored tool call: %w", err)
+			}
+			lines = append(lines, presentationdomain.Line{
+				Kind: presentationdomain.LineToolStatus, ToolName: mo.Some(call.GetName()),
+				Status: mo.Some("arguments"), Text: mo.Some(string(arguments)),
+				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			})
+			continue
+		}
+		kind := presentationdomain.LineModel
+		switch content.GetKind() {
+		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED,
+			uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
+		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
+			kind = presentationdomain.LineRefusal
+		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
+			kind = presentationdomain.LineReasoning
+		}
+		lines = append(lines, presentationdomain.Line{
+			Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some(content.GetText()), ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+		})
+	}
+	if outcome := response.GetOutcome(); outcome == "aborted" || outcome == "failed" {
+		if response.HasErrorMessage() {
+			lines = append(lines, presentationdomain.Line{
+				Kind: presentationdomain.LineError, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text:               mo.Some(response.GetErrorMessage()),
+				ToolResultContents: mo.None[[]presentationdomain.ToolResultContent](),
+			})
+		}
+	}
+	return lines, nil
+}
+
+// mapRestoredToolResult uses the same terminal line kinds as live tool completion.
+func mapRestoredToolResult(result *uiv1.ToolResult) (presentationdomain.Line, error) {
+	contents, err := mapToolResultContents(result.GetContents())
+	if err != nil {
+		return presentationdomain.Line{}, fmt.Errorf("map restored tool result: %w", err)
+	}
+	kind := presentationdomain.LineToolDone
+	if result.GetIsError() {
+		kind = presentationdomain.LineToolError
+	}
+	return presentationdomain.Line{
+		Kind: kind, ToolName: mo.Some(result.GetToolName()), Status: mo.None[string](),
+		Text: mo.Some(restoredToolResultText(contents)), ToolResultContents: mo.Some(contents),
+	}, nil
+}
+
+func restoredToolResultText(contents []presentationdomain.ToolResultContent) string {
+	var result strings.Builder
+	for _, content := range contents {
+		if text, present := content.Text.Get(); present {
+			result.WriteString(text)
+		}
+	}
+	return result.String()
 }
 
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
@@ -1091,28 +1163,31 @@ func mapToolResultContents(contents []*uiv1.ToolResultContent) ([]presentationdo
 
 // mapModelResponseContent rejects malformed finalized blocks before projection.
 func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentationdomain.ModelResponseContent, error) {
-	return lo.MapErr(
-		content,
-		func(item *uiv1.ModelResponseContent, index int) (presentationdomain.ModelResponseContent, error) {
-			if item == nil {
-				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d is missing", index)
-			}
-			if !item.HasKind() {
-				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d kind is missing", index)
-			}
-			kind, err := mapModelContentKind(item.GetKind())
-			if err != nil {
-				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d: %w", index, err)
-			}
-			if !item.HasText() {
-				return presentationdomain.ModelResponseContent{}, fmt.Errorf("model response content %d text is missing", index)
-			}
-			return presentationdomain.ModelResponseContent{
-				Kind: kind,
-				Text: mo.Some(item.GetText()),
-			}, nil
-		},
-	)
+	result := make([]presentationdomain.ModelResponseContent, 0, len(content))
+	for index, item := range content {
+		if item == nil {
+			return nil, fmt.Errorf("model response content %d is missing", index)
+		}
+		if item.GetToolCall() != nil {
+			// Final tool calls already own dedicated lifecycle lines and must not become empty model text lines.
+			continue
+		}
+		if !item.HasKind() {
+			return nil, fmt.Errorf("model response content %d kind is missing", index)
+		}
+		kind, err := mapModelContentKind(item.GetKind())
+		if err != nil {
+			return nil, fmt.Errorf("model response content %d: %w", index, err)
+		}
+		if !item.HasText() {
+			return nil, fmt.Errorf("model response content %d text is missing", index)
+		}
+		result = append(result, presentationdomain.ModelResponseContent{
+			Kind: kind,
+			Text: mo.Some(item.GetText()),
+		})
+	}
+	return result, nil
 }
 
 // mapModelContentDiscriminators validates both nested model-content discriminators.

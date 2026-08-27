@@ -132,6 +132,7 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	entry := session.Entry{
 		User:        mo.None[session.UserMessage](),
 		Model:       mo.None[session.ModelResponse](),
+		ToolResult:  mo.None[session.ToolResult](),
 		ID:          entryID,
 		CreatedAt:   s.clock.Now(),
 		Information: mo.Some(session.Information{Name: name}),
@@ -175,6 +176,9 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 			if entry.Model.IsSome() {
 				totalMessages++
 			}
+			if entry.ToolResult.IsSome() {
+				totalMessages++
+			}
 		}
 		result = append(result, session.Summary{
 			Info:          infoFromLoaded(item),
@@ -212,7 +216,8 @@ func (s *Service) Snapshot() []agent.HistoryEntry {
 	return cloneHistory(s.history)
 }
 
-// Append transfers one history entry to active ownership and persists only this unit's text projection.
+// Append transfers one history entry to active ownership. User text, every terminal model outcome,
+// and terminal text tool-result content are durable when Append succeeds.
 func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error {
 	owned, err := cloneValidatedHistoryEntry(history)
 	if err != nil {
@@ -221,12 +226,12 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	projection, durable, err := durableTextEntry(owned)
+	projection, durable, err := terminalContinuationEntry(owned)
 	if err != nil {
 		return err
 	}
 	if !durable {
-		// Non-stop model responses and tool results remain complete but process-local.
+		// Unsupported partial model responses and later-content-only tool results remain complete but process-local.
 		s.history = append(s.history, owned)
 		return nil
 	}
@@ -244,35 +249,41 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	if err != nil {
 		return fmt.Errorf("append session history: %w", err)
 	}
-	// Ownership moves only after the synchronized text append succeeds, so dependent work can trust Snapshot.
+	// Publish active ownership only after the repository append is synchronized.
+	// Callers can start dependent work after Append returns.
 	s.active.StoragePath = result.StoragePath
 	s.active.Entries = append(s.active.Entries, projection)
 	s.history = append(s.history, owned)
 	return nil
 }
 
-func durableTextEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
+func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
 	entry := session.Entry{
 		ID: "", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-		User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+		ToolResult: mo.None[session.ToolResult](),
 	}
 	switch history.Kind {
 	case agent.HistoryEntryUser:
 		entry.User = mo.Some(textMessage(publicUserText(history.User.MustGet())))
-		return entry, true, nil
 	case agent.HistoryEntryModel:
 		response := history.Model.MustGet()
 		outcome, terminal := response.Outcome.Get()
-		if !terminal || outcome != model.OutcomeStop {
+		if !terminal || outcome < model.OutcomeStop || outcome > model.OutcomeFailed {
 			return session.Entry{}, false, nil
 		}
-		entry.Model = mo.Some(completedTextResponse(response))
-		return entry, true, nil
+		entry.Model = mo.Some(continuationResponse(response))
 	case agent.HistoryEntryToolResult:
-		return session.Entry{}, false, nil
+		result := history.ToolResult.MustGet()
+		continuation := continuationToolResult(result)
+		if len(result.Contents) > 0 && len(continuation.Contents) == 0 {
+			return session.Entry{}, false, nil
+		}
+		entry.ToolResult = mo.Some(continuation)
 	default:
 		return session.Entry{}, false, fmt.Errorf("unsupported history entry kind %d", history.Kind)
 	}
+	return entry, true, nil
 }
 
 func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
@@ -288,7 +299,13 @@ func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
 		if response, present := entry.Model.Get(); present {
 			history = append(history, agent.HistoryEntry{
 				Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
-				Model: mo.Some(completedTextResponse(response)), ToolResult: mo.None[agent.ToolResult](),
+				Model: mo.Some(cloneModelResponse(response)), ToolResult: mo.None[agent.ToolResult](),
+			})
+		}
+		if result, present := entry.ToolResult.Get(); present {
+			history = append(history, agent.HistoryEntry{
+				Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](),
+				Model: mo.None[model.Response](), ToolResult: mo.Some(cloneToolResult(result)),
 			})
 		}
 	}
@@ -392,10 +409,10 @@ func cloneJSONValue(value any) any {
 }
 
 func cloneToolResult(result agent.ToolResult) agent.ToolResult {
-	contents := append([]tool.ResultContent(nil), result.Contents...)
+	contents := slices.Clone(result.Contents)
 	for index := range contents {
 		if image, present := contents[index].Image.Get(); present {
-			image.Data = append([]byte(nil), image.Data...)
+			image.Data = bytes.Clone(image.Data)
 			contents[index].Image = mo.Some(image)
 		}
 	}
@@ -420,27 +437,47 @@ func textMessage(text string) model.Message {
 	return model.TextMessage(text)
 }
 
-func completedTextResponse(response model.Response) model.Response {
-	content := make([]model.Content, 0, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		if item.Kind != model.ContentText {
-			continue
-		}
-		text, present := item.Text.Get()
-		if !present {
-			continue
-		}
-		content = append(content, model.Content{
-			Kind: model.ContentText, Text: mo.Some(text), Final: true,
-			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
-		})
+// continuationResponse removes later public content while retaining provider replay context and tool order.
+func continuationResponse(response model.Response) model.Response {
+	result := cloneModelResponse(response)
+	result.Diagnostics = nil
+	var content []model.Content
+	if result.Content != nil {
+		content = make([]model.Content, 0, len(result.Content))
 	}
-	return model.Response{
-		Content: content, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
-		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+	for index := range result.Content {
+		item := result.Content[index]
+		switch item.Kind {
+		case model.ContentText, model.ContentToolCall:
+			content = append(content, item)
+		case model.ContentRefusal, model.ContentReasoning:
+			if item.ProviderContext.IsAbsent() {
+				continue
+			}
+			// Opaque replay context remains attached to its provider content position without storing later public content.
+			item.Text = mo.None[string]()
+			item.ToolCall = mo.None[model.ToolCall]()
+			content = append(content, item)
+		}
 	}
+	result.Content = content
+	return result
+}
+
+// continuationToolResult keeps only terminal text blocks in durable continuation history.
+func continuationToolResult(result agent.ToolResult) agent.ToolResult {
+	owned := cloneToolResult(result)
+	var contents []tool.ResultContent
+	if owned.Contents != nil {
+		contents = make([]tool.ResultContent, 0, len(owned.Contents))
+	}
+	for _, content := range owned.Contents {
+		if content.Kind == tool.ResultContentText && content.Text.IsPresent() {
+			contents = append(contents, content)
+		}
+	}
+	owned.Contents = contents
+	return owned
 }
 
 // infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
@@ -488,7 +525,8 @@ func cloneEntries(entries []session.Entry) []session.Entry {
 			User: entry.User.MapValue(func(value model.Message) model.Message {
 				return textMessage(publicUserText(value))
 			}),
-			Model: entry.Model.MapValue(completedTextResponse),
+			Model:      entry.Model.MapValue(cloneModelResponse),
+			ToolResult: entry.ToolResult.MapValue(cloneToolResult),
 		}
 	}
 	return cloned

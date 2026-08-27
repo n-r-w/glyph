@@ -44,6 +44,32 @@ func TestGetCapabilitiesIsPure(t *testing.T) {
 	assert.True(t, capabilities.GetControlsTerminal())
 }
 
+func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
+	t.Parallel()
+
+	for _, outcome := range []string{"aborted", "failed"} {
+		t.Run(outcome, func(t *testing.T) {
+			t.Parallel()
+			errorMessage := "safe terminal failure"
+			entry := new(uiv1.SessionEntry)
+			entry.SetId("model-entry")
+			entry.SetCreatedTime(timestamppb.Now())
+			entry.SetModel(uiv1.ModelResponse_builder{
+				Text: new(""), Outcome: &outcome, ErrorMessage: &errorMessage,
+				Provider: nil, Model: nil, ResponseId: nil, Usage: nil,
+				Diagnostics: nil, Content: nil, ResponseModel: nil,
+			}.Build())
+
+			lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{entry})
+
+			require.NoError(t, err)
+			require.Len(t, lines, 1)
+			assert.Equal(t, presentationdomain.LineError, lines[0].Kind)
+			assert.Equal(t, mo.Some(errorMessage), lines[0].Text)
+		})
+	}
+}
+
 // TestOpenRejectsNonInitializationBeforeOpeningTerminal verifies initialization-first enforcement.
 func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	t.Parallel()
@@ -53,6 +79,9 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	workingDirectory := "/project"
 	userText := "prior-user"
 	modelText := "prior-model"
+	callID := "call-1"
+	toolName := "read"
+	toolResultText := "tool-result"
 	//nolint:exhaustruct // OpenRequest_builder sets only the active SessionChanged field.
 	request := uiv1.OpenRequest_builder{SessionChanged: uiv1.SessionChanged_builder{
 		Info: uiv1.SessionInfo_builder{
@@ -75,8 +104,27 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 					ResponseId: nil, Usage: nil, Diagnostics: nil, ResponseModel: nil,
 					Content: []*uiv1.ModelResponseContent{
 						uiv1.ModelResponseContent_builder{
-							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: &modelText,
+							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: &modelText, ToolCall: nil,
 						}.Build(),
+						uiv1.ModelResponseContent_builder{
+							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: nil,
+							ToolCall: uiv1.FinalToolCall_builder{
+								CallId: &callID, Name: &toolName, Position: new(int32(1)),
+								Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{
+									"path": structpb.NewStringValue("input.txt"),
+								}},
+							}.Build(),
+						}.Build(),
+					},
+				}.Build(),
+			}.Build(),
+			//nolint:exhaustruct // SessionEntry_builder sets only the active ToolResult field.
+			uiv1.SessionEntry_builder{
+				Id: &id, CreatedTime: createdAt, User: nil, Model: nil,
+				ToolResult: uiv1.ToolResult_builder{
+					CallId: &callID, ToolName: &toolName, IsError: new(false),
+					Contents: []*uiv1.ToolResultContent{
+						uiv1.ToolResultContent_builder{Text: &toolResultText}.Build(),
 					},
 				}.Build(),
 			}.Build(),
@@ -86,11 +134,18 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	event, err := mapRequest(request)
 	require.NoError(t, err)
 	require.Empty(t, event.Startup)
-	require.Len(t, event.RestoredTranscript, 2)
+	require.Len(t, event.RestoredTranscript, 4)
 	assert.Equal(t, presentationdomain.LineUser, event.RestoredTranscript[0].Kind)
 	assert.Equal(t, mo.Some(userText), event.RestoredTranscript[0].Text)
 	assert.Equal(t, presentationdomain.LineModel, event.RestoredTranscript[1].Kind)
 	assert.Equal(t, mo.Some(modelText), event.RestoredTranscript[1].Text)
+	assert.Equal(t, presentationdomain.LineToolStatus, event.RestoredTranscript[2].Kind)
+	assert.Equal(t, mo.Some(toolName), event.RestoredTranscript[2].ToolName)
+	assert.Equal(t, mo.Some("arguments"), event.RestoredTranscript[2].Status)
+	assert.JSONEq(t, `{"path":"input.txt"}`, event.RestoredTranscript[2].Text.MustGet())
+	assert.Equal(t, presentationdomain.LineToolDone, event.RestoredTranscript[3].Kind)
+	assert.Equal(t, mo.Some(toolName), event.RestoredTranscript[3].ToolName)
+	assert.Equal(t, mo.Some(toolResultText), event.RestoredTranscript[3].Text)
 }
 
 func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
@@ -773,7 +828,7 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		if frame.ModelText != "" {
 			content = []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
 				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-				Text: new(frame.ModelText),
+				Text: new(frame.ModelText), ToolCall: nil,
 			}.Build()}
 		}
 		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
@@ -879,15 +934,15 @@ func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 			Content: []*uiv1.ModelResponseContent{
 				uiv1.ModelResponseContent_builder{
 					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
-					Text: new("hidden"),
+					Text: new("hidden"), ToolCall: nil,
 				}.Build(),
 				uiv1.ModelResponseContent_builder{
 					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-					Text: new("answer"),
+					Text: new("answer"), ToolCall: nil,
 				}.Build(),
 				uiv1.ModelResponseContent_builder{
 					Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL),
-					Text: new("cannot help"),
+					Text: new("cannot help"), ToolCall: nil,
 				}.Build(),
 			},
 			Text:          nil,
@@ -1338,11 +1393,11 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 				Content: []*uiv1.ModelResponseContent{
 					uiv1.ModelResponseContent_builder{
 						Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
-						Text: new("hidden reasoning"),
+						Text: new("hidden reasoning"), ToolCall: nil,
 					}.Build(),
 					uiv1.ModelResponseContent_builder{
 						Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-						Text: new("complete answer"),
+						Text: new("complete answer"), ToolCall: nil,
 					}.Build(),
 				},
 				Outcome:       nil,
@@ -2240,17 +2295,17 @@ func TestMapLifecycleValidatesFinalResponseContent(t *testing.T) {
 
 	valid := uiv1.ModelResponseContent_builder{
 		Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-		Text: new(""),
+		Text: new(""), ToolCall: nil,
 	}.Build()
 	invalid := []struct {
 		name string
 		item *uiv1.ModelResponseContent
 	}{
 		{name: "nil item", item: nil},
-		{name: "missing kind", item: uiv1.ModelResponseContent_builder{Kind: nil, Text: new("")}.Build()},
-		{name: "unspecified kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: new("")}.Build()},
-		{name: "unknown kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind(99)), Text: new("")}.Build()},
-		{name: "missing text", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: nil}.Build()},
+		{name: "missing kind", item: uiv1.ModelResponseContent_builder{Kind: nil, Text: new(""), ToolCall: nil}.Build()},
+		{name: "unspecified kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: new(""), ToolCall: nil}.Build()},
+		{name: "unknown kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind(99)), Text: new(""), ToolCall: nil}.Build()},
+		{name: "missing text", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: nil, ToolCall: nil}.Build()},
 	}
 	for _, test := range invalid {
 		t.Run(test.name, func(t *testing.T) {

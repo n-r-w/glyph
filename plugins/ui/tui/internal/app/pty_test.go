@@ -320,7 +320,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ModelResponse: uiv1.ModelResponse_builder{
 			Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
 				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-				Text: new("complete response"),
+				Text: new("complete response"), ToolCall: nil,
 			}.Build()},
 			Text:          nil,
 			Outcome:       nil,

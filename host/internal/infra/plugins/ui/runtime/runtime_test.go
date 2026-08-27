@@ -385,15 +385,15 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 			Content: []domainui.ModelResponseContent{
 				{
 					Kind: domainui.ModelContentKindReasoning,
-					Text: "hidden",
+					Text: "hidden", ToolCall: mo.None[domainui.FinalToolCall](),
 				},
 				{
 					Kind: domainui.ModelContentKindText,
-					Text: "visible",
+					Text: "visible", ToolCall: mo.None[domainui.FinalToolCall](),
 				},
 				{
 					Kind: domainui.ModelContentKindRefusal,
-					Text: "cannot help",
+					Text: "cannot help", ToolCall: mo.None[domainui.FinalToolCall](),
 				},
 			},
 			Usage: mo.Some(domainui.ModelUsage{

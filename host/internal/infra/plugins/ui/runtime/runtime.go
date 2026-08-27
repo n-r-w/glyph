@@ -206,8 +206,12 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 			return nil, true, errors.New("map UI frame: session information is required")
 		}
 		if frame.Kind == domainui.FrameSessionChanged {
+			entries, err := mapRestoredSessionEntries(frame.SessionEntries)
+			if err != nil {
+				return nil, true, err
+			}
 			request.SetSessionChanged(uipb.SessionChanged_builder{
-				Info: mapSessionInfo(info), Entries: mapRestoredSessionEntries(frame.SessionEntries),
+				Info: mapSessionInfo(info), Entries: entries,
 			}.Build())
 		} else {
 			request.SetSessionInformation(uipb.SessionInformation_builder{Info: mapSessionInfo(info)}.Build())
@@ -221,8 +225,8 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 	}
 }
 
-func mapRestoredSessionEntries(entries []domainui.SessionEntry) []*uipb.SessionEntry {
-	return lo.Map(entries, func(entry domainui.SessionEntry, _ int) *uipb.SessionEntry {
+func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.SessionEntry, error) {
+	return lo.MapErr(entries, func(entry domainui.SessionEntry, index int) (*uipb.SessionEntry, error) {
 		wire := new(uipb.SessionEntry)
 		wire.SetId(entry.ID)
 		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
@@ -234,9 +238,19 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) []*uipb.SessionE
 			wire.SetUser(uipb.UserMessage_builder{Content: []*uipb.UserContent{content}}.Build())
 		case domainui.SessionEntryModel:
 			response, _ := entry.Model.Get()
-			wire.SetModel(mapModelResponse(response))
+			mapped, err := mapModelResponse(response)
+			if err != nil {
+				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
+			}
+			wire.SetModel(mapped)
+		case domainui.SessionEntryToolResult:
+			result, _ := entry.ToolResult.Get()
+			wire.SetToolResult(uipb.ToolResult_builder{
+				CallId: new(result.CallID), ToolName: new(result.ToolName),
+				Contents: mapToolResultContents(result.Contents), IsError: new(result.IsError),
+			}.Build())
 		}
-		return wire
+		return wire, nil
 	})
 }
 
@@ -420,7 +434,11 @@ func mapModelLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*
 		if !present {
 			return nil, errors.New("map UI lifecycle: model response is required")
 		}
-		mapped.SetModelResponse(mapModelResponse(response))
+		mappedResponse, err := mapModelResponse(response)
+		if err != nil {
+			return nil, err
+		}
+		mapped.SetModelResponse(mappedResponse)
 		return mapped, nil
 	}
 	content, present := event.ModelContent.Get()
@@ -885,13 +903,30 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) (*uipb.ToolCallPreview
 	}.Build(), nil
 }
 
-func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
-	content := lo.Map(response.Content, func(item domainui.ModelResponseContent, _ int) *uipb.ModelResponseContent {
-		return uipb.ModelResponseContent_builder{
-			Kind: new(mapModelContentKind(item.Kind)),
-			Text: new(item.Text),
-		}.Build()
-	})
+func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, error) {
+	content, err := lo.MapErr(
+		response.Content,
+		func(item domainui.ModelResponseContent, _ int) (*uipb.ModelResponseContent, error) {
+			var call *uipb.FinalToolCall
+			if value, present := item.ToolCall.Get(); present {
+				arguments, mapErr := structpb.NewStruct(value.Arguments)
+				if mapErr != nil {
+					return nil, fmt.Errorf("map restored tool call arguments: %w", mapErr)
+				}
+				position := int32(value.Position) //nolint:gosec // Response content bounds the position.
+				call = uipb.FinalToolCall_builder{
+					CallId: new(value.CallID), Name: new(value.Name),
+					Position: new(position), Arguments: arguments,
+				}.Build()
+			}
+			return uipb.ModelResponseContent_builder{
+				Kind: new(mapModelContentKind(item.Kind)), Text: new(item.Text), ToolCall: call,
+			}.Build(), nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 	diagnostics := lo.Map(response.Diagnostics, func(diagnostic domainui.ModelDiagnostic, _ int) *uipb.ModelDiagnostic {
 		return uipb.ModelDiagnostic_builder{
 			Code:    new(diagnostic.Code),
@@ -944,7 +979,7 @@ func mapModelResponse(response domainui.ModelResponse) *uipb.ModelResponse {
 		Usage:         usage,
 		Diagnostics:   diagnostics,
 		Content:       content,
-	}.Build()
+	}.Build(), nil
 }
 
 func mapModelContentKind(value domainui.ModelContentKind) uipb.ModelContentKind {

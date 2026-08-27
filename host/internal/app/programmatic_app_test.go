@@ -148,12 +148,13 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	)
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
 	requestCount := &atomic.Int32{}
-	requestCount.Store(1)
+	requestCount.Store(0)
 	lastBody := &atomic.Value{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
-	fixture := startProgrammaticFixture(t, paths)
+	extensionDirectory := buildToolsExecutable(t)
+	fixture := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 
 	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
 		request := new(programmaticv1.OpenRequest)
@@ -206,12 +207,17 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.NoError(t, err)
 	assert.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
 	waitProgrammaticSettled(t, fixture)
+	require.Equal(t, int32(2), requestCount.Load())
+	beforeRestartEntries := send("before-restart-entries", func(request *programmaticv1.OpenRequest) {
+		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+	}).GetSessionEntries().GetEntries()
+	require.Len(t, beforeRestartEntries, 4)
 	named = send("after-turn-information", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	fixture.closeOwner(t)
 
-	restarted := startProgrammaticFixture(t, paths)
+	restarted := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 	defer restarted.closeOwner(t)
 	restartSend := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
 		request := new(programmaticv1.OpenRequest)
@@ -239,7 +245,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	}).GetSessions().GetSessions()
 	require.Len(t, restartedList, 1)
 	assertProgrammaticSessionInfoEqual(t, named, restartedList[0].GetInfo())
-	assert.Equal(t, int64(2), restartedList[0].GetTotalMessages())
+	assert.Equal(t, int64(4), restartedList[0].GetTotalMessages())
 
 	restartedModel := restartSend("restart-select-model", func(request *programmaticv1.OpenRequest) {
 		request.SetSelectModel(programmaticv1.SelectModel_builder{
@@ -267,13 +273,18 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
 		request.SetGetMessages(new(programmaticv1.GetMessages))
 	}).GetMessages().GetEntries()
-	require.Len(t, messages, 2)
+	require.Len(t, messages, 4)
 	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
-	assert.Equal(t, "Request complete.", messages[1].GetModel().GetText())
+	assert.Equal(t, "resp-1", messages[1].GetModel().GetResponseId())
+	require.Len(t, messages[1].GetModel().GetContent(), 1)
+	assert.Equal(t, "call-1", messages[1].GetModel().GetContent()[0].GetToolCall().GetCallId())
+	assert.Equal(t, "call-1", messages[2].GetToolResult().GetCallId())
+	assert.Contains(t, messages[2].GetToolResult().GetContents()[0].GetText(), "tool-ok")
+	assert.Equal(t, "Request complete.", messages[3].GetModel().GetText())
 	entries := restartSend("restart-entries", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
-	require.Len(t, entries, 2)
+	require.Len(t, entries, 4)
 	assert.NotEmpty(t, entries[0].GetId())
 	assert.True(t, entries[0].HasCreatedTime())
 
@@ -285,11 +296,16 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	body, ok := lastBody.Load().([]byte)
 	require.True(t, ok)
 	assert.Contains(t, string(body), "restart text")
+	assert.Contains(t, string(body), "enc-restart")
+	assert.Contains(t, string(body), "call-1")
+	assert.Contains(t, string(body), "tool-ok")
 	assert.Contains(t, string(body), "Request complete.")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)
-	assert.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte("Request complete.")))
+	assert.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte(`"type":"function_call"`)))
+	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
+	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
 	assert.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 	assert.Equal(t, int32(3), requestCount.Load())
 }

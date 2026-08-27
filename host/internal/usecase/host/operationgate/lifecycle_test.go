@@ -204,7 +204,8 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 		Entries: []session.Entry{
 			{
 				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				ID: "entry", CreatedAt: createdAt.Add(time.Second),
+				ToolResult: mo.None[session.ToolResult](),
+				ID:         "entry", CreatedAt: createdAt.Add(time.Second),
 				Information: mo.Some(session.Information{Name: "stored"}),
 			}},
 	}, nil)

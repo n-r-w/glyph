@@ -368,14 +368,24 @@ func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
 
 // mapModelResponse copies typed terminal data while excluding opaque provider context.
 func mapModelResponse(response model.Response) (domainui.ModelResponse, error) {
+	return mapModelResponseProjection(response, false)
+}
+
+func mapModelResponseProjection(
+	response model.Response,
+	continuationOnly bool,
+) (domainui.ModelResponse, error) {
 	if err := run.ValidateTerminalContent(response); err != nil {
 		return domainui.ModelResponse{}, fmt.Errorf("map UI model response: %w", err)
 	}
 	mappedContent, err := lo.MapErr(response.Content, func(
 		item model.Content,
-		_ int,
+		position int,
 	) (mo.Option[domainui.ModelResponseContent], error) {
-		return mapUIModelResponseContent(item)
+		if continuationOnly && item.Kind != model.ContentText && item.Kind != model.ContentToolCall {
+			return mo.None[domainui.ModelResponseContent](), nil
+		}
+		return mapUIModelResponseContent(position, item)
 	})
 	if err != nil {
 		return domainui.ModelResponse{}, err
@@ -430,8 +440,21 @@ func mapModelResponse(response model.Response) (domainui.ModelResponse, error) {
 
 // mapUIModelResponseContent projects one valid terminal content item without opaque provider data.
 func mapUIModelResponseContent(
+	position int,
 	item model.Content,
 ) (mo.Option[domainui.ModelResponseContent], error) {
+	if item.Kind == model.ContentToolCall {
+		call, present := item.ToolCall.Get()
+		if !present {
+			return mo.None[domainui.ModelResponseContent](), errors.New("UI model response tool call is missing")
+		}
+		return mo.Some(domainui.ModelResponseContent{
+			Kind: domainui.ModelContentKind(0), Text: "",
+			ToolCall: mo.Some(domainui.FinalToolCall{
+				CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+			}),
+		}), nil
+	}
 	kind := modelContentKind(item.Kind)
 	if kind == 0 {
 		return mo.None[domainui.ModelResponseContent](), nil
@@ -443,7 +466,7 @@ func mapUIModelResponseContent(
 		}
 		return mo.None[domainui.ModelResponseContent](), errors.New("UI model response content text is missing")
 	}
-	return mo.Some(domainui.ModelResponseContent{Kind: kind, Text: text}), nil
+	return mo.Some(domainui.ModelResponseContent{Kind: kind, Text: text, ToolCall: mo.None[domainui.FinalToolCall]()}), nil
 }
 
 // modelContentKind maps only UI-safe streamed content kinds.

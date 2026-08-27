@@ -95,13 +95,14 @@ type Response struct {
 	Rejection      mo.Option[Rejection]
 }
 
-// SessionEntry contains stable metadata and one public text payload.
+// SessionEntry contains stable metadata and one public terminal payload.
 type SessionEntry struct {
-	ID        string
-	CreatedAt time.Time
-	Kind      HistoryEntryKind
-	UserText  mo.Option[string]
-	Model     mo.Option[ModelResponse]
+	ID         string
+	CreatedAt  time.Time
+	Kind       HistoryEntryKind
+	UserText   mo.Option[string]
+	Model      mo.Option[ModelResponse]
+	ToolResult mo.Option[ToolResult]
 }
 
 // ModelsResult contains configured models and the active selection.

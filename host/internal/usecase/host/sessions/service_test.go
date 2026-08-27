@@ -97,6 +97,7 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 		StoragePath: "",
 		Entry: session.Entry{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			ToolResult:  mo.None[session.ToolResult](),
 			ID:          "entry-id",
 			CreatedAt:   updatedAt,
 			Information: mo.Some(session.Information{Name: "release notes"}),
@@ -186,12 +187,51 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	}
 }
 
+func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
+		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
+		StoragePath: "/sessions/stored.jsonl",
+		Entries: []session.Entry{
+			{
+				ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+				User: mo.Some(model.TextMessage("question")), Model: mo.None[session.ModelResponse](),
+				ToolResult: mo.None[session.ToolResult](),
+			},
+			{
+				ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](), Model: mo.Some(model.Response{
+					Content: nil, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
+					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+				}),
+				ToolResult: mo.None[session.ToolResult](),
+			},
+			{
+				ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				ToolResult: mo.Some(agent.ToolResult{
+					CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
+				}),
+			},
+		},
+	}}, nil)
+	service := New(s.repository, s.ids, s.clock, "/project")
+
+	listed, err := service.ListStored(s.T().Context())
+
+	s.Require().NoError(err)
+	s.Require().Len(listed, 1)
+	s.Equal(3, listed[0].TotalMessages)
+}
+
 func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	entries := []session.Entry{
 		{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
+			ToolResult: mo.None[session.ToolResult](),
+			ID:         "entry-id", CreatedAt: createdAt.Add(time.Minute),
 			Information: mo.Some(session.Information{Name: "stored name"}),
 		}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
@@ -235,6 +275,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 				Entries: []session.Entry{{
 					ID: "stored-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 					User: mo.Some(model.TextMessage("stored text")), Model: mo.None[model.Response](),
+					ToolResult: mo.None[session.ToolResult](),
 				}},
 			}, nil
 		},
@@ -299,11 +340,15 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, command AppendCommand) (AppendResult, error) {
 				stored := command.Entry.Model.MustGet()
-				s.Require().Len(stored.Content, 1)
+				s.Require().Len(stored.Content, 2)
 				s.Equal(model.ContentText, stored.Content[0].Kind)
 				s.Equal("world", stored.Content[0].Text.MustGet())
+				s.Equal(model.ContentReasoning, stored.Content[1].Kind)
+				s.False(stored.Content[1].Text.IsPresent())
+				s.Equal([]byte{1, 2, 3}, stored.Content[1].ProviderContext.MustGet().Payload)
 				s.Equal(mo.Some(model.OutcomeStop), stored.Outcome)
-				s.Equal(mo.None[string](), stored.ErrorMessage)
+				s.Equal(mo.Some("safe terminal message"), stored.ErrorMessage)
+				s.Equal(mo.Some("response-id"), stored.ResponseID)
 				persisted = append(persisted, command.Entry)
 				return AppendResult{StoragePath: "/sessions/file.jsonl"}, nil
 			},
@@ -337,7 +382,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 				ToolCall: mo.None[model.ToolCall](),
 			},
 		},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.Some("not durable"),
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.Some("safe terminal message"),
 		Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
 		ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
 		Usage: mo.None[model.Usage](), Diagnostics: nil,
@@ -366,8 +411,10 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	s.Equal(2, listed[0].TotalMessages)
 }
 
-func (s *ServiceSuite) TestNonStopModelAndToolResultRemainProcessLocal() {
+func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication() {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	modelAt := createdAt.Add(time.Second)
+	toolAt := createdAt.Add(2 * time.Second)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
@@ -375,18 +422,46 @@ func (s *ServiceSuite) TestNonStopModelAndToolResultRemainProcessLocal() {
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	providerContext := model.ProviderContext{
+		Source: model.ProviderContextSource{
+			ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("key"),
+		},
+		Payload: []byte{1, 2, 3},
+	}
 	response := model.Response{
 		Content: []model.Content{{
 			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
-			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call),
+			ProviderContext: mo.Some(providerContext), ToolCall: mo.Some(call),
 		}},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
-		Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
-		Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.Some(model.ProviderID("provider")),
+		Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
+		Usage: mo.Some(model.Usage{
+			InputTokens: 1, OutputTokens: 2, CachedInputTokens: 3,
+			CacheWriteTokens: 4, ReasoningTokens: 1, TotalTokens: 10,
+		}),
+		Diagnostics: nil,
 	}
 	result := agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
 	}
+	gomock.InOrder(
+		s.ids.EXPECT().NewID().Return("model-entry", nil),
+		s.clock.EXPECT().Now().Return(modelAt),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command AppendCommand) (AppendResult, error) {
+				s.Equal(response, command.Entry.Model.MustGet())
+				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+			},
+		),
+		s.ids.EXPECT().NewID().Return("tool-entry", nil),
+		s.clock.EXPECT().Now().Return(toolAt),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command AppendCommand) (AppendResult, error) {
+				s.Equal(result, command.Entry.ToolResult.MustGet())
+				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+			},
+		),
+	)
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](), Model: mo.Some(response),
 		ToolResult: mo.None[agent.ToolResult](),
@@ -396,13 +471,192 @@ func (s *ServiceSuite) TestNonStopModelAndToolResultRemainProcessLocal() {
 		ToolResult: mo.Some(result),
 	}))
 
-	s.Require().Empty(active.ActiveEntries())
-	s.Require().Len(active.Snapshot(), 2)
-	s.Equal(call, active.Snapshot()[0].Model.MustGet().Content[0].ToolCall.MustGet())
-	s.Equal(result, active.Snapshot()[1].ToolResult.MustGet())
+	entries := active.ActiveEntries()
+	s.Require().Len(entries, 2)
+	s.Equal(response, entries[0].Model.MustGet())
+	s.Equal(result, entries[1].ToolResult.MustGet())
+	history := active.Snapshot()
+	s.Require().Len(history, 2)
+	escapedResponse := history[0].Model.MustGet()
+	escapedResponse.Content[0].ProviderContext.MustGet().Payload[0] = 9
+	escapedResponse.Content[0].ToolCall.MustGet().Arguments["path"] = "mutated"
+	escapedResult := history[1].ToolResult.MustGet()
+	escapedResult.Contents[0].Text = mo.Some("mutated")
+	s.Equal([]byte{1, 2, 3}, active.Snapshot()[0].Model.MustGet().Content[0].ProviderContext.MustGet().Payload)
+	s.Equal("input.txt", active.Snapshot()[0].Model.MustGet().Content[0].ToolCall.MustGet().Arguments["path"])
+	s.Equal("result", active.Snapshot()[1].ToolResult.MustGet().Contents[0].Text.MustGet())
 }
 
-func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteProcessLocalToolHistory() {
+func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndOrder() {
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
+	s.ids.EXPECT().NewID().Return("session-id", nil)
+	s.clock.EXPECT().Now().Return(createdAt)
+	active := New(s.repository, s.ids, s.clock, "/project")
+	s.Require().NoError(active.Initialize(s.T().Context()))
+
+	ordered := []model.Content{
+		{
+			Kind: model.ContentText, Text: mo.Some("before tool"), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+		},
+		{
+			Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
+			ProviderContext: mo.Some(model.ProviderContext{
+				Source: model.ProviderContextSource{
+					ProviderID: "provider", API: "responses", Model: "model",
+					CompatibilityKey: mo.Some("key"),
+				},
+				Payload: []byte{1, 2, 3},
+			}),
+			ToolCall: mo.None[model.ToolCall](),
+		},
+		{
+			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(model.ToolCall{
+				ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"},
+			}),
+		},
+	}
+	cases := []struct {
+		name    string
+		content []model.Content
+		outcome model.Outcome
+	}{
+		{name: "nil", content: nil, outcome: model.OutcomeFailed},
+		{name: "non-nil empty", content: []model.Content{}, outcome: model.OutcomeFailed},
+		{name: "ordered supported continuation", content: ordered, outcome: model.OutcomeToolUse},
+	}
+	for index := range cases {
+		test := cases[index]
+		entryID := fmt.Sprintf("model-entry-%d", index)
+		entryTime := createdAt.Add(time.Duration(index+1) * time.Second)
+		gomock.InOrder(
+			s.ids.EXPECT().NewID().Return(entryID, nil),
+			s.clock.EXPECT().Now().Return(entryTime),
+			s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, command AppendCommand) (AppendResult, error) {
+					actual := command.Entry.Model.MustGet().Content
+					s.Equal(test.content == nil, actual == nil)
+					s.Equal(test.content, actual)
+					return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+				},
+			),
+		)
+	}
+
+	for index := range cases {
+		test := cases[index]
+		response := model.Response{
+			Content: test.content, Outcome: mo.Some(test.outcome), ErrorMessage: mo.Some("safe terminal result"),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+			ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}
+		s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
+			Kind: agent.HistoryEntryModel, User: mo.None[model.Message](), Model: mo.Some(response),
+			ToolResult: mo.None[agent.ToolResult](),
+		}))
+
+		durableContent := active.ActiveEntries()[index].Model.MustGet().Content
+		s.Equal(test.content == nil, durableContent == nil)
+		s.Equal(test.content, durableContent)
+		snapshotContent := active.Snapshot()[index].Model.MustGet().Content
+		s.Equal(test.content == nil, snapshotContent == nil)
+		s.Equal(test.content, snapshotContent)
+	}
+}
+
+func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged() {
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
+	s.ids.EXPECT().NewID().Return("session-id", nil)
+	s.clock.EXPECT().Now().Return(createdAt)
+	active := New(s.repository, s.ids, s.clock, "/project")
+	s.Require().NoError(active.Initialize(s.T().Context()))
+	result := agent.ToolResult{
+		CallID: "call", ToolName: "read", Contents: tool.TextContents("completed effect"), IsError: false,
+	}
+	gomock.InOrder(
+		s.ids.EXPECT().NewID().Return("tool-entry", nil),
+		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("sync failed")),
+	)
+
+	err := active.Append(s.T().Context(), agent.HistoryEntry{
+		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		ToolResult: mo.Some(result),
+	})
+	s.Require().ErrorContains(err, "sync failed")
+	s.Empty(active.ActiveEntries())
+	s.Empty(active.Snapshot())
+}
+
+func (s *ServiceSuite) TestImageOnlyToolResultRemainsProcessLocal() {
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
+	s.ids.EXPECT().NewID().Return("session-id", nil)
+	s.clock.EXPECT().Now().Return(createdAt)
+	active := New(s.repository, s.ids, s.clock, "/project")
+	s.Require().NoError(active.Initialize(s.T().Context()))
+	result := agent.ToolResult{
+		CallID: "call", ToolName: "read",
+		Contents: []tool.ResultContent{{
+			Kind: tool.ResultContentImage, Text: mo.None[string](),
+			Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
+		}},
+		IsError: false,
+	}
+
+	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
+		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		ToolResult: mo.Some(result),
+	}))
+
+	s.Empty(active.ActiveEntries())
+	s.Require().Len(active.Snapshot(), 1)
+	s.Equal(result, active.Snapshot()[0].ToolResult.MustGet())
+}
+
+func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceState() {
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
+	s.ids.EXPECT().NewID().Return("session-id", nil)
+	s.clock.EXPECT().Now().Return(createdAt)
+	active := New(s.repository, s.ids, s.clock, "/project")
+	s.Require().NoError(active.Initialize(s.T().Context()))
+
+	gomock.InOrder(
+		s.ids.EXPECT().NewID().Return("nil-entry", nil),
+		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command AppendCommand) (AppendResult, error) {
+				contents := command.Entry.ToolResult.MustGet().Contents
+				s.Nil(contents)
+				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+			},
+		),
+		s.ids.EXPECT().NewID().Return("empty-entry", nil),
+		s.clock.EXPECT().Now().Return(createdAt.Add(2*time.Second)),
+		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command AppendCommand) (AppendResult, error) {
+				contents := command.Entry.ToolResult.MustGet().Contents
+				s.NotNil(contents)
+				s.Empty(contents)
+				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+			},
+		),
+	)
+	for _, contents := range [][]tool.ResultContent{nil, {}} {
+		s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
+			Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+			ToolResult: mo.Some(agent.ToolResult{
+				CallID: "call", ToolName: "tool", Contents: contents, IsError: false,
+			}),
+		}))
+	}
+}
+
+func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHistory() {
 	base := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	idIndex := 0
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
@@ -415,8 +669,10 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteProcessLocalToolH
 		timeIndex++
 		return base.Add(time.Duration(timeIndex) * time.Second)
 	}).AnyTimes()
+	persisted := make([]session.Entry, 0, 4)
 	s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, command AppendCommand) (AppendResult, error) {
+			persisted = append(persisted, command.Entry)
 			return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
 		},
 	).AnyTimes()
@@ -467,6 +723,19 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteProcessLocalToolH
 	escapedCall := escapedModel.Content[1].ToolCall.MustGet()
 	escapedCall.Arguments["path"] = "mutated"
 
+	s.repository.EXPECT().Load(gomock.Any(), session.ID("session-id")).Return(LoadedSession{
+		Header: session.Header{
+			Version: 1, ID: "session-id", CreatedAt: base.Add(time.Second), WorkingDirectory: "/project",
+		},
+		StoragePath: "/sessions/history.jsonl", Entries: persisted,
+	}, nil)
+	restarted := New(s.repository, s.ids, s.clock, "/project")
+	_, err := restarted.ResumeActive(s.T().Context(), "session-id")
+	s.Require().NoError(err)
+	persistedResponse := persisted[1].Model.MustGet()
+	persistedResponse.Content[0].ProviderContext.MustGet().Payload[0] = 8
+	persistedResponse.Content[1].ToolCall.MustGet().Arguments["path"] = "changed after resume"
+
 	controller := gomock.NewController(s.T())
 	provider := agentrun.NewMockModelProvider(controller)
 	runtime := agentrun.NewMockModelRuntime(controller)
@@ -495,9 +764,9 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteProcessLocalToolH
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := agentrun.New("instructions", runtime, runner.New(nil, nil, nil), tools, events, active)
+	service := agentrun.New("instructions", runtime, runner.New(nil, nil, nil), tools, events, restarted)
 
-	_, err := service.Run(s.T().Context(), agentrun.Request{RunID: "next", UserText: "second"})
+	_, err = service.Run(s.T().Context(), agentrun.Request{RunID: "next", UserText: "second"})
 	s.Require().ErrorIs(err, providerErr)
 }
 

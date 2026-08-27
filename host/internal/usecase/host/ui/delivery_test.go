@@ -379,15 +379,15 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 	assert.Equal(t, []domainui.ModelResponseContent{
 		{
 			Kind: domainui.ModelContentKindReasoning,
-			Text: "hidden reasoning",
+			Text: "hidden reasoning", ToolCall: mo.None[domainui.FinalToolCall](),
 		},
 		{
 			Kind: domainui.ModelContentKindText,
-			Text: "visible text",
+			Text: "visible text", ToolCall: mo.None[domainui.FinalToolCall](),
 		},
 		{
 			Kind: domainui.ModelContentKindRefusal,
-			Text: "cannot help",
+			Text: "cannot help", ToolCall: mo.None[domainui.FinalToolCall](),
 		},
 	}, mappedResponse.Content)
 	assert.Equal(t, []domainui.ModelDiagnostic{{

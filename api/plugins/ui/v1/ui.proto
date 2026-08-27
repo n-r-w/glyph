@@ -134,7 +134,7 @@ message SessionChanged {
   repeated SessionEntry entries = 2;
 }
 
-// SessionEntry contains one restored public text payload.
+// SessionEntry contains one restored public terminal payload.
 message SessionEntry {
   // The persisted entry identifier.
   string id = 1;
@@ -144,7 +144,20 @@ message SessionEntry {
   oneof entry {
     UserMessage user = 3;
     ModelResponse model = 4;
+    ToolResult tool_result = 5;
   }
+}
+
+// ToolResult carries one restored terminal tool result.
+message ToolResult {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The executed tool name.
+  string tool_name = 2;
+  // The ordered result content blocks.
+  repeated ToolResultContent contents = 3;
+  // Whether tool execution failed.
+  bool is_error = 4;
 }
 
 // UserMessage carries ordered provider-neutral user content.
@@ -391,6 +404,8 @@ message ModelResponseContent {
   ModelContentKind kind = 1;
   // The finalized content block text.
   string text = 2;
+  // The finalized tool call when this content position invokes a tool.
+  FinalToolCall tool_call = 3;
 }
 
 // ModelUsage carries provider-reported token accounting.

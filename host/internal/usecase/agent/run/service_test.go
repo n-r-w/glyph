@@ -773,6 +773,80 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
+func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	controller := gomock.NewController(t)
+	runtime := NewMockModelRuntime(controller)
+	provider := NewMockModelProvider(controller)
+	tools := NewMockToolRuntime(controller)
+	events := NewMockEventSink(controller)
+	store := NewMockHistoryStore(controller)
+	persistErr := errors.New("persist tool result")
+	call := model.ToolCall{ID: "call", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
+	response := model.Response{
+		Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
+		ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](), ResponseID: mo.Some("response-id"), Usage: mo.None[model.Usage](),
+		Diagnostics: nil,
+	}
+	history := make([]agent.HistoryEntry, 0, 2)
+	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+	gomock.InOrder(
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				history = append(history, cloneHistoryEntry(entry))
+				return nil
+			},
+		),
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				require.Equal(t, agent.HistoryEntryModel, entry.Kind)
+				history = append(history, cloneHistoryEntry(entry))
+				return nil
+			},
+		),
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				require.Equal(t, agent.HistoryEntryToolResult, entry.Kind)
+				return persistErr
+			},
+		),
+	)
+	runtime.EXPECT().Current().Return(RuntimeSelection{
+		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
+	})
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+			return emitStream(handle, response, nil)
+		},
+	)
+	toolCompleted := false
+	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).DoAndReturn(
+		func(context.Context, model.ToolCall, tool.ProgressHandler) (agent.ToolResult, error) {
+			toolCompleted = true
+			return agent.ToolResult{
+				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("external effect complete"), IsError: false,
+			}, nil
+		},
+	)
+	observed := make([]EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+		observed = append(observed, event.Type)
+		return nil
+	}).AnyTimes()
+	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+	_, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
+
+	require.ErrorIs(t, err, persistErr)
+	require.True(t, toolCompleted)
+	assert.NotContains(t, observed, EventToolExecutionEnd)
+	assert.NotContains(t, observed, EventToolResult)
+	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+}
+
 func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	t.Parallel()
 

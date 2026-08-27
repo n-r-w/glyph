@@ -6,6 +6,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
@@ -215,8 +216,9 @@ type ModelContent struct {
 
 // ModelResponseContent carries one ordered finalized model block.
 type ModelResponseContent struct {
-	Kind ModelContentKind
-	Text string
+	Kind     ModelContentKind
+	Text     string
+	ToolCall mo.Option[FinalToolCall]
 }
 
 // ModelUsage carries provider-reported token accounting.
@@ -334,13 +336,14 @@ type Frame struct {
 	SessionEntries []SessionEntry
 }
 
-// SessionEntry carries one restored public text item.
+// SessionEntry carries one restored public terminal item.
 type SessionEntry struct {
-	ID        string
-	CreatedAt time.Time
-	Kind      SessionEntryKind
-	UserText  mo.Option[string]
-	Model     mo.Option[ModelResponse]
+	ID         string
+	CreatedAt  time.Time
+	Kind       SessionEntryKind
+	UserText   mo.Option[string]
+	Model      mo.Option[ModelResponse]
+	ToolResult mo.Option[agent.ToolResult]
 }
 
 // SessionEntryKind identifies restored transcript ownership.
@@ -349,8 +352,10 @@ type SessionEntryKind uint8
 const (
 	// SessionEntryUser is one restored user text item.
 	SessionEntryUser SessionEntryKind = iota + 1
-	// SessionEntryModel is one restored model text item.
+	// SessionEntryModel is one restored model response.
 	SessionEntryModel
+	// SessionEntryToolResult is one restored terminal tool result.
+	SessionEntryToolResult
 )
 
 // CommandKind identifies one UI-to-Host command.

@@ -51,7 +51,8 @@ func runRestrictiveUmaskAppend(t *testing.T) {
 		StoragePath: "",
 		Entry: session.Entry{
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ID: "entry", CreatedAt: createdAt,
+			ToolResult: mo.None[session.ToolResult](),
+			ID:         "entry", CreatedAt: createdAt,
 			Information: mo.Some(session.Information{Name: "restricted"}),
 		},
 	})

@@ -12,8 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -96,8 +98,9 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	entryB := session.Entry{
 		ID: "entry-b", CreatedAt: createdAt, Information: mo.None[session.Information](),
-		User:  mo.Some(model.TextMessage("session-b-text")),
-		Model: mo.None[session.ModelResponse](),
+		User:       mo.Some(model.TextMessage("session-b-text")),
+		Model:      mo.None[session.ModelResponse](),
+		ToolResult: mo.None[session.ToolResult](),
 	}
 	firstReplacementReady := make(chan struct{})
 	releaseFirstReplacement := make(chan struct{})
@@ -127,6 +130,59 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	frame := <-frameSent
 	require.Equal(t, infoA, frame.SessionInfo.MustGet())
 	require.Empty(t, frame.SessionEntries)
+}
+
+func TestSessionChangedFrameProjectsToolContinuationWithoutProviderContext(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	response := model.Response{
+		Content: []model.Content{
+			{
+				Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
+				ProviderContext: mo.Some(model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("key"),
+					},
+					Payload: []byte{1, 2, 3},
+				}),
+				ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call),
+			},
+		},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
+		Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+		ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
+		Usage: mo.Some(model.Usage{}), Diagnostics: nil,
+	}
+	result := agent.ToolResult{
+		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
+	}
+	frame := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
+		{
+			ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+		},
+		{
+			ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
+		},
+	})
+
+	require.Len(t, frame.SessionEntries, 2)
+	publicResponse := frame.SessionEntries[0].Model.MustGet()
+	require.Equal(t, mo.Some("tool_use"), publicResponse.Outcome)
+	require.Equal(t, mo.Some("response-id"), publicResponse.ResponseID)
+	require.True(t, publicResponse.Usage.IsPresent())
+	require.Len(t, publicResponse.Content, 1)
+	require.Equal(t, call.ID, publicResponse.Content[0].ToolCall.MustGet().CallID)
+	require.Equal(t, 1, publicResponse.Content[0].ToolCall.MustGet().Position)
+	require.Equal(t, domainui.SessionEntryToolResult, frame.SessionEntries[1].Kind)
+	require.Equal(t, result, frame.SessionEntries[1].ToolResult.MustGet())
 }
 
 func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {

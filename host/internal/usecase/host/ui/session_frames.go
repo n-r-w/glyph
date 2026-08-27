@@ -5,8 +5,10 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -42,35 +44,49 @@ func sessionChangedFrame(info session.Info, entries []session.Entry) domainui.Fr
 			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
 				UserText: mo.Some(text.String()), Model: mo.None[domainui.ModelResponse](),
+				ToolResult: mo.None[agent.ToolResult](),
 			})
 			continue
 		}
 		if response, present := entry.Model.Get(); present {
+			mapped, ok := mapRestoredResponse(response)
+			if !ok {
+				continue
+			}
 			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
-				UserText: mo.None[string](), Model: mo.Some(mapRestoredTextResponse(response)),
+				UserText: mo.None[string](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
+			})
+			continue
+		}
+		if result, present := entry.ToolResult.Get(); present {
+			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryToolResult,
+				UserText: mo.None[string](), Model: mo.None[domainui.ModelResponse](),
+				ToolResult: mo.Some(cloneRestoredToolResult(result)),
 			})
 		}
 	}
 	return frame
 }
 
-func mapRestoredTextResponse(response model.Response) domainui.ModelResponse {
-	var text strings.Builder
-	content := make([]domainui.ModelResponseContent, 0, len(response.Content))
-	for index := range response.Content {
-		item := &response.Content[index]
-		value, present := item.Text.Get()
-		if item.Kind != model.ContentText || !present {
-			continue
+// mapRestoredResponse removes opaque context carriers before UI projection.
+func mapRestoredResponse(response model.Response) (domainui.ModelResponse, bool) {
+	mapped, err := mapModelResponseProjection(response, true)
+	return mapped, err == nil
+}
+
+// cloneRestoredToolResult gives an in-flight UI frame independent result ownership.
+func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
+	contents := append([]tool.ResultContent(nil), result.Contents...)
+	for index := range contents {
+		if image, present := contents[index].Image.Get(); present {
+			image.Data = append([]byte(nil), image.Data...)
+			contents[index].Image = mo.Some(image)
 		}
-		text.WriteString(value)
-		content = append(content, domainui.ModelResponseContent{Kind: domainui.ModelContentKindText, Text: value})
 	}
-	return domainui.ModelResponse{
-		Text: text.String(), Outcome: mo.None[string](), ErrorMessage: mo.None[string](), Provider: mo.None[string](),
-		Model: mo.None[string](), ResponseModel: mo.None[string](), ResponseID: mo.None[string](), Content: content,
-		Usage: mo.None[domainui.ModelUsage](), Diagnostics: nil,
+	return agent.ToolResult{
+		CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
 	}
 }
 

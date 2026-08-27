@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -424,12 +423,22 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 			if !present {
 				return nil, fmt.Errorf("map session entry %d: missing model payload", index)
 			}
-			mapped, err := mapTextModelResponseWire(response)
+			mapped, err := mapModelResponse(response)
 			if err != nil {
 				return nil, fmt.Errorf("map session entry %d: %w", index, err)
 			}
 			wire.SetModel(mapped)
-		case HistoryEntryUnspecified, HistoryEntryToolResult:
+		case HistoryEntryToolResult:
+			result, present := entry.ToolResult.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing tool result payload", index)
+			}
+			mapped, err := mapToolResult(result)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", index, err)
+			}
+			wire.SetToolResult(mapped)
+		case HistoryEntryUnspecified:
 			return nil, fmt.Errorf("map session entry %d: unsupported kind %d", index, entry.Kind)
 		default:
 			return nil, fmt.Errorf("map session entry %d: unknown kind %d", index, entry.Kind)
@@ -457,7 +466,7 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 			if !ok {
 				return nil, fmt.Errorf("map history entry %d: missing model payload", index)
 			}
-			modelResponse, err := mapTextModelResponseWire(modelValue)
+			modelResponse, err := mapModelResponse(modelValue)
 			if err != nil {
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
@@ -613,31 +622,6 @@ func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
 	mapped.SetToolName(result.ToolName)
 	mapped.SetContents(contents)
 	mapped.SetIsError(result.IsError)
-	return mapped, nil
-}
-
-func mapTextModelResponseWire(response ModelResponse) (*programmaticv1.ModelResponse, error) {
-	content := make([]*programmaticv1.ModelResponseItem, 0, len(response.Content))
-	var text strings.Builder
-	for index := range response.Content {
-		item := &response.Content[index]
-		if item.Kind != ModelResponseContentText {
-			continue
-		}
-		value, present := item.Text.Get()
-		if !present {
-			return nil, fmt.Errorf("map model response content %d: text is missing", index)
-		}
-		finalText := new(programmaticv1.FinalText)
-		finalText.SetText(value)
-		mappedItem := new(programmaticv1.ModelResponseItem)
-		mappedItem.SetText(finalText)
-		content = append(content, mappedItem)
-		text.WriteString(value)
-	}
-	mapped := new(programmaticv1.ModelResponse)
-	mapped.SetText(text.String())
-	mapped.SetContent(content)
 	return mapped, nil
 }
 

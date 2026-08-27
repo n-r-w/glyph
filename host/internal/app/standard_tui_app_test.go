@@ -44,7 +44,7 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 		"user: active history", "assistant: Request complete.", "user: blocked request",
 		"Session ID: " + activeID, "Name: <absent>", "Request: /resume|", "Sessions:",
 		"  active history | 2026-08-27T00:00:00Z | 3 messages",
-		"> restart session | 2026-08-27T00:00:00Z | 2 messages",
+		"> restart session | 2026-08-27T00:00:00Z | 4 messages",
 		"Selector: Up/Down navigate | Enter confirm | Escape cancel",
 		"Session status: Session replacement is unavailable.",
 	}, "\n")
@@ -57,9 +57,9 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 	clearedEditor := strings.Replace(complete, "Request: /resume|", "Request: |", 1)
 	err = validateBusyPreservation(clearedEditor, activeID)
 	require.EqualError(t, err, "busy screen did not preserve the /resume editor draft")
-	wrongCount := strings.Replace(complete, "2 messages", "0 messages", 1)
+	wrongCount := strings.Replace(complete, "4 messages", "0 messages", 1)
 	err = validateRestartRow(wrongCount)
-	require.EqualError(t, err, "restart selector did not show restart session with 2 messages")
+	require.EqualError(t, err, "restart selector did not show restart session with 4 messages")
 }
 
 func validateBusyPreservation(output, activeID string) error {
@@ -95,11 +95,11 @@ func validateBusyPreservation(output, activeID string) error {
 
 func validateRestartRow(output string) error {
 	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, "restart session") && strings.Contains(line, "2 messages") {
+		if strings.Contains(line, "restart session") && strings.Contains(line, "4 messages") {
 			return nil
 		}
 	}
-	return errors.New("restart selector did not show restart session with 2 messages")
+	return errors.New("restart selector did not show restart session with 4 messages")
 }
 
 func requestStandardTUIControl(t *testing.T, socketPath string, command byte) {
@@ -201,7 +201,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Request complete.")
 
-	// Create a second active session so the stored restart target remains exactly two messages.
+	// Create a second active session so the stored restart target remains one complete tool turn.
 	testsupporttui.Write(t, input, "/new")
 	observer.WaitNext(t, "/new|")
 	newCheckpoint := observer.Checkpoint()
@@ -262,8 +262,10 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	require.NoError(t, validateRestartRow(observer.StringFrom(restartCheckpoint)))
 	testsupporttui.Write(t, input, "\x1b[B")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	// Restored user and model text prove that resume replaced the empty startup transcript.
+	// Restored tool history proves that resume replaced the empty startup transcript in stored order.
 	observer.WaitNext(t, "user: read input.txt")
+	observer.WaitNext(t, `[tool:status] bash (arguments) {"command":"printf tool-ok"}`)
+	observer.WaitNext(t, "[tool:done] bash tool-ok")
 	observer.WaitNext(t, "assistant: Request complete.")
 	// /session renders every Host-confirmed lifecycle field after replacement.
 	testsupporttui.Write(t, input, "/session")
@@ -285,6 +287,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	require.NoError(t, copyErr)
 	require.NoError(t, runErr, observer.String())
 	assert.Contains(t, observer.String(), "user: read input.txt")
+	assert.Contains(t, observer.String(), `[tool:status] bash (arguments) {"command":"printf tool-ok"}`)
+	assert.Contains(t, observer.String(), "[tool:done] bash tool-ok")
 	assert.Contains(t, observer.String(), "assistant: Request complete.")
 	assert.Contains(t, observer.String(), "Session status: Session replacement is unavailable.")
 	assert.Contains(t, observer.String(), "PASS")
@@ -350,11 +354,16 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	body, ok := lastBody.Load().([]byte)
 	require.True(t, ok)
 	assert.Contains(t, string(body), "read input.txt")
+	assert.Contains(t, string(body), "enc-restart")
+	assert.Contains(t, string(body), "call-1")
+	assert.Contains(t, string(body), "tool-ok")
 	assert.Contains(t, string(body), "Request complete.")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)
-	assert.Less(t, bytes.Index(body, []byte("read input.txt")), bytes.Index(body, []byte("Request complete.")))
+	assert.Less(t, bytes.Index(body, []byte("read input.txt")), bytes.Index(body, []byte(`"type":"function_call"`)))
+	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
+	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
 	assert.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 	require.NoError(t, <-controlDone)
 }

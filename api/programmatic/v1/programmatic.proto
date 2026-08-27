@@ -237,7 +237,7 @@ message SessionEntriesResult {
   repeated SessionEntry entries = 1;
 }
 
-// SessionEntry contains stable metadata and one public text payload.
+// SessionEntry contains stable metadata and one public terminal payload.
 message SessionEntry {
   // The persisted entry identifier.
   string id = 1;
@@ -247,6 +247,7 @@ message SessionEntry {
   oneof entry {
     UserMessage user = 3;
     ModelResponse model = 4;
+    ToolResult tool_result = 5;
   }
 }
 

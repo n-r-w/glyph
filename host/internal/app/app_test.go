@@ -386,8 +386,8 @@ func runSessionRestartUI(
 		return errors.New("stored session list did not preserve every session information field and presence state")
 	}
 	if !listed[0].HasFirstUserText() || listed[0].GetFirstUserText() != "restart text" ||
-		listed[0].GetTotalMessages() != 2 {
-		return errors.New("stored session summary did not preserve the completed text turn")
+		listed[0].GetTotalMessages() != 4 {
+		return errors.New("stored session summary did not preserve the completed tool turn")
 	}
 
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
@@ -404,11 +404,16 @@ func runSessionRestartUI(
 		return errors.New("resumed session did not preserve every session information field and presence state")
 	}
 	entries := changedFrame.GetSessionChanged().GetEntries()
-	if len(entries) != 2 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
+	if len(entries) != 4 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
+		entries[2].GetToolResult() == nil || entries[3].GetModel() == nil ||
 		len(entries[0].GetUser().GetContent()) != 1 || len(entries[1].GetModel().GetContent()) != 1 ||
 		entries[0].GetUser().GetContent()[0].GetText() != "restart text" ||
-		entries[1].GetModel().GetContent()[0].GetText() != "Request complete." {
-		return errors.New("resumed session did not restore ordered user and model text")
+		entries[1].GetModel().GetResponseId() != "resp-1" ||
+		entries[1].GetModel().GetContent()[0].GetToolCall().GetCallId() != "call-1" ||
+		entries[2].GetToolResult().GetCallId() != "call-1" ||
+		!strings.Contains(entries[2].GetToolResult().GetContents()[0].GetText(), "tool-ok") ||
+		entries[3].GetModel().GetContent()[0].GetText() != "Request complete." {
+		return errors.New("resumed session did not restore ordered tool continuation")
 	}
 	if err = submitRestartTurn(stream, "continue"); err != nil {
 		return err
@@ -997,20 +1002,23 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 		accessToken,
 	)), 0o600))
 	requestCount := new(atomic.Int32)
-	requestCount.Store(1)
+	requestCount.Store(0)
 	lastBody := new(atomic.Value)
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody}
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Session_Restart_UI")
+	extensionDirectory := buildToolsExecutable(t)
 	tracePath := filepath.Join(t.TempDir(), "session-restart.json")
 	t.Setenv(appUITraceEnvironment, tracePath)
 	t.Setenv(appUIBehaviorEnvironment, "session-restart")
 	command := cli.Command{
-		Mode:               cli.ModeUI,
-		Headless:           headless.Command{UserText: "", ExtensionDirectory: ""},
-		ExtensionDirectory: "", UIDirectory: uiDirectory, UIID: "session-restart-ui", SocketPath: "",
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText: "", ExtensionDirectory: extensionDirectory,
+		},
+		ExtensionDirectory: extensionDirectory, UIDirectory: uiDirectory, UIID: "session-restart-ui", SocketPath: "",
 	}
 
 	for range 2 {
@@ -1035,9 +1043,14 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	require.Contains(t, string(body), `"model":"selected-model"`)
 	require.Contains(t, string(body), `"effort":"high"`)
 	require.Contains(t, string(body), "restart text")
+	require.Contains(t, string(body), "enc-restart")
+	require.Contains(t, string(body), "call-1")
+	require.Contains(t, string(body), "tool-ok")
 	require.Contains(t, string(body), "Request complete.")
 	require.Contains(t, string(body), "continue")
-	require.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte("Request complete.")))
+	require.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte(`"type":"function_call"`)))
+	require.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
+	require.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
 	require.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 }
 
@@ -1434,11 +1447,13 @@ func (transport deterministicCodexTransport) RoundTrip(request *http.Request) (*
 	}
 }
 
-const toolResponseSSE = `data: {"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"","status":"in_progress"}}
+const toolResponseSSE = `data: {"type":"response.output_item.done","output_index":0,"item":{"id":"r-1","type":"reasoning","encrypted_content":"enc-restart","summary":[]}}
 
-data: {"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}
+data: {"type":"response.output_item.added","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"","status":"in_progress"}}
 
-data: {"type":"response.output_item.done","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}
+data: {"type":"response.function_call_arguments.done","output_index":1,"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}
+
+data: {"type":"response.output_item.done","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}
 
 data: {"type":"response.completed","response":{"id":"resp-1","status":"completed","output":[]}}
 
