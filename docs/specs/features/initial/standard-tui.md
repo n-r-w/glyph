@@ -30,7 +30,7 @@ Goal: Define the observable standard TUI behavior required to read, navigate, se
 Success metrics:
 - MET-01: Every transcript entry remains reachable after it leaves the visible terminal height.
 - MET-02: Every mouse-driven transcript operation has a keyboard-driven equivalent except free-form text selection.
-- MET-03: Terminal resize, suspension, normal exit, UI process failure, and Host termination leave the terminal in an interactive state with application-owned modes disabled.
+- MET-03: Terminal resize, suspension, and normal TUI exit leave the terminal in an interactive state with application-owned modes disabled.
 - MET-04: Every action named by this specification has a configurable key binding or a discoverable command.
 
 Non-goals:
@@ -39,6 +39,7 @@ Non-goals:
 - NGL-03: Standard-TUI extension presentation and interaction, which remain owned by the `TUI Extension Capabilities` section of [`prd.md`](prd.md).
 - NGL-04: Windows behavior, remote UI plugins, browser UI, and graphical desktop UI.
 - NGL-05: Terminal-specific workaround requirements for individual terminal products.
+- NGL-06: Host terminal-state inspection, snapshot, reset, restoration, or automatic TUI restart.
 
 ## Scenarios
 
@@ -51,12 +52,13 @@ Top scenarios:
 - SCN-02: The user searches the complete rendered transcript, moves between matches, copies the underlying assistant message, and closes search without changing session state.
 - SCN-03: The user composes multiline Unicode input, completes a path or command, attaches an image, edits the text in an external editor, and submits one user message.
 - SCN-04: During an active run, the user queues steering and follow-up messages, restores a queued message to the editor, and aborts the run without losing unsent editor text.
-- SCN-05: The terminal changes size, suspends, resumes, and then loses the UI process. Glyph restores the terminal and the active session remains recoverable.
+- SCN-05: The terminal changes size, suspends, and resumes. The TUI restores its modes after resume and disables them on normal exit. After unexpected TUI termination, the active session remains recoverable and the user starts the Glyph client again; Host performs no terminal recovery.
 
 Operational and UX constraints:
 - CNS-01: The standard TUI owns terminal input dispatch, rendering, focus, viewport state, editor state, and selection state. Agent Core owns none of these concerns. The standard TUI sends Host commands and renders Host events or results. It does not execute agent behavior.
 - CNS-02: TUI presentation never changes persisted model, tool, or session content.
 - CNS-03: Keyboard operation remains available when mouse reporting, clipboard integration, inline images, or hyperlink activation are unavailable.
+- CNS-03.1: The standard TUI owns terminal initialization, modes, suspension, resume, and normal cleanup. Host does not inspect or change terminal state.
 
 ## Scope of Change
 
@@ -133,7 +135,7 @@ Functional:
 - FRQ-39: The user shall be able to display active commands and key bindings from the standard TUI.
 - FRQ-40: Terminal resize shall recompute wrapping, DEF-02 height, DEF-03 placement, selection geometry, and scroll indicator without dropping DEF-01 content.
 - FRQ-41: Suspending and resuming Glyph shall restore application input modes, visible content, viewport position, editor text, and focus.
-- FRQ-42: Normal exit, UI process failure, and Host termination shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes enabled by the standard TUI.
+- FRQ-42: Before normal exit, the standard TUI shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes that it enabled. Host shall not provide fallback terminal cleanup after unexpected TUI termination.
 
 Non-functional:
 - NFQ-01: At every positive terminal width and height, rendering shall not panic. When the complete dock does not fit, the editor line and one status line take precedence over transcript content.
@@ -149,8 +151,9 @@ This specification extracts observable terminal-agent behavior from Pi documenta
 
 - RSK-01: Reflow after resize can move the user's reading position. Preserve the logical top transcript block and intra-block offset rather than a raw terminal row number.
 - RSK-02: Streaming Markdown can produce unstable wrapping. Keep one logical block identity and recompute only its rendered rows and later viewport geometry.
-- RSK-03: Mouse reporting can interfere with terminal-native selection. Make keyboard copying complete and disable every application mouse mode during suspension and termination.
+- RSK-03: Mouse reporting can interfere with terminal-native selection. Make keyboard copying complete and disable every application mouse mode during suspension and normal exit.
 - RSK-04: Large transcripts can make reflow and search expensive. Store logical blocks separately from rendered rows and invalidate rendered data only when source content or width changes.
+- RSK-05: Unexpected TUI termination can occur before TUI cleanup runs. Host does not inspect or repair terminal state; the user restarts the Glyph client.
 
 ## Assumptions
 

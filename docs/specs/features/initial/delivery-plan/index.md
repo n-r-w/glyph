@@ -37,31 +37,38 @@
 - Blockers: None
 - File: [04-persistent-linear-sessions.md](04-persistent-linear-sessions.md)
 
+### PHS-04.1. Model execution capabilities
+- Owner: Settings, provider-neutral model descriptor, Host model catalogue, and Programmatic Control
+- Result: Expose strict model input modalities, context window, and maximum output tokens.
+- Dependencies: PHS-04
+- Blockers: None
+- File: [04.1-model-execution-capabilities.md](04.1-model-execution-capabilities.md)
+
 ### PHS-05. Session tree
-- Owner: Session use cases and standard TUI
-- Result: Support branch-preserving session navigation.
+- Owner: Host session-tree and extension orchestration, session persistence, and standard TUI
+- Result: Support branch-preserving session navigation with extensible branch summarization.
 - Dependencies: PHS-04
 - Blockers: None
 - File: [05-session-tree.md](05-session-tree.md)
 
 ### PHS-07. Extension context and lifecycle
-- Owner: Host extension runtime, model access, and session use cases
-- Result: Give extension processes session-bound access, configured-model requests, and lifecycle events without terminal dependencies.
-- Dependencies: PHS-05
+- Owner: Host extension runtime, model access, active-selection orchestration, and session use cases
+- Result: Give extension processes session-bound access, configured-model requests, active-selection control, and lifecycle events without terminal dependencies.
+- Dependencies: PHS-05, PHS-04.1
 - Blockers: None
 - File: [07-extension-context-lifecycle.md](07-extension-context-lifecycle.md)
 
 ### PHS-06. Context compaction and retry control
-- Owner: Host compaction orchestration, extension runtime, session use cases, and Agent Core retry
-- Result: Keep long sessions usable within model context limits while extensions compose with or replace compaction.
-- Dependencies: PHS-07
+- Owner: Host compaction, model-execution, retry, extension, and session orchestration
+- Result: Keep long sessions usable within model context limits while extensions compose with or replace compaction and retry decisions.
+- Dependencies: PHS-07, PHS-04.1
 - Blockers: None
 - File: [06-context-compaction-retry-control.md](06-context-compaction-retry-control.md)
 
 ### PHS-08. Prompt, context, input, and provider middleware
-- Owner: Agent Core extension-point dispatcher and Host extension runtime
-- Result: Allow extensions to change model-facing input through ordered generic extension points.
-- Dependencies: PHS-06
+- Owner: Host middleware orchestration and Agent Core consumer-owned ports
+- Result: Allow extensions to change model-facing input through ordered generic extension points and validate final input against model modalities.
+- Dependencies: PHS-06, PHS-04.1
 - Blockers: None
 - File: [08-prompt-context-input-provider-middleware.md](08-prompt-context-input-provider-middleware.md)
 
@@ -88,8 +95,8 @@
 
 ### PHS-12. Extension-defined providers
 - Owner: Host provider registry and extension provider runtime
-- Result: Allow an installed extension to add and remove complete model provider implementations.
-- Dependencies: PHS-11
+- Result: Allow an installed extension to add and remove complete model provider implementations with provider-neutral execution capabilities.
+- Dependencies: PHS-11, PHS-04.1
 - Blockers: None
 - File: [12-extension-defined-providers.md](12-extension-defined-providers.md)
 
@@ -109,7 +116,7 @@
 
 ### PHS-12.3. Standard TUI editor and terminal interaction
 - Owner: Standard TUI editor and terminal lifecycle
-- Result: Provide multiline editing, completion, attachments, queued input, selectors, and terminal restoration.
+- Result: Provide multiline editing, completion, attachments, queued input, selectors, and TUI-owned terminal lifecycle while removing Host recovery and the obsolete UI startup-capability path.
 - Dependencies: PHS-12.2
 - Blockers: None
 - File: [12.3-standard-tui-editor-terminal-interaction.md](12.3-standard-tui-editor-terminal-interaction.md)
@@ -170,28 +177,30 @@
 3. PHS-02 - Programmatic Control foundation
 4. PHS-03 - Providers, models, and runtime selection
 5. PHS-04 - Persistent linear sessions
-6. PHS-05 - Session tree
-7. PHS-07 - Extension context and lifecycle
-8. PHS-06 - Context compaction and retry control
-9. PHS-08 - Prompt, context, input, and provider middleware
-10. PHS-09 - Tool middleware and run control
-11. PHS-10 - Commands, interaction, notifications, and extension events
-12. PHS-11 - Resource contributions
-13. PHS-12 - Extension-defined providers
-14. PHS-12.1 - Standard TUI transcript rendering and layout
-15. PHS-12.2 - Standard TUI viewport navigation
-16. PHS-12.3 - Standard TUI editor and terminal interaction
-17. PHS-13 - Standard TUI presentation extensions
-18. PHS-14 - Interactive standard TUI extensions
-19. PHS-15 - Extension installation and state management
-20. PHS-16 - Environment reload
-21. PHS-17 - Glyph public-behavior traceability
-22. PHS-18 - Cleanup
-23. PHS-19 - Independent final verification
+6. PHS-04.1 - Model execution capabilities
+7. PHS-05 - Session tree
+8. PHS-07 - Extension context and lifecycle
+9. PHS-06 - Context compaction and retry control
+10. PHS-08 - Prompt, context, input, and provider middleware
+11. PHS-09 - Tool middleware and run control
+12. PHS-10 - Commands, interaction, notifications, and extension events
+13. PHS-11 - Resource contributions
+14. PHS-12 - Extension-defined providers
+15. PHS-12.1 - Standard TUI transcript rendering and layout
+16. PHS-12.2 - Standard TUI viewport navigation
+17. PHS-12.3 - Standard TUI editor and terminal interaction
+18. PHS-13 - Standard TUI presentation extensions
+19. PHS-14 - Interactive standard TUI extensions
+20. PHS-15 - Extension installation and state management
+21. PHS-16 - Environment reload
+22. PHS-17 - Glyph public-behavior traceability
+23. PHS-18 - Cleanup
+24. PHS-19 - Independent final verification
 
 ## References
 
 - [`prd.md`](../prd.md) - target product requirements and Glyph public-behavior traceability.
+- [`architecture.md`](../architecture.md) - normative target component, dependency, contract, and package boundaries.
 - [`prototype-prd.md`](../prototype-prd.md) - implemented prototype scope.
 - [`prototype-technical-solution.md`](../prototype-technical-solution.md) - prototype architecture and implementation baseline.
 - [`standard-tui.md`](../standard-tui.md) - standard terminal-agent interaction requirements.

@@ -45,7 +45,7 @@
 - `reasoning control`: The single user-facing control whose available choices reflect the selected model's reasoning capabilities.
 - `reasoning choice`: One value available through reasoning control: `off`, `on`, or a supported reasoning effort.
 - `visible reasoning content`: Provider-returned reasoning text intended for typed conversation history and client presentation.
-- `provider reasoning context`: Opaque or encrypted provider-owned reasoning data retained for compatible request replay but not exposed to clients.
+- `provider reasoning context`: Opaque or encrypted provider-owned session data persisted with its model response, restored unchanged, retained for compatible request replay, and not exposed to clients.
 - `reasoning compatibility key`: An optional nonempty model identifier that explicitly permits provider reasoning context replay between models with the same provider instance, API, and key.
 - `Go interface`: A Go language type that defines a method set; this term does not refer to a UI plugin, Glyph client, or extension.
 - `skill`: A reusable instruction resource contributed by an extension.
@@ -53,6 +53,10 @@
 - `context file`: A file containing project instructions contributed by an extension.
 - `resource contribution`: A typed skill, prompt template, or context file supplied by an active extension to the Glyph host.
 - `response budget`: The token capacity reserved for the next model response.
+- `branch summarization`: Creation of a summary for entries on the branch that the user leaves during session-tree navigation.
+- `BranchSummaryEntry`: The persisted session entry produced by branch summarization.
+- `input modality`: A content kind accepted by a model. Glyph defines `text` and `image`.
+- `retry decision`: The Host-owned decision that determines whether and when Glyph repeats one failed model request.
 - `reference scenario`: Behavior from an existing system that is used to evaluate Glyph requirements or extension contracts without requiring source compatibility with that system.
 
 ## Context and Problem
@@ -101,6 +105,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Remote or independently started UI plugins.
 - Windows support.
 - Sandboxing, project trust, or another security policy for trusted extensions.
+- Host inspection, snapshot, reset, or restoration of terminal state and automatic restart of a terminated TUI.
 - Glyph-client direct shell actions. Shell execution remains available when the model invokes the bundled `bash` tool.
 - Extension-defined startup arguments and command argument completion.
 - Technical architecture, API shapes, transport selection, and implementation planning.
@@ -126,6 +131,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The Glyph host shall own extension installation and runtime lifecycle.
 - A compatible extension shall be installable, and the user shall be able to enable, disable, and update it without rebuilding Glyph.
 - Installed extensions shall be trusted and shall run with the operating-system permissions of Glyph.
+- Extension process contracts and provider-scoped operations shall organize API ownership and prevent accidental conflicts; they shall not claim to isolate credentials or user-readable files from a trusted extension.
 - An extension shall load without the standard TUI. Its non-terminal capabilities shall remain active, while terminal capabilities shall be unavailable.
 - Attempting to use an unavailable terminal capability shall return an explicit error.
 - An extension shall be able to request interaction through a Glyph client without prescribing how that client presents the request.
@@ -177,8 +183,10 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Glyph shall support multiple configured provider instances of the OpenAI-compatible provider type, each with a unique identifier.
 - Each provider shall own its authentication behavior, including API-key resolution, OAuth login, token refresh, and conversion of credentials into request authorization.
 - The Glyph host shall provide provider implementations with generic credential storage and interaction through a Glyph client.
+- Credential storage operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads, writes, and identifier conflicts. This namespace shall not be a sandbox or a security boundary against trusted extensions.
 - Host-provided credential storage shall persist credentials in the local credential file.
-- The Glyph host shall allow an extension to register and unregister a provider implementation, including its authentication, model catalogue, and streaming behavior.
+- The Glyph host shall allow an extension to register and unregister a provider implementation, including its authentication, model catalogue, streaming behavior, and provider reasoning context replay.
+- A provider identifier conflict with a settings-defined provider shall reject the extension-defined provider and preserve the settings-defined provider. A duplicate identifier group of extension-defined providers shall reject every provider in that group. Load order shall select no winner.
 - The local credential file shall be accessible only to the user running Glyph.
 - The OpenAI Codex provider shall use interactive OAuth authentication and persist its OAuth credentials through host-provided credential storage.
 - Each OpenAI-compatible provider instance shall be configured with a base URL, an explicit model list, and an optional API key.
@@ -186,6 +194,9 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The OpenAI-compatible provider type shall support OpenAI Chat Completions and OpenAI Responses.
 - Provider configuration shall select the OpenAI wire API through an explicit `api` field, and a model configuration shall be able to override it.
 - Settings shall explicitly declare each model's reasoning capability, available reasoning choices, and default reasoning choice without runtime capability probing.
+- Settings shall require each model to declare a nonempty ordered `input` list from the closed values `text` and `image`, a positive integer `contextWindow`, and a positive integer `maxTokens` that does not exceed `contextWindow`.
+- Settings loading shall reject an empty input list, missing `text`, an unknown or duplicate modality, a nonpositive limit, and `maxTokens` greater than `contextWindow`.
+- The provider-neutral model descriptor shall own `input`, `contextWindow`, and `maxTokens` for built-in and extension-defined providers. The Host model catalogue and Programmatic Control shall expose all three values.
 - Settings loading shall reject incomplete or contradictory reasoning configuration.
 - A model without reasoning capability shall expose no reasoning control; an on/off model shall expose only `off` and `on`; an effort model shall expose only its configured efforts and `off` when reasoning can be disabled; and fixed reasoning shall expose no selectable alternative.
 - TUI and Programmatic Control shall use one Host-owned reasoning capability model and shall expose only choices that affect the selected model.
@@ -193,7 +204,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Model switching shall preserve a semantically compatible reasoning choice and otherwise use the target model's explicit default reasoning choice.
 - Visible reasoning content shall remain typed model content in conversation history and client events and shall remain in model-visible history for later requests.
 - A provider driver shall replay visible reasoning through a native reasoning field when the target wire format supports it and shall otherwise convert the visible reasoning to ordinary assistant text.
-- Provider reasoning context shall not be exposed to Glyph clients. A provider driver may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged and shall be replayed only to a compatible model request.
+- Provider reasoning context is session data attached to its model response. Glyph shall persist it unchanged, restore it with the session, and retain it for compatible replay after application restart.
+- Provider reasoning context shall not be exposed to Glyph clients. An owning provider implementation may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged and shall be replayed only to a compatible model request.
 - Provider reasoning context replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
 - A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier.
 - PHS-03 reasoning wire support shall cover OpenAI Codex Responses, OpenAI-compatible Responses, OpenAI-style reasoning effort, and Ollama Ornith reasoning through Chat Completions.
@@ -205,7 +217,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 #### Programmatic Control
 
 - The Glyph host shall support a programmatically controlled headless agent in addition to the standard TUI.
-- Programmatic Control shall expose reasoning capability, available reasoning choices, and the active reasoning choice for the selected model without exposing provider reasoning context.
+- Programmatic Control shall expose each model's input modalities, context window, maximum output tokens, reasoning capability, available reasoning choices, and the active reasoning choice for the selected model without exposing provider reasoning context.
 - Each programmatic command shall carry a correlation identifier.
 - The host shall accept or reject a programmatic command independently from its later execution outcome.
 - Asynchronous events caused by an accepted command shall be attributable to the controlled operation.
@@ -248,33 +260,46 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The agent core shall execute model requests through configured providers without implementing provider-specific authentication.
 - Changing the model shall preserve session history and affect subsequent model requests.
 
+### Glyph Host Agent Orchestration Requirements
+
 #### Retry
 
 - Provider adapters shall classify provider responses and errors as retryable or non-retryable.
-- Agent Core shall own retry attempts and delay scheduling for retryable provider failures.
-- The Glyph host shall own retry-policy configuration.
+- The Glyph host shall own retry-policy configuration, retry-decision coordination, extension dispatch, delay scheduling, final-decision validation, and retry events outside Agent Core.
+- After one model request fails, the Glyph host shall create an immutable original retry decision from the provider classification, configured built-in policy, completed attempt count, and provider-supplied delay, and shall initialize the current retry decision with the same value.
+- Retry handlers shall run sequentially. Each handler shall receive the original retry decision and the current retry decision returned by preceding handlers and shall be able to preserve, replace, or cancel that retry. Cancellation shall be terminal and shall stop later retry handlers.
+- An invalid retry action or ordinary handler error shall be reported, shall preserve the decision received by that handler, and shall not stop later retry handlers or deactivate the extension.
+- The Glyph host shall validate the final retry decision before it schedules a delay or repeats the model request. When handlers preserve the built-in decision, Glyph shall apply the configured built-in policy.
+- Agent Core shall expose only the minimum mechanism needed to consume one logical model execution result and shall not depend on retry policy, extension handlers, plugin transport, or delay scheduling.
 - Glyph clients shall receive retry events and choose how to present them.
 - General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
 - A retry shall repeat only the failed model request and shall not repeat any completed tool execution.
 - Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
 - Retry shall be enabled by default with three retries after the initial request. The default delays shall be 1, 2, and 4 seconds.
-- A provider-supplied `Retry-After` delay shall be capped at 30 seconds.
+- A provider-supplied `Retry-After` delay shall be capped at 30 seconds by the built-in policy.
 - The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
 - The retry policy configuration shall include the enabled state, maximum retry count, ordered retry delays, `Retry-After` cap, and built-in retryable HTTP statuses.
 
 #### Extension Capabilities
 
 - Glyph extension contracts shall support tools, lifecycle events, system-prompt changes, context transformations, sessions, and model access without requiring terminal capabilities or exposing plugin transport types to Agent Core.
-- Each extension point shall declare whether handlers can observe, block, modify, or replace the affected operation.
+- Each extension point shall declare whether it is an observer, transformer, gate, or replaceable operation and which actions its handlers can return.
 - Multiple transformations of the same operation shall run sequentially. Each handler shall receive both the immutable original input and the current value returned by preceding handlers, and shall be able to preserve the current value or replace it with a value derived from either input.
 - When an ordinary transforming handler fails, the next handler shall receive the same current value that the failed handler received.
-- After model context assembly and before every provider request, the agent core shall invoke active context transformations sequentially.
+- After model context assembly and before every provider request, Agent Core shall request effective context through its consumer-owned interface. The Host adapter shall invoke active context transformations sequentially exactly once and return the final provider-neutral context.
 - A context transformation shall affect only the outbound context for that provider request; persisted session state shall change only when an extension separately adds a session entry through the session contract.
 - Extensions shall be able to observe, transform, or fully handle user text and images before agent processing.
 - An extension shall be able to initiate and cancel session creation, resumption, forking, cloning, and tree navigation.
+- Before tree navigation, the Glyph host shall invoke `session_before_tree` request handlers with the immutable original navigation request, the current request returned by preceding handlers, and the current branch summarization result when one exists.
+- A `session_before_tree` request handler shall be able to preserve or replace the current request, preserve, set, replace, or clear the current result, or cancel navigation. Cancellation shall be terminal and shall stop later branch summarization handlers. When handlers end without a result and the current request requires branch summarization, the built-in branch summarizer shall run.
+- Branch summarization result handlers shall receive the original request, final current request, immutable original result, and current result returned by preceding handlers and shall preserve, replace, or cancel the result. Cancellation shall be terminal and shall stop later branch summarization handlers.
+- The Glyph host shall validate the final tree target and `BranchSummaryEntry`, atomically commit navigation and summary persistence, and emit `session_tree` only after commit. Cancellation or invalid final state shall change neither the active leaf nor persisted entries.
 - After session replacement, the extension shall receive a context bound to the replacement session.
 - An extension shall be able to persist model-hidden entries and model-visible messages and associate both with the active session branch.
 - Extensions shall be able to inspect configured models and providers and make model requests through them for extension-owned behavior.
+- A Glyph client or extension shall be able to request a change to the active conversation model or active reasoning choice through Host-owned selection operations.
+- Before a model or reasoning selection commits, selection handlers shall run sequentially with the immutable original target selection and the current selection returned by preceding handlers. A handler shall be able to preserve, replace, or reject the selection. Rejection shall be terminal and shall stop later selection handlers.
+- The Glyph host shall atomically validate model existence, reasoning capability, and authentication before it commits the complete provider, model, and reasoning selection. A rejected or invalid selection shall preserve the active selection. Selection events shall be emitted only after commit.
 - An extension shall be able to change provider request headers, replace the serialized provider request, and observe provider response status and headers.
 - Before each manual, threshold, or overflow-recovery compaction, the Glyph host shall create an immutable original compaction request and a current compaction request initialized with the same value.
 - Compaction request handlers shall run sequentially. Each handler shall receive the original request, the current request, and the current compaction result when one exists.
@@ -282,7 +307,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - When the compaction request handlers finish without a current result, the built-in compaction strategy shall process the current request.
 - After an extension or the built-in strategy produces a compaction result, compaction result handlers shall run sequentially. Each result handler shall receive the immutable original request, the final current request, the immutable original result, and the current result returned by preceding result handlers and shall be able to preserve or replace the current result or cancel compaction.
 - The Glyph host shall validate the final compaction result before session persistence. An invalid handler result shall be reported, shall not replace the preceding current state, and shall not deactivate the extension.
-- Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool-execution start, tool-execution update, tool-execution end, model selection, reasoning-level selection, compaction success, and compaction failure.
+- Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool-execution start, tool-execution update, tool-execution end, model selection, reasoning selection, compaction success, and compaction failure.
 - An extension shall be able to replace a finalized message without changing its role; multiple replacements shall run sequentially.
 - Except for a pre-execution tool-handler error, an ordinary extension-handler error shall be reported while later handlers and the agent-core or Host operation associated with that extension point continue and the extension remains active.
 - A pre-execution tool-handler error shall be reported, block that tool, and leave the extension active.
@@ -306,18 +331,20 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Context compaction shall append a summary entry that replaces an older context prefix in model-visible context while preserving the remaining suffix unchanged and retaining the original session entries.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
 - Session information shall include message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown. Counts shall remain available independently. Token totals shall be available only when every stored model response has usage. Estimated cost shall be available only when every stored model response has persisted cost.
-- Session-tree branch summaries shall own their usage accounting. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
+- Each `BranchSummaryEntry` shall own its branch summarization usage accounting. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
 - Session entries shall form a tree with parent-child relationships and one active leaf.
 - Continuing from an earlier entry shall create a new branch without deleting existing branches.
-- The session model shall support creation, resumption, tree navigation, forking, cloning, naming, information retrieval, branch summaries, and entry labels.
-- Branch navigation shall support no summary, a default summary, or a summary with custom focus, and shall attach a created summary at the selected position.
+- The session model shall support creation, resumption, tree navigation, forking, cloning, naming, information retrieval, branch summarization, and entry labels.
+- Tree navigation shall support no branch summarization, built-in branch summarization, or branch summarization with custom focus, and shall attach a created `BranchSummaryEntry` at the selected position.
 
 ### Standard TUI Requirements
 
 #### Terminal Agent
 
 - The standard TUI shall provide a terminal UI for the standard coding agent without owning agent-core behavior.
-- The standard TUI shall own terminal input dispatch, terminal rendering, and editor behavior.
+- The standard TUI shall own terminal initialization, input dispatch, modes, rendering, cleanup, and editor behavior.
+- The Glyph host shall not inspect, snapshot, reset, or restore terminal state and shall not restart a terminated TUI. After TUI termination, the user shall start the Glyph client again.
+- The UI Plugin Contract shall expose no terminal-ownership capability or startup-capability operation. Successful plugin protocol startup shall establish UI compatibility.
 - For every user-invokable action, the standard TUI shall send a Host command and render Host events or results. It shall not execute agent behavior.
 - The standard TUI shall satisfy the transcript, viewport, editor, completion, clipboard, selector, and terminal-lifecycle requirements in `docs/specs/features/initial/standard-tui.md`.
 - The standard TUI shall render model output incrementally and keep tool progress visible while a tool runs.
@@ -336,7 +363,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Selecting a user message or model-visible extension message shall move the active leaf to its parent and place its text in the editor for resubmission.
 - Selecting the root user message shall move the active leaf to an empty conversation and place the root prompt in the editor.
 - Selecting another entry shall move the active leaf to that entry and leave the editor empty.
-- When leaving a branch, the standard TUI shall offer the three branch-summary choices supported by the session model.
+- When leaving a branch, the standard TUI shall offer no branch summarization, built-in branch summarization, and branch summarization with custom focus.
 - The standard TUI shall allow users to set and clear labels on session-tree entries.
 
 #### TUI Extension Capabilities
@@ -359,7 +386,7 @@ None.
 
 ## Technical Supplement
 
-No technical solution is selected in this document except Programmatic Control's bidirectional gRPC transport over a Unix socket. The remaining mechanism connecting the Glyph host, agent core, Glyph clients, and extension runtimes is deferred to technical design. Runtime extension feasibility is analyzed in `docs/artefacts/go-extension-feasibility.md`.
+This document selects only Programmatic Control's bidirectional gRPC transport over a Unix socket. `docs/specs/features/initial/architecture.md` owns target process, component, dependency, contract, and package boundaries. Feature-specific API shapes and implementation details remain in phase Technical Solutions. Runtime extension feasibility is analyzed in `docs/artefacts/go-extension-feasibility.md`.
 
 ### Glyph public-behavior traceability
 
@@ -371,10 +398,11 @@ This matrix traces each Glyph-owned public behavior group to its owning PRD sect
 | Headless control | Programmatic Control | PHS-02 | A controller submits, observes, aborts, and resubmits through `glyph`. |
 | Provider selection and authentication | Model Providers and Authentication | PHS-03 | A client configures a provider, authenticates, selects a model, and changes it. |
 | Persistent sessions | Context and Sessions | PHS-04 | A saved session resumes after application restart. |
-| Session-tree navigation | Context and Sessions; Session Interaction | PHS-05 | A client creates and navigates a branch without deleting another branch. |
-| Extensible compaction and retry | Context and Sessions; Retry; Extension Capabilities | PHS-06 | An extension composes with or replaces compaction while a client observes automatic or manual compaction and retry behavior. |
-| Extension lifecycle | Extensions and Glyph Clients; Extension Capabilities | PHS-07 | An extension receives a session-bound context and lifecycle events. |
-| Input and provider middleware | Extension Capabilities | PHS-08 | An extension transforms model-facing input and a provider request. |
+| Model execution capabilities | Model Providers and Authentication; Programmatic Control | PHS-04.1 | A controller inspects exact input modalities and token limits for each configured model. |
+| Session-tree navigation and branch summarization | Context and Sessions; Session Interaction; Extension Capabilities | PHS-05 | An extension composes with or replaces branch summarization while a client navigates without deleting another branch. |
+| Extensible compaction and retry | Context and Sessions; Retry; Extension Capabilities | PHS-06 | Extensions compose compaction results and retry decisions while a client observes both operations. |
+| Extension lifecycle and active selection | Extensions and Glyph Clients; Extension Capabilities | PHS-07 | An extension uses a session-bound context and changes the active model through ordered selection handlers. |
+| Input and provider middleware | Extension Capabilities | PHS-08 | An extension transforms model-facing input, Host validates final modalities, and provider middleware changes one request. |
 | Tool middleware and run control | Agent and Tool Runtime; Run Control | PHS-09 | An extension changes a tool call or result and controls run continuation. |
 | Commands, interactions, notifications, and events | Extensions and Glyph Clients; Extension Capabilities | PHS-10 | A client discovers an extension command and receives its event, interaction, or notification. |
 | Resource contributions | Extensions and Glyph Clients; Bundled Resource Processing | PHS-11 | An active extension contributes a resource used by the standard coding agent. |
@@ -390,6 +418,7 @@ This matrix traces each Glyph-owned public behavior group to its owning PRD sect
 ## References
 
 - `docs/specs/features/initial/problem.md`
+- `docs/specs/features/initial/architecture.md`
 - `docs/terms.md`
 - `docs/specs/features/initial/tui-defaults.md`
 - `docs/specs/features/initial/standard-tui.md`

@@ -31,6 +31,10 @@
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
+- `branch summarization`: Creation of a summary for entries on the branch that the user leaves during session-tree navigation.
+- `BranchSummaryEntry`: The persisted session entry produced by branch summarization.
+- `session_before_tree`: The transforming extension point before session-tree navigation and branch summarization.
+- `session_tree`: The extension event emitted after session-tree navigation and any `BranchSummaryEntry` persistence commit.
 - `response budget`: The token capacity reserved for the next model response.
 - `skill`: A reusable instruction resource contributed by an extension.
 - `prompt template`: A reusable user-request template contributed by an extension.
@@ -58,6 +62,10 @@
 - `provider driver`: An infrastructure component that translates provider-neutral model operations into one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.
 - `provider instance`: One configured model provider with a unique identifier, endpoint, authentication configuration, and model descriptors.
 - `provider catalogue`: The Glyph Host-owned set of configured provider instances and their model descriptors.
+- `input modality`: A content kind accepted by a model. Glyph defines `text` and `image`.
+- `context window`: The maximum combined model input and generated-output token capacity declared for one model.
+- `maximum output tokens`: The maximum generated-output token count declared for one model.
+- `retry decision`: The Host-owned decision that determines whether and when Glyph repeats one failed model request.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
 - `reasoning capability`: A model's ability to produce reasoning content separately from its final answer.
 - `reasoning control`: The single user-facing control whose available choices reflect the selected model's reasoning capabilities.
@@ -66,7 +74,7 @@
 - `reasoning activation`: A provider-specific request mechanism that enables or disables reasoning.
 - `fixed reasoning`: Model reasoning behavior that the user cannot change.
 - `visible reasoning content`: Provider-returned reasoning text intended for typed conversation history and client presentation.
-- `provider reasoning context`: Opaque or encrypted provider-owned reasoning data retained for compatible request replay but not exposed to clients.
+- `provider reasoning context`: Opaque or encrypted provider-owned session data persisted with its model response, restored unchanged, retained for compatible request replay, and not exposed to clients.
 - `encrypted reasoning block`: Provider reasoning context that only its owning provider can interpret.
 - `reasoning compatibility key`: An optional nonempty model identifier that explicitly permits provider reasoning context replay between models with the same provider instance, API, and key.
 - `reasoning compatibility group`: Models with the same provider instance, API, and nonempty reasoning compatibility key.
