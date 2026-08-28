@@ -44,24 +44,24 @@
 - Blockers: None
 - File: [05-session-tree.md](05-session-tree.md)
 
-### PHS-06. Context compaction and retry control
-- Owner: Agent Core compaction and Host control use cases
-- Result: Keep long sessions usable within model context limits.
+### PHS-07. Extension context and lifecycle
+- Owner: Host extension runtime, model access, and session use cases
+- Result: Give extension processes session-bound access, configured-model requests, and lifecycle events without terminal dependencies.
 - Dependencies: PHS-05
 - Blockers: None
-- File: [06-context-compaction-retry-control.md](06-context-compaction-retry-control.md)
-
-### PHS-07. Extension context and lifecycle
-- Owner: Host extension runtime and session use cases
-- Result: Give extension processes session-bound access and lifecycle events without terminal dependencies.
-- Dependencies: PHS-06
-- Blockers: None
 - File: [07-extension-context-lifecycle.md](07-extension-context-lifecycle.md)
+
+### PHS-06. Context compaction and retry control
+- Owner: Host compaction orchestration, extension runtime, session use cases, and Agent Core retry
+- Result: Keep long sessions usable within model context limits while extensions compose with or replace compaction.
+- Dependencies: PHS-07
+- Blockers: None
+- File: [06-context-compaction-retry-control.md](06-context-compaction-retry-control.md)
 
 ### PHS-08. Prompt, context, input, and provider middleware
 - Owner: Agent Core extension-point dispatcher and Host extension runtime
 - Result: Allow extensions to change model-facing input through ordered generic extension points.
-- Dependencies: PHS-07
+- Dependencies: PHS-06
 - Blockers: None
 - File: [08-prompt-context-input-provider-middleware.md](08-prompt-context-input-provider-middleware.md)
 
@@ -73,7 +73,7 @@
 - File: [09-tool-middleware-run-control.md](09-tool-middleware-run-control.md)
 
 ### PHS-10. Commands, interaction, notifications, and extension events
-- Owner: Host command, interaction, notification, and model-access use cases
+- Owner: Host command, interaction, notification, and extension-event use cases
 - Result: Let extensions expose user actions and request Host or client behavior.
 - Dependencies: PHS-09
 - Blockers: None
@@ -171,8 +171,8 @@
 4. PHS-03 - Providers, models, and runtime selection
 5. PHS-04 - Persistent linear sessions
 6. PHS-05 - Session tree
-7. PHS-06 - Context compaction and retry control
-8. PHS-07 - Extension context and lifecycle
+7. PHS-07 - Extension context and lifecycle
+8. PHS-06 - Context compaction and retry control
 9. PHS-08 - Prompt, context, input, and provider middleware
 10. PHS-09 - Tool middleware and run control
 11. PHS-10 - Commands, interaction, notifications, and extension events

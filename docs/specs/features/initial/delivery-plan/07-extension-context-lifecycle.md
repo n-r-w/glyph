@@ -1,6 +1,6 @@
 # Ticket: PHS-07 - Extension context and lifecycle
 
-Give extension processes session-bound access and lifecycle events without terminal dependencies.
+Give extension processes session-bound access, configured-model requests, and lifecycle events without terminal dependencies.
 
 ## Key definitions and abbreviations
 
@@ -8,11 +8,11 @@ Give extension processes session-bound access and lifecycle events without termi
 
 ## Problem Statement
 
-- PRB-01: Extension processes receive tool calls but no session-bound context or Agent Core lifecycle events. Stateful headless extensions cannot observe runs or persist branch-aware entries.
+- PRB-01: Extension processes receive tool calls but no session-bound context, configured-model request capability, or Agent Core lifecycle events. Stateful headless extensions cannot observe runs, use a configured model for extension-owned behavior, or persist branch-aware entries.
 
 ## Target Picture
 
-- SOL-01: Give extension processes session-bound access and lifecycle events without terminal dependencies.
+- SOL-01: Give extension processes session-bound access, configured-model requests, and lifecycle events without terminal dependencies.
 
 ## Scenarios
 
@@ -21,8 +21,8 @@ Give extension processes session-bound access and lifecycle events without termi
 - Actor: extension author.
 - Pre-condition: DEP-01 is met.
 - Trigger: the extension handles a lifecycle event in an active session.
-- Required behavior: the handler receives a session-bound context and can persist an entry on the active branch.
-- Example input and expected output: Input: deliver `agent_start` to an extension in session `s1` and let it append a model-hidden entry. Expected output: the entry is stored on the active branch of `s1` and a context from a replaced session is rejected.
+- Required behavior: the handler receives a session-bound context, can make a configured-model request without changing the active conversation model, and can persist an entry on the active branch.
+- Example input and expected output: Input: deliver `agent_start` to an extension in session `s1`, let it query one configured model, and append the result as a model-hidden entry. Expected output: the entry is stored on the active branch of `s1`, the active conversation model remains unchanged, and a context from a replaced session is rejected.
 
 ## Scope
 
@@ -36,17 +36,18 @@ Out of scope:
 
 ## Dependencies and Preconditions
 
-- DEP-01: [PHS-06](06-context-compaction-retry-control.md) must meet all acceptance criteria.
+- DEP-01: [PHS-05](05-session-tree.md) must meet all acceptance criteria.
 
 ## Requirements
 
 ### Goals
 
-- GOL-01: Give extension processes session-bound access and lifecycle events without terminal dependencies.
+- GOL-01: Give extension processes session-bound access, configured-model requests, and lifecycle events without terminal dependencies.
 
 ### Functional Requirements
 
-- FRQ-01: Add extension context identity, runtime generation, active session identity, cancellation, cwd, model catalogue inspection, and provider catalogue inspection.
+- FRQ-01: Add extension context identity, runtime generation, active session identity, cancellation, cwd, model catalogue inspection, provider catalogue inspection, and configured-model requests for extension-owned behavior.
+- FRQ-01.1: A configured-model request shall use an explicitly selected configured model, shall not change the active conversation model or reasoning choice, and shall expose no provider credential or provider reasoning context to the extension.
 - FRQ-02: Deliver agent, turn, message, tool-execution, model-selection, and reasoning-selection events to registered extension handlers.
 - FRQ-03: Add model-hidden and model-visible branch-aware session entry operations.
 
@@ -57,14 +58,15 @@ Out of scope:
 
 ### Deliverables
 
-- DLV-01: Public extension context and lifecycle contract.
-- DLV-02: Reference extension that records lifecycle-derived branch state.
+- DLV-01: Public extension context, configured-model request, and lifecycle contract.
+- DLV-02: Reference extension that records a configured-model result as lifecycle-derived branch state.
 
 ### Acceptance Criteria
 
 - ACC-01: The reference extension works headlessly and through the standard TUI without changing its core behavior.
 - ACC-02: Session replacement creates a new context and every operation through the preceding context fails.
 - ACC-03: Extension entries attach to the active branch and survive restart.
+- ACC-04: An extension uses an explicitly selected configured model without changing the active conversation model or reasoning choice and without receiving provider credentials or provider reasoning context.
 
 ## Overengineering and Overspecification Considerations
 
@@ -73,6 +75,7 @@ The ticket introduces only the public behavior needed by SCN-01 and the listed f
 ## Constraints and Risks
 
 - RSK-01: Long-lived requests could use a context after session replacement. Host validates runtime generation and session identity for every context operation.
+- RSK-02: A model request could expose provider-owned authentication or replay data to an extension. Host resolves credentials and provider reasoning context without returning either to the extension.
 
 ## Assumptions
 

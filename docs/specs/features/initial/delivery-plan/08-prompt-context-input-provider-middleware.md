@@ -21,8 +21,8 @@ Allow extensions to change model-facing input through ordered generic extension 
 - Actor: extension author.
 - Pre-condition: DEP-01 is met.
 - Trigger: the agent prepares a model request.
-- Required behavior: registered handlers transform the prompt or request-local context in order without mutating persisted history.
-- Example input and expected output: Input: register two context transformations that append markers `A` and `B`, then run one model request. Expected output: the outbound context contains `A` before `B` and persisted session entries contain neither marker.
+- Required behavior: registered handlers receive the immutable original input and the current value from preceding handlers and transform model-facing input without mutating persisted history.
+- Example input and expected output: Input: let handler A append marker `A` to the current context and handler B replace that context with a value derived from the original context plus marker `B`. Expected output: B sees both context versions, the outbound context contains `B` without `A`, and persisted session entries contain neither marker.
 
 ## Scope
 
@@ -36,7 +36,7 @@ Out of scope:
 
 ## Dependencies and Preconditions
 
-- DEP-01: [PHS-07](07-extension-context-lifecycle.md) must meet all acceptance criteria.
+- DEP-01: [PHS-06](06-context-compaction-retry-control.md) must meet all acceptance criteria.
 
 ## Requirements
 
@@ -47,8 +47,8 @@ Out of scope:
 ### Functional Requirements
 
 - FRQ-01: Add system-prompt changes, per-request context transformations, user text and image handling, finalized-message replacement, provider-header changes, serialized-request replacement, and provider-response observation.
-- FRQ-02: Apply transformations sequentially and pass each transformed value to the next handler.
-- FRQ-03: Continue later handlers and the core operation after an ordinary handler error while reporting that error.
+- FRQ-02: Apply transformations sequentially. Each handler shall receive the immutable original input and the current value returned by preceding handlers and shall be able to preserve the current value or replace it with a value derived from either input.
+- FRQ-03: Continue later handlers and the core operation after an ordinary handler error while reporting that error. The next handler shall receive the same current value that the failed handler received.
 
 ### Non-Functional Requirements
 
@@ -65,7 +65,8 @@ Out of scope:
 - ACC-01: A project-instructions extension changes the effective system prompt in headless and TUI runs.
 - ACC-02: A context transformation changes one outbound provider request without changing persisted session entries.
 - ACC-03: An input handler can transform or fully handle text and image input.
-- ACC-04: Two transforming handlers observe registration order, including when an earlier ordinary handler reports an error.
+- ACC-04: Two transforming handlers observe registration order, and the second can inspect the immutable original input while preserving or discarding the first handler's current value.
+- ACC-05: After an earlier ordinary handler error, the next handler receives the unchanged original input and the same current value that the failed handler received.
 
 ## Overengineering and Overspecification Considerations
 

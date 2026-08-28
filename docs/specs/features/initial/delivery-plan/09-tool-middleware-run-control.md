@@ -46,8 +46,8 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Add pre-execution tool handlers for allow, reject, input modification, and handler-error blocking.
-- FRQ-02: Add sequential tool-result transformation, deterministic tool replacement, registered and active tool inspection, and active-set changes for subsequent model requests.
+- FRQ-01: Add pre-execution tool handlers for allow, reject, input modification, and handler-error blocking. Each modifying handler shall receive the immutable original tool call and the current tool call returned by preceding handlers.
+- FRQ-02: Add sequential tool-result transformation in which each handler receives the immutable original result and the current result returned by preceding handlers, plus deterministic tool replacement, registered and active tool inspection, and active-set changes for subsequent model requests.
 - FRQ-03: Add parallel tool batches and the batch-wide `terminate` rule.
 - FRQ-04: Add `steer`, `followUp`, `nextTurn`, abort, and queue modes `all` and `one-at-a-time`.
 
@@ -66,6 +66,7 @@ Out of scope:
 
 - ACC-01: A policy extension rejects one dangerous call, leaves the extension active, and lets the agent continue from the model-visible error result.
 - ACC-02: An extension replaces one registered tool without disabling unrelated extensions.
+- ACC-02.1: A later tool-result handler can inspect the immutable original result and either preserve or discard changes made by an earlier handler.
 - ACC-03: Active-tool changes affect the next model request and do not mutate a request already in progress.
 - ACC-04: Agent Core skips the next automatic model request only when every completed result in the active batch has `terminate`.
 - ACC-05: Queued messages follow their delivery points and selected queue mode.

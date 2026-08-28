@@ -8,7 +8,7 @@ Let extensions expose user actions and request Host or client behavior.
 
 ## Problem Statement
 
-- PRB-01: Extensions cannot register client commands, request user interaction, send notifications, exchange transient events, or make configured-model requests.
+- PRB-01: Extensions cannot register client commands, request user interaction, send notifications, or exchange transient events.
 
 ## Target Picture
 
@@ -49,7 +49,7 @@ Out of scope:
 - FRQ-01: Add command registration, discovery, invocation, and provenance through Glyph clients.
 - FRQ-02: Add interface-neutral interaction requests and notifications with explicit unavailable-client and delivery-failure results.
 - FRQ-03: Add non-persisted inter-extension events.
-- FRQ-04: Add configured-model requests for extension-owned behavior.
+- FRQ-04: Allow extension commands to use the configured-model request contract delivered by PHS-07 without changing the active conversation model or reasoning choice.
 
 ### Non-Functional Requirements
 
@@ -59,7 +59,7 @@ Out of scope:
 ### Deliverables
 
 - DLV-01: Command registry and invocation contracts.
-- DLV-02: Interaction, notification, extension-event, and configured-model request contracts.
+- DLV-02: Interaction, notification, and extension-event contracts.
 - DLV-03: Reference command, interaction, notification, and model-query extensions.
 
 ### Acceptance Criteria

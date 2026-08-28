@@ -25,10 +25,12 @@
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
+- `original extension input`: The immutable value produced when one extension-point operation starts, before any extension handler transforms it.
+- `current extension value`: The value produced by preceding handlers of the same extension-point operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `context`: The information sent to a model to produce its next response or tool request.
-- `context compaction`: Replacement of an older context prefix with a summary while preserving the remaining context suffix.
+- `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
 - `response budget`: The token capacity reserved for the next model response.
 - `skill`: A reusable instruction resource contributed by an extension.
 - `prompt template`: A reusable user-request template contributed by an extension.

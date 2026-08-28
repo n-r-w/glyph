@@ -21,7 +21,7 @@
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
 - `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools extension and bundled resource extension and can run headlessly or through the standard TUI.
 - `context`: The information sent to a model to produce its next response or tool request.
-- `context compaction`: Replacement of an older context prefix with a summary while preserving the remaining context suffix.
+- `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
 - `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
 - `active leaf`: The session-tree entry from which subsequent entries continue.
@@ -96,7 +96,6 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Source, API, configuration, session, or extension compatibility with Pi.
 - Porting or implementing the existing `pi-agent-suite` extensions.
 - Built-in subagents, workflows, or MCP support. These capabilities remain implementable through extensions.
-- Extension replacement of built-in context compaction.
 - First-class parent-agent, child-agent, advisor, council, or workflow semantics in the agent core.
 - A universal extension renderer shared by the standard TUI and future UI plugins.
 - Remote or independently started UI plugins.
@@ -263,11 +262,12 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
 - The retry policy configuration shall include the enabled state, maximum retry count, ordered retry delays, `Retry-After` cap, and built-in retryable HTTP statuses.
 
-#### Core Extension Capabilities
+#### Extension Capabilities
 
-- Agent-core extension contracts shall support tools, lifecycle events, system-prompt changes, context transformations, sessions, and model access without requiring terminal capabilities.
+- Glyph extension contracts shall support tools, lifecycle events, system-prompt changes, context transformations, sessions, and model access without requiring terminal capabilities or exposing plugin transport types to Agent Core.
 - Each extension point shall declare whether handlers can observe, block, modify, or replace the affected operation.
-- Multiple transformations of the same operation shall run sequentially, with each handler receiving the result returned by the preceding handler.
+- Multiple transformations of the same operation shall run sequentially. Each handler shall receive both the immutable original input and the current value returned by preceding handlers, and shall be able to preserve the current value or replace it with a value derived from either input.
+- When an ordinary transforming handler fails, the next handler shall receive the same current value that the failed handler received.
 - After model context assembly and before every provider request, the agent core shall invoke active context transformations sequentially.
 - A context transformation shall affect only the outbound context for that provider request; persisted session state shall change only when an extension separately adds a session entry through the session contract.
 - Extensions shall be able to observe, transform, or fully handle user text and images before agent processing.
@@ -276,9 +276,15 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - An extension shall be able to persist model-hidden entries and model-visible messages and associate both with the active session branch.
 - Extensions shall be able to inspect configured models and providers and make model requests through them for extension-owned behavior.
 - An extension shall be able to change provider request headers, replace the serialized provider request, and observe provider response status and headers.
-- Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool-execution start, tool-execution update, tool-execution end, model selection, and reasoning-level selection.
+- Before each manual, threshold, or overflow-recovery compaction, the Glyph host shall create an immutable original compaction request and a current compaction request initialized with the same value.
+- Compaction request handlers shall run sequentially. Each handler shall receive the original request, the current request, and the current compaction result when one exists.
+- A compaction request handler shall be able to replace the current request and set, replace, or clear the current result independently in one state update. It shall also be able to preserve the complete current state or cancel compaction. The next handler shall receive the unchanged original request and the current state returned by the preceding handler.
+- When the compaction request handlers finish without a current result, the built-in compaction strategy shall process the current request.
+- After an extension or the built-in strategy produces a compaction result, compaction result handlers shall run sequentially. Each result handler shall receive the immutable original request, the final current request, the immutable original result, and the current result returned by preceding result handlers and shall be able to preserve or replace the current result or cancel compaction.
+- The Glyph host shall validate the final compaction result before session persistence. An invalid handler result shall be reported, shall not replace the preceding current state, and shall not deactivate the extension.
+- Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool-execution start, tool-execution update, tool-execution end, model selection, reasoning-level selection, compaction success, and compaction failure.
 - An extension shall be able to replace a finalized message without changing its role; multiple replacements shall run sequentially.
-- Except for a pre-execution tool-handler error, an ordinary extension-handler error shall be reported while later handlers and the agent-core operation associated with that extension point continue and the extension remains active.
+- Except for a pre-execution tool-handler error, an ordinary extension-handler error shall be reported while later handlers and the agent-core or Host operation associated with that extension point continue and the extension remains active.
 - A pre-execution tool-handler error shall be reported, block that tool, and leave the extension active.
 
 #### Run Control
@@ -294,9 +300,10 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 #### Context and Sessions
 
-- The agent core shall compact context automatically when the remaining model context cannot accommodate the response budget.
-- Manual compaction shall accept user instructions for the summary.
-- Context compaction shall replace an older context prefix with a summary and preserve the remaining suffix unchanged.
+- The Glyph host shall initiate automatic compaction when the remaining model context cannot accommodate the response budget.
+- Manual compaction shall accept user instructions for the summary and shall use the same extension point as automatic compaction.
+- Compaction coordination, extension dispatch, final-result validation, and session persistence shall remain outside Agent Core.
+- Context compaction shall append a summary entry that replaces an older context prefix in model-visible context while preserving the remaining suffix unchanged and retaining the original session entries.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
 - Session information shall include message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown. Counts shall remain available independently. Token totals shall be available only when every stored model response has usage. Estimated cost shall be available only when every stored model response has persisted cost.
 - Session-tree branch summaries shall own their usage accounting. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
@@ -365,11 +372,11 @@ This matrix traces each Glyph-owned public behavior group to its owning PRD sect
 | Provider selection and authentication | Model Providers and Authentication | PHS-03 | A client configures a provider, authenticates, selects a model, and changes it. |
 | Persistent sessions | Context and Sessions | PHS-04 | A saved session resumes after application restart. |
 | Session-tree navigation | Context and Sessions; Session Interaction | PHS-05 | A client creates and navigates a branch without deleting another branch. |
-| Built-in compaction and retry | Context and Sessions; Retry | PHS-06 | A client observes automatic or manual compaction and retry behavior. |
-| Extension lifecycle | Extensions and Glyph Clients; Core Extension Capabilities | PHS-07 | An extension receives a session-bound context and lifecycle events. |
-| Input and provider middleware | Core Extension Capabilities | PHS-08 | An extension transforms model-facing input and a provider request. |
+| Extensible compaction and retry | Context and Sessions; Retry; Extension Capabilities | PHS-06 | An extension composes with or replaces compaction while a client observes automatic or manual compaction and retry behavior. |
+| Extension lifecycle | Extensions and Glyph Clients; Extension Capabilities | PHS-07 | An extension receives a session-bound context and lifecycle events. |
+| Input and provider middleware | Extension Capabilities | PHS-08 | An extension transforms model-facing input and a provider request. |
 | Tool middleware and run control | Agent and Tool Runtime; Run Control | PHS-09 | An extension changes a tool call or result and controls run continuation. |
-| Commands, interactions, notifications, and events | Extensions and Glyph Clients; Core Extension Capabilities | PHS-10 | A client discovers an extension command and receives its event, interaction, or notification. |
+| Commands, interactions, notifications, and events | Extensions and Glyph Clients; Extension Capabilities | PHS-10 | A client discovers an extension command and receives its event, interaction, or notification. |
 | Resource contributions | Extensions and Glyph Clients; Bundled Resource Processing | PHS-11 | An active extension contributes a resource used by the standard coding agent. |
 | Extension-defined providers | Model Providers and Authentication | PHS-12 | An extension registers and removes a provider implementation. |
 | TUI transcript rendering | Standard TUI Requirements | PHS-12.1 | The standard TUI renders ordered Host events and results. |
