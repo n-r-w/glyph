@@ -105,17 +105,19 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 	}
 }
 
-// TestListReportsMalformedHeaderParserCauseOnce verifies one syntax failure produces one contextual diagnostic.
+// TestListReportsMalformedCandidatesWithPathAndCause verifies equal failures identify each skipped file.
 //
 //nolint:paralleltest // The test temporarily captures the process-global structured logger.
-func TestListReportsMalformedHeaderParserCauseOnce(t *testing.T) {
-	// Arrange one newline-terminated header with invalid JSON syntax under a captured logger.
+func TestListReportsMalformedCandidatesWithPathAndCause(t *testing.T) {
+	// Arrange two newline-terminated headers with equal syntax failures and distinct user-owned paths.
 	repository, projectDirectory, _ := newValidationRepository(t)
-	require.NoError(t, os.WriteFile(
-		filepath.Join(projectDirectory, "malformed.jsonl"),
-		[]byte("{invalid\n"),
-		0o600,
-	))
+	paths := []string{
+		filepath.Join(projectDirectory, "first-malformed.jsonl"),
+		filepath.Join(projectDirectory, "second-malformed.jsonl"),
+	}
+	for _, path := range paths {
+		require.NoError(t, os.WriteFile(path, []byte("{invalid secret-user-content secret-api-key\n"), 0o600))
+	}
 	var logOutput bytes.Buffer
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
@@ -124,17 +126,26 @@ func TestListReportsMalformedHeaderParserCauseOnce(t *testing.T) {
 	// Act by listing the project session partition.
 	listed, err := repository.List(t.Context())
 
-	// Assert the skipped header logs one warning with one contextual parser cause.
+	// Assert each warning contains its exact path and original cause without persisted content or secrets.
 	require.NoError(t, err)
 	assert.Empty(t, listed)
 	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
-	require.Len(t, lines, 1)
-	var warning map[string]any
-	require.NoError(t, json.Unmarshal(lines[0], &warning))
-	diagnostic, ok := warning["error"].(string)
-	require.True(t, ok)
-	assert.Equal(t, 1, strings.Count(diagnostic, "decode session header"))
-	assert.Equal(t, 1, strings.Count(diagnostic, "invalid character 'i'"))
+	require.Len(t, lines, 2)
+	observedPaths := make([]string, 0, len(lines))
+	for _, line := range lines {
+		var warning map[string]any
+		require.NoError(t, json.Unmarshal(line, &warning))
+		candidatePath, ok := warning["path"].(string)
+		require.True(t, ok)
+		observedPaths = append(observedPaths, candidatePath)
+		diagnostic, ok := warning["error"].(string)
+		require.True(t, ok)
+		assert.Equal(t, 1, strings.Count(diagnostic, "decode session header"))
+		assert.Equal(t, 1, strings.Count(diagnostic, "invalid character 'i'"))
+	}
+	assert.ElementsMatch(t, paths, observedPaths)
+	assert.NotContains(t, logOutput.String(), "secret-user-content")
+	assert.NotContains(t, logOutput.String(), "secret-api-key")
 }
 
 // TestEmptyHeaderTimestampIsUnavailable verifies Load and List reject an empty RFC3339 timestamp with the same cause.
@@ -353,8 +364,9 @@ func TestListWarnsOnceForNonregularSessionFile(t *testing.T) {
 	// Arrange one valid file, one session symlink, and one unrelated symlink under a captured JSON logger.
 	repository, projectDirectory, cwd := newValidationRepository(t)
 	validPath := filepath.Join(projectDirectory, "valid.jsonl")
+	candidatePath := filepath.Join(projectDirectory, "user-derived-id.jsonl")
 	require.NoError(t, os.WriteFile(validPath, []byte(fmt.Sprintf(validHeader, cwd)+validEntry), 0o600))
-	require.NoError(t, os.Symlink(validPath, filepath.Join(projectDirectory, "user-derived-id.jsonl")))
+	require.NoError(t, os.Symlink(validPath, candidatePath))
 	require.NoError(t, os.Symlink(validPath, filepath.Join(projectDirectory, "unrelated.txt")))
 	var logOutput bytes.Buffer
 	previousLogger := slog.Default()
@@ -374,11 +386,12 @@ func TestListWarnsOnceForNonregularSessionFile(t *testing.T) {
 	assert.Equal(t, "WARN", warning["level"])
 	assert.Equal(t, "session file is unavailable", warning["msg"])
 	assert.Equal(t, "list", warning["operation"])
+	assert.Equal(t, candidatePath, warning["path"])
 	assert.Equal(t, "nonregular_session_file", warning["diagnostic"])
 	assert.Equal(t, "session file is not regular", warning["error"])
 	assert.NotContains(t, warning, "session_id")
 	for _, forbidden := range []string{
-		projectDirectory, "user-derived-id", "Stored", "provider-context", "extension-json", "secret-content",
+		"Stored", "provider-context", "extension-json", "secret-content", "secret-api-key",
 	} {
 		assert.NotContains(t, logOutput.String(), forbidden)
 	}

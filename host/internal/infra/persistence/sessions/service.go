@@ -321,14 +321,15 @@ func (s *Service) List(ctx context.Context) ([]hostsessions.LoadedSession, error
 		if !strings.HasSuffix(entry.Name(), ".jsonl") {
 			continue
 		}
+		candidatePath := filepath.Join(s.projectDirectory, entry.Name())
 		if !entry.Type().IsRegular() {
 			nonregularErr := nonregularSessionFileError{}
-			warnUnavailableSession(ctx, "list", listDiagnosticNonregularSessionFile, nonregularErr)
+			warnUnavailableSession(ctx, "list", candidatePath, listDiagnosticNonregularSessionFile, nonregularErr)
 			continue
 		}
 		pathResult, loadErr := s.loadPath(ctx, entry.Name(), loadForList)
 		if loadErr != nil {
-			warnUnavailableSession(ctx, "list", classifyListWarningDiagnostic(loadErr), loadErr)
+			warnUnavailableSession(ctx, "list", candidatePath, classifyListWarningDiagnostic(loadErr), loadErr)
 			continue
 		}
 		result = append(result, pathResult.loaded)
@@ -574,6 +575,7 @@ func classifyListWarningDiagnostic(err error) listWarningDiagnostic {
 func warnUnavailableSession(
 	ctx context.Context,
 	operation string,
+	path string,
 	diagnostic listWarningDiagnostic,
 	err error,
 ) {
@@ -581,6 +583,7 @@ func warnUnavailableSession(
 		ctx,
 		"session file is unavailable",
 		"operation", operation,
+		"path", path,
 		"diagnostic", diagnostic,
 		"error", err,
 	)
