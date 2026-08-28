@@ -6,12 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -43,10 +47,10 @@ var _ hostui.Runtime = (*Runtime)(nil)
 
 // channel maps provider-neutral frames and commands to the generated contract.
 type channel struct {
-	stream    uipb.UIService_OpenClient
-	cancel    context.CancelFunc
-	closeOnce sync.Once
-	mutex     sync.Mutex
+	stream uipb.UIService_OpenClient
+	cancel context.CancelFunc
+	closed atomic.Bool
+	mutex  sync.Mutex
 }
 
 var _ hostui.Channel = (*channel)(nil)
@@ -90,10 +94,10 @@ func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
 			return
 		}
 		r.channel = &channel{
-			stream:    stream,
-			cancel:    cancel,
-			closeOnce: sync.Once{},
-			mutex:     sync.Mutex{},
+			stream: stream,
+			cancel: cancel,
+			closed: atomic.Bool{},
+			mutex:  sync.Mutex{},
 		}
 	})
 	return r.channel, r.openErr
@@ -113,7 +117,17 @@ func (c *channel) Send(frame domainui.Frame) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if sendErr := c.stream.Send(mapped); sendErr != nil {
-		return fmt.Errorf("send UI frame: %w", sendErr)
+		streamErr := c.stream.Context().Err()
+		if errors.Is(sendErr, context.Canceled) || status.Code(sendErr) == codes.Canceled ||
+			errors.Is(sendErr, io.EOF) && errors.Is(streamErr, context.Canceled) {
+			return fmt.Errorf("send UI frame: %w", context.Canceled)
+		}
+		wrappedSendErr := fmt.Errorf("send UI frame: %w", sendErr)
+		if streamErr != nil &&
+			!errors.Is(sendErr, streamErr) && !errors.Is(streamErr, sendErr) {
+			return errors.Join(wrappedSendErr, fmt.Errorf("UI stream context: %w", streamErr))
+		}
+		return wrappedSendErr
 	}
 	return nil
 }
@@ -129,7 +143,9 @@ func (c *channel) Receive() (domainui.Command, error) {
 
 // Close cancels the stream context to unblock pending send and receive calls.
 func (c *channel) Close() {
-	c.closeOnce.Do(c.cancel)
+	if c.closed.CompareAndSwap(false, true) {
+		c.cancel()
+	}
 }
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.

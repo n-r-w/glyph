@@ -83,26 +83,27 @@ func (s *Driver) streamChatCompletions(
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()
 	state := newChatAccumulator(nativeReasoning)
+	handleEvent := tagHandlerErrors(handle)
 	for stream.Next() {
-		consumeErr := state.consume(stream.Current(), handle)
+		consumeErr := state.consume(stream.Current(), handleEvent)
 		if consumeErr != nil {
-			return model.Response{}, handlerError(consumeErr)
+			return model.Response{}, consumeErr
 		}
 	}
 	if streamErr := stream.Err(); streamErr != nil {
-		if closeErr := state.finishContent(handle); closeErr != nil {
-			return model.Response{}, handlerError(closeErr)
+		if closeErr := state.finishContent(handleEvent); closeErr != nil {
+			return model.Response{}, errors.Join(streamErr, closeErr)
 		}
 		return model.Response{}, streamErr
 	}
 	if state.outcome == 0 {
-		if closeErr := state.finishContent(handle); closeErr != nil {
-			return model.Response{}, handlerError(closeErr)
+		if closeErr := state.finishContent(handleEvent); closeErr != nil {
+			return model.Response{}, closeErr
 		}
 		return model.Response{}, errors.New("chat completions stream ended without a finish reason")
 	}
-	if finishErr := state.finish(handle); finishErr != nil {
-		return model.Response{}, handlerError(finishErr)
+	if finishErr := state.finish(handleEvent); finishErr != nil {
+		return model.Response{}, finishErr
 	}
 	return state.response(), nil
 }
@@ -612,7 +613,7 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 		}
 		var arguments map[string]any
 		if err := json.Unmarshal([]byte(toolState.arguments.String()), &arguments); err != nil {
-			return errors.New("chat Completions returned invalid tool-call arguments")
+			return fmt.Errorf("decode chat Completions tool-call arguments: %w", err)
 		}
 		call := model.ToolCall{
 			ID:        toolState.id,

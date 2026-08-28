@@ -11,6 +11,105 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// TestValidateCatalogGrammarParserErrorsRetainContext verifies catalog errors expose tool, rule, and parser contexts.
+func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
+	t.Parallel()
+
+	const grammarRule = "grammar schema must have exactly one required string property"
+	testCases := map[string]struct {
+		schemaJSON   string
+		parserDetail string
+	}{
+		"boolean property schema": {
+			schemaJSON:   `{"type":"object","properties":{"path":true},"required":["path"],"additionalProperties":false}`,
+			parserDetail: "cannot unmarshal bool",
+		},
+		"property type array": {
+			schemaJSON:   `{"type":"object","properties":{"path":{"type":["string"]}},"required":["path"],"additionalProperties":false}`,
+			parserDetail: "cannot unmarshal array into Go value of type string",
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a complete Draft 2020-12 schema that reaches grammar decoding.
+			descriptor := constrainedProtoDescriptor(testCase.schemaJSON, grammarProtoConstraint())
+
+			// Act: validate the schema through the extension catalog boundary.
+			_, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{
+				Tools: []*extensionpb.ToolDescriptor{descriptor},
+			}.Build())
+
+			// Assert: the startup error keeps tool, grammar rule, and JSON parser contexts.
+			require.ErrorContains(t, err, `tool "sample" constrained sampling`)
+			require.ErrorContains(t, err, grammarRule)
+			require.ErrorContains(t, err, testCase.parserDetail)
+		})
+	}
+}
+
+// TestValidateCatalogRootTypeParserErrorRetainsContext verifies catalog errors expose tool, root rule, and parser contexts.
+func TestValidateCatalogRootTypeParserErrorRetainsContext(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a complete schema whose root type is raw JSON but not a JSON string.
+	descriptor := constrainedProtoDescriptor(`{"type":{}}`, nil)
+
+	// Act: validate the schema through the extension catalog boundary.
+	_, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{
+		Tools: []*extensionpb.ToolDescriptor{descriptor},
+	}.Build())
+
+	// Assert: the startup error keeps tool, schema rule, and JSON parser contexts.
+	require.ErrorContains(t, err, `tool "sample" input schema`)
+	require.ErrorContains(t, err, "schema root type must be object")
+	require.ErrorContains(t, err, "cannot unmarshal object into Go value of type string")
+}
+
+// TestValidateCatalogMissingTypesRemainSemanticErrors verifies absent types do not create synthetic parser failures.
+func TestValidateCatalogMissingTypesRemainSemanticErrors(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		descriptor   *extensionpb.ToolDescriptor
+		semanticRule string
+	}{
+		"grammar property type": {
+			descriptor: constrainedProtoDescriptor(
+				`{"type":"object","properties":{"path":{}},"required":["path"],"additionalProperties":false}`,
+				grammarProtoConstraint(),
+			),
+			semanticRule: "grammar schema must have exactly one required string property",
+		},
+		"root type": {
+			descriptor:   constrainedProtoDescriptor(`{}`, nil),
+			semanticRule: "schema root type must be object",
+		},
+	}
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a complete schema whose applicable type field is absent.
+			response := extensionpb.ListToolsResponse_builder{
+				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor},
+			}.Build()
+
+			// Act: validate the schema through the extension catalog boundary.
+			_, _, err := validateCatalog(response)
+
+			// Assert: the error reports only the semantic rule for the absent type.
+			require.ErrorContains(t, err, testCase.semanticRule)
+			assert.NotContains(t, err.Error(), "unexpected end of JSON input")
+			assert.NotContains(t, err.Error(), "parse property type JSON")
+			assert.NotContains(t, err.Error(), "parse root type JSON")
+		})
+	}
+}
+
 // TestValidateCatalogMapsConstrainedSampling verifies Host-owned contract validation and input mapping.
 func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 	t.Parallel()

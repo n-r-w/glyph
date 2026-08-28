@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	requestFailedMessage    = "OpenAI-compatible request failed."
-	requestCanceledMessage  = "OpenAI-compatible request was canceled."
-	credentialFailedMessage = "OpenAI-compatible API key resolution failed." //nolint:gosec // This is an error message.
+	requestFailedMessage   = "OpenAI-compatible request failed."
+	requestCanceledMessage = "OpenAI-compatible request was canceled."
 )
 
 // API identifies one supported OpenAI-compatible wire API.
@@ -71,8 +70,11 @@ func New(config Config) (*Driver, error) {
 		return nil, errors.New("OpenAI-compatible provider ID is required")
 	}
 	parsedURL, err := url.Parse(config.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse OpenAI-compatible base URL: %w", err)
+	}
 	validScheme := parsedURL.Scheme == "http" || parsedURL.Scheme == "https"
-	if err != nil || !parsedURL.IsAbs() || !validScheme || parsedURL.Host == "" {
+	if !parsedURL.IsAbs() || !validScheme || parsedURL.Host == "" {
 		return nil, errors.New("OpenAI-compatible base URL must be an absolute HTTP or HTTPS URL")
 	}
 	if apiErr := validateAPI(config.API); apiErr != nil {
@@ -149,14 +151,12 @@ func validateAPI(api API) error {
 func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
 	configuredModel, err := s.requestModelConfig(request)
 	if err != nil {
-		return s.emitFailure(handle, request, model.OutcomeFailed, requestFailedMessage, err)
+		return s.emitFailure(handle, request, model.OutcomeFailed, err.Error(), err)
 	}
 	key, err := s.apiKey.ResolveAPIKey(ctx)
 	if err != nil {
-		return s.emitFailure(
-			handle, request, model.OutcomeFailed, credentialFailedMessage,
-			errors.New("API key resolution failed"),
-		)
+		credentialErr := fmt.Errorf("resolve OpenAI-compatible API key: %w", err)
+		return s.emitFailure(handle, request, model.OutcomeFailed, credentialErr.Error(), credentialErr)
 	}
 	var response model.Response
 	switch configuredModel.api {
@@ -168,10 +168,10 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	if err != nil {
 		var deliveryFailure streamHandlerError
 		if errors.As(err, &deliveryFailure) {
-			return deliveryFailure.err
+			return err
 		}
 		outcome := model.OutcomeFailed
-		message := requestFailedMessage
+		var message string
 		if ctx.Err() != nil {
 			outcome = model.OutcomeAborted
 			message = requestCanceledMessage
@@ -180,10 +180,14 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 				err = errors.New("request canceled")
 			}
 		} else {
-			err = errors.New(strings.TrimSuffix(message, "."))
+			err = fmt.Errorf("OpenAI-compatible request failed: %w", err)
+			message = err.Error()
+			response.ErrorMessage = mo.Some(message)
 		}
 		if responseOutcome, present := response.Outcome.Get(); !present || responseOutcome == 0 {
 			response = failureResponse(outcome, message)
+		} else if response.ErrorMessage.OrEmpty() == "" {
+			response.ErrorMessage = mo.Some(message)
 		}
 		response.Provider = mo.Some(s.providerID)
 		response.Model = mo.Some(request.Model.Model)
@@ -196,7 +200,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 			ToolCall: mo.None[model.ToolCall](),
 			Response: mo.Some(response),
 		}); handleErr != nil {
-			return handleErr
+			return combineFinalHandlerError(err, handleErr)
 		}
 		return err
 	}
@@ -273,3 +277,22 @@ func (failure streamHandlerError) Error() string {
 func (failure streamHandlerError) Unwrap() error { return failure.err }
 
 func handlerError(err error) error { return streamHandlerError{err: err} }
+
+// combineFinalHandlerError retains provider failure and tags the final handler cause once.
+func combineFinalHandlerError(providerErr, handleErr error) error {
+	if errors.Is(providerErr, handleErr) {
+		return providerErr
+	}
+	return errors.Join(providerErr, handlerError(handleErr))
+}
+
+// tagHandlerErrors distinguishes delivery failures from provider adapter failures.
+func tagHandlerErrors(handle run.StreamHandler) run.StreamHandler {
+	return func(event run.StreamEvent) error {
+		handleErr := handle(event)
+		if handleErr != nil {
+			return handlerError(handleErr)
+		}
+		return nil
+	}
+}

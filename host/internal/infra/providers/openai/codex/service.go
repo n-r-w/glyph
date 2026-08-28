@@ -91,9 +91,9 @@ func (s *Driver) CheckProviderAuthentication(ctx context.Context) error {
 		return fmt.Errorf("check OpenAI Codex authentication: %w", contextErr)
 	}
 	if errors.Is(err, ErrSignInRequired) {
-		return ErrSignInRequired
+		return fmt.Errorf("check OpenAI Codex authentication: %w", err)
 	}
-	return fmt.Errorf("%w: %s", ErrSignInRequired, safeErrorMessage(err))
+	return fmt.Errorf("%w: %w", ErrSignInRequired, err)
 }
 
 // IsProviderSignInRequired reports the provider-owned authentication classification.

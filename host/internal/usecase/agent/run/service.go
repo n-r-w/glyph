@@ -86,7 +86,7 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(request.UserText)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}); err != nil {
-		return s.finish(ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(publicPersistenceError(err)), err)
+		return s.finish(ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
 	}
 
 	for {
@@ -172,7 +172,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 
 	projectedContext, hookErr := s.hooks.TransformContext(ctx, hooks.Context{History: s.ProjectHistory()})
 	if hookErr != nil {
-		return s.finalizeProviderError(ctx, runID, internalHookFailureResponse(hooks.StageContext), hookErr)
+		return s.finalizeProviderError(ctx, runID, internalHookFailureResponse(hooks.StageContext, hookErr), hookErr)
 	}
 
 	var deliveryErr error
@@ -245,9 +245,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	})
 	if deliveryErr != nil {
 		s.clearPartial()
+		combinedErr := composeErrorWithCause(providerErr, deliveryErr)
 		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(deliveryErr.Error()),
-		}, false, deliveryErr
+			Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+			ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
+		}, false, combinedErr
 	}
 	if providerErr != nil {
 		return s.finalizeProviderError(ctx, runID, response, providerErr)
@@ -262,7 +264,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
 		return Result{
 			Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
-			ErrorMessage: mo.Some(publicPersistenceError(err)),
+			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
 	messageEnd := newEvent(EventMessageEnd, runID)
@@ -273,12 +275,12 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	return s.applyOutcome(ctx, runID, response)
 }
 
-// internalHookFailureResponse creates one safe provider-neutral hook failure.
-func internalHookFailureResponse(stage hooks.Stage) model.Response {
+// internalHookFailureResponse creates one provider-neutral hook failure.
+func internalHookFailureResponse(stage hooks.Stage, failure error) model.Response {
 	return model.Response{
 		Content:       nil,
 		Outcome:       mo.Some(model.OutcomeFailed),
-		ErrorMessage:  mo.Some(failedModelMessage),
+		ErrorMessage:  mo.Some(failure.Error()),
 		Provider:      mo.None[model.ProviderID](),
 		Model:         mo.None[model.ID](),
 		ResponseModel: mo.None[model.ID](),
@@ -307,7 +309,7 @@ func mergeTerminalResponse(
 	return terminal, nil
 }
 
-// normalizeTerminalResponse supplies safe errors for provider-declared terminal failures.
+// normalizeTerminalResponse supplies default text for provider-declared terminal failures.
 func normalizeTerminalResponse(response model.Response) model.Response {
 	if errorMessage, present := response.ErrorMessage.Get(); present && errorMessage != "" {
 		return response
@@ -326,7 +328,7 @@ func normalizeTerminalResponse(response model.Response) model.Response {
 	return response
 }
 
-// finalizeProviderError stores safe partial content and excludes it from later projections.
+// finalizeProviderError stores retained partial content and excludes it from later projections.
 func (s *Service) finalizeProviderError(
 	ctx context.Context,
 	runID string,
@@ -344,9 +346,9 @@ func (s *Service) finalizeProviderError(
 	}
 	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
 	if !hasErrorMessage || errorMessage == "" {
-		errorMessage = failedModelMessage
+		errorMessage = providerErr.Error()
 		if outcome == model.OutcomeAborted {
-			errorMessage = abortedModelMessage
+			errorMessage = visibleErrorMessage(providerErr)
 		}
 	}
 	response.Outcome = mo.Some(outcome)
@@ -354,17 +356,21 @@ func (s *Service) finalizeProviderError(
 	validationErr := ValidateTerminalContent(response)
 	s.clearPartial()
 	if validationErr != nil {
+		combinedErr := errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
+		resultMessage := visibleErrorMessage(combinedErr)
 		return Result{
 			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
-			ErrorMessage: mo.EmptyableToOption(errorMessage),
-		}, false, errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
+			ErrorMessage: mo.EmptyableToOption(resultMessage),
+		}, false, combinedErr
 	}
 	terminalContext := context.WithoutCancel(ctx)
 	if err := s.appendModel(terminalContext, response); err != nil {
+		combinedErr := errors.Join(err, providerErr)
+		resultMessage := visibleErrorMessage(combinedErr)
 		return Result{
 			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
-			ErrorMessage: mo.Some(publicPersistenceError(err)),
-		}, false, errors.Join(providerErr, err)
+			ErrorMessage: mo.Some(resultMessage),
+		}, false, combinedErr
 	}
 	messageEnd := newEvent(EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
@@ -373,10 +379,54 @@ func (s *Service) finalizeProviderError(
 	turnEnd := newEvent(EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
+	combinedErr := errors.Join(providerErr, deliveryErr)
+	resultMessage := errorMessage
+	if deliveryErr != nil {
+		resultMessage = visibleErrorMessage(combinedErr)
+	}
 	return Result{
 		Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
-		ErrorMessage: mo.EmptyableToOption(errorMessage),
-	}, false, errors.Join(providerErr, deliveryErr)
+		ErrorMessage: mo.EmptyableToOption(resultMessage),
+	}, false, combinedErr
+}
+
+// visibleErrorMessage removes cancellation leaves and keeps independent terminal failures.
+func visibleErrorMessage(err error) string {
+	var removeCancellation func(error) error
+	removeCancellation = func(current error) error {
+		if current == nil {
+			return nil
+		}
+		if joined, ok := current.(interface{ Unwrap() []error }); ok {
+			filtered := make([]error, 0, len(joined.Unwrap()))
+			for _, child := range joined.Unwrap() {
+				if childErr := removeCancellation(child); childErr != nil {
+					filtered = append(filtered, childErr)
+				}
+			}
+			return errors.Join(filtered...)
+		}
+		if wrapped, ok := current.(interface{ Unwrap() error }); ok {
+			filtered := removeCancellation(wrapped.Unwrap())
+			if filtered == nil {
+				return nil
+			}
+			if errors.Is(current, context.Canceled) || errors.Is(current, context.DeadlineExceeded) {
+				return filtered
+			}
+			return current
+		}
+		if errors.Is(current, context.Canceled) || errors.Is(current, context.DeadlineExceeded) {
+			return nil
+		}
+		return current
+	}
+
+	filtered := removeCancellation(err)
+	if filtered == nil {
+		return abortedModelMessage
+	}
+	return filtered.Error()
 }
 
 // finalizeRetainedStreamedContent closes only well-formed streamed content kept after provider failure.
@@ -429,7 +479,7 @@ func (s *Service) applyOutcome(
 			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
 				return Result{
 					Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
-					ErrorMessage: mo.Some(publicPersistenceError(err)),
+					ErrorMessage: mo.Some(err.Error()),
 				}, false, err
 			}
 			results = append(results, result)
@@ -499,23 +549,33 @@ func (s *Service) executeCalls(
 		}
 		result.CallID = call.ID
 		result.ToolName = call.Name
+		priorErr := composeErrorWithCause(executeErr, progressDeliveryErr)
 		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
+			combinedErr := errors.Join(err, priorErr)
 			return Result{
 				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
-				ErrorMessage: mo.Some(publicPersistenceError(err)),
-			}, false, err
+				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
+			}, false, combinedErr
 		}
 		results = append(results, result)
 		toolEnd := newEvent(EventToolExecutionEnd, runID)
 		toolEnd.ToolCall = mo.Some(call)
 		toolEnd.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolEnd); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+			combinedErr := errors.Join(priorErr, err)
+			return Result{
+				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
+			}, false, combinedErr
 		}
 		toolResult := newEvent(EventToolResult, runID)
 		toolResult.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+			combinedErr := errors.Join(priorErr, err)
+			return Result{
+				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
+			}, false, combinedErr
 		}
 		if progressDeliveryErr != nil {
 			return s.endTurn(
@@ -525,7 +585,7 @@ func (s *Service) executeCalls(
 				results,
 				agent.RunOutcomeFailed,
 				progressDeliveryErr.Error(),
-				errors.Join(progressDeliveryErr, executeErr),
+				priorErr,
 			)
 		}
 		if executeErr != nil && (errors.Is(executeErr, context.Canceled) ||
@@ -546,6 +606,14 @@ func (s *Service) executeCalls(
 	return Result{}, err == nil, err
 }
 
+// composeErrorWithCause adds a cause only when the primary error does not already contain it.
+func composeErrorWithCause(primaryErr, causeErr error) error {
+	if causeErr == nil || errors.Is(primaryErr, causeErr) {
+		return primaryErr
+	}
+	return errors.Join(primaryErr, causeErr)
+}
+
 // endTurn emits the self-contained terminal turn and selects continuation or completion.
 func (s *Service) endTurn(
 	ctx context.Context,
@@ -560,9 +628,11 @@ func (s *Service) endTurn(
 	turnEnd := newEvent(EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {
+		combinedErr := errors.Join(runErr, err)
+		resultMessage := visibleErrorMessage(combinedErr)
 		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error()),
-		}, false, errors.Join(runErr, err)
+			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(resultMessage),
+		}, false, combinedErr
 	}
 	if outcome == 0 {
 		return Result{}, true, runErr
@@ -638,14 +708,6 @@ func (s *Service) clearPartial() {
 	s.state.PartialResponse = mo.None[model.Response]()
 	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
-}
-
-// publicPersistenceError hides infrastructure details from terminal Agent events.
-func publicPersistenceError(err error) string {
-	if errors.Is(err, ErrPersistenceUnavailable) {
-		return ErrPersistenceUnavailable.Error()
-	}
-	return err.Error()
 }
 
 // appendModel transfers one finalized model response to canonical history ownership.

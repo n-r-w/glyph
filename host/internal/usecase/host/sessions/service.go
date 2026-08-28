@@ -418,7 +418,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.writeUnavailable {
-		return errors.Join(session.ErrPersistenceUnavailable, agentrun.ErrPersistenceUnavailable)
+		return agentrun.ErrPersistenceUnavailable
 	}
 	projection, durable, err := terminalContinuationEntry(owned)
 	if err != nil {
@@ -447,12 +447,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 		logPersistenceFailure(ctx, persistenceOperationHistory, s.active.Header.ID, err)
 		// Keep the last durable snapshot readable while blocking later process-local mutations.
 		s.writeUnavailable = true
-		return fmt.Errorf(
-			"%w: %w: append session history: %w",
-			session.ErrPersistenceUnavailable,
-			agentrun.ErrPersistenceUnavailable,
-			err,
-		)
+		return fmt.Errorf("%w: append session history: %w", agentrun.ErrPersistenceUnavailable, err)
 	}
 	// Publish active ownership only after the repository append is synchronized.
 	// Callers can start dependent work after Append returns.

@@ -47,7 +47,7 @@ const (
 	SelectionCredentialUnavailable SelectionCode = "credential_unavailable" //nolint:gosec // This is an error code.
 )
 
-// SelectionFailure exposes a stable safe catalog failure.
+// SelectionFailure exposes a stable typed catalog failure.
 type SelectionFailure interface {
 	error
 	SelectionCode() string

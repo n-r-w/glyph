@@ -3,7 +3,6 @@ package codex
 import (
 	"cmp"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -658,7 +657,7 @@ func (a *semanticAssembler) endFunction(
 func decodeFunctionArguments(arguments string) (map[string]any, error) {
 	var decoded map[string]any
 	if err := json.Unmarshal([]byte(arguments), &decoded); err != nil {
-		return nil, errors.New("OpenAI Codex returned invalid tool-call arguments")
+		return nil, fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
 	}
 	return decoded, nil
 }

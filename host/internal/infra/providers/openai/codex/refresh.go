@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -38,7 +39,7 @@ func (s *Driver) resolveCredentials(ctx context.Context) (oauthCredentials, erro
 	var credentials oauthCredentials
 	decodeErr := json.Unmarshal(payload, &credentials)
 	if decodeErr != nil {
-		return oauthCredentials{}, errors.New("stored OpenAI Codex credentials are malformed")
+		return oauthCredentials{}, fmt.Errorf("decode stored OpenAI Codex credentials: %w", decodeErr)
 	}
 	validationErr := validateCredentials(credentials)
 	if validationErr != nil {
@@ -57,7 +58,10 @@ func validateCredentials(credentials oauthCredentials) error {
 		return ErrSignInRequired
 	}
 	accountID, err := accountIDFromAccessToken(credentials.AccessToken)
-	if err != nil || accountID != credentials.AccountID {
+	if err != nil {
+		return fmt.Errorf("validate stored OpenAI Codex account data: %w", err)
+	}
+	if accountID != credentials.AccountID {
 		return errors.New("stored OpenAI Codex credentials have inconsistent account data")
 	}
 	return nil
@@ -83,7 +87,7 @@ func (s *Driver) refreshCredentials(ctx context.Context, current oauthCredential
 		if ctx.Err() != nil {
 			return oauthCredentials{}, fmt.Errorf("refresh OpenAI Codex credentials: %w", ctx.Err())
 		}
-		return oauthCredentials{}, errors.New("OpenAI Codex credential refresh failed")
+		return oauthCredentials{}, fmt.Errorf("refresh OpenAI Codex credentials: %w", err)
 	}
 	refreshed, err := decodeRefreshResponse(response)
 	if err != nil {
@@ -105,24 +109,38 @@ func (s *Driver) refreshCredentials(ctx context.Context, current oauthCredential
 	return rotated, nil
 }
 
-// decodeRefreshResponse validates the bounded JSON response without retaining token data.
+// decodeRefreshResponse reads a bounded body, returns non-success details, and decodes successful token data.
 func decodeRefreshResponse(response *http.Response) (tokenResponse, error) {
 	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxTokenResponseBody+1))
 	closeErr := response.Body.Close()
 	if readErr != nil {
-		return tokenResponse{}, errors.New("OpenAI Codex credential refresh response could not be read")
+		readFailure := fmt.Errorf("read OpenAI Codex credential refresh response: %w", readErr)
+		if closeErr != nil {
+			return tokenResponse{}, errors.Join(
+				readFailure,
+				fmt.Errorf("close OpenAI Codex credential refresh response: %w", closeErr),
+			)
+		}
+		return tokenResponse{}, readFailure
 	}
 	if closeErr != nil {
-		return tokenResponse{}, errors.New("OpenAI Codex credential refresh response could not be closed")
+		return tokenResponse{}, fmt.Errorf("close OpenAI Codex credential refresh response: %w", closeErr)
 	}
 	isFailure := response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices
-	if len(body) > maxTokenResponseBody || isFailure {
+	if len(body) > maxTokenResponseBody {
 		return tokenResponse{}, ErrSignInRequired
+	}
+	if isFailure {
+		detail := strings.TrimSpace(string(body))
+		if detail == "" {
+			return tokenResponse{}, fmt.Errorf("%w: token endpoint returned %s", ErrSignInRequired, response.Status)
+		}
+		return tokenResponse{}, fmt.Errorf("%w: token endpoint returned %s: %s", ErrSignInRequired, response.Status, detail)
 	}
 	var refreshed tokenResponse
 	decodeErr := json.Unmarshal(body, &refreshed)
 	if decodeErr != nil {
-		return tokenResponse{}, errors.New("OpenAI Codex credential refresh response is malformed")
+		return tokenResponse{}, fmt.Errorf("decode OpenAI Codex credential refresh response: %w", decodeErr)
 	}
 	return refreshed, nil
 }
@@ -136,7 +154,10 @@ func (s *Driver) rotateCredentials(current oauthCredentials, refreshed tokenResp
 		refreshed.RefreshToken = current.RefreshToken
 	}
 	accountID, err := accountIDFromAccessToken(refreshed.AccessToken)
-	if err != nil || accountID != current.AccountID {
+	if err != nil {
+		return oauthCredentials{}, fmt.Errorf("validate refreshed OpenAI Codex account: %w", err)
+	}
+	if accountID != current.AccountID {
 		return oauthCredentials{}, errors.New("OpenAI Codex credential refresh changed the account")
 	}
 	return oauthCredentials{

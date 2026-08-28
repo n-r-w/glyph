@@ -439,16 +439,40 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 	}
 }
 
-// TestLoadDecodeErrorsDoNotExposeLiteral verifies initial and trailing YAML failures are secret-free.
-func (s *SettingsSuite) TestLoadDecodeErrorsDoNotExposeLiteral() {
-	const secret = "s3cr3t"
-	for _, content := range []string{
-		validSettings("    apiKey: " + secret),
-		validSettings("") + "---\nvalue: *" + secret + "\n",
-	} {
-		_, err := New(writeSettings(s.T(), content)).Load()
-		s.Require().Error(err)
-		s.NotContains(err.Error(), secret)
+// TestLoadRetainsParserCauses verifies settings syntax and URL parser failures keep their original diagnostics.
+func (s *SettingsSuite) TestLoadRetainsParserCauses() {
+	// Arrange malformed main YAML, malformed trailing YAML, and a URL with an invalid control character.
+	testCases := map[string]struct {
+		content string
+		prefix  string
+		cause   string
+	}{
+		"main YAML": {
+			content: "providers: [\n",
+			prefix:  "decode Glyph settings:",
+			cause:   "did not find expected node content",
+		},
+		"trailing YAML": {
+			content: validSettings("") + "---\nproviders: [\n",
+			prefix:  "decode trailing Glyph settings:",
+			cause:   "did not find expected node content",
+		},
+		"base URL": {
+			content: replace(validSettings(""), "https://example.com/v1", `"https://example.com/\u0007"`),
+			prefix:  "provider \"compatible\":",
+			cause:   "net/url: invalid control character in URL",
+		},
+	}
+	for name, test := range testCases {
+		s.Run(name, func() {
+			// Act by loading the invalid settings through the normal persistence boundary.
+			_, err := New(writeSettings(s.T(), test.content)).Load()
+
+			// Assert both field context and the parser's diagnostic remain visible.
+			s.Require().Error(err)
+			s.Contains(err.Error(), test.prefix)
+			s.Contains(err.Error(), test.cause)
+		})
 	}
 }
 

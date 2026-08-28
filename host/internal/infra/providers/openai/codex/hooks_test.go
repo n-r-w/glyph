@@ -80,7 +80,7 @@ func TestDriverStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 	assert.Equal(t, int32(1), requests.Load())
 }
 
-// TestDriverStreamStopsBeforeDispatchOnRequestHookFailure verifies safe request-stage short circuiting.
+// TestDriverStreamStopsBeforeDispatchOnRequestHookFailure verifies request-stage failures retain their cause.
 func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	t.Parallel()
 
@@ -98,6 +98,7 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	t.Cleanup(server.Close)
 	laterCalls := 0
 	var invocations atomic.Int32
+	hookErr := errors.New("unique request hook error")
 	runner := hookrunner.New(nil, []hooks.RequestHandler{
 		func(_ context.Context, value hooks.Request) (hooks.Request, error) {
 			if invocations.Add(1) == 1 {
@@ -111,7 +112,7 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 		},
 		func(_ context.Context, value hooks.Request) (hooks.Request, error) {
 			if invocations.Load() == 1 {
-				return hooks.Request{}, errors.New("secret raw request hook error")
+				return hooks.Request{}, hookErr
 			}
 			return value, nil
 		},
@@ -126,7 +127,9 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "secret")
+	require.ErrorIs(t, err, hookErr)
+	assert.Contains(t, err.Error(), hookErr.Error())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), hookErr.Error())
 	assert.Zero(t, laterCalls)
 	assert.Zero(t, requests.Load())
 	assertHookFailure(t, response, hooks.StageRequest)
@@ -139,11 +142,14 @@ func TestDriverStreamStopsBeforeDispatchOnRequestHookFailure(t *testing.T) {
 	assert.Equal(t, int32(1), requests.Load())
 }
 
-// TestDriverStreamClosesBodyOnResponseHookFailure verifies pre-decode response short circuiting.
+// TestDriverStreamClosesBodyOnResponseHookFailure verifies response hook and body-close failures are retained.
 func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	t.Parallel()
 
-	body := &trackingReadCloser{Reader: bytes.NewBufferString("data: " + completedEvent(`[]`) + "\n\n"), reads: atomic.Int32{}, closed: atomic.Bool{}}
+	closeErr := errors.New("unique response body close error")
+	body := NewMockIOReadCloser(gomock.NewController(t))
+	body.EXPECT().Read(gomock.Any()).Times(0)
+	body.EXPECT().Close().Return(closeErr)
 	transport := &staticResponseTransport{body: body, requests: atomic.Int32{}}
 	options := defaultDriverOptions()
 	options.modelBaseURL = "https://hooks.invalid"
@@ -154,13 +160,14 @@ func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 		Timeout:       0,
 	}
 	laterCalls := 0
+	hookErr := errors.New("unique response hook error")
 	runner := hookrunner.New(nil, nil, []hooks.ResponseHandler{
 		func(_ context.Context, value hooks.Response) error {
 			assert.Equal(t, model.ProviderID(ProviderID), value.Provider)
 			assert.Equal(t, model.ID("gpt-test"), value.Model)
 			assert.Equal(t, http.StatusOK, value.Status)
 			assert.Equal(t, "response-value", value.Headers["X-Response"][0])
-			return errors.New("secret raw response hook error")
+			return hookErr
 		},
 		func(context.Context, hooks.Response) error {
 			laterCalls++
@@ -177,10 +184,11 @@ func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "secret")
+	require.ErrorIs(t, err, hookErr)
+	require.ErrorIs(t, err, closeErr)
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), hookErr.Error())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), closeErr.Error())
 	assert.Equal(t, int32(1), transport.requests.Load())
-	assert.True(t, body.closed.Load())
-	assert.Zero(t, body.reads.Load())
 	assert.Zero(t, laterCalls)
 	require.Len(t, events, 1)
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
@@ -215,22 +223,6 @@ func (transport *staticResponseTransport) RoundTrip(*http.Request) (*http.Respon
 	}, nil
 }
 
-type trackingReadCloser struct {
-	io.Reader
-	reads  atomic.Int32
-	closed atomic.Bool
-}
-
-func (body *trackingReadCloser) Read(data []byte) (int, error) {
-	body.reads.Add(1)
-	return body.Reader.Read(data)
-}
-
-func (body *trackingReadCloser) Close() error {
-	body.closed.Store(true)
-	return nil
-}
-
 func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptions, calls int) *Driver {
 	t.Helper()
 	accountID := "hook-account"
@@ -259,6 +251,6 @@ func hookModelRequest(instructions string) run.ModelRequest {
 func assertHookFailure(t *testing.T, response model.Response, stage hooks.Stage) {
 	t.Helper()
 	assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
-	assert.Equal(t, "Model request failed.", response.ErrorMessage.OrEmpty())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "internal hook failed at "+string(stage)+" stage")
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: string(stage)}}, response.Diagnostics)
 }

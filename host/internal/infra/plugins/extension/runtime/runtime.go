@@ -351,10 +351,18 @@ func validateGrammarInputProperty(properties map[string]json.RawMessage, require
 		Type json.RawMessage `json:"type"`
 	}
 	if err := json.Unmarshal(propertyJSON, &property); err != nil {
+		// Keep parser diagnostics with the grammar rule that the property violates.
+		return fmt.Errorf("%s: parse property JSON: %w", rule, err)
+	}
+	if len(property.Type) == 0 {
 		return errors.New(rule)
 	}
 	var propertyType string
-	if err := json.Unmarshal(property.Type, &propertyType); err != nil || propertyType != "string" {
+	if err := json.Unmarshal(property.Type, &propertyType); err != nil {
+		// Keep parser diagnostics with the grammar rule that the property type violates.
+		return fmt.Errorf("%s: parse property type JSON: %w", rule, err)
+	}
+	if propertyType != "string" {
 		return errors.New(rule)
 	}
 	return nil
@@ -370,8 +378,15 @@ func compileToolSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
 	if err := json.Unmarshal(schemaJSON, &root); err != nil {
 		return nil, fmt.Errorf("parse JSON Schema: %w", err)
 	}
+	if len(root.Type) == 0 {
+		return nil, errors.New("schema root type must be object")
+	}
 	var rootType string
-	if err := json.Unmarshal(root.Type, &rootType); err != nil || rootType != "object" {
+	if err := json.Unmarshal(root.Type, &rootType); err != nil {
+		// Keep parser diagnostics with the schema root rule that the type violates.
+		return nil, fmt.Errorf("schema root type must be object: parse root type JSON: %w", err)
+	}
+	if rootType != "object" {
 		return nil, errors.New("schema root type must be object")
 	}
 

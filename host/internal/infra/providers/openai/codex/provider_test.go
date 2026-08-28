@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/openai/openai-go/v3/responses"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
@@ -555,9 +559,12 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		return nil
 	})
 
-	// Assert the request fails without publishing a completed tool call.
+	// Assert the request exposes the JSON cause without publishing a completed tool call.
 	require.Error(t, err)
-	require.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
+	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	terminal := events[len(events)-1].Response.OrEmpty()
+	require.Equal(t, model.OutcomeFailed, terminal.Outcome.OrEmpty())
+	assert.Contains(t, terminal.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 
@@ -1334,6 +1341,219 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	require.NoError(t, secondErr)
 	assert.Equal(t, "Bearer "+firstAccess, <-authorizations)
 	assert.Equal(t, "Bearer "+secondAccess, <-authorizations)
+}
+
+// TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures verifies final callback failure retains provider cause once.
+func TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures(t *testing.T) {
+	t.Parallel()
+
+	// Arrange authenticated credentials and one unique transport failure.
+	accountID := "final-error-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	providerErr := errors.New("unique Codex final provider failure")
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).Return(nil, providerErr)
+	options := defaultDriverOptions()
+	options.modelBaseURL = "https://final-error.invalid"
+	options.httpClient = &http.Client{
+		Transport: transport, CheckRedirect: nil, Jar: nil, Timeout: 0,
+	}
+	service := newDriver(testConfig(), credentials, interaction, options)
+	handlerErr := errors.New("unique Codex final error handler failure")
+	callbacks := 0
+
+	// Act by rejecting the one final provider error event.
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, func(event run.StreamEvent) error {
+		callbacks++
+		assert.Equal(t, run.StreamEventError, event.Kind)
+		return handlerErr
+	})
+
+	// Assert both exact causes occur once and no second terminal callback is attempted.
+	require.ErrorIs(t, err, providerErr)
+	require.ErrorIs(t, err, handlerErr)
+	assert.Equal(t, 1, strings.Count(err.Error(), providerErr.Error()))
+	assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()))
+	assert.Equal(t, 1, callbacks)
+}
+
+// TestDriverStreamJoinsSDKAndContentEndFailures verifies partial finalization retains both causes once.
+func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an authenticated partial stream followed by malformed SDK input.
+	accountID := "combined-stream-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		payload := []byte("data: " + `{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"partial"}` + "\n\n")
+		writer.Header().Set("Content-Type", "text/event-stream")
+		writer.Header().Set("Content-Length", fmt.Sprint(len(payload)+100))
+		_, err := writer.Write(payload)
+		assert.NoError(t, err)
+	}))
+	t.Cleanup(server.Close)
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+	handlerErr := errors.New("unique Codex ContentEnd delivery failure")
+	events := make([]run.StreamEventKind, 0)
+
+	// Act by streaming until assembler finalization reaches the failed handler.
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, func(event run.StreamEvent) error {
+		events = append(events, event.Kind)
+		if event.Kind == run.StreamEventContentEnd {
+			return handlerErr
+		}
+		return nil
+	})
+
+	// Assert both exact causes occur once and no terminal callback follows handler failure.
+	require.Error(t, err)
+	require.ErrorIs(t, err, handlerErr)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()))
+	assert.Equal(t, 1, strings.Count(err.Error(), io.ErrUnexpectedEOF.Error()))
+	require.NotEmpty(t, events)
+	assert.Equal(t, run.StreamEventContentEnd, events[len(events)-1])
+	assert.NotContains(t, events, run.StreamEventDone)
+	assert.NotContains(t, events, run.StreamEventError)
+}
+
+// TestDriverStreamPreservesTransportFailure verifies a transport cause reaches the returned error and terminal response.
+func TestDriverStreamPreservesTransportFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange authenticated credentials and a transport with one unique failure.
+	accountID := "transport-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	transportErr := errors.New("unique Codex transport failure")
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).Return(nil, transportErr)
+	options := defaultDriverOptions()
+	options.modelBaseURL = "https://transport.invalid"
+	options.httpClient = &http.Client{
+		Transport:     transport,
+		CheckRedirect: nil,
+		Jar:           nil,
+		Timeout:       0,
+	}
+	service := newDriver(testConfig(), credentials, interaction, options)
+
+	// Act by starting one model stream.
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, nil)
+	response := terminalResponse(events)
+
+	// Assert the raw transport cause remains classifiable and visible at both boundaries.
+	require.Error(t, err)
+	require.ErrorIs(t, err, transportErr)
+	assert.Contains(t, err.Error(), transportErr.Error())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), transportErr.Error())
+	assert.NotErrorIs(t, err, ErrSignInRequired)
+}
+
+// TestModelResponsePreservesToolArgumentDecodeCause verifies SDK conversion exposes malformed tool JSON.
+func TestModelResponsePreservesToolArgumentDecodeCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one completed SDK function call with malformed arguments.
+	var sdkResponse responses.Response
+	require.NoError(t, json.Unmarshal([]byte(`{"output":[{"type":"function_call","call_id":"call","name":"read","arguments":"{\"path\":"}]}`), &sdkResponse))
+
+	// Act by converting the terminal SDK response.
+	response, err := modelResponse(sdkResponse, model.OutcomeStop, nil)
+
+	// Assert both conversion outputs contain the parser cause.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
+}
+
+// TestDriverStreamPreservesMalformedReasoningCause verifies reasoning context parser detail reaches both boundaries.
+func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange authenticated credentials and malformed stored reasoning context.
+	accountID := "reasoning-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
+	history := []agent.HistoryEntry{{
+		Kind: agent.HistoryEntryModel,
+		User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
+		Model: mo.Some(model.Response{
+			Content: []model.Content{{
+				Kind: model.ContentReasoning, Text: mo.None[string](), Final: false,
+				ToolCall: mo.None[model.ToolCall](),
+				ProviderContext: mo.Some(model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID: ProviderID, API: "responses", Model: "gpt-test", CompatibilityKey: mo.None[string](),
+					},
+					Payload: []byte(`{"id":`),
+				}),
+			}},
+			Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
+			Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+	}}
+
+	// Act before any HTTP dispatch can occur.
+	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         history,
+		Tools:           nil,
+	}, nil)
+	response := terminalResponse(events)
+
+	// Assert parser detail is visible in the returned error and terminal response.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
 }
 
 // TestDriverStreamHTTPFailuresDoNotRetry verifies safe 401 and one-attempt provider errors.

@@ -65,7 +65,7 @@
 - STP-02: A terminal model response has normalized usage when Agent Core passes it to `HistoryStore.Append`. The active-session service calculates cost and persists the entry before `message_end`, tool execution, or the next provider request.
 - STP-03: Each terminal tool result is appended after tool execution and before `tool_execution_end`, `tool_result`, or another provider request.
 - STP-04: A successful append writes one entry record, calls `File.Sync`, closes the file, and then updates the active in-memory snapshot. The first append writes the header and first entry in one buffer before the same sync and close sequence. Write, sync, or close failure leaves the active snapshot unchanged.
-- STP-05: An append failure ends the active run with client-visible text `session persistence failed`. Agent Core performs no later provider request or tool execution that depends on the failed entry. The client text excludes the storage path, stored content, and underlying error.
+- STP-05: An append failure ends the active run with client-visible text equal to the complete returned persistence error, including its wrapping context and underlying cause. Agent Core performs no later provider request or tool execution that depends on the failed entry.
 - STP-06: A tool can complete its external effect before persistence of its result fails. Glyph reports the persistence failure and performs no next provider request. Glyph does not claim to roll back the tool effect.
 - STP-07: Abort and provider failure remain terminal model outcomes. After resume, `ProjectHistory` excludes failed model responses and supplies temporary skipped results for model tool calls without stored results.
 

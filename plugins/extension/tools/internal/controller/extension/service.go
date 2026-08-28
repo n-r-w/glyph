@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
 const (
@@ -352,11 +353,33 @@ func (s *Service) executeBash(arguments []byte, stream extensionv1.ExtensionServ
 	})
 	if err != nil {
 		if result.Text != "" && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			// Retain partial command output and expose the execution cause within the standard-tool budget.
+			result.Text = boundedBashResultText(result.Text + "\n\n" + err.Error())
 			return sendBashResult(stream, result, true)
 		}
 		return operationResult(stream, "", err)
 	}
 	return sendBashResult(stream, result, result.ExitCode != 0)
+}
+
+// boundedBashResultText keeps the newest complete error context within the standard-tool limits.
+func boundedBashResultText(content string) string {
+	bounded := []byte(content)
+	if len(bounded) > textbudget.MaximumBytes {
+		bounded = bounded[len(bounded)-textbudget.MaximumBytes:]
+	}
+	bounded = bytes.ToValidUTF8(bounded, []byte("?"))
+	for len(bounded) > textbudget.MaximumBytes {
+		bounded = bytes.ToValidUTF8(bounded[1:], []byte("?"))
+	}
+	for bytes.Count(bounded, []byte{'\n'}) > textbudget.MaximumLines {
+		newline := bytes.IndexByte(bounded, '\n')
+		if newline < 0 {
+			return ""
+		}
+		bounded = bounded[newline+1:]
+	}
+	return string(bounded)
 }
 
 // sendBashResult retains complete output only when its path reaches the caller.

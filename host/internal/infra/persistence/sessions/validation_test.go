@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -104,6 +105,209 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 	}
 }
 
+// TestListReportsMalformedHeaderParserCauseOnce verifies one syntax failure produces one contextual diagnostic.
+//
+//nolint:paralleltest // The test temporarily captures the process-global structured logger.
+func TestListReportsMalformedHeaderParserCauseOnce(t *testing.T) {
+	// Arrange one newline-terminated header with invalid JSON syntax under a captured logger.
+	repository, projectDirectory, _ := newValidationRepository(t)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(projectDirectory, "malformed.jsonl"),
+		[]byte("{invalid\n"),
+		0o600,
+	))
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	// Act by listing the project session partition.
+	listed, err := repository.List(t.Context())
+
+	// Assert the skipped header logs one warning with one contextual parser cause.
+	require.NoError(t, err)
+	assert.Empty(t, listed)
+	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
+	require.Len(t, lines, 1)
+	var warning map[string]any
+	require.NoError(t, json.Unmarshal(lines[0], &warning))
+	diagnostic, ok := warning["error"].(string)
+	require.True(t, ok)
+	assert.Equal(t, 1, strings.Count(diagnostic, "decode session header"))
+	assert.Equal(t, 1, strings.Count(diagnostic, "invalid character 'i'"))
+}
+
+// TestEmptyHeaderTimestampIsUnavailable verifies Load and List reject an empty RFC3339 timestamp with the same cause.
+//
+//nolint:paralleltest // The test temporarily captures the process-global structured logger.
+func TestEmptyHeaderTimestampIsUnavailable(t *testing.T) {
+	// Arrange one structurally complete header whose timestamp is an empty string.
+	repository, projectDirectory, cwd := newValidationRepository(t)
+	content := fmt.Sprintf(
+		`{"type":"session","version":1,"id":"stored","createdAt":"","cwd":%q}`+"\n"+validEntry,
+		cwd,
+	)
+	require.NoError(t, os.WriteFile(filepath.Join(projectDirectory, "stored.jsonl"), []byte(content), 0o600))
+
+	// Act by loading the stored ID before listing under a captured logger.
+	_, loadErr := repository.Load(t.Context(), session.ID("stored"))
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+	listed, listErr := repository.List(t.Context())
+
+	// Assert both boundaries reject the header with timestamp parse context and List emits one warning.
+	require.Error(t, loadErr)
+	assert.Contains(t, loadErr.Error(), "decode session header record timestamp")
+	assert.Contains(t, loadErr.Error(), `cannot parse ""`)
+	require.NoError(t, listErr)
+	assert.Empty(t, listed)
+	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
+	require.Len(t, lines, 1)
+	var warning map[string]any
+	require.NoError(t, json.Unmarshal(lines[0], &warning))
+	diagnostic, ok := warning["error"].(string)
+	require.True(t, ok)
+	assert.Contains(t, diagnostic, "decode session header record timestamp")
+	assert.Contains(t, diagnostic, `cannot parse ""`)
+}
+
+// TestLoadRetainsSessionParserCauses verifies record context accompanies JSON, timestamp, and base64 diagnostics.
+func TestLoadRetainsSessionParserCauses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange completed records with one parser failure each.
+	tests := []struct {
+		name    string
+		content func(string) string
+		context string
+		cause   string
+	}{
+		{
+			name: "header timestamp",
+			content: func(cwd string) string {
+				return fmt.Sprintf(`{"type":"session","version":1,"id":"stored","createdAt":"yesterday","cwd":%q}`+"\n", cwd)
+			},
+			context: "decode session header record",
+			cause:   "cannot parse",
+		},
+		{
+			name: "entry discriminator",
+			content: func(cwd string) string {
+				return fmt.Sprintf(validHeader, cwd) + `{"type":` + "\n"
+			},
+			context: "decode session entry record 1",
+			cause:   "unexpected end of JSON input",
+		},
+		{
+			name: "entry timestamp",
+			content: func(cwd string) string {
+				return fmt.Sprintf(validHeader, cwd) + `{"type":"session_info","id":"entry-1","createdAt":"yesterday","name":"Stored"}` + "\n"
+			},
+			context: "decode session entry record 1",
+			cause:   "cannot parse",
+		},
+		{
+			name: "user image base64",
+			content: func(cwd string) string {
+				return fmt.Sprintf(validHeader, cwd) + `{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":2,"mediaType":"image/png","data":"%%%"}]}}` + "\n"
+			},
+			context: "decode session entry record 1: user image data",
+			cause:   "illegal base64 data",
+		},
+		{
+			name: "tool result image base64",
+			content: func(cwd string) string {
+				return fmt.Sprintf(validHeader, cwd) + `{"type":"tool_result","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","result":{"callId":"call-1","toolName":"read","contents":[{"kind":2,"mediaType":"image/png","data":"%%%"}],"isError":false}}` + "\n"
+			},
+			context: "decode session entry record 1: tool result image data",
+			cause:   "illegal base64 data",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			repository, projectDirectory, cwd := newValidationRepository(t)
+			require.NoError(t, os.WriteFile(
+				filepath.Join(projectDirectory, "stored.jsonl"),
+				[]byte(test.content(cwd)),
+				0o600,
+			))
+
+			// Act by loading the completed record through its stored session ID.
+			_, err := repository.Load(t.Context(), session.ID("stored"))
+
+			// Assert record and field context retain the original parser cause.
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.context)
+			assert.Contains(t, err.Error(), test.cause)
+		})
+	}
+}
+
+// TestLoadPrioritizesHeaderDecodeErrors verifies direct header failures precede derived semantic checks.
+func TestLoadPrioritizesHeaderDecodeErrors(t *testing.T) {
+	t.Parallel()
+
+	// Arrange partial headers where derived checks can also fail.
+	tests := []struct {
+		name    string
+		content func(string) string
+		cause   string
+	}{
+		{
+			name: "strict decode before timestamp",
+			content: func(cwd string) string {
+				return fmt.Sprintf(
+					`{"type":"session","version":1,"id":"stored","createdAt":"yesterday","cwd":%q,"extra":true}`+"\n",
+					cwd,
+				)
+			},
+			cause: `json: unknown field "extra"`,
+		},
+		{
+			name: "required field before header shape",
+			content: func(cwd string) string {
+				return fmt.Sprintf(
+					`{"version":1,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+					cwd,
+				)
+			},
+			cause: `required field "type" is missing`,
+		},
+		{
+			name: "null timestamp before timestamp parsing",
+			content: func(cwd string) string {
+				return fmt.Sprintf(
+					`{"type":"session","version":1,"id":"stored","createdAt":null,"cwd":%q}`+"\n",
+					cwd,
+				)
+			},
+			cause: `required field "createdAt" is null`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			repository, projectDirectory, cwd := newValidationRepository(t)
+			require.NoError(t, os.WriteFile(
+				filepath.Join(projectDirectory, "stored.jsonl"),
+				[]byte(test.content(cwd)),
+				0o600,
+			))
+
+			// Act by loading the partially decoded header through its retained ID.
+			_, err := repository.Load(t.Context(), session.ID("stored"))
+
+			// Assert header context keeps the direct strict-decode or required-field cause.
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "decode session header:")
+			assert.Contains(t, err.Error(), test.cause)
+		})
+	}
+}
+
 // TestLoadClassifiesMalformedMatchedHeaderUnavailable verifies a valid ID is retained for strict-header failure mapping.
 func TestLoadClassifiesMalformedMatchedHeaderUnavailable(t *testing.T) {
 	t.Parallel()
@@ -171,7 +375,7 @@ func TestListWarnsOnceForNonregularSessionFile(t *testing.T) {
 	assert.Equal(t, "session file is unavailable", warning["msg"])
 	assert.Equal(t, "list", warning["operation"])
 	assert.Equal(t, "nonregular_session_file", warning["diagnostic"])
-	assert.NotContains(t, warning, "error")
+	assert.Equal(t, "session file is not regular", warning["error"])
 	assert.NotContains(t, warning, "session_id")
 	for _, forbidden := range []string{
 		projectDirectory, "user-derived-id", "Stored", "provider-context", "extension-json", "secret-content",

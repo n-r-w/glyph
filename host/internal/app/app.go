@@ -59,14 +59,6 @@ func Run(ctx context.Context, command cli.Command, stdout, stderr io.Writer) err
 	return runWithPaths(ctx, paths, command, stdout, stderr)
 }
 
-// publicApplicationError keeps internal classification while limiting persistence failures to fixed public text.
-func publicApplicationError(err error) error {
-	if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
-		return agentrun.ErrPersistenceUnavailable
-	}
-	return err
-}
-
 // runWithPaths selects an isolated composition path for the requested mode.
 func runWithPaths(
 	ctx context.Context,
@@ -156,7 +148,7 @@ func runProgrammaticWithPaths(
 	}
 	defer func() {
 		closeTools()
-		returnErr = publicApplicationError(errors.Join(returnErr, socketService.Close()))
+		returnErr = errors.Join(returnErr, socketService.Close())
 	}()
 	if err = json.NewEncoder(stdout).Encode(struct {
 		Socket string `json:"socket"`
@@ -181,44 +173,115 @@ func runProgrammaticServer(
 	}()
 
 	var result error
+	completionRead := false
 	serveResultRead := false
 	select {
 	case completion := <-completions:
-		result = completion.Err
-		if completion.CleanupErr != nil {
-			result = errors.Join(result, completion.CleanupErr)
-		}
+		result = joinCompletionError(result, completion)
+		completionRead = true
 	case serveErr := <-serveResults:
+		result = joinServeError(result, serveErr, false)
 		serveResultRead = true
-		if serveErr != nil {
-			result = fmt.Errorf("serve Programmatic Control: %w", serveErr)
-		}
 	case <-ctx.Done():
-		result = ctx.Err()
+		result = joinIndependentError(result, ctx.Err())
 	}
 
-	// Cancellation can become ready together with another terminal result.
-	if ctx.Err() != nil {
-		result = ctx.Err()
+	// Collect terminal sources that became ready together with the selected result.
+	result = joinIndependentError(result, ctx.Err())
+	completionRead, result = collectPendingCompletion(result, completions, completionRead)
+	serveResultRead, result = collectPendingServeResult(result, serveResults, serveResultRead, false)
+	collector := programmaticShutdownCollector{
+		completions: completions, serveResults: serveResults,
+		completionRead: completionRead, serveResultRead: serveResultRead,
 	}
-	cleanupErr := session.CancelAndWait(context.WithoutCancel(ctx))
-	server.Stop()
-	if !serveResultRead {
-		serveErr := <-serveResults
-		if serveErr != nil && ctx.Err() == nil {
-			result = errors.Join(result, fmt.Errorf("serve Programmatic Control: %w", serveErr))
-		}
+	return collector.finish(
+		result, ctx.Err(), session.CancelAndWait(context.WithoutCancel(ctx)), server.Stop,
+	)
+}
+
+// programmaticShutdownCollector owns non-blocking terminal collection around explicit server Stop.
+type programmaticShutdownCollector struct {
+	completions     <-chan controllerprogrammatic.SessionCompletion
+	serveResults    <-chan error
+	completionRead  bool
+	serveResultRead bool
+}
+
+// finish collects ready shutdown causes before and after explicit server Stop.
+func (c *programmaticShutdownCollector) finish(result, contextErr, cleanupErr error, stopServer func()) error {
+	result = joinIndependentError(result, cleanupErr)
+	c.completionRead, result = collectPendingCompletion(result, c.completions, c.completionRead)
+	c.serveResultRead, result = collectPendingServeResult(result, c.serveResults, c.serveResultRead, false)
+
+	stopServer()
+	if !c.serveResultRead {
+		result = joinServeError(result, <-c.serveResults, true)
 	}
-	if ctx.Err() != nil {
-		if cleanupErr != nil {
-			return errors.Join(ctx.Err(), cleanupErr)
-		}
-		return ctx.Err()
+	_, result = collectPendingCompletion(result, c.completions, c.completionRead)
+	return joinIndependentError(result, contextErr)
+}
+
+// joinCompletionError adds the controller terminal and cleanup errors once.
+func joinCompletionError(current error, completion controllerprogrammatic.SessionCompletion) error {
+	current = joinIndependentError(current, completion.Err)
+	return joinIndependentError(current, completion.CleanupErr)
+}
+
+// collectPendingCompletion adds one ready controller completion without blocking shutdown.
+func collectPendingCompletion(
+	current error,
+	completions <-chan controllerprogrammatic.SessionCompletion,
+	alreadyRead bool,
+) (bool, error) {
+	if alreadyRead {
+		return true, current
 	}
-	if cleanupErr != nil {
-		return errors.Join(result, cleanupErr)
+	select {
+	case completion := <-completions:
+		return true, joinCompletionError(current, completion)
+	default:
+		return false, current
 	}
-	return result
+}
+
+// collectPendingServeResult adds one ready serve result without blocking shutdown.
+func collectPendingServeResult(
+	current error,
+	serveResults <-chan error,
+	alreadyRead bool,
+	stopIssued bool,
+) (bool, error) {
+	if alreadyRead {
+		return true, current
+	}
+	select {
+	case serveErr := <-serveResults:
+		return true, joinServeError(current, serveErr, stopIssued)
+	default:
+		return false, current
+	}
+}
+
+// joinServeError ignores only the result caused by this function's explicit server Stop.
+func joinServeError(current, serveErr error, stopIssued bool) error {
+	if serveErr == nil || stopIssued && errors.Is(serveErr, grpc.ErrServerStopped) {
+		return current
+	}
+	return joinIndependentError(current, fmt.Errorf("serve Programmatic Control: %w", serveErr))
+}
+
+// joinIndependentError keeps the broader chain when either error already contains the other.
+func joinIndependentError(current, candidate error) error {
+	if candidate == nil {
+		return current
+	}
+	if current == nil || errors.Is(candidate, current) {
+		return candidate
+	}
+	if errors.Is(current, candidate) {
+		return current
+	}
+	return errors.Join(current, candidate)
 }
 
 // runHeadlessWithPaths preserves the accepted one-shot Host composition.
@@ -265,7 +328,7 @@ func runHeadlessWithPaths(
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
-	executionErr := publicApplicationError(controller.Execute(ctx, command.UserText))
+	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {
 		slog.ErrorContext(context.WithoutCancel(ctx), "headless Glyph application failed", "error", executionErr)
 		return executionErr

@@ -63,10 +63,10 @@ func (writer *headlessPersistenceFaultWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-// TestRunWithPathsHeadlessPersistenceFailureIsPubliclySafe verifies raw first-user storage details stay out of public sinks.
+// TestRunWithPathsHeadlessPersistenceFailurePreservesContext verifies storage failures reach logs and CLI output.
 //
 //nolint:paralleltest // The test replaces process-global HTTP transport and logger instances.
-func TestRunWithPathsHeadlessPersistenceFailureIsPubliclySafe(t *testing.T) {
+func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("directory permission failure injection requires Darwin permission enforcement")
 	}
@@ -125,17 +125,18 @@ func TestRunWithPathsHeadlessPersistenceFailureIsPubliclySafe(t *testing.T) {
 		records = append(records, record)
 	}
 
-	// Assert exact public text, provider suppression, safe application sinks, and one isolated structured diagnostic.
+	// Assert the full persistence failure reaches the returned error, CLI renderer, and structured logs.
 	require.True(t, faultAttempted)
 	require.NoError(t, faultErr)
 	require.NotEmpty(t, projectDirectory)
 	require.ErrorIs(t, runErr, agentrun.ErrPersistenceUnavailable)
-	assert.Equal(t, "session persistence failed", runErr.Error())
-	assert.Equal(t, "[error] session persistence failed\n", cliStderr.String())
-	assert.Equal(t, 1, strings.Count(cliStderr.String(), "session persistence failed"))
+	assert.Contains(t, runErr.Error(), "session persistence failed")
+	assert.Contains(t, strings.ToLower(runErr.Error()), "permission")
+	assert.Equal(t, "[error] "+runErr.Error()+"\n", cliStderr.String())
+	assert.NotContains(t, cliStderr.String(), privateUserText)
+	assert.NotContains(t, string(logs), privateUserText)
 	assert.Empty(t, stdout.String())
 	assert.NotEmpty(t, applicationStderr.String())
-	assert.NotContains(t, applicationStderr.String(), "session persistence failed")
 	assert.Zero(t, requests.Load())
 	var diagnostic *headlessLogRecord
 	var applicationFailure *headlessLogRecord
@@ -151,39 +152,8 @@ func TestRunWithPathsHeadlessPersistenceFailureIsPubliclySafe(t *testing.T) {
 	require.NotNil(t, applicationFailure)
 	assert.Equal(t, "append_history", diagnostic.Operation)
 	require.NotEmpty(t, diagnostic.SessionID)
-	require.NotEmpty(t, diagnostic.Error)
-	assert.Equal(t, "session persistence failed", applicationFailure.Error)
-	privateValues := []string{
-		filepath.Join(paths.Directory, "sessions"),
-		projectDirectory,
-		".jsonl",
-		diagnostic.SessionID,
-		privateUserText,
-		"provider-context",
-		"extension-json",
-		diagnostic.Error,
-	}
-	for _, value := range privateValues {
-		assert.NotContains(t, applicationFailure.Error, value)
-		assert.NotContains(t, applicationStderr.String(), value)
-		assert.NotContains(t, cliStderr.String(), value)
-	}
-	assert.NotContains(t, diagnostic.Error, filepath.Join(paths.Directory, "sessions"))
-	assert.NotContains(t, diagnostic.Error, projectDirectory)
-	assert.NotContains(t, diagnostic.Error, ".jsonl")
-	assert.NotContains(t, string(logs), filepath.Join(paths.Directory, "sessions"))
-	assert.NotContains(t, string(logs), projectDirectory)
-	assert.NotContains(t, string(logs), ".jsonl")
-	assert.NotContains(t, string(logs), privateUserText)
-	assert.NotContains(t, string(logs), "provider-context")
-	assert.NotContains(t, string(logs), "extension-json")
-	for _, record := range records {
-		if record.Message != "session persistence failed" {
-			assert.Empty(t, record.SessionID)
-			assert.NotContains(t, record.Error, diagnostic.SessionID)
-			assert.NotContains(t, record.Error, diagnostic.Error)
-		}
-	}
+	assert.Equal(t, runErr.Error(), applicationFailure.Error)
+	assert.Contains(t, diagnostic.Error, "open session file")
 	assert.True(t, strings.Contains(strings.ToLower(diagnostic.Error), "permission") ||
 		strings.Contains(strings.ToLower(diagnostic.Error), "operation not permitted"))
 }

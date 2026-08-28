@@ -11,7 +11,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // operationKind identifies the single active asynchronous Host operation.
@@ -33,6 +32,22 @@ type operationResult struct {
 type receivedCommand struct {
 	command domainui.Command
 	err     error
+}
+
+// deliveryFailureError keeps an undelivered source separate from its frame delivery failure.
+type deliveryFailureError struct {
+	sourceErr   error
+	deliveryErr error
+}
+
+// Error reports both undelivered causes without changing their order.
+func (e *deliveryFailureError) Error() string {
+	return errors.Join(e.sourceErr, e.deliveryErr).Error()
+}
+
+// Unwrap keeps source and delivery causes independently reachable.
+func (e *deliveryFailureError) Unwrap() []error {
+	return []error{e.sourceErr, e.deliveryErr}
 }
 
 // Session coordinates authentication, one active run, UI commands, and stream termination.
@@ -64,7 +79,7 @@ func NewSession(
 }
 
 // Run sends initialization and owns the selected UI stream until termination.
-func (s *Session) Run(ctx context.Context, initialization domainui.Initialization) error {
+func (s *Session) Run(ctx context.Context, initialization domainui.Initialization) (returnErr error) {
 	if err := s.channel.Send(initializationFrame(initialization)); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
 	}
@@ -81,7 +96,10 @@ func (s *Session) Run(ctx context.Context, initialization domainui.Initializatio
 	availability := domainui.AvailabilityCheckingAuthentication
 	activeCancel, activeKind := s.startAuthenticationCheck(ctx, results)
 	defer func() {
-		s.shutdown(activeCancel, activeKind, results, cancelReceiver, receiverDone)
+		returnErr = errors.Join(
+			returnErr,
+			s.shutdown(activeCancel, activeKind, results, cancelReceiver, receiverDone),
+		)
 	}()
 
 	for {
@@ -103,7 +121,7 @@ func (s *Session) Run(ctx context.Context, initialization domainui.Initializatio
 				ctx, availability, activeCancel, activeKind, received.command, results,
 			)
 			if err != nil {
-				return err
+				return s.resolveDeliveryFailure(ctx, commands, err)
 			}
 		case result := <-results:
 			var resultErr error
@@ -251,13 +269,17 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 	case domainui.CommandCreateSession:
 		replacement, err := s.sessionControl.Create(ctx)
 		if err != nil {
-			return true, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable."))
+			return true, preserveUndeliveredSource(
+				err, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable.")),
+			)
 		}
 		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandListSessions:
 		listed, err := s.sessionControl.List(ctx)
 		if err != nil {
-			return true, s.sendInformation("Sessions are unavailable.")
+			return true, preserveUndeliveredSource(
+				err, s.sendInformation(fmt.Sprintf("Sessions are unavailable: %v", err)),
+			)
 		}
 		return true, s.channel.Send(sessionListFrame(listed))
 	case domainui.CommandResumeSession:
@@ -267,7 +289,9 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		}
 		replacement, err := s.sessionControl.Resume(ctx, session.ID(id))
 		if err != nil {
-			return true, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable."))
+			return true, preserveUndeliveredSource(
+				err, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable.")),
+			)
 		}
 		return true, s.sendSessionChanged(replacement)
 	case domainui.CommandSetSessionName:
@@ -276,7 +300,9 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 			return true, s.sendInformation("A session name is required.")
 		}
 		if _, err := s.sessionControl.SetName(ctx, name); err != nil {
-			return true, s.sendInformation(sessionFailureText(err, "Session naming is unavailable."))
+			return true, preserveUndeliveredSource(
+				err, s.sendInformation(sessionFailureText(err, "Session naming is unavailable.")),
+			)
 		}
 		snapshot := s.sessionControl.Information()
 		return true, s.channel.Send(sessionInformationFrame(snapshot.Info, snapshot.Statistics))
@@ -325,7 +351,9 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		return s.sendSelectionError()
 	}
 	if err != nil {
-		return s.sendSelectionError()
+		return preserveUndeliveredSource(
+			err, s.channel.Send(errorFrame(fmt.Sprintf("Could not change model selection: %v", err), false)),
+		)
 	}
 	return s.channel.Send(modelSelectionChangedFrame(selectionToUI(selection)))
 }
@@ -363,6 +391,9 @@ func (s *Session) applyAuthenticationCheck(
 		return domainui.AvailabilityIdle, nil, 0, nil
 	}
 	if s.authenticator.IsSignInRequired(checkErr) {
+		if err := s.sendSourceError(checkErr, true); err != nil {
+			return availability, nil, 0, err
+		}
 		if err := s.sendAvailability(domainui.AvailabilityAuthenticating); err != nil {
 			return availability, nil, 0, err
 		}
@@ -397,14 +428,15 @@ func (s *Session) applyRunResult(
 	availability domainui.Availability,
 	runErr error,
 ) (domainui.Availability, context.CancelFunc, operationKind, error) {
-	if runErr != nil && !errors.Is(runErr, context.Canceled) {
-		if s.authenticator.IsSignInRequired(runErr) {
-			if err := s.sendAuthenticationError(runErr); err != nil {
+	visibleErr := withoutCancellation(runErr)
+	if visibleErr != nil {
+		if s.authenticator.IsSignInRequired(visibleErr) {
+			if err := s.sendAuthenticationError(visibleErr); err != nil {
 				return availability, nil, 0, err
 			}
 			return domainui.AvailabilityAuthenticationFailed, nil, 0, nil
 		}
-		if err := s.channel.Send(errorFrame(runFailureText(runErr), false)); err != nil {
+		if err := s.sendSourceError(visibleErr, false); err != nil {
 			return availability, nil, 0, err
 		}
 	}
@@ -414,28 +446,81 @@ func (s *Session) applyRunResult(
 	return domainui.AvailabilityIdle, nil, 0, nil
 }
 
+// withoutCancellation removes cancellation leaves while retaining independent run failures.
+func withoutCancellation(err error) error {
+	return withoutClosureLeaves(err, false)
+}
+
+// withoutConfirmedClosure removes only cancellation and EOF leaves owned by confirmed UI closure.
+func withoutConfirmedClosure(err error) error {
+	return withoutClosureLeaves(err, true)
+}
+
+// withoutClosureLeaves removes configured closure leaves and retains wrappers around surviving causes.
+func withoutClosureLeaves(err error, removeEOF bool) error {
+	if err == nil {
+		return nil
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		filtered := make([]error, 0, len(joined.Unwrap()))
+		for _, nested := range joined.Unwrap() {
+			if remaining := withoutClosureLeaves(nested, removeEOF); remaining != nil {
+				filtered = append(filtered, remaining)
+			}
+		}
+		return errors.Join(filtered...)
+	}
+	if nested := errors.Unwrap(err); nested != nil {
+		remaining := withoutClosureLeaves(nested, removeEOF)
+		if remaining == nil {
+			return nil
+		}
+		if isClosureLeaf(err, removeEOF) {
+			return remaining
+		}
+		return err
+	}
+	if isClosureLeaf(err, removeEOF) {
+		return nil
+	}
+	return err
+}
+
+// isClosureLeaf identifies cancellation and, after confirmed command closure, EOF leaves.
+func isClosureLeaf(err error, includeEOF bool) bool {
+	return errors.Is(err, context.Canceled) || includeEOF && errors.Is(err, io.EOF)
+}
+
 // resolveDeliveryFailure accepts terminal EOF only when command reception confirms termination.
 func (*Session) resolveDeliveryFailure(
 	ctx context.Context,
 	commands <-chan receivedCommand,
-	deliveryErr error,
+	err error,
 ) error {
-	if !errors.Is(deliveryErr, io.EOF) {
-		return deliveryErr
+	sourceErr := error(nil)
+	deliveryErr := err
+	var failedDelivery *deliveryFailureError
+	if errors.As(err, &failedDelivery) {
+		sourceErr = failedDelivery.sourceErr
+		deliveryErr = failedDelivery.deliveryErr
+	}
+	combinedErr := joinIndependentError(sourceErr, deliveryErr)
+	if !errors.Is(deliveryErr, io.EOF) && !errors.Is(deliveryErr, context.Canceled) {
+		return combinedErr
 	}
 	select {
 	case received := <-commands:
 		if received.command.Kind == domainui.CommandQuit ||
 			errors.Is(received.err, io.EOF) ||
 			errors.Is(received.err, context.Canceled) {
-			return nil
+			return joinIndependentError(sourceErr, withoutConfirmedClosure(deliveryErr))
 		}
 		if received.err != nil {
-			return errors.Join(deliveryErr, received.err)
+			return joinIndependentError(combinedErr, received.err)
 		}
-		return deliveryErr
+		return combinedErr
 	case <-ctx.Done():
-		return errors.Join(deliveryErr, fmt.Errorf("run UI session: %w", ctx.Err()))
+		return joinIndependentError(combinedErr, fmt.Errorf("run UI session: %w", ctx.Err()))
 	}
 }
 
@@ -446,16 +531,18 @@ func (s *Session) shutdown(
 	results <-chan operationResult,
 	cancelReceiver context.CancelFunc,
 	receiverDone <-chan struct{},
-) {
+) error {
 	if activeKind != 0 {
 		activeCancel()
 	}
 	cancelReceiver()
 	s.channel.Close()
+	var activeErr error
 	if activeKind != 0 {
-		<-results
+		activeErr = withoutCancellation((<-results).err)
 	}
 	<-receiverDone
+	return activeErr
 }
 
 // sendAvailability emits one ordered lifecycle availability update.
@@ -472,20 +559,31 @@ func (s *Session) sendSessionChanged(replacement session.Replacement) error {
 	return s.channel.Send(frame)
 }
 
-// runFailureText hides infrastructure details from terminal run failures.
-func runFailureText(err error) string {
-	if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
-		return agentrun.ErrPersistenceUnavailable.Error()
-	}
-	return err.Error()
+// sessionFailureText adds operation context without replacing the session error.
+func sessionFailureText(err error, fallback string) string {
+	return fmt.Sprintf("%s: %v", strings.TrimSuffix(fallback, "."), err)
 }
 
-// sessionFailureText maps persistence failure to its exact safe text and preserves each existing fallback.
-func sessionFailureText(err error, fallback string) string {
-	if errors.Is(err, session.ErrPersistenceUnavailable) {
-		return session.ErrPersistenceUnavailable.Error()
+// preserveUndeliveredSource keeps an operation source only when its error frame was not delivered.
+func preserveUndeliveredSource(sourceErr, deliveryErr error) error {
+	if deliveryErr == nil {
+		return nil
 	}
-	return fallback
+	return &deliveryFailureError{sourceErr: sourceErr, deliveryErr: deliveryErr}
+}
+
+// joinIndependentError keeps the broader chain when either error already contains the other.
+func joinIndependentError(current, candidate error) error {
+	if candidate == nil {
+		return current
+	}
+	if current == nil || errors.Is(candidate, current) {
+		return candidate
+	}
+	if errors.Is(current, candidate) {
+		return current
+	}
+	return errors.Join(current, candidate)
 }
 
 // sendInformation emits one non-terminal command rejection or notification.
@@ -498,9 +596,17 @@ func (s *Session) sendSelectionError() error {
 	return s.channel.Send(errorFrame("Could not change model selection.", false))
 }
 
-// sendAuthenticationError emits a safe state that permits explicit retry.
+// sendAuthenticationError emits the failure and a state that permits explicit retry.
+// sendSourceError keeps source provenance only when its error frame cannot be delivered.
+func (s *Session) sendSourceError(sourceErr error, retryAuthentication bool) error {
+	return preserveUndeliveredSource(
+		sourceErr,
+		s.channel.Send(errorFrame(sourceErr.Error(), retryAuthentication)),
+	)
+}
+
 func (s *Session) sendAuthenticationError(err error) error {
-	if sendErr := s.channel.Send(errorFrame(err.Error(), true)); sendErr != nil {
+	if sendErr := s.sendSourceError(err, true); sendErr != nil {
 		return sendErr
 	}
 	return s.sendAvailability(domainui.AvailabilityAuthenticationFailed)

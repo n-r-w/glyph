@@ -2,6 +2,7 @@ package codex
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"maps"
 	"net/http"
@@ -39,7 +40,7 @@ func (transport *hookTransport) RoundTrip(request *http.Request) (*http.Response
 		Headers:  headerCopy(request.Header),
 	})
 	if err != nil {
-		return nil, internalhooks.HookError{Stage: internalhooks.StageRequest}
+		return nil, err
 	}
 
 	dispatched := request.Clone(request.Context())
@@ -59,8 +60,8 @@ func (transport *hookTransport) RoundTrip(request *http.Request) (*http.Response
 		Status:   response.StatusCode,
 		Headers:  headerCopy(response.Header),
 	}); observeErr != nil {
-		_ = response.Body.Close()
-		return nil, internalhooks.HookError{Stage: internalhooks.StageResponse}
+		// The hook and close failures are independent and both help diagnose the failed response.
+		return nil, errors.Join(observeErr, response.Body.Close())
 	}
 	return response, nil
 }
@@ -76,11 +77,11 @@ func headerCopy(header http.Header) internalhooks.Header {
 	return cloned
 }
 
-func hookFailureResponse(stage internalhooks.Stage) model.Response {
+func hookFailureResponse(failure internalhooks.HookError) model.Response {
 	return model.Response{
 		Content:       nil,
 		Outcome:       mo.Some(model.OutcomeFailed),
-		ErrorMessage:  mo.Some("Model request failed."),
+		ErrorMessage:  mo.Some(failure.Error()),
 		Provider:      mo.None[model.ProviderID](),
 		Model:         mo.None[model.ID](),
 		ResponseModel: mo.None[model.ID](),
@@ -88,7 +89,7 @@ func hookFailureResponse(stage internalhooks.Stage) model.Response {
 		Usage:         mo.None[model.Usage](),
 		Diagnostics: []model.Diagnostic{{
 			Code:    "internal_hook_failed",
-			Message: string(stage),
+			Message: string(failure.Stage),
 		}},
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,6 +189,52 @@ func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 	assert.NotContains(t, err.Error(), "missing-refresh")
 }
 
+// TestDriverSignInPreservesTokenExchangeFailure verifies the OAuth token endpoint cause remains visible.
+func TestDriverSignInPreservesTokenExchangeFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a token endpoint that returns one unique OAuth error body.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusBadGateway)
+		_, _ = writer.Write([]byte(`{"error":"unique_exchange_failure","error_description":"unique exchange detail"}`))
+	}))
+	t.Cleanup(tokenServer.Close)
+	credentials := NewMockCredentials(gomock.NewController(t))
+	interaction := NewMockInteraction(gomock.NewController(t))
+	options := defaultDriverOptions()
+	options.authorizationURL = tokenServer.URL + "/authorize"
+	options.tokenURL = tokenServer.URL
+	options.httpClient = tokenServer.Client()
+	options.listen = func(network, _ string) (net.Listener, error) {
+		var listenConfig net.ListenConfig
+		return listenConfig.Listen(t.Context(), network, "127.0.0.1:0")
+	}
+	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, authorizationURL string) error {
+			parsed, err := url.Parse(authorizationURL)
+			require.NoError(t, err)
+			callbackURL := parsed.Query().Get("redirect_uri") + "?code=code&state=" + url.QueryEscape(parsed.Query().Get("state"))
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL, nil)
+			require.NoError(t, err)
+			response, err := options.httpClient.Do(request)
+			require.NoError(t, err)
+			return response.Body.Close()
+		},
+	)
+	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
+	service := newDriver(testConfig(), credentials, interaction, options)
+
+	// Act by completing the callback and exchanging its code.
+	err := service.SignInProvider(t.Context())
+
+	// Assert endpoint context and provider error detail remain visible.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exchange OpenAI Codex authorization code")
+	assert.Contains(t, err.Error(), "unique_exchange_failure")
+	assert.Contains(t, err.Error(), "unique exchange detail")
+}
+
 // TestDriverSignOutDeletesOnlyProviderPayload verifies sign-out delegates one opaque delete.
 func TestDriverSignOutDeletesOnlyProviderPayload(t *testing.T) {
 	t.Parallel()
@@ -197,6 +245,150 @@ func TestDriverSignOutDeletesOnlyProviderPayload(t *testing.T) {
 	service := New(testConfig(), credentials, interaction)
 
 	require.NoError(t, service.SignOut())
+}
+
+// TestAccountIDFromAccessTokenPreservesParserCauses verifies token decoding keeps base64 and JSON detail.
+func TestAccountIDFromAccessTokenPreservesParserCauses(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		token    string
+		expected string
+	}{
+		"base64": {token: "header.%.signature", expected: "illegal base64 data"},
+		"JSON":   {token: "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"id":`)) + ".signature", expected: "unexpected end of JSON input"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act by parsing the malformed account token.
+			_, err := accountIDFromAccessToken(test.token)
+
+			// Assert the low-level parser cause remains visible with token context.
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.expected)
+			assert.Contains(t, err.Error(), "OpenAI Codex access token")
+		})
+	}
+}
+
+// TestLoopbackServerPreservesOAuthQueryFailure verifies callback error fields reach Wait.
+func TestLoopbackServerPreservesOAuthQueryFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a callback server with one expected state.
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(t.Context(), "tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	loopback := newLoopbackServer(listener, "expected-state")
+	t.Cleanup(func() { _ = loopback.Close(t.Context()) })
+	callbackURL := "http://" + listener.Addr().String() + callbackPath +
+		"?state=expected-state&error=access_denied&error_description=unique+OAuth+detail"
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, callbackURL, nil)
+	require.NoError(t, err)
+
+	// Act by delivering the provider callback error.
+	response, err := http.DefaultClient.Do(request)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	callback, err := loopback.Wait(t.Context())
+
+	// Assert both provider query fields remain visible.
+	require.NoError(t, err)
+	require.Error(t, callback.err)
+	assert.Contains(t, callback.err.Error(), "access_denied")
+	assert.Contains(t, callback.err.Error(), "unique OAuth detail")
+}
+
+// TestLoopbackServerPreservesServeFailure verifies listener causes reach Wait with callback context.
+func TestLoopbackServerPreservesServeFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a listener that fails its first accept.
+	serveErr := errors.New("unique callback accept failure")
+	listener := NewMockNetListener(gomock.NewController(t))
+	listener.EXPECT().Accept().Return(nil, serveErr)
+	listener.EXPECT().Close().Return(nil)
+	loopback := newLoopbackServer(listener, "state")
+
+	// Act by waiting for the server result.
+	callback, err := loopback.Wait(t.Context())
+
+	// Assert the server cause is classifiable and visible.
+	require.NoError(t, err)
+	require.Error(t, callback.err)
+	require.ErrorIs(t, callback.err, serveErr)
+	assert.Contains(t, callback.err.Error(), "callback server")
+}
+
+// TestRefreshCredentialsPreservesTokenEndpointFailure verifies refresh transport causes are not normalized.
+func TestRefreshCredentialsPreservesTokenEndpointFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a token endpoint transport with one unique failure.
+	endpointErr := errors.New("unique token endpoint failure")
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).Return(nil, endpointErr)
+	options := defaultDriverOptions()
+	options.httpClient = &http.Client{
+		Transport:     transport,
+		CheckRedirect: nil,
+		Jar:           nil,
+		Timeout:       0,
+	}
+	service := newDriver(
+		testConfig(), NewMockCredentials(gomock.NewController(t)), NewMockInteraction(gomock.NewController(t)), options,
+	)
+
+	// Act by refreshing stored credentials.
+	_, err := service.refreshCredentials(t.Context(), oauthCredentials{
+		AccessToken: "access", RefreshToken: "refresh", AccountID: "account", ExpiresAt: time.Time{},
+	})
+
+	// Assert endpoint context and the raw transport cause remain available.
+	require.Error(t, err)
+	require.ErrorIs(t, err, endpointErr)
+	assert.Contains(t, err.Error(), endpointErr.Error())
+	assert.Contains(t, err.Error(), "refresh OpenAI Codex credentials")
+}
+
+// TestDecodeRefreshResponsePreservesJSONCause verifies refresh response parser detail remains visible.
+func TestDecodeRefreshResponsePreservesJSONCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a successful token response with malformed JSON.
+	response := &http.Response{
+		Status: "", StatusCode: http.StatusOK, Proto: "", ProtoMajor: 0, ProtoMinor: 0,
+		Header: nil, Body: io.NopCloser(strings.NewReader(`{"access_token":`)), ContentLength: 0,
+		TransferEncoding: nil, Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
+	}
+
+	// Act by decoding the token response.
+	_, err := decodeRefreshResponse(response)
+
+	// Assert parser detail remains visible with refresh response context.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "refresh response")
+}
+
+// TestCheckProviderAuthenticationPreservesCredentialParserCause verifies sign-in classification keeps stored JSON detail.
+func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange malformed stored credentials.
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return([]byte(`{"access_token":`), true, nil)
+	service := New(testConfig(), credentials, NewMockInteraction(gomock.NewController(t)))
+
+	// Act by checking provider authentication.
+	err := service.CheckProviderAuthentication(t.Context())
+
+	// Assert sign-in classification and parser detail are both retained.
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrSignInRequired)
+	assert.Contains(t, err.Error(), "unexpected end of JSON input")
 }
 
 // testJWT encodes unsigned claims used only for provider routing tests.

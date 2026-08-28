@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -510,7 +511,132 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	assert.Equal(t, safeMessage, agentEnd.Agent.OrEmpty().ErrorMessage.OrEmpty())
 }
 
-// TestServiceRunProviderFailure exposes partial state, stores failed safe content, and excludes it from projection.
+// TestServiceRunProviderAndContentEndFailurePreservesBothCauses verifies combined stream failures reach Agent boundaries once.
+func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange partial content, failed ContentEnd delivery, and one independent provider sibling.
+	provider := NewMockModelProvider(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	providerErr := errors.New("unique provider stream sibling")
+	deliveryErr := errors.New("unique Agent ContentEnd delivery failure")
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+			content := model.Content{
+				Kind: model.ContentText, Text: mo.Some(""), Final: false,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			}
+			require.NoError(t, handle(StreamEvent{
+				Kind: StreamEventContentStart, Position: mo.Some(0), Content: mo.Some(content),
+				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}))
+			require.NoError(t, handle(StreamEvent{
+				Kind: StreamEventTextDelta, Position: mo.Some(0), Content: mo.Some(content),
+				Delta: mo.Some("partial"), Preview: mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}))
+			endErr := handle(StreamEvent{
+				Kind: StreamEventContentEnd, Position: mo.Some(0), Content: mo.Some(content),
+				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			})
+			require.ErrorIs(t, endErr, deliveryErr)
+			return errors.Join(providerErr, endErr)
+		},
+	)
+	var agentEnd AgentSummary
+	observed := make([]EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+		observed = append(observed, event.Type)
+		if event.Type == EventAgentEnd {
+			agentEnd = event.Agent.OrEmpty()
+		}
+		if event.Type == EventContentEnd {
+			return deliveryErr
+		}
+		return nil
+	}).AnyTimes()
+	service := newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
+		provider, hookrunner.New(nil, nil, nil), tools, events,
+	)
+
+	// Act by running through the joined provider and recorded delivery failure.
+	result, err := service.Run(t.Context(), Request{RunID: "provider-content-end-failure", UserText: "hello"})
+
+	// Assert both causes occur once at each surviving local boundary.
+	require.ErrorIs(t, err, providerErr)
+	require.ErrorIs(t, err, deliveryErr)
+	for _, text := range []string{err.Error(), result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+		assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
+		assert.Equal(t, 1, strings.Count(text, deliveryErr.Error()), text)
+	}
+	assert.NotContains(t, observed, EventMessageEnd)
+	assert.NotContains(t, observed, EventTurnEnd)
+}
+
+// TestServiceRunProviderAndPersistenceFailurePreservesBothCauses verifies combined failures reach every terminal boundary.
+func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a provider failure followed by failed-response persistence failure.
+	controller := gomock.NewController(t)
+	runtime := NewMockModelRuntime(controller)
+	provider := NewMockModelProvider(controller)
+	tools := NewMockToolRuntime(controller)
+	events := NewMockEventSink(controller)
+	store := NewMockHistoryStore(controller)
+	providerErr := errors.New("unique provider failure")
+	persistenceErr := fmt.Errorf("%w: unique failed-response persistence failure", ErrPersistenceUnavailable)
+	history := make([]agent.HistoryEntry, 0, 1)
+	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, entry agent.HistoryEntry) error {
+			history = append(history, cloneHistoryEntry(entry))
+			return nil
+		},
+	)
+	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistenceErr)
+	runtime.EXPECT().Current().Return(RuntimeSelection{
+		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
+	})
+	tools.EXPECT().Tools().Return(nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+			return emitStream(handle, model.Response{
+				Content: nil, Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.None[string](),
+				Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+				ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			}, providerErr)
+		},
+	)
+	var agentEnd AgentSummary
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+		if event.Type == EventAgentEnd {
+			agentEnd = event.Agent.OrEmpty()
+		}
+		return nil
+	}).AnyTimes()
+	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+	// Act by running the combined provider and persistence failure.
+	result, err := service.Run(t.Context(), Request{RunID: "combined-failure", UserText: "hello"})
+
+	// Assert the returned error, result, and terminal Agent event retain both causes.
+	require.Error(t, err)
+	require.ErrorIs(t, err, providerErr)
+	require.ErrorIs(t, err, persistenceErr)
+	for _, text := range []string{result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+		assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
+		assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
+		assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
+	}
+}
+
+// TestServiceRunProviderFailure exposes partial state, stores the provider cause, and excludes it from projection.
 func TestServiceRunProviderFailure(t *testing.T) {
 	t.Parallel()
 
@@ -561,7 +687,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		history := service.History()
 		require.Len(t, history, 2)
 		assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
-		assert.Equal(t, "Model request failed.", history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
+		assert.Contains(t, history[1].Model.OrEmpty().ErrorMessage.OrEmpty(), "provider secret")
 		assert.Len(t, service.ProjectHistory(), 1)
 	})
 }
@@ -597,6 +723,181 @@ func TestServiceRunRejectsUnknownTerminalOutcome(t *testing.T) {
 	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
 	for _, message := range history {
 		assert.NotEqual(t, model.Outcome(99), message.Model.OrEmpty().Outcome.OrEmpty())
+	}
+}
+
+// TestServiceRunMixedProviderCancellationPreservesIndependentDetail verifies mixed cancellation presentation.
+func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		mixed bool
+	}{
+		"pure cancellation":   {mixed: false},
+		"independent sibling": {mixed: true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a provider cancellation with an optional independent sibling and no response text.
+			provider := NewMockModelProvider(gomock.NewController(t))
+			tools := NewMockToolRuntime(gomock.NewController(t))
+			events := NewMockEventSink(gomock.NewController(t))
+			independentErr := errors.New("unique mixed cancellation sibling")
+			var providerErr error = context.Canceled
+			if test.mixed {
+				providerErr = errors.Join(context.Canceled, independentErr)
+			}
+			tools.EXPECT().Tools().Return(nil)
+			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+					return emitStream(handle, model.Response{
+						Content: nil, Outcome: mo.Some(model.OutcomeAborted), ErrorMessage: mo.None[string](),
+						Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+						ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+					}, providerErr)
+				},
+			)
+			var messageEnd model.Response
+			var agentEnd AgentSummary
+			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+				if event.Type == EventMessageEnd {
+					messageEnd = event.Message.OrEmpty()
+				}
+				if event.Type == EventAgentEnd {
+					agentEnd = event.Agent.OrEmpty()
+				}
+				return nil
+			}).AnyTimes()
+			service := newTestService(
+				t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
+				provider, hookrunner.New(nil, nil, nil), tools, events,
+			)
+
+			// Act by finalizing the provider cancellation.
+			result, err := service.Run(t.Context(), Request{RunID: "mixed-provider-cancel", UserText: "cancel"})
+
+			// Assert outcome and error classifications stay stable while terminal text filters cancellation leaves.
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
+			if !test.mixed {
+				assert.Equal(t, abortedModelMessage, result.ErrorMessage.OrEmpty())
+				assert.Equal(t, abortedModelMessage, messageEnd.ErrorMessage.OrEmpty())
+				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
+				return
+			}
+			require.ErrorIs(t, err, independentErr)
+			for _, text := range []string{
+				result.ErrorMessage.OrEmpty(), messageEnd.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty(),
+			} {
+				assert.Equal(t, 1, strings.Count(text, independentErr.Error()), text)
+				assert.NotContains(t, text, abortedModelMessage)
+			}
+		})
+	}
+}
+
+// TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCauses verifies cancellation filtering.
+func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCauses(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		failure string
+	}{
+		"pure cancellation":    {failure: ""},
+		"terminal validation":  {failure: "validation"},
+		"terminal persistence": {failure: "persistence"},
+		"terminal delivery":    {failure: "delivery"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange provider cancellation with an optional independent terminal failure.
+			controller := gomock.NewController(t)
+			runtime := NewMockModelRuntime(controller)
+			provider := NewMockModelProvider(controller)
+			tools := NewMockToolRuntime(controller)
+			events := NewMockEventSink(controller)
+			store := NewMockHistoryStore(controller)
+			siblingErr := errors.New("unique " + test.failure + " failure")
+			history := make([]agent.HistoryEntry, 0, 2)
+			modelAppendCalls := 0
+			store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+			store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, entry agent.HistoryEntry) error {
+					if entry.Kind == agent.HistoryEntryModel {
+						modelAppendCalls++
+						if test.failure == "persistence" {
+							return siblingErr
+						}
+					}
+					history = append(history, cloneHistoryEntry(entry))
+					return nil
+				},
+			).AnyTimes()
+			runtime.EXPECT().Current().Return(RuntimeSelection{
+				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
+			})
+			tools.EXPECT().Tools().Return(nil)
+			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
+					if test.failure == "validation" {
+						require.NoError(t, handle(StreamEvent{
+							Kind: StreamEventContentStart, Position: mo.Some(1),
+							Content: mo.Some(model.Content{
+								Kind: model.ContentText, Text: mo.Some(""), Final: false,
+								ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+							}),
+							Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
+							ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+						}))
+						return context.Canceled
+					}
+					return emitStream(handle, model.Response{
+						Content: nil, Outcome: mo.Some(model.OutcomeAborted), ErrorMessage: mo.None[string](),
+						Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
+						ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+					}, context.Canceled)
+				},
+			)
+			var agentEnd AgentSummary
+			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+				if event.Type == EventAgentEnd {
+					agentEnd = event.Agent.OrEmpty()
+				}
+				if test.failure == "delivery" && event.Type == EventMessageEnd {
+					return siblingErr
+				}
+				return nil
+			}).AnyTimes()
+			service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+			// Act by running the canceled provider through terminal finalization.
+			result, err := service.Run(t.Context(), Request{RunID: "cancellation-terminal-failure", UserText: "cancel"})
+
+			// Assert pure cancellation is canonical and combined failures expose only non-cancellation detail.
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
+			if test.failure == "" {
+				assert.Equal(t, abortedModelMessage, result.ErrorMessage.OrEmpty())
+				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
+				assert.Equal(t, 1, modelAppendCalls)
+				return
+			}
+			if test.failure == "validation" {
+				assert.Contains(t, err.Error(), "unknown kind")
+				assert.Contains(t, result.ErrorMessage.OrEmpty(), "unknown kind")
+				assert.Contains(t, agentEnd.ErrorMessage.OrEmpty(), "unknown kind")
+				assert.Zero(t, modelAppendCalls)
+				return
+			}
+			require.ErrorIs(t, err, siblingErr)
+			assert.Contains(t, result.ErrorMessage.OrEmpty(), siblingErr.Error())
+			assert.Contains(t, agentEnd.ErrorMessage.OrEmpty(), siblingErr.Error())
+			assert.Equal(t, 1, modelAppendCalls)
+		})
 	}
 }
 
@@ -756,7 +1057,7 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 	}
 }
 
-// TestServiceRunStopsBeforeProviderWhenUserPersistenceFails verifies safe terminal failure precedes dependent work.
+// TestServiceRunStopsBeforeProviderWhenUserPersistenceFails verifies user persistence causes reach the terminal result.
 func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	t.Parallel()
 
@@ -779,14 +1080,123 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	// Act by starting a run whose first durable user entry fails.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
 
-	// Assert only safe terminal events and text escape before settlement.
+	// Assert the persistence cause reaches the terminal result before settlement.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
 	assert.Equal(t, []EventType{EventAgentStart, EventAgentEnd}, observed)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
-// TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails verifies external effect retention without dependent values.
+// TestServiceRunToolFailureAndPersistenceFailurePreservesCauses verifies blocked ToolResults retain prior failures.
+func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		progressFailure bool
+	}{
+		"tool execution":    {progressFailure: false},
+		"progress delivery": {progressFailure: true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a tool or progress failure followed by ToolResult persistence failure.
+			controller := gomock.NewController(t)
+			runtime := NewMockModelRuntime(controller)
+			provider := NewMockModelProvider(controller)
+			tools := NewMockToolRuntime(controller)
+			events := NewMockEventSink(controller)
+			store := NewMockHistoryStore(controller)
+			toolErr := errors.New("unique tool execution failure")
+			progressErr := errors.New("unique progress delivery failure")
+			persistenceErr := fmt.Errorf("%w: unique ToolResult persistence failure", ErrPersistenceUnavailable)
+			call := model.ToolCall{ID: "combined-tool", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
+			response := model.Response{
+				Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
+				ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](),
+				Diagnostics: nil,
+			}
+			history := make([]agent.HistoryEntry, 0, 2)
+			store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+			gomock.InOrder(
+				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, entry agent.HistoryEntry) error {
+						history = append(history, cloneHistoryEntry(entry))
+						return nil
+					},
+				),
+				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, entry agent.HistoryEntry) error {
+						require.Equal(t, agent.HistoryEntryModel, entry.Kind)
+						history = append(history, cloneHistoryEntry(entry))
+						return nil
+					},
+				),
+				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, entry agent.HistoryEntry) error {
+						require.Equal(t, agent.HistoryEntryToolResult, entry.Kind)
+						return persistenceErr
+					},
+				),
+			)
+			runtime.EXPECT().Current().Return(RuntimeSelection{
+				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
+			})
+			tools.EXPECT().Tools().Return(nil)
+			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
+			observed := make([]EventType, 0)
+			var agentEnd AgentSummary
+			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+				observed = append(observed, event.Type)
+				if event.Type == EventAgentEnd {
+					agentEnd = event.Agent.OrEmpty()
+				}
+				if test.progressFailure && event.Type == EventToolExecutionUpdate {
+					return progressErr
+				}
+				return nil
+			}).AnyTimes()
+			tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).DoAndReturn(
+				func(_ context.Context, _ model.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
+					if test.progressFailure {
+						err := handleProgress(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"})
+						require.ErrorIs(t, err, progressErr)
+						return agent.ToolResult{
+							CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("partial"), IsError: false,
+						}, fmt.Errorf("runtime propagated progress: %w", err)
+					}
+					return agent.ToolResult{}, toolErr
+				},
+			)
+			service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+
+			// Act by running until persistence blocks the ToolResult boundary.
+			result, err := service.Run(t.Context(), Request{RunID: "combined-tool-failure", UserText: "write"})
+
+			// Assert every independent cause reaches the run and no dependent work follows persistence failure.
+			require.ErrorIs(t, err, persistenceErr)
+			expectedPriorErr := toolErr
+			if test.progressFailure {
+				expectedPriorErr = progressErr
+			}
+			require.ErrorIs(t, err, expectedPriorErr)
+			for _, text := range []string{err.Error(), result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+				assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
+				assert.Equal(t, 1, strings.Count(text, expectedPriorErr.Error()), text)
+			}
+			for _, text := range []string{result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+				assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
+			}
+			assert.NotContains(t, observed, EventToolExecutionEnd)
+			assert.NotContains(t, observed, EventToolResult)
+			require.Len(t, history, 2)
+		})
+	}
+}
+
+// TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails verifies tool-result persistence causes reach the terminal result.
 func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.T) {
 	t.Parallel()
 
@@ -856,16 +1266,16 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	// Act by running through one completed tool invocation whose result cannot become durable.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
 
-	// Assert the external effect remains complete while terminal values and continuation stay hidden.
+	// Assert the external effect remains complete and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
 	assert.NotContains(t, observed, EventToolExecutionEnd)
 	assert.NotContains(t, observed, EventToolResult)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
-// TestServiceRunHidesMessageEndWhenModelPersistenceFails verifies terminal model data stays hidden before durability.
+// TestServiceRunHidesMessageEndWhenModelPersistenceFails verifies model persistence causes reach the terminal result.
 func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	t.Parallel()
 
@@ -914,11 +1324,45 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	// Act by completing a provider response that cannot become durable.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})
 
-	// Assert no terminal model event or unsafe infrastructure text escapes.
+	// Assert no terminal model event escapes and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, "session persistence failed", result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
 	assert.NotContains(t, observed, EventMessageEnd)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+}
+
+// TestEndTurnPreservesRunAndDeliveryFailures verifies a failed terminal delivery retains the run cause.
+func TestEndTurnPreservesRunAndDeliveryFailures(t *testing.T) {
+	t.Parallel()
+
+	// Arrange independent run and turn-delivery failures.
+	provider := NewMockModelProvider(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	runErr := errors.New("unique terminal run failure")
+	deliveryErr := errors.New("unique turn delivery failure")
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, event Event) error {
+			assert.Equal(t, EventTurnEnd, event.Type)
+			return deliveryErr
+		},
+	)
+	service := newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
+		provider, hookrunner.New(nil, nil, nil), tools, events,
+	)
+
+	// Act by ending a failed run whose turn event cannot be delivered.
+	result, _, err := service.endTurn(
+		t.Context(), "combined-turn-failure", model.Response{}, nil,
+		agent.RunOutcomeFailed, runErr.Error(), runErr,
+	)
+
+	// Assert both independent causes remain in the returned error and terminal result.
+	require.ErrorIs(t, err, runErr)
+	require.ErrorIs(t, err, deliveryErr)
+	assert.Contains(t, result.ErrorMessage.OrEmpty(), runErr.Error())
+	assert.Contains(t, result.ErrorMessage.OrEmpty(), deliveryErr.Error())
 }
 
 // TestServiceRunEventDeliveryFailure ends the run, attempts agent_end, and starts no provider or tool work.
@@ -1113,7 +1557,7 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	assert.Equal(t, "persisted input", history[0].User.OrEmpty().Content[0].Text.OrEmpty())
 }
 
-// TestServiceRunStopsOnContextHookFailure verifies safe terminal failure before provider invocation.
+// TestServiceRunStopsOnContextHookFailure verifies context hook causes reach terminal results and history.
 func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	t.Parallel()
 
@@ -1122,10 +1566,11 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	events := NewMockEventSink(gomock.NewController(t))
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	laterCalls := 0
+	hookErr := errors.New("unique context hook error")
 	hookRunner := hookrunner.New([]hooks.ContextHandler{
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
 			value.History[0].User.OrEmpty().Content[0].Text = mo.Some("secret transformed context")
-			return hooks.Context{}, errors.New("secret raw hook error")
+			return hooks.Context{}, hookErr
 		},
 		func(_ context.Context, value hooks.Context) (hooks.Context, error) {
 			laterCalls++
@@ -1137,15 +1582,16 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	result, err := service.Run(t.Context(), Request{RunID: "context-failure", UserText: "persisted input"})
 
 	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "secret")
+	require.ErrorIs(t, err, hookErr)
+	assert.Contains(t, err.Error(), hookErr.Error())
 	assert.Equal(t, agent.RunOutcomeFailed, result.Outcome)
-	assert.Equal(t, failedModelMessage, result.ErrorMessage.OrEmpty())
+	assert.Contains(t, result.ErrorMessage.OrEmpty(), hookErr.Error())
 	assert.Zero(t, laterCalls)
 	history := service.History()
 	require.Len(t, history, 2)
 	assert.Equal(t, "persisted input", history[0].User.OrEmpty().Content[0].Text.OrEmpty())
 	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
-	assert.Equal(t, failedModelMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Contains(t, history[1].Model.OrEmpty().ErrorMessage.OrEmpty(), hookErr.Error())
 	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.OrEmpty().Diagnostics)
 	assert.Equal(t, []agent.HistoryEntry{history[0]}, service.ProjectHistory())
 }

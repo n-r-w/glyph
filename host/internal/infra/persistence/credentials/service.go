@@ -158,7 +158,10 @@ func (s *Service) readStore() (credentialStore, bool, error) {
 	var extra any
 	trailingErr := decoder.Decode(&extra)
 	if !errors.Is(trailingErr, io.EOF) {
-		return credentialStore{}, false, errors.New("decode trailing credential store data")
+		if trailingErr == nil {
+			return credentialStore{}, false, errors.New("decode trailing credential store data")
+		}
+		return credentialStore{}, false, fmt.Errorf("decode trailing credential store data: %w", trailingErr)
 	}
 	if store.Version != credentialStoreVersion {
 		return credentialStore{}, false, fmt.Errorf(

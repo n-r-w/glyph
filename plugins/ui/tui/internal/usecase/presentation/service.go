@@ -114,7 +114,7 @@ func applyError(state *presentationdomain.State, event presentationdomain.Event)
 	if event.Text.IsNone() {
 		return
 	}
-	if event.Text.OrEmpty() == "session persistence failed" {
+	if strings.HasPrefix(event.Text.OrEmpty(), "session persistence failed") {
 		// Failed terminal persistence discards only unconfirmed model and tool presentation state.
 		clear(state.ActiveModel)
 		clear(state.ActiveToolCalls)

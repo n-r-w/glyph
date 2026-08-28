@@ -46,28 +46,43 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, new(ServiceSuite))
 }
 
-// TestRunPreparationBusyUsesDomainError verifies busy preparation returns a safe rejection without an operation.
-func TestRunPreparationBusyUsesDomainError(t *testing.T) {
+// TestRunPreparationRejectionPreservesClassificationAndCause verifies preparation errors retain domain behavior and details.
+func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a coordinator that rejects run preparation with the session busy error.
-	controllerMock := gomock.NewController(t)
-	coordinator := NewMockCoordinator(controllerMock)
-	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+	tests := []struct {
+		name            string
+		prepareErr      error
+		expectedCode    controller.RejectionCode
+		expectedMessage string
+	}{
+		{name: "busy", prepareErr: session.ErrBusy, expectedCode: controller.RejectionBusy, expectedMessage: "another operation is active"},
+		{name: "internal", prepareErr: errors.New("allocate unique run ID"), expectedCode: controller.RejectionInternal, expectedMessage: "Host run ID allocation failed: allocate unique run ID"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange a coordinator that rejects run preparation.
+			controllerMock := gomock.NewController(t)
+			coordinator := NewMockCoordinator(controllerMock)
+			coordinator.EXPECT().PrepareRun().Return("", test.prepareErr)
+			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 
-	// Act by handling a user request while run preparation is busy.
-	response, operation, err := service.Handle(t.Context(), controller.Command{
-		CorrelationID: "busy", Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
-		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:       mo.None[session.ID](), SessionName: mo.None[string](),
-	})
+			// Act by handling a user request while run preparation fails.
+			response, operation, err := service.Handle(t.Context(), controller.Command{
+				CorrelationID: test.name, Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
+				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[session.ID](), SessionName: mo.None[string](),
+			})
 
-	// Assert the response is a busy rejection and no accepted operation is returned.
-	require.NoError(t, err)
-	assert.Nil(t, operation)
-	assert.Equal(t, controller.RejectionBusy, response.Rejection.MustGet().Code)
+			// Assert domain classification remains stable and internal details reach the rejection boundary.
+			require.NoError(t, err)
+			assert.Nil(t, operation)
+			assert.Equal(t, test.expectedCode, response.Rejection.MustGet().Code)
+			assert.Equal(t, test.expectedMessage, response.Rejection.MustGet().Message)
+		})
+	}
 }
 
 // TestSessionReplacementPreservesNondefaultModelSelection verifies create and resume keep runtime selection unchanged.
@@ -150,8 +165,9 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy, expectedMessage: "another operation is active"},
 		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument, expectedMessage: "session name is required"},
 		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound, expectedMessage: "session was not found"},
-		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: session.ErrUnavailable, expected: controller.RejectionSessionUnavailable, expectedMessage: "session is unavailable"},
-		{name: "persistence unavailable", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("secret session name"), operationErr: fmt.Errorf("%w: /secret/path provider-context extension-json disk failed", session.ErrPersistenceUnavailable), expected: controller.RejectionPersistenceUnavailable, expectedMessage: "session persistence failed"},
+		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: fmt.Errorf("load session: %w: decode record 7: unique parser failure", session.ErrUnavailable), expected: controller.RejectionSessionUnavailable, expectedMessage: "load session: session is unavailable: decode record 7: unique parser failure"},
+		{name: "persistence unavailable", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("session name"), operationErr: fmt.Errorf("rename session: %w: disk sync failed", session.ErrPersistenceUnavailable), expected: controller.RejectionPersistenceUnavailable, expectedMessage: "rename session: session persistence failed: disk sync failed"},
+		{name: "internal", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: errors.New("create session invariant failed"), expected: controller.RejectionInternal, expectedMessage: "session operation failed: create session invariant failed"},
 	}
 
 	// Act by handling each failing session command in an independent subtest.
@@ -211,12 +227,13 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 		SessionName: mo.None[string](),
 	})
 
-	// Assert the service returns a safe internal rejection without partial entries.
+	// Assert the service returns the mapping cause with an internal rejection and no partial entries.
 	require.NoError(t, err)
 	require.Nil(t, operation)
 	require.Equal(t, controller.ResponseRejected, response.Kind)
 	require.True(t, response.Rejection.IsPresent())
 	require.Equal(t, controller.RejectionInternal, response.Rejection.MustGet().Code)
+	require.Contains(t, response.Rejection.MustGet().Message, "invalid payload fields for kind 2")
 	require.Nil(t, response.SessionEntries)
 }
 
@@ -650,8 +667,8 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	}
 }
 
-// TestSelectionErrorsMapToSafeRejections verifies the catalog error boundary.
-func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
+// TestSelectionErrorsPreserveRejectionCodesAndCauses verifies the catalog error boundary.
+func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 	tests := []struct {
 		name string
 		err  error
@@ -694,9 +711,7 @@ func (s *ServiceSuite) TestSelectionErrorsMapToSafeRejections() {
 			s.Nil(operation)
 			s.Equal(controller.ResponseRejected, response.Kind)
 			s.Equal(test.code, response.Rejection.OrEmpty().Code)
-			if test.code == controller.RejectionInternal {
-				s.NotContains(response.Rejection.OrEmpty().Message, "internal details")
-			}
+			s.Contains(response.Rejection.OrEmpty().Message, test.err.Error())
 		})
 	}
 }

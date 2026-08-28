@@ -3,6 +3,7 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -104,6 +105,13 @@ func (s *Service) open(stream OpenStream) error {
 	cleanupErr := s.session.CancelAndWait(context.WithoutCancel(s.applicationContext))
 	commandWork.Unlock()
 	eventWork.Wait()
+	if applicationErr := s.applicationContext.Err(); applicationErr != nil {
+		terminal = collectReadyTerminal(terminal, eventTerminals)
+		terminal = collectReadyTerminal(terminal, receiveTerminals)
+		terminal = applicationCanceledTerminal(applicationErr, terminal.err)
+	} else if terminal.clean || stream.Context().Err() != nil {
+		terminal = ownerClosedTerminal(terminal, eventTerminals, receiveTerminals)
+	}
 	completion, rpcErr := s.complete(stream.Context(), terminal, cleanupErr)
 	s.completions <- completion
 	return rpcErr
@@ -128,28 +136,28 @@ func (s *Service) waitForTerminal(
 	case selected = <-eventTerminals:
 	case selected = <-receiveTerminals:
 	}
-	return s.applyTerminalPrecedence(streamContext, selected, receiveTerminals)
+	return s.applyTerminalPrecedence(streamContext, selected, eventTerminals, receiveTerminals)
 }
 
 func (s *Service) applyTerminalPrecedence(
 	streamContext context.Context,
 	selected terminalResult,
+	eventTerminals <-chan terminalResult,
 	receiveTerminals <-chan terminalResult,
 ) terminalResult {
 	if err := s.applicationContext.Err(); err != nil {
-		return terminalResult{
-			cause: SessionCompletionApplicationCanceled, err: err, clean: false, passthrough: true,
-		}
+		selected = collectReadyTerminal(selected, eventTerminals)
+		selected = collectReadyTerminal(selected, receiveTerminals)
+		return applicationCanceledTerminal(err, selected.err)
 	}
 	if selected.clean || streamContext.Err() != nil {
-		return terminalResult{
-			cause: SessionCompletionCleanClientClosure, err: nil, clean: true, passthrough: false,
-		}
+		return ownerClosedTerminal(selected, eventTerminals, receiveTerminals)
 	}
 	select {
 	case received := <-receiveTerminals:
 		if received.clean {
-			return received
+			selected.err = joinIndependentError(selected.err, received.err)
+			return ownerClosedTerminal(selected, eventTerminals, nil)
 		}
 	default:
 	}
@@ -309,26 +317,133 @@ func (s *Service) complete(
 	completion := SessionCompletion{Cause: terminal.cause, Err: terminal.err, CleanupErr: cleanupErr}
 	if err := s.applicationContext.Err(); err != nil {
 		completion.Cause = SessionCompletionApplicationCanceled
-		completion.Err = err
+		completion.Err = joinIndependentError(err, completion.Err)
 		return completion, status.FromContextError(err).Err()
 	}
 	if streamContext.Err() != nil || terminal.clean {
+		completion.Err = withoutOwnerClosure(completion.Err)
+		if completion.Err != nil {
+			if cleanupErr != nil {
+				completion.Err = joinIndependentError(completion.Err, cleanupErr)
+				return completion, status.Error(
+					codes.Internal, fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr),
+				)
+			}
+			return completion, nil
+		}
 		if cleanupErr != nil {
 			completion.Cause = SessionCompletionCleanupFailure
 			completion.Err = cleanupErr
-			return completion, status.Error(codes.Internal, "clean up Programmatic Control session")
+			return completion, status.Error(codes.Internal, fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr))
 		}
 		completion.Cause = SessionCompletionCleanClientClosure
 		completion.Err = nil
 		return completion, nil
 	}
-	if terminal.cause == SessionCompletionTransportFailure && terminal.passthrough {
-		if _, ok := status.FromError(terminal.err); ok {
+	transportPassthrough := terminal.cause == SessionCompletionTransportFailure && terminal.passthrough
+	_, transportStatus := status.FromError(terminal.err)
+	protocolPassthrough := terminal.cause == SessionCompletionProtocolFailure && terminal.passthrough
+	if transportPassthrough && transportStatus || protocolPassthrough {
+		if cleanupErr == nil {
 			return completion, terminal.err
 		}
+		terminalStatus := status.Convert(terminal.err)
+		message := fmt.Sprintf(
+			"%s: clean up Programmatic Control session: %v", terminalStatus.Message(), cleanupErr,
+		)
+		return completion, status.Error(terminalStatus.Code(), message)
 	}
-	if terminal.cause == SessionCompletionProtocolFailure && terminal.passthrough {
-		return completion, terminal.err
+	message := fmt.Sprintf("Programmatic Control controller failed: %v", terminal.err)
+	if cleanupErr != nil {
+		message = fmt.Sprintf("%s: clean up Programmatic Control session: %v", message, cleanupErr)
 	}
-	return completion, status.Error(codes.Internal, "Programmatic Control controller failed")
+	return completion, status.Error(codes.Internal, message)
+}
+
+// ownerClosedTerminal removes only closure leaves after collecting already-ready terminals.
+func ownerClosedTerminal(
+	selected terminalResult,
+	eventTerminals <-chan terminalResult,
+	receiveTerminals <-chan terminalResult,
+) terminalResult {
+	selected = collectReadyTerminal(selected, eventTerminals)
+	selected = collectReadyTerminal(selected, receiveTerminals)
+	selected.err = withoutOwnerClosure(selected.err)
+	selected.clean = true
+	if selected.err == nil {
+		selected.cause = SessionCompletionCleanClientClosure
+		selected.passthrough = false
+	}
+	return selected
+}
+
+// collectReadyTerminal joins one terminal that is already published without blocking arbitration.
+func collectReadyTerminal(current terminalResult, terminals <-chan terminalResult) terminalResult {
+	select {
+	case ready := <-terminals:
+		if ready.err != nil && (current.err == nil || current.clean) {
+			current.cause = ready.cause
+			current.passthrough = ready.passthrough
+		}
+		current.err = joinIndependentError(current.err, ready.err)
+	default:
+	}
+	return current
+}
+
+// withoutOwnerClosure removes closure-equivalent leaves and keeps wrappers around surviving causes.
+func withoutOwnerClosure(err error) error {
+	if err == nil {
+		return nil
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		filtered := make([]error, 0, len(joined.Unwrap()))
+		for _, nested := range joined.Unwrap() {
+			if remaining := withoutOwnerClosure(nested); remaining != nil {
+				filtered = append(filtered, remaining)
+			}
+		}
+		return errors.Join(filtered...)
+	}
+	if nested := errors.Unwrap(err); nested != nil {
+		remaining := withoutOwnerClosure(nested)
+		if remaining == nil {
+			return nil
+		}
+		if isOwnerClosure(err) {
+			return remaining
+		}
+		return err
+	}
+	if isOwnerClosure(err) {
+		return nil
+	}
+	return err
+}
+
+// isOwnerClosure identifies one EOF, context cancellation, or gRPC cancellation leaf.
+func isOwnerClosure(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || status.Code(err) == codes.Canceled
+}
+
+// applicationCanceledTerminal keeps cancellation ownership and any independent terminal cause.
+func applicationCanceledTerminal(applicationErr, terminalErr error) terminalResult {
+	return terminalResult{
+		cause: SessionCompletionApplicationCanceled,
+		err:   joinIndependentError(applicationErr, terminalErr), clean: false, passthrough: true,
+	}
+}
+
+// joinIndependentError keeps the broader chain when either error already contains the other.
+func joinIndependentError(current, candidate error) error {
+	if candidate == nil {
+		return current
+	}
+	if current == nil || errors.Is(candidate, current) {
+		return candidate
+	}
+	if errors.Is(current, candidate) {
+		return current
+	}
+	return errors.Join(current, candidate)
 }

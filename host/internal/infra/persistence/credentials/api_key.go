@@ -31,7 +31,7 @@ type APIKeySource struct {
 	Value string
 }
 
-// APIKeyError reports a safe API-key resolution failure.
+// APIKeyError reports an API-key resolution failure with source context.
 type APIKeyError struct {
 	Source APIKeySourceKind
 	Name   string
@@ -40,13 +40,17 @@ type APIKeyError struct {
 
 // Error returns source metadata without resolved key material.
 func (e *APIKeyError) Error() string {
-	if e.Name == "" {
-		return fmt.Sprintf("resolve %s API key: unavailable", e.Source)
+	message := fmt.Sprintf("resolve %s API key", e.Source)
+	if e.Name != "" {
+		message = fmt.Sprintf("%s %q", message, e.Name)
 	}
-	return fmt.Sprintf("resolve %s API key %q: unavailable", e.Source, e.Name)
+	if e.cause != nil {
+		return fmt.Sprintf("%s: %v", message, e.cause)
+	}
+	return message + ": unavailable"
 }
 
-// Unwrap exposes cancellation without exposing credential-storage details.
+// Unwrap exposes the retained resolution cause for classification.
 func (e *APIKeyError) Unwrap() error {
 	return e.cause
 }
@@ -98,7 +102,10 @@ func (r *APIKeyResolver) ValidateSelectionCredentials(ctx context.Context) error
 
 func (r *APIKeyResolver) resolveCredential(ctx context.Context) (string, error) {
 	payload, found, err := New(r.path, r.source.Value).Load()
-	if err != nil || !found {
+	if err != nil {
+		return "", r.safeError(fmt.Errorf("load credential: %w", err))
+	}
+	if !found {
 		return "", r.safeError(nil)
 	}
 	if err = ctx.Err(); err != nil {
@@ -111,11 +118,14 @@ func (r *APIKeyResolver) resolveCredential(ctx context.Context) (string, error) 
 		Key  string `json:"key"`
 	}
 	if err = decoder.Decode(&credential); err != nil {
-		return "", r.safeError(nil)
+		return "", r.safeError(fmt.Errorf("decode credential payload: %w", err))
 	}
 	var extra any
 	if err = decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return "", r.safeError(nil)
+		if err == nil {
+			return "", r.safeError(nil)
+		}
+		return "", r.safeError(fmt.Errorf("decode trailing credential payload: %w", err))
 	}
 	if credential.Type != "api_key" || credential.Key == "" {
 		return "", r.safeError(nil)

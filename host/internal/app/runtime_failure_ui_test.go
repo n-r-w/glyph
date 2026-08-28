@@ -141,7 +141,7 @@ func runRuntimeFailureUI(
 	if err != nil {
 		return err
 	}
-	observation.NamingSafe = exactPersistenceText(failureText) && exactPersistenceText(blockedText)
+	observation.NamingSafe = persistenceFailureText(failureText) && persistenceFailureText(blockedText)
 	active, err := runtimeUIInformation(stream)
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func runRuntimeFailureUI(
 	if err != nil {
 		return err
 	}
-	observation.FirstUserSafe = exactPersistenceText(firstText) && equalLifecycleTypes(firstEvents, []uipb.LifecycleType{
+	observation.FirstUserSafe = persistenceFailureText(firstText) && equalLifecycleTypes(firstEvents, []uipb.LifecycleType{
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
@@ -196,7 +196,7 @@ func runRuntimeFailureUI(
 	if err = os.Chmod(modelSession.StoragePath, 0o600); err != nil {
 		return err
 	}
-	observation.ModelSafe = exactPersistenceText(modelText) &&
+	observation.ModelSafe = persistenceFailureText(modelText) &&
 		!containsLifecycleType(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END) &&
 		!containsLifecycleType(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START)
 
@@ -219,7 +219,7 @@ func runRuntimeFailureUI(
 	}
 	effect, effectErr := os.ReadFile(os.Getenv(appUIRuntimeEffectEnvironment))
 	observation.ToolCompleted = effectErr == nil && string(effect) == "tool-effect"
-	observation.ToolSafe = exactPersistenceText(toolText) &&
+	observation.ToolSafe = persistenceFailureText(toolText) &&
 		containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START) &&
 		!containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END) &&
 		!containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT)
@@ -242,7 +242,7 @@ func runRuntimeFailureUI(
 	if err != nil {
 		return err
 	}
-	observation.ContentionBusy = busyText == "Session replacement is unavailable."
+	observation.ContentionBusy = busyText == "Session replacement is unavailable: another operation is active"
 	if err = signalRuntimeRelease(os.Getenv(appUIRuntimeReleaseEnvironment)); err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func runRuntimeFailureUI(
 	if err = os.Chmod(contentionSession.StoragePath, 0o600); err != nil {
 		return err
 	}
-	observation.ModelSafe = observation.ModelSafe && exactPersistenceText(contentionText) &&
+	observation.ModelSafe = observation.ModelSafe && persistenceFailureText(contentionText) &&
 		!containsLifecycleType(restEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END)
 	resumed, err := runtimeUIResumeSuccess(stream, contentionSession.ID)
 	if err != nil {
@@ -272,7 +272,7 @@ func runRuntimeFailureUI(
 	if err != nil {
 		return err
 	}
-	observation.ResumeSafe = exactPersistenceText(resumeText) && active.ID == contentionSession.ID
+	observation.ResumeSafe = persistenceFailureText(resumeText) && active.ID == contentionSession.ID
 	interruptedPath := filepath.Join(filepath.Dir(contentionSession.StoragePath), "runtime-interrupted.jsonl")
 	if err = clearImmutable(stream.Context(), interruptedPath); err != nil {
 		return err
@@ -372,7 +372,7 @@ func runtimeUICollectFailure(
 			return nil, "", err
 		}
 		if hostError := frame.GetError(); hostError != nil {
-			if !exactPersistenceText(hostError.GetText()) {
+			if !persistenceFailureText(hostError.GetText()) {
 				return nil, "", fmt.Errorf("unsafe Host runtime error: %s", hostError.GetText())
 			}
 			continue
@@ -478,8 +478,8 @@ func clearImmutable(ctx context.Context, path string) error {
 	return exec.CommandContext(ctx, "/usr/bin/chflags", "nouchg", path).Run()
 }
 
-func exactPersistenceText(text string) bool {
-	return text == "session persistence failed"
+func persistenceFailureText(text string) bool {
+	return strings.Contains(text, "session persistence failed")
 }
 
 func containsLifecycleType(events []uipb.LifecycleType, expected uipb.LifecycleType) bool {

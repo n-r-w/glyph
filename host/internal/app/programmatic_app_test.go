@@ -35,6 +35,7 @@ import (
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -448,14 +449,13 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 
-	// Assert both mutations use exact safe rejection while durable queries retain the prior snapshot.
+	// Assert both mutations retain persistence classification while durable queries retain the prior snapshot.
 	for _, result := range []*programmaticv1.CommandRejected{rejected, rejectedAgain} {
 		require.NotNil(t, result)
 		assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, result.GetCode())
-		assert.Equal(t, "session persistence failed", result.GetMessage())
-		assert.NotContains(t, result.GetMessage(), storagePath)
-		assert.NotContains(t, result.GetMessage(), "secret replacement")
+		assert.Contains(t, result.GetMessage(), "session persistence failed")
 	}
+	assert.Contains(t, strings.ToLower(rejected.GetMessage()), "permission")
 	assert.Equal(t, initial.GetId(), info.GetId())
 	assert.Equal(t, "durable name", info.GetName())
 	require.Empty(t, entries)
@@ -494,7 +494,8 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 		programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END,
 		programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED,
 	}, eventTypes)
-	assert.Equal(t, "session persistence failed", terminalText)
+	assert.Contains(t, terminalText, "session persistence failed")
+	assert.Contains(t, strings.ToLower(terminalText), "permission")
 	assert.Zero(t, requestCount.Load())
 	recovered := send("create-after-run-failure", func(request *programmaticv1.OpenRequest) {
 		request.SetCreateSession(new(programmaticv1.CreateSession))
@@ -563,7 +564,8 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	assert.Equal(t, int32(1), requests.Load())
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_MESSAGE_END)
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START)
-	assert.Equal(t, "session persistence failed", terminalText)
+	assert.Contains(t, terminalText, "session persistence failed")
+	assert.Contains(t, strings.ToLower(terminalText), "permission")
 	assert.Equal(t, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED, events[len(events)-1])
 	require.NoError(t, os.Chmod(named.GetStoragePath(), 0o600))
 	resumed := sendProgrammaticCommand(t, fixture, "resume-after-terminal-failure", func(request *programmaticv1.OpenRequest) {
@@ -622,7 +624,8 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 	assert.Contains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START)
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_END)
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_RESULT)
-	assert.Equal(t, "session persistence failed", terminalText)
+	assert.Contains(t, terminalText, "session persistence failed")
+	assert.Contains(t, strings.ToLower(terminalText), "permission")
 }
 
 // TestResumeRecoveryPersistenceFailureProcessPath verifies Programmatic recovery failure preserves active state and permits retry.
@@ -674,10 +677,11 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("prior active remains writable")}.Build())
 	}).GetSessionInfo().GetInfo()
 
-	// Assert safe rejection, preserved prior state, and a failed-recovery diagnostic without private input.
+	// Assert detailed rejection, preserved prior state, and a failed-recovery diagnostic.
 	require.NotNil(t, rejected)
 	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, rejected.GetCode())
-	assert.Equal(t, "session persistence failed", rejected.GetMessage())
+	assert.Contains(t, rejected.GetMessage(), "session persistence failed")
+	assert.Contains(t, rejected.GetMessage(), "operation not permitted")
 	assert.Equal(t, active.GetId(), priorInfo.GetId())
 	assert.Equal(t, "active before recovery failure", priorInfo.GetName())
 	assert.Empty(t, priorEntries)
@@ -686,8 +690,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	assert.Equal(t, "prior active remains writable", priorRenamed.GetName())
 	failedRecoveryLog := logs.String()
 	assert.Contains(t, failedRecoveryLog, `"operation":"resume"`)
-	assert.NotContains(t, failedRecoveryLog, recoveryFixtures.interruptedID)
-	assert.NotContains(t, failedRecoveryLog, recoveryFixtures.interruptedPath)
+	assert.Contains(t, failedRecoveryLog, recoveryFixtures.interruptedPath)
 	assert.NotContains(t, failedRecoveryLog, "preceding tail text")
 	assert.NotContains(t, failedRecoveryLog, "provider-context")
 	assert.NotContains(t, failedRecoveryLog, "extension-json")
@@ -999,6 +1002,162 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 	require.ErrorIs(t, runErr, context.Canceled)
 	fixture.assertClosed(t)
 	assert.Equal(t, int32(1), requestCount.Load())
+}
+
+// TestApplicationCancellationRetainsBufferedProtocolCompletion verifies ready terminal sources survive arbitration.
+func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationRetainsBufferedProtocolCompletion() {
+	t := testSuite.T()
+
+	// Arrange repeated valid canceled contexts with an already-buffered protocol completion.
+	for index := range 16 {
+		protocolErr := status.Error(codes.InvalidArgument, fmt.Sprintf("unique buffered protocol failure %d", index))
+		cleanupErr := fmt.Errorf("unique buffered cleanup failure %d", index)
+		completions := make(chan controllerprogrammatic.SessionCompletion, 1)
+		completions <- controllerprogrammatic.SessionCompletion{
+			Cause: controllerprogrammatic.SessionCompletionApplicationCanceled,
+			Err:   errors.Join(context.Canceled, protocolErr), CleanupErr: cleanupErr,
+		}
+		server := grpc.NewServer(grpc.WaitForHandlers(true))
+		socketService, err := programmaticsocket.New(t.Context(), "")
+		require.NoError(t, err)
+		canceledContext, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		// Act with cancellation and completion ready before arbitration.
+		runErr := runProgrammaticServer(
+			canceledContext, server, socketService, completions, newIdleProgrammaticTestSession(t),
+		)
+
+		// Assert cancellation, protocol, and cleanup causes each survive once.
+		require.ErrorIs(t, runErr, context.Canceled)
+		require.ErrorIs(t, runErr, protocolErr)
+		require.ErrorIs(t, runErr, cleanupErr)
+		assert.Equal(t, 1, strings.Count(runErr.Error(), context.Canceled.Error()))
+		assert.Equal(t, 1, strings.Count(runErr.Error(), protocolErr.Error()))
+		assert.Equal(t, 1, strings.Count(runErr.Error(), cleanupErr.Error()))
+		require.NoError(t, socketService.Close())
+	}
+}
+
+// TestApplicationCancellationRetainsServeFailure verifies listener failure survives cancellation.
+func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationRetainsServeFailure() {
+	t := testSuite.T()
+
+	// Arrange cancellation and one preloaded independent Serve result before explicit Stop.
+	serveErr := errors.New("unique deterministic Serve failure")
+	serveResults := make(chan error, 1)
+	serveResults <- serveErr
+	collector := programmaticShutdownCollector{
+		completions:  make(chan controllerprogrammatic.SessionCompletion),
+		serveResults: serveResults, completionRead: false, serveResultRead: false,
+	}
+	stopCalled := false
+
+	// Act through the same bounded shutdown collector used by the real server path.
+	runErr := collector.finish(context.Canceled, context.Canceled, nil, func() { stopCalled = true })
+
+	// Assert cancellation and the independent Serve failure survive without scheduler delays.
+	require.ErrorIs(t, runErr, context.Canceled)
+	require.ErrorIs(t, runErr, serveErr)
+	assert.Equal(t, 1, strings.Count(runErr.Error(), context.Canceled.Error()))
+	assert.Equal(t, 1, strings.Count(runErr.Error(), serveErr.Error()))
+	assert.True(t, stopCalled)
+}
+
+// TestApplicationPureCancellationIgnoresExplicitStop verifies owned Stop adds no server error.
+func (testSuite *ProgrammaticAppSuite) TestApplicationPureCancellationIgnoresExplicitStop() {
+	t := testSuite.T()
+
+	// Arrange a valid canceled context with no other terminal source.
+	server := grpc.NewServer(grpc.WaitForHandlers(true))
+	socketService, err := programmaticsocket.New(t.Context(), "")
+	require.NoError(t, err)
+	canceledContext, cancel := context.WithCancel(t.Context())
+	cancel()
+	completions := make(chan controllerprogrammatic.SessionCompletion)
+
+	// Act through pure application cancellation and explicit server Stop.
+	runErr := runProgrammaticServer(
+		canceledContext, server, socketService, completions, newIdleProgrammaticTestSession(t),
+	)
+
+	// Assert cancellation stays canonical and server Stop adds no sibling.
+	require.ErrorIs(t, runErr, context.Canceled)
+	assert.Equal(t, context.Canceled.Error(), runErr.Error())
+	assert.NotContains(t, runErr.Error(), grpc.ErrServerStopped.Error())
+	require.NoError(t, socketService.Close())
+}
+
+// TestApplicationCancellationDoesNotDuplicateCleanupCancellation verifies context-first cleanup deduplication.
+func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationDoesNotDuplicateCleanupCancellation() {
+	t := testSuite.T()
+
+	// Arrange an active operation whose cancellation returns cancellation plus one independent cleanup error.
+	controller := gomock.NewController(t)
+	coordinator := hostprogrammatic.NewMockCoordinator(controller)
+	coordinator.EXPECT().PrepareRun().Return("run-1", nil)
+	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
+	cleanupErr := errors.New("unique context-selected cleanup failure")
+	runStarted := make(chan struct{})
+	coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
+		func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
+			close(runStarted)
+			<-ctx.Done()
+			return agent.RunOutcomeFailed, errors.Join(ctx.Err(), cleanupErr)
+		},
+	)
+	delivery := hostprogrammatic.NewDelivery()
+	sessionService := hostprogrammatic.New(
+		coordinator, nil,
+		func() agentrun.State {
+			return agentrun.State{
+				Status: agentrun.StatusIdle, RunID: mo.None[string](),
+				PartialResponse: mo.None[model.Response](), ToolPreviews: nil,
+			}
+		},
+		func() []agent.HistoryEntry { return nil }, nil, delivery,
+	)
+	_, operation, err := sessionService.Handle(t.Context(), controllerprogrammatic.Command{
+		CorrelationID: "c1", Kind: controllerprogrammatic.CommandUserRequest, UserText: mo.Some("request"),
+		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
+		SessionName: mo.None[string](),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, operation)
+	operation.Start()
+	<-runStarted
+	server := grpc.NewServer(grpc.WaitForHandlers(true))
+	socketService, err := programmaticsocket.New(t.Context(), "")
+	require.NoError(t, err)
+	completions := make(chan controllerprogrammatic.SessionCompletion)
+	canceledContext, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// Act through the context-selected application cancellation branch.
+	runErr := runProgrammaticServer(canceledContext, server, socketService, completions, sessionService)
+
+	// Assert cancellation and cleanup remain visible without repeating cancellation text.
+	require.ErrorIs(t, runErr, context.Canceled)
+	require.ErrorIs(t, runErr, cleanupErr)
+	assert.Equal(t, 1, strings.Count(runErr.Error(), context.Canceled.Error()))
+	assert.Equal(t, 1, strings.Count(runErr.Error(), cleanupErr.Error()))
+	require.NoError(t, socketService.Close())
+}
+
+// newIdleProgrammaticTestSession creates an idle concrete session for application arbitration tests.
+func newIdleProgrammaticTestSession(t *testing.T) *hostprogrammatic.Service {
+	t.Helper()
+	return hostprogrammatic.New(
+		hostprogrammatic.NewMockCoordinator(gomock.NewController(t)), nil,
+		func() agentrun.State {
+			return agentrun.State{
+				Status: agentrun.StatusIdle, RunID: mo.None[string](),
+				PartialResponse: mo.None[model.Response](), ToolPreviews: nil,
+			}
+		},
+		func() []agent.HistoryEntry { return nil }, nil, hostprogrammatic.NewDelivery(),
+	)
 }
 
 // TestProtocolFailureReturnsNonzero verifies that invalid input terminates the owning process as an error.

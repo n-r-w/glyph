@@ -416,7 +416,7 @@ func (s *Service) Load() (Settings, error) {
 	decoder.KnownFields(true)
 	var decoded settingsFile
 	if err = decoder.Decode(&decoded); err != nil {
-		return Settings{}, errors.New("decode Glyph settings: invalid YAML or unknown field")
+		return Settings{}, fmt.Errorf("decode Glyph settings: %w", err)
 	}
 	var extra any
 	trailingErr := decoder.Decode(&extra)
@@ -424,7 +424,7 @@ func (s *Service) Load() (Settings, error) {
 		if trailingErr == nil {
 			return Settings{}, errors.New("decode Glyph settings: multiple YAML documents are not allowed")
 		}
-		return Settings{}, errors.New("decode trailing Glyph settings: invalid YAML")
+		return Settings{}, fmt.Errorf("decode trailing Glyph settings: %w", trailingErr)
 	}
 	return validate(decoded)
 }
@@ -805,7 +805,10 @@ func validateAPIKey(providerID string, configured mo.Option[apiKeyFile]) (mo.Opt
 
 func validateBaseURL(value string) error {
 	parsed, err := url.Parse(value)
-	if err != nil || !parsed.IsAbs() || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+	if err != nil {
+		return fmt.Errorf("parse baseURL: %w", err)
+	}
+	if !parsed.IsAbs() || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return errors.New("baseURL must be an absolute HTTP or HTTPS URL")
 	}
 	return nil

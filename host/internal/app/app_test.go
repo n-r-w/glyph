@@ -529,8 +529,8 @@ func runSessionRecoveryUI(
 		if err != nil {
 			return err
 		}
-		if rejected.GetInformation().GetText() != "Session replacement is unavailable." {
-			return errors.New("invalid resume did not return safe unavailable information")
+		if !strings.HasPrefix(rejected.GetInformation().GetText(), "Session replacement is unavailable: ") {
+			return errors.New("invalid resume did not return detailed unavailable information")
 		}
 		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 		if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
@@ -606,7 +606,7 @@ func completeRuntimeRecoveryFailure(
 	startup sessionInfoObservation,
 	failureText string,
 ) error {
-	if failureText != "session persistence failed" {
+	if !strings.Contains(failureText, "session persistence failed") {
 		return fmt.Errorf("runtime recovery failure text: %s", failureText)
 	}
 	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
@@ -1500,7 +1500,8 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	var observation sessionRestartObservation
 	require.NoError(t, json.Unmarshal(payload, &observation))
 	assert.True(t, observation.Complete)
-	assert.Equal(t, "session persistence failed", observation.RuntimeFailureText)
+	assert.Contains(t, observation.RuntimeFailureText, "session persistence failed")
+	assert.Contains(t, observation.RuntimeFailureText, "operation not permitted")
 	assert.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
 }
 

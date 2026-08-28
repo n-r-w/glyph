@@ -46,7 +46,7 @@ func (runner *Runner) TransformContext(ctx context.Context, value hooks.Context)
 	for _, handler := range runner.contextHandlers {
 		transformed, err := handler(ctx, cloneContext(current))
 		if err != nil {
-			return hooks.Context{}, hooks.HookError{Stage: hooks.StageContext}
+			return hooks.Context{}, hooks.HookError{Stage: hooks.StageContext, Cause: err}
 		}
 		current = cloneContext(transformed)
 	}
@@ -59,7 +59,7 @@ func (runner *Runner) TransformRequest(ctx context.Context, value hooks.Request)
 	for _, handler := range runner.requestHandlers {
 		transformed, err := handler(ctx, cloneRequest(current))
 		if err != nil {
-			return hooks.Request{}, hooks.HookError{Stage: hooks.StageRequest}
+			return hooks.Request{}, hooks.HookError{Stage: hooks.StageRequest, Cause: err}
 		}
 		current = cloneRequest(transformed)
 	}
@@ -70,7 +70,7 @@ func (runner *Runner) TransformRequest(ctx context.Context, value hooks.Request)
 func (runner *Runner) ObserveResponse(ctx context.Context, value hooks.Response) error {
 	for _, handler := range runner.responseHandlers {
 		if err := handler(ctx, cloneResponse(value)); err != nil {
-			return hooks.HookError{Stage: hooks.StageResponse}
+			return hooks.HookError{Stage: hooks.StageResponse, Cause: err}
 		}
 	}
 	return nil

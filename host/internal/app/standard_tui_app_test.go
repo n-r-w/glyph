@@ -51,12 +51,14 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 		"  active history | 2026-08-27T00:00:00Z | 3 messages",
 		"> restart session | 2026-08-27T00:00:00Z | 7 messages",
 		"Selector: Up/Down navigate | Enter confirm | Escape cancel",
-		"Session status: Session replacement is unavailable.",
+		"Session status: Session replacement is unavailable: another operation is active",
 	}, "\n")
 	require.NoError(t, validateBusyPreservation(complete, activeID))
 	require.NoError(t, validateRestartRow(complete))
 
-	preConfirmation := strings.Replace(complete, "Session status: Session replacement is unavailable.", "", 1)
+	preConfirmation := strings.Replace(
+		complete, "Session status: Session replacement is unavailable: another operation is active", "", 1,
+	)
 	// Act by validating a transcript before busy-state confirmation.
 	err := validateBusyPreservation(preConfirmation, activeID)
 
@@ -71,7 +73,7 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 }
 
 func validateBusyPreservation(output, activeID string) error {
-	if !strings.Contains(output, "Session status: Session replacement is unavailable.") {
+	if !strings.Contains(output, "Session status: Session replacement is unavailable: another operation is active") {
 		return errors.New("busy redraw did not occur after the rejection")
 	}
 	required := []struct {
@@ -284,8 +286,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	// No terminal action occurs between this checkpoint and the resume confirmation.
 	busyCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Session status: Session replacement is unavailable.")
-	require.Contains(t, observer.StringFrom(busyCheckpoint), "Session replacement is unavailable.")
+	observer.WaitNext(t, "Session status: Session replacement is unavailable: another operation is active")
+	require.Contains(t, observer.StringFrom(busyCheckpoint), "another operation is active")
 	redrawCheckpoint := observer.Checkpoint()
 	requestStandardTUIControl(t, controlSocketPath, 'd')
 	observer.WaitNext(t, "Keys: Enter submit")
@@ -479,9 +481,9 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	failureCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
 
-	// Assert exact runtime-persistence text before clearing the fault and retrying successful recovery.
+	// Assert detailed runtime-persistence text before clearing the fault and retrying successful recovery.
 	observer.WaitNext(t, "Session status:")
-	assert.Contains(t, observer.StringFrom(failureCheckpoint), "Session status: session persistence failed")
+	assert.Contains(t, observer.StringFrom(failureCheckpoint), "session persistence failed")
 	clearCommand := exec.CommandContext(t.Context(), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
 	require.NoError(t, clearCommand.Run())
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -512,7 +514,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	assert.Contains(t, observer.String(), "[info] full_notice: full diagnostic")
 	assert.Contains(t, observer.String(), "[tool:done] bash full tool output[image image/png, 4 bytes]")
 	assert.Contains(t, observer.String(), "reasoning: full reasoning")
-	assert.Contains(t, observer.String(), "Session status: Session replacement is unavailable.")
+	assert.Contains(t, observer.String(), "Session status: Session replacement is unavailable: another operation is active")
 	assert.Contains(t, observer.String(), "PASS")
 }
 

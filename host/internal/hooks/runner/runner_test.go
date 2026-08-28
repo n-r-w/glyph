@@ -94,7 +94,7 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 	assert.Equal(t, "original-response", originalResponse.Headers["X-Test"][0])
 }
 
-// TestRunnerStopsAtFirstError verifies safe stage failures and strict short circuiting.
+// TestRunnerStopsAtFirstError verifies stage failures retain handler causes and stop later handlers.
 func TestRunnerStopsAtFirstError(t *testing.T) {
 	t.Parallel()
 
@@ -149,7 +149,8 @@ func TestRunnerStopsAtFirstError(t *testing.T) {
 			var failure hooks.HookError
 			require.ErrorAs(t, err, &failure)
 			assert.Equal(t, test.stage, failure.Stage)
-			assert.NotContains(t, err.Error(), rawErr.Error())
+			require.ErrorIs(t, err, rawErr)
+			assert.Contains(t, err.Error(), rawErr.Error())
 			assert.Zero(t, laterCalls)
 		})
 	}

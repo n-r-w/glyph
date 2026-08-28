@@ -267,7 +267,7 @@ func providerContextCompatible(source, target model.ProviderContextSource) bool 
 func reasoningInput(payload []byte) (responses.ResponseInputItemUnionParam, error) {
 	var contextValue reasoningContext
 	if err := json.Unmarshal(payload, &contextValue); err != nil {
-		return responses.ResponseInputItemUnionParam{}, errors.New("OpenAI Codex reasoning context is malformed")
+		return responses.ResponseInputItemUnionParam{}, fmt.Errorf("decode OpenAI Codex reasoning context: %w", err)
 	}
 	if contextValue.ID == "" || contextValue.EncryptedContent == "" {
 		return responses.ResponseInputItemUnionParam{}, errors.New(

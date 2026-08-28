@@ -108,9 +108,9 @@ const (
 	EventAgentSettled
 	// EventAuthorization presents a browser authorization URL.
 	EventAuthorization
-	// EventInformation presents safe informational text.
+	// EventInformation presents informational text.
 	EventInformation
-	// EventError presents safe error text.
+	// EventError presents error text.
 	EventError
 	// EventModelSelectionChanged confirms one committed selection.
 	EventModelSelectionChanged
@@ -281,9 +281,9 @@ type LineKind uint8
 const (
 	// LineUnspecified represents a missing transcript line kind.
 	LineUnspecified LineKind = iota
-	// LineInformation renders safe informational text.
+	// LineInformation renders informational text.
 	LineInformation
-	// LineError renders safe error text.
+	// LineError renders error text.
 	LineError
 	// LineWarning renders non-fatal startup exclusions.
 	LineWarning

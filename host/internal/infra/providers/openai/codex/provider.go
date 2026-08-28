@@ -40,7 +40,16 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		return nil
 	})
 	if handlerErr != nil {
-		return handlerErr
+		return combineHandlerError(streamErr, handlerErr)
+	}
+	if streamErr != nil && !errors.Is(streamErr, context.Canceled) && !errors.Is(streamErr, context.DeadlineExceeded) {
+		errorMessage := response.ErrorMessage.OrEmpty()
+		if errorMessage == "" {
+			errorMessage = streamErr.Error()
+		} else if !strings.Contains(errorMessage, streamErr.Error()) {
+			errorMessage += ": " + streamErr.Error()
+		}
+		response.ErrorMessage = mo.Some(errorMessage)
 	}
 	response.Provider = mo.Some(request.Model.Provider)
 	response.Model = mo.Some(request.Model.Model)
@@ -67,7 +76,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	terminalEvent := semanticStreamEvent(terminalKind, 0, 0, "")
 	terminalEvent.Response = mo.Some(response)
 	if err := handle(terminalEvent); err != nil {
-		return err
+		return combineHandlerError(streamErr, err)
 	}
 	return streamErr
 }
@@ -80,11 +89,11 @@ func (s *Driver) generateResponse(
 ) (model.Response, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
-		return failedModelResponse(safeErrorMessage(err)), err
+		return failedModelResponse(boundedErrorMessage(err)), err
 	}
 	params, err := s.requestParams(request)
 	if err != nil {
-		message := safeErrorMessage(err)
+		message := boundedErrorMessage(err)
 		return failedModelResponse(message), safeError(message)
 	}
 
@@ -130,10 +139,10 @@ func (s *Driver) generateResponse(
 			return response, terminalErr
 		}
 	}
-	if finishErr := assembler.finish(); finishErr != nil {
-		return failedModelResponse("OpenAI Codex stream delivery failed."), finishErr
-	}
 	streamErr := stream.Err()
+	if finishErr := assembler.finish(); finishErr != nil {
+		return failedModelResponse("OpenAI Codex stream delivery failed."), errors.Join(streamErr, finishErr)
+	}
 	if streamErr != nil {
 		return s.streamError(ctx, streamErr, errorTransport)
 	}
@@ -279,7 +288,8 @@ func modelResponse(
 			call := output.AsFunctionCall()
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
-				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned invalid tool-call arguments")
+				conversionErr := fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
+				return failedModelResponse(conversionErr.Error()), conversionErr
 			}
 			items = append(items, model.Content{
 				Kind:            model.ContentToolCall,
@@ -378,7 +388,7 @@ func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Con
 	return visible, nil
 }
 
-// failedResponseFromSDK preserves finalized safe items while returning a failed outcome.
+// failedResponseFromSDK preserves converted finalized items while returning a failed outcome.
 func failedResponseFromSDK(
 	response responses.Response,
 	message string,
@@ -414,7 +424,9 @@ func (s *Driver) streamError(
 	}
 	var hookFailure internalhooks.HookError
 	if errors.As(streamErr, &hookFailure) {
-		return hookFailureResponse(hookFailure.Stage), hookFailure
+		response := hookFailureResponse(hookFailure)
+		response.ErrorMessage = mo.Some(streamErr.Error())
+		return response, streamErr
 	}
 	var apiError *openai.Error
 	if errors.As(streamErr, &apiError) {
@@ -429,9 +441,18 @@ func (s *Driver) streamError(
 			detail = boundedDetail(strings.TrimSpace(apiError.Message))
 		}
 		message := providerFailureMessage(detail)
-		return failedModelResponse(message), safeError(message)
+		return failedModelResponse(message), fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	}
-	return failedModelResponse(requestFailedMessage), safeError(requestFailedMessage)
+	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
+	return failedModelResponse(failure.Error()), failure
+}
+
+// combineHandlerError adds a handler cause only when the stream error does not already contain it.
+func combineHandlerError(streamErr, handlerErr error) error {
+	if errors.Is(streamErr, handlerErr) {
+		return streamErr
+	}
+	return errors.Join(streamErr, handlerErr)
 }
 
 // safeError removes terminal punctuation required only in user-facing model text.
@@ -448,8 +469,8 @@ func providerFailureMessage(detail string) string {
 	return "OpenAI Codex request failed: " + detail
 }
 
-// safeErrorMessage retains safe local provider state errors without exposing payloads.
-func safeErrorMessage(err error) string {
+// boundedErrorMessage returns bounded error text and preserves ErrSignInRequired presentation.
+func boundedErrorMessage(err error) string {
 	if errors.Is(err, ErrSignInRequired) {
 		return signInRequiredMessage
 	}

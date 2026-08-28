@@ -41,7 +41,7 @@ const (
 	reasoningRankMax
 )
 
-// SelectionError reports a safe typed catalog failure.
+// SelectionError reports a typed catalog failure.
 type SelectionError struct {
 	Code  ErrorCode
 	cause error

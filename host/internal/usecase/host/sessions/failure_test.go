@@ -3,9 +3,9 @@ package sessions
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,20 +15,16 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-var persistenceLoggerTestMutex sync.Mutex
-
-// TestLogPersistenceFailureUsesSafeStructuredContext verifies diagnostics contain classification and cause without payload fields.
-func TestLogPersistenceFailureUsesSafeStructuredContext(t *testing.T) {
-	t.Parallel()
-
+// TestLogPersistenceFailurePreservesStructuredErrorContext verifies diagnostics retain wrapping and the cause.
+//
+//nolint:paralleltest // The test temporarily replaces process-global slog.Default().
+func TestLogPersistenceFailurePreservesStructuredErrorContext(t *testing.T) {
 	// Arrange a JSON logger and an infrastructure error without persisted session values.
-	persistenceLoggerTestMutex.Lock()
-	t.Cleanup(persistenceLoggerTestMutex.Unlock)
 	var output bytes.Buffer
 	previous := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
 	t.Cleanup(func() { slog.SetDefault(previous) })
-	infrastructureErr := errors.New("disk sync failed")
+	infrastructureErr := fmt.Errorf("write active session: %w", errors.New("disk sync failed"))
 
 	// Act by recording one classified active-history persistence failure.
 	logPersistenceFailure(t.Context(), persistenceOperationHistory, session.ID("session-id"), infrastructureErr)
@@ -38,19 +34,17 @@ func TestLogPersistenceFailureUsesSafeStructuredContext(t *testing.T) {
 	require.NotEmpty(t, logged)
 	assert.Contains(t, logged, `"operation":"append_history"`)
 	assert.Contains(t, logged, `"session_id":"session-id"`)
-	assert.Contains(t, logged, `"error":"disk sync failed"`)
+	assert.Contains(t, logged, `"error":"write active session: disk sync failed"`)
 	assert.NotContains(t, logged, "content")
 	assert.NotContains(t, logged, "provider_context")
 	assert.NotContains(t, logged, "extension")
 }
 
 // TestResumeNonPersistenceFailuresDoNotLog verifies normal lookup and validation failures do not enter persistence diagnostics.
+//
+//nolint:paralleltest // The test temporarily replaces process-global slog.Default().
 func TestResumeNonPersistenceFailuresDoNotLog(t *testing.T) {
-	t.Parallel()
-
 	// Arrange two non-persistence load failures and an isolated JSON logger.
-	persistenceLoggerTestMutex.Lock()
-	t.Cleanup(persistenceLoggerTestMutex.Unlock)
 	var output bytes.Buffer
 	previous := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -75,12 +69,10 @@ func TestResumeNonPersistenceFailuresDoNotLog(t *testing.T) {
 }
 
 // TestResumePersistenceFailureLogsSafeOperation verifies failed recovery records safe operation and infrastructure cause only.
+//
+//nolint:paralleltest // The test temporarily replaces process-global slog.Default().
 func TestResumePersistenceFailureLogsSafeOperation(t *testing.T) {
-	t.Parallel()
-
 	// Arrange a classified failed recovery, a prohibited client ID, and an isolated JSON logger.
-	persistenceLoggerTestMutex.Lock()
-	t.Cleanup(persistenceLoggerTestMutex.Unlock)
 	var output bytes.Buffer
 	previous := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))

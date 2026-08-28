@@ -64,12 +64,18 @@ type ProviderRunner interface {
 	ObserveResponse(ctx context.Context, value Response) error
 }
 
-// HookError is the safe terminal classification for one internal hook failure.
+// HookError identifies the stage and cause of one internal hook failure.
 type HookError struct {
 	Stage Stage
+	Cause error
 }
 
-// Error returns a safe error without the handler error or transformed values.
+// Error identifies the hook stage and includes the handler failure.
 func (failure HookError) Error() string {
-	return "internal hook failed at " + string(failure.Stage) + " stage"
+	return "internal hook failed at " + string(failure.Stage) + " stage: " + failure.Cause.Error()
+}
+
+// Unwrap exposes the handler failure for errors.Is and errors.As.
+func (failure HookError) Unwrap() error {
+	return failure.Cause
 }

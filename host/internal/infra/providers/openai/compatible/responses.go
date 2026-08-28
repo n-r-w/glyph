@@ -84,27 +84,27 @@ func (s *Driver) streamResponses(
 	service := responses.NewResponseService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()
-	state := newResponsesAccumulator(handle)
+	state := newResponsesAccumulator(tagHandlerErrors(handle))
 	for stream.Next() {
 		consumeErr := state.consume(stream.Current(), s.providerID)
 		if consumeErr != nil {
-			return model.Response{}, handlerError(consumeErr)
+			return model.Response{}, consumeErr
 		}
 	}
 	if streamErr := stream.Err(); streamErr != nil {
 		if closeErr := state.finishContent(); closeErr != nil {
-			return model.Response{}, handlerError(closeErr)
+			return model.Response{}, errors.Join(streamErr, closeErr)
 		}
 		return model.Response{}, streamErr
 	}
 	if state.terminal == nil {
 		if closeErr := state.finishContent(); closeErr != nil {
-			return model.Response{}, handlerError(closeErr)
+			return model.Response{}, closeErr
 		}
 		return model.Response{}, errors.New("responses stream ended without a terminal response")
 	}
 	if finishErr := state.finish(); finishErr != nil {
-		return model.Response{}, handlerError(finishErr)
+		return model.Response{}, finishErr
 	}
 	for index := range state.terminal.Content {
 		content := &state.terminal.Content[index]
@@ -190,6 +190,9 @@ func responsesTerminalError(response model.Response) error {
 		return errors.New("responses request has no terminal outcome")
 	}
 	if outcome == model.OutcomeFailed {
+		if message := response.ErrorMessage.OrEmpty(); message != "" {
+			return errors.New(message)
+		}
 		return errors.New("responses request failed")
 	}
 	return nil
@@ -332,8 +335,10 @@ func providerContextCompatible(source, target model.ProviderContextSource) bool 
 
 func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionParam, error) {
 	var contextValue responseContext
-	decodeErr := json.Unmarshal(payload, &contextValue)
-	if decodeErr != nil || contextValue.ID == "" || contextValue.EncryptedContent == "" {
+	if err := json.Unmarshal(payload, &contextValue); err != nil {
+		return responses.ResponseInputItemUnionParam{}, fmt.Errorf("decode OpenAI-compatible provider context: %w", err)
+	}
+	if contextValue.ID == "" || contextValue.EncryptedContent == "" {
 		return responses.ResponseInputItemUnionParam{}, errors.New("OpenAI-compatible provider context is malformed")
 	}
 	summary := lo.Map(contextValue.Summary, func(text string, _ int) responses.ResponseReasoningItemSummaryParam {
@@ -500,7 +505,12 @@ func (state *responsesAccumulator) consume(
 		}
 		state.terminal = &response
 	case "response.failed":
-		response := failureResponse(model.OutcomeFailed, requestFailedMessage)
+		failed := event.AsResponseFailed().Response
+		message := requestFailedMessage
+		if providerMessage := strings.TrimSpace(failed.Error.Message); providerMessage != "" {
+			message = "responses request failed: " + providerMessage
+		}
+		response := failureResponse(model.OutcomeFailed, message)
 		state.terminal = &response
 	}
 	return nil
@@ -547,7 +557,7 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 	}
 	var decoded map[string]any
 	if err := json.Unmarshal([]byte(arguments), &decoded); err != nil {
-		return errors.New("responses returned invalid tool-call arguments")
+		return fmt.Errorf("decode Responses tool-call arguments: %w", err)
 	}
 	call := model.ToolCall{
 		ID:        toolState.callID,
@@ -701,7 +711,7 @@ func responsesModelResponse(
 			call := output.AsFunctionCall()
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
-				return model.Response{}, errors.New("responses returned invalid tool-call arguments")
+				return model.Response{}, fmt.Errorf("decode Responses tool-call arguments: %w", err)
 			}
 			content = append(content, model.Content{
 				Kind:            model.ContentToolCall,

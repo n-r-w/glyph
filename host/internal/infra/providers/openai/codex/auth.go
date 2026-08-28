@@ -100,7 +100,7 @@ func (s *Driver) SignInProvider(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return fmt.Errorf("exchange OpenAI Codex authorization code: %w", ctx.Err())
 		}
-		return errors.New("OpenAI Codex authorization code exchange failed")
+		return fmt.Errorf("exchange OpenAI Codex authorization code: %w", err)
 	}
 	if token.AccessToken == "" || token.RefreshToken == "" || token.Expiry.IsZero() {
 		return errors.New("OpenAI Codex authorization response is missing required credentials")
@@ -213,10 +213,15 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 			http.Error(writer, "OAuth state mismatch.", http.StatusBadRequest)
 			return
 		}
-		if request.URL.Query().Get("error") != "" {
+		if oauthError := request.URL.Query().Get("error"); oauthError != "" {
+			detail := request.URL.Query().Get("error_description")
+			failure := fmt.Errorf("OpenAI authorization failed: %s", oauthError)
+			if detail != "" {
+				failure = fmt.Errorf("OpenAI authorization failed: %s: %s", oauthError, detail)
+			}
 			deliverCallback(results, callbackResult{
 				code: "",
-				err:  errors.New("OpenAI authorization failed"),
+				err:  failure,
 			})
 			http.Error(writer, "Authentication failed. Return to Glyph.", http.StatusBadRequest)
 			return
@@ -241,7 +246,7 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			deliverCallback(results, callbackResult{
 				code: "",
-				err:  errors.New("OpenAI authorization callback server failed"),
+				err:  fmt.Errorf("OpenAI authorization callback server failed: %w", err),
 			})
 		}
 	}()
@@ -294,7 +299,7 @@ func accountIDFromAccessToken(accessToken string) (string, error) {
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return "", errors.New("OpenAI Codex access token has invalid claims")
+		return "", fmt.Errorf("decode OpenAI Codex access token claims: %w", err)
 	}
 	var claims struct {
 		OpenAIAuth struct {
@@ -303,7 +308,7 @@ func accountIDFromAccessToken(accessToken string) (string, error) {
 	}
 	claimsErr := json.Unmarshal(payload, &claims)
 	if claimsErr != nil {
-		return "", errors.New("OpenAI Codex access token has invalid claims")
+		return "", fmt.Errorf("decode OpenAI Codex access token claims JSON: %w", claimsErr)
 	}
 	if claims.OpenAIAuth.AccountID == "" {
 		return "", errors.New("OpenAI Codex access token is missing an account ID")

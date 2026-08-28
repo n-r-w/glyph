@@ -322,12 +322,13 @@ func (s *Service) List(ctx context.Context) ([]hostsessions.LoadedSession, error
 			continue
 		}
 		if !entry.Type().IsRegular() {
-			warnUnavailableSession(ctx, "list", listDiagnosticNonregularSessionFile)
+			nonregularErr := nonregularSessionFileError{}
+			warnUnavailableSession(ctx, "list", listDiagnosticNonregularSessionFile, nonregularErr)
 			continue
 		}
 		pathResult, loadErr := s.loadPath(ctx, entry.Name(), loadForList)
 		if loadErr != nil {
-			warnUnavailableSession(ctx, "list", safeListWarningDiagnostic(loadErr))
+			warnUnavailableSession(ctx, "list", classifyListWarningDiagnostic(loadErr), loadErr)
 			continue
 		}
 		result = append(result, pathResult.loaded)
@@ -498,19 +499,26 @@ func readPayload(file File) ([]byte, error) {
 // decodeHeader rejects schema, version, identity, and project-binding mismatches.
 func (s *Service) decodeHeader(data []byte) (session.Header, error) {
 	var record headerRecord
-	decodeErr := errors.Join(decodeRecord(data, &record), validateHeaderRequiredFields(data))
-	createdAt, timeErr := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	decodeErr := decodeRecord(data, &record)
 	header := session.Header{
 		Version:          record.Version,
 		ID:               session.ID(record.ID),
-		CreatedAt:        createdAt,
+		CreatedAt:        time.Time{},
 		WorkingDirectory: record.CWD,
-	}
-	if timeErr != nil || record.Type != "session" || record.ID == "" || record.CWD != s.workingDirectory {
-		return header, errors.New("invalid session header")
 	}
 	if decodeErr != nil {
 		return header, fmt.Errorf("decode session header: %w", decodeErr)
+	}
+	if requiredErr := validateHeaderRequiredFields(data); requiredErr != nil {
+		return header, fmt.Errorf("decode session header: %w", requiredErr)
+	}
+	createdAt, timeErr := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	header.CreatedAt = createdAt
+	if timeErr != nil {
+		return header, fmt.Errorf("decode session header record timestamp: %w", timeErr)
+	}
+	if record.Type != "session" || record.ID == "" || record.CWD != s.workingDirectory {
+		return header, errors.New("invalid session header")
 	}
 	if record.Version != 1 {
 		return header, fmt.Errorf("unsupported session version %d", record.Version)
@@ -529,7 +537,8 @@ func decodeEntries(payload []byte) ([]session.Entry, error) {
 		}
 		entry, err := decodeEntry(payload[:lineEnd])
 		if err != nil {
-			return nil, err
+			// The record number identifies the failed JSONL boundary without logging persisted content.
+			return nil, fmt.Errorf("decode session entry record %d: %w", len(entries)+1, err)
 		}
 		if _, exists := identities[entry.ID]; exists {
 			return nil, errors.New("duplicate session entry ID")
@@ -552,8 +561,8 @@ type nonregularSessionFileError struct{}
 
 func (nonregularSessionFileError) Error() string { return "session file is not regular" }
 
-// safeListWarningDiagnostic classifies failures without allowing raw storage or decode errors into logs.
-func safeListWarningDiagnostic(err error) listWarningDiagnostic {
+// classifyListWarningDiagnostic maps a list failure to its closed diagnostic category.
+func classifyListWarningDiagnostic(err error) listWarningDiagnostic {
 	var nonregular nonregularSessionFileError
 	if errors.As(err, &nonregular) {
 		return listDiagnosticNonregularSessionFile
@@ -561,13 +570,19 @@ func safeListWarningDiagnostic(err error) listWarningDiagnostic {
 	return listDiagnosticInvalidSessionFile
 }
 
-// warnUnavailableSession accepts only closed diagnostics so raw errors and IDs cannot enter list logs.
-func warnUnavailableSession(ctx context.Context, operation string, diagnostic listWarningDiagnostic) {
+// warnUnavailableSession records the closed category and the error that caused the session file to be skipped.
+func warnUnavailableSession(
+	ctx context.Context,
+	operation string,
+	diagnostic listWarningDiagnostic,
+	err error,
+) {
 	slog.WarnContext(
 		ctx,
 		"session file is unavailable",
 		"operation", operation,
 		"diagnostic", diagnostic,
+		"error", err,
 	)
 }
 
@@ -586,7 +601,7 @@ func decodeEntry(data []byte) (session.Entry, error) {
 	var kind recordType
 	// The discriminator selects the closed record DTO. The selected DTO then performs strict decoding.
 	if err := json.Unmarshal(data, &kind); err != nil {
-		return session.Entry{}, errors.New("invalid session entry")
+		return session.Entry{}, fmt.Errorf("decode session entry discriminator: %w", err)
 	}
 	if err := validateEntryRequiredFields(data, kind.Type); err != nil {
 		return session.Entry{}, fmt.Errorf("validate required session fields: %w", err)
@@ -598,7 +613,10 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			return session.Entry{}, err
 		}
 		entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-		if err != nil || record.ID == "" || record.Name == "" {
+		if err != nil {
+			return session.Entry{}, fmt.Errorf("parse session information entry timestamp: %w", err)
+		}
+		if record.ID == "" || record.Name == "" {
 			return session.Entry{}, errors.New("invalid session information entry")
 		}
 		return session.Entry{
@@ -626,7 +644,10 @@ func decodeUser(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" {
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse user entry timestamp: %w", err)
+	}
+	if record.ID == "" {
 		return session.Entry{}, errors.New("invalid user entry")
 	}
 	if record.Message == nil {
@@ -667,7 +688,7 @@ func decodeInputContent(record inputContentRecord) (model.InputContent, error) {
 		}
 		image, decodeErr := decodeBytes(record.Data)
 		if decodeErr != nil {
-			return model.InputContent{}, errors.New("invalid user image content")
+			return model.InputContent{}, fmt.Errorf("user image data: %w", decodeErr)
 		}
 		return model.InputContent{
 			Kind: model.InputContentImage, Text: mo.None[string](),
@@ -684,7 +705,10 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" || record.ExtensionID == "" || record.EntryType == "" ||
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse extension entry timestamp: %w", err)
+	}
+	if record.ID == "" || record.ExtensionID == "" || record.EntryType == "" ||
 		len(record.Data) == 0 || !json.Valid(record.Data) {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
@@ -703,7 +727,10 @@ func decodeModel(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" || !validOutcome(record.Response.Outcome) {
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse model entry timestamp: %w", err)
+	}
+	if record.ID == "" || !validOutcome(record.Response.Outcome) {
 		return session.Entry{}, errors.New("invalid model entry")
 	}
 	response, err := decodeModelResponse(record.Response)
@@ -727,7 +754,10 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
-	if err != nil || record.ID == "" || record.Result.CallID == "" || record.Result.ToolName == "" {
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse tool result entry timestamp: %w", err)
+	}
+	if record.ID == "" || record.Result.CallID == "" || record.Result.ToolName == "" {
 		return session.Entry{}, errors.New("invalid tool result entry")
 	}
 	var contents []tool.ResultContent
@@ -938,7 +968,7 @@ func decodeToolResultContent(record toolResultContentRecord) (tool.ResultContent
 		}
 		data, err := decodeBytes(record.Data)
 		if err != nil {
-			return tool.ResultContent{}, errors.New("invalid tool result image content")
+			return tool.ResultContent{}, fmt.Errorf("tool result image data: %w", err)
 		}
 		return tool.ResultContent{
 			Kind: tool.ResultContentImage, Text: mo.None[string](),

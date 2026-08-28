@@ -113,6 +113,24 @@ func TestServiceRejectsInvalidStoreWithoutReplacement(t *testing.T) {
 	}
 }
 
+// TestServiceRetainsTrailingStoreDecoderCause verifies trailing malformed JSON keeps its decoder diagnostic.
+func TestServiceRetainsTrailingStoreDecoderCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a valid store followed by one interrupted JSON value.
+	path := filepath.Join(t.TempDir(), "credentials.json")
+	record := []byte(`{"version":1,"providers":{}} {`)
+	require.NoError(t, os.WriteFile(path, record, 0o600))
+
+	// Act by loading the malformed store through the public service.
+	_, _, err := New(path, "openai-codex").Load()
+
+	// Assert trailing context and the JSON decoder cause remain visible.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode trailing credential store data")
+	assert.Contains(t, err.Error(), "unexpected EOF")
+}
+
 // TestServiceRejectsInvalidProviderPayload verifies opaque values must still be valid JSON.
 func TestServiceRejectsInvalidProviderPayload(t *testing.T) {
 	t.Parallel()

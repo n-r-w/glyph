@@ -76,7 +76,7 @@ func informationFrame(text string) domainui.Frame {
 	}
 }
 
-// errorFrame creates one complete safe error frame.
+// errorFrame creates one complete error frame.
 func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 	return domainui.Frame{
 		SessionEntries:      nil,

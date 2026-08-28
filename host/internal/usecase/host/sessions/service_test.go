@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -715,8 +716,10 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(result),
 	})
-	// Assert the error leaves durable entries and provider history unchanged.
+	// Assert the Agent Core boundary keeps one persistence classification and the storage cause.
+	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
 	s.Require().ErrorContains(err, "sync failed")
+	s.Equal(1, strings.Count(err.Error(), agentrun.ErrPersistenceUnavailable.Error()))
 	s.Empty(active.ActiveEntries())
 	s.Empty(active.Snapshot())
 }
@@ -1002,7 +1005,7 @@ func (s *ServiceSuite) TestSetNameAppendFailureMakesOnlyActiveSessionWriteUnavai
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("blocked content")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, session.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
 }
 
 // TestCreateAndSuccessfulResumeRestoreWrites verifies only active replacement clears local persistence failure.
@@ -1021,7 +1024,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("first")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, session.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
 	before := service.ActiveInfo()
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("broken")).Return(LoadedSession{}, session.ErrUnavailable)
 
@@ -1033,7 +1036,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("still blocked")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, session.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
 
 	resumedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{

@@ -178,6 +178,45 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 	}
 }
 
+// TestCredentialFailuresRetainCauses verifies store and payload decoder errors keep credential context.
+func (s *APIKeyResolverSuite) TestCredentialFailuresRetainCauses() {
+	// Arrange one store load failure and two invalid payloads for the same named credential.
+	testCases := map[string]struct {
+		prepare func()
+		cause   string
+	}{
+		"store load": {
+			prepare: func() {
+				s.Require().NoError(os.Mkdir(s.path, 0o700))
+			},
+			cause: "is not a regular file",
+		},
+		"payload decode": {
+			prepare: func() {
+				s.writeEntries(map[string]json.RawMessage{"selected": json.RawMessage(`"malformed"`)})
+			},
+			cause: "cannot unmarshal string",
+		},
+	}
+	for name, test := range testCases {
+		s.Run(name, func() {
+			s.path = filepath.Join(s.T().TempDir(), "credentials.json")
+			test.prepare()
+
+			// Act by resolving the named credential through the public resolver.
+			_, err := NewAPIKeyResolver(s.path, APIKeySource{
+				Kind:  APIKeySourceCredential,
+				Value: "selected",
+			}).ResolveAPIKey(s.T().Context())
+
+			// Assert source and name context accompany the original cause.
+			s.Require().Error(err)
+			s.Contains(err.Error(), `resolve credential API key "selected"`)
+			s.Contains(err.Error(), test.cause)
+		})
+	}
+}
+
 // TestCanceledResolutionReturnsTypedSafeError verifies cancellation before credential I/O.
 func (s *APIKeyResolverSuite) TestCanceledResolutionReturnsTypedSafeError() {
 	ctx, cancel := context.WithCancel(s.T().Context())

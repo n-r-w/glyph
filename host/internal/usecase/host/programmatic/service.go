@@ -247,7 +247,7 @@ func (s *Service) selectReasoningChoice(command controller.Command) controller.R
 func (s *Service) selectionRejected(command controller.Command, err error) controller.Response {
 	var selectionFailure SelectionFailure
 	if !errors.As(err, &selectionFailure) {
-		return s.rejection(command, controller.RejectionInternal, "model selection failed")
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("model selection failed: %v", err))
 	}
 	code := controller.RejectionInternal
 	switch SelectionCode(selectionFailure.SelectionCode()) {
@@ -312,14 +312,14 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
 	entries, err := mapSessionEntries(s.sessionControl.Entries())
 	if err != nil {
-		return s.rejection(command, controller.RejectionInternal, "Session entries are unavailable.")
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", err))
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseSessionEntries)
 	response.SessionEntries = entries
 	return response
 }
 
-// sessionRejection maps domain failures to stable client-safe rejection codes and messages.
+// sessionRejection maps domain failures to stable rejection codes while retaining error details.
 func (s *Service) sessionRejection(command controller.Command, err error) controller.Response {
 	switch {
 	case errors.Is(err, session.ErrBusy):
@@ -327,13 +327,13 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 	case errors.Is(err, session.ErrInvalidName):
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
 	case errors.Is(err, session.ErrPersistenceUnavailable):
-		return s.rejection(command, controller.RejectionPersistenceUnavailable, session.ErrPersistenceUnavailable.Error())
+		return s.rejection(command, controller.RejectionPersistenceUnavailable, err.Error())
 	case errors.Is(err, session.ErrUnavailable):
-		return s.rejection(command, controller.RejectionSessionUnavailable, "session is unavailable")
+		return s.rejection(command, controller.RejectionSessionUnavailable, err.Error())
 	case errors.Is(err, os.ErrNotExist):
 		return s.rejection(command, controller.RejectionNotFound, "session was not found")
 	default:
-		return s.rejection(command, controller.RejectionInternal, "session operation failed")
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("session operation failed: %v", err))
 	}
 }
 
@@ -536,7 +536,7 @@ func (s *Service) runPreparationRejected(
 		return s.rejection(command, controller.RejectionBusy, "another operation is active"), nil, nil
 	}
 	return s.rejection(
-		command, controller.RejectionInternal, "Host run ID allocation failed",
+		command, controller.RejectionInternal, fmt.Sprintf("Host run ID allocation failed: %v", prepareErr),
 	), nil, nil
 }
 

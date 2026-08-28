@@ -281,8 +281,8 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 	require.Equal(t, result, frame.SessionEntries[2].ToolResult.MustGet())
 }
 
-// TestSessionLifecycleRejectionsSendSafeInformation verifies Host UI exposes only operation-safe session errors.
-func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
+// TestSessionLifecycleRejectionsPreserveInformationContext verifies Host UI exposes operation and error details.
+func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 	t.Parallel()
 
 	// Arrange session command failures and their exact public information text.
@@ -305,15 +305,25 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 		{
 			name:         "create busy",
 			command:      testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
-			expectedText: "Session replacement is unavailable.",
+			expectedText: "Session replacement is unavailable: another operation is active",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, session.ErrBusy)
 			},
 		},
 		{
+			name:         "create internal failure",
+			command:      testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
+			expectedText: "Session replacement is unavailable: create session unique failure",
+			expectControl: func(control *MockSessionControl) {
+				control.EXPECT().Create(gomock.Any()).Return(
+					session.Replacement{}, errors.New("create session unique failure"),
+				)
+			},
+		},
+		{
 			name:         "resume not found",
 			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("missing"), mo.None[string]()),
-			expectedText: "Session replacement is unavailable.",
+			expectedText: "Session replacement is unavailable: file does not exist",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Resume(gomock.Any(), session.ID("missing")).Return(session.Replacement{}, os.ErrNotExist)
 			},
@@ -321,7 +331,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 		{
 			name:         "resume persistence unavailable",
 			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("stored"), mo.None[string]()),
-			expectedText: "session persistence failed",
+			expectedText: "Session replacement is unavailable: session persistence failed",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Replacement{}, session.ErrPersistenceUnavailable)
 			},
@@ -329,7 +339,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 		{
 			name:         "list failure",
 			command:      testSessionCommand(domainui.CommandListSessions, mo.None[string](), mo.None[string]()),
-			expectedText: "Sessions are unavailable.",
+			expectedText: "Sessions are unavailable: sensitive storage failure",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().List(gomock.Any()).Return(nil, errors.New("sensitive storage failure"))
 			},
@@ -337,7 +347,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 		{
 			name:         "persistence unavailable",
 			command:      testSessionCommand(domainui.CommandSetSessionName, mo.None[string](), mo.Some("secret session name")),
-			expectedText: "session persistence failed",
+			expectedText: "Session naming is unavailable: session persistence failed: /secret/path provider-context extension-json disk failed",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().SetName(gomock.Any(), "secret session name").Return(
 					session.Info{}, fmt.Errorf("%w: /secret/path provider-context extension-json disk failed", session.ErrPersistenceUnavailable),
@@ -355,7 +365,7 @@ func TestSessionLifecycleRejectionsSendSafeInformation(t *testing.T) {
 			control := NewMockSessionControl(controller)
 			test.expectControl(control)
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-				// Assert each frame contains only the exact safe operation text.
+				// Assert each frame contains the operation context and original error.
 				assert.Equal(t, domainui.FrameInformation, frame.Kind)
 				assert.Equal(t, test.expectedText, frame.Text.MustGet())
 				return nil

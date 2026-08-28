@@ -230,7 +230,7 @@ func NormalizeUsage(usage Usage) Usage {
 	}
 }
 
-// Diagnostic contains safe typed provider or runtime failure information.
+// Diagnostic contains typed provider or runtime failure information.
 type Diagnostic struct {
 	Code    string
 	Message string

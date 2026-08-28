@@ -232,7 +232,7 @@ type ModelUsage struct {
 	TotalTokens       int64
 }
 
-// ModelDiagnostic carries safe typed provider diagnostics.
+// ModelDiagnostic carries typed provider diagnostics.
 type ModelDiagnostic struct {
 	Code    string
 	Message string
@@ -308,7 +308,7 @@ const (
 	FrameAuthorization
 	// FrameInformation carries one user-visible notification.
 	FrameInformation
-	// FrameError carries one safe user-visible failure.
+	// FrameError carries one user-visible failure.
 	FrameError
 	// FrameModelSelectionChanged confirms one committed selection.
 	FrameModelSelectionChanged

@@ -120,7 +120,7 @@ type RuntimeFailure struct {
 	Condition RuntimeUnavailableCondition
 }
 
-// Message returns the safe user-visible runtime failure text.
+// Message returns the user-visible runtime failure text.
 func (failure RuntimeFailure) Message() (string, error) {
 	if failure.Condition != RuntimeUnavailableProcessExited {
 		return "", fmt.Errorf("unknown runtime unavailability condition %d", failure.Condition)

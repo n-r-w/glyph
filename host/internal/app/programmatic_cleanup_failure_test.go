@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 
@@ -46,8 +45,8 @@ func (transport programmaticOwnerCleanupTransport) RoundTrip(request *http.Reque
 	return nil, errors.Join(request.Context().Err(), errors.New(programmaticCleanupProviderMarker))
 }
 
-// TestOwnerClosurePersistenceFailureIsPubliclySafe verifies Programmatic cleanup cannot return raw storage details.
-func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailureIsPubliclySafe() {
+// TestOwnerClosurePersistenceFailurePreservesContext verifies Programmatic cleanup returns storage details.
+func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreservesContext() {
 	t := testSuite.T()
 
 	// Arrange one named real session, captured logs, and a provider request that reports cancellation completion.
@@ -104,16 +103,18 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailureIsPubli
 		records = append(records, record)
 	}
 
-	// Assert joined cleanup, exact public text, durable user state, removed socket, and isolated diagnostics.
+	// Assert cleanup classification, durable user state, and the full error at application boundaries.
 	select {
 	case <-providerCanceled:
 	default:
 		require.Fail(t, "process returned before provider cancellation completed")
 	}
 	require.ErrorIs(t, runErr, agentrun.ErrPersistenceUnavailable)
-	assert.Equal(t, "session persistence failed", runErr.Error())
-	assert.Equal(t, "[error] session persistence failed\n", cliStderr.String())
-	assert.Equal(t, 1, strings.Count(cliStderr.String(), "session persistence failed"))
+	assert.Contains(t, runErr.Error(), "session persistence failed")
+	assert.Contains(t, strings.ToLower(runErr.Error()), "permission")
+	assert.Equal(t, "[error] "+runErr.Error()+"\n", cliStderr.String())
+	assert.NotContains(t, cliStderr.String(), privateUserText)
+	assert.NotContains(t, logs.String(), privateUserText)
 	assert.Equal(t, int32(1), requests.Load())
 	assert.Contains(t, string(stored), privateUserText)
 	assert.NotContains(t, string(stored), `"type":"model"`)
@@ -126,39 +127,11 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailureIsPubli
 	require.NotNil(t, diagnostic)
 	assert.Equal(t, "append_history", diagnostic.Operation)
 	assert.Equal(t, named.GetId(), diagnostic.SessionID)
-	require.NotEmpty(t, diagnostic.Error)
-	privateValues := []string{
-		filepath.Join(paths.Directory, "sessions"),
-		filepath.Dir(named.GetStoragePath()),
-		named.GetStoragePath(),
-		filepath.Base(named.GetStoragePath()),
-		named.GetId(),
-		privateUserText,
-		programmaticCleanupProviderMarker,
-		"provider-context",
-		"extension-json",
-		diagnostic.Error,
-	}
-	for _, value := range privateValues {
-		assert.NotContains(t, cliStderr.String(), value)
-	}
-	assert.NotContains(t, logs.String(), filepath.Join(paths.Directory, "sessions"))
-	assert.NotContains(t, logs.String(), filepath.Dir(named.GetStoragePath()))
-	assert.NotContains(t, logs.String(), filepath.Base(named.GetStoragePath()))
-	assert.NotContains(t, logs.String(), privateUserText)
-	assert.NotContains(t, logs.String(), programmaticCleanupProviderMarker)
-	assert.NotContains(t, logs.String(), "provider-context")
-	assert.NotContains(t, logs.String(), "extension-json")
-	assert.NotContains(t, diagnostic.Error, filepath.Base(named.GetStoragePath()))
-	for _, record := range records {
-		if record.Message != "session persistence failed" {
-			assert.Empty(t, record.SessionID)
-			assert.NotContains(t, record.Error, named.GetId())
-			assert.NotContains(t, record.Error, diagnostic.Error)
-		}
-	}
+	assert.Equal(t, 1, strings.Count(runErr.Error(), diagnostic.Error))
+	assert.Equal(t, 1, strings.Count(cliStderr.String(), diagnostic.Error))
+	assert.Contains(t, diagnostic.Error, "open session file")
 	assert.True(t, strings.Contains(strings.ToLower(diagnostic.Error), "permission") ||
 		strings.Contains(strings.ToLower(diagnostic.Error), "operation not permitted"),
-		"unexpected infrastructure cause %q", diagnostic.Error,
+		"unexpected persistence error %q", diagnostic.Error,
 	)
 }

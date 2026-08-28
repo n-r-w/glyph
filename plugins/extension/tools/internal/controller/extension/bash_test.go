@@ -3,7 +3,9 @@ package extension
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
@@ -107,6 +111,78 @@ func TestSendBashResultRemovesUndeliveredOutput(t *testing.T) {
 
 	require.ErrorIs(t, err, deliveryErr)
 	assert.NoFileExists(t, path)
+}
+
+// TestServiceExecuteBashBoundsRetainedOutputAndRunnerError keeps the complete error result within standard-tool limits.
+func TestServiceExecuteBashBoundsRetainedOutputAndRunnerError(t *testing.T) {
+	t.Parallel()
+
+	// Arrange retained output at both standard-tool limits with a complete-output reference.
+	fullOutputPath := t.TempDir() + "/complete.log"
+	fileReference := "[Output truncated. Full output: " + fullOutputPath + "]\n"
+	linePrefix := strings.Repeat("x\n", textbudget.MaximumLines-1)
+	paddingBytes := textbudget.MaximumBytes - len(linePrefix) - len(fileReference)
+	require.Positive(t, paddingBytes)
+	boundedOutput := linePrefix + strings.Repeat("x", paddingBytes) + fileReference
+	require.Len(t, boundedOutput, textbudget.MaximumBytes)
+	require.Equal(t, textbudget.MaximumLines, strings.Count(boundedOutput, "\n"))
+
+	bashTool := NewMockBashTool(gomock.NewController(t))
+	bashTool.EXPECT().Execute(gomock.Any(), "partial", gomock.Any()).Return(
+		BashResult{
+			Text:     boundedOutput,
+			ExitCode: -1,
+			Truncation: textbudget.Truncation{
+				Truncated:      true,
+				TotalBytes:     int64(textbudget.MaximumBytes + 1),
+				TotalLines:     int64(textbudget.MaximumLines + 1),
+				FullOutputPath: fullOutputPath,
+			},
+		},
+		fmt.Errorf("run bash command: %w", errors.New("unique runner failure")),
+	)
+	client := newTestClientWithBash(t, bashTool)
+
+	// Act: execute bash through the extension controller.
+	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"partial"}`),
+	}.Build())
+
+	// Assert: the bounded terminal error keeps the full cause and complete-output reference.
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.True(t, events[0].GetResult().GetIsError())
+	content := events[0].GetResult().GetContents()[0].GetText()
+	require.Contains(t, content, "run bash command: unique runner failure")
+	require.Contains(t, content, fileReference)
+	assert.LessOrEqual(t, len(content), textbudget.MaximumBytes)
+	assert.LessOrEqual(t, strings.Count(content, "\n"), textbudget.MaximumLines)
+}
+
+// TestServiceExecuteBashRetainedOutputCancellationMapsToGRPCCancellation preserves canonical cancellation behavior.
+func TestServiceExecuteBashRetainedOutputCancellationMapsToGRPCCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a runner result with retained output and wrapped cancellation.
+	bashTool := NewMockBashTool(gomock.NewController(t))
+	bashTool.EXPECT().Execute(gomock.Any(), "cancel", gomock.Any()).Return(
+		BashResult{
+			Text: "partial output", ExitCode: -1,
+			Truncation: textbudget.Truncation{
+				Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+			},
+		},
+		fmt.Errorf("run bash command: %w", context.Canceled),
+	)
+	client := newTestClientWithBash(t, bashTool)
+
+	// Act: execute bash through the extension controller.
+	_, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"cancel"}`),
+	}.Build())
+
+	// Assert: cancellation remains a gRPC cancellation instead of a terminal result.
+	require.Equal(t, codes.Canceled, status.Code(err))
 }
 
 // TestServiceExecuteBashReturnsBoundedText forwards the prepared terminal result without JSON expansion.

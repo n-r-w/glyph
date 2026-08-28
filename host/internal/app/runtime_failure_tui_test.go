@@ -167,7 +167,7 @@ func TestStandardTUIHostRuntimePersistenceFailures(t *testing.T) {
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Session status: Session replacement is unavailable.")
+	observer.WaitNext(t, "Session status: Session replacement is unavailable: another operation is active")
 	busyOutput := observer.StringFrom(busyCheckpoint)
 	assert.Contains(t, busyOutput, "Selector: Up/Down navigate")
 	assert.Contains(t, busyOutput, "/resume|")
@@ -193,7 +193,7 @@ func TestStandardTUIHostRuntimePersistenceFailures(t *testing.T) {
 	observer.WaitNext(t, "Sessions:")
 	testsupporttui.Write(t, input, "\x1b[B\x1b[B\x1b[B\x1b[B")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Session status: session persistence failed")
+	observer.WaitNext(t, "session persistence failed")
 	resumeOutput := observer.StringFrom(resumeCheckpoint)
 	assert.Contains(t, resumeOutput, "runtime preceding |")
 	assert.Contains(t, resumeOutput, "/resume|")
@@ -205,7 +205,7 @@ func TestStandardTUIHostRuntimePersistenceFailures(t *testing.T) {
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Name: recovered writable")
 
-	// Assert clean process completion and absence of prohibited public error details.
+	// Assert clean process completion with persistence causes and without unrelated provider data.
 	testsupporttui.Write(t, input, string([]byte{17}))
 	require.NoError(t, input.Close())
 	runErr := waiter.Wait(ptyContext)
@@ -213,8 +213,8 @@ func TestStandardTUIHostRuntimePersistenceFailures(t *testing.T) {
 	require.NoError(t, copyErr)
 	require.NoError(t, runErr, observer.String())
 	publicOutput := observer.String()
-	assert.NotContains(t, publicOutput, "permission denied")
-	assert.NotContains(t, publicOutput, "openat ")
+	assert.Contains(t, publicOutput, "permission denied")
+	assert.Contains(t, publicOutput, "openat ")
 	assert.NotContains(t, publicOutput, "provider-context")
 	assert.NotContains(t, publicOutput, "extension-json")
 	assert.Contains(t, publicOutput, "PASS")
