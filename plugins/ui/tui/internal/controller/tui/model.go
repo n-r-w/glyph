@@ -805,92 +805,123 @@ func ellipsize(value string, width int) string {
 	return ansi.Truncate(normalized, width, "…")
 }
 
-// visibleBodyLines keeps the latest transcript after reserving fixed and selector lines.
+// visibleBodyLines renders newest content first and stops when the viewport is full.
 //
 //nolint:gocyclo // The flat branches preserve transcript order across visible content kinds.
 func (model Model) visibleBodyLines(reservedLines int) []string {
-	estimatedLines := len(model.state.Startup) + len(model.state.Transcript) +
-		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
-	lines := make([]string, 0, estimatedLines)
-	for _, line := range model.state.Startup {
-		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
-	}
-	for _, line := range model.state.Transcript {
-		if line.Kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
-			lines = appendWrappedBodyLine(lines, "Reasoning: [collapsed]", model.width)
-			continue
+	// A negative capacity preserves full output until Bubble Tea reports terminal dimensions.
+	capacity := -1
+	if model.height > 0 {
+		capacity = model.height - fixedViewLineCount - reservedLines
+		if capacity <= 0 {
+			return nil
 		}
-		lines = appendWrappedBodyLine(lines, renderLine(line), model.width)
-	}
-	positions := make([]int, 0, len(model.state.ActiveModel))
-	for position := range model.state.ActiveModel {
-		positions = append(positions, position)
-	}
-	slices.Sort(positions)
-	for _, position := range positions {
-		content := model.state.ActiveModel[position]
-		kind := presentationdomain.LineModel
-		contentKind, kindOK := content.Kind.Get()
-		if !kindOK {
-			contentKind = presentationdomain.ModelContentUnspecified
-		}
-		switch contentKind {
-		case presentationdomain.ModelContentRefusal:
-			kind = presentationdomain.LineRefusal
-		case presentationdomain.ModelContentReasoning:
-			kind = presentationdomain.LineReasoning
-		case presentationdomain.ModelContentText, presentationdomain.ModelContentUnspecified:
-		}
-		if kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
-			lines = appendWrappedBodyLine(lines, "Reasoning: [collapsed]", model.width)
-			continue
-		}
-		lines = appendWrappedBodyLine(
-			lines,
-			renderLine(presentationdomain.Line{
-				Kind:     kind,
-				Text:     content.Text,
-				ToolName: mo.None[string](),
-				Status:   mo.None[string](),
-				Contents: mo.None[[]presentationdomain.Content](),
-			}),
-			model.width,
-		)
-	}
-	calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
-	for _, call := range model.state.ActiveToolCalls {
-		calls = append(calls, call)
-	}
-	slices.SortFunc(calls, func(left, right presentationdomain.ToolCallState) int {
-		return cmp.Compare(left.Position, right.Position)
-	})
-	for _, call := range calls {
-		lines = appendWrappedBodyLine(lines, renderToolCall(call), model.width)
-	}
-	if authorizationURL, ok := model.state.AuthorizationURL.Get(); ok {
-		lines = appendWrappedBodyLine(lines, "Authorization: "+authorizationURL, model.width)
 	}
 
-	if model.height <= 0 {
-		return lines
+	estimatedLines := len(model.state.Startup) + len(model.state.Transcript) +
+		len(model.state.ActiveModel) + len(model.state.ActiveToolCalls) + 1
+	if capacity >= 0 && estimatedLines > capacity {
+		estimatedLines = capacity
 	}
-	capacity := model.height - fixedViewLineCount - reservedLines
-	if capacity <= 0 {
-		return nil
+	// Walk body sections from newest to oldest so rendering stops when the viewport is full.
+	// appendNewestWrapped stores visual lines in reverse order to avoid repeated prepends.
+	lines := make([]string, 0, estimatedLines)
+	if authorizationURL, ok := model.state.AuthorizationURL.Get(); ok {
+		lines = appendNewestWrapped(lines, "Authorization: "+authorizationURL, model.width, capacity)
 	}
-	if len(lines) > capacity {
-		return lines[len(lines)-capacity:]
+
+	if hasBodyCapacity(lines, capacity) {
+		calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
+		for _, call := range model.state.ActiveToolCalls {
+			calls = append(calls, call)
+		}
+		slices.SortFunc(calls, func(left, right presentationdomain.ToolCallState) int {
+			return cmp.Compare(left.Position, right.Position)
+		})
+		for index := len(calls) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
+			lines = appendNewestWrapped(lines, renderToolCall(calls[index]), model.width, capacity)
+		}
+	}
+
+	if hasBodyCapacity(lines, capacity) {
+		positions := make([]int, 0, len(model.state.ActiveModel))
+		for position := range model.state.ActiveModel {
+			positions = append(positions, position)
+		}
+		slices.Sort(positions)
+		for index := len(positions) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
+			content := model.state.ActiveModel[positions[index]]
+			lines = appendNewestWrapped(
+				lines,
+				renderActiveModelLine(content, model.reasoningExpanded),
+				model.width,
+				capacity,
+			)
+		}
+	}
+
+	// Completed transcript and startup lines are older than all active content.
+	for index := len(model.state.Transcript) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
+		line := model.state.Transcript[index]
+		if line.Kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
+			lines = appendNewestWrapped(lines, "Reasoning: [collapsed]", model.width, capacity)
+			continue
+		}
+		lines = appendNewestWrapped(lines, renderLine(line), model.width, capacity)
+	}
+	for index := len(model.state.Startup) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
+		lines = appendNewestWrapped(lines, renderLine(model.state.Startup[index]), model.width, capacity)
+	}
+
+	// Restore chronological display order after the newest-first traversal.
+	slices.Reverse(lines)
+	return lines
+}
+
+func hasBodyCapacity(lines []string, capacity int) bool {
+	return capacity < 0 || len(lines) < capacity
+}
+
+func appendNewestWrapped(lines []string, line string, width, capacity int) []string {
+	wrapped := wrappedBodyLines(line, width)
+	for index := len(wrapped) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
+		lines = append(lines, wrapped[index])
 	}
 	return lines
 }
 
-// appendWrappedBodyLine converts one logical body line into readable terminal-width visual lines.
-func appendWrappedBodyLine(lines []string, line string, width int) []string {
+func renderActiveModelLine(content presentationdomain.ActiveModelContent, reasoningExpanded bool) string {
+	kind := presentationdomain.LineModel
+	contentKind, ok := content.Kind.Get()
+	if !ok {
+		contentKind = presentationdomain.ModelContentUnspecified
+	}
+	switch contentKind {
+	case presentationdomain.ModelContentRefusal:
+		kind = presentationdomain.LineRefusal
+	case presentationdomain.ModelContentReasoning:
+		kind = presentationdomain.LineReasoning
+	case presentationdomain.ModelContentText, presentationdomain.ModelContentUnspecified:
+	}
+	if kind == presentationdomain.LineReasoning && !reasoningExpanded {
+		return "Reasoning: [collapsed]"
+	}
+	return renderLine(presentationdomain.Line{
+		Kind:     kind,
+		Text:     content.Text,
+		ToolName: mo.None[string](),
+		Status:   mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](),
+	})
+}
+
+// wrappedBodyLines converts one logical body line into readable terminal-width visual lines.
+func wrappedBodyLines(line string, width int) []string {
 	if width <= 0 {
-		return append(lines, strings.Split(line, "\n")...)
+		return strings.Split(line, "\n")
 	}
 
-	return append(lines, strings.Split(ansi.Wrap(line, width, ""), "\n")...)
+	return strings.Split(ansi.Wrap(line, width, ""), "\n")
 }
 
 func renderToolCall(call presentationdomain.ToolCallState) string {

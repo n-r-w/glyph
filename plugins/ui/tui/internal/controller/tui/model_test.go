@@ -2091,7 +2091,39 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 	return model
 }
 
-func newTestModel(t *testing.T, availability presentationdomain.Availability, emit Emit) Model {
+// BenchmarkModelVisibleBodyLines measures viewport rendering as transcript history grows.
+func BenchmarkModelVisibleBodyLines(b *testing.B) {
+	for _, transcriptSize := range []int{100, 10_000, 100_000} {
+		b.Run(fmt.Sprintf("transcript_%d", transcriptSize), func(b *testing.B) {
+			// Arrange a fixed viewport and a transcript of the requested size.
+			model := newTestModel(b, presentationdomain.AvailabilityIdle, nil)
+			model.width = 120
+			model.height = 40
+			model.state.Transcript = make([]presentationdomain.Line, transcriptSize)
+			for index := range model.state.Transcript {
+				model.state.Transcript[index] = presentationdomain.Line{
+					Kind:     presentationdomain.LineInformation,
+					ToolName: mo.None[string](),
+					Status:   mo.None[string](),
+					Text:     mo.Some(fmt.Sprintf("transcript line %d with representative content", index)),
+					Contents: mo.None[[]presentationdomain.Content](),
+				}
+			}
+
+			// Act by rendering the same viewport repeatedly.
+			b.ReportAllocs()
+			var lines []string
+			for b.Loop() {
+				lines = model.visibleBodyLines(0)
+			}
+
+			// Assert the benchmark exercised visible output.
+			require.NotEmpty(b, lines)
+		})
+	}
+}
+
+func newTestModel(t testing.TB, availability presentationdomain.Availability, emit Emit) Model {
 	t.Helper()
 	service := presentationusecase.New()
 	if emit == nil {
