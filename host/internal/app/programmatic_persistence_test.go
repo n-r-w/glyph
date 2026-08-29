@@ -3,9 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
-
 	"fmt"
-
 	"log/slog"
 	"net/http"
 	"os"
@@ -167,7 +165,7 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	require.NoError(t, fixture.stream.Send(contention))
 	preFailureEvents := make([]programmaticv1.AgentEventType, 0)
 	var contentionResult *programmaticv1.CommandRejected
-	for contentionResult == nil {
+	for {
 		response, receiveErr := fixture.stream.Recv()
 		require.NoError(t, receiveErr)
 		if response.GetCorrelationId() == "resume-contention" {

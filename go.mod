@@ -7,6 +7,7 @@ tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/n-r-w/ifaceguard/cmd/ifaceguard
 	go.uber.org/mock/mockgen
+	golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness
 	golang.org/x/vuln/cmd/govulncheck
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc
 	google.golang.org/protobuf/cmd/protoc-gen-go
