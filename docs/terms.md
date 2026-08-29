@@ -46,6 +46,9 @@
 - `estimated cost`: The persisted USD estimate calculated from normalized token usage and configured provider-model pricing.
 - `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
 - `active leaf`: The session-tree entry from which subsequent entries continue.
+- `navigation destination`: The session-tree position selected before an optional `BranchSummaryEntry` becomes the active leaf.
+- `model-visible extension message`: An extension-created session message associated with one session-tree branch and included in model context.
+- `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.

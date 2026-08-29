@@ -159,7 +159,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - ENT-03: Extension operation state contains an immutable original request, a current request, an original-result state that is absent until result processing starts, and a current-result state that is absent or contains one result.
 - ENT-04: `RetryDecision` contains the provider failure classification, completed attempt count, next-attempt decision, delay, and effective attempt limit for one failed model request.
 - ENT-05: A session tree contains parent-linked entries and one active leaf. Entry variants include user messages, model responses, tool results, extension entries, `BranchSummaryEntry`, and compaction entries.
-- ENT-06: `BranchSummaryEntry` contains the summary attached by tree navigation, its branch boundary, and a usage state that is absent or contains normalized usage.
+- ENT-06: `BranchSummaryEntry` contains the summary attached by tree navigation, its branch boundary, provider, model, reasoning choice, and explicit optional states for normalized token usage and persisted estimated cost. It is a child of the navigation destination and becomes the active leaf when created.
 - ENT-07: A compaction entry contains the final summary and the first preserved active-branch entry identifier. Original session entries remain stored.
 - ENT-08: Provider reasoning context contains provider-owned opaque bytes and a source identity. Host passes it only to the owning compatible provider implementation. Glyph clients and non-provider extension operations never receive the payload.
 

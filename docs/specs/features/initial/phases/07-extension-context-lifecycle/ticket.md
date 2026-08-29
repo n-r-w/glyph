@@ -7,6 +7,7 @@ Give extension processes session-bound access, configured-model requests, active
 - DEF-01: Extension context. Host access bound to one extension runtime generation and one active session.
 - DEF-02: Original target selection. The immutable provider, model, and reasoning selection requested before selection handlers run.
 - DEF-03: Current target selection. The selection returned by preceding selection handlers.
+- DEF-04: Model-visible extension message. An extension-created session message associated with one session-tree branch and included in model context.
 
 ## Problem Statement
 
@@ -68,6 +69,7 @@ Out of scope:
 - FRQ-02.5: Host shall validate model existence, reasoning capability, and authentication against the final current selection before it atomically commits provider, model, and reasoning choice. The selected catalogue entry shall retain the `input`, `contextWindow`, and `maxTokens` descriptor values delivered by PHS-04.1.
 - FRQ-02.6: Rejection or validation failure shall preserve the active selection. Host shall emit model-selection or reasoning-selection events only after a successful commit.
 - FRQ-03: Add model-hidden and model-visible branch-aware session entry operations.
+- FRQ-03.1: Glyph clients shall present model-visible extension messages in the session tree. Selecting one shall use its parent as the navigation destination and shall return its exact text as editable next input without submitting that text automatically. The PHS-05 branch-summarization rules shall determine the committed active leaf.
 
 ### Non-Functional Requirements
 
@@ -77,7 +79,7 @@ Out of scope:
 ### Deliverables
 
 - DLV-01: Public extension context, configured-model request, active-selection, and lifecycle contract.
-- DLV-02: Reference extension that records a configured-model result as lifecycle-derived branch state and composes one active-selection change with another extension.
+- DLV-02: Reference extension that records configured-model results as model-hidden and model-visible lifecycle-derived branch state and composes one active-selection change with another extension.
 
 ### Acceptance Criteria
 
@@ -88,6 +90,7 @@ Out of scope:
 - ACC-05: An extension changes the active conversation model and reasoning choice, and the next model request uses the committed selection without clearing session history.
 - ACC-06: Two selection handlers receive the same original target selection, while the second receives the current selection returned by the first.
 - ACC-07: Handler rejection, an invalid replacement, unavailable credentials, or an unsupported reasoning choice preserves the active provider, model, and reasoning choice and emits no selection event.
+- ACC-08: A model-visible extension message survives restart, appears through both Glyph client contracts, and returns its exact text and parent navigation destination when selected without starting an agent run. When branch summarization is enabled, the created `BranchSummaryEntry` becomes the active leaf.
 
 ## Overengineering and Overspecification Considerations
 

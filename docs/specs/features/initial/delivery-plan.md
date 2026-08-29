@@ -27,7 +27,7 @@
 - Ticket: [Ticket](phases/04.1-model-execution-capabilities/ticket.md)
 
 ### PHS-05. Session tree
-- Dependencies: PHS-04
+- Dependencies: PHS-04, PHS-04.1
 - Ticket: [Ticket](phases/05-session-tree/ticket.md)
 
 ### PHS-07. Extension context and lifecycle

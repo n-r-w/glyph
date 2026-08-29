@@ -26,6 +26,9 @@
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
 - `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
 - `active leaf`: The session-tree entry from which subsequent entries continue.
+- `navigation destination`: The session-tree position selected before an optional `BranchSummaryEntry` becomes the active leaf.
+- `model-visible extension message`: An extension-created session message associated with one session-tree branch and included in model context.
+- `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `UI`: A presentation and input surface through which a person interacts with Glyph.
 - `terminal UI`: A UI presented inside a terminal.
 - `standard TUI`: The terminal UI plugin distributed with Glyph; it owns terminal-specific rendering, input, and extension capabilities.
@@ -259,6 +262,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The agent core shall execute model requests through configured providers without implementing provider-specific authentication.
 - Changing the model shall preserve session history and affect subsequent model requests.
+- Every Glyph-owned prompt sent to a model shall be stored in a Markdown file and embedded into its owning Go binary with `//go:embed`. Go source shall contain no built-in prompt text.
 
 ### Glyph Host Agent Orchestration Requirements
 
@@ -290,8 +294,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - A context transformation shall affect only the outbound context for that provider request; persisted session state shall change only when an extension separately adds a session entry through the session contract.
 - Extensions shall be able to observe, transform, or fully handle user text and images before agent processing.
 - An extension shall be able to initiate and cancel session creation, resumption, forking, cloning, and tree navigation.
-- Before tree navigation, the Glyph host shall invoke `session_before_tree` request handlers with the immutable original navigation request, the current request returned by preceding handlers, and the current branch summarization result when one exists.
-- A `session_before_tree` request handler shall be able to preserve or replace the current request, preserve, set, replace, or clear the current result, or cancel navigation. Cancellation shall be terminal and shall stop later branch summarization handlers. When handlers end without a result and the current request requires branch summarization, the built-in branch summarizer shall run.
+- Before tree navigation, the Glyph host shall invoke `session_before_tree` request handlers with the immutable original navigation request, the current request returned by preceding handlers, and the current branch summarization result when one exists. The initial request shall contain a summary model selection copied from the active provider, model, and reasoning choice.
+- A `session_before_tree` request handler shall be able to preserve or replace the current request, including selecting another configured provider, model, and reasoning choice, preserve, set, replace, or clear the current result, or cancel navigation. Cancellation shall be terminal and shall stop later branch summarization handlers. When handlers end without a result and the current request requires branch summarization, the built-in branch summarizer shall use the final validated summary model selection.
 - Branch summarization result handlers shall receive the original request, final current request, immutable original result, and current result returned by preceding handlers and shall preserve, replace, or cancel the result. Cancellation shall be terminal and shall stop later branch summarization handlers.
 - The Glyph host shall validate the final tree target and `BranchSummaryEntry`, atomically commit navigation and summary persistence, and emit `session_tree` only after commit. Cancellation or invalid final state shall change neither the active leaf nor persisted entries.
 - After session replacement, the extension shall receive a context bound to the replacement session.
@@ -331,10 +335,14 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Context compaction shall append a summary entry that replaces an older context prefix in model-visible context while preserving the remaining suffix unchanged and retaining the original session entries.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
 - Session information shall include message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown. Counts shall remain available independently. Token totals shall be available only when every stored model response has usage. Estimated cost shall be available only when every stored model response has persisted cost.
-- Each `BranchSummaryEntry` shall own its branch summarization usage accounting. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
+- Each `BranchSummaryEntry` shall own its branch boundary, provider, model, reasoning choice, and explicit optional states for normalized token usage and persisted estimated cost. Usage shall be absent when the provider does not report it. Estimated cost shall be absent when usage or configured pricing is unavailable. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.
 - Session entries shall form a tree with parent-child relationships and one active leaf.
 - Continuing from an earlier entry shall create a new branch without deleting existing branches.
 - The session model shall support creation, resumption, tree navigation, forking, cloning, naming, information retrieval, branch summarization, and entry labels.
+- Tree navigation shall return a client-neutral result containing the committed active leaf and optional next-input text. It shall return `busy` without changing the session during an active agent run.
+- Selecting a user message or model-visible extension message shall use its parent as the navigation destination and shall return its exact text as next input without submitting it. Selecting any other entry shall use that entry as the navigation destination and shall return no next input.
+- When branch summarization creates a `BranchSummaryEntry`, the Glyph host shall attach it as a child of the navigation destination and make it the active leaf. Without a `BranchSummaryEntry`, the navigation destination shall become the active leaf.
+- Forking shall copy the path through the selected user message's parent and return that message as next input. Cloning shall copy the complete active branch.
 - Tree navigation shall support no branch summarization, built-in branch summarization, or branch summarization with custom focus, and shall attach a created `BranchSummaryEntry` at the selected position.
 
 ### Standard TUI Requirements
@@ -360,11 +368,11 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 #### Session Interaction
 
 - The standard TUI shall present the complete session tree and preserve all existing branches when the user continues from an earlier position.
-- Selecting a user message or model-visible extension message shall move the active leaf to its parent and place its text in the editor for resubmission.
-- Selecting the root user message shall move the active leaf to an empty conversation and place the root prompt in the editor.
-- Selecting another entry shall move the active leaf to that entry and leave the editor empty.
-- When leaving a branch, the standard TUI shall offer no branch summarization, built-in branch summarization, and branch summarization with custom focus.
-- The standard TUI shall allow users to set and clear labels on session-tree entries.
+- Selecting a user message or model-visible extension message shall use its parent as the navigation destination and place its text in the editor for resubmission.
+- Selecting the root user message shall use an empty conversation as the navigation destination and place the root prompt in the editor.
+- Selecting another entry shall use that entry as the navigation destination and leave the editor empty.
+- When leaving a branch, the standard TUI shall offer no branch summarization, built-in branch summarization, and branch summarization with custom focus. No branch summarization shall be the default.
+- The standard TUI shall provide tree search, filters, branch folding, and entry labels according to `docs/specs/features/initial/tui-defaults.md`.
 
 #### TUI Extension Capabilities
 
