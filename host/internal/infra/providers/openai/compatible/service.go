@@ -29,9 +29,6 @@ const (
 	APIChatCompletions API = "chat-completions"
 	// APIResponses selects the Responses API.
 	APIResponses API = "responses"
-
-	reasoningWireFormatOpenAIResponses     = "openai-responses"
-	reasoningWireFormatOpenAIChatReasoning = "openai-chat-reasoning"
 )
 
 // Config contains immutable configuration for one provider instance.
@@ -44,8 +41,8 @@ type Config struct {
 	API API
 	// Models contains request contract overrides by model.
 	Models map[model.ID]API
-	// ReasoningWireFormats contains reasoning request formats by model.
-	ReasoningWireFormats map[model.ID]string
+	// ReasoningFormats contains raw formats for models with reasoning enabled.
+	ReasoningFormats map[model.ID]string
 	// ReasoningCompatibilityKeys contains replay contracts by model.
 	ReasoningCompatibilityKeys map[model.ID]mo.Option[string]
 	// APIKey resolves the provider credential for each request.
@@ -56,8 +53,8 @@ type Config struct {
 type modelConfig struct {
 	// api identifies the provider request contract.
 	api API
-	// reasoningWireFormat identifies the reasoning request format.
-	reasoningWireFormat string
+	// reasoningFormat identifies the reasoning request format.
+	reasoningFormat reasoningFormat
 	// reasoningCompatibilityKey identifies the replay contract.
 	reasoningCompatibilityKey mo.Option[string]
 }
@@ -126,30 +123,16 @@ func configuredModels(config Config) (map[model.ID]modelConfig, error) {
 			}
 			selectedAPI = override
 		}
-		reasoningWireFormat := config.ReasoningWireFormats[modelID]
-		if !reasoningWireFormatMatchesAPI(reasoningWireFormat, selectedAPI) {
-			return "", modelConfig{}, fmt.Errorf(
-				"model %q reasoning wire format is unsupported for API %q", modelID, selectedAPI,
-			)
+		rawFormat, reasoningConfigured := config.ReasoningFormats[modelID]
+		parsedFormat, err := parseReasoningFormat(rawFormat, selectedAPI, reasoningConfigured)
+		if err != nil {
+			return "", modelConfig{}, fmt.Errorf("provider %q model %q: %w", config.ProviderID, modelID, err)
 		}
 		return modelID, modelConfig{
-			api: selectedAPI, reasoningWireFormat: reasoningWireFormat,
+			api: selectedAPI, reasoningFormat: parsedFormat,
 			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
 		}, nil
 	})
-}
-
-func reasoningWireFormatMatchesAPI(format string, api API) bool {
-	switch format {
-	case "":
-		return true
-	case reasoningWireFormatOpenAIResponses:
-		return api == APIResponses
-	case reasoningWireFormatOpenAIChatReasoning:
-		return api == APIChatCompletions
-	default:
-		return false
-	}
 }
 
 func validateAPI(api API) error {

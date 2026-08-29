@@ -513,19 +513,21 @@ func newProviderCatalog(
 				paths.CredentialsFile, apiKeySource(providerConfig.APIKey),
 			)
 			modelAPIs := make(map[model.ID]compatible.API, len(providerConfig.Models))
-			wireFormats := make(map[model.ID]string, len(providerConfig.Models))
+			formats := make(map[model.ID]string, len(providerConfig.Models))
 			compatibilityKeys := make(map[model.ID]mo.Option[string], len(providerConfig.Models))
 			for modelIndex := range providerConfig.Models {
 				configuredModel := &providerConfig.Models[modelIndex]
 				modelID := model.ID(configuredModel.ID)
 				modelAPIs[modelID] = compatible.API(configuredModel.API)
-				wireFormats[modelID] = string(configuredModel.Reasoning.WireFormat)
+				if configuredModel.Reasoning.Supported {
+					formats[modelID] = configuredModel.Reasoning.Format
+				}
 				compatibilityKeys[modelID] = configuredModel.Reasoning.CompatibilityKey
 			}
 			provider, err := compatible.New(compatible.Config{
 				ProviderID: model.ProviderID(providerID), BaseURL: providerConfig.BaseURL,
 				API: compatible.API(providerConfig.API), Models: modelAPIs,
-				ReasoningWireFormats: wireFormats, ReasoningCompatibilityKeys: compatibilityKeys, APIKey: resolver,
+				ReasoningFormats: formats, ReasoningCompatibilityKeys: compatibilityKeys, APIKey: resolver,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("create provider %q: %w", providerID, err)
@@ -556,7 +558,7 @@ func newProviderCatalog(
 			Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
 		},
 		Reasoning: settingstore.Reasoning{
-			Supported: false, Choices: nil, Default: "", CompatibilityKey: mo.None[string](), WireFormat: "",
+			Supported: false, Choices: nil, Default: "", CompatibilityKey: mo.None[string](), Format: "",
 		}, Pricing: mo.None[model.Pricing](),
 	}
 	defaultModelIndex := slices.IndexFunc(defaultProvider.Models, func(configuredModel settingstore.Model) bool {

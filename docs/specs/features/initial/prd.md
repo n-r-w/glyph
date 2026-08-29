@@ -202,14 +202,15 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Selecting an unsupported reasoning choice shall fail without changing the active model selection.
 - Model switching shall preserve a semantically compatible reasoning choice and otherwise use the target model's explicit default reasoning choice.
 - Visible reasoning content shall remain typed model content in conversation history and client events and shall remain in model-visible history for later requests.
-- A provider driver shall replay visible reasoning through a native reasoning field when the target wire format supports it and shall otherwise convert the visible reasoning to ordinary assistant text.
+- A provider driver shall replay visible reasoning through a native reasoning field when the target provider format supports it and shall otherwise convert the visible reasoning to ordinary assistant text.
 - Provider reasoning context is session data attached to its model response. Glyph shall persist it unchanged, restore it with the session, and retain it for compatible replay after application restart.
 - Provider reasoning context shall not be exposed to Glyph clients. An owning provider implementation may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged and shall be replayed only to a compatible model request.
 - Provider reasoning context replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
 - A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier.
-- PHS-03 reasoning wire support shall use `openai-responses` for OpenAI Codex and OpenAI-compatible Responses, and universal `openai-chat-reasoning` for effort-controlled, toggleable, and fixed-on Chat Completions reasoning.
-- OpenRouter, Together, DeepSeek, Qwen, chat-template reasoning controls, and thinking token budgets shall remain unsupported until a later feature adds and verifies their wire formats.
-- PHS-03 documentation shall state these reasoning-format limits and describe the deferred provider-specific formats.
+- OpenAI Codex and OpenAI-compatible Responses shall own Responses reasoning behavior without a reasoning format setting.
+- OpenAI-compatible Chat Completions reasoning shall use the adapter-private `openai-chat` or `openrouter` format. Shared settings shall pass `reasoning.format` as an opaque string, and the adapter shall validate accepted values and API compatibility during construction.
+- `openrouter` shall use nested request reasoning control, map streamed visible reasoning into typed content, preserve `reasoning_details` as opaque provider context, and replay compatible details on later assistant messages.
+- Together, DeepSeek, Qwen, chat-template reasoning controls, and thinking token budgets shall remain unsupported until a later feature adds and verifies their provider formats.
 - An OpenAI-compatible provider instance without an API key shall remain available and shall use no request authorization.
 - Selecting a model whose referenced API key cannot be resolved shall fail immediately, preserve the active provider, model, and reasoning choice, and produce an error.
 

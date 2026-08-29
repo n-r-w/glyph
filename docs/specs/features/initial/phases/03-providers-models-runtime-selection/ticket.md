@@ -57,7 +57,7 @@ Out of scope:
 
 - OSP-01: No extension-defined providers or provider middleware.
 - OSP-02: No `!command` API-key resolution.
-- OSP-03: No OpenRouter, Together, DeepSeek, Qwen, chat-template reasoning controls, or thinking token budgets.
+- OSP-03: No Together, DeepSeek, Qwen, chat-template reasoning controls, or thinking token budgets.
 - OSP-04: No runtime probing of model reasoning capabilities.
 
 ## Dependencies and Preconditions
@@ -80,11 +80,12 @@ Out of scope:
 - FRQ-06: The Host shall expose one adaptive reasoning control to both client kinds: unavailable for non-reasoning models, `off` and `on` for toggle models, configured efforts with optional `off` for effort models, and no selectable alternative for fixed reasoning.
 - FRQ-07: Selecting an unsupported reasoning choice shall preserve the active selection and return an error.
 - FRQ-08: Model switching shall preserve a semantically compatible reasoning choice and otherwise use the target model's explicit default.
-- FRQ-09: Visible reasoning content shall remain typed conversation content, remain available to clients, and remain in model-visible history for later requests. A provider driver shall replay it through a native reasoning field when the target wire format supports it and shall otherwise convert it to ordinary assistant text. The standard TUI shall collapse every reasoning block by default and use one display action to expand or collapse all blocks without changing provider behavior.
+- FRQ-09: Visible reasoning content shall remain typed conversation content, remain available to clients, and remain in model-visible history for later requests. A provider driver shall replay it through a native reasoning field when the target provider format supports it and shall otherwise convert it to ordinary assistant text. The standard TUI shall collapse every reasoning block by default and use one display action to expand or collapse all blocks without changing provider behavior.
 - FRQ-10: Provider reasoning context shall remain hidden from clients. A provider driver may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged. Replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
 - FRQ-11: A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier. An absent key shall never create cross-model compatibility.
-- FRQ-12: Reasoning wire support shall use `openai-responses` for OpenAI Codex and OpenAI-compatible Responses, and shall use universal `openai-chat-reasoning` for effort-controlled, toggleable, and fixed-on Chat Completions reasoning.
-- FRQ-13: PHS-03 documentation shall state current reasoning-format limits and describe the deferred provider-specific formats listed in OSP-03.
+- FRQ-12: OpenAI Codex and OpenAI-compatible Responses shall own their Responses reasoning behavior without a `format` setting. OpenAI-compatible Chat Completions reasoning shall require the adapter-private `openai-chat` or `openrouter` format.
+- FRQ-13: `openai-chat` shall use top-level `reasoning_effort`, streamed `delta.reasoning`, and assistant `reasoning`. `openrouter` shall use nested `reasoning`, map streamed `delta.reasoning` to visible reasoning, preserve streamed `reasoning_details` as opaque provider context, and replay compatible details on the assistant message.
+- FRQ-14: Shared settings shall treat `reasoning.format` as an opaque string. The owning provider adapter shall validate accepted values and API compatibility during construction before UI startup, RPC socket creation, provider requests, or agent execution.
 
 ### Non-Functional Requirements
 
@@ -108,6 +109,7 @@ Out of scope:
 - ACC-07: Visible reasoning content remains available after turn completion, is collapsed by default in the standard TUI, and expands or collapses through one session-wide display action.
 - ACC-08: Provider reasoning context never appears in TUI or Programmatic Control output. A later request under FRQ-10 or FRQ-11 contains the same provider-owned opaque values, while JSON serialization details can differ.
 - ACC-09: Switching to a model outside the source reasoning compatibility boundary omits the source provider reasoning context from the next request.
+- ACC-10: An OpenRouter Chat Completions request sends nested reasoning control. Streamed visible reasoning remains typed content, and the next compatible tool continuation replays the assembled `reasoning_details` array without exposing it to clients.
 
 ## Overengineering and Overspecification Considerations
 
@@ -117,7 +119,7 @@ The ticket introduces only the public behavior needed by SCN-01 and the listed f
 
 - RSK-01: Provider-specific fields could leak into Agent Core. Provider adapters must continue mapping through the provider-neutral model contract.
 - RSK-02: A wrong reasoning compatibility key can replay opaque context to an incompatible model. Cross-model replay therefore requires an explicit nonempty key and matching provider instance and API.
-- RSK-03: A provider can add or change a reasoning wire format independently. Unsupported formats must fail configuration or remain outside the advertised reasoning choices rather than falling back silently.
+- RSK-03: A provider can add or change a reasoning format independently. The owning provider adapter must reject unsupported values during construction rather than falling back silently.
 
 ## Assumptions
 

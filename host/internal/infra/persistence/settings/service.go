@@ -61,16 +61,6 @@ const (
 	APIResponses API = "responses"
 )
 
-// ReasoningWireFormat identifies a provider-driver reasoning representation.
-type ReasoningWireFormat string
-
-const (
-	// ReasoningWireFormatOpenAIResponses uses OpenAI Responses reasoning fields.
-	ReasoningWireFormatOpenAIResponses ReasoningWireFormat = "openai-responses"
-	// ReasoningWireFormatOpenAIChatReasoning uses Chat Completions reasoning fields.
-	ReasoningWireFormatOpenAIChatReasoning ReasoningWireFormat = "openai-chat-reasoning"
-)
-
 // APIKey identifies one configured API-key source.
 type APIKey struct {
 	// Literal contains an API key stored directly in settings.
@@ -91,8 +81,8 @@ type Reasoning struct {
 	Default ReasoningChoice
 	// CompatibilityKey identifies the provider replay compatibility contract.
 	CompatibilityKey mo.Option[string]
-	// WireFormat identifies the provider reasoning request format.
-	WireFormat ReasoningWireFormat
+	// Format contains opaque provider-owned reasoning configuration.
+	Format string
 }
 
 // Model contains one validated model configuration.
@@ -257,8 +247,8 @@ type reasoningFile struct {
 	Default ReasoningChoice `yaml:"default"`
 	// CompatibilityKey contains the raw replay compatibility contract.
 	CompatibilityKey mo.Option[string] `yaml:"compatibilityKey"`
-	// WireFormat contains the raw provider reasoning request format.
-	WireFormat ReasoningWireFormat `yaml:"wireFormat"`
+	// Format contains the raw opaque provider reasoning format.
+	Format string `yaml:"format"`
 }
 
 // The YAML methods preserve scalar presence before validation because mo.Option does not decode plain YAML scalars.
@@ -465,7 +455,7 @@ func (configured *pricingTierFile) UnmarshalYAML(node *yaml.Node) error {
 }
 
 func (configured *reasoningFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "supported", "choices", "default", "compatibilityKey", "wireFormat")
+	fields, err := decodeYAMLMapping(node, "supported", "choices", "default", "compatibilityKey", "format")
 	if err != nil {
 		return err
 	}
@@ -481,7 +471,7 @@ func (configured *reasoningFile) UnmarshalYAML(node *yaml.Node) error {
 	if decodeErr := decodeYAMLField(fields, "default", &decoded.Default); decodeErr != nil {
 		return decodeErr
 	}
-	if decodeErr := decodeYAMLField(fields, "wireFormat", &decoded.WireFormat); decodeErr != nil {
+	if decodeErr := decodeYAMLField(fields, "format", &decoded.Format); decodeErr != nil {
 		return decodeErr
 	}
 	compatibilityKey, decodeErr := decodeYAMLOption[string](fields, "compatibilityKey")
@@ -671,7 +661,7 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 
 	seenModels := make(map[string]struct{}, len(configured.Models))
 	for modelIndex := range configured.Models {
-		validatedModel, err := validateModel(providerID, configured.Type, configured.API, configured.Models[modelIndex])
+		validatedModel, err := validateModel(providerID, configured.Type, configured.Models[modelIndex])
 		if err != nil {
 			return Provider{}, err
 		}
@@ -694,8 +684,8 @@ func validateCompatibleProvider(providerID string, configured providerFile) (mo.
 	return validateAPIKey(providerID, configured.APIKey)
 }
 
-// validateModel validates one model and resolves its effective API for reasoning validation.
-func validateModel(providerID string, providerType ProviderType, providerAPI API, configured modelFile) (Model, error) {
+// validateModel validates one model and its provider-neutral execution capabilities.
+func validateModel(providerID string, providerType ProviderType, configured modelFile) (Model, error) {
 	if err := validateIdentifier("model ID", configured.ID); err != nil {
 		return Model{}, fmt.Errorf("provider %q: %w", providerID, err)
 	}
@@ -719,10 +709,6 @@ func validateModel(providerID string, providerType ProviderType, providerAPI API
 			"provider %q model %q: maxTokens must not exceed contextWindow", providerID, configured.ID,
 		)
 	}
-	api := providerAPI
-	if providerType == ProviderTypeOpenAICodex {
-		api = APIResponses
-	}
 	if configured.API != "" {
 		if providerType != ProviderTypeOpenAICompatible {
 			return Model{}, fmt.Errorf("provider %q model %q cannot override API", providerID, configured.ID)
@@ -730,13 +716,12 @@ func validateModel(providerID string, providerType ProviderType, providerAPI API
 		if !isAPISupported(configured.API) {
 			return Model{}, fmt.Errorf("provider %q model %q has unsupported API %q", providerID, configured.ID, configured.API)
 		}
-		api = configured.API
 	}
 	toolCapabilities, err := validateToolCapabilities(providerID, configured.ID, configured.ToolCapabilities)
 	if err != nil {
 		return Model{}, err
 	}
-	reasoning, err := validateReasoning(providerID, configured.ID, api, configured.Reasoning)
+	reasoning, err := validateReasoning(providerID, configured.ID, configured.Reasoning)
 	if err != nil {
 		return Model{}, err
 	}
@@ -883,10 +868,10 @@ func validatePricingRates(
 	return pricingRates{input: input, output: output, cacheRead: cacheRead, cacheWrite: cacheWrite}, nil
 }
 
-// validateReasoning validates one closed capability shape and its provider wire format.
+// validateReasoning validates one provider-neutral capability shape and opaque provider format.
 //
-//nolint:gocyclo // The flat validation mirrors the closed capability and wire-format combinations.
-func validateReasoning(providerID, modelID string, api API, configured reasoningFile) (Reasoning, error) {
+//nolint:gocyclo // The flat validation mirrors the closed capability shapes.
+func validateReasoning(providerID, modelID string, configured reasoningFile) (Reasoning, error) {
 	supported, supportedPresent := configured.Supported.Get()
 	if !supportedPresent {
 		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning requires supported", providerID, modelID)
@@ -920,7 +905,7 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 	}
 	if !supported {
 		invalidShape := len(choices) != 1 || choices[0] != ReasoningChoiceOff ||
-			configured.Default != ReasoningChoiceOff || key.IsSome() || configured.WireFormat != ""
+			configured.Default != ReasoningChoiceOff || key.IsSome() || configured.Format != ""
 		if invalidShape {
 			return Reasoning{}, fmt.Errorf(
 				"provider %q model %q has contradictory non-reasoning capabilities", providerID, modelID,
@@ -928,21 +913,15 @@ func validateReasoning(providerID, modelID string, api API, configured reasoning
 		}
 		return Reasoning{
 			Supported: false, Choices: choices, Default: configured.Default,
-			CompatibilityKey: mo.None[string](), WireFormat: "",
+			CompatibilityKey: mo.None[string](), Format: "",
 		}, nil
-	}
-	if configured.WireFormat == "" {
-		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning requires wireFormat", providerID, modelID)
 	}
 	if err := validateReasoningShape(choices, configured.Default); err != nil {
 		return Reasoning{}, fmt.Errorf("provider %q model %q: %w", providerID, modelID, err)
 	}
-	if !wireFormatMatchesAPI(configured.WireFormat, api) {
-		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning wireFormat does not match API", providerID, modelID)
-	}
 	return Reasoning{
 		Supported: true, Choices: choices, Default: configured.Default,
-		CompatibilityKey: key, WireFormat: configured.WireFormat,
+		CompatibilityKey: key, Format: configured.Format,
 	}, nil
 }
 
@@ -969,18 +948,6 @@ func validateReasoningShape(choices []ReasoningChoice, defaultChoice ReasoningCh
 		return errors.New("reasoning choices have an invalid capability shape")
 	}
 	return nil
-}
-
-// wireFormatMatchesAPI checks the closed wire-format and API combinations.
-func wireFormatMatchesAPI(format ReasoningWireFormat, api API) bool {
-	switch format {
-	case ReasoningWireFormatOpenAIResponses:
-		return api == APIResponses
-	case ReasoningWireFormatOpenAIChatReasoning:
-		return api == APIChatCompletions
-	default:
-		return false
-	}
 }
 
 func validateAPIKey(providerID string, configured mo.Option[apiKeyFile]) (mo.Option[APIKey], error) {

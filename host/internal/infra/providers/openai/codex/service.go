@@ -54,8 +54,6 @@ type driverOptions struct {
 type modelConfig struct {
 	// api identifies the provider request contract.
 	api string
-	// reasoningWireFormat identifies the reasoning request format.
-	reasoningWireFormat string
 	// reasoningCompatibilityKey identifies the replay contract.
 	reasoningCompatibilityKey mo.Option[string]
 }
@@ -88,7 +86,7 @@ func New(config Config, credentials Credentials, interaction Interaction) *Drive
 func newDriver(config Config, credentials Credentials, interaction Interaction, options driverOptions) *Driver {
 	models := lo.SliceToMap(config.Models, func(modelID model.ID) (model.ID, modelConfig) {
 		return modelID, modelConfig{
-			api: "responses", reasoningWireFormat: "openai-responses",
+			api:                       "responses",
 			reasoningCompatibilityKey: config.ReasoningCompatibilityKeys[modelID],
 		}
 	})

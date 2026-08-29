@@ -181,7 +181,7 @@ func TestCompatibleConstraintsFailBeforeHTTPDispatch(t *testing.T) {
 				service, err := New(Config{
 					ProviderID: "local", BaseURL: server.URL, API: api,
 					Models: map[model.ID]API{"demo": api}, APIKey: expectAPIKey(t, "", nil, 1),
-					ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+					ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 				})
 				require.NoError(t, err)
 				request := richRequest("local", "demo")

@@ -79,7 +79,7 @@
 - `encrypted reasoning block`: Provider reasoning context that only its owning provider can interpret.
 - `reasoning compatibility key`: An optional nonempty model identifier that explicitly permits provider reasoning context replay between models with the same provider instance, API, and key.
 - `reasoning compatibility group`: Models with the same provider instance, API, and nonempty reasoning compatibility key.
-- `reasoning wire format`: The provider API fields used for reasoning activation, effort control, visible content, and provider reasoning context.
+- `reasoning format`: An adapter-private selection of provider API fields for reasoning activation, effort control, visible content, and provider reasoning context replay.
 - `model selection`: The active provider instance, model, and reasoning choice used when the agent core starts its next model request.
 - `UI`: A presentation and input surface through which a person interacts with Glyph.
 - `terminal UI`: A UI presented inside a terminal.

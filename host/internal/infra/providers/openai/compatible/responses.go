@@ -86,7 +86,7 @@ func (s *Driver) streamResponses(
 		Model:            request.Model.Model,
 		CompatibilityKey: configured.reasoningCompatibilityKey,
 	}
-	params, err := responsesParams(request, target, configured.reasoningWireFormat)
+	params, err := responsesParams(request, target)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -135,10 +135,10 @@ func (s *Driver) streamResponses(
 	return *state.terminal, nil
 }
 
+// responsesParams builds one Responses API request from provider-neutral input.
 func responsesParams(
 	request run.ModelRequest,
 	target model.ProviderContextSource,
-	reasoningWireFormat string,
 ) (responses.ResponseNewParams, error) {
 	input, err := responsesInput(request.History, target)
 	if err != nil {
@@ -183,7 +183,7 @@ func responsesParams(
 		Text:                 responses.ResponseTextConfigParam{},
 		ToolChoice:           responses.ResponseNewParamsToolChoiceUnion{},
 	}
-	if reasoningWireFormat == reasoningWireFormatOpenAIResponses {
+	if request.Model.ReasoningCapabilities.Supported {
 		switch request.ReasoningChoice {
 		case model.ReasoningChoiceOff:
 			params.Reasoning.Effort = shared.ReasoningEffortNone
@@ -333,19 +333,6 @@ func responsesModelItems(
 		}
 	}
 	return items, nil
-}
-
-// providerContextCompatible applies exact-model and additive compatibility-key replay rules.
-func providerContextCompatible(source, target model.ProviderContextSource) bool {
-	if source.ProviderID != target.ProviderID || source.API != target.API {
-		return false
-	}
-	if source.Model == target.Model {
-		return true
-	}
-	sourceKey, sourceHasKey := source.CompatibilityKey.Get()
-	targetKey, targetHasKey := target.CompatibilityKey.Get()
-	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }
 
 func responsesReasoningItem(payload []byte) (responses.ResponseInputItemUnionParam, error) {

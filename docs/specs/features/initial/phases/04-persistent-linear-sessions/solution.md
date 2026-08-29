@@ -143,7 +143,6 @@ providers:
           supported: true
           choices: [off, low, medium, high, xhigh]
           default: high
-          wireFormat: openai-responses
         pricing:
           input: 1.25
           output: 10

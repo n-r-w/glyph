@@ -17,6 +17,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 3. `docs/roadmap.md`: project roadmap
 4. `docs/specs/features/`: features
 5. `docs/specs/issues/`: issues
+6. `docs/guidelines/`: user and developer guidelines
 
 For regular features and issues:
 1. `docs/specs/{features or issues}/{feature/issue name}/problem.md`: problem statement and user story

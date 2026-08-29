@@ -105,7 +105,7 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 						Supported:        true,
 						Choices:          []settingstore.ReasoningChoice{settingstore.ReasoningChoiceOn},
 						Default:          settingstore.ReasoningChoiceOn,
-						WireFormat:       settingstore.ReasoningWireFormatOpenAIChatReasoning,
+						Format:           "openrouter",
 						CompatibilityKey: mo.None[string](),
 					},
 					API: "", Input: []model.InputModality{model.InputModalityText},
@@ -2248,7 +2248,6 @@ providers:
           supported: true
           choices: [low, high]
           default: low
-          wireFormat: openai-responses
 `
 }
 
@@ -2316,15 +2315,11 @@ func testPaths(t *testing.T, settingsContent string) persistence.Paths {
 
 func testSettingsReasoning(choices ...settingstore.ReasoningChoice) settingstore.Reasoning {
 	supported := len(choices) != 1 || choices[0] != settingstore.ReasoningChoiceOff
-	wireFormat := settingstore.ReasoningWireFormat("")
-	if supported {
-		wireFormat = settingstore.ReasoningWireFormatOpenAIResponses
-	}
 	return settingstore.Reasoning{
 		Supported:        supported,
 		Choices:          choices,
 		Default:          choices[len(choices)-1],
-		WireFormat:       wireFormat,
+		Format:           "",
 		CompatibilityKey: mo.None[string](),
 	}
 }

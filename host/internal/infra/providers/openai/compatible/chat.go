@@ -45,8 +45,12 @@ type chatAccumulator struct {
 	refusalPosition int
 	// reasoningPosition identifies the reasoning text block.
 	reasoningPosition int
-	// parseReasoning enables provider-specific reasoning extraction.
-	parseReasoning bool
+	// reasoningFormat selects provider-specific reasoning extraction and replay.
+	reasoningFormat reasoningFormat
+	// reasoningDetails accumulates opaque OpenRouter replay data.
+	reasoningDetails []reasoningDetail
+	// reasoningTarget identifies the request contract that can replay opaque details.
+	reasoningTarget model.ProviderContextSource
 	// tools contains active tool calls by provider index.
 	tools map[int64]*chatToolState
 	// responseID identifies the provider response.
@@ -59,13 +63,16 @@ type chatAccumulator struct {
 	outcome model.Outcome
 }
 
-func newChatAccumulator(parseReasoning bool) *chatAccumulator {
+// newChatAccumulator creates empty state for one Chat Completions stream.
+func newChatAccumulator(format reasoningFormat, target model.ProviderContextSource) *chatAccumulator {
 	return &chatAccumulator{
 		content:           nil,
 		textPosition:      -1,
 		refusalPosition:   -1,
 		reasoningPosition: -1,
-		parseReasoning:    parseReasoning,
+		reasoningFormat:   format,
+		reasoningDetails:  nil,
+		reasoningTarget:   target,
 		tools:             make(map[int64]*chatToolState),
 		responseID:        "",
 		responseModel:     "",
@@ -74,6 +81,7 @@ func newChatAccumulator(parseReasoning bool) *chatAccumulator {
 	}
 }
 
+// streamChatCompletions maps one Chat Completions stream into provider-neutral events.
 func (s *Driver) streamChatCompletions(
 	ctx context.Context,
 	request run.ModelRequest,
@@ -81,8 +89,13 @@ func (s *Driver) streamChatCompletions(
 	key string,
 	handle run.StreamHandler,
 ) (model.Response, error) {
-	nativeReasoning := chatNativeReasoning(configuredModel.reasoningWireFormat)
-	params, err := chatParams(request, configuredModel.reasoningWireFormat)
+	target := model.ProviderContextSource{
+		ProviderID:       s.providerID,
+		API:              string(configuredModel.api),
+		Model:            request.Model.Model,
+		CompatibilityKey: configuredModel.reasoningCompatibilityKey,
+	}
+	params, err := chatParams(request, configuredModel.reasoningFormat, target)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -97,7 +110,7 @@ func (s *Driver) streamChatCompletions(
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()
-	state := newChatAccumulator(nativeReasoning)
+	state := newChatAccumulator(configuredModel.reasoningFormat, target)
 	handleEvent := tagHandlerErrors(handle)
 	for stream.Next() {
 		consumeErr := state.consume(stream.Current(), handleEvent)
@@ -123,8 +136,13 @@ func (s *Driver) streamChatCompletions(
 	return state.response(), nil
 }
 
-func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.ChatCompletionNewParams, error) {
-	messages, err := chatMessages(request, chatNativeReasoning(reasoningWireFormat))
+// chatParams builds one format-specific Chat Completions request.
+func chatParams(
+	request run.ModelRequest,
+	format reasoningFormat,
+	target model.ProviderContextSource,
+) (openai.ChatCompletionNewParams, error) {
+	messages, err := chatMessages(request, format, target)
 	if err != nil {
 		return openai.ChatCompletionNewParams{}, err
 	}
@@ -173,25 +191,18 @@ func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.Ch
 		ToolChoice:           openai.ChatCompletionToolChoiceOptionUnionParam{},
 		WebSearchOptions:     openai.ChatCompletionNewParamsWebSearchOptions{},
 	}
-	if reasoningWireFormat == reasoningWireFormatOpenAIChatReasoning {
-		switch request.ReasoningChoice {
-		case "", model.ReasoningChoiceOn:
-		case model.ReasoningChoiceOff:
-			params.ReasoningEffort = shared.ReasoningEffort("none")
-		case model.ReasoningChoiceMinimal, model.ReasoningChoiceLow, model.ReasoningChoiceMedium,
-			model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
-			params.ReasoningEffort = shared.ReasoningEffort(request.ReasoningChoice)
-		}
+	if controlErr := applyChatReasoningControl(&params, format, request.ReasoningChoice); controlErr != nil {
+		return openai.ChatCompletionNewParams{}, controlErr
 	}
 	return params, nil
 }
 
-// chatNativeReasoning identifies formats that share Chat reasoning stream and history fields.
-func chatNativeReasoning(reasoningWireFormat string) bool {
-	return reasoningWireFormat == reasoningWireFormatOpenAIChatReasoning
-}
-
-func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.ChatCompletionMessageParamUnion, error) {
+// chatMessages maps provider-neutral history into Chat Completions messages.
+func chatMessages(
+	request run.ModelRequest,
+	format reasoningFormat,
+	target model.ProviderContextSource,
+) ([]openai.ChatCompletionMessageParamUnion, error) {
 	messages := []openai.ChatCompletionMessageParamUnion{openai.SystemMessage(request.Instructions)}
 	for entryIndex := range request.History {
 		entry := &request.History[entryIndex]
@@ -211,7 +222,7 @@ func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.Chat
 			if !present {
 				return nil, fmt.Errorf("history entry %d has no model payload", entryIndex)
 			}
-			message, ok, err := chatAssistantMessage(response, nativeReasoning)
+			message, ok, err := chatAssistantMessage(response, format, target)
 			if err != nil {
 				return nil, err
 			}
@@ -264,13 +275,16 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 	)
 }
 
+// chatAssistantMessage maps one model response into a replayable assistant message.
 func chatAssistantMessage(
 	response model.Response,
-	nativeReasoning bool,
+	format reasoningFormat,
+	target model.ProviderContextSource,
 ) (openai.ChatCompletionMessageParamUnion, bool, error) {
 	var text strings.Builder
 	var reasoning strings.Builder
 	var refusal strings.Builder
+	var reasoningDetails []json.RawMessage
 	calls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
 	for index := range response.Content {
 		item := &response.Content[index]
@@ -288,11 +302,16 @@ func chatAssistantMessage(
 			}
 			refusal.WriteString(value)
 		case model.ContentReasoning:
+			details, err := openRouterReplayDetails(*item, format, target)
+			if err != nil {
+				return openai.ChatCompletionMessageParamUnion{}, false, err
+			}
+			reasoningDetails = append(reasoningDetails, details...)
 			visibleText, present := item.Text.Get()
 			if !present || visibleText == "" {
 				continue
 			}
-			if nativeReasoning {
+			if usesChatReasoning(format) {
 				reasoning.WriteString(visibleText)
 			} else {
 				text.WriteString(visibleText)
@@ -307,22 +326,25 @@ func chatAssistantMessage(
 			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
 		}
 	}
-	return buildChatAssistantMessage(text.String(), reasoning.String(), refusal.String(), calls)
+	return buildChatAssistantMessage(text.String(), reasoning.String(), reasoningDetails, refusal.String(), calls)
 }
 
 // buildChatAssistantMessage creates the external assistant union from accumulated content.
 func buildChatAssistantMessage(
 	text string,
 	reasoning string,
+	reasoningDetails []json.RawMessage,
 	refusal string,
 	calls []openai.ChatCompletionMessageToolCallUnionParam,
 ) (openai.ChatCompletionMessageParamUnion, bool, error) {
-	if text == "" && reasoning == "" && refusal == "" && len(calls) == 0 {
+	if text == "" && reasoning == "" && len(reasoningDetails) == 0 && refusal == "" && len(calls) == 0 {
 		return openai.ChatCompletionMessageParamUnion{}, false, nil
 	}
 	message := openai.AssistantMessage(text)
 	message.OfAssistant.ToolCalls = calls
-	if reasoning != "" {
+	if len(reasoningDetails) != 0 {
+		message.OfAssistant.SetExtraFields(map[string]any{"reasoning_details": reasoningDetails})
+	} else if reasoning != "" {
 		message.OfAssistant.SetExtraFields(map[string]any{"reasoning": reasoning})
 	}
 	if refusal != "" {
@@ -436,34 +458,38 @@ func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle r
 	return nil
 }
 
+// consumeChoice accumulates one streamed choice and emits its visible deltas.
 func (state *chatAccumulator) consumeChoice(
 	choice *openai.ChatCompletionChunkChoice,
 	handle run.StreamHandler,
 ) error {
-	if state.parseReasoning {
-		reasoning, err := chatReasoningDelta(choice.Delta)
-		if err != nil {
-			return err
-		}
-		if reasoning != "" {
-			if deltaErr := state.contentDelta(model.ContentReasoning, reasoning, handle); deltaErr != nil {
-				return deltaErr
-			}
+	reasoning, err := chatReasoningDelta(state.reasoningFormat, choice.Delta)
+	if err != nil {
+		return err
+	}
+	if reasoning != "" {
+		if deltaErr := state.contentDelta(model.ContentReasoning, reasoning, handle); deltaErr != nil {
+			return deltaErr
 		}
 	}
+	details, err := openRouterReasoningDetailsDelta(state.reasoningFormat, choice.Delta)
+	if err != nil {
+		return err
+	}
+	state.reasoningDetails = appendOpenRouterReasoningDetails(state.reasoningDetails, details)
 	if choice.Delta.Content != "" {
-		if err := state.contentDelta(model.ContentText, choice.Delta.Content, handle); err != nil {
-			return err
+		if contentErr := state.contentDelta(model.ContentText, choice.Delta.Content, handle); contentErr != nil {
+			return contentErr
 		}
 	}
 	if choice.Delta.Refusal != "" {
-		if err := state.contentDelta(model.ContentRefusal, choice.Delta.Refusal, handle); err != nil {
-			return err
+		if refusalErr := state.contentDelta(model.ContentRefusal, choice.Delta.Refusal, handle); refusalErr != nil {
+			return refusalErr
 		}
 	}
 	for deltaIndex := range choice.Delta.ToolCalls {
-		if err := state.toolDelta(&choice.Delta.ToolCalls[deltaIndex], handle); err != nil {
-			return err
+		if toolErr := state.toolDelta(&choice.Delta.ToolCalls[deltaIndex], handle); toolErr != nil {
+			return toolErr
 		}
 	}
 	switch choice.FinishReason {
@@ -478,18 +504,6 @@ func (state *chatAccumulator) consumeChoice(
 		return fmt.Errorf("unsupported Chat Completions finish reason %q", choice.FinishReason)
 	}
 	return nil
-}
-
-func chatReasoningDelta(delta openai.ChatCompletionChunkChoiceDelta) (string, error) {
-	field, ok := delta.JSON.ExtraFields["reasoning"]
-	if !ok {
-		return "", nil
-	}
-	var reasoning string
-	if err := json.Unmarshal([]byte(field.Raw()), &reasoning); err != nil {
-		return "", fmt.Errorf("decode Chat Completions reasoning delta: %w", err)
-	}
-	return reasoning, nil
 }
 
 func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string, handle run.StreamHandler) error {
@@ -620,6 +634,9 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 	if err := state.finishContent(handle); err != nil {
 		return err
 	}
+	if err := state.attachReasoningDetails(); err != nil {
+		return err
+	}
 	for index := int64(0); index < int64(len(state.tools)); index++ {
 		toolState, ok := state.tools[index]
 		if !ok || !toolState.started {
@@ -653,6 +670,29 @@ func (state *chatAccumulator) finish(handle run.StreamHandler) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// attachReasoningDetails stores OpenRouter replay data on the provider-neutral reasoning block.
+func (state *chatAccumulator) attachReasoningDetails() error {
+	if len(state.reasoningDetails) == 0 {
+		return nil
+	}
+	providerContext, err := openRouterProviderContext(state.reasoningDetails, state.reasoningTarget)
+	if err != nil {
+		return err
+	}
+	if state.reasoningPosition >= 0 {
+		state.content[state.reasoningPosition].ProviderContext = mo.Some(providerContext)
+		return nil
+	}
+	state.content = append(state.content, model.Content{
+		Kind:            model.ContentReasoning,
+		Text:            mo.Some(""),
+		Final:           true,
+		ProviderContext: mo.Some(providerContext),
+		ToolCall:        mo.None[model.ToolCall](),
+	})
 	return nil
 }
 

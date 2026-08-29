@@ -66,7 +66,7 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	models := map[model.ID]API{"demo": ""}
 	service, err := New(Config{
 		ProviderID: "openrouter", BaseURL: server.URL + "/v1", API: APIChatCompletions,
-		Models: models, ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning},
+		Models: models, ReasoningFormats: map[model.ID]string{"demo": string(reasoningFormatOpenAIChat)},
 		APIKey: expectAPIKey(t, "secret", nil, 1), ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
@@ -99,20 +99,26 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
 }
 
-// TestChatReasoningMapsChoices verifies the closed choice-to-field mapping for Chat Completions.
+// TestChatReasoningMapsChoices verifies each Chat Completions format maps off, effort, and fixed-on choices.
 func (s *serviceSuite) TestChatReasoningMapsChoices() {
 	for _, testCase := range []struct {
-		name     string
-		choice   model.ReasoningChoice
-		expected string
-		present  bool
+		name                    string
+		format                  string
+		choice                  model.ReasoningChoice
+		expectedReasoningEffort string
+		expectedReasoning       map[string]any
 	}{
-		{name: "off", choice: model.ReasoningChoiceOff, expected: "none", present: true},
-		{name: "effort", choice: model.ReasoningChoiceLow, expected: "low", present: true},
-		{name: "on", choice: model.ReasoningChoiceOn, present: false, expected: ""},
+		{name: "OpenAI off", format: "openai-chat", choice: model.ReasoningChoiceOff, expectedReasoningEffort: "none", expectedReasoning: nil},
+		{name: "OpenAI effort", format: "openai-chat", choice: model.ReasoningChoiceLow, expectedReasoningEffort: "low", expectedReasoning: nil},
+		{name: "OpenAI on", format: "openai-chat", choice: model.ReasoningChoiceOn, expectedReasoningEffort: "", expectedReasoning: nil},
+		{name: "OpenRouter off", format: "openrouter", choice: model.ReasoningChoiceOff, expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "none"}},
+		{name: "OpenRouter effort", format: "openrouter", choice: model.ReasoningChoiceHigh, expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "high"}},
+		{name: "OpenRouter on", format: "openrouter", choice: model.ReasoningChoiceOn, expectedReasoningEffort: "", expectedReasoning: map[string]any{"enabled": true}},
 	} {
 		s.Run(testCase.name, func() {
 			t := s.T()
+
+			// Arrange a server that records one request and returns a terminal stream chunk.
 			var body map[string]any
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
@@ -124,36 +130,121 @@ func (s *serviceSuite) TestChatReasoningMapsChoices() {
 			t.Cleanup(server.Close)
 			driver, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-				Models:               map[model.ID]API{"demo": ""},
-				ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning},
-				APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
+				Models:           map[model.ID]API{"demo": ""},
+				ReasoningFormats: map[model.ID]string{"demo": testCase.format},
+				APIKey:           expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 			})
 			s.Require().NoError(err)
 			request := richRequest("local", "demo")
 			request.ReasoningChoice = testCase.choice
 
+			// Act by sending the selected reasoning choice.
 			events := streamEvents(t, driver, request)
 
+			// Assert the format owns its request fields and does not leak the other format's fields.
 			s.Equal(run.StreamEventDone, events[len(events)-1].Kind)
-			value, present := body["reasoning_effort"]
-			s.Equal(testCase.present, present)
-			if testCase.present {
-				s.Equal(testCase.expected, value)
+			if testCase.expectedReasoningEffort == "" {
+				s.NotContains(body, "reasoning_effort")
+			} else {
+				s.Equal(testCase.expectedReasoningEffort, body["reasoning_effort"])
+			}
+			if testCase.expectedReasoning == nil {
+				s.NotContains(body, "reasoning")
+			} else {
+				s.Equal(testCase.expectedReasoning, body["reasoning"])
 			}
 		})
 	}
+}
+
+// TestOpenRouterReasoningDetailsRoundTrip verifies visible reasoning and opaque details survive tool continuation.
+func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
+	t := s.T()
+
+	// Arrange two sequential OpenRouter requests and fragment structured reasoning before a tool call.
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body map[string]any
+		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+			return
+		}
+		bodies = append(bodies, body)
+		writer.Header().Set("Content-Type", "text/event-stream")
+		if len(bodies) == 1 {
+			writeSSE(t, writer,
+				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"think ","reasoning_details":[{"type":"reasoning.text","text":"part ","id":null,"format":"","index":null,"signature":""}]}}]}`,
+				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"more","reasoning_details":[{"type":"reasoning.text","text":"two","id":"r1","format":"unknown","index":0,"signature":"sig"},{"type":"reasoning.summary","summary":"sum ","id":null,"format":"","index":null}]}}]}`,
+				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"mary","id":"s1","format":"unknown","index":1},{"type":"reasoning.encrypted","data":"cipher","id":"e1","format":"unknown","index":2,"vendor":{"x":1}}],"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"file\"}"}}]},"finish_reason":"tool_calls"}]}`,
+			)
+			return
+		}
+		writeSSE(t, writer, `{"id":"chat-next","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
+	}))
+	t.Cleanup(server.Close)
+	driver, err := New(Config{
+		ProviderID: "openrouter", BaseURL: server.URL, API: APIChatCompletions,
+		Models:           map[model.ID]API{"demo": ""},
+		ReasoningFormats: map[model.ID]string{"demo": string(reasoningFormatOpenRouter)},
+		ReasoningCompatibilityKeys: map[model.ID]mo.Option[string]{
+			"demo": mo.Some("shared"),
+		},
+		APIKey: expectAPIKey(t, "", nil, 2),
+	})
+	require.NoError(t, err)
+
+	// Act by streaming one tool call and replaying its terminal response with the tool result.
+	firstRequest := richRequest("openrouter", "demo")
+	firstEvents := streamEvents(t, driver, firstRequest)
+	firstResponse := firstEvents[len(firstEvents)-1].Response.OrEmpty()
+	secondRequest := richRequest("openrouter", "demo")
+	replaceHistoryModelContent(&secondRequest, firstResponse.Content)
+	secondRequest.History[2].ToolResult = mo.Some(agent.ToolResult{
+		CallID: "call-new", ToolName: "read", Contents: tool.TextContents("done"), IsError: false,
+	})
+	secondEvents := streamEvents(t, driver, secondRequest)
+
+	// Assert visible reasoning is provider-neutral and replay restores the merged opaque detail array exactly.
+	require.Equal(t, run.StreamEventDone, firstEvents[len(firstEvents)-1].Kind)
+	require.Equal(t, run.StreamEventDone, secondEvents[len(secondEvents)-1].Kind)
+	require.Len(t, bodies, 2)
+	require.NotEmpty(t, firstResponse.Content)
+	var reasoningContent model.Content
+	for _, content := range firstResponse.Content {
+		if content.Kind == model.ContentReasoning {
+			reasoningContent = content
+			break
+		}
+	}
+	assert.Equal(t, "think more", reasoningContent.Text.OrEmpty())
+	providerContext, present := reasoningContent.ProviderContext.Get()
+	require.True(t, present)
+	assert.Equal(t, model.ProviderContextSource{
+		ProviderID: "openrouter", API: "chat-completions", Model: "demo", CompatibilityKey: mo.Some("shared"),
+	}, providerContext.Source)
+	var capturedDetails []map[string]any
+	require.NoError(t, json.Unmarshal(providerContext.Payload, &capturedDetails))
+	expectedDetails := []map[string]any{
+		{"type": "reasoning.text", "text": "part two", "id": "r1", "format": "unknown", "index": float64(0), "signature": "sig"},
+		{"type": "reasoning.summary", "summary": "sum mary", "id": "s1", "format": "unknown", "index": float64(1)},
+		{"type": "reasoning.encrypted", "data": "cipher", "id": "e1", "format": "unknown", "index": float64(2), "vendor": map[string]any{"x": float64(1)}},
+	}
+	assert.Equal(t, expectedDetails, capturedDetails)
+	messages := bodies[1]["messages"].([]any)
+	assistant := messages[2].(map[string]any)
+	assert.Equal(t, []any{expectedDetails[0], expectedDetails[1], expectedDetails[2]}, assistant["reasoning_details"])
+	assert.NotContains(t, assistant, "reasoning")
 }
 
 // TestChatHistoryUsesNativeReasoningOrTextFallback verifies visible replay and opaque-context filtering.
 func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 	for _, testCase := range []struct {
 		name            string
-		wireFormat      string
+		format          string
 		expectedContent string
 		expectedReason  string
 	}{
-		{name: "native", wireFormat: reasoningWireFormatOpenAIChatReasoning, expectedContent: "answer", expectedReason: "firstsecond"},
-		{name: "text fallback", wireFormat: "", expectedContent: "firstanswersecond", expectedReason: ""},
+		{name: "native", format: string(reasoningFormatOpenAIChat), expectedContent: "answer", expectedReason: "firstsecond"},
+		{name: "text fallback", format: "", expectedContent: "firstanswersecond", expectedReason: ""},
 	} {
 		s.Run(testCase.name, func() {
 			t := s.T()
@@ -166,11 +257,15 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 				writeSSE(t, writer, `{"id":"chat-history","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
 			}))
 			t.Cleanup(server.Close)
+			formats := map[model.ID]string(nil)
+			if testCase.format != "" {
+				formats = map[model.ID]string{"demo": testCase.format}
+			}
 			driver, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-				Models:               map[model.ID]API{"demo": ""},
-				ReasoningWireFormats: map[model.ID]string{"demo": testCase.wireFormat},
-				APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
+				Models:           map[model.ID]API{"demo": ""},
+				ReasoningFormats: formats,
+				APIKey:           expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 			})
 			s.Require().NoError(err)
 			request := richRequest("local", "demo")
@@ -225,9 +320,9 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	t.Cleanup(server.Close)
 	driver, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-		Models:               map[model.ID]API{"fixed": ""},
-		ReasoningWireFormats: map[model.ID]string{"fixed": reasoningWireFormatOpenAIChatReasoning},
-		APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
+		Models:           map[model.ID]API{"fixed": ""},
+		ReasoningFormats: map[model.ID]string{"fixed": string(reasoningFormatOpenAIChat)},
+		APIKey:           expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 	})
 	s.Require().NoError(err)
 	request := richRequest("local", "fixed")
@@ -287,7 +382,7 @@ func (s *serviceSuite) TestAPIKeyResolvesBeforeEveryRequest() {
 	)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-		Models: map[model.ID]API{"demo": ""}, APIKey: resolver, ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: resolver, ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 
@@ -307,7 +402,7 @@ func (s *serviceSuite) TestChatCompletionsRequiresFinishReason() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
 		Models: map[model.ID]API{"demo": ""},
-		APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
@@ -325,7 +420,7 @@ func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models: map[model.ID]API{"demo": ""},
-		APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
@@ -354,13 +449,14 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL + "/v1", API: APIChatCompletions,
-		Models:               map[model.ID]API{"demo": APIResponses},
-		ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIResponses},
-		APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
+		Models:           map[model.ID]API{"demo": APIResponses},
+		ReasoningFormats: map[model.ID]string{"demo": ""},
+		APIKey:           expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 
 	request := richRequest("local", "demo")
+	request.Model.ReasoningCapabilities.Supported = true
 	appendHistoryModelContent(&request,
 		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "local", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-local","encrypted_content":"cipher","summary":["old"]}`)}), ToolCall: mo.None[model.ToolCall]()},
 		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "foreign", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-foreign","encrypted_content":"secret","summary":[]}`)}), ToolCall: mo.None[model.ToolCall]()},
@@ -391,7 +487,7 @@ func (s *serviceSuite) TestResponsesReplaysContextAcrossModelsWithSharedCompatib
 		}), ToolCall: mo.None[model.ToolCall](),
 	})
 
-	body := runResponsesRequest(t, request, "shared-family", "openai-responses")
+	body := runResponsesRequest(t, request, "shared-family")
 	encoded, err := json.Marshal(body["input"])
 	require.NoError(t, err)
 	assert.Contains(t, string(encoded), "r-shared")
@@ -413,7 +509,7 @@ func (s *serviceSuite) TestResponsesReplaysExactModelAfterCompatibilityKeyChange
 		}), ToolCall: mo.None[model.ToolCall](),
 	})
 
-	body := runResponsesRequest(t, request, "new-family", "openai-responses")
+	body := runResponsesRequest(t, request, "new-family")
 	encoded, err := json.Marshal(body["input"])
 	require.NoError(t, err)
 	assert.Contains(t, string(encoded), "r-exact")
@@ -457,7 +553,7 @@ func (s *serviceSuite) TestResponsesOmitsIncompatibleContextAndKeepsVisibleReaso
 				}), ToolCall: mo.None[model.ToolCall](),
 			})
 
-			body := runResponsesRequest(t, request, "target-family", "openai-responses")
+			body := runResponsesRequest(t, request, "target-family")
 			encoded, err := json.Marshal(body["input"])
 			require.NoError(t, err)
 			assert.NotContains(t, string(encoded), "r-incompatible")
@@ -487,7 +583,7 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	// Act by collecting the terminal adapter response.
@@ -512,7 +608,7 @@ func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	handlerErr := errors.New("sink stopped")
@@ -546,7 +642,7 @@ func (s *serviceSuite) TestFinalErrorHandlerFailurePreservesProviderCause() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models: map[model.ID]API{"demo": APIResponses}, APIKey: expectAPIKey(t, "", nil, 1),
-		ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	handlerErr := errors.New("unique compatible final error handler failure")
@@ -599,7 +695,7 @@ func (s *serviceSuite) TestPartialStreamFailureJoinsContentEndDelivery() {
 			service, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: test.api,
 				Models: map[model.ID]API{"demo": test.api}, APIKey: expectAPIKey(t, "", nil, 1),
-				ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 			})
 			require.NoError(t, err)
 			handlerErr := errors.New("unique ContentEnd delivery failure")
@@ -639,7 +735,7 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models: map[model.ID]API{"demo": ""},
-		APIKey: expectAPIKey(t, "", errors.New("credential store checksum mismatch"), 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		APIKey: expectAPIKey(t, "", errors.New("credential store checksum mismatch"), 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	var events []run.StreamEvent
@@ -667,7 +763,7 @@ func (s *serviceSuite) TestNewPreservesBaseURLParseCause() {
 	config := Config{
 		ProviderID: "local", BaseURL: "https://example.com/invalid\x7fpath", API: APIResponses,
 		Models: map[model.ID]API{"demo": ""}, APIKey: NewMockAPIKeyResolver(gomock.NewController(t)),
-		ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	}
 
 	// Act by constructing the driver.
@@ -690,7 +786,7 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 	resolver := NewMockAPIKeyResolver(gomock.NewController(t))
 	valid := Config{
 		ProviderID: "local", BaseURL: "https://example.com/v1", API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: resolver, ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: resolver, ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	}
 	tests := []struct {
 		name   string
@@ -702,15 +798,16 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 		{name: "no models", mutate: func(config *Config) { config.Models = nil }},
 		{name: "empty model", mutate: func(config *Config) { config.Models = map[model.ID]API{"": ""} }},
 		{name: "unknown override", mutate: func(config *Config) { config.Models = map[model.ID]API{"demo": "legacy"} }},
-		{name: "unsupported reasoning wire format", mutate: func(config *Config) {
-			config.ReasoningWireFormats = map[model.ID]string{"demo": "custom"}
+		{name: "Responses format", mutate: func(config *Config) {
+			config.ReasoningFormats = map[model.ID]string{"demo": "openrouter"}
 		}},
-		{name: "responses reasoning wire format API mismatch", mutate: func(config *Config) {
+		{name: "missing Chat Completions format", mutate: func(config *Config) {
 			config.API = APIChatCompletions
-			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-responses"}
+			config.ReasoningFormats = map[model.ID]string{"demo": ""}
 		}},
-		{name: "chat reasoning wire format API mismatch", mutate: func(config *Config) {
-			config.ReasoningWireFormats = map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning}
+		{name: "unsupported Chat Completions format", mutate: func(config *Config) {
+			config.API = APIChatCompletions
+			config.ReasoningFormats = map[model.ID]string{"demo": "custom"}
 		}},
 		{name: "no resolver", mutate: func(config *Config) { config.APIKey = nil }},
 	}
@@ -727,7 +824,7 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: "https://example.com/v1", API: APIResponses,
 		Models: map[model.ID]API{"demo": ""},
-		APIKey: NewMockAPIKeyResolver(gomock.NewController(t)), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		APIKey: NewMockAPIKeyResolver(gomock.NewController(t)), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	for _, request := range []run.ModelRequest{richRequest("other", "demo"), richRequest("local", "unknown")} {
@@ -742,6 +839,7 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 	}
 }
 
+// TestOffReasoningUsesEachAPIWireShape verifies each API owns its reasoning control mapping.
 func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 	t := s.T()
 	for _, api := range []API{APIChatCompletions, APIResponses} {
@@ -757,19 +855,18 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 				}
 			}))
 			t.Cleanup(server.Close)
-			wireFormats := map[model.ID]string{}
-			if api == APIResponses {
-				wireFormats["demo"] = "openai-responses"
-			} else {
-				wireFormats["demo"] = reasoningWireFormatOpenAIChatReasoning
+			formats := map[model.ID]string{"demo": ""}
+			if api == APIChatCompletions {
+				formats["demo"] = string(reasoningFormatOpenAIChat)
 			}
 			service, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: api,
-				Models: map[model.ID]API{"demo": ""}, ReasoningWireFormats: wireFormats,
+				Models: map[model.ID]API{"demo": ""}, ReasoningFormats: formats,
 				APIKey: expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 			})
 			require.NoError(t, err)
 			request := richRequest("local", "demo")
+			request.Model.ReasoningCapabilities.Supported = true
 			request.ReasoningChoice = model.ReasoningChoiceOff
 			events := streamEvents(t, service, request)
 			assert.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
@@ -783,20 +880,20 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 	}
 }
 
-// TestResponsesUsesConfiguredReasoningWireFormat verifies only configured reasoning models send reasoning fields.
-func (s *serviceSuite) TestResponsesUsesConfiguredReasoningWireFormat() {
+// TestResponsesUsesModelReasoningCapabilities verifies Responses behavior needs no reasoning format.
+func (s *serviceSuite) TestResponsesUsesModelReasoningCapabilities() {
 	t := s.T()
 	for _, testCase := range []struct {
-		name       string
-		wireFormat string
-		reasoning  bool
+		name      string
+		reasoning bool
 	}{
-		{name: "supported reasoning", wireFormat: "openai-responses", reasoning: true},
-		{name: "no reasoning", wireFormat: "", reasoning: false},
+		{name: "supported reasoning", reasoning: true},
+		{name: "no reasoning", reasoning: false},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			request := richRequest("local", "demo")
-			body := runResponsesRequest(t, request, "", testCase.wireFormat)
+			request.Model.ReasoningCapabilities.Supported = testCase.reasoning
+			body := runResponsesRequest(t, request, "")
 			if testCase.reasoning {
 				reasoning, ok := body["reasoning"].(map[string]any)
 				require.True(t, ok)
@@ -820,7 +917,7 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	var events []run.StreamEvent
@@ -895,7 +992,7 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 			service, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: test.api,
 				Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
-				ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 			})
 			require.NoError(t, err)
 			var events []run.StreamEvent
@@ -927,7 +1024,7 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
-		ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	request := richRequest("local", "demo")
@@ -980,7 +1077,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
 		Models:                     map[model.ID]API{"demo": ""},
 		ReasoningCompatibilityKeys: map[model.ID]mo.Option[string]{"demo": mo.Some("family")},
-		APIKey:                     expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil,
+		APIKey:                     expectAPIKey(t, "", nil, 1), ReasoningFormats: nil,
 	})
 	require.NoError(t, err)
 	selection := model.Selection{
@@ -1038,7 +1135,7 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
@@ -1061,7 +1158,7 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 2), ReasoningWireFormats: nil, ReasoningCompatibilityKeys: nil,
+		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 2), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 
@@ -1097,7 +1194,6 @@ func runResponsesRequest(
 	t *testing.T,
 	request run.ModelRequest,
 	compatibilityKey string,
-	wireFormat string,
 ) map[string]any {
 	t.Helper()
 	var body map[string]any
@@ -1109,8 +1205,8 @@ func runResponsesRequest(
 	t.Cleanup(server.Close)
 	service, err := New(Config{
 		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models:               map[model.ID]API{request.Model.Model: APIResponses},
-		ReasoningWireFormats: map[model.ID]string{request.Model.Model: wireFormat},
+		Models:           map[model.ID]API{request.Model.Model: APIResponses},
+		ReasoningFormats: map[model.ID]string{request.Model.Model: ""},
 		ReasoningCompatibilityKeys: map[model.ID]mo.Option[string]{
 			request.Model.Model: mo.EmptyableToOption(compatibilityKey),
 		},

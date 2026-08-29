@@ -40,7 +40,6 @@ providers:
           choices: [off, low, high]
           default: high
           compatibilityKey: gpt5
-          wireFormat: openai-responses
   openrouter:
     type: openai-compatible
     baseURL: https://openrouter.ai/api/v1
@@ -57,7 +56,6 @@ providers:
           supported: true
           choices: [minimal, medium, high]
           default: medium
-          wireFormat: openai-responses
       - id: toggle
         input: [text]
         contextWindow: 65536
@@ -67,7 +65,6 @@ providers:
           supported: true
           choices: [off, on]
           default: on
-          wireFormat: openai-responses
       - id: fixed
         input: [text]
         contextWindow: 65536
@@ -77,7 +74,6 @@ providers:
           supported: true
           choices: [on]
           default: on
-          wireFormat: openai-responses
       - id: chat-reasoning-effort
         api: chat-completions
         input: [text]
@@ -88,7 +84,7 @@ providers:
           supported: true
           choices: [off, low, high]
           default: low
-          wireFormat: openai-chat-reasoning
+          format: openai-chat
       - id: chat-reasoning-fixed
         api: chat-completions
         input: [text]
@@ -99,7 +95,7 @@ providers:
           supported: true
           choices: [on]
           default: on
-          wireFormat: openai-chat-reasoning
+          format: openrouter
       - id: plain
         input: [text]
         contextWindow: 65536
@@ -124,7 +120,7 @@ providers:
 	s.Require().Len(models, 6)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceMinimal, ReasoningChoiceMedium, ReasoningChoiceHigh},
-		Default: ReasoningChoiceMedium, CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOpenAIResponses,
+		Default: ReasoningChoiceMedium, CompatibilityKey: mo.None[string](), Format: "",
 	}, models[0].Reasoning)
 	s.Equal([]ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceOn}, models[1].Reasoning.Choices)
 	s.Equal(ReasoningChoiceOn, models[2].Reasoning.Default)
@@ -133,15 +129,15 @@ providers:
 		Choices:          []ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceLow, ReasoningChoiceHigh},
 		Default:          ReasoningChoiceLow,
 		CompatibilityKey: mo.None[string](),
-		WireFormat:       ReasoningWireFormatOpenAIChatReasoning,
+		Format:           "openai-chat",
 	}, models[3].Reasoning)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceOn}, Default: ReasoningChoiceOn,
-		CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOpenAIChatReasoning,
+		CompatibilityKey: mo.None[string](), Format: "openrouter",
 	}, models[4].Reasoning)
 	s.Equal(Reasoning{
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
-		CompatibilityKey: mo.None[string](), WireFormat: "",
+		CompatibilityKey: mo.None[string](), Format: "",
 	}, models[5].Reasoning)
 }
 
@@ -219,7 +215,7 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 	s.Run("null", func() {
 		content := replace(validSettings(""), "providers:", "activeUI: null\nproviders:")
 		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey: null")
-		content = replace(content, "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: null\n          wireFormat: openai-responses\n      - id: plain")
+		content = replace(content, "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: null\n      - id: plain")
 		decoded := decodeSettingsFile(s.T(), content)
 		s.True(decoded.ActiveUI.IsNone())
 		s.True(decoded.Providers["compatible"].APIKey.IsNone())
@@ -249,7 +245,7 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 				},
 			},
 			"compatibility key": {
-				content: replace(validSettings(""), "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: ''\n          wireFormat: openai-responses\n      - id: plain"),
+				content: replace(validSettings(""), "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: ''\n      - id: plain"),
 				assert: func(decoded settingsFile) {
 					s.Equal(mo.Some(""), decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey)
 				},
@@ -266,7 +262,7 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 	s.Run("non-empty", func() {
 		content := replace(validSettings(""), "providers:", "activeUI: glyph-tui\nproviders:")
 		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey:\n      literal: secret")
-		content = replace(content, "          wireFormat: openai-responses\n      - id: plain", "          compatibilityKey: family\n          wireFormat: openai-responses\n      - id: plain")
+		content = replace(content, "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: family\n      - id: plain")
 		decoded := decodeSettingsFile(s.T(), content)
 		s.Equal(mo.Some("glyph-tui"), decoded.ActiveUI)
 		decodedAPIKey, present := decoded.Providers["compatible"].APIKey.Get()
@@ -415,7 +411,7 @@ func (s *SettingsSuite) TestLoadRejectsDuplicateYAMLFields() {
 	}
 }
 
-// TestLoadRejectsInvalidReasoning verifies strict capability and wire-format validation.
+// TestLoadRejectsInvalidReasoning verifies provider-neutral capability and structural format validation.
 func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 	testCases := map[string]string{
 		"duplicate choices":       replace(validSettings(""), "choices: [off, high]", "choices: [off, high, high]"),
@@ -431,11 +427,9 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 			"supported: false\n          choices: [off]",
 			"supported: null\n          choices: [off]",
 		),
-		"missing wire format":  withoutLine(validSettings(""), "wireFormat:"),
-		"API mismatch":         replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-reasoning"),
-		"unknown wire format":  replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: custom"),
-		"on mixed with effort": replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
-		"key on non-reasoning": replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
+		"on mixed with effort":    replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
+		"key on non-reasoning":    replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
+		"format on non-reasoning": replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          format: provider-private"),
 	}
 	for name, content := range testCases {
 		s.Run(name, func() {
@@ -617,7 +611,6 @@ providers:
           supported: true
           choices: [off, low, high]
           default: high
-          wireFormat: openai-responses
   compatible:
     type: openai-compatible
     baseURL: https://example.com/v1
@@ -636,7 +629,6 @@ providers:
           supported: true
           choices: [off, high]
           default: high
-          wireFormat: openai-responses
       - id: plain
         input: [text]
         contextWindow: 32768
