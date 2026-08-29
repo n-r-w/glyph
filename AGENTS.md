@@ -4,6 +4,10 @@
 2. NO OVERENGINEERING: REMEMBER, we're not building a "spaceship", just a local developer tool. ALWAYS CRITICALLY EVALUATE need to address edge cases based on their REALISM.
 3. NO PARANOID SAFETY: don't hide errors from user, etc. User is the ONLY owner of this tool.
 
+## Goal
+
+Glyph is a local, extensible coding agent with a thin provider-neutral Agent Core and Host-managed plugins.
+
 ## Language
 1. All documentation and code comments MUST be written in English.
 
