@@ -1,3 +1,5 @@
+//go:build integration
+
 package app
 
 import (
@@ -53,7 +55,7 @@ func TestTerminalRecoveryPTYInner(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, terminalFile.Close()) })
 	originalState := terminalState(t, terminalFile)
-	paths := testPaths(t, codexSettings(""))
+	paths := testPaths(t, restartSelectionSettings())
 	uiDirectory := t.TempDir()
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
 	writeConfiguredUIExecutable(t, uiDirectory, "Terminal_UI", tracePath, mode)

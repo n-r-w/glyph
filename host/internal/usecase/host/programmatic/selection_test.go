@@ -26,16 +26,12 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 	}{
 		{
 			name: "missing payload precedes active correlation and busy state", active: true,
-			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUnspecified, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			command:      testProgrammaticCommand("active", controller.CommandUnspecified),
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUnspecified, prepareErr: nil,
 		},
 		{
 			name: "blank user request precedes active correlation and busy state", active: true,
-			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some(" \t"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			command:      testProgrammaticUserCommand("active", " \t"),
 			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
@@ -47,30 +43,22 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 		},
 		{
 			name: "active correlation precedes busy state", active: true,
-			command: controller.Command{CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			command:      testProgrammaticUserCommand("active", "next"),
 			expectedCode: controller.RejectionCorrelationInUse, expectedType: controller.CommandUserRequest, prepareErr: nil,
 		},
 		{
 			name: "busy state precedes allocation failure", active: true,
-			command: controller.Command{CorrelationID: "other", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			command:    testProgrammaticUserCommand("other", "next"),
 			prepareErr: errors.New("must not allocate"), expectedCode: controller.RejectionBusy,
 			expectedType: controller.CommandUserRequest,
 		},
 		{
-			name: "abort without active run", command: controller.Command{CorrelationID: "abort", Kind: controller.CommandAbort, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			name: "abort without active run", command: testProgrammaticCommand("abort", controller.CommandAbort),
 			expectedCode: controller.RejectionNoActiveRun, expectedType: controller.CommandAbort, active: false, prepareErr: nil,
 		},
 		{
-			name: "allocation failure after valid idle request",
-			command: controller.Command{CorrelationID: "request", Kind: controller.CommandUserRequest, UserText: mo.Some("next"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			name:       "allocation failure after valid idle request",
+			command:    testProgrammaticUserCommand("request", "next"),
 			prepareErr: errors.New("entropy failed"), expectedCode: controller.RejectionInternal,
 			expectedType: controller.CommandUserRequest, active: false,
 		},
@@ -150,9 +138,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		want    controller.Response
 	}{
 		{
-			command: controller.Command{CorrelationID: "models", Kind: controller.CommandGetModels, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string]()},
+			command: testProgrammaticCommand("models", controller.CommandGetModels),
 			want: controller.Response{
 				SessionEntries: nil,
 				CorrelationID:  "models", Kind: controller.ResponseModels,

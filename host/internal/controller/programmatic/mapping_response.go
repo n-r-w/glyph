@@ -130,12 +130,15 @@ func mapSessionStatistics(statistics session.Statistics) *programmaticv1.Session
 	wire.SetTotalMessages(int64(statistics.TotalMessages))
 	if usage, present := statistics.TokenUsage.Get(); present {
 		tokens := new(programmaticv1.TokenUsage)
-		tokens.SetInputTokens(usage.InputTokens)
-		tokens.SetOutputTokens(usage.OutputTokens)
+		setCommonUsage(
+			tokens,
+			usage.InputTokens,
+			usage.OutputTokens,
+			usage.CacheWriteTokens,
+			usage.ReasoningTokens,
+			usage.TotalTokens,
+		)
 		tokens.SetCacheReadTokens(usage.CacheReadTokens)
-		tokens.SetCacheWriteTokens(usage.CacheWriteTokens)
-		tokens.SetReasoningTokens(usage.ReasoningTokens)
-		tokens.SetTotalTokens(usage.TotalTokens)
 		wire.SetTokens(tokens)
 	}
 	if cost, present := statistics.EstimatedCost.Get(); present {
@@ -154,6 +157,24 @@ func mapSessionStatistics(statistics session.Statistics) *programmaticv1.Session
 	}
 	wire.SetCostBreakdown(breakdown)
 	return wire
+}
+
+// commonUsage receives token fields shared by model and session usage messages.
+type commonUsage interface {
+	SetInputTokens(int64)
+	SetOutputTokens(int64)
+	SetCacheWriteTokens(int64)
+	SetReasoningTokens(int64)
+	SetTotalTokens(int64)
+}
+
+// setCommonUsage maps token fields shared by model and session usage messages.
+func setCommonUsage(target commonUsage, input, output, cacheWrite, reasoning, total int64) {
+	target.SetInputTokens(input)
+	target.SetOutputTokens(output)
+	target.SetCacheWriteTokens(cacheWrite)
+	target.SetReasoningTokens(reasoning)
+	target.SetTotalTokens(total)
 }
 
 // mapEstimatedCost preserves all calculated disjoint cost buckets and their stored total.

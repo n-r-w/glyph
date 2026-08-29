@@ -240,13 +240,13 @@ func (state *responsesAccumulator) contentDelta(key string, kind model.ContentKi
 	if !ok {
 		position = state.allocate(key)
 		state.active[position] = kind
-		if err := state.handle(newResponsesContentEvent(
+		if err := state.handle(textStreamEvent(
 			run.StreamEventContentStart, position, kind, "", mo.None[string](),
 		)); err != nil {
 			return err
 		}
 	}
-	return state.handle(newResponsesContentEvent(
+	return state.handle(textStreamEvent(
 		run.StreamEventTextDelta, position, kind, delta, mo.Some(delta),
 	))
 }
@@ -284,15 +284,7 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 		Arguments: decoded,
 	}
 	toolState.started = false
-	return state.handle(run.StreamEvent{
-		Kind:     run.StreamEventToolCallEnd,
-		Position: mo.Some(toolState.position),
-		Content:  mo.None[model.Content](),
-		Delta:    mo.None[string](),
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.Some(call),
-		Response: mo.None[model.Response](),
-	})
+	return state.handle(toolCallEndStreamEvent(toolState.position, call))
 }
 
 func (state *responsesAccumulator) finish() error {
@@ -318,7 +310,7 @@ func (state *responsesAccumulator) finishContent() error {
 		if !active {
 			continue
 		}
-		if err := state.handle(newResponsesContentEvent(
+		if err := state.handle(textStreamEvent(
 			run.StreamEventContentEnd, position, kind, "", mo.None[string](),
 		)); err != nil {
 			return err
@@ -326,31 +318,6 @@ func (state *responsesAccumulator) finishContent() error {
 		delete(state.active, position)
 	}
 	return nil
-}
-
-// newResponsesContentEvent constructs one active text payload without unrelated union values.
-func newResponsesContentEvent(
-	kind run.StreamEventKind,
-	position int,
-	contentKind model.ContentKind,
-	text string,
-	delta mo.Option[string],
-) run.StreamEvent {
-	return run.StreamEvent{
-		Kind:     kind,
-		Position: mo.Some(position),
-		Content: mo.Some(model.Content{
-			Kind:            contentKind,
-			Text:            mo.Some(text),
-			Final:           false,
-			ProviderContext: mo.None[model.ProviderContext](),
-			ToolCall:        mo.None[model.ToolCall](),
-		}),
-		Delta:    delta,
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Response: mo.None[model.Response](),
-	}
 }
 
 func responseContentKey(kind string, outputIndex, contentIndex int64) string {

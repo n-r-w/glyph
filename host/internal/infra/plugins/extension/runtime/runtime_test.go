@@ -1,3 +1,5 @@
+//go:build integration
+
 package runtime
 
 import (
@@ -28,7 +30,6 @@ import (
 const (
 	runtimeHelperEnvironment = "GLYPH_EXTENSION_RUNTIME_HELPER"
 	runtimeCountEnvironment  = "GLYPH_EXTENSION_RUNTIME_COUNT"
-	validSchemaJSON          = `{"type":"object","properties":{"path":{"type":"string","description":"File path."}},"required":["path"],"additionalProperties":false}`
 	processOperationTimeout  = 10 * time.Second
 )
 

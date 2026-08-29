@@ -1,3 +1,5 @@
+//go:build integration
+
 package app
 
 import (
@@ -69,7 +71,7 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 		ToolEnded:        true,
 		CommandSucceeded: true,
 	}
-	assert.Equal(t, expected, headlessObservation)
+	assert.Equal(t, expected, headlessObservation, "headless stderr:\n%s", headlessStderr.String())
 
 	requestCount.Store(0)
 	uiDirectory := t.TempDir()

@@ -96,12 +96,12 @@ func (s *Driver) generateResponse(
 ) (model.Response, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
-		return failedModelResponse(boundedErrorMessage(err)), err
+		return terminalModelResponse(boundedErrorMessage(err), model.OutcomeFailed), err
 	}
 	params, err := s.requestParams(request)
 	if err != nil {
 		message := boundedErrorMessage(err)
-		return failedModelResponse(message), safeError(message)
+		return terminalModelResponse(message, model.OutcomeFailed), safeError(message)
 	}
 
 	baseTransport := s.options.httpClient.Transport
@@ -148,12 +148,14 @@ func (s *Driver) generateResponse(
 	}
 	streamErr := stream.Err()
 	if finishErr := assembler.finish(); finishErr != nil {
-		return failedModelResponse("OpenAI Codex stream delivery failed."), errors.Join(streamErr, finishErr)
+		return terminalModelResponse(
+			"OpenAI Codex stream delivery failed.", model.OutcomeFailed,
+		), errors.Join(streamErr, finishErr)
 	}
 	if streamErr != nil {
 		return s.streamError(ctx, streamErr, errorTransport)
 	}
-	return failedModelResponse(requestFailedMessage), safeError(requestFailedMessage)
+	return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), safeError(requestFailedMessage)
 }
 
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
@@ -261,7 +263,7 @@ func modelResponse(
 		case responseItemTypeReasoning:
 			visible, err := modelReasoningContent(output.AsReasoning())
 			if err != nil {
-				return failedModelResponse(requestFailedMessage), err
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), err
 			}
 			items = append(items, visible)
 		case "message":
@@ -278,7 +280,7 @@ func modelResponse(
 					kind = model.ContentRefusal
 					text = content.AsRefusal().Refusal
 				default:
-					return failedModelResponse(requestFailedMessage), fmt.Errorf(
+					return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), fmt.Errorf(
 						"OpenAI Codex returned unsupported message content %q", content.Type,
 					)
 				}
@@ -295,7 +297,7 @@ func modelResponse(
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
 				conversionErr := fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
-				return failedModelResponse(conversionErr.Error()), conversionErr
+				return terminalModelResponse(conversionErr.Error(), model.OutcomeFailed), conversionErr
 			}
 			items = append(items, model.Content{
 				Kind:            model.ContentToolCall,
@@ -313,7 +315,9 @@ func modelResponse(
 			call := output.AsCustomToolCall()
 			property, ok := grammarInputProperties[call.Name]
 			if !ok || property == "" {
-				return failedModelResponse(requestFailedMessage), errors.New("OpenAI Codex returned an undeclared custom tool call")
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), errors.New(
+					"OpenAI Codex returned an undeclared custom tool call",
+				)
 			}
 			items = append(items, model.Content{
 				Kind:            model.ContentToolCall,
@@ -328,7 +332,7 @@ func modelResponse(
 			})
 			hasToolCall = true
 		default:
-			return failedModelResponse(requestFailedMessage), fmt.Errorf(
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), fmt.Errorf(
 				"OpenAI Codex returned unsupported output item %q",
 				output.Type,
 			)
@@ -402,7 +406,7 @@ func failedResponseFromSDK(
 ) (model.Response, error) {
 	converted, err := modelResponse(response, model.OutcomeFailed, grammarInputProperties)
 	if err != nil {
-		return failedModelResponse(message), errors.Join(safeError(message), err)
+		return terminalModelResponse(message, model.OutcomeFailed), errors.Join(safeError(message), err)
 	}
 	converted.Outcome = mo.Some(model.OutcomeFailed)
 	converted.ErrorMessage = mo.Some(message)
@@ -416,17 +420,7 @@ func (s *Driver) streamError(
 	transport *errorCaptureTransport,
 ) (model.Response, error) {
 	if ctx.Err() != nil {
-		return model.Response{
-			Content:       nil,
-			Outcome:       mo.Some(model.OutcomeAborted),
-			ErrorMessage:  mo.Some(requestCanceledMessage),
-			Provider:      mo.None[model.ProviderID](),
-			Model:         mo.None[model.ID](),
-			ResponseModel: mo.None[model.ID](),
-			ResponseID:    mo.None[string](),
-			Usage:         mo.None[model.Usage](),
-			Diagnostics:   nil,
-		}, ctx.Err()
+		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
 	}
 	if hookFailure, ok := errors.AsType[internalhooks.HookError](streamErr); ok {
 		response := hookFailureResponse(hookFailure)
@@ -435,7 +429,7 @@ func (s *Driver) streamError(
 	}
 	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
 		if apiError.StatusCode == http.StatusUnauthorized {
-			return failedModelResponse(signInRequiredMessage), ErrSignInRequired
+			return terminalModelResponse(signInRequiredMessage, model.OutcomeFailed), ErrSignInRequired
 		}
 		detail := providerErrorDetail([]byte(apiError.RawJSON()))
 		if detail == "" {
@@ -445,10 +439,10 @@ func (s *Driver) streamError(
 			detail = boundedDetail(strings.TrimSpace(apiError.Message))
 		}
 		message := providerFailureMessage(detail)
-		return failedModelResponse(message), fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
+		return terminalModelResponse(message, model.OutcomeFailed), fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
-	return failedModelResponse(failure.Error()), failure
+	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure
 }
 
 // combineHandlerError adds a handler cause only when the stream error does not already contain it.
@@ -481,11 +475,11 @@ func boundedErrorMessage(err error) string {
 	return boundedDetail(err.Error())
 }
 
-// failedModelResponse creates one terminal provider-neutral failure.
-func failedModelResponse(message string) model.Response {
+// terminalModelResponse creates a payload-free terminal response for a failed or aborted request.
+func terminalModelResponse(message string, outcome model.Outcome) model.Response {
 	return model.Response{
 		Content:       nil,
-		Outcome:       mo.Some(model.OutcomeFailed),
+		Outcome:       mo.Some(outcome),
 		ErrorMessage:  mo.Some(message),
 		Provider:      mo.None[model.ProviderID](),
 		Model:         mo.None[model.ID](),

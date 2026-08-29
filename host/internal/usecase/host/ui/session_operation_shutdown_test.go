@@ -234,20 +234,10 @@ func TestSessionQuitReturnsIndependentActiveRunFailures(t *testing.T) {
 				commandCall++
 				if commandCall == 1 {
 					<-ready
-					return domainui.Command{
-						Kind: domainui.CommandSubmit, Text: mo.Some("active request"),
-						ProviderID: mo.None[string](), ModelID: mo.None[string](),
-						ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-						SessionID:       mo.None[string](), SessionName: mo.None[string](),
-					}, nil
+					return testUICommand(domainui.CommandSubmit, mo.Some("active request")), nil
 				}
 				<-runStarted
-				return domainui.Command{
-					Kind: domainui.CommandQuit, Text: mo.None[string](),
-					ProviderID: mo.None[string](), ModelID: mo.None[string](),
-					ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-					SessionID:       mo.None[string](), SessionName: mo.None[string](),
-				}, nil
+				return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 			}).Times(2)
 			sessionService := NewSession(channel, runner, authenticator, nil, nil, func(context.Context) {})
 
@@ -344,15 +334,7 @@ func TestReceiveCommandsCancellationUnblocksCompletedHandoff(t *testing.T) {
 		receiverDone := make(chan struct{})
 		channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
 			close(receiveCompleted)
-			return domainui.Command{
-				Kind:            domainui.CommandQuit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 		})
 
 		go func() {

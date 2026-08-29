@@ -156,11 +156,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Require().NotNil(operation)
 	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
 
-	response, returnedOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "state", Kind: controller.CommandGetRunState, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](),
-	})
+	response, returnedOperation, err := service.Handle(s.T().Context(), testProgrammaticCommand("state", controller.CommandGetRunState))
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
@@ -200,11 +196,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		},
 	}
-	response, returnedOperation, err = service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "messages", Kind: controller.CommandGetMessages, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](),
-	})
+	response, returnedOperation, err = service.Handle(s.T().Context(), testProgrammaticCommand("messages", controller.CommandGetMessages))
 	// Assert the query includes ordered public content without private provider context.
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)

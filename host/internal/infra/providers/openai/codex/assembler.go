@@ -124,33 +124,33 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		case responseItemTypeFunctionCall:
 			call := added.Item.AsFunctionCall()
 			if err := a.startFunction(added.OutputIndex, call.ID, call.CallID, call.Name, call.Arguments); err != nil {
-				return failedModelResponse(requestFailedMessage), true, err
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 			}
 		case responseItemTypeCustomToolCall:
 			call := added.Item.AsCustomToolCall()
 			if err := a.startCustom(added.OutputIndex, call.ID, call.CallID, call.Name, call.Input); err != nil {
-				return failedModelResponse(requestFailedMessage), true, err
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 			}
 		}
 	case "response.function_call_arguments.delta":
 		delta := event.AsResponseFunctionCallArgumentsDelta()
 		if err := a.deltaFunction(delta.OutputIndex, delta.ItemID, delta.Delta); err != nil {
-			return failedModelResponse(requestFailedMessage), true, err
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 		}
 	case "response.function_call_arguments.done":
 		done := event.AsResponseFunctionCallArgumentsDone()
 		if err := a.endFunction(done.OutputIndex, done.ItemID, done.Name, done.Arguments); err != nil {
-			return failedModelResponse(requestFailedMessage), true, err
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 		}
 	case "response.custom_tool_call_input.delta":
 		delta := event.AsResponseCustomToolCallInputDelta()
 		if err := a.deltaCustom(delta.OutputIndex, delta.ItemID, delta.Delta); err != nil {
-			return failedModelResponse(requestFailedMessage), true, err
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 		}
 	case "response.custom_tool_call_input.done":
 		done := event.AsResponseCustomToolCallInputDone()
 		if err := a.endCustom(done.OutputIndex, done.ItemID, done.Input); err != nil {
-			return failedModelResponse(requestFailedMessage), true, err
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 		}
 	case "response.reasoning_summary_text.delta":
 		delta := event.AsResponseReasoningSummaryTextDelta()
@@ -170,13 +170,13 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 	case "response.output_item.done":
 		done := event.AsResponseOutputItemDone()
 		if err := a.reconcileFunctionOutput(done.OutputIndex, done.Item); err != nil {
-			return failedModelResponse(requestFailedMessage), true, err
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 		}
 		if err := a.endOutput(done.OutputIndex); err != nil {
 			return model.Response{}, true, err
 		}
 		if done.OutputIndex < 0 || done.OutputIndex > int64(^uint(0)>>1) {
-			return failedModelResponse(requestFailedMessage), true, safeError(requestFailedMessage)
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, safeError(requestFailedMessage)
 		}
 		a.completedOutputByPosition[done.OutputIndex] = done.Item
 	case "response.completed":
@@ -192,7 +192,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		message := providerFailureMessage(incomplete.Error.Message)
 		terminalResponse, recovered, mergeErr := a.mergeTerminalOutput(incomplete)
 		if mergeErr != nil {
-			return failedModelResponse(requestFailedMessage), true, mergeErr
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, mergeErr
 		}
 		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
 		if recovered {
@@ -207,7 +207,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		message := providerFailureMessage(failed.Error.Message)
 		terminalResponse, recovered, mergeErr := a.mergeTerminalOutput(failed)
 		if mergeErr != nil {
-			return failedModelResponse(requestFailedMessage), true, mergeErr
+			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, mergeErr
 		}
 		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
 		if recovered {
@@ -220,7 +220,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		}
 		providerEvent := event.AsError()
 		message := providerFailureMessage(providerEvent.Message)
-		return failedModelResponse(message), true, safeError(message)
+		return terminalModelResponse(message, model.OutcomeFailed), true, safeError(message)
 	}
 	return model.Response{}, false, nil
 }
@@ -231,10 +231,10 @@ func (a *semanticAssembler) complete(
 ) (model.Response, bool, error) {
 	response, recovered, mergeErr := a.mergeTerminalOutput(response)
 	if mergeErr != nil {
-		return failedModelResponse(requestFailedMessage), true, mergeErr
+		return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, mergeErr
 	}
 	if err := a.reconcileTerminalFunctionOutputs(response.Output); err != nil {
-		return failedModelResponse(requestFailedMessage), true, err
+		return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, err
 	}
 	if err := a.finish(); err != nil {
 		return model.Response{}, true, err

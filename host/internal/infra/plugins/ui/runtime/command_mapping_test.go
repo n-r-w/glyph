@@ -27,23 +27,23 @@ func TestMapSessionCommands(t *testing.T) {
 			value := new(uipb.OpenResponse)
 			value.SetCreateSession(new(uipb.CreateSessionCommand))
 			return value
-		}(), expected: emptySessionCommand(domainui.CommandCreateSession)},
+		}(), expected: newCommand(domainui.CommandCreateSession, mo.None[string]())},
 		{name: "list", response: func() *uipb.OpenResponse {
 			value := new(uipb.OpenResponse)
 			value.SetListSessions(new(uipb.ListSessionsCommand))
 			return value
-		}(), expected: emptySessionCommand(domainui.CommandListSessions)},
+		}(), expected: newCommand(domainui.CommandListSessions, mo.None[string]())},
 		{name: "information", response: func() *uipb.OpenResponse {
 			value := new(uipb.OpenResponse)
 			value.SetGetSessionInfo(new(uipb.GetSessionInfoCommand))
 			return value
-		}(), expected: emptySessionCommand(domainui.CommandGetSessionInfo)},
+		}(), expected: newCommand(domainui.CommandGetSessionInfo, mo.None[string]())},
 		{name: "resume", response: func() *uipb.OpenResponse {
 			value := new(uipb.OpenResponse)
 			value.SetResumeSession(uipb.ResumeSessionCommand_builder{SessionId: new("stored")}.Build())
 			return value
 		}(), expected: func() domainui.Command {
-			value := emptySessionCommand(domainui.CommandResumeSession)
+			value := newCommand(domainui.CommandResumeSession, mo.None[string]())
 			value.SessionID = mo.Some("stored")
 			return value
 		}()},
@@ -52,7 +52,7 @@ func TestMapSessionCommands(t *testing.T) {
 			value.SetSetSessionName(uipb.SetSessionNameCommand_builder{Name: new("named")}.Build())
 			return value
 		}(), expected: func() domainui.Command {
-			value := emptySessionCommand(domainui.CommandSetSessionName)
+			value := newCommand(domainui.CommandSetSessionName, mo.None[string]())
 			value.SessionName = mo.Some("named")
 			return value
 		}()},

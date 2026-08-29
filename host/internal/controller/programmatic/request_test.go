@@ -89,6 +89,20 @@ func sessionCommand(correlationID string, kind CommandKind) Command {
 	}
 }
 
+// testCommand creates a payload-free correlated command.
+func testCommand(correlationID string, kind CommandKind) Command {
+	return Command{
+		CorrelationID:   correlationID,
+		Kind:            kind,
+		UserText:        mo.None[string](),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[domainsession.ID](),
+		SessionName:     mo.None[string](),
+	}
+}
+
 // TestMapOpenRequestPreservesEveryCommand verifies the complete request oneof mapping.
 func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 	t.Parallel()
@@ -116,16 +130,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SetSessionName:        nil,
 				GetSessionInfo:        nil,
 			}.Build(),
-			want: Command{
-				CorrelationID:   "missing",
-				Kind:            CommandUnspecified,
-				UserText:        mo.None[string](),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](),
-			},
+			want: testCommand("missing", CommandUnspecified),
 		},
 		"user request": {
 			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
@@ -189,16 +194,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SetSessionName:    nil,
 				GetSessionInfo:    nil,
 			}.Build(),
-			want: Command{
-				CorrelationID:   "abort",
-				Kind:            CommandAbort,
-				UserText:        mo.None[string](),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](),
-			},
+			want: testCommand("abort", CommandAbort),
 		},
 		"get run state": {
 			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
@@ -212,16 +208,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SetSessionName:    nil,
 				GetSessionInfo:    nil,
 			}.Build(),
-			want: Command{
-				CorrelationID:   "state",
-				Kind:            CommandGetRunState,
-				UserText:        mo.None[string](),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](),
-			},
+			want: testCommand("state", CommandGetRunState),
 		},
 		"get messages": {
 			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
@@ -235,16 +222,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SetSessionName:    nil,
 				GetSessionInfo:    nil,
 			}.Build(),
-			want: Command{
-				CorrelationID:   "messages",
-				Kind:            CommandGetMessages,
-				UserText:        mo.None[string](),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](),
-			},
+			want: testCommand("messages", CommandGetMessages),
 		},
 		"get models": {
 			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetModels field.
@@ -258,16 +236,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				SetSessionName:    nil,
 				GetSessionInfo:    nil,
 			}.Build(),
-			want: Command{
-				CorrelationID:   "models",
-				Kind:            CommandGetModels,
-				UserText:        mo.None[string](),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](),
-			},
+			want: testCommand("models", CommandGetModels),
 		},
 		"select model": {
 			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectModel field.

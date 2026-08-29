@@ -236,35 +236,23 @@ func (configured *modelFile) UnmarshalYAML(node *yaml.Node) error {
 
 // UnmarshalYAML decodes strict tool capability fields.
 func (configured *toolCapabilitiesFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "strictJSONSchema", "grammar")
+	grammar, strictJSONSchema, err := decodeYAMLPair[grammarCapabilitiesFile, bool](
+		node, "grammar", "strictJSONSchema",
+	)
 	if err != nil {
 		return err
 	}
-	var decoded toolCapabilitiesFile
-	if decodeErr := decodeYAMLField(fields, "grammar", &decoded.Grammar); decodeErr != nil {
-		return decodeErr
-	}
-	if decodeErr := decodeYAMLField(fields, "strictJSONSchema", &decoded.StrictJSONSchema); decodeErr != nil {
-		return decodeErr
-	}
-	*configured = decoded
+	*configured = toolCapabilitiesFile{StrictJSONSchema: strictJSONSchema, Grammar: grammar}
 	return nil
 }
 
 // UnmarshalYAML decodes strict grammar capability fields.
 func (configured *grammarCapabilitiesFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "lark", "regex")
+	regex, lark, err := decodeYAMLPair[bool, bool](node, "regex", "lark")
 	if err != nil {
 		return err
 	}
-	var decoded grammarCapabilitiesFile
-	if decodeErr := decodeYAMLField(fields, "regex", &decoded.Regex); decodeErr != nil {
-		return decodeErr
-	}
-	if decodeErr := decodeYAMLField(fields, "lark", &decoded.Lark); decodeErr != nil {
-		return decodeErr
-	}
-	*configured = decoded
+	*configured = grammarCapabilitiesFile{Lark: lark, Regex: regex}
 	return nil
 }
 
@@ -370,6 +358,25 @@ func decodeYAMLMapping(node *yaml.Node, fieldNames ...string) (map[string]yaml.N
 		fields[field] = *node.Content[index+1]
 	}
 	return fields, nil
+}
+
+// decodeYAMLPair decodes two fields without partially mutating the destination.
+func decodeYAMLPair[A, B any](
+	node *yaml.Node,
+	firstName string,
+	secondName string,
+) (first A, second B, err error) {
+	fields, err := decodeYAMLMapping(node, firstName, secondName)
+	if err != nil {
+		return first, second, err
+	}
+	if fieldErr := decodeYAMLField(fields, firstName, &first); fieldErr != nil {
+		return first, second, fieldErr
+	}
+	if fieldErr := decodeYAMLField(fields, secondName, &second); fieldErr != nil {
+		return first, second, fieldErr
+	}
+	return first, second, nil
 }
 
 func decodeYAMLField[T any](fields map[string]yaml.Node, field string, target *T) error {

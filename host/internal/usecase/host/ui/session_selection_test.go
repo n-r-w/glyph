@@ -98,16 +98,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 		expectedText string
 	}{
 		{
-			name: "submit text",
-			command: domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			},
+			name:         "submit text",
+			command:      testUICommand(domainui.CommandSubmit, mo.None[string]()),
 			expectedKind: domainui.FrameInformation,
 			expectedText: "A nonempty request is required.",
 		},
@@ -140,16 +132,8 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 			expectedText: "Could not change model selection.",
 		},
 		{
-			name: "reasoning choice",
-			command: domainui.Command{
-				Kind:            domainui.CommandSelectReasoningChoice,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			},
+			name:         "reasoning choice",
+			command:      testUICommand(domainui.CommandSelectReasoningChoice, mo.None[string]()),
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
 		},
@@ -367,15 +351,7 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 	gomock.InOrder(
 		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
 			<-ready
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("request"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("request")), nil
 		}),
 		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
 			<-runStarted

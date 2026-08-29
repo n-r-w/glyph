@@ -53,15 +53,7 @@ func (model Model) updateSelector(key tea.Key) (tea.Model, tea.Cmd) {
 		}
 		selected := model.state.Models[model.selectorRow]
 		model.selectorOpen = false
-		return model.emitCommand(presentationdomain.Command{
-			Kind:            presentationdomain.CommandSelectModel,
-			Text:            mo.None[string](),
-			ProviderID:      mo.Some(selected.ProviderID),
-			ModelID:         mo.Some(selected.ModelID),
-			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		})
+		return model.emitCommand(modelSelectionCommand(selected))
 	case tea.KeyEscape:
 		model = model.cancelSelector()
 	}
@@ -88,7 +80,12 @@ func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
 	}
 	index := (model.currentModelIndex() + direction + len(model.state.Models)) % len(model.state.Models)
 	selected := model.state.Models[index]
-	return model.emitCommand(presentationdomain.Command{
+	return model.emitCommand(modelSelectionCommand(selected))
+}
+
+// modelSelectionCommand maps one selectable model to its command payload.
+func modelSelectionCommand(selected presentationdomain.ConfiguredModel) presentationdomain.Command {
+	return presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectModel,
 		Text:            mo.None[string](),
 		ProviderID:      mo.Some(selected.ProviderID),
@@ -96,7 +93,7 @@ func (model Model) cycleModel(direction int) (tea.Model, tea.Cmd) {
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
-	})
+	}
 }
 
 // cycleReasoning emits the next configured level for the Host-confirmed model.

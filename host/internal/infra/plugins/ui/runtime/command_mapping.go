@@ -25,45 +25,13 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		if !submit.HasText() {
 			return domainui.Command{}, errors.New("receive UI command: submit text is required")
 		}
-		return domainui.Command{
-			Kind:            domainui.CommandSubmit,
-			Text:            mo.Some(submit.GetText()),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return newCommand(domainui.CommandSubmit, mo.Some(submit.GetText())), nil
 	case command.GetStop() != nil:
-		return domainui.Command{
-			Kind:            domainui.CommandStop,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return newCommand(domainui.CommandStop, mo.None[string]()), nil
 	case command.GetRetryAuthentication() != nil:
-		return domainui.Command{
-			Kind:            domainui.CommandRetryAuthentication,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return newCommand(domainui.CommandRetryAuthentication, mo.None[string]()), nil
 	case command.GetQuit() != nil:
-		return domainui.Command{
-			Kind:            domainui.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return newCommand(domainui.CommandQuit, mo.None[string]()), nil
 	case command.GetSelectModel() != nil, command.GetSelectReasoningChoice() != nil:
 		return domainui.Command{}, errors.New("receive UI command: selection command was not mapped")
 	case command.GetCreateSession() != nil, command.GetListSessions() != nil,
@@ -120,17 +88,17 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, error) {
 	switch {
 	case command.GetCreateSession() != nil:
-		return emptySessionCommand(domainui.CommandCreateSession), true, nil
+		return newCommand(domainui.CommandCreateSession, mo.None[string]()), true, nil
 	case command.GetListSessions() != nil:
-		return emptySessionCommand(domainui.CommandListSessions), true, nil
+		return newCommand(domainui.CommandListSessions, mo.None[string]()), true, nil
 	case command.GetGetSessionInfo() != nil:
-		return emptySessionCommand(domainui.CommandGetSessionInfo), true, nil
+		return newCommand(domainui.CommandGetSessionInfo, mo.None[string]()), true, nil
 	case command.GetResumeSession() != nil:
 		resume := command.GetResumeSession()
 		if !resume.HasSessionId() || resume.GetSessionId() == "" {
 			return domainui.Command{}, true, errors.New("receive UI command: session ID is required")
 		}
-		mapped := emptySessionCommand(domainui.CommandResumeSession)
+		mapped := newCommand(domainui.CommandResumeSession, mo.None[string]())
 		mapped.SessionID = mo.Some(resume.GetSessionId())
 		return mapped, true, nil
 	case command.GetSetSessionName() != nil:
@@ -138,7 +106,7 @@ func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, erro
 		if !name.HasName() {
 			return domainui.Command{}, true, errors.New("receive UI command: session name is required")
 		}
-		mapped := emptySessionCommand(domainui.CommandSetSessionName)
+		mapped := newCommand(domainui.CommandSetSessionName, mo.None[string]())
 		mapped.SessionName = mo.Some(name.GetName())
 		return mapped, true, nil
 	default:
@@ -147,10 +115,10 @@ func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, erro
 }
 
 // emptySessionCommand initializes absent arguments for lifecycle commands without payloads.
-func emptySessionCommand(kind domainui.CommandKind) domainui.Command {
+func newCommand(kind domainui.CommandKind, text mo.Option[string]) domainui.Command {
 	return domainui.Command{
 		Kind:            kind,
-		Text:            mo.None[string](),
+		Text:            text,
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),

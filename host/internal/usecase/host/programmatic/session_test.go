@@ -66,12 +66,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 
 	// Arrange create and resume commands around one nondefault provider, model, and reasoning selection.
 	commandWithoutArguments := func(correlationID string, kind controller.CommandKind) controller.Command {
-		return controller.Command{
-			CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
-			ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-			ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
-			SessionName: mo.None[string](),
-		}
+		return testProgrammaticCommand(correlationID, kind)
 	}
 	for _, test := range []struct {
 		name string
@@ -194,12 +189,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 
 	// Act by requesting the active session entries.
-	response, operation, err := service.Handle(t.Context(), controller.Command{
-		CorrelationID: "entries", Kind: controller.CommandGetSessionEntries,
-		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
-		SessionName: mo.None[string](),
-	})
+	response, operation, err := service.Handle(t.Context(), testProgrammaticCommand("entries", controller.CommandGetSessionEntries))
 
 	// Assert the service returns the mapping cause with an internal rejection and no partial entries.
 	require.NoError(t, err)

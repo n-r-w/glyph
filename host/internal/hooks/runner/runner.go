@@ -45,26 +45,30 @@ func New(
 
 // TransformContext applies context handlers in registration order.
 func (runner *Runner) TransformContext(ctx context.Context, value hooks.Context) (hooks.Context, error) {
-	current := cloneContext(value)
-	for _, handler := range runner.contextHandlers {
-		transformed, err := handler(ctx, cloneContext(current))
-		if err != nil {
-			return hooks.Context{}, hooks.HookError{Stage: hooks.StageContext, Cause: err}
-		}
-		current = cloneContext(transformed)
-	}
-	return current, nil
+	return transform(ctx, value, runner.contextHandlers, cloneContext, hooks.StageContext)
 }
 
 // TransformRequest applies request handlers in registration order.
 func (runner *Runner) TransformRequest(ctx context.Context, value hooks.Request) (hooks.Request, error) {
-	current := cloneRequest(value)
-	for _, handler := range runner.requestHandlers {
-		transformed, err := handler(ctx, cloneRequest(current))
+	return transform(ctx, value, runner.requestHandlers, cloneRequest, hooks.StageRequest)
+}
+
+// transform applies ordered copy-isolated transformations and identifies hook failures by stage.
+func transform[T any, H ~func(context.Context, T) (T, error)](
+	ctx context.Context,
+	value T,
+	handlers []H,
+	clone func(T) T,
+	stage hooks.Stage,
+) (T, error) {
+	current := clone(value)
+	for _, handler := range handlers {
+		transformed, err := handler(ctx, clone(current))
 		if err != nil {
-			return hooks.Request{}, hooks.HookError{Stage: hooks.StageRequest, Cause: err}
+			var zero T
+			return zero, hooks.HookError{Stage: stage, Cause: err}
 		}
-		current = cloneRequest(transformed)
+		current = clone(transformed)
 	}
 	return current, nil
 }

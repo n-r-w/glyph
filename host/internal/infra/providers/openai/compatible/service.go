@@ -219,30 +219,14 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		}
 		response.Provider = mo.Some(s.providerID)
 		response.Model = mo.Some(request.Model.Model)
-		if handleErr := handle(run.StreamEvent{
-			Kind:     run.StreamEventError,
-			Position: mo.None[int](),
-			Content:  mo.None[model.Content](),
-			Delta:    mo.None[string](),
-			Preview:  mo.None[model.ToolCallPreview](),
-			ToolCall: mo.None[model.ToolCall](),
-			Response: mo.Some(response),
-		}); handleErr != nil {
+		if handleErr := handle(terminalStreamEvent(run.StreamEventError, response)); handleErr != nil {
 			return combineFinalHandlerError(err, handleErr)
 		}
 		return err
 	}
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
-	if handleErr := handle(run.StreamEvent{
-		Kind:     run.StreamEventDone,
-		Position: mo.None[int](),
-		Content:  mo.None[model.Content](),
-		Delta:    mo.None[string](),
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Response: mo.Some(response),
-	}); handleErr != nil {
+	if handleErr := handle(terminalStreamEvent(run.StreamEventDone, response)); handleErr != nil {
 		return handleErr
 	}
 	return nil
@@ -269,15 +253,7 @@ func (s *Driver) emitFailure(
 	response := failureResponse(outcome, message)
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
-	if handleErr := handle(run.StreamEvent{
-		Kind:     run.StreamEventError,
-		Position: mo.None[int](),
-		Content:  mo.None[model.Content](),
-		Delta:    mo.None[string](),
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Response: mo.Some(response),
-	}); handleErr != nil {
+	if handleErr := handle(terminalStreamEvent(run.StreamEventError, response)); handleErr != nil {
 		return handleErr
 	}
 	return err

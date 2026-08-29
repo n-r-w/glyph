@@ -9,7 +9,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
@@ -33,11 +32,7 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 	}
 	control.EXPECT().Statistics().Return(statistics)
 	service := New(nil, nil, nil, nil, control, nil)
-	command := controller.Command{
-		CorrelationID: "stats", Kind: controller.CommandGetSessionStats,
-		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
-	}
+	command := testProgrammaticCommand("stats", controller.CommandGetSessionStats)
 
 	// Act by handling the query while an active run marker is present.
 	response, handled, err := service.handleImmediate(t.Context(), command, new(activeRun))

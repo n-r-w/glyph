@@ -58,31 +58,7 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 	assert.Equal(t, models, state.Models)
 	// Act by applying unrelated and selection-confirmation events.
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventError,
-		Text:                 mo.Some("rejected"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	state = service.Apply(state, testPresentationEvent(presentationdomain.EventError, mo.Some("rejected"), mo.None[int]()))
 	// Assert the rejected change preserves the host-confirmed selection.
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 

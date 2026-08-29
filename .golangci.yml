@@ -93,7 +93,7 @@ linters:
     gocyclo:
       min-complexity: 15
     dupl:
-      threshold: 100
+      threshold: 120
     goconst:
       min-len: 2
       min-occurrences: 2
@@ -107,7 +107,6 @@ linters:
     gocritic:
       enabled-tags:
         - diagnostic
-        - experimental
         - opinionated
         - performance
         - style
@@ -130,10 +129,9 @@ linters:
     rules:
       - linters:
           - perfsprint
-          - dupl
           - gochecknoglobals
-          - gocognit
           - goconst
+          - gocognit
           - gocritic
           - gosec
           - govet

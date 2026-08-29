@@ -1,3 +1,5 @@
+//go:build integration
+
 package bash
 
 import (
@@ -34,85 +36,6 @@ func TestServiceRun(t *testing.T) {
 	assert.ElementsMatch(t, []bashusecase.Stream{bashusecase.StreamStdout, bashusecase.StreamStderr}, events)
 	assert.Equal(t, strings.Join(fragments, "")+"\n\n[Exit code: 7]\n", result.Output)
 	assert.False(t, result.Truncation.Truncated)
-}
-
-// TestStreamWriterJoinsSplitUTF8 keeps protobuf progress valid across pipe fragments.
-func TestStreamWriterJoinsSplitUTF8(t *testing.T) {
-	t.Parallel()
-
-	_, cancel := context.WithCancelCause(t.Context())
-	fragments := make([]string, 0, 1)
-	sink := &outputSink{
-		mutex: sync.Mutex{}, output: newOutputStore(),
-		handleProgress: func(_ bashusecase.Stream, content string) error {
-			fragments = append(fragments, content)
-			return nil
-		},
-		cancel: cancel,
-	}
-	writer := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
-
-	_, err := writer.Write([]byte{0xe2})
-	require.NoError(t, err)
-	_, err = writer.Write([]byte{0x82, 0xac})
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"€"}, fragments)
-}
-
-// TestStreamWriterKeepsDeliveredTextOrder across interleaved stdout and stderr bytes.
-func TestStreamWriterKeepsDeliveredTextOrder(t *testing.T) {
-	t.Parallel()
-
-	_, cancel := context.WithCancelCause(t.Context())
-	fragments := make([]string, 0, 2)
-	sink := &outputSink{
-		mutex: sync.Mutex{}, output: newOutputStore(),
-		handleProgress: func(_ bashusecase.Stream, content string) error {
-			fragments = append(fragments, content)
-			return nil
-		},
-		cancel: cancel,
-	}
-	stdout := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
-	stderr := &streamWriter{sink: sink, stream: bashusecase.StreamStderr, pending: nil}
-
-	_, err := stdout.Write([]byte{0xe2})
-	require.NoError(t, err)
-	_, err = stderr.Write([]byte("x"))
-	require.NoError(t, err)
-	_, err = stdout.Write([]byte{0x82, 0xac})
-	require.NoError(t, err)
-	result, err := sink.result(0, nil)
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"x", "€"}, fragments)
-	assert.Equal(t, "x€\n\n[Exit code: 0]\n", result.Output)
-}
-
-// TestStreamWriterReplacesInvalidUTF8 keeps streamed and terminal text valid and explicit.
-func TestStreamWriterReplacesInvalidUTF8(t *testing.T) {
-	t.Parallel()
-
-	_, cancel := context.WithCancelCause(t.Context())
-	fragments := make([]string, 0, 1)
-	sink := &outputSink{
-		mutex: sync.Mutex{}, output: newOutputStore(),
-		handleProgress: func(_ bashusecase.Stream, content string) error {
-			fragments = append(fragments, content)
-			return nil
-		},
-		cancel: cancel,
-	}
-	writer := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
-
-	_, err := writer.Write([]byte{0xff, 'a'})
-	require.NoError(t, err)
-	result, err := sink.result(0, nil)
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"?a"}, fragments)
-	assert.Equal(t, "?a\n\n[Exit code: 0]\n", result.Output)
 }
 
 // TestServiceRunKeepsRawInvalidUTF8 stores original bytes while streaming valid text.

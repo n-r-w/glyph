@@ -72,26 +72,10 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 		commandCall++
 		if commandCall == 1 {
 			<-ready
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("first request"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("first request")), nil
 		}
 		<-idleAfterRun
-		return domainui.Command{
-			Kind:            domainui.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 	}).Times(2)
 
 	// Act: run the complete UI session.
@@ -156,47 +140,15 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		switch commandCall {
 		case 1:
 			<-ready
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("first"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("first")), nil
 		case 2:
 			<-runStarted
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("queued"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("queued")), nil
 		case 3:
-			return domainui.Command{
-				Kind:            domainui.CommandStop,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandStop, mo.None[string]()), nil
 		default:
 			<-idleAfterStop
-			return domainui.Command{
-				Kind:            domainui.CommandQuit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 		}
 	}).Times(4)
 
@@ -250,35 +202,11 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 		<-idleSignals[index]
 		switch index {
 		case 0:
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("first"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("first")), nil
 		case 1:
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("second"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("second")), nil
 		default:
-			return domainui.Command{
-				Kind:            domainui.CommandQuit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 		}
 	}).Times(3)
 

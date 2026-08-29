@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -178,30 +179,40 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 
 // mapInitializationFrame validates and maps the selected initialization payload.
 func mapInitializationFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
-	initialization, present := frame.Initialization.Get()
-	if !present {
-		return nil, errors.New("map UI frame: initialization payload is required")
-	}
-	mapped, err := mapInitialization(initialization)
-	if err != nil {
-		return nil, err
-	}
-	request := &uipb.OpenRequest{}
-	request.SetInitialization(mapped)
-	return request, nil
+	return mapRequiredFramePayload(
+		frame.Initialization,
+		"map UI frame: initialization payload is required",
+		mapInitialization,
+		(*uipb.OpenRequest).SetInitialization,
+	)
 }
 
 // mapLifecycleFrame validates and maps the selected lifecycle payload.
 func mapLifecycleFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
-	lifecycle, present := frame.Lifecycle.Get()
+	return mapRequiredFramePayload(
+		frame.Lifecycle,
+		"map UI frame: lifecycle payload is required",
+		mapLifecycle,
+		(*uipb.OpenRequest).SetLifecycle,
+	)
+}
+
+// mapRequiredFramePayload validates, maps, and installs one required frame payload.
+func mapRequiredFramePayload[A, B any](
+	payload mo.Option[A],
+	missingMessage string,
+	mapper func(A) (B, error),
+	set func(*uipb.OpenRequest, B),
+) (*uipb.OpenRequest, error) {
+	value, present := payload.Get()
 	if !present {
-		return nil, errors.New("map UI frame: lifecycle payload is required")
+		return nil, errors.New(missingMessage)
 	}
-	mapped, err := mapLifecycle(lifecycle)
+	mapped, err := mapper(value)
 	if err != nil {
 		return nil, err
 	}
 	request := &uipb.OpenRequest{}
-	request.SetLifecycle(mapped)
+	set(request, mapped)
 	return request, nil
 }

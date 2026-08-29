@@ -159,17 +159,7 @@ func NewOutputWaiter(writer io.Writer, reader io.Reader) *OutputWaiter {
 
 // Wait joins the output copy or reports that ctx expired before the join completed.
 func (waiter *OutputWaiter) Wait(ctx context.Context) error {
-	select {
-	case <-waiter.done:
-		return waiter.result
-	default:
-	}
-	select {
-	case <-waiter.done:
-		return waiter.result
-	case <-ctx.Done():
-		return fmt.Errorf("wait for terminal output copy: %w", ctx.Err())
-	}
+	return waitResult(ctx, waiter.done, func() error { return waiter.result }, "terminal output copy")
 }
 
 // CommandWaiter stores one subprocess wait result for normal and cleanup paths.
@@ -193,16 +183,21 @@ func NewCommandWaiter(command *exec.Cmd) *CommandWaiter {
 
 // Wait joins the subprocess or reports that ctx expired before the join completed.
 func (waiter *CommandWaiter) Wait(ctx context.Context) error {
+	return waitResult(ctx, waiter.done, func() error { return waiter.result }, "terminal subprocess")
+}
+
+// waitResult waits for completed asynchronous work without losing an already available result.
+func waitResult(ctx context.Context, done <-chan struct{}, result func() error, operation string) error {
 	select {
-	case <-waiter.done:
-		return waiter.result
+	case <-done:
+		return result()
 	default:
 	}
 	select {
-	case <-waiter.done:
-		return waiter.result
+	case <-done:
+		return result()
 	case <-ctx.Done():
-		return fmt.Errorf("wait for terminal subprocess: %w", ctx.Err())
+		return fmt.Errorf("wait for %s: %w", operation, ctx.Err())
 	}
 }
 

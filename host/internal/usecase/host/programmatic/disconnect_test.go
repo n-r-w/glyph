@@ -112,9 +112,7 @@ func (s *ServiceSuite) TestEmptyCorrelationReturnsTerminalError() {
 	service := New(NewMockCoordinator(ctrl), nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 
 	response, operation, err := service.Handle(
-		s.T().Context(), controller.Command{Kind: controller.CommandGetRunState, CorrelationID: "", UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string]()},
+		s.T().Context(), testProgrammaticCommand("", controller.CommandGetRunState),
 	)
 
 	s.Require().ErrorIs(err, ErrCorrelationRequired)

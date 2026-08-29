@@ -314,12 +314,15 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 	}
 	if usageValue, ok := response.Usage.Get(); ok {
 		usage := new(programmaticv1.ModelUsage)
-		usage.SetInputTokens(usageValue.InputTokens)
-		usage.SetOutputTokens(usageValue.OutputTokens)
+		setCommonUsage(
+			usage,
+			usageValue.InputTokens,
+			usageValue.OutputTokens,
+			usageValue.CacheWriteTokens,
+			usageValue.ReasoningTokens,
+			usageValue.TotalTokens,
+		)
 		usage.SetCachedInputTokens(usageValue.CachedInputTokens)
-		usage.SetCacheWriteTokens(usageValue.CacheWriteTokens)
-		usage.SetReasoningTokens(usageValue.ReasoningTokens)
-		usage.SetTotalTokens(usageValue.TotalTokens)
 		mapped.SetUsage(usage)
 	}
 	mapped.SetDiagnostics(diagnostics)

@@ -293,43 +293,32 @@ func selectionAvailable(availability presentationdomain.Availability) bool {
 		availability != presentationdomain.AvailabilityAuthenticating
 }
 
+// emptyCommand creates a command without an operation-specific payload.
+func emptyCommand(kind presentationdomain.CommandKind) presentationdomain.Command {
+	return presentationdomain.Command{
+		Kind:            kind,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
+	}
+}
+
 // updateControlKey handles the exact control-key bindings.
 func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 	switch code {
 	case 'q':
-		return model.emitCommand(presentationdomain.Command{
-			Kind:            presentationdomain.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		})
+		return model.emitCommand(emptyCommand(presentationdomain.CommandQuit))
 	case 'c':
 		if availability, ok := model.state.Availability.Get(); ok && availability == presentationdomain.AvailabilityRunning {
-			return model.emitCommand(presentationdomain.Command{
-				Kind:            presentationdomain.CommandStop,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			})
+			return model.emitCommand(emptyCommand(presentationdomain.CommandStop))
 		}
 	case 'r':
 		availability, ok := model.state.Availability.Get()
 		if ok && availability == presentationdomain.AvailabilityAuthenticationFailed {
-			return model.emitCommand(presentationdomain.Command{
-				Kind:            presentationdomain.CommandRetryAuthentication,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			})
+			return model.emitCommand(emptyCommand(presentationdomain.CommandRetryAuthentication))
 		}
 	case 'l':
 		return model.openSelector()

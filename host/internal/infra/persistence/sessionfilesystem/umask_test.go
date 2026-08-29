@@ -1,4 +1,4 @@
-//go:build darwin || linux || freebsd || openbsd || netbsd
+//go:build integration && (darwin || linux || freebsd || openbsd || netbsd)
 
 package sessionfilesystem_test
 

@@ -64,51 +64,56 @@ func (s *Service) executeRead(arguments []byte, stream extensionv1.ExtensionServ
 
 // executeWrite decodes and executes write.
 func (s *Service) executeWrite(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	var input writeArguments
-	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode write arguments: %v", err), true)
-	}
-	if err := s.writeTool.Write(stream.Context(), input.Path, input.Content); err != nil {
-		return operationResult(stream, "", err)
-	}
-	return sendResult(stream, "wrote file "+input.Path, false)
+	return executeDecoded(arguments, stream, "write", func(input writeArguments) (string, error) {
+		return mutationResult(input.Path, "wrote file ", s.writeTool.Write(stream.Context(), input.Path, input.Content))
+	})
 }
 
 // executeEdit decodes and executes edit.
 func (s *Service) executeEdit(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	var input editArguments
-	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode edit arguments: %v", err), true)
-	}
-	if err := s.editTool.Edit(stream.Context(), input.Path, input.Edits); err != nil {
-		return operationResult(stream, "", err)
-	}
-	return sendResult(stream, "replaced text in "+input.Path, false)
+	return executeDecoded(arguments, stream, "edit", func(input editArguments) (string, error) {
+		return mutationResult(input.Path, "replaced text in ", s.editTool.Edit(stream.Context(), input.Path, input.Edits))
+	})
 }
 
 // executeGrep decodes and executes grep.
 func (s *Service) executeGrep(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	var input grepArguments
-	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode grep arguments: %v", err), true)
-	}
-	command := GrepArguments(input)
-	result, err := s.searchTool.Grep(stream.Context(), command)
-	return operationResult(stream, result, err)
+	return executeDecoded(arguments, stream, "grep", func(input grepArguments) (string, error) {
+		return s.searchTool.Grep(stream.Context(), GrepArguments(input))
+	})
 }
 
 // executeFind decodes and executes find.
 func (s *Service) executeFind(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	var input findArguments
-	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode find arguments: %v", err), true)
-	}
-	command := FindArguments(input)
-	result, err := s.searchTool.Find(stream.Context(), command)
-	return operationResult(stream, result, err)
+	return executeDecoded(arguments, stream, "find", func(input findArguments) (string, error) {
+		return s.searchTool.Find(stream.Context(), FindArguments(input))
+	})
 }
 
 // executeList decodes and executes ls.
+// mutationResult converts a file mutation result to user-facing operation output.
+func mutationResult(path, successPrefix string, err error) (string, error) {
+	if err != nil {
+		return "", err
+	}
+	return successPrefix + path, nil
+}
+
+// executeDecoded decodes typed arguments, executes one operation, and sends its terminal result.
+func executeDecoded[T any](
+	arguments []byte,
+	stream extensionv1.ExtensionService_ExecuteServer,
+	operation string,
+	execute func(T) (string, error),
+) error {
+	var input T
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return sendResult(stream, fmt.Sprintf("decode %s arguments: %v", operation, err), true)
+	}
+	result, err := execute(input)
+	return operationResult(stream, result, err)
+}
+
 func (s *Service) executeList(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
 	var input listArguments
 	if err := json.Unmarshal(arguments, &input); err != nil {

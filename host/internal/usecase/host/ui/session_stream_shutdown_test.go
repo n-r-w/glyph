@@ -34,15 +34,7 @@ func (s *SessionSuite) TestSessionImmediateQuitOwnsTerminalSendEOF() {
 	)
 	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
 		<-deliveryAttempted
-		return domainui.Command{
-			Kind:            domainui.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 	})
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
@@ -78,15 +70,7 @@ func (s *SessionSuite) TestSessionImmediateQuitDoesNotMaskUnexpectedDeliveryFail
 	// Receive is optional because a non-EOF delivery failure may finish the session before the receiver starts.
 	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
 		<-deliveryAttempted
-		return domainui.Command{
-			Kind:            domainui.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-		}, nil
+		return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 	}).AnyTimes()
 	s.authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
 
@@ -137,15 +121,7 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 		commandCall++
 		if commandCall == 1 {
 			<-ready
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("request"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("request")), nil
 		}
 		<-runStarted
 		return domainui.Command{}, io.ErrUnexpectedEOF

@@ -60,36 +60,12 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		switch commandCall {
 		case 1:
 			<-authFailed
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("blocked"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("blocked")), nil
 		case 2:
-			return domainui.Command{
-				Kind:            domainui.CommandRetryAuthentication,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandRetryAuthentication, mo.None[string]()), nil
 		default:
 			<-ready
-			return domainui.Command{
-				Kind:            domainui.CommandQuit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 		}
 	}).Times(3)
 
@@ -157,37 +133,13 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		switch commandCall {
 		case 1:
 			<-initialIdle
-			return domainui.Command{
-				Kind:            domainui.CommandSubmit,
-				Text:            mo.Some("request"),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandSubmit, mo.Some("request")), nil
 		case 2:
 			<-runErrorSent
-			return domainui.Command{
-				Kind:            domainui.CommandRetryAuthentication,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandRetryAuthentication, mo.None[string]()), nil
 		default:
 			<-terminalReady
-			return domainui.Command{
-				Kind:            domainui.CommandQuit,
-				Text:            mo.None[string](),
-				ProviderID:      mo.None[string](),
-				ModelID:         mo.None[string](),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
-			}, nil
+			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
 		}
 	}).Times(3)
 
@@ -223,15 +175,7 @@ func (s *SessionSuite) TestSessionImmediateQuitCancelsAuthenticationCheck() {
 	channel := s.channel
 	authenticator := s.authenticator
 	channel.EXPECT().Send(gomock.Any()).Return(nil)
-	channel.EXPECT().Receive().Return(domainui.Command{
-		Kind:            domainui.CommandQuit,
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-	}, nil)
+	channel.EXPECT().Receive().Return(testUICommand(domainui.CommandQuit, mo.None[string]()), nil)
 	authenticator.EXPECT().CheckAuthentication(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()

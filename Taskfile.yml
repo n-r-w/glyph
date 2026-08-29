@@ -17,14 +17,29 @@ tasks:
     cmds:
       - go tool nilness ./...
       - go tool easyp lint
-      - go tool golangci-lint run --config ./.golangci.yml
+      - go tool golangci-lint run --config ./.golangci.yml --build-tags=integration
       - go tool ifaceguard --config ifaceguard.cfg
       - go tool govulncheck ./...
 
   test:
-    desc: "Run all tests"
+    desc: "Run unit tests"
     cmds:
       - go test -race ./...
+
+  itest:
+    desc: "Run integration tests"
+    cmds:
+      # Integration tests start real plugin, terminal, and shell subprocesses. Run packages and tests serially.
+      - >-
+        go test -race -tags=integration -p 1 -parallel 1
+        ./host/internal/app
+        ./host/internal/infra/persistence/sessionfilesystem
+        ./host/internal/infra/plugins/extension/runtime
+        ./internal/testsupport/tui
+        ./plugins/extension/tools/internal/infra/process/bash
+        ./plugins/ui/tui/internal/app
+        ./sdk/plugins/extension/v1
+        ./sdk/plugins/ui/v1
 
   fix:
     desc: "Run go fix"
