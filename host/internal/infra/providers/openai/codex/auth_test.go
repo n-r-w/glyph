@@ -301,6 +301,36 @@ func TestLoopbackServerPreservesOAuthQueryFailure(t *testing.T) {
 	assert.Contains(t, callback.err.Error(), "unique OAuth detail")
 }
 
+// TestLoopbackServerCloseShutsDownBeforeDirectListenerClose verifies shutdown owns the first close.
+func TestLoopbackServerCloseShutsDownBeforeDirectListenerClose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a serving listener whose accept ends after the first close.
+	acceptStarted := make(chan struct{})
+	acceptReleased := make(chan struct{})
+	listener := NewMockNetListener(gomock.NewController(t))
+	gomock.InOrder(
+		listener.EXPECT().Accept().DoAndReturn(func() (net.Conn, error) {
+			close(acceptStarted)
+			<-acceptReleased
+			return nil, net.ErrClosed
+		}),
+		listener.EXPECT().Close().DoAndReturn(func() error {
+			time.AfterFunc(100*time.Millisecond, func() { close(acceptReleased) })
+			return nil
+		}),
+		listener.EXPECT().Close().Return(net.ErrClosed),
+	)
+	loopback := newLoopbackServer(listener, "state")
+	<-acceptStarted
+
+	// Act by closing while Serve still tracks the listener.
+	err := loopback.Close(t.Context())
+
+	// Assert the direct close after shutdown is treated as already complete.
+	require.NoError(t, err)
+}
+
 // TestLoopbackServerPreservesServeFailure verifies listener causes reach Wait with callback context.
 func TestLoopbackServerPreservesServeFailure(t *testing.T) {
 	t.Parallel()

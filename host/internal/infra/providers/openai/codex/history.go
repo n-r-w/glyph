@@ -105,7 +105,7 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 				}
 				dataURL := "data:" + image.MediaType + ";base64," +
 					base64.StdEncoding.EncodeToString(image.Data)
-				//nolint:exhaustruct_v5 // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
+				//nolint:exhaustruct_v5 // Only OfInputImage is active.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{
 						ImageURL:              param.NewOpt(dataURL),

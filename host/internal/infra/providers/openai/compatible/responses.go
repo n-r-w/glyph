@@ -375,7 +375,7 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 						fmt.Errorf("tool result image %d requires media type and data", index)
 				}
 				imageURL := dataURL(image.MediaType, image.Data)
-				//nolint:exhaustruct_v5 // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
+				//nolint:exhaustruct_v5 // Only OfInputImage is active.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{
 						FileID:                param.Opt[string]{},

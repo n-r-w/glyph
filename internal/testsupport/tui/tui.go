@@ -337,7 +337,6 @@ func discoverProcessGroups(ctx context.Context, rootProcessID int) ([]int, error
 func terminateProcessGroups(processGroups []int) error {
 	var terminateErr error
 	for _, processGroupID := range slices.Backward(processGroups) {
-
 		if err := syscall.Kill(-processGroupID, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
 			terminateErr = errors.Join(
 				terminateErr,

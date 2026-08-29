@@ -72,7 +72,7 @@ func runWithPaths(
 	case cli.ModeRPC:
 		return runProgrammaticWithPaths(ctx, paths, command, stdout)
 	case cli.ModeUI:
-		return runUIWithPaths(ctx, paths, command, stderr)
+		return runUIWithPaths(ctx, paths, command, terminal.Capture, stderr)
 	}
 	return fmt.Errorf("unsupported Glyph application mode %d", command.Mode)
 }
@@ -342,6 +342,7 @@ func runUIWithPaths(
 	ctx context.Context,
 	paths persistence.Paths,
 	command cli.Command,
+	captureTerminal func() (*terminal.Recovery, error),
 	stderr io.Writer,
 ) (returnErr error) {
 	sessionServices, err := newSessionComposition(ctx, paths)
@@ -388,7 +389,7 @@ func runUIWithPaths(
 
 	var recovery *terminal.Recovery
 	if selection.Capabilities.ControlsTerminal {
-		recovery, err = terminal.Capture()
+		recovery, err = captureTerminal()
 		if err != nil {
 			selection.Runtime.Close()
 			return fmt.Errorf("capture selected UI terminal: %w", err)

@@ -39,6 +39,7 @@ import (
 	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
+	hostterminal "github.com/n-r-w/glyph/host/internal/infra/terminal"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
@@ -1569,7 +1570,9 @@ func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testi
 	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
-func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
+// TestRunUIWithPathsTerminalSnapshotFailureStopsBeforeOpen verifies capture failure cleanup.
+func TestRunUIWithPathsTerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
+	// Arrange a terminal UI and a deterministic capture failure.
 	paths := testPaths(t, codexSettings(""))
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Terminal_UI")
@@ -1577,8 +1580,10 @@ func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
 	t.Setenv(appUITraceEnvironment, tracePath)
 	t.Setenv(appUITerminalEnvironment, "1")
 	t.Setenv(appUIBehaviorEnvironment, "snapshot")
+	captureErr := errors.New("terminal snapshot unavailable")
 
-	err := runWithPaths(t.Context(), paths, cli.Command{
+	// Act by starting the selected UI with the failing capture dependency.
+	err := runUIWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeUI,
 		Headless: headless.Command{
 			UserText:           "",
@@ -1588,9 +1593,12 @@ func TestRunWithPathsUITerminalSnapshotFailureStopsBeforeOpen(t *testing.T) {
 		UIDirectory:        uiDirectory,
 		UIID:               "terminal-ui",
 		SocketPath:         "",
-	}, &bytes.Buffer{}, &bytes.Buffer{})
+	}, func() (*hostterminal.Recovery, error) {
+		return nil, captureErr
+	}, &bytes.Buffer{})
 
-	require.Error(t, err)
+	// Assert capture context survives and the selected process stops before Open.
+	require.ErrorIs(t, err, captureErr)
 	require.ErrorContains(t, err, "capture selected UI terminal")
 	payload, readErr := os.ReadFile(tracePath)
 	require.NoError(t, readErr)

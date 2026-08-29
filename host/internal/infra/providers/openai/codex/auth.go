@@ -193,6 +193,7 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 		WriteTimeout:                 0,
 		IdleTimeout:                  0,
 		MaxHeaderBytes:               0,
+		MaxHeaderValueCount:          0,
 		TLSNextProto:                 nil,
 		ConnState:                    nil,
 		ErrorLog:                     nil,
@@ -200,6 +201,7 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 		ConnContext:                  nil,
 		HTTP2:                        nil,
 		Protocols:                    nil,
+		DisableClientPriority:        false,
 	}
 	loopback := &loopbackServer{
 		server:   server,
@@ -274,17 +276,17 @@ func (s *loopbackServer) Wait(ctx context.Context) (callbackResult, error) {
 // Close stops the callback server once while retaining caller context values.
 func (s *loopbackServer) Close(ctx context.Context) error {
 	s.once.Do(func() {
-		closeErr := s.listener.Close()
-		if errors.Is(closeErr, net.ErrClosed) {
-			closeErr = nil
-		}
 		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), callbackShutdownLimit)
 		defer cancel()
 		shutdownErr := s.server.Shutdown(shutdownContext)
 		if errors.Is(shutdownErr, http.ErrServerClosed) {
 			shutdownErr = nil
 		}
-		if err := errors.Join(closeErr, shutdownErr); err != nil {
+		closeErr := s.listener.Close()
+		if errors.Is(closeErr, net.ErrClosed) {
+			closeErr = nil
+		}
+		if err := errors.Join(shutdownErr, closeErr); err != nil {
 			s.err = fmt.Errorf("stop OpenAI authorization callback server: %w", err)
 		}
 	})

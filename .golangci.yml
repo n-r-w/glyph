@@ -115,6 +115,9 @@ linters:
         - octalLiteral
         - hugeParam
     exhaustruct_v5:
+      optional-patterns:
+        # GenerateSummary is deprecated, so requiring it conflicts with staticcheck.
+        - '^github\.com/openai/openai-go/v3/shared\.ReasoningParam#GenerateSummary$'
       allow-empty: true
       allow-empty-returns: true
       allow-empty-declarations: true
