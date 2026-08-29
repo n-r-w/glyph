@@ -32,7 +32,16 @@ func (factory *Factory) New(
 	emit plugincontroller.Emit,
 ) plugincontroller.Program {
 	model := NewModel(initial, factory.apply, Emit(emit))
-	return &program{tea: tea.NewProgram(model, tea.WithInput(input), tea.WithOutput(output))}
+
+	const fps = 120 // Otherwise, there is a lag when entering the test
+	return &program{
+		tea: tea.NewProgram(
+			model,
+			tea.WithInput(input),
+			tea.WithOutput(output),
+			tea.WithFPS(fps),
+		),
+	}
 }
 
 // program adapts one Bubble Tea program to the plugin controller boundary.

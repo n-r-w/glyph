@@ -14,6 +14,7 @@
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
+- `bundled provider extension`: A bundled extension that supplies one or more model provider implementations through the ordinary extension contract and runtime.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
@@ -175,14 +176,16 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 #### Model Providers and Authentication
 
-- Glyph shall provide an OpenAI Codex provider type and an OpenAI-compatible provider type.
+- Glyph shall distribute OpenAI Codex and OpenAI-compatible provider implementations as bundled provider extensions enabled by default.
+- The user shall be able to disable, update, and replace each bundled provider extension under the ordinary extension lifecycle.
 - Glyph shall support multiple configured provider instances of the OpenAI-compatible provider type, each with a unique identifier.
-- Each provider shall own its authentication behavior, including API-key resolution, OAuth login, token refresh, and conversion of credentials into request authorization.
+- Every bundled or separately delivered provider implementation shall register and unregister through the same extension contract and shall run through the ordinary extension runtime. The contract shall carry provider authentication, model catalogue, streaming behavior, failure classification, and provider reasoning context replay.
+- The Glyph host shall contain no concrete provider authentication, API request serialization, response decoding, streaming, usage mapping, failure classification, or provider reasoning context replay implementation.
+- Each provider implementation shall own its authentication behavior, including API-key resolution, OAuth login, token refresh, and conversion of credentials into request authorization.
 - The Glyph host shall provide provider implementations with generic credential storage and interaction through a Glyph client.
 - Credential storage operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads, writes, and identifier conflicts. This namespace shall not be a sandbox or a security boundary against trusted extensions.
 - Host-provided credential storage shall persist credentials in the local credential file.
-- The Glyph host shall allow an extension to register and unregister a provider implementation, including its authentication, model catalogue, streaming behavior, and provider reasoning context replay.
-- A provider identifier conflict with a settings-defined provider shall reject the extension-defined provider and preserve the settings-defined provider. A duplicate identifier group of extension-defined providers shall reject every provider in that group. Load order shall select no winner.
+- When two or more active extensions register the same provider identifier, the Glyph host shall reject every provider registration in that duplicate group. Load order shall select no winner.
 - The local credential file shall be accessible only to the user running Glyph.
 - The OpenAI Codex provider shall use interactive OAuth authentication and persist its OAuth credentials through host-provided credential storage.
 - Each OpenAI-compatible provider instance shall be configured with a base URL, an explicit model list, and an optional API key.
@@ -192,7 +195,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Settings shall explicitly declare each model's reasoning capability, available reasoning choices, and default reasoning choice without runtime capability probing.
 - Settings shall require each model to declare a nonempty ordered `input` list from the closed values `text` and `image`, a positive integer `contextWindow`, and a positive integer `maxTokens` that does not exceed `contextWindow`.
 - Settings loading shall reject an empty input list, missing `text`, an unknown or duplicate modality, a nonpositive limit, and `maxTokens` greater than `contextWindow`.
-- The provider-neutral model descriptor shall own `input`, `contextWindow`, and `maxTokens` for built-in and extension-defined providers. The Host model catalogue and Programmatic Control shall expose all three values.
+- The provider-neutral model descriptor shall own `input`, `contextWindow`, and `maxTokens` for bundled and separately delivered provider extensions. The Host model catalogue and Programmatic Control shall expose all three values.
 - Settings loading shall reject incomplete or contradictory reasoning configuration.
 - A model without reasoning capability shall expose no reasoning control; an on/off model shall expose only `off` and `on`; an effort model shall expose only its configured efforts and `off` when reasoning can be disabled; and fixed reasoning shall expose no selectable alternative.
 - TUI and Programmatic Control shall use one Host-owned reasoning capability model and shall expose only choices that affect the selected model.
@@ -402,7 +405,7 @@ This matrix traces each Glyph-owned public behavior group to its owning PRD sect
 | Tool middleware and run control | Agent and Tool Runtime; Run Control | PHS-09 | An extension changes a tool call or result and controls run continuation. |
 | Commands, interactions, notifications, and events | Extensions and Glyph Clients; Extension Capabilities | PHS-10 | A client discovers an extension command and receives its event, interaction, or notification. |
 | Resource contributions | Extensions and Glyph Clients; Bundled Resource Processing | PHS-11 | An active extension contributes a resource used by the standard coding agent. |
-| Extension-defined providers | Model Providers and Authentication | PHS-12 | An extension registers and removes a provider implementation. |
+| Bundled and extension-defined providers | Model Providers and Authentication | PHS-12 | Bundled and separately delivered providers use one extension registration and execution path. |
 | TUI transcript rendering | Standard TUI Requirements | PHS-12.1 | The standard TUI renders ordered Host events and results. |
 | TUI viewport navigation | Standard TUI Requirements | PHS-12.2 | The user navigates and searches the rendered transcript during streaming. |
 | TUI editor and terminal interaction | Standard TUI Requirements | PHS-12.3 | The TUI dispatches a Host command and renders its result without executing it. |

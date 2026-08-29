@@ -23,6 +23,7 @@
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
+- `bundled provider extension`: A bundled extension that supplies one or more model provider implementations through the ordinary extension contract and runtime.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
 - `original extension input`: The immutable value produced when one extension-point operation starts, before any extension handler transforms it.
@@ -59,7 +60,7 @@
 - `terminate`: A tool-result signal that controls whether the agent performs another automatic model request.
 - `model provider`: A local or remote system through which an agent accesses a language model.
 - `provider type`: A provider driver category that defines shared protocol and authentication behavior for configured provider instances.
-- `provider driver`: An infrastructure component that translates provider-neutral model operations into one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.
+- `provider driver`: A component inside a provider extension that translates provider-neutral model operations into one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.
 - `provider instance`: One configured model provider with a unique identifier, endpoint, authentication configuration, and model descriptors.
 - `provider catalogue`: The Glyph Host-owned set of configured provider instances and their model descriptors.
 - `input modality`: A content kind accepted by a model. Glyph defines `text` and `image`.

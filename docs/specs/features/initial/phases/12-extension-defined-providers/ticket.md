@@ -1,28 +1,30 @@
-# Ticket: PHS-12 - Extension-defined providers
+# Ticket: PHS-12 - Bundled and extension-defined providers
 
-Allow an installed extension to add and remove complete model provider implementations.
+Run every concrete model provider through one extension contract and move the bundled providers out of Host.
 
 ## Key definitions and abbreviations
 
-- DEF-01: Provider implementation. Provider-owned authentication, model catalogue, serialization, and streaming behavior.
+- DEF-01: Provider implementation. Provider-owned authentication, model catalogue, request serialization, streaming behavior, failure classification, and provider reasoning context replay.
+- DEF-02: Bundled provider extension. A provider extension distributed and enabled by default with Glyph while retaining the ordinary extension runtime and lifecycle.
 
 ## Problem Statement
 
-- PRB-01: Adding a provider requires rebuilding Host because extensions cannot register authentication, model catalogue, request serialization, and streaming behavior.
+- PRB-01: Adding a provider requires rebuilding Host because extensions cannot register a complete provider implementation.
+- PRB-02: OpenAI Codex and OpenAI-compatible implementations run as Host infrastructure while tools and future providers run through extensions. Two provider execution paths can diverge in registration, execution, cancellation, failure handling, and lifecycle behavior.
 
 ## Target Picture
 
-- SOL-01: Allow an installed extension to add and remove complete model provider implementations.
+- SOL-01: Every concrete provider implementation, including the implementations distributed with Glyph, runs as an extension through one provider contract. Host owns provider-neutral catalogue, selection, validation, credential storage, middleware coordination, retry coordination, and dispatch.
 
 ## Scenarios
 
-### SCN-01: Primary completion scenario
+### SCN-01: Provider execution through the ordinary extension runtime
 
-- Actor: extension user.
+- Actor: Glyph user.
 - Pre-condition: DEP-01 and DEP-02 are met.
-- Trigger: an installed extension registers a provider.
-- Required behavior: the provider authenticates through Host, publishes models, and streams a model response without a Host rebuild.
-- Example input and expected output: Input: start a provider extension, complete its authentication interaction, select one published model, and submit text. Expected output: credentials remain provider-scoped and the response streams through Agent Core.
+- Trigger: Glyph starts with its bundled provider extensions and another discovered provider extension.
+- Required behavior: every provider registers through the same extension contract, publishes models into the Host catalogue, authenticates through Host-provided operations, and streams responses without a provider-specific Host execution path.
+- Example input and expected output: Input: authenticate with the bundled OpenAI Codex provider, select one of its models, then select a model published by another provider extension and submit text to each. Expected output: both responses stream through Agent Core, credentials and provider reasoning context remain provider-scoped, and neither provider requires a Host rebuild.
 
 ## Scope
 
@@ -33,6 +35,7 @@ In scope:
 Out of scope:
 
 - OSP-01: No standard-TUI-specific presentation or interaction contract.
+- OSP-02: No extension package installation or persistent enablement operations. PHS-15 owns those operations.
 
 ## Dependencies and Preconditions
 
@@ -43,44 +46,52 @@ Out of scope:
 
 ### Goals
 
-- GOL-01: Allow an installed extension to add and remove complete model provider implementations.
+- GOL-01: Use one extension-owned implementation path for bundled and separately delivered providers.
 
 ### Functional Requirements
 
-- FRQ-01: Add provider registration and removal with authentication, model catalogue, request serialization, streamed responses, and provider reasoning context replay. Every registered model shall publish the provider-neutral `input`, `contextWindow`, and `maxTokens` descriptor fields defined by PHS-04.1.
-- FRQ-01.1: Host shall reject the complete provider registration when any published model violates the PHS-04.1 descriptor rules and shall register none of that provider's models.
-- FRQ-01.2: Provider reasoning context emitted by an extension-defined provider shall remain unchanged in persisted session data and shall return only to the owning compatible provider implementation after session resume.
-- FRQ-02: Expose generic credential storage and client interaction to provider implementations.
-- FRQ-02.1: Credential operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads and writes. This namespace shall not claim to isolate credentials from trusted extensions running with the user's operating-system permissions.
-- FRQ-03: Integrate registered providers with model selection, extension model requests, and provider middleware.
-- FRQ-04: An extension-defined provider shall use an identifier not owned by another configured or extension-defined provider. A conflict with a settings-defined provider shall reject the extension registration and preserve the settings-defined provider. A duplicate group of extension-defined providers shall reject every extension registration in that group. Load order shall select no winner.
+- FRQ-01: Add provider registration and removal with authentication, model catalogue, request serialization, streamed responses, failure classification, and provider reasoning context replay. Every registered model shall publish the provider-neutral `input`, `contextWindow`, and `maxTokens` descriptor fields defined by PHS-04.1.
+- FRQ-01.1: Host shall reject a complete provider registration when any published model violates the PHS-04.1 descriptor rules and shall register none of that provider's models.
+- FRQ-01.2: Provider reasoning context emitted by a provider extension shall remain unchanged in persisted session data and shall return only to the owning compatible provider implementation after session resume.
+- FRQ-02: Move the OpenAI Codex and OpenAI-compatible provider implementations from Host infrastructure into bundled provider extensions.
+- FRQ-02.1: The bundled provider extensions shall preserve the PHS-03 behavior for OpenAI Codex OAuth, OpenAI-compatible API-key resolution, Chat Completions, Responses, streamed output, usage, failure classification, reasoning wire formats, and provider reasoning context replay.
+- FRQ-02.2: After migration, Host shall contain no provider-specific authentication, request serialization, response decoding, stream assembly, usage mapping, failure classification, or provider reasoning context replay implementation.
+- FRQ-02.3: Bundled and separately delivered provider extensions shall use the same registration, execution, cancellation, failure, process runtime, and shutdown contracts.
+- FRQ-03: Host shall provide provider implementations with generic credential storage and client interaction.
+- FRQ-03.1: Credential operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads and writes. This namespace shall not claim to isolate credentials from trusted extensions running with the user's operating-system permissions.
+- FRQ-04: Integrate every registered provider with the Host model catalogue, model selection, extension model requests, provider middleware, retry coordination, and Agent Core model execution.
+- FRQ-05: A provider identifier shall belong to at most one active provider registration. When two or more active extensions register the same provider identifier, Host shall reject every registration in that duplicate group and load order shall select no winner.
 
 ### Non-Functional Requirements
 
-- NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
-- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, and TUI packages. This requirement applies to changes that cross those boundaries.
+- NFQ-01: Implementation shall follow RED, GREEN, and REFACTOR for each behavioral slice, followed by passing `task lint` and `task test`.
+- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, provider SDKs, provider settings, credentials, and TUI packages.
 
 ### Deliverables
 
 - DLV-01: Public extension-provider contract and SDK support.
-- DLV-02: Reference provider extension with interactive authentication and streaming.
+- DLV-02: Bundled OpenAI Codex and OpenAI-compatible provider extensions.
+- DLV-03: Host provider execution that uses only provider registrations from extension runtimes.
 
 ### Acceptance Criteria
 
-- ACC-01: Installing the reference extension adds its models without changing or rebuilding Host, and each added model exposes exact `input`, `contextWindow`, and `maxTokens` values through the Host catalogue and Programmatic Control.
-- ACC-02: Authentication stores provider-owned opaque credentials through Host storage.
-- ACC-03: Removing the provider preserves the active model when selection of a replacement model fails.
-- ACC-04: Invalid execution-capability metadata returns an explicit registration error and adds none of that provider's models. A settings-defined identifier conflict preserves the settings-defined provider, and a duplicate extension-defined identifier group registers no provider from that group.
-- ACC-05: The reference provider emits opaque provider reasoning context, Glyph persists and restores it with the session, and the next compatible request returns the exact payload only to that provider implementation.
+- ACC-01: The bundled OpenAI Codex and OpenAI-compatible providers start through the ordinary extension runtime and retain the provider, model, authentication, streaming, usage, reasoning, and model-selection behavior required by PHS-03 and PHS-04.1.
+- ACC-02: Starting a separately delivered provider extension adds its models without changing or rebuilding Host, and each added model exposes exact `input`, `contextWindow`, and `maxTokens` values through the Host catalogue and Programmatic Control.
+- ACC-03: Authentication stores provider-owned opaque credentials through Host storage for bundled and separately delivered provider extensions.
+- ACC-04: Removing or losing a provider registration preserves the active model when selection of a replacement model fails.
+- ACC-05: Invalid execution-capability metadata returns an explicit registration error and adds none of that provider's models. A duplicate provider identifier group registers no provider from that group.
+- ACC-06: A provider extension emits opaque provider reasoning context, Glyph persists and restores it with the session, and the next compatible request returns the exact payload only to that provider implementation.
+- ACC-07: Host packages contain no OpenAI Codex or OpenAI-compatible authentication, wire request, response decoding, stream assembly, usage mapping, failure classification, or provider reasoning context replay implementation.
 
 ## Overengineering and Overspecification Considerations
 
-The ticket adds providers only under distinct identifiers and the provider-neutral model descriptor. It adds no built-in-provider override, provider restoration, or load-order winner behavior. OSP-01 remains outside the ticket.
+The ticket replaces two provider execution paths with one extension contract. It adds no separate override or restoration mechanism for bundled providers. PHS-15 applies the ordinary extension package lifecycle to bundled provider extensions.
 
 ## Constraints and Risks
 
 - RSK-01: A provider implementation can accidentally address another provider's credential record. Host namespaces credential operations by the registered provider identity. This is an API ownership rule, not a sandbox or malicious-extension security boundary.
-- RSK-02: Load-order conflict resolution can replace a provider without user intent. Host rejects every extension-defined provider in a duplicate identifier group instead of selecting one.
+- RSK-02: Load-order conflict resolution can replace a provider without user intent. Host rejects every provider registration in a duplicate identifier group instead of selecting one.
+- RSK-03: Failure of a bundled provider extension can leave Glyph without an available model. Host shall report that provider as unavailable and preserve other extension runtimes.
 
 ## Assumptions
 
@@ -92,10 +103,11 @@ None.
 
 ## Technical Supplement
 
-No additional technical design is selected by this ticket. Contract shapes and package placement require a phase-specific technical solution before implementation when the functional requirements change a public process boundary.
+No additional technical design is selected by this ticket. Contract shapes, provider configuration ownership, and package placement require a phase-specific technical solution before implementation.
 
 ## References
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
 - REF-03: [model execution capabilities](../04.1-model-execution-capabilities/ticket.md) - provider-neutral model descriptor requirements.
+- REF-04: [PHS-03 technical solution](../03-providers-models-runtime-selection/solution.md) - provider behavior that the bundled provider extensions must retain.

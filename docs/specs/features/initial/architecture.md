@@ -33,9 +33,9 @@
 ## System Context
 
 - CTX-01: A user controls `glyph` through one selected UI plugin or one-shot `glyph run`. An external programmatic controller uses Programmatic Control. All three paths invoke Host use cases and receive the same semantic outcomes.
-- CTX-02: Glyph Host starts and supervises extension and UI plugin processes, resolves configured providers, coordinates Agent Core dependencies, and persists settings-owned state and sessions.
+- CTX-02: Glyph Host starts and supervises extension and UI plugin processes, resolves registered providers, coordinates Agent Core dependencies, and persists settings-owned state and sessions.
 - CTX-03: Agent Core requests effective context, one logical model execution, tool execution, history changes, and event delivery through consumer-owned Go interfaces. Host adapters satisfy those interfaces.
-- CTX-04: Provider drivers communicate with local or remote model providers. Provider wire formats, authentication, retries, and response classification remain outside Agent Core.
+- CTX-04: Provider extensions communicate with local or remote model providers. Provider wire formats, authentication, and response classification remain inside the owning provider extension. Host owns retry coordination outside Agent Core.
 - CTX-05: Extension and UI plugin processes share no Host `internal` package. They use only their public process contracts and SDK packages.
 
 ## Solution Overview
@@ -52,11 +52,11 @@
 - CMP-02: Client and command controllers. `host/internal/controller/ui`, `host/internal/controller/programmatic`, and `host/internal/controller/cli/headless` map external input to consumer-owned Host commands and map Host results to UI, Programmatic Control, or one-shot output contracts.
 - CMP-03: Host operation orchestration. `host/internal/usecase/host` owns run admission, model selection, session commands, extension coordination, client delivery, environment reload, and operation gates. Each Host use case calls Agent Core and infrastructure through interfaces declared by that Host use case.
 - CMP-04: Agent Core. `host/internal/usecase/agent/run` owns the run state machine, model and tool loop, ordered agent events, cancellation, and terminal run outcome. Its interfaces describe effective context, logical model execution, tools, history, and event delivery.
-- CMP-05: Extension subsystem. The logical Host extension component owns extension registration, deterministic handler ordering, extension contexts, transforming operation state, extension events, commands, resources, extension-defined provider registrations, and runtime availability. `host/internal/infra/plugins/extension` owns implemented discovery, process startup, gRPC mapping, and process shutdown.
+- CMP-05: Extension subsystem. The logical Host extension component owns extension registration, deterministic handler ordering, extension contexts, transforming operation state, extension events, commands, resources, provider registrations, and runtime availability. `host/internal/infra/plugins/extension` owns implemented discovery, process startup, gRPC mapping, and process shutdown.
 - CMP-06: Model subsystem. `host/internal/usecase/host/providers` owns the implemented provider catalogue, provider-neutral model descriptors, active model selection, reasoning choice, credential preflight, and atomic selection commit. The logical Host model-execution component owns provider dispatch, provider middleware, retry decisions, and terminal model-call results.
 - CMP-07: Session subsystem. `host/internal/domain/session` owns session and entry models. `host/internal/usecase/host/sessions` and `host/internal/usecase/host/sessioncontrol` own implemented active-session operations. Logical Host session components own tree navigation, branch summarization, and context compaction.
 - CMP-08: Tool subsystem. `host/internal/usecase/host/tools` owns the active tool registry, tool-to-extension routing, tool middleware coordination, runtime availability, and model-visible terminal tool results. Agent Core sees only its consumer-owned tool interface.
-- CMP-09: Built-in provider drivers. `host/internal/infra/providers` owns built-in provider authentication, wire request serialization, response streaming, retryable failure classification, usage mapping, and provider reasoning context replay. Extension-defined provider implementations perform the same provider-owned behavior through the Extension Contract.
+- CMP-09: Bundled provider extensions. The OpenAI Codex and OpenAI-compatible provider implementations run as ordinary extension processes and own authentication, wire request serialization, response streaming, retryable failure classification, usage mapping, and provider reasoning context replay. Host contains no concrete provider implementation.
 - CMP-10: Persistence subsystem. `host/internal/infra/persistence` owns settings loading, credentials, session storage, filesystem paths, file permissions, and atomic adapter operations. Persistence packages implement use-case-owned interfaces and contain no Host orchestration.
 - CMP-11: Programmatic Control transport. `api/programmatic/v1`, `pkg/programmatic/v1`, `host/internal/controller/programmatic`, and `host/internal/infra/programmatic/socket` expose Host commands and events through bidirectional gRPC over a Unix socket inside `glyph`.
 - CMP-12: Extension public boundary. `api/plugins/extension/v1`, `pkg/plugins/extension/v1`, and `sdk/plugins/extension/v1` define and support the Host-owned extension process contract without exposing Host or Agent Core internal types.
@@ -83,7 +83,7 @@ flowchart TD
   TUI["`**Standard TUI**
   UI plugin and terminal client`"]
   Ext["`**Extension processes**
-  Tools and extension handlers`"]
+  Tools, provider implementations, and handlers`"]
   Provider["`**Model providers**
   Local or remote APIs`"]
   Store["`**Local storage**
@@ -110,7 +110,7 @@ flowchart TD
   Host -->|Run command| Core
   Core -->|Consumer-owned ports| Host
   Host -->|Extension Contract| Ext
-  Host -->|Provider driver| Provider
+  Ext -->|Provider API| Provider
   Host -->|Persistence ports| Store
   Host -->|Semantic events| TUI
   Host -->|One-shot result| Headless
@@ -122,7 +122,7 @@ flowchart TD
 
 ## Overengineering and Overspecification Considerations
 
-The architecture keeps one `glyph` process and separate project roots for Host and plugin executables. It adds no Agent Core executable, Host daemon, message broker, shared plugin renderer, provider override mechanism, extension-triggered environment reload, or compatibility layer. Package paths are recorded only for implemented components; a phase Technical Solution selects placement for each new component before implementation.
+The architecture keeps one `glyph` process and separate project roots for Host and plugin executables. It adds no Agent Core executable, Host daemon, message broker, shared plugin renderer, provider override mechanism outside the ordinary extension lifecycle, extension-triggered environment reload, or compatibility layer. Package paths are recorded only for implemented components; a phase Technical Solution selects placement for each new component before implementation.
 
 ## Folder structure
 
@@ -177,7 +177,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 
 - APC-08: Programmatic Control is a Host-owned command, acceptance, correlated event, interaction, notification, model catalogue, selection, session, compaction, retry, and queue-control contract. Its supported transport is bidirectional gRPC over a Unix socket.
 - APC-09: The UI Plugin Contract is Host-owned. It carries initialization, client commands, semantic events, interactions, and notifications. It exposes no terminal-ownership field or startup-capability RPC because Host makes no terminal-ownership decision. Successful plugin protocol startup establishes UI compatibility. The contract grants no agent orchestration authority.
-- APC-10: The Extension Contract is Host-owned. It carries registration, extension contexts, ordered handler requests and results, provider-neutral model access, session operations, tools, resources, commands, events, interactions, notifications, and extension-defined providers.
+- APC-10: The Extension Contract is Host-owned. It carries registration, extension contexts, ordered handler requests and results, provider-neutral model access, session operations, tools, resources, commands, events, interactions, notifications, and provider registration and execution for bundled and separately delivered providers.
 - APC-11: The model-provider contract is declared by the Host model-execution consumer. It carries provider-neutral model requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
 - APC-12: The settings contract owns configured provider instances and model metadata. Unknown fields, unknown modalities, duplicate modalities, empty modality lists, modality lists without `text`, nonpositive limits, and `maxTokens` greater than `contextWindow` fail settings loading.
 - EVC-01: Agent lifecycle events originate from Agent Core. Host adds client correlation and delivers them to the active Glyph client and registered extension observers.
@@ -203,7 +203,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - STP-01: A Glyph client or one-shot invocation sends a command. Its controller validates transport shape and calls the matching Host use case.
 - STP-02: Host applies input extension handlers, final input validation, operation admission, and active-session checks before it starts Agent Core.
 - STP-03: Agent Core requests effective model context through APC-01 and submits one logical model request through APC-02.
-- STP-04: Host snapshots `model.Selection`, applies provider request handlers, dispatches the selected provider driver, coordinates retries, and returns streamed semantic output to Agent Core. Context handlers have already run once through APC-01.
+- STP-04: Host snapshots `model.Selection`, applies provider request handlers, dispatches the request to the extension runtime that owns the selected provider registration, coordinates retries, and returns streamed semantic output to Agent Core. Context handlers have already run once through APC-01.
 - STP-05: Agent Core emits ordered lifecycle events, records the terminal model response through APC-04, and either ends the run or enters tool flow.
 
 ### Tool flow
@@ -232,7 +232,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 
 ### Retry flow
 
-- STP-18: A provider driver returns a failure and its provider-owned classification. Host creates an original retry decision from that failure, the configured built-in policy, and the completed attempt count.
+- STP-18: A provider extension returns a failure and its provider-owned classification. Host creates an original retry decision from that failure, the configured built-in policy, and the completed attempt count.
 - STP-19: Retry handlers receive the immutable original decision and current decision in registration order. They can preserve, replace, or cancel that retry. Cancellation stops later retry handlers.
 - STP-20: Host validates the final decision. A retry repeats only the failed model request after the selected delay. It does not repeat completed tools or persist intermediate failed attempts.
 
@@ -266,7 +266,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - DEC-04: Run built-in behavior for a replaceable extension operation only when its handlers provide no result. This gives extensions replacement control without applying result fallback to observers, transformers, or gates.
 - DEC-05: Put retry coordination in Host and expose one logical model execution to Agent Core. This keeps policy extensible and prevents retries from repeating completed tools.
 - DEC-06: Let the consumer own every internal Go interface. Host adapters implement Agent Core needs instead of making Agent Core import a Host hooks contract.
-- DEC-07: Keep extension-defined provider identifiers distinct from configured providers. Identifier conflict returns an error and load order never selects a winner.
+- DEC-07: Route bundled and separately delivered providers through one extension registration path. When active extensions register the same provider identifier, Host rejects every registration in that duplicate group instead of selecting a load-order winner.
 - DEC-08: Keep environment reload user- or client-triggered. Extensions receive no reload operation.
 
 ## Architecture Risks

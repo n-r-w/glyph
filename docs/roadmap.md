@@ -123,11 +123,11 @@ Add extension-owned skills, prompt templates, and context files without adding r
 Documents:
 - [Ticket](specs/features/initial/phases/11-resource-contributions/ticket.md)
 
-## PHS-12: Extension-defined providers
+## PHS-12: Bundled and extension-defined providers
 
 Status: Planned
 
-Allow extensions to register complete provider implementations through provider-neutral contracts.
+Move the bundled providers out of Host and run every provider implementation through one provider-neutral extension contract.
 
 Documents:
 - [Ticket](specs/features/initial/phases/12-extension-defined-providers/ticket.md)

@@ -54,7 +54,7 @@
 - Dependencies: PHS-10
 - Ticket: [Ticket](phases/11-resource-contributions/ticket.md)
 
-### PHS-12. Extension-defined providers
+### PHS-12. Bundled and extension-defined providers
 - Dependencies: PHS-11, PHS-04.1
 - Ticket: [Ticket](phases/12-extension-defined-providers/ticket.md)
 

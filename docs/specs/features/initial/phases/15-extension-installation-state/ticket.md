@@ -48,7 +48,7 @@ Out of scope:
 
 - FRQ-01: Add installation, enablement, disablement, and update operations for compatible extension packages.
 - FRQ-02: Store configured extension state separately from discovered runtime state.
-- FRQ-03: Move bundled tools and bundled resource processing under the same lifecycle rules as other extensions.
+- FRQ-03: Apply the same installation, enablement, disablement, update, replacement, and removal operations to the bundled tools, resource, and provider extensions.
 
 ### Non-Functional Requirements
 
@@ -63,7 +63,7 @@ Out of scope:
 ### Acceptance Criteria
 
 - ACC-01: A user installs, enables, disables, updates, and removes an extension without rebuilding Host.
-- ACC-02: The bundled tools and resource extensions can be disabled, updated, and replaced through the same operations.
+- ACC-02: The bundled tools, resource, and provider extensions can be disabled, updated, and replaced through the same operations.
 - ACC-03: An incompatible package never starts and does not affect compatible extensions.
 
 ## Overengineering and Overspecification Considerations
