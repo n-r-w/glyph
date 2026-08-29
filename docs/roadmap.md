@@ -53,9 +53,9 @@ Documents:
 
 ## PHS-04.1: Model execution capabilities
 
-Status: Current
+Status: Completed
 
-The requirements are ready. The next work is the Technical Solution, implementation plan, implementation, and live Ornith verification.
+Added provider-neutral model execution metadata and exposed its defined projection through Programmatic Control.
 
 Documents:
 - [Ticket](specs/features/initial/phases/04.1-model-execution-capabilities/ticket.md)
