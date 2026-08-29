@@ -61,11 +61,7 @@
 
 ## Context and Problem
 
-The project owner maintains `pi-agent-suite`, a set of extensions for Pi. Pi demonstrates that a small agent core can support extensive customization, but `pi-agent-suite` cannot change behavior outside Pi's extension contracts and requires a TypeScript-based platform.
-
-Glyph provides an independently owned Go platform whose host, agent core, Glyph clients, and extension contracts can evolve without depending on Pi.
-
-Reasoning models do not share one control contract. A model can expose effort levels, support only on and off, always reason without user control, or return provider-owned encrypted reasoning context. Treating these behaviors as one reasoning-level list creates ineffective controls, unsupported request fields, lost visible reasoning content, and lost provider context.
+`docs/specs/features/initial/problem.md`
 
 ## Goal
 
