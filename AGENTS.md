@@ -54,7 +54,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 
 ## Code comments
 1. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
-2. The following objects MUST contain a comment describing their purpose (exported and non-exported):
+2. Following objects MUST contain a comment describing their purpose (exported and non-exported):
     1) Functions
     2) Structures and ALL their fields
     3) Variables involved in business logic
