@@ -15,6 +15,7 @@ output:
 linters:
   default: none
   enable:
+    - modernize
     - godot
     - copyloopvar
     - gocyclo
