@@ -51,7 +51,10 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
-5. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
+
+## Code comments
+1. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
+2. EACH function, struct, variable, and struct field MUST have a comment describing its purpose. NO exceptions!
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
