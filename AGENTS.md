@@ -48,7 +48,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 1. MUST run before completing changes in code:
     1) `go fix -diff ./...` -> analyze proposal -> `go fix ./...`
     2) `task lint`
-    3) `task test`
+    3) `task test`, `task utest`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
@@ -73,6 +73,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 3. Use `github.com/stretchr/testify` and `testify/suite`
 4. Use `t.Parallel()` if possible
 5. Each test MUST have a function comment describing scenario and descriptive `Arrange`, `Act`, and `Assert` comments, e.g.: `// Arrange test dependencies`.
+6. Separate integration tests with `//go:build integration`.
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
 1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
