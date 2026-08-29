@@ -54,7 +54,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 
 ## Code comments
 1. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
-2. EACH function, struct, variable, and struct field MUST have a comment describing its purpose. NO exceptions!
+2. EACH function, struct, struct fields and variables involved in business logic, MUST have a comment describing its purpose. NO exceptions!
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
