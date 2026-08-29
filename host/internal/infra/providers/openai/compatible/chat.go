@@ -188,7 +188,7 @@ func (state *chatAccumulator) consumeChoice(
 	case "":
 	case "stop", "content_filter":
 		state.outcome = model.OutcomeStop
-	case "tool_calls", "function_call":
+	case "tool_calls", responseItemTypeFunctionCall:
 		state.outcome = model.OutcomeToolUse
 	case "length":
 		state.outcome = model.OutcomeLength

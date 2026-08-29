@@ -88,14 +88,27 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 				// One absent model usage makes only token totals unavailable. Counts remain complete.
 				statistics.TokenUsage = mo.None[session.TokenUsage]()
 			} else {
-				usage.InputTokens += modelUsage.InputTokens
-				usage.OutputTokens += modelUsage.OutputTokens
-				usage.CacheReadTokens += modelUsage.CachedInputTokens
-				usage.CacheWriteTokens += modelUsage.CacheWriteTokens
-				usage.ReasoningTokens += modelUsage.ReasoningTokens
-				usage.TotalTokens += modelUsage.TotalTokens
+				usage = addTokenUsage(usage, session.TokenUsage{
+					InputTokens: modelUsage.InputTokens, OutputTokens: modelUsage.OutputTokens,
+					CacheReadTokens: modelUsage.CachedInputTokens, CacheWriteTokens: modelUsage.CacheWriteTokens,
+					ReasoningTokens: modelUsage.ReasoningTokens, TotalTokens: modelUsage.TotalTokens,
+				})
 			}
-			accumulateEntryCost(entry, response, &aggregateCost, groupCosts)
+			accumulateCost(
+				response.Provider, response.Model, entry.EstimatedCost, &aggregateCost, groupCosts,
+			)
+		}
+		if summary, present := entry.BranchSummary.Get(); present {
+			summaryUsage, usagePresent := summary.Usage.Get()
+			if !usagePresent {
+				statistics.TokenUsage = mo.None[session.TokenUsage]()
+			} else {
+				usage = addTokenUsage(usage, summaryUsage)
+			}
+			accumulateCost(
+				mo.Some(summary.Provider), mo.Some(summary.Model), summary.EstimatedCost,
+				&aggregateCost, groupCosts,
+			)
 		}
 	}
 	if statistics.TokenUsage.IsSome() {
@@ -110,25 +123,38 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 	return statistics
 }
 
-// accumulateEntryCost keeps aggregate and exact provider-model availability independent.
-func accumulateEntryCost(
-	entry *session.Entry,
-	response model.Response,
+// addTokenUsage sums normalized disjoint token buckets without recalculation.
+func addTokenUsage(left, right session.TokenUsage) session.TokenUsage {
+	return session.TokenUsage{
+		InputTokens:      left.InputTokens + right.InputTokens,
+		OutputTokens:     left.OutputTokens + right.OutputTokens,
+		CacheReadTokens:  left.CacheReadTokens + right.CacheReadTokens,
+		CacheWriteTokens: left.CacheWriteTokens + right.CacheWriteTokens,
+		ReasoningTokens:  left.ReasoningTokens + right.ReasoningTokens,
+		TotalTokens:      left.TotalTokens + right.TotalTokens,
+	}
+}
+
+// accumulateCost keeps aggregate and exact provider-model availability independent.
+func accumulateCost(
+	provider mo.Option[model.ProviderID],
+	modelID mo.Option[model.ID],
+	storedCost mo.Option[session.EstimatedCost],
 	aggregate *accumulatedCost,
 	groups map[providerModelKey]accumulatedCost,
 ) {
-	cost, costPresent := entry.EstimatedCost.Get()
+	cost, costPresent := storedCost.Get()
 	if !costPresent {
 		aggregate.available = false
 	} else if aggregate.available {
 		aggregate.value = addEstimatedCost(aggregate.value, cost)
 	}
-	providerID, providerPresent := response.Provider.Get()
-	modelID, modelPresent := response.Model.Get()
+	providerID, providerPresent := provider.Get()
+	requestedModelID, modelPresent := modelID.Get()
 	if !providerPresent || !modelPresent {
 		return
 	}
-	key := providerModelKey{provider: providerID, model: modelID}
+	key := providerModelKey{provider: providerID, model: requestedModelID}
 	group, found := groups[key]
 	if !found {
 		group = accumulatedCost{value: session.EstimatedCost{}, available: true}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
 	searchtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/search"
@@ -31,7 +32,7 @@ func TestServiceGrepReportsLimitsOnlyAfterAnAdditionalMatch(t *testing.T) {
 		require.NoError(t, os.WriteFile("matches.txt", []byte(strings.Repeat("match\n", lines)), 0o644))
 		result, err := service.Grep(t.Context(), searchtool.GrepCommand{
 			Pattern: "match", Path: ".", Glob: "", IgnoreCase: false, Literal: false,
-			Context: 0, Limit: optionUint(uint(limit)),
+			Context: 0, Limit: mo.EmptyableToOption[uint](uint(limit)),
 		})
 		require.NoError(t, err)
 		hasNotice := strings.Contains(result.Text, "[Match limit reached.]\n")
@@ -73,7 +74,7 @@ func TestServiceFindReportsLimitsOnlyAfterAnAdditionalResult(t *testing.T) {
 		{path: "caller-over", limit: 2, wantNotice: true, wantCount: 2},
 	}
 	for _, testCase := range cases {
-		result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.txt", Path: testCase.path, Limit: optionUint(testCase.limit)})
+		result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.txt", Path: testCase.path, Limit: mo.EmptyableToOption[uint](testCase.limit)})
 		require.NoError(t, err)
 		hasNotice := strings.Contains(result.Text, "[Result limit reached.]\n")
 		require.Equal(t, testCase.wantNotice, hasNotice)
@@ -105,7 +106,7 @@ func TestServiceListReportsLimitsOnlyAfterAnAdditionalEntry(t *testing.T) {
 		{path: "caller-over", limit: 2, wantNotice: true, wantCount: 2},
 	}
 	for _, testCase := range cases {
-		result, err := service.List(t.Context(), searchtool.ListCommand{Path: testCase.path, Limit: optionUint(testCase.limit)})
+		result, err := service.List(t.Context(), searchtool.ListCommand{Path: testCase.path, Limit: mo.EmptyableToOption[uint](testCase.limit)})
 		require.NoError(t, err)
 		hasNotice := strings.Contains(result.Text, "[Entry limit reached.]\n")
 		require.Equal(t, testCase.wantNotice, hasNotice)

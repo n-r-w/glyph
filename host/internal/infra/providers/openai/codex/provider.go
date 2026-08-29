@@ -28,6 +28,12 @@ var _ run.ModelProvider = (*Driver)(nil)
 const (
 	requestFailedMessage   = "OpenAI Codex request failed."
 	requestCanceledMessage = "OpenAI Codex request was canceled."
+	// responseItemTypeReasoning identifies provider reasoning output.
+	responseItemTypeReasoning = "reasoning"
+	// responseItemTypeFunctionCall identifies a standard provider tool call.
+	responseItemTypeFunctionCall = "function_call"
+	// responseItemTypeCustomToolCall identifies a custom provider tool call.
+	responseItemTypeCustomToolCall = "custom_tool_call"
 )
 
 // Stream emits one provider response as provider-neutral semantic events.
@@ -252,7 +258,7 @@ func modelResponse(
 	for outputIndex := range response.Output {
 		output := &response.Output[outputIndex]
 		switch output.Type {
-		case "reasoning":
+		case responseItemTypeReasoning:
 			visible, err := modelReasoningContent(output.AsReasoning())
 			if err != nil {
 				return failedModelResponse(requestFailedMessage), err
@@ -284,7 +290,7 @@ func modelResponse(
 					ToolCall:        mo.None[model.ToolCall](),
 				})
 			}
-		case "function_call":
+		case responseItemTypeFunctionCall:
 			call := output.AsFunctionCall()
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
@@ -303,7 +309,7 @@ func modelResponse(
 				}),
 			})
 			hasToolCall = true
-		case "custom_tool_call":
+		case responseItemTypeCustomToolCall:
 			call := output.AsCustomToolCall()
 			property, ok := grammarInputProperties[call.Name]
 			if !ok || property == "" {

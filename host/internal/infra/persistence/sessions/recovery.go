@@ -261,7 +261,7 @@ func (s *Service) decodeHeader(data []byte) (session.Header, error) {
 	if timeErr != nil {
 		return header, fmt.Errorf("decode session header record timestamp: %w", timeErr)
 	}
-	if record.Type != "session" || record.ID == "" || record.CWD != s.workingDirectory {
+	if record.Type != recordTypeSession || record.ID == "" || record.CWD != s.workingDirectory {
 		return header, errors.New("invalid session header")
 	}
 	if record.Version != formatVersion {

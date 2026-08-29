@@ -10,6 +10,39 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
+const (
+	// fieldInputTokens identifies normalized input usage in JSON records.
+	fieldInputTokens = "inputTokens"
+	// fieldOutputTokens identifies normalized output usage in JSON records.
+	fieldOutputTokens = "outputTokens"
+	// fieldCacheWriteTokens identifies normalized cache-write usage in JSON records.
+	fieldCacheWriteTokens = "cacheWriteTokens"
+	// fieldReasoningTokens identifies normalized reasoning usage in JSON records.
+	fieldReasoningTokens = "reasoningTokens"
+	// fieldTotalTokens identifies normalized total usage in JSON records.
+	fieldTotalTokens = "totalTokens"
+	// fieldInput identifies input cost in JSON records.
+	fieldInput = "input"
+	// fieldOutput identifies output cost in JSON records.
+	fieldOutput = "output"
+	// fieldCacheRead identifies cache-read cost in JSON records.
+	fieldCacheRead = "cacheRead"
+	// fieldCacheWrite identifies cache-write cost in JSON records.
+	fieldCacheWrite = "cacheWrite"
+	// fieldTotal identifies total cost in JSON records.
+	fieldTotal = "total"
+	// fieldAPI identifies a provider API value in JSON records.
+	fieldAPI = "api"
+	// fieldID identifies an object ID in JSON records.
+	fieldID = "id"
+	// fieldName identifies an object name in JSON records.
+	fieldName = "name"
+	// fieldModel identifies a model ID in JSON records.
+	fieldModel = "model"
+	// fieldProviderID identifies a provider ID in JSON records.
+	fieldProviderID = "providerId"
+)
+
 // validateHeaderRequiredFields rejects omitted or null scalar fields before header conversion.
 func validateHeaderRequiredFields(data []byte) error {
 	header, err := requiredJSONObject(data, "type", "version", "id", "createdAt", "cwd")
@@ -29,24 +62,24 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 		return validationErr
 	}
 	switch kind {
-	case "session_info":
+	case recordTypeSessionInfo:
 		if validationErr := requireJSONFields(entry, "name"); validationErr != nil {
 			return validationErr
 		}
 		return requireNonNullJSONFields(entry, "name")
-	case "user":
+	case recordTypeUser:
 		return validateUserRequiredFields(entry)
-	case "model":
+	case recordTypeModel:
 		return validateModelRequiredFields(entry)
-	case "tool_result":
+	case recordTypeToolResult:
 		return validateToolResultRequiredFields(entry)
-	case "extension":
+	case recordTypeExtension:
 		if validationErr := requireJSONFields(entry, "extensionId", "entryType", "data"); validationErr != nil {
 			return validationErr
 		}
 		return requireNonNullJSONFields(entry, "extensionId", "entryType")
-	case "branch_summary":
-		fields := []string{"summary", "firstEntryId", "lastEntryId", "provider", "model", "reasoningChoice"}
+	case recordTypeBranchSummary:
+		fields := []string{"summary", "firstEntryId", "lastEntryId", "provider", fieldModel, "reasoningChoice"}
 		if validationErr := requireJSONFields(entry, fields...); validationErr != nil {
 			return validationErr
 		}
@@ -54,13 +87,13 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 			return validationErr
 		}
 		usageFields := []string{
-			"inputTokens", "outputTokens", "cacheReadTokens",
-			"cacheWriteTokens", "reasoningTokens", "totalTokens",
+			fieldInputTokens, fieldOutputTokens, "cacheReadTokens",
+			fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
 		}
 		if validationErr := validateOptionalRequiredObject(entry, "usage", usageFields, usageFields); validationErr != nil {
 			return validationErr
 		}
-		costFields := []string{"input", "output", "cacheRead", "cacheWrite", "total"}
+		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
 		return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
 	default:
 		return errors.New("invalid session entry")
@@ -96,14 +129,15 @@ func validateModelRequiredFields(entry jsonObject) error {
 		return validationErr
 	}
 	usageFields := []string{
-		"inputTokens", "outputTokens", "cachedInputTokens", "cacheWriteTokens", "reasoningTokens", "totalTokens",
+		fieldInputTokens, fieldOutputTokens, "cachedInputTokens",
+		fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
 	}
 	if validationErr := validateOptionalRequiredObject(
 		response, "usage", usageFields, usageFields,
 	); validationErr != nil {
 		return validationErr
 	}
-	costFields := []string{"input", "output", "cacheRead", "cacheWrite", "total"}
+	costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
 	return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
 }
 
@@ -131,16 +165,16 @@ func validateModelContentRequiredFields(raw json.RawMessage) error {
 	if validationErr := validateOptionalRequiredObject(
 		content,
 		"providerContext",
-		[]string{"providerId", "api", "model", "payload"},
-		[]string{"providerId", "api", "model"},
+		[]string{fieldProviderID, fieldAPI, fieldModel, "payload"},
+		[]string{fieldProviderID, fieldAPI, fieldModel},
 	); validationErr != nil {
 		return validationErr
 	}
 	return validateOptionalRequiredObject(
 		content,
 		"toolCall",
-		[]string{"id", "name", "arguments"},
-		[]string{"id", "name"},
+		[]string{fieldID, fieldName, "arguments"},
+		[]string{fieldID, fieldName},
 	)
 }
 

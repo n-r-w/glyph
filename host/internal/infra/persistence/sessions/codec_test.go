@@ -310,7 +310,7 @@ func TestDecodeModelContentShape(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				line, err := encodeLine(modelRecord{
-					Type: "model", ID: "entry", ParentID: nil,
+					Type: "model", ID: "entry", ParentID: mo.None[string](),
 					CreatedAt: time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
 					Response: modelResponseRecord{
 						Content: []modelContentRecord{modelContentRecordShape(kind, mask)},

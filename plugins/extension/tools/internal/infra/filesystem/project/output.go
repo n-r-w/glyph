@@ -1,6 +1,8 @@
 package project
 
 import (
+	"strings"
+
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
@@ -39,3 +41,6 @@ func (o *searchOutput) notice(line string) {
 		o.bytes += len(line)
 	}
 }
+
+// text joins the retained complete lines and notices.
+func (o *searchOutput) text() string { return strings.Join(o.lines, "") }

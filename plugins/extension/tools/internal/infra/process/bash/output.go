@@ -13,6 +13,9 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
+// outputSectionSeparator separates captured output from its terminal status.
+const outputSectionSeparator = "\n\n"
+
 // OutputFile is one temporary complete-output writer.
 type OutputFile interface {
 	io.WriteCloser
@@ -104,7 +107,7 @@ func (s *outputStore) finish(exitCode int, cause error) (string, textbudget.Trun
 
 	notice := fmt.Sprintf("[Output truncated. Full output: %s]\n", s.path)
 	footer := notice + status
-	separator := "\n\n"
+	separator := outputSectionSeparator
 	availableBytes := textbudget.MaximumBytes - len(separator) - len(footer)
 	availableLines := textbudget.MaximumLines - strings.Count(separator+footer, "\n")
 	visible := boundedTail(s.tail, availableBytes, availableLines)
@@ -115,7 +118,7 @@ func (s *outputStore) finish(exitCode int, cause error) (string, textbudget.Trun
 func (s *outputStore) captureFailure(status string) string {
 	notice := "[Complete output capture failed; showing bounded tail.]\n"
 	footer := notice + status
-	separator := "\n\n"
+	separator := outputSectionSeparator
 	availableBytes := textbudget.MaximumBytes - len(separator) - len(footer)
 	availableLines := textbudget.MaximumLines - strings.Count(separator+footer, "\n")
 	visible := boundedTail(s.tail, availableBytes, availableLines)
@@ -235,7 +238,7 @@ func joinBashOutput(output, status string) string {
 	if output == "" {
 		return status
 	}
-	return output + "\n\n" + status
+	return output + outputSectionSeparator + status
 }
 
 // withinTextBudget checks the complete terminal text against both limits.

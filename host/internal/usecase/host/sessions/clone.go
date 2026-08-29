@@ -44,14 +44,19 @@ func infoFromLoaded(loaded LoadedSession) session.Info {
 
 // cloneLoaded prevents repository-owned aggregate state from becoming mutable active state.
 func cloneLoaded(value LoadedSession) LoadedSession {
-	tree, err := session.NewTree(value.Tree.Entries(), value.Tree.ActiveLeafID(), value.Tree.Labels())
+	return LoadedSession{
+		Header: value.Header, StoragePath: value.StoragePath, Tree: cloneTree(value.Tree),
+		Information: value.Information, InformationUpdatedAt: value.InformationUpdatedAt,
+	}
+}
+
+// cloneTree returns an independently owned valid tree snapshot.
+func cloneTree(value session.Tree) session.Tree {
+	tree, err := session.NewTree(value.Entries(), value.ActiveLeafID(), value.Labels())
 	if err != nil {
 		panic(err)
 	}
-	return LoadedSession{
-		Header: value.Header, StoragePath: value.StoragePath, Tree: tree,
-		Information: value.Information, InformationUpdatedAt: value.InformationUpdatedAt,
-	}
+	return tree
 }
 
 // cloneEntries returns independent mutable payload ownership for every entry.

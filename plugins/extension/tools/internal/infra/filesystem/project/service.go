@@ -16,6 +16,7 @@ import (
 
 	edittool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/edit"
 	readtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/read"
+	searchtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/search"
 	writetool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/write"
 )
 
@@ -25,6 +26,8 @@ const (
 	contentTypeHeaderSize    = 512
 	continuationReserveBytes = 128
 	pngChunkOverhead         = 12
+	// pngMediaType identifies PNG image data.
+	pngMediaType = "image/png"
 )
 
 // isAnimatedPNG reports whether a PNG animation-control chunk is present.
@@ -55,7 +58,7 @@ func readImageData(ctx context.Context, reader io.Reader) ([]byte, error) {
 // isSupportedImage reports a media type allowed in typed read results.
 func isSupportedImage(mediaType string) bool {
 	switch mediaType {
-	case "image/bmp", "image/gif", "image/jpeg", "image/png", "image/webp":
+	case "image/bmp", "image/gif", "image/jpeg", pngMediaType, "image/webp":
 		return true
 	default:
 		return false
@@ -72,6 +75,7 @@ var (
 	_ edittool.ProjectEditor  = (*Service)(nil)
 	_ readtool.ProjectReader  = (*Service)(nil)
 	_ writetool.ProjectWriter = (*Service)(nil)
+	_ searchtool.ProjectFiles = (*Service)(nil)
 )
 
 // New creates a working-project filesystem service.
@@ -108,7 +112,7 @@ func (s *Service) ReadFile(
 		if readErr != nil {
 			return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, readErr)
 		}
-		if mediaType != "image/png" || !isAnimatedPNG(data) {
+		if mediaType != pngMediaType || !isAnimatedPNG(data) {
 			return readtool.Content{
 				Text: mo.None[string](), Image: mo.Some(readtool.Image{MediaType: mediaType, Data: data}),
 				Start: mo.None[uint](), End: mo.None[uint](), Total: mo.None[uint](),

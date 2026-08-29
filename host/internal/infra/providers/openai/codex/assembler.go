@@ -117,16 +117,16 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 	case "response.output_item.added":
 		added := event.AsResponseOutputItemAdded()
 		switch added.Item.Type {
-		case "reasoning":
+		case responseItemTypeReasoning:
 			if _, err := a.start(added.OutputIndex, -1, model.ContentReasoning); err != nil {
 				return model.Response{}, true, err
 			}
-		case "function_call":
+		case responseItemTypeFunctionCall:
 			call := added.Item.AsFunctionCall()
 			if err := a.startFunction(added.OutputIndex, call.ID, call.CallID, call.Name, call.Arguments); err != nil {
 				return failedModelResponse(requestFailedMessage), true, err
 			}
-		case "custom_tool_call":
+		case responseItemTypeCustomToolCall:
 			call := added.Item.AsCustomToolCall()
 			if err := a.startCustom(added.OutputIndex, call.ID, call.CallID, call.Name, call.Input); err != nil {
 				return failedModelResponse(requestFailedMessage), true, err
@@ -296,7 +296,7 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 	item responses.ResponseOutputItemUnion,
 ) error {
 	switch item.Type {
-	case "function_call":
+	case responseItemTypeFunctionCall:
 		call := item.AsFunctionCall()
 		if finalized, ok := a.finalizedFunctionCalls[outputIndex]; ok {
 			arguments, err := decodeFunctionArguments(call.Arguments)
@@ -311,7 +311,7 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 			}
 		}
 		return a.endFunction(outputIndex, call.ID, call.Name, call.Arguments)
-	case "custom_tool_call":
+	case responseItemTypeCustomToolCall:
 		call := item.AsCustomToolCall()
 		if finalized, ok := a.finalizedFunctionCalls[outputIndex]; ok {
 			return validateFinalizedFunctionOutput(finalized, call.ID, call.CallID, call.Name, nil, true, call.Input)

@@ -167,7 +167,7 @@ func runRuntimeFailureUI(
 	if err != nil {
 		return err
 	}
-	observation.FirstUserSafe = persistenceFailureText(firstText) && equalLifecycleTypes(firstEvents, []uipb.LifecycleType{
+	observation.FirstUserSafe = persistenceFailureText(firstText) && slices.Equal(firstEvents, []uipb.LifecycleType{
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
 		uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
@@ -197,8 +197,8 @@ func runRuntimeFailureUI(
 		return err
 	}
 	observation.ModelSafe = persistenceFailureText(modelText) &&
-		!containsLifecycleType(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END) &&
-		!containsLifecycleType(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START)
+		!slices.Contains(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END) &&
+		!slices.Contains(modelEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START)
 
 	if _, err = runtimeUICreate(stream); err != nil {
 		return err
@@ -220,9 +220,9 @@ func runRuntimeFailureUI(
 	effect, effectErr := os.ReadFile(os.Getenv(appUIRuntimeEffectEnvironment))
 	observation.ToolCompleted = effectErr == nil && string(effect) == "tool-effect"
 	observation.ToolSafe = persistenceFailureText(toolText) &&
-		containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START) &&
-		!containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END) &&
-		!containsLifecycleType(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT)
+		slices.Contains(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START) &&
+		!slices.Contains(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END) &&
+		!slices.Contains(toolEvents, uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT)
 
 	if _, err = runtimeUICreate(stream); err != nil {
 		return err
@@ -254,7 +254,7 @@ func runRuntimeFailureUI(
 		return err
 	}
 	observation.ModelSafe = observation.ModelSafe && persistenceFailureText(contentionText) &&
-		!containsLifecycleType(restEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END)
+		!slices.Contains(restEvents, uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END)
 	resumed, err := runtimeUIResumeSuccess(stream, contentionSession.ID)
 	if err != nil {
 		return err
@@ -480,12 +480,4 @@ func clearImmutable(ctx context.Context, path string) error {
 
 func persistenceFailureText(text string) bool {
 	return strings.Contains(text, "session persistence failed")
-}
-
-func containsLifecycleType(events []uipb.LifecycleType, expected uipb.LifecycleType) bool {
-	return slices.Contains(events, expected)
-}
-
-func equalLifecycleTypes(actual, expected []uipb.LifecycleType) bool {
-	return slices.Equal(actual, expected)
 }

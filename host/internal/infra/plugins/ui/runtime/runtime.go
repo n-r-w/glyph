@@ -3,11 +3,8 @@ package runtime
 
 import (
 	"context"
-
 	"fmt"
-
 	"os/exec"
-
 	"sync"
 	"sync/atomic"
 
@@ -35,8 +32,6 @@ type Runtime struct {
 }
 
 var _ hostui.Runtime = (*Runtime)(nil)
-
-var _ hostui.Channel = (*channel)(nil)
 
 // NewFactory creates a UI runtime factory.
 func NewFactory() *Factory {

@@ -13,6 +13,9 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+// absentSessionValue marks optional session metadata that has no value.
+const absentSessionValue = "<absent>"
+
 // emitCommand serializes one UI command without blocking the update loop.
 func (model Model) emitCommand(command presentationdomain.Command) (tea.Model, tea.Cmd) {
 	if model.emitting {
@@ -111,11 +114,11 @@ func appendSessionCostLines(
 
 // formatSessionInfo renders lifecycle-only session metadata as safe presentation text.
 func formatSessionInfo(info presentationdomain.SessionInfo) string {
-	name := "<absent>"
+	name := absentSessionValue
 	if info.NamePresent {
 		name = info.Name
 	}
-	storagePath := "<absent>"
+	storagePath := absentSessionValue
 	if info.StoragePresent {
 		storagePath = info.StoragePath
 	}

@@ -20,6 +20,20 @@ const (
 	reasoningFormatOpenAIChat reasoningFormat = "openai-chat"
 	// reasoningFormatOpenRouter uses OpenRouter Chat Completions reasoning fields.
 	reasoningFormatOpenRouter reasoningFormat = "openrouter"
+	// reasoningField identifies provider reasoning data.
+	reasoningField = "reasoning"
+	// reasoningEffortField identifies provider reasoning effort.
+	reasoningEffortField = "effort"
+	// reasoningDetailTypeText identifies visible reasoning detail text.
+	reasoningDetailTypeText = "reasoning.text"
+	// reasoningDetailFormatField identifies provider reasoning detail format.
+	reasoningDetailFormatField = "format"
+	// responseItemTypeFunctionCall identifies a provider tool-call output item.
+	responseItemTypeFunctionCall = "function_call"
+	// responseItemTypeReasoning identifies a provider reasoning output item.
+	responseItemTypeReasoning = "reasoning"
+	// responseReasoningSummaryDelta identifies a reasoning-summary stream delta.
+	responseReasoningSummaryDelta = "response.reasoning_summary_text.delta"
 )
 
 // reasoningDetail preserves one opaque OpenRouter reasoning detail object.
@@ -75,14 +89,14 @@ func applyChatReasoningControl(
 		case model.ReasoningChoiceOn:
 			reasoning = map[string]any{"enabled": true}
 		case model.ReasoningChoiceOff:
-			reasoning = map[string]any{"effort": "none"}
+			reasoning = map[string]any{reasoningEffortField: "none"}
 		case model.ReasoningChoiceMinimal, model.ReasoningChoiceLow, model.ReasoningChoiceMedium,
 			model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
-			reasoning = map[string]any{"effort": choice}
+			reasoning = map[string]any{reasoningEffortField: choice}
 		default:
 			return errors.New("OpenAI-compatible reasoning choice is invalid")
 		}
-		params.SetExtraFields(map[string]any{"reasoning": reasoning})
+		params.SetExtraFields(map[string]any{reasoningField: reasoning})
 		return nil
 	default:
 		return fmt.Errorf("reasoning format %q is unsupported", format)
@@ -99,7 +113,7 @@ func chatReasoningDelta(format reasoningFormat, delta openai.ChatCompletionChunk
 	if !usesChatReasoning(format) {
 		return "", nil
 	}
-	field, ok := delta.JSON.ExtraFields["reasoning"]
+	field, ok := delta.JSON.ExtraFields[reasoningField]
 	if !ok {
 		return "", nil
 	}
@@ -140,7 +154,7 @@ func appendOpenRouterReasoningDetails(current, incoming []reasoningDetail) []rea
 		detailType, typePresent := reasoningDetailString(detail, "type")
 		contentField := ""
 		switch detailType {
-		case "reasoning.text":
+		case reasoningDetailTypeText:
 			contentField = "text"
 		case "reasoning.summary":
 			contentField = "summary"
@@ -168,8 +182,8 @@ func appendOpenRouterReasoningDetails(current, incoming []reasoningDetail) []rea
 
 // fillOpenRouterReasoningDetailMetadata fills common fields that arrive after the first text fragment.
 func fillOpenRouterReasoningDetailMetadata(target, source reasoningDetail, detailType string) {
-	fields := []string{"id", "format", "index"}
-	if detailType == "reasoning.text" {
+	fields := []string{"id", reasoningDetailFormatField, "index"}
+	if detailType == reasoningDetailTypeText {
 		fields = append(fields, "signature")
 	}
 	for _, field := range fields {
@@ -186,7 +200,7 @@ func reasoningDetailFieldMissing(detail reasoningDetail, field string) bool {
 	if !present || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return true
 	}
-	if field != "format" && field != "signature" {
+	if field != reasoningDetailFormatField && field != "signature" {
 		return false
 	}
 	value, valid := reasoningDetailString(detail, field)

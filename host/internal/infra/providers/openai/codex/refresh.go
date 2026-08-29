@@ -15,6 +15,8 @@ import (
 const (
 	refreshWindow        = 5 * time.Minute
 	maxTokenResponseBody = 1 << 20
+	// refreshTokenGrant identifies the OAuth token refresh grant and form field.
+	refreshTokenGrant = "refresh_token"
 )
 
 // ErrSignInRequired identifies credentials that cannot authorize a Codex request.
@@ -73,9 +75,9 @@ func validateCredentials(credentials oauthCredentials) error {
 // refreshCredentials performs the provider's JSON refresh request and persists rotation.
 func (s *Driver) refreshCredentials(ctx context.Context, current oauthCredentials) (oauthCredentials, error) {
 	requestBody, err := json.Marshal(map[string]string{
-		"client_id":     codexClientID,
-		"grant_type":    "refresh_token",
-		"refresh_token": current.RefreshToken,
+		"client_id":       codexClientID,
+		"grant_type":      refreshTokenGrant,
+		refreshTokenGrant: current.RefreshToken,
 	})
 	if err != nil {
 		return oauthCredentials{}, fmt.Errorf("encode OpenAI Codex refresh request: %w", err)

@@ -227,7 +227,7 @@ func buildChatAssistantMessage(
 	if len(reasoningDetails) != 0 {
 		message.OfAssistant.SetExtraFields(map[string]any{"reasoning_details": reasoningDetails})
 	} else if reasoning != "" {
-		message.OfAssistant.SetExtraFields(map[string]any{"reasoning": reasoning})
+		message.OfAssistant.SetExtraFields(map[string]any{reasoningField: reasoning})
 	}
 	if refusal != "" {
 		message.OfAssistant.Refusal = param.NewOpt(refusal)

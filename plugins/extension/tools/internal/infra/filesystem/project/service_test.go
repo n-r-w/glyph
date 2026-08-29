@@ -26,7 +26,7 @@ func TestServiceReadFileBoundsRequestedLines(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, "first\nsecond\nthird\n"))
 
-	content, err := New().ReadFile(t.Context(), filePath, optionUint(2), optionUint(1))
+	content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](2), mo.EmptyableToOption[uint](1))
 
 	require.NoError(t, err)
 	assert.Equal(t, readtool.Content{
@@ -44,7 +44,7 @@ func TestServiceReadFileReturnsCompleteExactByteBudget(t *testing.T) {
 	content := strings.Repeat("x", textbudget.MaximumBytes)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
+	result, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
 
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(content), result.Text)
@@ -60,7 +60,7 @@ func TestServiceReadFileReturnsCompleteExactLineBudget(t *testing.T) {
 	content := strings.Repeat("x\n", textbudget.MaximumLines)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
+	result, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
 
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(content), result.Text)
@@ -79,7 +79,7 @@ func TestServiceReadFileReservesLineForContinuationNotice(t *testing.T) {
 	}
 	require.NoError(t, writeTestFile(filePath, source.String()))
 
-	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(0))
+	content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
 
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(uint(textbudget.MaximumLines-1)), content.End)
@@ -94,7 +94,7 @@ func TestServiceReadFileKeepsPartialResultWithinCompleteBudget(t *testing.T) {
 	content := strings.Repeat("x\n", textbudget.MaximumLines+1)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, optionUint(1), optionUint(0))
+	result, err := readtool.New(New()).Read(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
 
 	require.NoError(t, err)
 	text := result.Text.OrEmpty()
@@ -120,7 +120,7 @@ func TestServiceReadFileReturnsBoundedNoticeWhenFirstLineLeavesNoContinuationRoo
 	content := strings.Repeat("x", textbudget.MaximumBytes-1) + "\nsecond\n"
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, optionUint(1), optionUint(0))
+	result, err := readtool.New(New()).Read(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
 
 	require.NoError(t, err)
 	text := result.Text.OrEmpty()
@@ -141,7 +141,7 @@ func TestServiceReadFileReadsEmptyFileAtFirstOffset(t *testing.T) {
 	for name, offset := range map[string]uint{"default": 0, "explicit": 1} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			content, err := New().ReadFile(t.Context(), filePath, optionUint(offset), optionUint(0))
+			content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](offset), mo.EmptyableToOption[uint](0))
 
 			require.NoError(t, err)
 			assert.Equal(t, mo.Some(""), content.Text)
@@ -151,7 +151,7 @@ func TestServiceReadFileReadsEmptyFileAtFirstOffset(t *testing.T) {
 		})
 	}
 
-	_, err := New().ReadFile(t.Context(), filePath, optionUint(2), optionUint(0))
+	_, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](2), mo.EmptyableToOption[uint](0))
 	require.Error(t, err)
 }
 
@@ -163,7 +163,7 @@ func TestServiceReadFileRejectsAnimatedPNG(t *testing.T) {
 	apng := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte{0, 0, 0, 8, 'a', 'c', 'T', 'L'}...)
 	require.NoError(t, os.WriteFile(filePath, apng, 0o600))
 
-	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
+	content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
 
 	require.NoError(t, err)
 	assert.True(t, content.Image.IsNone())
@@ -190,7 +190,7 @@ func TestServiceReadFileDetectsImageBytes(t *testing.T) {
 			filePath := t.TempDir() + "/image.data"
 			require.NoError(t, os.WriteFile(filePath, testCase.image, 0o600))
 
-			content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
+			content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
 
 			require.NoError(t, err)
 			image, ok := content.Image.Get()
@@ -212,7 +212,7 @@ func TestServiceReadFileRetainsLineAcrossReaderFragments(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, line+"\n"))
 
-	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
+	content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
 
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(line+"\n"), content.Text)
@@ -225,7 +225,7 @@ func TestServiceReadFileReportsOversizedFirstLine(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, string(make([]byte, textbudget.MaximumBytes+1))))
 
-	content, err := New().ReadFile(t.Context(), filePath, optionUint(1), optionUint(1))
+	content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
 
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(uint(1)), content.Start)
@@ -349,7 +349,7 @@ func TestServiceReadFileCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	content, err := New().ReadFile(ctx, t.TempDir()+"/notes.txt", optionUint(1), optionUint(1))
+	content, err := New().ReadFile(ctx, t.TempDir()+"/notes.txt", mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
 
 	assert.Empty(t, content)
 	require.ErrorIs(t, err, context.Canceled)

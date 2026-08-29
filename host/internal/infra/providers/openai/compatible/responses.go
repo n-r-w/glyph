@@ -141,10 +141,10 @@ func (state *responsesAccumulator) consume(
 		delta := event.AsResponseRefusalDelta()
 		key := responseContentKey("refusal", delta.OutputIndex, delta.ContentIndex)
 		return state.contentDelta(key, model.ContentRefusal, delta.Delta)
-	case "response.reasoning_summary_text.delta", "response.reasoning_text.delta":
+	case responseReasoningSummaryDelta, "response.reasoning_text.delta":
 		var outputIndex int64
 		var delta string
-		if event.Type == "response.reasoning_summary_text.delta" {
+		if event.Type == responseReasoningSummaryDelta {
 			value := event.AsResponseReasoningSummaryTextDelta()
 			outputIndex, delta = value.OutputIndex, value.Delta
 		} else {
@@ -154,7 +154,7 @@ func (state *responsesAccumulator) consume(
 		return state.contentDelta("reasoning:"+strconv.FormatInt(outputIndex, 10), model.ContentReasoning, delta)
 	case "response.output_item.added":
 		added := event.AsResponseOutputItemAdded()
-		if added.Item.Type == "function_call" {
+		if added.Item.Type == responseItemTypeFunctionCall {
 			call := added.Item.AsFunctionCall()
 			position := state.allocate("tool:" + call.CallID)
 			toolState := &responsesToolState{
@@ -393,7 +393,7 @@ func responsesModelResponse(
 					return model.Response{}, fmt.Errorf("responses returned unsupported message content %q", part.Type)
 				}
 			}
-		case "reasoning":
+		case responseItemTypeReasoning:
 			reasoning := output.AsReasoning()
 			summary := lo.Map(reasoning.Summary, func(item responses.ResponseReasoningItemSummary, _ int) string {
 				return item.Text
@@ -426,7 +426,7 @@ func responsesModelResponse(
 				})
 			}
 			content = append(content, visible)
-		case "function_call":
+		case responseItemTypeFunctionCall:
 			call := output.AsFunctionCall()
 			var arguments map[string]any
 			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {

@@ -2,12 +2,10 @@ package sessions
 
 import (
 	"bytes"
-
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -18,7 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
-// decodeEntry selects one strict version 1 record without exposing repository DTOs.
+// decodeEntry selects one strict entry DTO and maps it to the session domain.
 func decodeEntry(data []byte) (session.Entry, error) {
 	var kind recordType
 	// The discriminator selects the closed record DTO. The selected DTO then performs strict decoding.
@@ -29,7 +27,7 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		return session.Entry{}, fmt.Errorf("validate required session fields: %w", err)
 	}
 	switch kind.Type {
-	case "session_info":
+	case recordTypeSessionInfo:
 		var record informationRecord
 		if err := decodeRecord(data, &record); err != nil {
 			return session.Entry{}, err
@@ -48,15 +46,15 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		}, nil
-	case "user":
+	case recordTypeUser:
 		return decodeUser(data)
-	case "model":
+	case recordTypeModel:
 		return decodeModel(data)
-	case "tool_result":
+	case recordTypeToolResult:
 		return decodeToolResult(data)
-	case "extension":
+	case recordTypeExtension:
 		return decodeExtension(data)
-	case "branch_summary":
+	case recordTypeBranchSummary:
 		return decodeBranchSummary(data)
 	default:
 		return session.Entry{}, errors.New("invalid session entry")
@@ -90,7 +88,7 @@ func decodeUser(data []byte) (session.Entry, error) {
 		content = append(content, item)
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.Some(model.Message{Content: content}),
 		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
@@ -139,7 +137,7 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.Some(session.ExtensionEnvelope{
@@ -169,7 +167,7 @@ func decodeModel(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: estimatedCost,
@@ -201,7 +199,7 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 		contents = append(contents, content)
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
 			CallID: record.Result.CallID, ToolName: record.Result.ToolName,
@@ -246,7 +244,7 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 		return session.Entry{}, errors.New("invalid branch summary cost")
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
@@ -330,11 +328,11 @@ func decodeModelResponse(record modelResponseRecord) (model.Response, error) {
 		}
 	}
 	result := model.Response{
-		Content: content, Outcome: mo.Some(record.Outcome), ErrorMessage: pointerStringOption(record.ErrorMessage),
-		Provider:      pointerProviderIDOption(record.Provider),
-		Model:         pointerModelIDOption(record.Model),
-		ResponseModel: pointerModelIDOption(record.ResponseModel),
-		ResponseID:    pointerStringOption(record.ResponseID), Usage: mo.None[model.Usage](), Diagnostics: diagnostics,
+		Content: content, Outcome: mo.Some(record.Outcome), ErrorMessage: mo.PointerToOption(record.ErrorMessage),
+		Provider:      mo.PointerToOption((*model.ProviderID)(record.Provider)),
+		Model:         mo.PointerToOption((*model.ID)(record.Model)),
+		ResponseModel: mo.PointerToOption((*model.ID)(record.ResponseModel)),
+		ResponseID:    mo.PointerToOption(record.ResponseID), Usage: mo.None[model.Usage](), Diagnostics: diagnostics,
 	}
 	if record.Usage != nil {
 		result.Usage = mo.Some(model.Usage{
@@ -349,7 +347,7 @@ func decodeModelResponse(record modelResponseRecord) (model.Response, error) {
 // decodeModelContent rebuilds one owned continuation item from its stored representation.
 func decodeModelContent(item *modelContentRecord) (model.Content, error) {
 	value := model.Content{
-		Kind: item.Kind, Text: pointerStringOption(item.Text), Final: true,
+		Kind: item.Kind, Text: mo.PointerToOption(item.Text), Final: true,
 		ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
 	}
 	if item.ProviderContext != nil {
@@ -357,7 +355,7 @@ func decodeModelContent(item *modelContentRecord) (model.Content, error) {
 			Source: model.ProviderContextSource{
 				ProviderID: model.ProviderID(item.ProviderContext.ProviderID), API: item.ProviderContext.API,
 				Model:            model.ID(item.ProviderContext.Model),
-				CompatibilityKey: pointerStringOption(item.ProviderContext.CompatibilityKey),
+				CompatibilityKey: mo.PointerToOption(item.ProviderContext.CompatibilityKey),
 			},
 			Payload: bytes.Clone(item.ProviderContext.Payload),
 		})
@@ -380,53 +378,6 @@ func decodeModelContent(item *modelContentRecord) (model.Content, error) {
 
 func validOutcome(outcome model.Outcome) bool {
 	return outcome >= model.OutcomeStop && outcome <= model.OutcomeFailed
-}
-
-func optionStringPointer(option mo.Option[string]) *string {
-	value, present := option.Get()
-	if !present {
-		return nil
-	}
-	return &value
-}
-
-func pointerStringOption(value *string) mo.Option[string] {
-	if value == nil {
-		return mo.None[string]()
-	}
-	return mo.Some(*value)
-}
-
-func optionProviderIDPointer(option mo.Option[model.ProviderID]) *string {
-	value, present := option.Get()
-	if !present {
-		return nil
-	}
-	result := string(value)
-	return &result
-}
-
-func optionModelIDPointer(option mo.Option[model.ID]) *string {
-	value, present := option.Get()
-	if !present {
-		return nil
-	}
-	result := string(value)
-	return &result
-}
-
-func pointerProviderIDOption(value *string) mo.Option[model.ProviderID] {
-	if value == nil {
-		return mo.None[model.ProviderID]()
-	}
-	return mo.Some(model.ProviderID(*value))
-}
-
-func pointerModelIDOption(value *string) mo.Option[model.ID] {
-	if value == nil {
-		return mo.None[model.ID]()
-	}
-	return mo.Some(model.ID(*value))
 }
 
 // decodeRecord accepts exactly one JSON value whose core fields match the selected DTO.

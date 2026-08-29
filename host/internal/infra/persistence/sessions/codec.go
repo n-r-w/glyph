@@ -2,10 +2,8 @@ package sessions
 
 import (
 	"bytes"
-
 	"encoding/json"
 	"errors"
-
 	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -34,7 +32,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 			return nil, errors.New("invalid session entry")
 		}
 		return encodeLine(informationRecord{
-			Type: "session_info", ID: entry.ID,
+			Type: recordTypeSessionInfo, ID: entry.ID,
 			CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Name: information.Name,
 		})
 	}
@@ -47,7 +45,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 			return nil, err
 		}
 		return encodeLine(userRecord{
-			Type: "user", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+			Type: recordTypeUser, ID: entry.ID, ParentID: entry.ParentID,
 			CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Message: &message,
 		})
 	}
@@ -63,7 +61,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	}
 	// Clone opaque extension bytes before framing them as compact JSON.
 	return encodeLine(extensionRecord{
-		Type: "extension", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		Type: recordTypeExtension, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt:   entry.CreatedAt.Format(time.RFC3339Nano),
 		ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
 		Data: json.RawMessage(bytes.Clone(extension.Data)),
@@ -98,7 +96,7 @@ func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummary
 		}
 	}
 	return encodeLine(branchSummaryRecord{
-		Type: "branch_summary", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		Type: recordTypeBranchSummary, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: summary.Summary,
 		FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
 		Provider: string(summary.Provider), Model: string(summary.Model), ReasoningChoice: summary.ReasoningChoice,
@@ -155,7 +153,7 @@ func encodeModelEntry(entry session.Entry, response model.Response) ([]byte, err
 		}
 	}
 	return encodeLine(modelRecord{
-		Type: "model", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		Type: recordTypeModel, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Response: record, EstimatedCost: estimatedCost,
 	})
 }
@@ -177,7 +175,7 @@ func encodeToolResultEntry(entry session.Entry, result agent.ToolResult) ([]byte
 		contents = append(contents, content)
 	}
 	return encodeLine(toolResultRecord{
-		Type: "tool_result", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		Type: recordTypeToolResult, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
 		Result: toolResultValue{
 			CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
@@ -249,11 +247,11 @@ func encodeModelResponse(response model.Response) (modelResponseRecord, error) {
 	}
 	result := modelResponseRecord{
 		Content: content, Outcome: outcome,
-		ErrorMessage:  optionStringPointer(response.ErrorMessage),
-		Provider:      optionProviderIDPointer(response.Provider),
-		Model:         optionModelIDPointer(response.Model),
-		ResponseModel: optionModelIDPointer(response.ResponseModel),
-		ResponseID:    optionStringPointer(response.ResponseID), Usage: nil, Diagnostics: diagnostics,
+		ErrorMessage:  response.ErrorMessage.ToPointer(),
+		Provider:      (*string)(response.Provider.ToPointer()),
+		Model:         (*string)(response.Model.ToPointer()),
+		ResponseModel: (*string)(response.ResponseModel.ToPointer()),
+		ResponseID:    response.ResponseID.ToPointer(), Usage: nil, Diagnostics: diagnostics,
 	}
 	if usage, ok := response.Usage.Get(); ok {
 		result.Usage = &usageRecord{
@@ -276,13 +274,13 @@ func encodeModelContent(item *model.Content) (modelContentRecord, error) {
 		return modelContentRecord{}, err
 	}
 	record := modelContentRecord{
-		Kind: item.Kind, Text: optionStringPointer(item.Text), ProviderContext: nil, ToolCall: nil,
+		Kind: item.Kind, Text: item.Text.ToPointer(), ProviderContext: nil, ToolCall: nil,
 	}
 	if contextValue, ok := item.ProviderContext.Get(); ok {
 		record.ProviderContext = &providerContextRecord{
 			ProviderID: string(contextValue.Source.ProviderID), API: contextValue.Source.API,
 			Model:            string(contextValue.Source.Model),
-			CompatibilityKey: optionStringPointer(contextValue.Source.CompatibilityKey),
+			CompatibilityKey: contextValue.Source.CompatibilityKey.ToPointer(),
 			Payload:          bytes.Clone(contextValue.Payload),
 		}
 	}

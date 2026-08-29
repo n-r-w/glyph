@@ -227,7 +227,7 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	require.Equal(t, "sentinel", string(content))
 }
 
-// sessionInformationMutation maps one metadata fixture to the version 2 mutation contract.
+// sessionInformationMutation maps one metadata fixture to the persistence mutation contract.
 func sessionInformationMutation(entry session.Entry) hostsessions.Mutation {
 	information := entry.Information.MustGet()
 	return hostsessions.Mutation{

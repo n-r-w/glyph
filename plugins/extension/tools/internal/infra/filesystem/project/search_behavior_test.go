@@ -11,18 +11,11 @@ import (
 	searchtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/search"
 )
 
-func optionUint(value uint) mo.Option[uint] {
-	if value == 0 {
-		return mo.None[uint]()
-	}
-	return mo.Some(value)
-}
-
 // grepCommand keeps table-driven grep cases focused on input behavior.
 func grepCommand(pattern, path, glob string, ignoreCase, literal bool, context, limit uint) searchtool.GrepCommand {
 	return searchtool.GrepCommand{
 		Pattern: pattern, Path: path, Glob: glob, IgnoreCase: ignoreCase, Literal: literal,
-		Context: context, Limit: optionUint(limit),
+		Context: context, Limit: mo.EmptyableToOption[uint](limit),
 	}
 }
 
@@ -82,7 +75,7 @@ func TestServiceRejectsMalformedGlobsInEmptyRoot(t *testing.T) {
 	service := New()
 
 	_, grepErr := service.Grep(t.Context(), grepCommand("match", ".", "[", false, false, 0, 100))
-	_, findErr := service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: ".", Limit: optionUint(1000)})
+	_, findErr := service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: ".", Limit: mo.EmptyableToOption[uint](1000)})
 
 	require.ErrorContains(t, grepErr, "invalid grep glob")
 	require.ErrorContains(t, findErr, "invalid find glob")
@@ -95,20 +88,20 @@ func TestServiceFindFiltersLimitsAndErrors(t *testing.T) {
 	require.NoError(t, os.WriteFile("root/a.go", nil, 0o644))
 	require.NoError(t, os.WriteFile("root/nested/b.go", nil, 0o644))
 	service := New()
-	result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "root/*.go", Path: "root", Limit: optionUint(1000)})
+	result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "root/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1000)})
 	require.NoError(t, err)
 	require.Contains(t, result.Text, "root/a.go\n")
 	require.NotContains(t, result.Text, "nested/b.go")
-	result, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.go", Path: "root", Limit: optionUint(1)})
+	result, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1)})
 	require.NoError(t, err)
 	require.Contains(t, result.Text, "[Result limit reached.]\n")
-	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: "root", Limit: optionUint(1)})
+	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: "root", Limit: mo.EmptyableToOption[uint](1)})
 	require.ErrorContains(t, err, "invalid find glob")
-	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "*", Path: "missing", Limit: optionUint(1)})
+	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "*", Path: "missing", Limit: mo.EmptyableToOption[uint](1)})
 	require.ErrorContains(t, err, "find project files")
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = service.Find(ctx, searchtool.FindCommand{Pattern: "*", Path: "root", Limit: optionUint(1)})
+	_, err = service.Find(ctx, searchtool.FindCommand{Pattern: "*", Path: "root", Limit: mo.EmptyableToOption[uint](1)})
 	require.ErrorIs(t, err, context.Canceled)
 }
 
@@ -118,18 +111,18 @@ func TestServiceListLimitsErrorsAndCancellation(t *testing.T) {
 	require.NoError(t, os.Mkdir("dir", 0o755))
 	require.NoError(t, os.WriteFile("file", nil, 0o644))
 	service := New()
-	result, err := service.List(t.Context(), searchtool.ListCommand{Path: ".", Limit: optionUint(1)})
+	result, err := service.List(t.Context(), searchtool.ListCommand{Path: ".", Limit: mo.EmptyableToOption[uint](1)})
 	require.NoError(t, err)
 	require.Contains(t, result.Text, "[Entry limit reached.]\n")
-	result, err = service.List(t.Context(), searchtool.ListCommand{Path: "dir", Limit: optionUint(500)})
+	result, err = service.List(t.Context(), searchtool.ListCommand{Path: "dir", Limit: mo.EmptyableToOption[uint](500)})
 	require.NoError(t, err)
 	require.Empty(t, result.Text)
-	_, err = service.List(t.Context(), searchtool.ListCommand{Path: "missing", Limit: optionUint(1)})
+	_, err = service.List(t.Context(), searchtool.ListCommand{Path: "missing", Limit: mo.EmptyableToOption[uint](1)})
 	require.ErrorContains(t, err, "list project directory")
-	_, err = service.List(t.Context(), searchtool.ListCommand{Path: "file", Limit: optionUint(1)})
+	_, err = service.List(t.Context(), searchtool.ListCommand{Path: "file", Limit: mo.EmptyableToOption[uint](1)})
 	require.Error(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = service.List(ctx, searchtool.ListCommand{Path: ".", Limit: optionUint(1)})
+	_, err = service.List(ctx, searchtool.ListCommand{Path: ".", Limit: mo.EmptyableToOption[uint](1)})
 	require.ErrorIs(t, err, context.Canceled)
 }

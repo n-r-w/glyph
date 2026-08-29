@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
 	"sync"
 	"sync/atomic"
 
@@ -13,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -28,6 +28,8 @@ type channel struct {
 	// mutex serializes stream sends.
 	mutex sync.Mutex
 }
+
+var _ hostui.Channel = (*channel)(nil)
 
 // Send writes one Host frame synchronously through the serialized stream path.
 func (c *channel) Send(frame domainui.Frame) error {

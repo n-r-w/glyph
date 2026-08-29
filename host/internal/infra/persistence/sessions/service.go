@@ -218,10 +218,10 @@ func (s *Service) persistPayload(header session.Header, storagePath string, muta
 	return path, nil
 }
 
-// encodeHeader writes the strict version 2 session header.
+// encodeHeader encodes one validated session header.
 func encodeHeader(header session.Header) ([]byte, error) {
 	return encodeLine(headerRecord{
-		Type: "session", Version: header.Version, ID: string(header.ID),
+		Type: recordTypeSession, Version: header.Version, ID: string(header.ID),
 		CreatedAt: header.CreatedAt.Format(time.RFC3339Nano), CWD: header.WorkingDirectory,
 	})
 }

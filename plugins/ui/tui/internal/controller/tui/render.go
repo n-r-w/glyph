@@ -15,6 +15,13 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+const (
+	// unspecifiedReasoningText identifies an unavailable reasoning choice.
+	unspecifiedReasoningText = "unspecified"
+	// unavailableStatusText identifies unavailable Host state.
+	unavailableStatusText = "Unavailable"
+)
+
 // View renders the current presentation as plain terminal text.
 func (model Model) View() tea.View {
 	selector := model.visibleSelectorLines()
@@ -354,9 +361,9 @@ func reasoningText(level presentationdomain.ReasoningChoice) string {
 	case presentationdomain.ReasoningChoiceMax:
 		return "max"
 	case presentationdomain.ReasoningChoiceUnspecified:
-		return "unspecified"
+		return unspecifiedReasoningText
 	default:
-		return "unspecified"
+		return unspecifiedReasoningText
 	}
 }
 
@@ -364,7 +371,7 @@ func reasoningText(level presentationdomain.ReasoningChoice) string {
 func availabilityText(availabilityOption mo.Option[presentationdomain.Availability]) string {
 	availability, ok := availabilityOption.Get()
 	if !ok {
-		return "Unavailable"
+		return unavailableStatusText
 	}
 	switch availability {
 	case presentationdomain.AvailabilityChecking:
@@ -378,8 +385,8 @@ func availabilityText(availabilityOption mo.Option[presentationdomain.Availabili
 	case presentationdomain.AvailabilityRunning:
 		return "Running"
 	case presentationdomain.AvailabilityUnspecified:
-		return "Unavailable"
+		return unavailableStatusText
 	default:
-		return "Unavailable"
+		return unavailableStatusText
 	}
 }

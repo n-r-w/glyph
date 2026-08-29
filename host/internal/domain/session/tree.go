@@ -1,14 +1,17 @@
 package session
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
 // Tree owns parent-linked entries, the active leaf, and entry labels.
@@ -215,7 +218,7 @@ func userText(message model.Message) string {
 	return strings.Join(parts, "\n")
 }
 
-// cloneTreeEntries prevents callers from mutating extension-owned byte slices.
+// cloneTreeEntries prevents snapshots from sharing mutable entry payloads.
 func cloneTreeEntries(entries []Entry) []Entry {
 	result := make([]Entry, len(entries))
 	for index := range entries {
@@ -224,11 +227,84 @@ func cloneTreeEntries(entries []Entry) []Entry {
 	return result
 }
 
-// cloneTreeEntry owns mutable payload bytes carried by one entry.
+// cloneTreeEntry owns every mutable payload carried by one entry.
 func cloneTreeEntry(entry Entry) Entry {
-	if extension, present := entry.Extension.Get(); present {
-		extension.Data = append([]byte(nil), extension.Data...)
-		entry.Extension = mo.Some(extension)
-	}
+	entry.User = entry.User.MapValue(cloneTreeMessage)
+	entry.Model = entry.Model.MapValue(cloneTreeModelResponse)
+	entry.ToolResult = entry.ToolResult.MapValue(cloneTreeToolResult)
+	entry.Extension = entry.Extension.MapValue(func(extension ExtensionEnvelope) ExtensionEnvelope {
+		extension.Data = bytes.Clone(extension.Data)
+		return extension
+	})
 	return entry
+}
+
+// cloneTreeMessage owns mutable input-content bytes.
+func cloneTreeMessage(message model.Message) model.Message {
+	message.Content = slices.Clone(message.Content)
+	for index := range message.Content {
+		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
+	}
+	return message
+}
+
+// cloneTreeModelResponse owns content, provider context, tool arguments, and diagnostics.
+func cloneTreeModelResponse(response model.Response) model.Response {
+	response.Content = slices.Clone(response.Content)
+	for index := range response.Content {
+		response.Content[index].ProviderContext = response.Content[index].ProviderContext.MapValue(
+			func(context model.ProviderContext) model.ProviderContext {
+				context.Payload = bytes.Clone(context.Payload)
+				return context
+			},
+		)
+		response.Content[index].ToolCall = response.Content[index].ToolCall.MapValue(
+			func(call model.ToolCall) model.ToolCall {
+				call.Arguments = cloneTreeArguments(call.Arguments)
+				return call
+			},
+		)
+	}
+	response.Diagnostics = slices.Clone(response.Diagnostics)
+	return response
+}
+
+// cloneTreeArguments owns nested JSON-compatible tool arguments.
+func cloneTreeArguments(arguments map[string]any) map[string]any {
+	if arguments == nil {
+		return nil
+	}
+	cloned := maps.Clone(arguments)
+	for name, value := range cloned {
+		cloned[name] = cloneTreeJSONValue(value)
+	}
+	return cloned
+}
+
+// cloneTreeJSONValue recursively owns JSON-compatible maps and slices.
+func cloneTreeJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneTreeArguments(typed)
+	case []any:
+		cloned := slices.Clone(typed)
+		for index := range cloned {
+			cloned[index] = cloneTreeJSONValue(cloned[index])
+		}
+		return cloned
+	default:
+		return value
+	}
+}
+
+// cloneTreeToolResult owns tool-result content and image bytes.
+func cloneTreeToolResult(result ToolResult) ToolResult {
+	result.Contents = slices.Clone(result.Contents)
+	for index := range result.Contents {
+		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
+			image.Data = bytes.Clone(image.Data)
+			return image
+		})
+	}
+	return result
 }

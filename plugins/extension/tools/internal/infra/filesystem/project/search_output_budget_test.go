@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
@@ -40,7 +41,7 @@ func TestServiceGrepOutputByteLimit(t *testing.T) {
 	line := strings.Repeat("x", 500) + " match\n"
 	require.NoError(t, os.WriteFile("matches.txt", []byte(strings.Repeat(line, 110)), 0o644))
 
-	result, err := New().Grep(t.Context(), searchtool.GrepCommand{Pattern: "match", Path: ".", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: optionUint(200)})
+	result, err := New().Grep(t.Context(), searchtool.GrepCommand{Pattern: "match", Path: ".", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: mo.EmptyableToOption[uint](200)})
 
 	require.NoError(t, err)
 	requireOutputLimit(t, result.Text)
@@ -52,7 +53,7 @@ func TestServiceGrepOutputLineLimit(t *testing.T) {
 	t.Chdir(t.TempDir())
 	require.NoError(t, os.WriteFile("matches.txt", []byte(strings.Repeat("match\n", 2001)), 0o644))
 
-	result, err := New().Grep(t.Context(), searchtool.GrepCommand{Pattern: "match", Path: ".", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: optionUint(3000)})
+	result, err := New().Grep(t.Context(), searchtool.GrepCommand{Pattern: "match", Path: ".", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: mo.EmptyableToOption[uint](3000)})
 
 	require.NoError(t, err)
 	requireOutputLimit(t, result.Text)
@@ -66,7 +67,7 @@ func TestServiceFindOutputByteLimit(t *testing.T) {
 		require.NoError(t, os.WriteFile(name, nil, 0o644))
 	}
 
-	result, err := New().Find(t.Context(), searchtool.FindCommand{Pattern: "*.txt", Path: ".", Limit: optionUint(1000)})
+	result, err := New().Find(t.Context(), searchtool.FindCommand{Pattern: "*.txt", Path: ".", Limit: mo.EmptyableToOption[uint](1000)})
 
 	require.NoError(t, err)
 	requireOutputLimit(t, result.Text)
@@ -80,7 +81,7 @@ func TestServiceListOutputByteLimit(t *testing.T) {
 		require.NoError(t, os.WriteFile(name, nil, 0o644))
 	}
 
-	result, err := New().List(t.Context(), searchtool.ListCommand{Path: ".", Limit: optionUint(500)})
+	result, err := New().List(t.Context(), searchtool.ListCommand{Path: ".", Limit: mo.EmptyableToOption[uint](500)})
 
 	require.NoError(t, err)
 	requireOutputLimit(t, result.Text)

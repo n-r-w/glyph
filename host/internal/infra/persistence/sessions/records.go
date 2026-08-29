@@ -3,9 +3,33 @@ package sessions
 import (
 	"encoding/json"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+)
+
+const (
+	// recordTypeSession identifies the immutable session header.
+	recordTypeSession = "session"
+	// recordTypeSessionInfo identifies a session-information mutation.
+	recordTypeSessionInfo = "session_info"
+	// recordTypeUser identifies a persisted user message.
+	recordTypeUser = "user"
+	// recordTypeModel identifies a persisted model response.
+	recordTypeModel = "model"
+	// recordTypeToolResult identifies a persisted tool result.
+	recordTypeToolResult = "tool_result"
+	// recordTypeExtension identifies a model-hidden extension entry.
+	recordTypeExtension = "extension"
+	// recordTypeBranchSummary identifies a persisted branch summary.
+	recordTypeBranchSummary = "branch_summary"
+	// mutationTypeEntry identifies an entry mutation envelope.
+	mutationTypeEntry = "entry"
+	// mutationTypeNavigation identifies a navigation mutation envelope.
+	mutationTypeNavigation = "navigation"
+	// mutationTypeLabel identifies a label mutation envelope.
+	mutationTypeLabel = "label"
 )
 
 // headerRecord is the immutable first JSONL record that binds a file to one project.
@@ -41,7 +65,7 @@ type userRecord struct {
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
 	// ParentID identifies the preceding tree entry or the implicit root when absent.
-	ParentID *string `json:"parentId"`
+	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Message contains ordered provider-neutral user content.
@@ -71,7 +95,7 @@ type modelRecord struct {
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
 	// ParentID identifies the preceding tree entry or the implicit root when absent.
-	ParentID *string `json:"parentId"`
+	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Response contains one terminal model response.
@@ -175,7 +199,7 @@ type toolResultRecord struct {
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
 	// ParentID identifies the preceding tree entry or the implicit root when absent.
-	ParentID *string `json:"parentId"`
+	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Result contains one terminal tool result.
@@ -211,7 +235,7 @@ type extensionRecord struct {
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
 	// ParentID identifies the preceding tree entry or the implicit root when absent.
-	ParentID *string `json:"parentId"`
+	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// ExtensionID identifies the extension that owns the entry.
@@ -229,7 +253,7 @@ type branchSummaryRecord struct {
 	// ID uniquely identifies this entry.
 	ID string `json:"id"`
 	// ParentID identifies the navigation destination or the implicit root when absent.
-	ParentID *string `json:"parentId"`
+	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Summary contains the persisted model-generated text.
@@ -266,7 +290,7 @@ type sessionUsageRecord struct {
 	TotalTokens int64 `json:"totalTokens"`
 }
 
-// mutationRecord stores exactly one version 2 aggregate mutation.
+// mutationRecord stores exactly one aggregate mutation.
 type mutationRecord struct {
 	// Type identifies the selected mutation payload.
 	Type string `json:"type"`
@@ -283,7 +307,7 @@ type mutationRecord struct {
 // navigationRecord stores a destination and optional embedded summary entry.
 type navigationRecord struct {
 	// DestinationID identifies an entry or the implicit root when absent.
-	DestinationID *string `json:"destinationId"`
+	DestinationID mo.Option[string] `json:"destinationId"`
 	// BranchSummary contains an optional encoded branch-summary entry.
 	BranchSummary *json.RawMessage `json:"branchSummary,omitempty"`
 }

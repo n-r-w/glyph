@@ -20,6 +20,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+const (
+	// terminalOutcomeAborted identifies an aborted model request or agent run.
+	terminalOutcomeAborted = "aborted"
+	// terminalOutcomeFailed identifies a failed model request or agent run.
+	terminalOutcomeFailed = "failed"
+)
+
 // Delivery maps ordered Host and Agent events to one UI stream.
 type Delivery struct {
 	// channel sends frames to and receives commands from the selected UI.
@@ -510,9 +517,9 @@ func modelOutcome(outcome model.Outcome) string {
 	case model.OutcomeLength:
 		return "length"
 	case model.OutcomeAborted:
-		return "aborted"
+		return terminalOutcomeAborted
 	case model.OutcomeFailed:
-		return "failed"
+		return terminalOutcomeFailed
 	default:
 		return ""
 	}
@@ -524,9 +531,9 @@ func runOutcome(outcome agent.RunOutcome) string {
 	case agent.RunOutcomeCompleted:
 		return "completed"
 	case agent.RunOutcomeAborted:
-		return "aborted"
+		return terminalOutcomeAborted
 	case agent.RunOutcomeFailed:
-		return "failed"
+		return terminalOutcomeFailed
 	default:
 		return ""
 	}

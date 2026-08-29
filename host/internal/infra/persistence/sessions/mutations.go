@@ -54,7 +54,7 @@ func decodeMutations(payload []byte) (replayState, error) {
 	return state, nil
 }
 
-// applyMutation decodes and applies one strict version 2 record.
+// applyMutation decodes and applies one aggregate mutation record.
 func applyMutation(state *replayState, data []byte) error {
 	var record mutationRecord
 	if err := decodeRecord(data, &record); err != nil {
@@ -65,16 +65,16 @@ func applyMutation(state *replayState, data []byte) error {
 		return errors.New("session mutation must contain exactly one payload")
 	}
 	switch record.Type {
-	case "entry":
+	case mutationTypeEntry:
 		return applyEntryMutation(state, record.Entry)
-	case "navigation":
+	case mutationTypeNavigation:
 		return applyNavigationMutation(state, record.Navigation)
-	case "label":
+	case mutationTypeLabel:
 		if record.Label == nil || record.Label.TargetID == "" {
 			return errors.New("invalid label mutation")
 		}
 		return state.tree.SetLabel(record.Label.TargetID, record.Label.Label)
-	case "session_info":
+	case recordTypeSessionInfo:
 		return applyInformationMutation(state, record.SessionInfo)
 	default:
 		return errors.New("unknown session mutation type")
@@ -107,7 +107,7 @@ func applyNavigationMutation(state *replayState, record *navigationRecord) error
 	if record == nil {
 		return errors.New("navigation mutation payload is missing")
 	}
-	destination := pointerStringOption(record.DestinationID)
+	destination := record.DestinationID
 	if err := state.tree.SetActiveLeaf(destination); err != nil {
 		return err
 	}
@@ -169,14 +169,14 @@ func encodeEntryMutation(entry session.Entry) ([]byte, error) {
 		return nil, err
 	}
 	raw := json.RawMessage(bytes.TrimSuffix(encoded, []byte{'\n'}))
-	return encodeLine(mutationRecord{Type: "entry", Entry: &raw, Navigation: nil, Label: nil, SessionInfo: nil})
+	return encodeLine(mutationRecord{Type: mutationTypeEntry, Entry: &raw, Navigation: nil, Label: nil, SessionInfo: nil})
 }
 
 // encodeNavigationMutation frames one destination and optional embedded summary.
 func encodeNavigationMutation(navigation hostsessions.NavigationMutation) ([]byte, error) {
 	record := mutationRecord{
-		Type: "navigation", Entry: nil,
-		Navigation: &navigationRecord{DestinationID: optionStringPointer(navigation.DestinationID), BranchSummary: nil},
+		Type: mutationTypeNavigation, Entry: nil,
+		Navigation: &navigationRecord{DestinationID: navigation.DestinationID, BranchSummary: nil},
 		Label:      nil, SessionInfo: nil,
 	}
 	if summary, present := navigation.BranchSummary.Get(); present {
@@ -196,7 +196,7 @@ func encodeLabelMutation(label hostsessions.LabelMutation) ([]byte, error) {
 		return nil, errors.New("label target is required")
 	}
 	return encodeLine(mutationRecord{
-		Type: "label", Entry: nil, Navigation: nil,
+		Type: mutationTypeLabel, Entry: nil, Navigation: nil,
 		Label: &labelRecord{TargetID: label.TargetID, Label: label.Label}, SessionInfo: nil,
 	})
 }
@@ -207,7 +207,7 @@ func encodeInformationMutation(information hostsessions.SessionInformationMutati
 		return nil, errors.New("session information is invalid")
 	}
 	return encodeLine(mutationRecord{
-		Type: "session_info", Entry: nil, Navigation: nil, Label: nil,
+		Type: recordTypeSessionInfo, Entry: nil, Navigation: nil, Label: nil,
 		SessionInfo: &sessionInfoRecord{Name: information.Name, CreatedAt: information.CreatedAt.Format(time.RFC3339Nano)},
 	})
 }
