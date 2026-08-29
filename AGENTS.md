@@ -57,7 +57,9 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 2. Following objects MUST contain a comment describing their purpose (exported and non-exported):
     1) Functions
     2) Structures and ALL their fields
-    3) Variables involved in business logic
+    3) Enums and contants
+    4) Variables involved in business logic
+3. Generated code MUST be ignored.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
