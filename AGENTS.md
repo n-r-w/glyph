@@ -12,6 +12,7 @@
 1. `docs/artefacts/`: various artefacts
 2. `docs/specs/features/`: features
 3. `docs/specs/issues/`: issues
+4. `docs/roadmap.md`: project roadmap
 
 ## Tech stack
 1. go 1.26
