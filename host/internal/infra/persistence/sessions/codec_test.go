@@ -60,10 +60,9 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 		}),
 		Diagnostics: nil,
 	}
-	modelEntry := session.Entry{
-		ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+	modelEntry := session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 
 	// Act by round-tripping terminal model and tool-result records through JSONL.
@@ -80,10 +79,9 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	result := agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("tool output"), IsError: false,
 	}
-	toolEntry := session.Entry{
-		ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+	toolEntry := session.Entry{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	encodedTool, err := encodeEntry(toolEntry)
 	require.NoError(t, err)
@@ -105,15 +103,14 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entry := session.Entry{
-				ID: "terminal-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			entry := session.Entry{ParentID: mo.None[string](), ID: "terminal-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 				User: mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: nil, Outcome: mo.Some(test.outcome), ErrorMessage: mo.Some("safe terminal failure"),
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: test.responseID, Usage: test.usage, Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 			encoded, encodeErr := encodeEntry(entry)
 			require.NoError(t, encodeErr)
@@ -143,15 +140,14 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 	}{
 		{
 			name: "ordered user text and image",
-			entry: session.Entry{
-				ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			entry: session.Entry{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 				User: mo.Some(model.Message{Content: []model.InputContent{
 					{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 					{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{0, 10, 255})},
 					{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 				}}),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -163,8 +159,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "visible model content diagnostics and opaque context",
-			entry: session.Entry{
-				ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+			entry: session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 				User: mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: []model.Content{
@@ -177,7 +172,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					Usage:       mo.None[model.Usage](),
 					Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -189,8 +184,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "ordered tool result image",
-			entry: session.Entry{
-				ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+			entry: session.Entry{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "render", IsError: false,
@@ -199,7 +193,7 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 						{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/webp", Data: []byte{3, 2, 1, 0}})},
 					},
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -210,14 +204,13 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "compact extension JSON",
-			entry: session.Entry{
-				ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+			entry: session.Entry{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 				Extension: mo.Some(session.ExtensionEnvelope{
 					ExtensionID: "example.extension", EntryType: "checkpoint",
 					Data: []byte("{\n  \"text\": \"line\\nvalue\", \"items\": [1, 2]\n}"),
-				}), EstimatedCost: mo.None[session.EstimatedCost](),
+				}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -243,27 +236,30 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 	}
 }
 
-// TestAppendEncodingFailureDoesNotAccessFilesystem verifies invalid extension JSON stops before storage.
-func TestAppendEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
+// TestApplyEncodingFailureDoesNotAccessFilesystem verifies invalid extension JSON stops before storage.
+func TestApplyEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a repository with a generated filesystem mock and one invalid extension envelope.
 	fileSystem := NewMockFileSystem(gomock.NewController(t))
 	repository := New(t.TempDir(), t.TempDir(), fileSystem)
 	createdAt := time.Date(2026, 8, 27, 13, 0, 0, 0, time.UTC)
-	command := hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "session", CreatedAt: createdAt, WorkingDirectory: repository.workingDirectory},
+	command := hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "session", CreatedAt: createdAt, WorkingDirectory: repository.workingDirectory},
 		StoragePath: "",
-		Entry: session.Entry{
-			ID: "entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), EstimatedCost: mo.None[session.EstimatedCost](),
-			Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")}),
+		Mutation: hostsessions.Mutation{
+			Entry: mo.Some(session.Entry{ParentID: mo.None[string](), ID: "entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				ToolResult: mo.None[session.ToolResult](), EstimatedCost: mo.None[session.EstimatedCost](),
+				Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+			}),
+			Navigation: mo.None[hostsessions.NavigationMutation](), Label: mo.None[hostsessions.LabelMutation](),
+			SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
 		},
 	}
 
-	// Act by appending an entry that cannot be encoded as compact JSONL.
-	_, err := repository.Append(t.Context(), command)
+	// Act by applying an entry that cannot be encoded as compact JSONL.
+	_, err := repository.Apply(t.Context(), command)
 
 	// Assert encoding fails before the mock filesystem receives any call.
 	require.ErrorContains(t, err, "invalid extension entry")
@@ -314,7 +310,8 @@ func TestDecodeModelContentShape(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				line, err := encodeLine(modelRecord{
-					Type: "model", ID: "entry", CreatedAt: time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
+					Type: "model", ID: "entry", ParentID: nil,
+					CreatedAt: time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
 					Response: modelResponseRecord{
 						Content: []modelContentRecord{modelContentRecordShape(kind, mask)},
 						Outcome: model.OutcomeStop, ErrorMessage: nil, Provider: nil, Model: nil,

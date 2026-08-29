@@ -27,7 +27,7 @@ func TestInitialSessionFileHasExactModeUnderRestrictiveUmask(t *testing.T) {
 
 	// Arrange helper mode or a subprocess configured to enter helper mode.
 	if os.Getenv(restrictiveUmaskHelperEnvironment) == "1" {
-		runRestrictiveUmaskAppend(t)
+		runRestrictiveUmaskApply(t)
 		return
 	}
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestInitialSessionFileHasExactModeUnderRestrictiveUmask$")
@@ -39,7 +39,7 @@ func TestInitialSessionFileHasExactModeUnderRestrictiveUmask(t *testing.T) {
 	require.NoError(t, err, string(output))
 }
 
-func runRestrictiveUmaskAppend(t *testing.T) {
+func runRestrictiveUmaskApply(t *testing.T) {
 	t.Helper()
 	base := t.TempDir()
 	projectPath := filepath.Join(base, "project")
@@ -51,15 +51,15 @@ func runRestrictiveUmaskAppend(t *testing.T) {
 	repository := sessionstore.New(filepath.Join(base, "sessions"), project, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	result, err := repository.Append(t.Context(), hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
+	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](),
 			ID:         "entry", CreatedAt: createdAt,
 			Information: mo.Some(session.Information{Name: "restricted"}),
-			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
+			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		}),
 	})
 	require.NoError(t, err)
 	info, err := os.Stat(result.StoragePath)
@@ -68,5 +68,5 @@ func runRestrictiveUmaskAppend(t *testing.T) {
 	reopened := sessionstore.New(filepath.Join(base, "sessions"), project, sessionfilesystem.New())
 	loaded, err := reopened.Load(t.Context(), "umask")
 	require.NoError(t, err)
-	require.Equal(t, "restricted", loaded.Entries[0].Information.MustGet().Name)
+	require.Equal(t, mo.Some(session.Information{Name: "restricted"}), loaded.Information)
 }

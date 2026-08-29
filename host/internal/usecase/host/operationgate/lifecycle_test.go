@@ -226,16 +226,11 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(hostsessions.LoadedSession{
 		Header: session.Header{
-			Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
+			Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/stored.jsonl",
-		Entries: []session.Entry{
-			{
-				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-				ID: "entry", CreatedAt: createdAt.Add(time.Second),
-				Information: mo.Some(session.Information{Name: "stored"}), EstimatedCost: mo.None[session.EstimatedCost](),
-			}},
+		StoragePath: "/sessions/stored.jsonl", Tree: session.Tree{},
+		Information:          mo.Some(session.Information{Name: "stored"}),
+		InformationUpdatedAt: mo.Some(createdAt.Add(time.Second)),
 	}, nil)
 	response, operation, err = service.Handle(t.Context(), programmaticSessionCommand(
 		"resumed", programmaticcontroller.CommandResumeSession, mo.Some(session.ID("stored")), mo.None[string](),

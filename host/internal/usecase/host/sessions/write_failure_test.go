@@ -16,20 +16,18 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestSetNameAppendFailureMakesOnlyActiveSessionWriteUnavailable verifies snapshot preservation and local write blocking.
-func (s *ServiceSuite) TestSetNameAppendFailureMakesOnlyActiveSessionWriteUnavailable() {
-	// Arrange one successful name append followed by one failed append.
+// TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable verifies snapshot preservation and local write blocking.
+func (s *ServiceSuite) TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable() {
+	// Arrange one successful name mutation followed by one failed mutation.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 	gomock.InOrder(
-		s.ids.EXPECT().NewID().Return("entry-1", nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(time.Minute)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{StoragePath: "/sessions/file.jsonl"}, nil),
-		s.ids.EXPECT().NewID().Return("entry-2", nil),
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(2*time.Minute)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("write failed")),
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("write failed")),
 	)
 
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
@@ -46,8 +44,7 @@ func (s *ServiceSuite) TestSetNameAppendFailureMakesOnlyActiveSessionWriteUnavai
 	s.Equal(mo.Some("stable name"), before.Name)
 	s.Equal(mo.Some("/sessions/file.jsonl"), before.StoragePath)
 	s.Equal(before, service.ActiveInfo())
-	s.Require().Len(service.ActiveEntries(), 1)
-	s.Equal("stable name", service.ActiveEntries()[0].Information.MustGet().Name)
+	s.Empty(service.ActiveEntries())
 	s.Zero(service.ActiveStatistics().TotalMessages)
 	s.Equal(before, service.ActiveInformation().Info)
 
@@ -71,7 +68,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 	s.Require().NoError(err)
 	s.ids.EXPECT().NewID().Return("failed-entry", nil)
 	s.clock.EXPECT().Now().Return(createdAt.Add(time.Second))
-	s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("disk failed"))
+	s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("disk failed"))
 	err = service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("first")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
@@ -93,13 +90,13 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 	resumedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{
 		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: resumedAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl", Entries: nil,
+		StoragePath: "/sessions/stored.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	_, err = service.ResumeActive(s.T().Context(), "stored")
 	s.Require().NoError(err)
 	s.ids.EXPECT().NewID().Return("resumed-entry", nil)
 	s.clock.EXPECT().Now().Return(resumedAt.Add(time.Second))
-	s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{StoragePath: "/sessions/stored.jsonl"}, nil)
+	s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{StoragePath: "/sessions/stored.jsonl"}, nil)
 	err = service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("resumed write")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),

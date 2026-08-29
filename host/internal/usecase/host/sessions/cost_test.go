@@ -203,7 +203,10 @@ func TestResumePreservesStoredCostWithoutPricingLookup(t *testing.T) {
 			Version: formatVersion, ID: "stored", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/stored.jsonl",
-		Entries:     []session.Entry{costStatisticsEntry("provider", "model", mo.Some(storedCost))},
+		Tree: mustSessionTree([]session.Entry{
+			costStatisticsEntry("provider", "model", mo.Some(storedCost)),
+		}),
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
 	repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(loaded, nil)
 	service := New(repository, nil, nil, pricing, "/project")
@@ -236,10 +239,10 @@ func costAppendService(
 	ids.EXPECT().NewID().Return("model-entry", nil)
 	clock.EXPECT().Now().Return(time.Unix(10, 0).UTC())
 	captured := make(chan session.Entry, 1)
-	repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ any, command AppendCommand) (AppendResult, error) {
-			captured <- command.Entry
-			return AppendResult{StoragePath: "/sessions/active.jsonl"}, nil
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ any, command ApplyCommand) (ApplyResult, error) {
+			captured <- command.Mutation.Entry.MustGet()
+			return ApplyResult{StoragePath: "/sessions/active.jsonl"}, nil
 		},
 	)
 	service := New(repository, ids, clock, catalog, "/project")
@@ -247,7 +250,7 @@ func costAppendService(
 		Header: session.Header{
 			Version: formatVersion, ID: "active", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/active.jsonl", Entries: nil,
+		StoragePath: "/sessions/active.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
 	return service, captured
 }
@@ -273,8 +276,7 @@ func costStatisticsEntry(
 	modelID model.ID,
 	estimatedCost mo.Option[session.EstimatedCost],
 ) session.Entry {
-	return session.Entry{
-		ID: string(providerID) + "/" + string(modelID), CreatedAt: time.Unix(10, 0).UTC(),
+	return session.Entry{ParentID: mo.None[string](), ID: string(providerID) + "/" + string(modelID), CreatedAt: time.Unix(10, 0).UTC(),
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.Some(model.Response{
 			Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
@@ -282,7 +284,7 @@ func costStatisticsEntry(
 			ResponseID: mo.None[string](), Usage: mo.Some(model.Usage{}), Diagnostics: nil,
 		}),
 		EstimatedCost: estimatedCost, ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](),
+		Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 

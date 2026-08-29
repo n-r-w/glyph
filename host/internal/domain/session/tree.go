@@ -1,0 +1,234 @@
+package session
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+	"strings"
+
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
+
+// Tree owns parent-linked entries, the active leaf, and entry labels.
+type Tree struct {
+	// entries preserves persistence order across all branches.
+	entries []Entry
+	// index resolves entry identity without exposing mutable aggregate state.
+	index map[string]int
+	// activeLeafID identifies the entry used as parent for the next append.
+	activeLeafID mo.Option[string]
+	// labels stores the latest nonempty label for each target entry.
+	labels map[string]string
+}
+
+// NavigationPreparation contains validated state needed to navigate one tree target.
+type NavigationPreparation struct {
+	// DestinationID identifies the selected conversation position or the implicit root when absent.
+	DestinationID mo.Option[string]
+	// NextInput contains editable user text when a user message is selected.
+	NextInput mo.Option[string]
+	// CommonAncestorID identifies the last entry shared by the active and destination paths.
+	CommonAncestorID mo.Option[string]
+	// AbandonedPath contains active entries after the common ancestor in root-first order.
+	AbandonedPath []Entry
+}
+
+// NewTree validates and owns one complete session-tree snapshot.
+func NewTree(entries []Entry, activeLeafID mo.Option[string], labels map[string]string) (Tree, error) {
+	tree := Tree{
+		entries: make([]Entry, 0, len(entries)), index: make(map[string]int, len(entries)),
+		activeLeafID: mo.None[string](), labels: make(map[string]string, len(labels)),
+	}
+	for index := range entries {
+		if err := tree.add(entries[index], false); err != nil {
+			return Tree{}, fmt.Errorf("add session entry: %w", err)
+		}
+	}
+	if activeLeafID.IsSome() {
+		id := activeLeafID.OrEmpty()
+		if _, exists := tree.index[id]; !exists {
+			return Tree{}, errors.New("active leaf does not exist")
+		}
+		tree.activeLeafID = mo.Some(id)
+	} else if len(entries) != 0 {
+		return Tree{}, errors.New("nonempty tree requires an active leaf")
+	}
+	for id, label := range labels {
+		if _, exists := tree.index[id]; !exists {
+			return Tree{}, fmt.Errorf("label target %q does not exist", id)
+		}
+		if label != "" {
+			tree.labels[id] = label
+		}
+	}
+	return tree, nil
+}
+
+// Add validates and appends one entry as the active leaf.
+func (tree *Tree) Add(entry Entry) error { return tree.add(entry, true) }
+
+// add validates one append without requiring the new entry to extend the current active branch.
+func (tree *Tree) add(entry Entry, advance bool) error {
+	if tree.index == nil {
+		tree.index = make(map[string]int)
+	}
+	if tree.labels == nil {
+		tree.labels = make(map[string]string)
+	}
+	if entry.ID == "" {
+		return errors.New("entry ID is required")
+	}
+	if _, exists := tree.index[entry.ID]; exists {
+		return errors.New("duplicate entry ID")
+	}
+	if parentID, present := entry.ParentID.Get(); present {
+		if _, exists := tree.index[parentID]; !exists {
+			return errors.New("entry parent does not exist")
+		}
+	}
+	payloads := 0
+	for _, present := range []bool{
+		entry.User.IsSome(), entry.Model.IsSome(), entry.ToolResult.IsSome(),
+		entry.Extension.IsSome(), entry.BranchSummary.IsSome(),
+	} {
+		if present {
+			payloads++
+		}
+	}
+	if payloads != 1 || entry.Information.IsSome() || entry.Model.IsNone() && entry.EstimatedCost.IsSome() {
+		return errors.New("entry must contain exactly one tree payload")
+	}
+	owned := cloneTreeEntry(entry)
+	tree.index[owned.ID] = len(tree.entries)
+	tree.entries = append(tree.entries, owned)
+	if advance {
+		tree.activeLeafID = mo.Some(owned.ID)
+	}
+	return nil
+}
+
+// ActiveBranch returns the active path in root-first order.
+func (tree Tree) ActiveBranch() []Entry {
+	path := tree.pathTo(tree.activeLeafID)
+	return cloneTreeEntries(path)
+}
+
+// NavigationPreparation validates one target and derives navigation state.
+func (tree Tree) NavigationPreparation(targetID string) (NavigationPreparation, error) {
+	targetIndex, exists := tree.index[targetID]
+	if !exists {
+		return NavigationPreparation{}, errors.New("navigation target does not exist")
+	}
+	target := tree.entries[targetIndex]
+	destinationID := mo.Some(target.ID)
+	nextInput := mo.None[string]()
+	if user, present := target.User.Get(); present {
+		destinationID = target.ParentID
+		nextInput = mo.Some(userText(user))
+	}
+	activePath := tree.pathTo(tree.activeLeafID)
+	destinationPath := tree.pathTo(destinationID)
+	shared := 0
+	for shared < len(activePath) && shared < len(destinationPath) && activePath[shared].ID == destinationPath[shared].ID {
+		shared++
+	}
+	commonAncestorID := mo.None[string]()
+	if shared > 0 {
+		commonAncestorID = mo.Some(activePath[shared-1].ID)
+	}
+	return NavigationPreparation{
+		DestinationID:    destinationID,
+		NextInput:        nextInput,
+		CommonAncestorID: commonAncestorID,
+		AbandonedPath:    cloneTreeEntries(activePath[shared:]),
+	}, nil
+}
+
+// Entries returns an owned persistence-order snapshot.
+func (tree Tree) Entries() []Entry { return cloneTreeEntries(tree.entries) }
+
+// ActiveLeafID returns the current active leaf when the tree is not empty.
+func (tree Tree) ActiveLeafID() mo.Option[string] { return tree.activeLeafID }
+
+// Labels returns an owned label snapshot keyed by entry ID.
+func (tree Tree) Labels() map[string]string {
+	labels := make(map[string]string, len(tree.labels))
+	maps.Copy(labels, tree.labels)
+	return labels
+}
+
+// SetActiveLeaf validates and changes the entry used for subsequent appends.
+func (tree *Tree) SetActiveLeaf(id mo.Option[string]) error {
+	if id.IsNone() {
+		tree.activeLeafID = mo.None[string]()
+		return nil
+	}
+	value := id.OrEmpty()
+	if _, exists := tree.index[value]; !exists {
+		return errors.New("active leaf does not exist")
+	}
+	tree.activeLeafID = mo.Some(value)
+	return nil
+}
+
+// SetLabel validates and applies the latest label state for one entry.
+func (tree *Tree) SetLabel(id, label string) error {
+	if _, exists := tree.index[id]; !exists {
+		return errors.New("label target does not exist")
+	}
+	if label == "" {
+		delete(tree.labels, id)
+		return nil
+	}
+	tree.labels[id] = label
+	return nil
+}
+
+// pathTo walks parent relations and returns one root-first path.
+func (tree Tree) pathTo(id mo.Option[string]) []Entry {
+	if id.IsNone() {
+		return nil
+	}
+	path := make([]Entry, 0)
+	current := id
+	for current.IsSome() {
+		entry := tree.entries[tree.index[current.OrEmpty()]]
+		path = append(path, entry)
+		current = entry.ParentID
+	}
+	for left, right := 0, len(path)-1; left < right; left, right = left+1, right-1 {
+		path[left], path[right] = path[right], path[left]
+	}
+	return path
+}
+
+// userText preserves ordered text blocks for editable next input.
+func userText(message model.Message) string {
+	parts := make([]string, 0, len(message.Content))
+	for _, content := range message.Content {
+		if text, present := content.Text.Get(); present {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+// cloneTreeEntries prevents callers from mutating extension-owned byte slices.
+func cloneTreeEntries(entries []Entry) []Entry {
+	result := make([]Entry, len(entries))
+	for index := range entries {
+		result[index] = cloneTreeEntry(entries[index])
+	}
+	return result
+}
+
+// cloneTreeEntry owns mutable payload bytes carried by one entry.
+func cloneTreeEntry(entry Entry) Entry {
+	if extension, present := entry.Extension.Get(); present {
+		extension.Data = append([]byte(nil), extension.Data...)
+		entry.Extension = mo.Some(extension)
+	}
+	return entry
+}

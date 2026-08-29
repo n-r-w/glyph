@@ -66,6 +66,8 @@ type ExtensionEnvelope struct {
 type Entry struct {
 	// ID uniquely identifies this record within the session.
 	ID string
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID mo.Option[string]
 	// CreatedAt determines the record update time without filesystem metadata.
 	CreatedAt time.Time
 	// Information contains the name change carried by this lifecycle entry.
@@ -80,6 +82,28 @@ type Entry struct {
 	ToolResult mo.Option[ToolResult]
 	// Extension contains one session-only extension entry.
 	Extension mo.Option[ExtensionEnvelope]
+	// BranchSummary contains one persisted abandoned-branch summary.
+	BranchSummary mo.Option[BranchSummaryEntry]
+}
+
+// BranchSummaryEntry stores summary text and its unresolved source provenance.
+type BranchSummaryEntry struct {
+	// Summary contains model-generated abandoned-branch context.
+	Summary string
+	// FirstEntryID identifies the first abandoned entry.
+	FirstEntryID string
+	// LastEntryID identifies the last abandoned entry.
+	LastEntryID string
+	// Provider identifies the configured summary provider.
+	Provider model.ProviderID
+	// Model identifies the configured summary model.
+	Model model.ID
+	// ReasoningChoice identifies the configured summary reasoning behavior.
+	ReasoningChoice model.ReasoningChoice
+	// Usage contains normalized provider usage when reported.
+	Usage mo.Option[TokenUsage]
+	// EstimatedCost contains persisted summary cost when calculable.
+	EstimatedCost mo.Option[EstimatedCost]
 }
 
 // Replacement is one atomic active-session identity and durable transcript snapshot.

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 type ServiceSuite struct {
@@ -28,6 +29,25 @@ func TestServiceSuite(t *testing.T) {
 
 	// Assert through the scenario assertions and mock expectations owned by the suite.
 	suite.Run(t, new(ServiceSuite))
+}
+
+// mustSessionTree creates one validated test aggregate with the final entry active.
+func mustSessionTree(entries []session.Entry) session.Tree {
+	owned := cloneEntries(entries)
+	for index := 1; index < len(owned); index++ {
+		if owned[index].ParentID.IsNone() {
+			owned[index].ParentID = mo.Some(owned[index-1].ID)
+		}
+	}
+	activeLeafID := mo.None[string]()
+	if len(owned) > 0 {
+		activeLeafID = mo.Some(owned[len(owned)-1].ID)
+	}
+	tree, err := session.NewTree(owned, activeLeafID, nil)
+	if err != nil {
+		panic(err)
+	}
+	return tree
 }
 
 func (s *ServiceSuite) SetupTest() {

@@ -19,8 +19,8 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation verifies durability precedes active publication.
-func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
+// TestNameMutationOrdersModeWriteSyncCloseBeforeActiveMutation verifies durability precedes active publication.
+func TestNameMutationOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 	t.Parallel()
 
 	// Arrange the active service and ordered filesystem expectations.
@@ -44,13 +44,12 @@ func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 
 	steps := make([]string, 0, 6)
 	gomock.InOrder(
-		ids.EXPECT().NewID().Return("entry-id", nil),
 		clock.EXPECT().Now().Return(updatedAt),
-		repositoryMock.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, command hostsessions.AppendCommand) (hostsessions.AppendResult, error) {
-				result, appendErr := repository.Append(ctx, command)
+		repositoryMock.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, command hostsessions.ApplyCommand) (hostsessions.ApplyResult, error) {
+				result, applyErr := repository.Apply(ctx, command)
 				steps = append(steps, "repository return")
-				return result, appendErr
+				return result, applyErr
 			},
 		),
 		fileSystem.EXPECT().OpenFile(repository.projectDirectory, gomock.Any(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(fileMode)).DoAndReturn(
@@ -89,8 +88,8 @@ func TestNameAppendOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) {
 	require.True(t, info.StoragePath.IsPresent())
 }
 
-// TestNameAppendFailuresPreserveActiveState verifies each initial-write failure keeps the active snapshot unchanged.
-func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
+// TestNameMutationFailuresPreserveActiveState verifies each initial-write failure keeps the active snapshot unchanged.
+func TestNameMutationFailuresPreserveActiveState(t *testing.T) {
 	t.Parallel()
 
 	// Arrange each filesystem failure stage as an independent scenario.
@@ -112,11 +111,10 @@ func TestNameAppendFailuresPreserveActiveState(t *testing.T) {
 			clock.EXPECT().Now().Return(createdAt)
 			require.NoError(t, active.Initialize(t.Context()))
 			before := active.ActiveInfo()
-			ids.EXPECT().NewID().Return("entry-id", nil)
 			clock.EXPECT().Now().Return(createdAt.Add(time.Second))
-			expectInitialAppendFailure(t, stage, repository, fileSystem, file)
+			expectInitialApplyFailure(t, stage, repository, fileSystem, file)
 
-			// Act by assigning a name through the failing append stage.
+			// Act by assigning a name through the failing mutation stage.
 			_, err = active.SetActiveName(t.Context(), "must not commit")
 
 			// Assert the error leaves active identity and storage unchanged.

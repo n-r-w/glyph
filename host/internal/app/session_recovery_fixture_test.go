@@ -87,14 +87,14 @@ func writeSessionRecoveryFixture(t *testing.T, storagePath, workingDirectory str
 			cwd,
 		)
 	}
-	malformed := header(1, fixture.malformedID, workingDirectory) + `{"type":"session_info"` + "\n"
+	malformed := header(2, fixture.malformedID, workingDirectory) + `{"type":"session_info"` + "\n"
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "malformed.jsonl"), []byte(malformed), 0o600))
-	wrongCWD := header(1, fixture.wrongCWDID, filepath.Join(string(filepath.Separator), "wrong-project"))
+	wrongCWD := header(2, fixture.wrongCWDID, filepath.Join(string(filepath.Separator), "wrong-project"))
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "wrong-cwd.jsonl"), []byte(wrongCWD), 0o600))
-	unsupported := header(2, fixture.unsupportedID, workingDirectory)
+	unsupported := header(1, fixture.unsupportedID, workingDirectory)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "unsupported.jsonl"), []byte(unsupported), 0o600))
-	user := `{"type":"user","id":"preceding-entry","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"preceding tail text"}]}}` + "\n"
-	interrupted := header(1, fixture.interruptedID, workingDirectory) + user + `{"type":"model","id":"interrupted-entry"`
+	user := `{"type":"entry","entry":{"type":"user","id":"preceding-entry","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"preceding tail text"}]}}}` + "\n"
+	interrupted := header(2, fixture.interruptedID, workingDirectory) + user + `{"type":"entry","entry":{"type":"model","id":"interrupted-entry"`
 	require.NoError(t, os.WriteFile(fixture.interruptedPath, []byte(interrupted), 0o640))
 	return fixture
 }

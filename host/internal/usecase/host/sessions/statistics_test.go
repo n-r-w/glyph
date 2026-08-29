@@ -46,17 +46,11 @@ func TestActiveStatisticsCountsTerminalEntriesAndCompleteUsage(t *testing.T) {
 		testStatisticsUserEntry(),
 		testStatisticsModelEntry(model.OutcomeFailed, mo.Some(usage), 2),
 		testStatisticsToolResultEntry(),
-		{
-			ID: "information", CreatedAt: time.Time{}, Information: mo.Some(session.Information{Name: "name"}),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-		},
-		{
-			ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}), EstimatedCost: mo.None[session.EstimatedCost](),
+			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 	}
 	service := serviceWithEntries(entries)
@@ -85,24 +79,19 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 		testStatisticsUserEntry(),
 		testStatisticsModelEntry(model.OutcomeFailed, mo.None[model.Usage](), 0),
 		testStatisticsToolResultEntry(),
-		{
-			ID: "information", CreatedAt: time.Time{}, Information: mo.Some(session.Information{Name: "name"}),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-		},
-		{
-			ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}), EstimatedCost: mo.None[session.EstimatedCost](),
+			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 	}
 	loaded := LoadedSession{
 		Header: session.Header{
 			Version: 1, ID: "stored", CreatedAt: time.Time{}, WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/stored.jsonl", Entries: entries,
+		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(entries),
+		Information: mo.Some(session.Information{Name: "name"}), InformationUpdatedAt: mo.Some(time.Time{}),
 	}
 	repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{loaded}, nil)
 	service := New(repository, nil, nil, nil, "/project")
@@ -138,12 +127,12 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 	releaseRepository := make(chan struct{})
 	ids.EXPECT().NewID().Return("user-entry", nil)
 	clock.EXPECT().Now().Return(updatedAt)
-	repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, command AppendCommand) (AppendResult, error) {
-			assert.Equal(t, "request", command.Entry.User.MustGet().Content[0].Text.MustGet())
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+			assert.Equal(t, "request", command.Mutation.Entry.MustGet().User.MustGet().Content[0].Text.MustGet())
 			close(repositoryReached)
 			<-releaseRepository
-			return AppendResult{StoragePath: "/sessions/active-updated.jsonl"}, nil
+			return ApplyResult{StoragePath: "/sessions/active-updated.jsonl"}, nil
 		},
 	)
 	service := New(repository, ids, clock, nil, "/project")
@@ -151,7 +140,7 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 		Header: session.Header{
 			Version: 1, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/active.jsonl", Entries: nil,
+		StoragePath: "/sessions/active.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
 	appendDone := make(chan error, 1)
 	informationStarted := make(chan struct{})
@@ -204,6 +193,7 @@ func TestActiveStatisticsMakesTokensUnavailableWhenAnyModelUsageIsAbsent(t *test
 		testStatisticsModelEntry(model.OutcomeStop, mo.Some(model.Usage{}), 0),
 		testStatisticsModelEntry(model.OutcomeFailed, mo.None[model.Usage](), 0),
 	}
+	entries[1].ID = "model-without-usage"
 	service := serviceWithEntries(entries)
 
 	// Act by deriving statistics from the mixed-availability entries.
@@ -237,16 +227,16 @@ func TestActiveStatisticsKeepsPresentZeroUsageAvailable(t *testing.T) {
 func serviceWithEntries(entries []session.Entry) *Service {
 	service := New(nil, nil, nil, nil, "")
 	service.active = LoadedSession{
-		Header: session.Header{}, StoragePath: "", Entries: entries,
+		Header: session.Header{}, StoragePath: "", Tree: mustSessionTree(entries),
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
 	return service
 }
 
 func testStatisticsUserEntry() session.Entry {
-	return session.Entry{
-		ID: "user", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+	return session.Entry{ParentID: mo.None[string](), ID: "user", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 		User: mo.Some(model.TextMessage("request")), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 
@@ -260,24 +250,22 @@ func testStatisticsModelEntry(outcome model.Outcome, usage mo.Option[model.Usage
 			}),
 		})
 	}
-	return session.Entry{
-		ID: "model", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+	return session.Entry{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(model.Response{
 			Content: content, Outcome: mo.Some(outcome), ErrorMessage: mo.None[string](),
 			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
 			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: usage, Diagnostics: nil,
 		}),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 
 func testStatisticsToolResultEntry() session.Entry {
-	return session.Entry{
-		ID: "tool", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
+	return session.Entry{ParentID: mo.None[string](), ID: "tool", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 		ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call", ToolName: "tool", Contents: nil, IsError: false,
 		}),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }

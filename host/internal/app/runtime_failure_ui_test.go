@@ -462,12 +462,12 @@ func signalRuntimeRelease(path string) error {
 func writeRuntimeInterruptedSession(ctx context.Context, active sessionInfoObservation) error {
 	path := filepath.Join(filepath.Dir(active.StoragePath), "runtime-interrupted.jsonl")
 	header := fmt.Sprintf(
-		`{"type":"session","version":1,"id":%q,"createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+		`{"type":"session","version":2,"id":%q,"createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
 		runtimeInterruptedSessionID,
 		active.WorkingDirectory,
 	)
-	user := `{"type":"user","id":"runtime-preceding","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"runtime preceding"}]}}` + "\n"
-	if err := os.WriteFile(path, []byte(header+user+`{"type":"model"`), 0o600); err != nil {
+	user := `{"type":"entry","entry":{"type":"user","id":"runtime-preceding","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"runtime preceding"}]}}}` + "\n"
+	if err := os.WriteFile(path, []byte(header+user+`{"type":"entry","entry":{"type":"model"`), 0o600); err != nil {
 		return err
 	}
 	command := exec.CommandContext(ctx, "/usr/bin/chflags", "uchg", path)

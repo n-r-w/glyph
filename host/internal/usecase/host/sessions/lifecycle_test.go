@@ -98,24 +98,22 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 	s.repository.EXPECT().Initialize(gomock.Any()).Return(nil)
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
-	s.ids.EXPECT().NewID().Return("entry-id", nil)
 	s.clock.EXPECT().Now().Return(updatedAt)
-	s.repository.EXPECT().Append(gomock.Any(), AppendCommand{
+	s.repository.EXPECT().Apply(gomock.Any(), ApplyCommand{
 		Header: session.Header{
-			Version:          1,
+			Version:          2,
 			ID:               "session-id",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
 		},
 		StoragePath: "",
-		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult:  mo.None[session.ToolResult](),
-			ID:          "entry-id",
-			CreatedAt:   updatedAt,
-			Information: mo.Some(session.Information{Name: "release notes"}),
-			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
-	}).Return(AppendResult{StoragePath: "/sessions/file.jsonl"}, nil)
+		Mutation: Mutation{
+			Entry: mo.None[session.Entry](), Navigation: mo.None[NavigationMutation](),
+			Label: mo.None[LabelMutation](), SessionInformation: mo.Some(SessionInformationMutation{
+				Name: "release notes", CreatedAt: updatedAt,
+			}),
+		},
+	}).Return(ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil)
 
 	// Act by initializing the service and setting a whitespace-heavy name.
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
@@ -146,9 +144,9 @@ func (s *ServiceSuite) TestSetNameRejectsWhitespaceWithoutPersistence() {
 	s.Equal(mo.None[string](), service.ActiveInfo().Name)
 }
 
-// TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps verifies each name update owns a new entry identity and time.
-func (s *ServiceSuite) TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps() {
-	// Arrange two ordered name updates with distinct IDs and timestamps.
+// TestSetNameUsesSuppliedTimestamps verifies each name update keeps its mutation time.
+func (s *ServiceSuite) TestSetNameUsesSuppliedTimestamps() {
+	// Arrange two ordered name updates with distinct timestamps.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	firstUpdate := createdAt.Add(time.Minute)
 	secondUpdate := createdAt.Add(2 * time.Minute)
@@ -156,23 +154,19 @@ func (s *ServiceSuite) TestSetNameUsesUniqueEntryIDsAndSuppliedTimestamps() {
 	s.ids.EXPECT().NewID().Return("session-id", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 	gomock.InOrder(
-		s.ids.EXPECT().NewID().Return("entry-1", nil),
 		s.clock.EXPECT().Now().Return(firstUpdate),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal("entry-1", command.Entry.ID)
-				s.Equal(firstUpdate, command.Entry.CreatedAt)
-				return AppendResult{StoragePath: "/sessions/file.jsonl"}, nil
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal(firstUpdate, command.Mutation.SessionInformation.MustGet().CreatedAt)
+				return ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil
 			},
 		),
-		s.ids.EXPECT().NewID().Return("entry-2", nil),
 		s.clock.EXPECT().Now().Return(secondUpdate),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal("entry-2", command.Entry.ID)
-				s.Equal(secondUpdate, command.Entry.CreatedAt)
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal(secondUpdate, command.Mutation.SessionInformation.MustGet().CreatedAt)
 				s.Equal("/sessions/file.jsonl", command.StoragePath)
-				return AppendResult{StoragePath: command.StoragePath}, nil
+				return ApplyResult{StoragePath: command.StoragePath}, nil
 			},
 		),
 	)
@@ -196,9 +190,9 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	// Arrange stored unnamed sessions with tied and distinct update times.
 	base := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
-		{Header: session.Header{Version: 1, ID: "older", CreatedAt: base, WorkingDirectory: "/project"}, StoragePath: "/older.jsonl", Entries: nil},
-		{Header: session.Header{Version: 1, ID: "z-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/z.jsonl", Entries: nil},
-		{Header: session.Header{Version: 1, ID: "a-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/a.jsonl", Entries: nil},
+		{Header: session.Header{Version: 1, ID: "older", CreatedAt: base, WorkingDirectory: "/project"}, StoragePath: "/older.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
+		{Header: session.Header{Version: 1, ID: "z-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/z.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
+		{Header: session.Header{Version: 1, ID: "a-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/a.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
@@ -224,30 +218,28 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
 		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
 		StoragePath: "/sessions/stored.jsonl",
-		Entries: []session.Entry{
-			{
-				ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree([]session.Entry{
+			{ParentID: mo.None[string](), ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 				User: mo.Some(model.TextMessage("question")), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
-			{
-				ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+			{ParentID: mo.None[string](), ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 				User: mo.None[session.UserMessage](), Model: mo.Some(model.Response{
 					Content: nil, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
-			{
-				ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
+			{ParentID: mo.None[string](), ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
 				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
-		},
+		}),
 	}}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
@@ -262,29 +254,21 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 
 // TestResumeReturnsIndependentSnapshot verifies source and replacement mutations cannot alter active metadata.
 func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
-	// Arrange a stored session with caller-owned entry metadata.
+	// Arrange a stored session with caller-owned session information.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
-	entries := []session.Entry{
-		{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
-			Information: mo.Some(session.Information{Name: "stored name"}), EstimatedCost: mo.None[session.EstimatedCost](),
-		}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
-		Header:      session.Header{Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl",
-		Entries:     entries,
+		Header:      session.Header{Version: 2, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
+		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(nil),
+		Information:          mo.Some(session.Information{Name: "stored name"}),
+		InformationUpdatedAt: mo.Some(createdAt.Add(time.Minute)),
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming and mutating source and returned replacement values.
 	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
 	s.Require().NoError(err)
-	s.Require().Len(replacement.Entries, 1)
-	entries[0].Information = mo.Some(session.Information{Name: "mutated source"})
+	s.Empty(replacement.Entries)
 	replacement.Info.Name = mo.Some("mutated result")
-	replacement.Entries[0].Information = mo.Some(session.Information{Name: "mutated replacement"})
 	// Assert the active session retains independently owned metadata.
 	active := service.ActiveInfo()
 	s.Equal(session.ID("stored-id"), active.ID)
@@ -298,19 +282,19 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 	createdAt := time.Date(2026, 8, 27, 4, 0, 0, 0, time.UTC)
 	want := []byte(`{"checkpoint":true}`)
 	repositoryBytes := append([]byte(nil), want...)
-	entries := []session.Entry{{
-		ID: "extension-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+	entries := []session.Entry{{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: "example.extension", EntryType: "checkpoint", Data: repositoryBytes,
-		}), EstimatedCost: mo.None[session.EstimatedCost](),
+		}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header: session.Header{
 			Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/stored.jsonl", Entries: entries,
+		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(entries),
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
@@ -350,11 +334,14 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 					Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
 				},
 				StoragePath: "/sessions/stored.jsonl",
-				Entries: []session.Entry{{
-					ID: "stored-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-					User: mo.Some(model.TextMessage("stored text")), Model: mo.None[model.Response](),
-					ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-				}},
+				Tree: mustSessionTree([]session.Entry{{
+					ParentID: mo.None[string](), ID: "stored-entry", CreatedAt: createdAt,
+					Information: mo.None[session.Information](), User: mo.Some(model.TextMessage("stored text")),
+					Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+					Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+					BranchSummary: mo.None[session.BranchSummaryEntry](),
+				}}),
+				Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 			}, nil
 		},
 	)
@@ -368,11 +355,11 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 
 	s.ids.EXPECT().NewID().Return("appended-entry", nil)
 	s.clock.EXPECT().Now().Return(createdAt.Add(time.Minute))
-	var appendCommand AppendCommand
-	s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, command AppendCommand) (AppendResult, error) {
+	var appendCommand ApplyCommand
+	s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
 			appendCommand = command
-			return AppendResult{StoragePath: "/sessions/stored.jsonl"}, nil
+			return ApplyResult{StoragePath: "/sessions/stored.jsonl"}, nil
 		},
 	)
 	appendStarted := make(chan struct{})

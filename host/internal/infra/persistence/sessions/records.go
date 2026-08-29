@@ -40,6 +40,8 @@ type userRecord struct {
 	Type string `json:"type"`
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID *string `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Message contains ordered provider-neutral user content.
@@ -68,6 +70,8 @@ type modelRecord struct {
 	Type string `json:"type"`
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID *string `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Response contains one terminal model response.
@@ -170,6 +174,8 @@ type toolResultRecord struct {
 	Type string `json:"type"`
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID *string `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// Result contains one terminal tool result.
@@ -204,6 +210,8 @@ type extensionRecord struct {
 	Type string `json:"type"`
 	// ID uniquely identifies this append.
 	ID string `json:"id"`
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID *string `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
 	// ExtensionID identifies the extension that owns the entry.
@@ -212,6 +220,88 @@ type extensionRecord struct {
 	EntryType string `json:"entryType"`
 	// Data contains extension-owned JSON.
 	Data json.RawMessage `json:"data"`
+}
+
+// branchSummaryRecord stores one abandoned-branch summary entry.
+type branchSummaryRecord struct {
+	// Type must be "branch_summary".
+	Type string `json:"type"`
+	// ID uniquely identifies this entry.
+	ID string `json:"id"`
+	// ParentID identifies the navigation destination or the implicit root when absent.
+	ParentID *string `json:"parentId"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// Summary contains the persisted model-generated text.
+	Summary string `json:"summary"`
+	// FirstEntryID identifies the first abandoned entry.
+	FirstEntryID string `json:"firstEntryId"`
+	// LastEntryID identifies the last abandoned entry.
+	LastEntryID string `json:"lastEntryId"`
+	// Provider identifies the configured summary provider.
+	Provider string `json:"provider"`
+	// Model identifies the configured summary model.
+	Model string `json:"model"`
+	// ReasoningChoice identifies the configured reasoning behavior.
+	ReasoningChoice model.ReasoningChoice `json:"reasoningChoice"`
+	// Usage contains normalized usage when reported.
+	Usage *sessionUsageRecord `json:"usage,omitempty"`
+	// EstimatedCost contains persisted summary cost when calculable.
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitempty"`
+}
+
+// sessionUsageRecord stores normalized usage field names used by session accounting.
+type sessionUsageRecord struct {
+	// InputTokens contains uncached input tokens.
+	InputTokens int64 `json:"inputTokens"`
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64 `json:"outputTokens"`
+	// CacheReadTokens contains cache-read tokens.
+	CacheReadTokens int64 `json:"cacheReadTokens"`
+	// CacheWriteTokens contains cache creation tokens.
+	CacheWriteTokens int64 `json:"cacheWriteTokens"`
+	// ReasoningTokens contains the reasoning subset of output tokens.
+	ReasoningTokens int64 `json:"reasoningTokens"`
+	// TotalTokens contains the sum of disjoint token buckets.
+	TotalTokens int64 `json:"totalTokens"`
+}
+
+// mutationRecord stores exactly one version 2 aggregate mutation.
+type mutationRecord struct {
+	// Type identifies the selected mutation payload.
+	Type string `json:"type"`
+	// Entry contains one complete tree entry.
+	Entry *json.RawMessage `json:"entry,omitempty"`
+	// Navigation contains one active-leaf change.
+	Navigation *navigationRecord `json:"navigation,omitempty"`
+	// Label contains one label change.
+	Label *labelRecord `json:"label,omitempty"`
+	// SessionInfo contains one session-information change.
+	SessionInfo *sessionInfoRecord `json:"sessionInfo,omitempty"`
+}
+
+// navigationRecord stores a destination and optional embedded summary entry.
+type navigationRecord struct {
+	// DestinationID identifies an entry or the implicit root when absent.
+	DestinationID *string `json:"destinationId"`
+	// BranchSummary contains an optional encoded branch-summary entry.
+	BranchSummary *json.RawMessage `json:"branchSummary,omitempty"`
+}
+
+// labelRecord stores the latest label state for one entry.
+type labelRecord struct {
+	// TargetID identifies the labeled entry.
+	TargetID string `json:"targetId"`
+	// Label contains the replacement label or clears it when empty.
+	Label string `json:"label"`
+}
+
+// sessionInfoRecord stores normalized session metadata.
+type sessionInfoRecord struct {
+	// Name contains the normalized session name.
+	Name string `json:"name"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
 }
 
 // recordType reads only the discriminator used to select the current record shape.

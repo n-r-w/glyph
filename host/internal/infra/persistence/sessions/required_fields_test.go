@@ -69,7 +69,7 @@ func TestLoadRejectsMissingRequiredNestedCoreFields(t *testing.T) {
 			repository, projectDirectory, cwd := newValidationRepository(t)
 			record := test.record()
 			deleteRequiredField(t, record, test.path)
-			encoded, err := json.Marshal(record)
+			encoded, err := json.Marshal(map[string]any{"type": "entry", "entry": record})
 			require.NoError(t, err)
 			content := []byte(fmt.Sprintf(validHeader, cwd) + string(encoded) + "\n")
 			path := filepath.Join(projectDirectory, "stored.jsonl")
@@ -111,7 +111,7 @@ func TestLoadRejectsNullOptionalCoreObjects(t *testing.T) {
 			repository, projectDirectory, cwd := newValidationRepository(t)
 			record := requiredModelRecord()
 			test.mutate(record)
-			encoded, err := json.Marshal(record)
+			encoded, err := json.Marshal(map[string]any{"type": "entry", "entry": record})
 			require.NoError(t, err)
 			content := fmt.Appendf(nil, validHeader, cwd)
 			content = append(content, encoded...)
@@ -175,7 +175,7 @@ func TestRequiredFieldValidationPreservesAllowedZeroAndContainerStates(t *testin
 			}
 			content := fmt.Appendf(nil, validHeader, cwd)
 			for _, record := range []map[string]any{modelRecord, toolRecord, userRecord} {
-				encoded, err := json.Marshal(record)
+				encoded, err := json.Marshal(map[string]any{"type": "entry", "entry": record})
 				require.NoError(t, err)
 				content = append(content, encoded...)
 				content = append(content, '\n')
@@ -187,15 +187,15 @@ func TestRequiredFieldValidationPreservesAllowedZeroAndContainerStates(t *testin
 
 			// Assert zero scalars remain present and nil versus empty container states remain distinct.
 			require.NoError(t, err)
-			require.Len(t, loaded.Entries, 3)
-			modelValue := loaded.Entries[0].Model.MustGet()
+			require.Len(t, loaded.Tree.Entries(), 3)
+			modelValue := loaded.Tree.Entries()[0].Model.MustGet()
 			assert.Equal(t, int64(0), modelValue.Usage.MustGet().TotalTokens)
-			assert.Zero(t, loaded.Entries[0].EstimatedCost.MustGet().Total)
+			assert.Zero(t, loaded.Tree.Entries()[0].EstimatedCost.MustGet().Total)
 			assert.Empty(t, modelValue.Content[0].Text.MustGet())
 			providerPayload := modelValue.Content[1].ProviderContext.MustGet().Payload
 			toolArguments := modelValue.Content[2].ToolCall.MustGet().Arguments
-			toolValue := loaded.Entries[1].ToolResult.MustGet()
-			userValue := loaded.Entries[2].User.MustGet()
+			toolValue := loaded.Tree.Entries()[1].ToolResult.MustGet()
+			userValue := loaded.Tree.Entries()[2].User.MustGet()
 			assert.False(t, toolValue.IsError)
 			if test.emptyState {
 				assert.NotNil(t, providerPayload)

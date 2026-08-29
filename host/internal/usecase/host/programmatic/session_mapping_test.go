@@ -105,29 +105,25 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 		{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 	}}
 	entries := []session.Entry{
-		{
-			ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{
-			ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{
-			ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{
-			ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "example.extension", EntryType: "checkpoint", Data: []byte(`{"private":true}`),
 			}),
-			EstimatedCost: mo.None[session.EstimatedCost](),
+			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 	}
 

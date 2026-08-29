@@ -187,10 +187,9 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 
 	// Arrange session control to return an invalid stored model response.
 	control := NewMockSessionControl(gomock.NewController(t))
-	control.EXPECT().Entries().Return([]session.Entry{{
-		ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
+	control.EXPECT().Entries().Return([]session.Entry{{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
 		User: mo.None[session.UserMessage](), Model: mo.Some(invalidStoredModelResponse()),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}})
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 

@@ -129,11 +129,11 @@ func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
 	// Act by preparing and sending the SessionChanged frame.
 	err := NewSession(channel, nil, nil, nil, nil, nil).sendSessionChanged(session.Replacement{
 		Info: testSessionInfo("stored"),
-		Entries: []session.Entry{{
-			ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
+		Entries: []session.Entry{{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			EstimatedCost: mo.None[session.EstimatedCost](),
+			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		}},
 	})
 
@@ -152,12 +152,13 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	infoA := testSessionInfo("session-a")
 	infoB := testSessionInfo("session-b")
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	entryB := session.Entry{
-		ID: "entry-b", CreatedAt: createdAt, Information: mo.None[session.Information](),
+	entryB := session.Entry{ParentID: mo.None[string](), ID: "entry-b", CreatedAt: createdAt, Information: mo.None[session.Information](),
 		User:       mo.Some(model.TextMessage("session-b-text")),
 		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](),
-		Extension:  mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()}
+		Extension:  mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
+	}
 	firstReplacementReady := make(chan struct{})
 	releaseFirstReplacement := make(chan struct{})
 	control.EXPECT().Create(gomock.Any()).DoAndReturn(func(context.Context) (session.Replacement, error) {
@@ -236,29 +237,29 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 	}}
 	// Act by creating the confirmed replacement frame.
 	frame, err := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
-		{
-			ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
 			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
+		{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "example", EntryType: "private", Data: []byte(`{"private":true}`),
 			}),
-			EstimatedCost: mo.None[session.EstimatedCost](),
+			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
 	})
 

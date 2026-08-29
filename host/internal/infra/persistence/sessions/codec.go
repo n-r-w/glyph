@@ -18,7 +18,7 @@ import (
 func encodeEntry(entry session.Entry) ([]byte, error) {
 	variants := []bool{
 		entry.Information.IsSome(), entry.User.IsSome(), entry.Model.IsSome(),
-		entry.ToolResult.IsSome(), entry.Extension.IsSome(),
+		entry.ToolResult.IsSome(), entry.Extension.IsSome(), entry.BranchSummary.IsSome(),
 	}
 	selected := 0
 	for _, present := range variants {
@@ -38,13 +38,17 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 			CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Name: information.Name,
 		})
 	}
+	if summary, ok := entry.BranchSummary.Get(); ok {
+		return encodeBranchSummaryEntry(entry, summary)
+	}
 	if user, ok := entry.User.Get(); ok {
 		message, err := encodeUserMessage(user)
 		if err != nil {
 			return nil, err
 		}
 		return encodeLine(userRecord{
-			Type: "user", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Message: &message,
+			Type: "user", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+			CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Message: &message,
 		})
 	}
 	if response, ok := entry.Model.Get(); ok {
@@ -59,9 +63,46 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	}
 	// Clone opaque extension bytes before framing them as compact JSON.
 	return encodeLine(extensionRecord{
-		Type: "extension", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
+		Type: "extension", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		CreatedAt:   entry.CreatedAt.Format(time.RFC3339Nano),
 		ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
 		Data: json.RawMessage(bytes.Clone(extension.Data)),
+	})
+}
+
+// encodeBranchSummaryEntry validates and encodes one complete summary payload.
+func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummaryEntry) ([]byte, error) {
+	if summary.Summary == "" || summary.FirstEntryID == "" || summary.LastEntryID == "" ||
+		summary.Provider == "" || summary.Model == "" || !validReasoningChoice(summary.ReasoningChoice) {
+		return nil, errors.New("invalid branch summary entry")
+	}
+	var usage *sessionUsageRecord
+	if value, present := summary.Usage.Get(); present {
+		if !validTokenUsage(value) {
+			return nil, errors.New("invalid branch summary usage")
+		}
+		usage = &sessionUsageRecord{
+			InputTokens: value.InputTokens, OutputTokens: value.OutputTokens,
+			CacheReadTokens: value.CacheReadTokens, CacheWriteTokens: value.CacheWriteTokens,
+			ReasoningTokens: value.ReasoningTokens, TotalTokens: value.TotalTokens,
+		}
+	}
+	var estimatedCost *estimatedCostRecord
+	if cost, present := summary.EstimatedCost.Get(); present {
+		if !validEstimatedCost(cost) {
+			return nil, errors.New("invalid branch summary cost")
+		}
+		estimatedCost = &estimatedCostRecord{
+			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+		}
+	}
+	return encodeLine(branchSummaryRecord{
+		Type: "branch_summary", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: summary.Summary,
+		FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
+		Provider: string(summary.Provider), Model: string(summary.Model), ReasoningChoice: summary.ReasoningChoice,
+		Usage: usage, EstimatedCost: estimatedCost,
 	})
 }
 
@@ -114,8 +155,8 @@ func encodeModelEntry(entry session.Entry, response model.Response) ([]byte, err
 		}
 	}
 	return encodeLine(modelRecord{
-		Type: "model", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
-		Response: record, EstimatedCost: estimatedCost,
+		Type: "model", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Response: record, EstimatedCost: estimatedCost,
 	})
 }
 
@@ -136,7 +177,8 @@ func encodeToolResultEntry(entry session.Entry, result agent.ToolResult) ([]byte
 		contents = append(contents, content)
 	}
 	return encodeLine(toolResultRecord{
-		Type: "tool_result", ID: entry.ID, CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
+		Type: "tool_result", ID: entry.ID, ParentID: optionStringPointer(entry.ParentID),
+		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
 		Result: toolResultValue{
 			CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
 		},

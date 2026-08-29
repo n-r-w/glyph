@@ -35,10 +35,10 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		return base.Add(time.Duration(timeIndex) * time.Second)
 	}).AnyTimes()
 	persisted := make([]session.Entry, 0, 4)
-	s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, command AppendCommand) (AppendResult, error) {
-			persisted = append(persisted, command.Entry)
-			return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+	s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+			persisted = append(persisted, command.Mutation.Entry.MustGet())
+			return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 		},
 	).AnyTimes()
 	// Act by reconstructing the session, mutating escaped snapshots, and taking the next provider snapshot.
@@ -116,7 +116,8 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		Header: session.Header{
 			Version: 1, ID: "session-id", CreatedAt: base.Add(time.Second), WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/history.jsonl", Entries: persisted,
+		StoragePath: "/sessions/history.jsonl", Tree: mustSessionTree(persisted),
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	restarted := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	_, err := restarted.ResumeActive(s.T().Context(), "session-id")

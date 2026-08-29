@@ -13,6 +13,7 @@ import (
 
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -69,9 +70,9 @@ func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {
 	require.NoError(t, os.Chmod(path, 0o600))
 	recoveryInfo, err := os.Stat(path)
 	require.NoError(t, err)
-	header := fmt.Sprintf(`{"type":"session","version":1,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
-	entry := `{"type":"session_info","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","name":"Stored"}` + "\n"
-	payload := []byte(header + entry + `{"type":"user"`)
+	header := fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
+	entry := `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored"}}` + "\n"
+	payload := []byte(header + entry + `{"type":"entry","entry":{"type":"user"}`)
 	completeSize := int64(len(header + entry))
 	readPayload := func(data []byte) func([]byte) (int, error) {
 		used := false
@@ -108,13 +109,13 @@ func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {
 	// Act by explicitly loading the session with one interrupted final append.
 	loaded, loadErr := repository.Load(t.Context(), session.ID("stored"))
 
-	// Assert only the preceding complete entry is restored after ordered recovery.
+	// Assert only the preceding complete information mutation is restored after ordered recovery.
 	require.NoError(t, loadErr)
-	require.Len(t, loaded.Entries, 1)
-	assert.Equal(t, "entry-1", loaded.Entries[0].ID)
+	require.Empty(t, loaded.Tree.Entries())
+	assert.Equal(t, mo.Some(session.Information{Name: "Stored"}), loaded.Information)
 }
 
-func expectInitialAppendFailure(
+func expectInitialApplyFailure(
 	t *testing.T,
 	stage string,
 	repository *Service,

@@ -20,8 +20,8 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestAppendCreatesVersionedSynchronizedSessionFile verifies the first named entry creates one private JSONL file.
-func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
+// TestApplyCreatesVersionedSynchronizedSessionFile verifies the first session-information mutation creates one private JSONL file.
+func TestApplyCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an initialized filesystem repository and a named session entry.
@@ -33,11 +33,10 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
 	// Act by appending the first durable record.
-	result, err := repository.Append(t.Context(), hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
+	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
-		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
+		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
 	})
 	require.NoError(t, err)
 	digest := sha256.Sum256([]byte(canonical))
@@ -59,7 +58,7 @@ func TestAppendCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	stored, err := repository.Load(t.Context(), "session-id")
 	require.NoError(t, err)
 	require.Equal(t, canonical, stored.Header.WorkingDirectory)
-	require.Equal(t, "release notes", stored.Entries[0].Information.MustGet().Name)
+	require.Equal(t, mo.Some(session.Information{Name: "release notes"}), stored.Information)
 	require.Equal(t, result.StoragePath, stored.StoragePath)
 }
 
@@ -84,11 +83,10 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	canonicalRepository := sessionstore.New(root, canonicalProject, sessionfilesystem.New())
 	require.NoError(t, canonicalRepository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	_, err = canonicalRepository.Append(t.Context(), hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
+	_, err = canonicalRepository.Apply(t.Context(), hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
 		StoragePath: "",
-		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
+		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
 	})
 	require.NoError(t, err)
 	symlinkRepository := sessionstore.New(root, canonicalLink, sessionfilesystem.New())
@@ -140,22 +138,21 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	repository := sessionstore.New(root, project, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	command := hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
+	command := hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Entry: session.Entry{
-			ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
+		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
 			Information: mo.Some(session.Information{Name: "known session"}),
 			User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
-		},
+			Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		}),
 	}
 
 	// Act by appending, reopening, loading, listing, and requesting an unknown session.
-	created, err := repository.Append(t.Context(), command)
+	created, err := repository.Apply(t.Context(), command)
 	require.NoError(t, err)
-	_, err = repository.Append(t.Context(), command)
+	_, err = repository.Apply(t.Context(), command)
 	require.Error(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
 	require.NoError(t, reopened.Initialize(t.Context()))
@@ -185,11 +182,10 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	largeName := strings.Repeat("n", bufio.MaxScanTokenSize+1024)
 	// Act by appending the large name and loading it from a reopened repository.
-	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
+	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Entry: session.Entry{
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost]()},
+		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
 	})
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
@@ -198,11 +194,11 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 
 	// Assert the complete name survives record framing and reconstruction.
 	require.NoError(t, err)
-	require.Equal(t, largeName, loaded.Entries[0].Information.MustGet().Name)
+	require.Equal(t, mo.Some(session.Information{Name: largeName}), loaded.Information)
 }
 
-// TestAppendRejectsStoragePathOutsideProjectDirectory verifies an outside sentinel file cannot become session storage.
-func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
+// TestApplyRejectsStoragePathOutsideProjectDirectory verifies an outside sentinel file cannot become session storage.
+func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an initialized repository and a sentinel file outside its project directory.
@@ -214,15 +210,14 @@ func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	outsidePath := filepath.Join(base, "outside.jsonl")
 	require.NoError(t, os.WriteFile(outsidePath, []byte("sentinel"), 0o600))
 	// Act by attempting to append through the outside storage path.
-	_, err = repository.Append(t.Context(), hostsessions.AppendCommand{
-		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
+	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
+		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
-		Entry: session.Entry{
-			ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}),
+		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}),
 			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](),
-		},
+			Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		}),
 	})
 
 	// Assert the append fails and leaves the sentinel file unchanged.
@@ -230,6 +225,17 @@ func TestAppendRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	content, readErr := os.ReadFile(outsidePath)
 	require.NoError(t, readErr)
 	require.Equal(t, "sentinel", string(content))
+}
+
+// sessionInformationMutation maps one metadata fixture to the version 2 mutation contract.
+func sessionInformationMutation(entry session.Entry) hostsessions.Mutation {
+	information := entry.Information.MustGet()
+	return hostsessions.Mutation{
+		Entry: mo.None[session.Entry](), Navigation: mo.None[hostsessions.NavigationMutation](),
+		Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.Some(hostsessions.SessionInformationMutation{
+			Name: information.Name, CreatedAt: entry.CreatedAt,
+		}),
+	}
 }
 
 func requireDirectoryMode(t *testing.T, path string) os.FileMode {

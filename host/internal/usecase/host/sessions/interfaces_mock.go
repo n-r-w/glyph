@@ -44,19 +44,34 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
-// Append mocks base method.
-func (m *MockRepository) Append(arg0 context.Context, arg1 AppendCommand) (AppendResult, error) {
+// Apply mocks base method.
+func (m *MockRepository) Apply(arg0 context.Context, arg1 ApplyCommand) (ApplyResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Append", arg0, arg1)
-	ret0, _ := ret[0].(AppendResult)
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1)
+	ret0, _ := ret[0].(ApplyResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Append indicates an expected call of Append.
-func (mr *MockRepositoryMockRecorder) Append(arg0, arg1 any) *gomock.Call {
+// Apply indicates an expected call of Apply.
+func (mr *MockRepositoryMockRecorder) Apply(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockRepository)(nil).Append), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockRepository)(nil).Apply), arg0, arg1)
+}
+
+// CreateSnapshot mocks base method.
+func (m *MockRepository) CreateSnapshot(arg0 context.Context, arg1 CreateSnapshotCommand) (CreateSnapshotResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSnapshot", arg0, arg1)
+	ret0, _ := ret[0].(CreateSnapshotResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSnapshot indicates an expected call of CreateSnapshot.
+func (mr *MockRepositoryMockRecorder) CreateSnapshot(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSnapshot", reflect.TypeOf((*MockRepository)(nil).CreateSnapshot), arg0, arg1)
 }
 
 // Initialize mocks base method.

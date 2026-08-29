@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 )
 
-const formatVersion = 1
+const formatVersion = 2
 
 var _ agentrun.HistoryStore = (*Service)(nil)
 
@@ -88,6 +89,10 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 		return session.Replacement{}, fmt.Errorf("create session ID: %w", err)
 	}
 	createdAt := s.clock.Now()
+	tree, treeErr := session.NewTree(nil, mo.None[string](), nil)
+	if treeErr != nil {
+		return session.Replacement{}, fmt.Errorf("create empty session tree: %w", treeErr)
+	}
 	loaded := LoadedSession{
 		Header: session.Header{
 			Version:          formatVersion,
@@ -95,8 +100,10 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 			CreatedAt:        createdAt,
 			WorkingDirectory: s.workingDirectory,
 		},
-		StoragePath: "",
-		Entries:     nil,
+		StoragePath:          "",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	s.mutex.Lock()
 	s.active = loaded
@@ -125,7 +132,7 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 		return session.Replacement{}, errors.New("session working directory does not match")
 	}
 	loaded = cloneLoaded(loaded)
-	history := historyFromEntries(loaded.Entries)
+	history := historyFromEntries(loaded.Tree.ActiveBranch())
 	s.active = loaded
 	s.history = history
 	// Successful validation and replacement are the only resume path that restores mutation access.
@@ -144,24 +151,15 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	if s.writeUnavailable {
 		return session.Info{}, session.ErrPersistenceUnavailable
 	}
-	entryID, err := s.ids.NewID()
-	if err != nil {
-		return session.Info{}, fmt.Errorf("create session entry ID: %w", err)
-	}
-	entry := session.Entry{
-		User:        mo.None[session.UserMessage](),
-		Model:       mo.None[session.ModelResponse](),
-		ToolResult:  mo.None[session.ToolResult](),
-		Extension:   mo.None[session.ExtensionEnvelope](),
-		ID:          entryID,
-		CreatedAt:   s.clock.Now(),
-		Information: mo.Some(session.Information{Name: name}), EstimatedCost: mo.None[session.EstimatedCost](),
-	}
-
-	result, err := s.repository.Append(ctx, AppendCommand{
-		Header:      s.active.Header,
-		StoragePath: s.active.StoragePath,
-		Entry:       entry,
+	updatedAt := s.clock.Now()
+	result, err := s.repository.Apply(ctx, ApplyCommand{
+		Header: s.active.Header, StoragePath: s.active.StoragePath,
+		Mutation: Mutation{
+			Entry: mo.None[session.Entry](), Navigation: mo.None[NavigationMutation](),
+			Label: mo.None[LabelMutation](), SessionInformation: mo.Some(SessionInformationMutation{
+				Name: name, CreatedAt: updatedAt,
+			}),
+		},
 	})
 	if err != nil {
 		logPersistenceFailure(ctx, persistenceOperationName, s.active.Header.ID, err)
@@ -169,9 +167,10 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 		s.writeUnavailable = true
 		return session.Info{}, fmt.Errorf("%w: append session information: %w", session.ErrPersistenceUnavailable, err)
 	}
-	// The active snapshot advances only after the synchronized repository append succeeds.
+	// The active snapshot advances only after the synchronized repository mutation succeeds.
 	s.active.StoragePath = result.StoragePath
-	s.active.Entries = append(s.active.Entries, entry)
+	s.active.Information = mo.Some(session.Information{Name: name})
+	s.active.InformationUpdatedAt = mo.Some(updatedAt)
 	return infoFromLoaded(s.active), nil
 }
 
@@ -182,11 +181,13 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 	result := make([]session.Summary, 0, len(loaded))
-	for _, item := range loaded {
-		counts := countSessionEntries(item.Entries)
+	for itemIndex := range loaded {
+		item := &loaded[itemIndex]
+		activeBranch := item.Tree.ActiveBranch()
+		counts := countSessionEntries(activeBranch)
 		firstUserText := mo.None[string]()
-		for entryIndex := range item.Entries {
-			entry := &item.Entries[entryIndex]
+		for entryIndex := range activeBranch {
+			entry := &activeBranch[entryIndex]
 			if user, present := entry.User.Get(); present && firstUserText.IsNone() {
 				text := strings.TrimSpace(lineBreaks.ReplaceAllString(publicUserText(user), " "))
 				if text != "" {
@@ -195,7 +196,7 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 			}
 		}
 		result = append(result, session.Summary{
-			Info:          infoFromLoaded(item),
+			Info:          infoFromLoaded(*item),
 			FirstUserText: firstUserText,
 			TotalMessages: counts.totalMessages,
 		})
@@ -216,18 +217,18 @@ func (s *Service) ActiveInfo() session.Info {
 	return infoFromLoaded(s.active)
 }
 
-// ActiveEntries returns immutable active-session records in stored order.
+// ActiveEntries returns immutable active-branch records in root-first order.
 func (s *Service) ActiveEntries() []session.Entry {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return cloneEntries(s.active.Entries)
+	return cloneEntries(s.active.Tree.ActiveBranch())
 }
 
 // ActiveStatistics derives counts and complete token totals from durable entries.
 func (s *Service) ActiveStatistics() session.Statistics {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return statisticsFromEntries(s.active.Entries)
+	return statisticsFromEntries(s.active.Tree.ActiveBranch())
 }
 
 // ActiveInformation returns metadata and statistics from one locked active-session snapshot.
@@ -237,7 +238,7 @@ func (s *Service) ActiveInformation() session.InformationSnapshot {
 	info := infoFromLoaded(s.active)
 	return session.InformationSnapshot{
 		Info:       info,
-		Statistics: statisticsFromEntries(s.active.Entries),
+		Statistics: statisticsFromEntries(s.active.Tree.ActiveBranch()),
 	}
 }
 
@@ -278,11 +279,23 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 		return fmt.Errorf("create session entry ID: %w", err)
 	}
 	projection.ID = entryID
+	projection.ParentID = s.active.Tree.ActiveLeafID()
 	projection.CreatedAt = s.clock.Now()
-	result, err := s.repository.Append(ctx, AppendCommand{
-		Header:      s.active.Header,
-		StoragePath: s.active.StoragePath,
-		Entry:       projection,
+	candidateTree, err := session.NewTree(
+		s.active.Tree.Entries(), s.active.Tree.ActiveLeafID(), s.active.Tree.Labels(),
+	)
+	if err != nil {
+		return fmt.Errorf("copy active session tree: %w", err)
+	}
+	if err = candidateTree.Add(projection); err != nil {
+		return fmt.Errorf("validate session tree entry: %w", err)
+	}
+	result, err := s.repository.Apply(ctx, ApplyCommand{
+		Header: s.active.Header, StoragePath: s.active.StoragePath,
+		Mutation: Mutation{
+			Entry: mo.Some(projection), Navigation: mo.None[NavigationMutation](),
+			Label: mo.None[LabelMutation](), SessionInformation: mo.None[SessionInformationMutation](),
+		},
 	})
 	if err != nil {
 		logPersistenceFailure(ctx, persistenceOperationHistory, s.active.Header.ID, err)
@@ -293,7 +306,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	// Publish active ownership only after the repository append is synchronized.
 	// Callers can start dependent work after Append returns.
 	s.active.StoragePath = result.StoragePath
-	s.active.Entries = append(s.active.Entries, projection)
+	s.active.Tree = candidateTree
 	s.history = append(s.history, owned)
 	return nil
 }

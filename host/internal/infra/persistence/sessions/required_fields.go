@@ -45,6 +45,23 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 			return validationErr
 		}
 		return requireNonNullJSONFields(entry, "extensionId", "entryType")
+	case "branch_summary":
+		fields := []string{"summary", "firstEntryId", "lastEntryId", "provider", "model", "reasoningChoice"}
+		if validationErr := requireJSONFields(entry, fields...); validationErr != nil {
+			return validationErr
+		}
+		if validationErr := requireNonNullJSONFields(entry, fields...); validationErr != nil {
+			return validationErr
+		}
+		usageFields := []string{
+			"inputTokens", "outputTokens", "cacheReadTokens",
+			"cacheWriteTokens", "reasoningTokens", "totalTokens",
+		}
+		if validationErr := validateOptionalRequiredObject(entry, "usage", usageFields, usageFields); validationErr != nil {
+			return validationErr
+		}
+		costFields := []string{"input", "output", "cacheRead", "cacheWrite", "total"}
+		return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
 	default:
 		return errors.New("invalid session entry")
 	}

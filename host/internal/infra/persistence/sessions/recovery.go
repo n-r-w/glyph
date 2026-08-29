@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
@@ -132,7 +134,9 @@ func (s *Service) loadPath(
 		return pathResult, err
 	}
 	pathResult.loaded.StoragePath = filepath.Join(s.projectDirectory, name)
-	pathResult.loaded.Entries = scanned.entries
+	pathResult.loaded.Tree = scanned.tree
+	pathResult.loaded.Information = scanned.information
+	pathResult.loaded.InformationUpdatedAt = scanned.informationUpdatedAt
 	pathResult.interrupted = scanned.interrupted
 
 	if purpose == loadForTailRecovery && scanned.interrupted {
@@ -171,8 +175,12 @@ func repairSessionFileMode(file File, currentMode os.FileMode, enabled bool) err
 type scanResult struct {
 	// header contains the validated immutable session header.
 	header session.Header
-	// entries contains the validated complete session records.
-	entries []session.Entry
+	// tree contains the validated aggregate replay result.
+	tree session.Tree
+	// information contains the latest session-information mutation.
+	information mo.Option[session.Information]
+	// informationUpdatedAt contains the latest metadata mutation timestamp.
+	informationUpdatedAt mo.Option[time.Time]
 	// completeSize is the byte boundary after the last complete record.
 	completeSize int64
 	// interrupted reports whether nonempty incomplete tail bytes remain.
@@ -186,7 +194,10 @@ func (s *Service) scan(payload []byte) (scanResult, error) {
 		return scanResult{}, errors.New("session header is missing or interrupted")
 	}
 	header, err := s.decodeHeader(payload[:headerEnd])
-	result := scanResult{header: header, entries: nil, completeSize: int64(len(payload)), interrupted: false}
+	result := scanResult{
+		header: header, tree: session.Tree{}, information: mo.None[session.Information](),
+		informationUpdatedAt: mo.None[time.Time](), completeSize: int64(len(payload)), interrupted: false,
+	}
 	if err != nil {
 		return result, err
 	}
@@ -198,11 +209,13 @@ func (s *Service) scan(payload []byte) (scanResult, error) {
 		result.completeSize = int64(completeSize)
 		result.interrupted = true
 	}
-	entries, err := decodeEntries(payload[headerEnd+1 : completeSize])
+	state, err := decodeMutations(payload[headerEnd+1 : completeSize])
 	if err != nil {
 		return result, err
 	}
-	result.entries = entries
+	result.tree = state.tree
+	result.information = state.information
+	result.informationUpdatedAt = state.informationUpdatedAt
 	return result, nil
 }
 
@@ -251,34 +264,10 @@ func (s *Service) decodeHeader(data []byte) (session.Header, error) {
 	if record.Type != "session" || record.ID == "" || record.CWD != s.workingDirectory {
 		return header, errors.New("invalid session header")
 	}
-	if record.Version != 1 {
+	if record.Version != formatVersion {
 		return header, fmt.Errorf("unsupported session version %d", record.Version)
 	}
 	return header, nil
-}
-
-// decodeEntries preserves file order and rejects duplicate entry identities.
-func decodeEntries(payload []byte) ([]session.Entry, error) {
-	entries := make([]session.Entry, 0)
-	identities := make(map[string]struct{})
-	for len(payload) > 0 {
-		lineEnd := bytes.IndexByte(payload, '\n')
-		if lineEnd < 0 {
-			return nil, errors.New("completed session record is missing a newline")
-		}
-		entry, err := decodeEntry(payload[:lineEnd])
-		if err != nil {
-			// The record number identifies the failed JSONL boundary without logging persisted content.
-			return nil, fmt.Errorf("decode session entry record %d: %w", len(entries)+1, err)
-		}
-		if _, exists := identities[entry.ID]; exists {
-			return nil, errors.New("duplicate session entry ID")
-		}
-		identities[entry.ID] = struct{}{}
-		entries = append(entries, entry)
-		payload = payload[lineEnd+1:]
-	}
-	return entries, nil
 }
 
 type listWarningDiagnostic string

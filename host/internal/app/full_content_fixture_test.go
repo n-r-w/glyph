@@ -49,16 +49,16 @@ func appendFullContentFixtureWithUsage(
 	require.NoError(t, repository.Initialize(t.Context()))
 	loaded, err := repository.Load(t.Context(), session.ID(sessionID))
 	require.NoError(t, err)
-	require.NotEmpty(t, loaded.Entries)
+	require.NotEmpty(t, loaded.Tree.Entries())
 	// Keep this fixture newest while later real-time interactions exercise other sessions.
-	createdAt := loaded.Entries[len(loaded.Entries)-1].CreatedAt.Add(time.Hour)
+	loadedEntries := loaded.Tree.Entries()
+	createdAt := loadedEntries[len(loadedEntries)-1].CreatedAt.Add(time.Hour)
 	storagePath := loaded.StoragePath
 	call := model.ToolCall{
 		ID: "full-call", Name: "bash", Arguments: map[string]any{"command": "printf full-tool"},
 	}
 	entries := []session.Entry{
-		{
-			ID: "full-user-entry", CreatedAt: createdAt.Add(time.Second),
+		{ParentID: mo.None[string](), ID: "full-user-entry", CreatedAt: createdAt.Add(time.Second),
 			Information: mo.None[session.Information](),
 			User: mo.Some(model.Message{Content: []model.InputContent{
 				{Kind: model.InputContentText, Text: mo.Some("full user"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
@@ -66,10 +66,10 @@ func appendFullContentFixtureWithUsage(
 				{Kind: model.InputContentText, Text: mo.Some("after image"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 			}}),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
+		{ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.Some(model.Response{
 				Content: []model.Content{
@@ -100,10 +100,10 @@ func appendFullContentFixtureWithUsage(
 				Diagnostics: []model.Diagnostic{{Code: "full_notice", Message: "full diagnostic"}},
 			}),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			EstimatedCost: estimatedCost,
+			EstimatedCost: estimatedCost, BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "full-tool-entry", CreatedAt: createdAt.Add(3 * time.Second),
+		{ParentID: mo.None[string](), ID: "full-tool-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](),
 			ToolResult: mo.Some(agent.ToolResult{
@@ -113,23 +113,34 @@ func appendFullContentFixtureWithUsage(
 					{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{9, 8, 7, 6}})},
 				},
 			}),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+					BranchSummaryEntry](),
 		},
-		{
-			ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
+		{ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{
 				ExtensionID: "example.extension", EntryType: "checkpoint",
 				Data: []byte(`{"private":"full-extension"}`),
-			}), EstimatedCost: mo.None[session.EstimatedCost](),
+			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+						BranchSummaryEntry](),
 		},
 	}
 	for index := range entries {
-		result, appendErr := repository.Append(t.Context(), hostsessions.AppendCommand{
-			Header: loaded.Header, StoragePath: storagePath, Entry: entries[index],
+		if index == 0 {
+			entries[index].ParentID = loaded.Tree.ActiveLeafID()
+		} else {
+			entries[index].ParentID = mo.Some(entries[index-1].ID)
+		}
+		result, applyErr := repository.Apply(t.Context(), hostsessions.ApplyCommand{
+			Header: loaded.Header, StoragePath: storagePath,
+			Mutation: hostsessions.Mutation{
+				Entry: mo.Some(entries[index]), Navigation: mo.None[hostsessions.NavigationMutation](),
+				Label:              mo.None[hostsessions.LabelMutation](),
+				SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
+			},
 		})
-		require.NoError(t, appendErr)
+		require.NoError(t, applyErr)
 		storagePath = result.StoragePath
 	}
 }

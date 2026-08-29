@@ -10,55 +10,67 @@ import (
 
 // replacementFromLoaded returns independent public state for an active-session replacement.
 func replacementFromLoaded(loaded LoadedSession) session.Replacement {
-	return session.Replacement{Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Entries)}
+	return session.Replacement{
+		Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Tree.ActiveBranch()),
+	}
 }
 
-// infoFromLoaded derives name and update time from ordered records rather than filesystem metadata.
+// infoFromLoaded derives name and update time from durable aggregate state.
 func infoFromLoaded(loaded LoadedSession) session.Info {
 	name := mo.None[string]()
+	if information, present := loaded.Information.Get(); present {
+		name = mo.Some(information.Name)
+	}
 	updatedAt := loaded.Header.CreatedAt
-	for index := range loaded.Entries {
-		entry := &loaded.Entries[index]
-		if information, ok := entry.Information.Get(); ok {
-			name = mo.Some(information.Name)
+	entries := loaded.Tree.Entries()
+	for index := range entries {
+		if entries[index].CreatedAt.After(updatedAt) {
+			updatedAt = entries[index].CreatedAt
 		}
-		updatedAt = entry.CreatedAt
+	}
+	informationUpdatedAt, hasInformationUpdate := loaded.InformationUpdatedAt.Get()
+	if hasInformationUpdate && informationUpdatedAt.After(updatedAt) {
+		updatedAt = informationUpdatedAt
 	}
 	storagePath := mo.None[string]()
 	if loaded.StoragePath != "" {
 		storagePath = mo.Some(loaded.StoragePath)
 	}
 	return session.Info{
-		ID:               loaded.Header.ID,
-		Name:             name,
-		WorkingDirectory: loaded.Header.WorkingDirectory,
-		StoragePath:      storagePath,
-		CreatedAt:        loaded.Header.CreatedAt,
-		UpdatedAt:        updatedAt,
+		ID: loaded.Header.ID, Name: name, WorkingDirectory: loaded.Header.WorkingDirectory,
+		StoragePath: storagePath, CreatedAt: loaded.Header.CreatedAt, UpdatedAt: updatedAt,
 	}
 }
 
-// cloneLoaded prevents repository-owned entries from becoming mutable active state.
+// cloneLoaded prevents repository-owned aggregate state from becoming mutable active state.
 func cloneLoaded(value LoadedSession) LoadedSession {
+	tree, err := session.NewTree(value.Tree.Entries(), value.Tree.ActiveLeafID(), value.Tree.Labels())
+	if err != nil {
+		panic(err)
+	}
 	return LoadedSession{
-		Header: value.Header, StoragePath: value.StoragePath, Entries: cloneEntries(value.Entries),
+		Header: value.Header, StoragePath: value.StoragePath, Tree: tree,
+		Information: value.Information, InformationUpdatedAt: value.InformationUpdatedAt,
 	}
 }
 
+// cloneEntries returns independent mutable payload ownership for every entry.
 func cloneEntries(entries []session.Entry) []session.Entry {
 	cloned := make([]session.Entry, len(entries))
 	for index := range entries {
-		entry := &entries[index]
-		cloned[index] = session.Entry{
-			ID: entry.ID, CreatedAt: entry.CreatedAt, Information: entry.Information,
-			User: entry.User.MapValue(cloneMessage), Model: entry.Model.MapValue(cloneModelResponse),
-			ToolResult: entry.ToolResult.MapValue(cloneToolResult),
-			// Each active-session snapshot owns its opaque extension bytes.
-			Extension: entry.Extension.MapValue(func(value session.ExtensionEnvelope) session.ExtensionEnvelope {
-				value.Data = bytes.Clone(value.Data)
-				return value
-			}), EstimatedCost: entry.EstimatedCost,
-		}
+		cloned[index] = cloneSessionEntry(entries[index])
 	}
 	return cloned
+}
+
+// cloneSessionEntry owns the mutable payloads carried by one domain entry.
+func cloneSessionEntry(entry session.Entry) session.Entry {
+	entry.User = entry.User.MapValue(cloneMessage)
+	entry.Model = entry.Model.MapValue(cloneModelResponse)
+	entry.ToolResult = entry.ToolResult.MapValue(cloneToolResult)
+	entry.Extension = entry.Extension.MapValue(func(value session.ExtensionEnvelope) session.ExtensionEnvelope {
+		value.Data = bytes.Clone(value.Data)
+		return value
+	})
+	return entry
 }

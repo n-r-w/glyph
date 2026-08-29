@@ -42,10 +42,11 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			return session.Entry{}, errors.New("invalid session information entry")
 		}
 		return session.Entry{
-			ID: record.ID, CreatedAt: entryTime, Information: mo.Some(session.Information{Name: record.Name}),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			ParentID: mo.None[string](), ID: record.ID, CreatedAt: entryTime,
+			Information: mo.Some(session.Information{Name: record.Name}), User: mo.None[session.UserMessage](),
+			Model:      mo.None[session.ModelResponse](),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			EstimatedCost: mo.None[session.EstimatedCost](),
+			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		}, nil
 	case "user":
 		return decodeUser(data)
@@ -55,6 +56,8 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		return decodeToolResult(data)
 	case "extension":
 		return decodeExtension(data)
+	case "branch_summary":
+		return decodeBranchSummary(data)
 	default:
 		return session.Entry{}, errors.New("invalid session entry")
 	}
@@ -87,10 +90,11 @@ func decodeUser(data []byte) (session.Entry, error) {
 		content = append(content, item)
 	}
 	return session.Entry{
-		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-		User: mo.Some(model.Message{Content: content}), Model: mo.None[session.ModelResponse](),
+		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.Some(model.Message{Content: content}),
+		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		EstimatedCost: mo.None[session.EstimatedCost](),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}, nil
 }
 
@@ -135,11 +139,12 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
 	return session.Entry{
-		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
+		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(record.Data),
-		}), EstimatedCost: mo.None[session.EstimatedCost](),
+		}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}, nil
 }
 
@@ -164,9 +169,11 @@ func decodeModel(data []byte) (session.Entry, error) {
 		return session.Entry{}, err
 	}
 	return session.Entry{
-		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
+		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: estimatedCost,
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}, nil
 }
 
@@ -194,13 +201,60 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 		contents = append(contents, content)
 	}
 	return session.Entry{
-		ID: record.ID, CreatedAt: entryTime, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.Some(agent.ToolResult{
+		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
 			CallID: record.Result.CallID, ToolName: record.Result.ToolName,
 			Contents: contents, IsError: record.Result.IsError,
 		}),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}, nil
+}
+
+// decodeBranchSummary validates one embedded summary entry and preserves optional accounting states.
+func decodeBranchSummary(data []byte) (session.Entry, error) {
+	var record branchSummaryRecord
+	if err := decodeRecord(data, &record); err != nil {
+		return session.Entry{}, err
+	}
+	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse branch summary timestamp: %w", err)
+	}
+	if record.ID == "" || record.Summary == "" || record.FirstEntryID == "" || record.LastEntryID == "" ||
+		record.Provider == "" || record.Model == "" || !validReasoningChoice(record.ReasoningChoice) {
+		return session.Entry{}, errors.New("invalid branch summary entry")
+	}
+	usage := mo.None[session.TokenUsage]()
+	if record.Usage != nil {
+		value := session.TokenUsage{
+			InputTokens: record.Usage.InputTokens, OutputTokens: record.Usage.OutputTokens,
+			CacheReadTokens: record.Usage.CacheReadTokens, CacheWriteTokens: record.Usage.CacheWriteTokens,
+			ReasoningTokens: record.Usage.ReasoningTokens, TotalTokens: record.Usage.TotalTokens,
+		}
+		if !validTokenUsage(value) {
+			return session.Entry{}, errors.New("invalid branch summary usage")
+		}
+		usage = mo.Some(value)
+	}
+	cost, err := decodeEstimatedCost(record.EstimatedCost)
+	if err != nil {
+		return session.Entry{}, err
+	}
+	if value, present := cost.Get(); present && !validEstimatedCost(value) {
+		return session.Entry{}, errors.New("invalid branch summary cost")
+	}
+	return session.Entry{
+		ID: record.ID, ParentID: pointerStringOption(record.ParentID), CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.Some(session.BranchSummaryEntry{
+			Summary: record.Summary, FirstEntryID: record.FirstEntryID, LastEntryID: record.LastEntryID,
+			Provider: model.ProviderID(record.Provider), Model: model.ID(record.Model),
+			ReasoningChoice: record.ReasoningChoice, Usage: usage, EstimatedCost: cost,
+		}),
 	}, nil
 }
 

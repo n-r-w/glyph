@@ -33,18 +33,18 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("user-entry", nil),
 		s.clock.EXPECT().Now().Return(userAt),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal("hello", command.Entry.User.MustGet().Content[0].Text.MustGet())
-				persisted = append(persisted, command.Entry)
-				return AppendResult{StoragePath: "/sessions/file.jsonl"}, nil
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal("hello", command.Mutation.Entry.MustGet().User.MustGet().Content[0].Text.MustGet())
+				persisted = append(persisted, command.Mutation.Entry.MustGet())
+				return ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil
 			},
 		),
 		s.ids.EXPECT().NewID().Return("model-entry", nil),
 		s.clock.EXPECT().Now().Return(modelAt),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				stored := command.Entry.Model.MustGet()
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				stored := command.Mutation.Entry.MustGet().Model.MustGet()
 				s.Require().Len(stored.Content, 3)
 				s.Equal(model.ContentText, stored.Content[0].Kind)
 				s.Equal("world", stored.Content[0].Text.MustGet())
@@ -56,8 +56,8 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 				s.Equal(mo.Some(model.OutcomeStop), stored.Outcome)
 				s.Equal(mo.Some("safe terminal message"), stored.ErrorMessage)
 				s.Equal(mo.Some("response-id"), stored.ResponseID)
-				persisted = append(persisted, command.Entry)
-				return AppendResult{StoragePath: "/sessions/file.jsonl"}, nil
+				persisted = append(persisted, command.Mutation.Entry.MustGet())
+				return ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil
 			},
 		),
 	)
@@ -111,7 +111,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
 		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/file.jsonl", Entries: persisted,
+		StoragePath: "/sessions/file.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(persisted),
 	}}, nil)
 	listed, err := service.ListStored(s.T().Context())
 	s.Require().NoError(err)
@@ -158,18 +158,18 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("model-entry", nil),
 		s.clock.EXPECT().Now().Return(modelAt),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal(response, command.Entry.Model.MustGet())
-				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal(response, command.Mutation.Entry.MustGet().Model.MustGet())
+				return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 			},
 		),
 		s.ids.EXPECT().NewID().Return("tool-entry", nil),
 		s.clock.EXPECT().Now().Return(toolAt),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal(result, command.Entry.ToolResult.MustGet())
-				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal(result, command.Mutation.Entry.MustGet().ToolResult.MustGet())
+				return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 			},
 		),
 	)
@@ -250,12 +250,12 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 		gomock.InOrder(
 			s.ids.EXPECT().NewID().Return(entryID, nil),
 			s.clock.EXPECT().Now().Return(entryTime),
-			s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, command AppendCommand) (AppendResult, error) {
-					actual := command.Entry.Model.MustGet().Content
+			s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+					actual := command.Mutation.Entry.MustGet().Model.MustGet().Content
 					s.Equal(test.content == nil, actual == nil)
 					s.Equal(test.content, actual)
-					return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+					return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 				},
 			),
 		)
@@ -299,7 +299,7 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("tool-entry", nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).Return(AppendResult{}, errors.New("sync failed")),
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("sync failed")),
 	)
 
 	// Act by appending the terminal tool result.
@@ -336,10 +336,10 @@ func (s *ServiceSuite) TestImageOnlyToolResultBecomesDurable() {
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("tool-entry", nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				s.Equal(result, command.Entry.ToolResult.MustGet())
-				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				s.Equal(result, command.Mutation.Entry.MustGet().ToolResult.MustGet())
+				return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 			},
 		),
 	)
@@ -370,21 +370,21 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("nil-entry", nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(time.Second)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				contents := command.Entry.ToolResult.MustGet().Contents
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				contents := command.Mutation.Entry.MustGet().ToolResult.MustGet().Contents
 				s.Nil(contents)
-				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+				return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 			},
 		),
 		s.ids.EXPECT().NewID().Return("empty-entry", nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(2*time.Second)),
-		s.repository.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, command AppendCommand) (AppendResult, error) {
-				contents := command.Entry.ToolResult.MustGet().Contents
+		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+				contents := command.Mutation.Entry.MustGet().ToolResult.MustGet().Contents
 				s.NotNil(contents)
 				s.Empty(contents)
-				return AppendResult{StoragePath: "/sessions/history.jsonl"}, nil
+				return ApplyResult{StoragePath: "/sessions/history.jsonl"}, nil
 			},
 		),
 	)
@@ -400,4 +400,37 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 
 	// Assert both durable projections completed and became active entries.
 	s.Len(active.ActiveEntries(), 2)
+}
+
+// TestHistoryAppendRejectsInvalidTreeMutationBeforePersistence verifies validation precedes durable publication.
+func (s *ServiceSuite) TestHistoryAppendRejectsInvalidTreeMutationBeforePersistence() {
+	// Arrange an active tree and an ID generator collision with its existing root.
+	createdAt := time.Date(2026, 8, 27, 5, 0, 0, 0, time.UTC)
+	root := session.Entry{
+		ParentID: mo.None[string](), ID: "duplicate", CreatedAt: createdAt,
+		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage("root")),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
+	service.active = LoadedSession{
+		Header:      session.Header{Version: formatVersion, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project"},
+		StoragePath: "/sessions/active.jsonl", Tree: mustSessionTree([]session.Entry{root}),
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+	}
+	s.ids.EXPECT().NewID().Return("duplicate", nil)
+	s.clock.EXPECT().Now().Return(createdAt.Add(time.Second))
+
+	// Act by appending a complete user message with the duplicate ID.
+	err := service.Append(s.T().Context(), agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("new")),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	})
+
+	// Assert validation rejects the mutation without repository access or active-state change.
+	s.Require().ErrorContains(err, "duplicate entry ID")
+	entries := service.ActiveEntries()
+	s.Require().Len(entries, 1)
+	s.Equal("duplicate", entries[0].ID)
 }

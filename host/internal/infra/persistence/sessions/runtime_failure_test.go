@@ -36,9 +36,9 @@ func TestInterruptedTailRecoveryFailuresUsePersistenceClassification(t *testing.
 			require.NoError(t, os.WriteFile(path, []byte("placeholder"), fileMode))
 			info, err := os.Stat(path)
 			require.NoError(t, err)
-			header := fmt.Sprintf(`{"type":"session","version":1,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
-			entry := `{"type":"session_info","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","name":"Stored"}` + "\n"
-			payload := []byte(header + entry + `{"type":"user"`)
+			header := fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
+			entry := `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored"}}` + "\n"
+			payload := []byte(header + entry + `{"type":"entry","entry":{"type":"user"}`)
 			completeSize := int64(len(header + entry))
 
 			gomock.InOrder(

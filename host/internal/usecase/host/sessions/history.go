@@ -22,10 +22,11 @@ import (
 
 func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
 	entry := session.Entry{
-		ID: "", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+		ParentID: mo.None[string](), ID: "", CreatedAt: time.Time{},
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model:      mo.None[session.ModelResponse](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		EstimatedCost: mo.None[session.EstimatedCost](),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	switch history.Kind {
 	case agent.HistoryEntryUser:
