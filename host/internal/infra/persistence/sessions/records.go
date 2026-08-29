@@ -1,7 +1,7 @@
 package sessions
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"github.com/samber/mo"
 
@@ -81,11 +81,11 @@ type inputContentRecord struct {
 	// Kind identifies the content payload.
 	Kind model.InputContentKind `json:"kind"`
 	// Text contains user text for text content.
-	Text *string `json:"text,omitempty"`
+	Text *string `json:"text,omitzero"`
 	// MediaType identifies the format of image content.
-	MediaType *string `json:"mediaType,omitempty"`
+	MediaType *string `json:"mediaType,omitzero"`
 	// Data contains encoded image bytes.
-	Data json.RawMessage `json:"data,omitempty"`
+	Data jsontext.Value `json:"data,omitzero"`
 }
 
 // modelRecord stores one provider-neutral terminal model response.
@@ -101,7 +101,7 @@ type modelRecord struct {
 	// Response contains one terminal model response.
 	Response modelResponseRecord `json:"response"`
 	// EstimatedCost contains persisted model response cost.
-	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitempty"`
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
 }
 
 type estimatedCostRecord struct {
@@ -123,17 +123,17 @@ type modelResponseRecord struct {
 	// Outcome identifies why the response ended.
 	Outcome model.Outcome `json:"outcome"`
 	// ErrorMessage contains a terminal failure message.
-	ErrorMessage *string `json:"errorMessage,omitempty"`
+	ErrorMessage *string `json:"errorMessage,omitzero"`
 	// Provider identifies the provider used for the request.
-	Provider *string `json:"provider,omitempty"`
+	Provider *string `json:"provider,omitzero"`
 	// Model identifies the configured model used for the request.
-	Model *string `json:"model,omitempty"`
+	Model *string `json:"model,omitzero"`
 	// ResponseModel identifies the model reported by the provider.
-	ResponseModel *string `json:"responseModel,omitempty"`
+	ResponseModel *string `json:"responseModel,omitzero"`
 	// ResponseID identifies the response in the provider system.
-	ResponseID *string `json:"responseId,omitempty"`
+	ResponseID *string `json:"responseId,omitzero"`
 	// Usage contains provider-reported token accounting.
-	Usage *usageRecord `json:"usage,omitempty"`
+	Usage *usageRecord `json:"usage,omitzero"`
 	// Diagnostics contains typed provider failure details.
 	Diagnostics []diagnosticRecord `json:"diagnostics"`
 }
@@ -149,11 +149,11 @@ type modelContentRecord struct {
 	// Kind identifies the response content payload.
 	Kind model.ContentKind `json:"kind"`
 	// Text contains text, refusal, or reasoning content.
-	Text *string `json:"text,omitempty"`
+	Text *string `json:"text,omitzero"`
 	// ProviderContext contains opaque reasoning replay state.
-	ProviderContext *providerContextRecord `json:"providerContext,omitempty"`
+	ProviderContext *providerContextRecord `json:"providerContext,omitzero"`
 	// ToolCall contains a finalized tool request.
-	ToolCall *toolCallRecord `json:"toolCall,omitempty"`
+	ToolCall *toolCallRecord `json:"toolCall,omitzero"`
 }
 
 type providerContextRecord struct {
@@ -164,7 +164,7 @@ type providerContextRecord struct {
 	// Model identifies the model that produced the context.
 	Model string `json:"model"`
 	// CompatibilityKey identifies the replay compatibility contract.
-	CompatibilityKey *string `json:"compatibilityKey,omitempty"`
+	CompatibilityKey *string `json:"compatibilityKey,omitzero"`
 	// Payload contains opaque provider-owned replay data.
 	Payload []byte `json:"payload"`
 }
@@ -221,11 +221,11 @@ type toolResultContentRecord struct {
 	// Kind identifies the result content payload.
 	Kind tool.ResultContentKind `json:"kind"`
 	// Text contains terminal text output.
-	Text *string `json:"text,omitempty"`
+	Text *string `json:"text,omitzero"`
 	// MediaType identifies the image output format.
-	MediaType *string `json:"mediaType,omitempty"`
+	MediaType *string `json:"mediaType,omitzero"`
 	// Data contains encoded image bytes.
-	Data json.RawMessage `json:"data,omitempty"`
+	Data jsontext.Value `json:"data,omitzero"`
 }
 
 // extensionRecord stores compact extension-owned JSON without interpreting it.
@@ -243,7 +243,7 @@ type extensionRecord struct {
 	// EntryType identifies the extension-defined entry kind.
 	EntryType string `json:"entryType"`
 	// Data contains extension-owned JSON.
-	Data json.RawMessage `json:"data"`
+	Data jsontext.Value `json:"data"`
 }
 
 // branchSummaryRecord stores one abandoned-branch summary entry.
@@ -269,9 +269,9 @@ type branchSummaryRecord struct {
 	// ReasoningChoice identifies the configured reasoning behavior.
 	ReasoningChoice model.ReasoningChoice `json:"reasoningChoice"`
 	// Usage contains normalized usage when reported.
-	Usage *sessionUsageRecord `json:"usage,omitempty"`
+	Usage *sessionUsageRecord `json:"usage,omitzero"`
 	// EstimatedCost contains persisted summary cost when calculable.
-	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitempty"`
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
 }
 
 // sessionUsageRecord stores normalized usage field names used by session accounting.
@@ -295,13 +295,13 @@ type mutationRecord struct {
 	// Type identifies the selected mutation payload.
 	Type string `json:"type"`
 	// Entry contains one complete tree entry.
-	Entry *json.RawMessage `json:"entry,omitempty"`
+	Entry *jsontext.Value `json:"entry,omitzero"`
 	// Navigation contains one active-leaf change.
-	Navigation *navigationRecord `json:"navigation,omitempty"`
+	Navigation *navigationRecord `json:"navigation,omitzero"`
 	// Label contains one label change.
-	Label *labelRecord `json:"label,omitempty"`
+	Label *labelRecord `json:"label,omitzero"`
 	// SessionInfo contains one session-information change.
-	SessionInfo *sessionInfoRecord `json:"sessionInfo,omitempty"`
+	SessionInfo *sessionInfoRecord `json:"sessionInfo,omitzero"`
 }
 
 // navigationRecord stores a destination and optional embedded summary entry.
@@ -309,7 +309,7 @@ type navigationRecord struct {
 	// DestinationID identifies an entry or the implicit root when absent.
 	DestinationID mo.Option[string] `json:"destinationId"`
 	// BranchSummary contains an optional encoded branch-summary entry.
-	BranchSummary *json.RawMessage `json:"branchSummary,omitempty"`
+	BranchSummary *jsontext.Value `json:"branchSummary,omitzero"`
 }
 
 // labelRecord stores the latest label state for one entry.

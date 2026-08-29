@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -229,7 +229,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	interaction := NewMockInteraction(gomock.NewController(t))
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+		if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 			writer.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -359,7 +359,7 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		requests++
 		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+		if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 			writer.WriteHeader(http.StatusBadRequest)
 			return
 		}

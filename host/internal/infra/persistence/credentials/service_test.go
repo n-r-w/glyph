@@ -1,7 +1,8 @@
 package credentials
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,8 +13,8 @@ import (
 
 // credentialFixture mirrors only the generic persistence envelope used by tests.
 type credentialFixture struct {
-	Version   int                        `json:"version"`
-	Providers map[string]json.RawMessage `json:"providers"`
+	Version   int                       `json:"version"`
+	Providers map[string]jsontext.Value `json:"providers"`
 }
 
 // TestServiceSaveLoadDeletePreservesOtherProviders verifies opaque provider isolation.
@@ -21,10 +22,10 @@ func TestServiceSaveLoadDeletePreservesOtherProviders(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "credentials.json")
-	otherPayload := json.RawMessage(`{"token":"other"}`)
+	otherPayload := jsontext.Value(`{"token":"other"}`)
 	writeCredentialFixture(t, path, credentialFixture{
 		Version: 1,
-		Providers: map[string]json.RawMessage{
+		Providers: map[string]jsontext.Value{
 			"other": otherPayload,
 		},
 	}, 0o600)
@@ -75,8 +76,8 @@ func TestServiceLoadEnforcesOwnerOnlyFileMode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "credentials.json")
 	writeCredentialFixture(t, path, credentialFixture{
 		Version: 1,
-		Providers: map[string]json.RawMessage{
-			"openai-codex": json.RawMessage(`{"refresh_token":"value"}`),
+		Providers: map[string]jsontext.Value{
+			"openai-codex": jsontext.Value(`{"refresh_token":"value"}`),
 		},
 	}, 0o644)
 

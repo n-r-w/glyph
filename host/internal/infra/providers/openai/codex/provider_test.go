@@ -1,15 +1,12 @@
 package codex
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
-
 	"net/http"
 	"net/http/httptest"
-
 	"testing"
 	"time"
 
@@ -102,11 +99,11 @@ func writeSSE(writer http.ResponseWriter, events ...string) {
 	writer.Header().Set("Content-Type", "text/event-stream")
 	writer.WriteHeader(http.StatusOK)
 	for _, event := range events {
-		var compact bytes.Buffer
-		if err := json.Compact(&compact, []byte(event)); err != nil {
+		compact := jsontext.Value(event)
+		if err := compact.Compact(); err != nil {
 			panic("invalid SSE test fixture: " + event)
 		}
-		_, _ = fmt.Fprintf(writer, "data: %s\n\n", compact.String())
+		_, _ = fmt.Fprintf(writer, "data: %s\n\n", compact)
 	}
 	_, _ = fmt.Fprint(writer, "data: [DONE]\n\n")
 }

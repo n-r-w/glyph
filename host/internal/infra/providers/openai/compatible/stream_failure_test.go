@@ -2,7 +2,7 @@ package compatible
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -255,7 +255,7 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 			events: []string{
 				`{"id":"chat-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"read","arguments":"}"}}]},"finish_reason":"tool_calls"}]}`,
 			},
-			want: "decode chat Completions tool-call arguments: invalid character",
+			want: "decode chat Completions tool-call arguments: jsontext: invalid character",
 		},
 		{
 			name: "Responses stream", api: APIResponses,
@@ -263,14 +263,14 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 				`{"type":"response.output_item.added","output_index":0,"item":{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
 				`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"item-1","name":"read","arguments":"}"}`,
 			},
-			want: "decode Responses tool-call arguments: invalid character",
+			want: "decode Responses tool-call arguments: jsontext: invalid character",
 		},
 		{
 			name: "Responses completed output", api: APIResponses,
 			events: []string{
 				`{"type":"response.completed","response":{"id":"resp-1","model":"actual","status":"completed","output":[{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"}","status":"completed"}]}}`,
 			},
-			want: "decode Responses tool-call arguments: invalid character",
+			want: "decode Responses tool-call arguments: jsontext: invalid character",
 		},
 	}
 	for _, test := range tests {
@@ -338,11 +338,11 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 	})
 
 	// Assert parser detail and adapter context are returned and delivered before HTTP dispatch.
-	require.ErrorContains(t, err, "decode OpenAI-compatible provider context: invalid character")
+	require.ErrorContains(t, err, "decode OpenAI-compatible provider context: jsontext: invalid character")
 	assert.Zero(t, calls.Load())
 	require.Len(t, events, 1)
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
-	assert.Contains(t, events[0].Response.OrEmpty().ErrorMessage.OrEmpty(), "decode OpenAI-compatible provider context: invalid character")
+	assert.Contains(t, events[0].Response.OrEmpty().ErrorMessage.OrEmpty(), "decode OpenAI-compatible provider context: jsontext: invalid character")
 }
 
 // TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
@@ -354,7 +354,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		calls.Add(1)
 		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+		if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 			return
 		}
 		encoded, err := json.Marshal(body)

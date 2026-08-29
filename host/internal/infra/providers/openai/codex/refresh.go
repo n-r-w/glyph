@@ -3,7 +3,7 @@ package codex
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -102,7 +102,6 @@ func (s *Driver) refreshCredentials(ctx context.Context, current oauthCredential
 	if err != nil {
 		return oauthCredentials{}, err
 	}
-	//nolint:gosec // This method exists to persist the approved credential payload.
 	payload, err := json.Marshal(rotated)
 	if err != nil {
 		return oauthCredentials{}, fmt.Errorf("encode refreshed OpenAI Codex credentials: %w", err)

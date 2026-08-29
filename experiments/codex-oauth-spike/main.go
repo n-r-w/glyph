@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
@@ -104,8 +104,8 @@ type streamedTurn struct {
 
 // credentialStore mirrors the approved versioned provider-keyed Glyph credential file.
 type credentialStore struct {
-	Version   int                        `json:"version"`
-	Providers map[string]json.RawMessage `json:"providers"`
+	Version   int                       `json:"version"`
+	Providers map[string]jsontext.Value `json:"providers"`
 }
 
 // codexClient keeps the SDK service and transport-only error diagnostics together.

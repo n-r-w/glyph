@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -126,7 +126,6 @@ func (s *Driver) SignInProvider(ctx context.Context) error {
 		AccountID:    accountID,
 		ExpiresAt:    token.Expiry,
 	}
-	//nolint:gosec // This method exists to persist the approved credential payload.
 	payload, err := json.Marshal(credentials)
 	if err != nil {
 		return fmt.Errorf("encode OpenAI Codex credentials: %w", err)

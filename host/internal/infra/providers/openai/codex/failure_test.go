@@ -2,7 +2,7 @@ package codex
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -186,8 +186,8 @@ func TestModelResponsePreservesToolArgumentDecodeCause(t *testing.T) {
 
 	// Assert both conversion outputs contain the parser cause.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected end of JSON input")
-	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "unexpected EOF")
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected EOF")
 }
 
 // TestDriverStreamPreservesMalformedReasoningCause verifies reasoning context parser detail reaches both boundaries.
@@ -237,8 +237,8 @@ func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 
 	// Assert parser detail is visible in the returned error and terminal response.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected end of JSON input")
-	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "unexpected EOF")
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected EOF")
 }
 
 // TestDriverStreamHTTPFailuresDoNotRetry verifies safe 401 and one-attempt provider errors.

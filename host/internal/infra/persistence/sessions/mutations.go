@@ -2,7 +2,7 @@ package sessions
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"math"
@@ -82,7 +82,7 @@ func applyMutation(state *replayState, data []byte) error {
 }
 
 // applyEntryMutation validates and appends one entry payload.
-func applyEntryMutation(state *replayState, raw *json.RawMessage) error {
+func applyEntryMutation(state *replayState, raw *jsontext.Value) error {
 	if raw == nil {
 		return errors.New("entry mutation payload is missing")
 	}
@@ -168,7 +168,7 @@ func encodeEntryMutation(entry session.Entry) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw := json.RawMessage(bytes.TrimSuffix(encoded, []byte{'\n'}))
+	raw := jsontext.Value(bytes.TrimSuffix(encoded, []byte{'\n'}))
 	return encodeLine(mutationRecord{Type: mutationTypeEntry, Entry: &raw, Navigation: nil, Label: nil, SessionInfo: nil})
 }
 
@@ -184,7 +184,7 @@ func encodeNavigationMutation(navigation hostsessions.NavigationMutation) ([]byt
 		if err != nil {
 			return nil, err
 		}
-		raw := json.RawMessage(bytes.TrimSuffix(encoded, []byte{'\n'}))
+		raw := jsontext.Value(bytes.TrimSuffix(encoded, []byte{'\n'}))
 		record.Navigation.BranchSummary = &raw
 	}
 	return encodeLine(record)

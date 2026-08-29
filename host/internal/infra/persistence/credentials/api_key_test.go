@@ -2,7 +2,8 @@ package credentials
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -67,9 +68,9 @@ func (s *APIKeyResolverSuite) TestOmittedSourceReturnsNoKey() {
 
 // TestCredentialReadsNamedAPIKeyPayload verifies strict provider-owned credential JSON.
 func (s *APIKeyResolverSuite) TestCredentialReadsNamedAPIKeyPayload() {
-	s.writeEntries(map[string]json.RawMessage{
-		"selected": json.RawMessage(`{"type":"api_key","key":"file-secret"}`),
-		"other":    json.RawMessage(`{"type":"api_key","key":"other-secret"}`),
+	s.writeEntries(map[string]jsontext.Value{
+		"selected": jsontext.Value(`{"type":"api_key","key":"file-secret"}`),
+		"other":    jsontext.Value(`{"type":"api_key","key":"other-secret"}`),
 	})
 	resolver := NewAPIKeyResolver(s.path, APIKeySource{
 		Kind:  APIKeySourceCredential,
@@ -87,7 +88,7 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 	s.T().Setenv("EMPTY_GLYPH_KEY", "")
 	testCases := map[string]struct {
 		source  APIKeySource
-		entries map[string]json.RawMessage
+		entries map[string]jsontext.Value
 		secret  string
 	}{
 		"missing environment": {
@@ -111,7 +112,7 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 				Kind:  APIKeySourceCredential,
 				Value: "missing",
 			},
-			entries: map[string]json.RawMessage{},
+			entries: map[string]jsontext.Value{},
 			secret:  "",
 		},
 		"wrong credential type": {
@@ -119,8 +120,8 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 				Kind:  APIKeySourceCredential,
 				Value: "selected",
 			},
-			entries: map[string]json.RawMessage{
-				"selected": json.RawMessage(`{"type":"oauth","key":"file-secret"}`),
+			entries: map[string]jsontext.Value{
+				"selected": jsontext.Value(`{"type":"oauth","key":"file-secret"}`),
 			},
 			secret: "file-secret",
 		},
@@ -129,8 +130,8 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 				Kind:  APIKeySourceCredential,
 				Value: "selected",
 			},
-			entries: map[string]json.RawMessage{
-				"selected": json.RawMessage(`"malformed"`),
+			entries: map[string]jsontext.Value{
+				"selected": jsontext.Value(`"malformed"`),
 			},
 			secret: "",
 		},
@@ -139,8 +140,8 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 				Kind:  APIKeySourceCredential,
 				Value: "selected",
 			},
-			entries: map[string]json.RawMessage{
-				"selected": json.RawMessage(`{"type":"api_key","key":""}`),
+			entries: map[string]jsontext.Value{
+				"selected": jsontext.Value(`{"type":"api_key","key":""}`),
 			},
 			secret: "",
 		},
@@ -149,8 +150,8 @@ func (s *APIKeyResolverSuite) TestFailuresReturnTypedSafeErrors() {
 				Kind:  APIKeySourceCredential,
 				Value: "selected",
 			},
-			entries: map[string]json.RawMessage{
-				"selected": json.RawMessage(`{"type":"api_key","key":"file-secret","extra":true}`),
+			entries: map[string]jsontext.Value{
+				"selected": jsontext.Value(`{"type":"api_key","key":"file-secret","extra":true}`),
 			},
 			secret: "file-secret",
 		},
@@ -193,9 +194,9 @@ func (s *APIKeyResolverSuite) TestCredentialFailuresRetainCauses() {
 		},
 		"payload decode": {
 			prepare: func() {
-				s.writeEntries(map[string]json.RawMessage{"selected": json.RawMessage(`"malformed"`)})
+				s.writeEntries(map[string]jsontext.Value{"selected": jsontext.Value(`"malformed"`)})
 			},
-			cause: "cannot unmarshal string",
+			cause: "unmarshal JSON string",
 		},
 	}
 	for name, test := range testCases {
@@ -234,7 +235,7 @@ func (s *APIKeyResolverSuite) TestCanceledResolutionReturnsTypedSafeError() {
 	s.ErrorIs(err, context.Canceled)
 }
 
-func (s *APIKeyResolverSuite) writeEntries(entries map[string]json.RawMessage) {
+func (s *APIKeyResolverSuite) writeEntries(entries map[string]jsontext.Value) {
 	s.T().Helper()
 	data, err := json.Marshal(credentialFixture{
 		Version:   credentialStoreVersion,

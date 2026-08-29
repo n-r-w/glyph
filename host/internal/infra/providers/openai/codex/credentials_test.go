@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"fmt"
 
@@ -62,7 +62,7 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 			case "/token":
 				tokenRequests.Add(1)
 				var body map[string]string
-				assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+				assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 				assert.Equal(t, "refresh_token", body["grant_type"])
 				assert.Equal(t, "refresh-old", body["refresh_token"])
 				writer.Header().Set("Content-Type", "application/json")

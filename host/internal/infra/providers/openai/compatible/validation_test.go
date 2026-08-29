@@ -1,7 +1,7 @@
 package compatible
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -109,7 +109,7 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 		t.Run(string(api), func(t *testing.T) {
 			var body map[string]any
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-				assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+				assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 				writer.Header().Set("Content-Type", "text/event-stream")
 				if api == APIChatCompletions {
 					writeSSE(t, writer, `{"id":"chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)

@@ -22,11 +22,11 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 	}{
 		"boolean property schema": {
 			schemaJSON:   `{"type":"object","properties":{"path":true},"required":["path"],"additionalProperties":false}`,
-			parserDetail: "cannot unmarshal bool",
+			parserDetail: "cannot unmarshal JSON boolean",
 		},
 		"property type array": {
 			schemaJSON:   `{"type":"object","properties":{"path":{"type":["string"]}},"required":["path"],"additionalProperties":false}`,
-			parserDetail: "cannot unmarshal array into Go value of type string",
+			parserDetail: "cannot unmarshal JSON array into Go string",
 		},
 	}
 
@@ -65,7 +65,7 @@ func TestValidateCatalogRootTypeParserErrorRetainsContext(t *testing.T) {
 	// Assert: the startup error keeps tool, schema rule, and JSON parser contexts.
 	require.ErrorContains(t, err, `tool "sample" input schema`)
 	require.ErrorContains(t, err, "schema root type must be object")
-	require.ErrorContains(t, err, "cannot unmarshal object into Go value of type string")
+	require.ErrorContains(t, err, "cannot unmarshal JSON object into Go string")
 }
 
 // TestValidateCatalogMissingTypesRemainSemanticErrors verifies absent types do not create synthetic parser failures.
@@ -103,7 +103,7 @@ func TestValidateCatalogMissingTypesRemainSemanticErrors(t *testing.T) {
 
 			// Assert: the error reports only the semantic rule for the absent type.
 			require.ErrorContains(t, err, testCase.semanticRule)
-			assert.NotContains(t, err.Error(), "unexpected end of JSON input")
+			assert.NotContains(t, err.Error(), "unexpected EOF")
 			assert.NotContains(t, err.Error(), "parse property type JSON")
 			assert.NotContains(t, err.Error(), "parse root type JSON")
 		})

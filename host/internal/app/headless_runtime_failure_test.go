@@ -2,7 +2,8 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -114,10 +115,10 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 		t.Cleanup(func() { _ = os.Chmod(projectDirectory, 0o700) })
 	}
 	var records []headlessLogRecord
-	decoder := json.NewDecoder(bytes.NewReader(logs))
+	decoder := jsontext.NewDecoder(bytes.NewReader(logs))
 	for {
 		var record headlessLogRecord
-		if err := decoder.Decode(&record); errors.Is(err, io.EOF) {
+		if err := json.UnmarshalDecode(decoder, &record); errors.Is(err, io.EOF) {
 			break
 		} else {
 			require.NoError(t, err)

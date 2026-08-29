@@ -1,7 +1,7 @@
 package compatible
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +25,7 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		assert.Equal(t, "/v1/chat/completions", request.URL.Path)
 		assert.Equal(t, []string{"Bearer secret"}, request.Header.Values("Authorization"))
-		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestChatReasoningMapsChoices() {
 			// Arrange a server that records one request and returns a terminal stream chunk.
 			var body map[string]any
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-				if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+				if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 					return
 				}
 				writer.Header().Set("Content-Type", "text/event-stream")
@@ -182,7 +182,7 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 	var bodies []map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+		if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 			return
 		}
 		bodies = append(bodies, body)
@@ -267,7 +267,7 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 			t := s.T()
 			var body map[string]any
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-				if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+				if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 					return
 				}
 				writer.Header().Set("Content-Type", "text/event-stream")
@@ -325,7 +325,7 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	t := s.T()
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+		if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 			return
 		}
 		writer.Header().Set("Content-Type", "text/event-stream")

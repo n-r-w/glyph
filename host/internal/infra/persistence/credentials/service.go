@@ -3,7 +3,8 @@ package credentials
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +26,7 @@ type credentialStore struct {
 	// Version identifies the credential file schema.
 	Version int `json:"version"`
 	// Providers contains opaque credential payloads by provider identifier.
-	Providers map[string]json.RawMessage `json:"providers"`
+	Providers map[string]jsontext.Value `json:"providers"`
 }
 
 // Service stores one provider payload in the shared credential file.
@@ -65,7 +66,7 @@ func (s *Service) Save(payload []byte) error {
 	if err := s.validateProviderID(); err != nil {
 		return err
 	}
-	if !json.Valid(payload) {
+	if !jsontext.Value(payload).IsValid() {
 		return fmt.Errorf("save credentials for provider %q: payload is not valid JSON", s.providerID)
 	}
 	if err := s.ensureDirectory(); err != nil {
@@ -76,9 +77,9 @@ func (s *Service) Save(payload []byte) error {
 		return err
 	}
 	if !found {
-		store = credentialStore{Version: credentialStoreVersion, Providers: make(map[string]json.RawMessage)}
+		store = credentialStore{Version: credentialStoreVersion, Providers: make(map[string]jsontext.Value)}
 	}
-	store.Providers[s.providerID] = append(json.RawMessage(nil), payload...)
+	store.Providers[s.providerID] = append(jsontext.Value(nil), payload...)
 	return s.writeStore(store)
 }
 
@@ -152,15 +153,13 @@ func (s *Service) readStore() (credentialStore, bool, error) {
 		return credentialStore{}, false, fmt.Errorf("credential store exceeds %d bytes", maxCredentialStoreSize)
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
+	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	var store credentialStore
-	decodeErr := decoder.Decode(&store)
-	if decodeErr != nil {
+	if decodeErr := json.UnmarshalDecode(decoder, &store, json.RejectUnknownMembers(true)); decodeErr != nil {
 		return credentialStore{}, false, fmt.Errorf("decode credential store: %w", decodeErr)
 	}
 	var extra any
-	trailingErr := decoder.Decode(&extra)
+	trailingErr := json.UnmarshalDecode(decoder, &extra)
 	if !errors.Is(trailingErr, io.EOF) {
 		if trailingErr == nil {
 			return credentialStore{}, false, errors.New("decode trailing credential store data")
@@ -175,7 +174,7 @@ func (s *Service) readStore() (credentialStore, bool, error) {
 		)
 	}
 	if store.Providers == nil {
-		store.Providers = make(map[string]json.RawMessage)
+		store.Providers = make(map[string]jsontext.Value)
 	}
 	return store, true, nil
 }

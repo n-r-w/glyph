@@ -3,7 +3,7 @@ package codex
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -256,7 +256,7 @@ func TestAccountIDFromAccessTokenPreservesParserCauses(t *testing.T) {
 		expected string
 	}{
 		"base64": {token: "header.%.signature", expected: "illegal base64 data"},
-		"JSON":   {token: "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"id":`)) + ".signature", expected: "unexpected end of JSON input"},
+		"JSON":   {token: "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"id":`)) + ".signature", expected: "unexpected EOF"},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -399,7 +399,7 @@ func TestDecodeRefreshResponsePreservesJSONCause(t *testing.T) {
 
 	// Assert parser detail remains visible with refresh response context.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "unexpected EOF")
 	assert.Contains(t, err.Error(), "refresh response")
 }
 
@@ -418,7 +418,7 @@ func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T)
 	// Assert sign-in classification and parser detail are both retained.
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrSignInRequired)
-	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "unexpected EOF")
 }
 
 // testJWT encodes unsigned claims used only for provider routing tests.

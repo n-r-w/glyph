@@ -1,7 +1,7 @@
 package compatible
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -43,7 +43,7 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		assert.Equal(t, "/v1/responses", request.URL.Path)
 		assert.Empty(t, request.Header.Values("Authorization"))
-		assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+		assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer,
 			`{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"answer"}`,

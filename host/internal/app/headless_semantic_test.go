@@ -3,7 +3,8 @@ package app
 import (
 	"bytes"
 
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"fmt"
 
@@ -106,14 +107,14 @@ type sharedOutcome struct {
 
 // semanticLifecycleRecord is the stable subset shared with the standard consumer fixture.
 type semanticLifecycleRecord struct {
-	Type               string          `json:"type"`
-	ToolName           string          `json:"tool_name,omitempty"`
-	ToolStatus         string          `json:"tool_status,omitempty"`
-	Text               string          `json:"text,omitempty"`
-	ToolResultContents json.RawMessage `json:"tool_result_contents,omitempty"`
-	ModelText          string          `json:"model_text,omitempty"`
-	Outcome            string          `json:"outcome,omitempty"`
-	Availability       string          `json:"availability,omitempty"`
+	Type               string         `json:"type"`
+	ToolName           string         `json:"tool_name,omitempty"`
+	ToolStatus         string         `json:"tool_status,omitempty"`
+	Text               string         `json:"text,omitempty"`
+	ToolResultContents jsontext.Value `json:"tool_result_contents,omitempty"`
+	ModelText          string         `json:"model_text,omitempty"`
+	Outcome            string         `json:"outcome,omitempty"`
+	Availability       string         `json:"availability,omitempty"`
 }
 
 // uiObservation stores normalized UI lifecycle records and its derived public outcome.
@@ -170,7 +171,7 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 			ToolStatus         bool               `json:"tool_status"`
 			Outcome            string             `json:"outcome"`
 			Availability       uipb.Availability  `json:"availability"`
-			ToolResultContents json.RawMessage    `json:"tool_result_contents"`
+			ToolResultContents jsontext.Value     `json:"tool_result_contents"`
 		}
 		require.NoError(t, json.Unmarshal([]byte(line), &item))
 		record := semanticLifecycleRecord{

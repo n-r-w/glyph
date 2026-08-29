@@ -2,7 +2,8 @@ package sessions
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -105,7 +106,7 @@ func validateUserRequiredFields(entry jsonObject) error {
 	if err != nil {
 		return err
 	}
-	return validateJSONArray(message["content"], "user content", func(raw json.RawMessage) error {
+	return validateJSONArray(message["content"], "user content", func(raw jsontext.Value) error {
 		return validateTextOrImageRequiredFields(raw, int(model.InputContentText), int(model.InputContentImage))
 	})
 }
@@ -141,7 +142,7 @@ func validateModelRequiredFields(entry jsonObject) error {
 	return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
 }
 
-func validateDiagnosticRequiredFields(raw json.RawMessage) error {
+func validateDiagnosticRequiredFields(raw jsontext.Value) error {
 	diagnostic, err := requiredJSONObject(raw, "code", "message")
 	if err != nil {
 		return err
@@ -149,7 +150,7 @@ func validateDiagnosticRequiredFields(raw json.RawMessage) error {
 	return requireNonNullJSONFields(diagnostic, "code", "message")
 }
 
-func validateModelContentRequiredFields(raw json.RawMessage) error {
+func validateModelContentRequiredFields(raw jsontext.Value) error {
 	content, err := requiredJSONObject(raw, "kind")
 	if err != nil {
 		return err
@@ -186,12 +187,12 @@ func validateToolResultRequiredFields(entry jsonObject) error {
 	if validationErr := requireNonNullJSONFields(result, "callId", "toolName", "isError"); validationErr != nil {
 		return validationErr
 	}
-	return validateJSONArray(result["contents"], "tool result content", func(raw json.RawMessage) error {
+	return validateJSONArray(result["contents"], "tool result content", func(raw jsontext.Value) error {
 		return validateTextOrImageRequiredFields(raw, int(tool.ResultContentText), int(tool.ResultContentImage))
 	})
 }
 
-func validateTextOrImageRequiredFields(raw json.RawMessage, textKind, imageKind int) error {
+func validateTextOrImageRequiredFields(raw jsontext.Value, textKind, imageKind int) error {
 	content, err := requiredJSONObject(raw, "kind")
 	if err != nil {
 		return err
@@ -221,7 +222,7 @@ func validateTextOrImageRequiredFields(raw json.RawMessage, textKind, imageKind 
 	}
 }
 
-type jsonObject map[string]json.RawMessage
+type jsonObject map[string]jsontext.Value
 
 func requiredJSONObject(data []byte, fields ...string) (jsonObject, error) {
 	var object jsonObject
@@ -265,8 +266,8 @@ func validateOptionalRequiredObject(
 	return requireNonNullJSONFields(object, nonNullFields...)
 }
 
-func validateJSONArray(raw json.RawMessage, name string, validate func(json.RawMessage) error) error {
-	var values []json.RawMessage
+func validateJSONArray(raw jsontext.Value, name string, validate func(jsontext.Value) error) error {
+	var values []jsontext.Value
 	if err := json.Unmarshal(raw, &values); err != nil {
 		return fmt.Errorf("decode required %s: %w", name, err)
 	}

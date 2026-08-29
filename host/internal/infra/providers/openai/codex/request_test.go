@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +42,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 			assert.Equal(t, "glyph", request.Header.Get("originator"))
 			assert.Equal(t, "glyph", request.Header.Get("User-Agent"))
 			var body map[string]any
-			assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+			assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 			assert.Equal(t, "gpt-request", body["model"])
 			assert.Equal(t, false, body["store"])
 			assert.Equal(t, "request instructions", body["instructions"])
@@ -292,7 +292,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	server := httptest.NewServer(
 		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			var body map[string]any
-			if !assert.NoError(t, json.NewDecoder(request.Body).Decode(&body)) {
+			if !assert.NoError(t, json.UnmarshalRead(request.Body, &body)) {
 				writer.WriteHeader(http.StatusBadRequest)
 				return
 			}

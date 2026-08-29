@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -111,10 +111,13 @@ func runProgrammaticWithPaths(
 		closeTools()
 		returnErr = errors.Join(returnErr, socketService.Close())
 	}()
-	if err = json.NewEncoder(stdout).Encode(struct {
+	if err = json.MarshalWrite(stdout, struct {
 		Socket string `json:"socket"`
 	}{Socket: socketService.Path()}); err != nil {
 		return fmt.Errorf("write Programmatic Control socket announcement: %w", err)
+	}
+	if _, err = io.WriteString(stdout, "\n"); err != nil {
+		return fmt.Errorf("terminate Programmatic Control socket announcement: %w", err)
 	}
 
 	return runProgrammaticServer(ctx, server, socketService, controller.Completions(), session)

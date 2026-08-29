@@ -1,7 +1,7 @@
 package compatible
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +44,7 @@ func runResponsesRequest(
 	t.Helper()
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, httpRequest *http.Request) {
-		assert.NoError(t, json.NewDecoder(httpRequest.Body).Decode(&body))
+		assert.NoError(t, json.UnmarshalRead(httpRequest.Body, &body))
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer, `{"type":"response.completed","response":{"id":"resp","status":"completed","output":[]}}`)
 	}))

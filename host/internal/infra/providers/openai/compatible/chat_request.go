@@ -2,7 +2,8 @@ package compatible
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"fmt"
 	"strings"
@@ -166,7 +167,7 @@ func chatAssistantMessage(
 	var text strings.Builder
 	var reasoning strings.Builder
 	var refusal strings.Builder
-	var reasoningDetails []json.RawMessage
+	var reasoningDetails []jsontext.Value
 	calls := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
 	for index := range response.Content {
 		item := &response.Content[index]
@@ -215,7 +216,7 @@ func chatAssistantMessage(
 func buildChatAssistantMessage(
 	text string,
 	reasoning string,
-	reasoningDetails []json.RawMessage,
+	reasoningDetails []jsontext.Value,
 	refusal string,
 	calls []openai.ChatCompletionMessageToolCallUnionParam,
 ) (openai.ChatCompletionMessageParamUnion, bool, error) {

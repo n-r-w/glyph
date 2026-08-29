@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"net/http"
 	"net/http/httptest"
@@ -121,7 +121,7 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			current := requests.Add(1)
 			if current == 2 {
-				assert.NoError(t, json.NewDecoder(request.Body).Decode(&secondBody))
+				assert.NoError(t, json.UnmarshalRead(request.Body, &secondBody))
 				writeSSE(writer, completedEvent(`[]`))
 				return
 			}
@@ -390,7 +390,7 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 	server := httptest.NewServer(
 		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			var body map[string]any
-			assert.NoError(t, json.NewDecoder(request.Body).Decode(&body))
+			assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 			assert.Equal(t, "gpt-request", body["model"])
 			reasoning := body["reasoning"].(map[string]any)
 			assert.Equal(t, "none", reasoning["effort"])

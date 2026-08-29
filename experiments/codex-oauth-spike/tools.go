@@ -1,14 +1,10 @@
 package main
 
 import (
-	"encoding/json"
-
+	"encoding/json/v2"
 	"fmt"
-
 	"os"
-
 	"path/filepath"
-	"strings"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -23,10 +19,8 @@ func executeSafeRead(workDir string, schema *jsonschema.Schema, rawArguments str
 		return "", fmt.Errorf("validate arguments against read schema: %w", err)
 	}
 
-	decoder := json.NewDecoder(strings.NewReader(rawArguments))
-	decoder.DisallowUnknownFields()
 	var arguments readArguments
-	if err := decoder.Decode(&arguments); err != nil {
+	if err := json.Unmarshal([]byte(rawArguments), &arguments, json.RejectUnknownMembers(true)); err != nil {
 		return "", fmt.Errorf("decode typed read arguments: %w", err)
 	}
 	if arguments.Path != sampleFileName {

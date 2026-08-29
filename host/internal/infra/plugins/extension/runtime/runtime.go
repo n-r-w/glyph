@@ -4,7 +4,8 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -322,8 +323,8 @@ func mapGrammarSampling(
 		return tool.ConstrainedSampling{}, errors.New("grammar requires at least one nonempty grammar variant")
 	}
 	var schema struct {
-		Properties map[string]json.RawMessage `json:"properties"`
-		Required   []string                   `json:"required"`
+		Properties map[string]jsontext.Value `json:"properties"`
+		Required   []string                  `json:"required"`
 	}
 	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
 		return tool.ConstrainedSampling{}, fmt.Errorf("parse grammar schema: %w", err)
@@ -343,7 +344,7 @@ func mapGrammarSampling(
 }
 
 // validateGrammarInputProperty enforces the direct single-string input contract.
-func validateGrammarInputProperty(properties map[string]json.RawMessage, required string) error {
+func validateGrammarInputProperty(properties map[string]jsontext.Value, required string) error {
 	const rule = "grammar schema must have exactly one required string property"
 
 	propertyJSON, exists := properties[required]
@@ -351,7 +352,7 @@ func validateGrammarInputProperty(properties map[string]json.RawMessage, require
 		return errors.New(rule)
 	}
 	var property struct {
-		Type json.RawMessage `json:"type"`
+		Type jsontext.Value `json:"type"`
 	}
 	if err := json.Unmarshal(propertyJSON, &property); err != nil {
 		// Keep parser diagnostics with the grammar rule that the property violates.
@@ -376,7 +377,7 @@ func compileToolSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
 	const schemaLocation = "glyph://extension/input-schema.json"
 
 	var root struct {
-		Type json.RawMessage `json:"type"`
+		Type jsontext.Value `json:"type"`
 	}
 	if err := json.Unmarshal(schemaJSON, &root); err != nil {
 		return nil, fmt.Errorf("parse JSON Schema: %w", err)

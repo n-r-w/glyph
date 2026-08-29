@@ -191,10 +191,10 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 
 	// Assert the request exposes the JSON cause without publishing a completed tool call.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	assert.Contains(t, err.Error(), "unexpected EOF")
 	terminal := events[len(events)-1].Response.OrEmpty()
 	require.Equal(t, model.OutcomeFailed, terminal.Outcome.OrEmpty())
-	assert.Contains(t, terminal.ErrorMessage.OrEmpty(), "unexpected end of JSON input")
+	assert.Contains(t, terminal.ErrorMessage.OrEmpty(), "unexpected EOF")
 	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
 }
 

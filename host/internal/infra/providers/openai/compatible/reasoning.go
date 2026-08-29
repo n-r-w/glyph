@@ -2,7 +2,8 @@ package compatible
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -37,7 +38,7 @@ const (
 )
 
 // reasoningDetail preserves one opaque OpenRouter reasoning detail object.
-type reasoningDetail map[string]json.RawMessage
+type reasoningDetail map[string]jsontext.Value
 
 // parseReasoningFormat validates one adapter-owned reasoning format against its API.
 func parseReasoningFormat(raw string, api API, reasoningConfigured bool) (reasoningFormat, error) {
@@ -246,7 +247,7 @@ func openRouterReplayDetails(
 	content model.Content,
 	format reasoningFormat,
 	target model.ProviderContextSource,
-) ([]json.RawMessage, error) {
+) ([]jsontext.Value, error) {
 	if format != reasoningFormatOpenRouter {
 		return nil, nil
 	}
@@ -254,12 +255,12 @@ func openRouterReplayDetails(
 	if !present || len(providerContext.Payload) == 0 || !providerContextCompatible(providerContext.Source, target) {
 		return nil, nil
 	}
-	var details []json.RawMessage
+	var details []jsontext.Value
 	if err := json.Unmarshal(providerContext.Payload, &details); err != nil {
 		return nil, fmt.Errorf("decode OpenRouter reasoning_details context: %w", err)
 	}
 	for index, detail := range details {
-		var object map[string]json.RawMessage
+		var object map[string]jsontext.Value
 		if err := json.Unmarshal(detail, &object); err != nil || object == nil {
 			return nil, fmt.Errorf("decode OpenRouter reasoning_details context: detail %d is not an object", index)
 		}

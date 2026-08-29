@@ -5,7 +5,8 @@ import (
 	"context"
 
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -75,7 +76,7 @@ func readCredentialStore(path string) (credentialStore, bool, error) {
 		return credentialStore{}, false, fmt.Errorf("Glyph credential store version is %d, expected %d", store.Version, credentialsVersion)
 	}
 	if store.Providers == nil {
-		store.Providers = make(map[string]json.RawMessage)
+		store.Providers = make(map[string]jsontext.Value)
 	}
 	return store, true, nil
 }
@@ -101,7 +102,7 @@ func persistCredentials(path string, credentials oauthCredentials) error {
 	if !found {
 		store = credentialStore{
 			Version:   credentialsVersion,
-			Providers: make(map[string]json.RawMessage),
+			Providers: make(map[string]jsontext.Value),
 		}
 	}
 	payload, err := json.Marshal(credentials)

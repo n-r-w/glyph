@@ -2,7 +2,8 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"log/slog"
@@ -92,10 +93,10 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 	stored, err := os.ReadFile(named.GetStoragePath())
 	require.NoError(t, err)
 	var records []programmaticCleanupLogRecord
-	decoder := json.NewDecoder(bytes.NewReader(logs.Bytes()))
+	decoder := jsontext.NewDecoder(bytes.NewReader(logs.Bytes()))
 	for {
 		var record programmaticCleanupLogRecord
-		if decodeErr := decoder.Decode(&record); errors.Is(decodeErr, io.EOF) {
+		if decodeErr := json.UnmarshalDecode(decoder, &record); errors.Is(decodeErr, io.EOF) {
 			break
 		} else {
 			require.NoError(t, decodeErr)

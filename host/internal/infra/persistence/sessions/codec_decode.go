@@ -2,7 +2,8 @@ package sessions
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -133,7 +134,7 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		return session.Entry{}, fmt.Errorf("parse extension entry timestamp: %w", err)
 	}
 	if record.ID == "" || record.ExtensionID == "" || record.EntryType == "" ||
-		len(record.Data) == 0 || !json.Valid(record.Data) {
+		len(record.Data) == 0 || !record.Data.IsValid() {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
 	return session.Entry{
@@ -297,7 +298,7 @@ func decodeToolResultContent(record toolResultContentRecord) (tool.ResultContent
 	}
 }
 
-func decodeBytes(data json.RawMessage) ([]byte, error) {
+func decodeBytes(data jsontext.Value) ([]byte, error) {
 	var decoded []byte
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return nil, err
@@ -383,12 +384,11 @@ func validOutcome(outcome model.Outcome) bool {
 // decodeRecord accepts exactly one JSON value whose core fields match the selected DTO.
 func decodeRecord(data []byte, target any) error {
 	// Core records use a closed schema so format changes require a new version.
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
+	decoder := jsontext.NewDecoder(bytes.NewReader(data))
+	if err := json.UnmarshalDecode(decoder, target, json.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+	if err := json.UnmarshalDecode(decoder, &struct{}{}); !errors.Is(err, io.EOF) {
 		if err == nil {
 			return errors.New("multiple JSON values in one session record")
 		}

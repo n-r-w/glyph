@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"log/slog"
 	"os"
@@ -277,7 +277,7 @@ func TestLoadPrioritizesHeaderDecodeErrors(t *testing.T) {
 					cwd,
 				)
 			},
-			cause: `json: unknown field "extra"`,
+			cause: `unknown object member name "extra"`,
 		},
 		{
 			name: "required field before header shape",

@@ -3,7 +3,8 @@ package credentials
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -118,17 +119,16 @@ func (r *APIKeyResolver) resolveCredential(ctx context.Context) (string, error) 
 	if err = ctx.Err(); err != nil {
 		return "", r.safeError(err)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.DisallowUnknownFields()
+	decoder := jsontext.NewDecoder(bytes.NewReader(payload))
 	var credential struct {
 		Type string `json:"type"`
 		Key  string `json:"key"`
 	}
-	if err = decoder.Decode(&credential); err != nil {
+	if err = json.UnmarshalDecode(decoder, &credential, json.RejectUnknownMembers(true)); err != nil {
 		return "", r.safeError(fmt.Errorf("decode credential payload: %w", err))
 	}
 	var extra any
-	if err = decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+	if err = json.UnmarshalDecode(decoder, &extra); !errors.Is(err, io.EOF) {
 		if err == nil {
 			return "", r.safeError(nil)
 		}

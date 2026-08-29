@@ -2,7 +2,8 @@ package sessions
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"time"
 
@@ -56,7 +57,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		return encodeToolResultEntry(entry, result)
 	}
 	extension := entry.Extension.MustGet()
-	if extension.ExtensionID == "" || extension.EntryType == "" || !json.Valid(extension.Data) {
+	if extension.ExtensionID == "" || extension.EntryType == "" || !jsontext.Value(extension.Data).IsValid() {
 		return nil, errors.New("invalid extension entry")
 	}
 	// Clone opaque extension bytes before framing them as compact JSON.
@@ -64,7 +65,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		Type: recordTypeExtension, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt:   entry.CreatedAt.Format(time.RFC3339Nano),
 		ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
-		Data: json.RawMessage(bytes.Clone(extension.Data)),
+		Data: jsontext.Value(bytes.Clone(extension.Data)),
 	})
 }
 
@@ -211,12 +212,12 @@ func encodeToolResultContent(content tool.ResultContent) (toolResultContentRecor
 }
 
 // encodeBytes keeps present nil and empty byte slices distinct in repository JSON.
-func encodeBytes(data []byte) (json.RawMessage, error) {
-	encoded, err := json.Marshal(bytes.Clone(data))
+func encodeBytes(data []byte) (jsontext.Value, error) {
+	encoded, err := json.Marshal(bytes.Clone(data), json.FormatNilSliceAsNull(true))
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(encoded), nil
+	return jsontext.Value(encoded), nil
 }
 
 // encodeModelResponse preserves terminal continuation fields and their option presence.
@@ -318,7 +319,12 @@ func validateModelContentShape(
 
 // encodeLine adds the record delimiter included in each synchronized append.
 func encodeLine(value any) ([]byte, error) {
-	encoded, err := json.Marshal(value)
+	encoded, err := json.Marshal(
+		value,
+		json.Deterministic(true),
+		json.FormatNilMapAsNull(true),
+		json.FormatNilSliceAsNull(true),
+	)
 	if err != nil {
 		return nil, err
 	}
