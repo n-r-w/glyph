@@ -41,7 +41,7 @@ No quantitative estimate of time or resource impact is available. Such measureme
 
 `pi-agent-suite` provides additional behavior on top of Pi. Pi defines the agent core, base agent loop, model integrations, session behavior, and extension boundaries.
 
-Glyph has an executable prototype whose limits are defined in [`prototype-prd.md`](prototype-prd.md), but it does not yet implement the complete independently owned product described in [`prd.md`](prd.md).
+Glyph has an executable prototype whose limits are defined in the [prototype baseline PRD](phases/00-prototype-baseline/baseline-prd.md), but it does not yet implement the complete independently owned product described in the [target PRD](prd.md).
 
 ## Desired Outcome
 

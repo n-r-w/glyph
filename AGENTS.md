@@ -9,10 +9,24 @@
 
 ## Documentation
 1. `docs/terms.md`: domain glossary
-1. `docs/artefacts/`: various artefacts
-2. `docs/specs/features/`: features
-3. `docs/specs/issues/`: issues
-4. `docs/roadmap.md`: project roadmap
+2. `docs/artefacts/`: various artefacts (external research, etc.)
+3. `docs/roadmap.md`: project roadmap
+4. `docs/specs/features/`: features
+5. `docs/specs/issues/`: issues
+
+For regular features and issues:
+1. `docs/specs/{features or issues}/{feature/issue name}/problem.md`: problem statement and user story
+2. `docs/specs/{features or issues}/{feature/issue name}/terms.md`: feature/issue-specific terminology
+3. `docs/specs/{features or issues}/{feature/issue name}/prd.md`: feature/issue-specific requirements
+4. `docs/specs/{features or issues}/{feature/issue name}/solution.md`: technical solution
+
+For complex features:
+1. `docs/specs/features/{feature name}/problem.md`: problem statement and user story
+2. `docs/specs/features/{feature name}/terms.md`: feature-specific terminology
+3. `docs/specs/features/{feature name}/prd.md`: feature-specific requirements
+4. `docs/specs/features/{feature name}/delivery-plan.md`: phase order and dependencies
+5. `docs/specs/features/{feature name}/phases/<phase>/ticket.md`: phase requirements and completion criteria
+6. `docs/specs/features/{feature name}/phases/<phase>/solution.md`: phase technical solution
 
 ## Tech stack
 1. go 1.26
