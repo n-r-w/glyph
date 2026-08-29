@@ -1,0 +1,114 @@
+package app
+
+import (
+	"encoding/base64"
+
+	"encoding/json"
+	"errors"
+
+	"io"
+
+	"net/http"
+
+	"strings"
+	"sync/atomic"
+
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// deterministicCodexTransport returns two fixed responses and never performs network I/O.
+type countingFailureTransport struct{ requests *atomic.Int32 }
+
+// RoundTrip records any provider request that escaped an application-startup failure.
+func (transport countingFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	transport.requests.Add(1)
+	return nil, errors.New("provider request must not start")
+}
+
+type deterministicCodexTransport struct {
+	requestCount *atomic.Int32
+	lastBody     *atomic.Value
+}
+
+func (transport deterministicCodexTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if transport.lastBody != nil {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			return nil, err
+		}
+		transport.lastBody.Store(body)
+	}
+	requestNumber := transport.requestCount.Add(1)
+	switch requestNumber {
+	case 1:
+		return &http.Response{
+			StatusCode:       http.StatusOK,
+			Body:             io.NopCloser(strings.NewReader(toolResponseSSE)),
+			Header:           make(http.Header),
+			Status:           "",
+			Proto:            "",
+			ProtoMajor:       0,
+			ProtoMinor:       0,
+			ContentLength:    0,
+			TransferEncoding: nil,
+			Close:            false,
+			Uncompressed:     false,
+			Trailer:          nil,
+			Request:          nil,
+			TLS:              nil,
+		}, nil
+	case 2, 3, 4, 5:
+		return &http.Response{
+			StatusCode:       http.StatusOK,
+			Body:             io.NopCloser(strings.NewReader(finalResponseSSE)),
+			Header:           make(http.Header),
+			Status:           "",
+			Proto:            "",
+			ProtoMajor:       0,
+			ProtoMinor:       0,
+			ContentLength:    0,
+			TransferEncoding: nil,
+			Close:            false,
+			Uncompressed:     false,
+			Trailer:          nil,
+			Request:          nil,
+			TLS:              nil,
+		}, nil
+	default:
+		return nil, errors.New("deterministic Codex transport received more than three requests")
+	}
+}
+
+const toolResponseSSE = `data: {"type":"response.output_item.done","output_index":0,"item":{"id":"r-1","type":"reasoning","encrypted_content":"enc-restart","summary":[]}}
+
+data: {"type":"response.output_item.added","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"","status":"in_progress"}}
+
+data: {"type":"response.function_call_arguments.done","output_index":1,"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}
+
+data: {"type":"response.output_item.done","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}
+
+data: {"type":"response.completed","response":{"id":"resp-1","status":"completed","output":[]}}
+
+data: [DONE]
+
+`
+
+const finalResponseSSE = `data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Request complete."}
+
+data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Request complete.","annotations":[],"logprobs":[]}]}}
+
+data: {"type":"response.completed","response":{"id":"resp-2","status":"completed","output":[]}}
+
+data: [DONE]
+
+`
+
+// semanticAccessToken creates credentials accepted by the local deterministic provider path.
+func semanticAccessToken(t *testing.T, accountID string) string {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{"https://api.openai.com/auth": map[string]string{"chatgpt_account_id": accountID}})
+	require.NoError(t, err)
+	return "header." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+}
