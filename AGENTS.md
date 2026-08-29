@@ -28,6 +28,8 @@ For complex features:
 5. `docs/specs/features/{feature name}/phases/<phase>/ticket.md`: phase requirements and completion criteria
 6. `docs/specs/features/{feature name}/phases/<phase>/solution.md`: phase technical solution
 
+MUST NOT duplicate information. Instead, provide links to existing documents.
+
 ## Tech stack
 1. go 1.26
 2. `github.com/stretchr/testify` for tests
