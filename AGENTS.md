@@ -52,6 +52,10 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
 
+## Code structure
+1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
+2. Separate logically related functionality into separate files of reasonable size.
+
 ## Code comments
 1. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
 2. Following objects MUST contain a comment describing their purpose (exported and non-exported):
