@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	openai "github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/samber/lo"
@@ -99,14 +98,7 @@ func (s *Driver) streamChatCompletions(
 	if err != nil {
 		return model.Response{}, err
 	}
-	opts := []option.RequestOption{
-		option.WithBaseURL(s.baseURL),
-		option.WithHTTPClient(s.httpClient),
-		option.WithMaxRetries(0),
-	}
-	if key != "" {
-		opts = append(opts, option.WithAPIKey(key))
-	}
+	opts := s.requestOptions(key)
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()

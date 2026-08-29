@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
@@ -90,12 +89,7 @@ func (s *Driver) streamResponses(
 	if err != nil {
 		return model.Response{}, err
 	}
-	opts := []option.RequestOption{
-		option.WithBaseURL(s.baseURL), option.WithHTTPClient(s.httpClient), option.WithMaxRetries(0),
-	}
-	if key != "" {
-		opts = append(opts, option.WithAPIKey(key))
-	}
+	opts := s.requestOptions(key)
 	service := responses.NewResponseService(opts...)
 	stream := service.NewStreaming(ctx, params)
 	defer func() { _ = stream.Close() }()

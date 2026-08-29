@@ -10,6 +10,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
+	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -125,8 +126,8 @@ func (s *Driver) generateResponse(
 		option.WithAPIKey(credentials.AccessToken),
 		option.WithHeader("chatgpt-account-id", credentials.AccountID),
 		option.WithHeader("OpenAI-Beta", "responses=experimental"),
-		option.WithHeader("originator", "glyph"),
-		option.WithHeader("User-Agent", "glyph"),
+		option.WithHeader("originator", providerconsts.AgentID),
+		option.WithHeader("User-Agent", providerconsts.AgentID),
 	)
 	defer func() {
 		_ = stream.Close()

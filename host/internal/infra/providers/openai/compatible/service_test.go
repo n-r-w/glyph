@@ -99,6 +99,48 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
 }
 
+// TestOpenRouterRequestsIncludeAttributionHeaders verifies both supported APIs identify Glyph to OpenRouter.
+func (s *serviceSuite) TestOpenRouterRequestsIncludeAttributionHeaders() {
+	t := s.T()
+
+	for _, testCase := range []struct {
+		name     string
+		api      API
+		path     string
+		response string
+	}{
+		{name: "Chat Completions", api: APIChatCompletions, path: "/chat/completions", response: `{"choices":[{"delta":{},"finish_reason":"stop"}]}`},
+		{name: "Responses", api: APIResponses, path: "/responses", response: `{"type":"response.completed","response":{"id":"response","status":"completed","output":[]}}`},
+	} {
+		s.Run(testCase.name, func() {
+			// Arrange an OpenRouter-compatible endpoint that validates request attribution.
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				assert.Equal(t, testCase.path, request.URL.Path)
+				assert.Equal(t, "glyph", request.Header.Get("User-Agent"))
+				assert.Equal(t, "https://github.com/n-r-w/glyph", request.Header.Get("HTTP-Referer"))
+				assert.Equal(t, "Glyph", request.Header.Get("X-OpenRouter-Title"))
+				assert.Equal(t, "cli-agent", request.Header.Get("X-OpenRouter-Categories"))
+				writer.Header().Set("Content-Type", "text/event-stream")
+				writeSSE(t, writer, testCase.response)
+			}))
+			t.Cleanup(server.Close)
+			service, err := New(Config{
+				ProviderID: "openrouter", BaseURL: server.URL, API: testCase.api,
+				Models: map[model.ID]API{"demo": ""}, ReasoningFormats: nil,
+				ReasoningCompatibilityKeys: nil, APIKey: expectAPIKey(t, "secret", nil, 1),
+			})
+			require.NoError(t, err)
+
+			// Act by sending one request through the selected API.
+			events := streamEvents(t, service, richRequest("openrouter", "demo"))
+
+			// Assert the provider completed after receiving the expected headers.
+			require.NotEmpty(t, events)
+			assert.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
+		})
+	}
+}
+
 // TestChatReasoningMapsChoices verifies each Chat Completions format maps off, effort, and fixed-on choices.
 func (s *serviceSuite) TestChatReasoningMapsChoices() {
 	for _, testCase := range []struct {

@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/openai/openai-go/v3/option"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -71,6 +73,8 @@ type Driver struct {
 	apiKey APIKeyResolver
 	// httpClient sends provider requests.
 	httpClient *http.Client
+	// headers contains provider identification and attribution headers.
+	headers map[string]string
 }
 
 var _ run.ModelProvider = (*Driver)(nil)
@@ -107,7 +111,35 @@ func New(config Config) (*Driver, error) {
 		models:     models,
 		apiKey:     config.APIKey,
 		httpClient: &http.Client{},
+		headers:    requestHeaders(config.ProviderID, parsedURL),
 	}, nil
+}
+
+// requestHeaders builds identification and attribution headers for one provider.
+func requestHeaders(providerID model.ProviderID, baseURL *url.URL) map[string]string {
+	headers := map[string]string{"User-Agent": providerconsts.AgentID}
+	if providerID == "openrouter" || baseURL.Hostname() == "openrouter.ai" {
+		headers["HTTP-Referer"] = providerconsts.ProjectURL
+		headers["X-OpenRouter-Title"] = providerconsts.AgentTitle
+		headers["X-OpenRouter-Categories"] = "cli-agent"
+	}
+	return headers
+}
+
+// requestOptions builds the shared OpenAI SDK options for one provider request.
+func (s *Driver) requestOptions(key string) []option.RequestOption {
+	opts := []option.RequestOption{
+		option.WithBaseURL(s.baseURL),
+		option.WithHTTPClient(s.httpClient),
+		option.WithMaxRetries(0),
+	}
+	for name, value := range s.headers {
+		opts = append(opts, option.WithHeader(name, value))
+	}
+	if key != "" {
+		opts = append(opts, option.WithAPIKey(key))
+	}
+	return opts
 }
 
 // configuredModels validates and snapshots each model-specific API and reasoning configuration.
