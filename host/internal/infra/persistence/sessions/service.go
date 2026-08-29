@@ -564,8 +564,7 @@ func (nonregularSessionFileError) Error() string { return "session file is not r
 
 // classifyListWarningDiagnostic maps a list failure to its closed diagnostic category.
 func classifyListWarningDiagnostic(err error) listWarningDiagnostic {
-	var nonregular nonregularSessionFileError
-	if errors.As(err, &nonregular) {
+	if _, ok := errors.AsType[nonregularSessionFileError](err); ok {
 		return listDiagnosticNonregularSessionFile
 	}
 	return listDiagnosticInvalidSessionFile

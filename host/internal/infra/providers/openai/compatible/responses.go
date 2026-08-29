@@ -139,7 +139,7 @@ func responsesParams(
 		Store:             param.NewOpt(false),
 		ParallelToolCalls: param.NewOpt(false),
 		Include:           []responses.ResponseIncludable{responses.ResponseIncludableReasoningEncryptedContent},
-		//nolint:exhaustruct // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
+		//nolint:exhaustruct_v5 // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
 		Input: responses.ResponseNewParamsInputUnion{
 			OfInputItemList: input,
 		},
@@ -375,7 +375,7 @@ func responsesToolOutput(contents []tool.ResultContent) (responses.ResponseFunct
 						fmt.Errorf("tool result image %d requires media type and data", index)
 				}
 				imageURL := dataURL(image.MediaType, image.Data)
-				//nolint:exhaustruct // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
+				//nolint:exhaustruct_v5 // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{
 						FileID:                param.Opt[string]{},

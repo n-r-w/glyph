@@ -1,6 +1,6 @@
 module github.com/n-r-w/glyph
 
-go 1.26.5
+go 1.27.0
 
 tool (
 	github.com/easyp-tech/easyp/cmd/easyp

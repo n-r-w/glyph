@@ -17,7 +17,7 @@ func TestMapOpenRequestAcceptsSessionStatisticsQuery(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a correlated GetSessionStats request.
-	//nolint:exhaustruct // The protobuf builder intentionally sets only the active oneof field.
+	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
 	request := programmaticv1.OpenRequest_builder{
 		CorrelationId: new("stats"), GetSessionStats: programmaticv1.GetSessionStats_builder{}.Build(),
 	}.Build()

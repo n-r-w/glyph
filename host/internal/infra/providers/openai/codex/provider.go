@@ -182,7 +182,7 @@ func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewP
 		Include: []responses.ResponseIncludable{
 			responses.ResponseIncludableReasoningEncryptedContent,
 		},
-		//nolint:exhaustruct // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
+		//nolint:exhaustruct_v5 // responses.ResponseNewParamsInputUnion sets only the active OfInputItemList field.
 		Input: responses.ResponseNewParamsInputUnion{
 			OfInputItemList: input,
 		},
@@ -422,14 +422,12 @@ func (s *Driver) streamError(
 			Diagnostics:   nil,
 		}, ctx.Err()
 	}
-	var hookFailure internalhooks.HookError
-	if errors.As(streamErr, &hookFailure) {
+	if hookFailure, ok := errors.AsType[internalhooks.HookError](streamErr); ok {
 		response := hookFailureResponse(hookFailure)
 		response.ErrorMessage = mo.Some(streamErr.Error())
 		return response, streamErr
 	}
-	var apiError *openai.Error
-	if errors.As(streamErr, &apiError) {
+	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
 		if apiError.StatusCode == http.StatusUnauthorized {
 			return failedModelResponse(signInRequiredMessage), ErrSignInRequired
 		}

@@ -32,7 +32,7 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exhaustruct
+    - exhaustruct_v5
     - forbidigo
     - gocheckcompilerdirectives
     - gochecknoglobals
@@ -114,9 +114,7 @@ linters:
         - dupImport
         - octalLiteral
         - hugeParam
-    exhaustruct:
-      include: []
-      exclude: []
+    exhaustruct_v5:
       allow-empty: true
       allow-empty-returns: true
       allow-empty-declarations: true

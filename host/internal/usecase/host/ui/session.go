@@ -499,8 +499,7 @@ func (*Session) resolveDeliveryFailure(
 ) error {
 	sourceErr := error(nil)
 	deliveryErr := err
-	var failedDelivery *deliveryFailureError
-	if errors.As(err, &failedDelivery) {
+	if failedDelivery, ok := errors.AsType[*deliveryFailureError](err); ok {
 		sourceErr = failedDelivery.sourceErr
 		deliveryErr = failedDelivery.deliveryErr
 	}

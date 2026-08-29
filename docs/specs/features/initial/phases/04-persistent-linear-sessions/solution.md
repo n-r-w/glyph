@@ -228,7 +228,7 @@ None.
 - REF-01: `docs/specs/features/initial/phases/04-persistent-linear-sessions/ticket.md` - owning ticket and acceptance criteria.
 - REF-02: `docs/specs/features/initial/prd.md` - product session and Programmatic Control requirements.
 - REF-03: `docs/terms.md` - domain terminology.
-- REF-04: `docs/specs/features/initial/phases/03-providers-models-runtime-selection/technical-solution.md` - provider-context and Agent Core boundaries.
+- REF-04: `docs/specs/features/initial/phases/03-providers-models-runtime-selection/solution.md` - provider-context and Agent Core boundaries.
 - REF-05: `host/internal/domain/agent/model.go` - current provider-neutral history entries and tool results.
 - REF-06: `host/internal/domain/model/model.go` - current messages, responses, usage, tool calls, and provider context.
 - REF-07: `host/internal/usecase/agent/run/service.go` - current in-memory history and terminal append order.

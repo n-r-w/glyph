@@ -139,7 +139,8 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	reasoningResponse, err := fixture.stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "reasoning", reasoningResponse.GetCorrelationId())
-	assert.Equal(t,
+	assert.Equal(
+		t,
 		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
 		reasoningResponse.GetCommandResponse().GetModelSelection().GetSelection().GetReasoningChoice(),
 	)
@@ -1167,7 +1168,7 @@ func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 	// Arrange a Programmatic stream and a request without correlation identity.
 	paths := testPaths(t, codexSettings(""))
 	fixture := startProgrammaticFixture(t, paths)
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	invalid := programmaticv1.OpenRequest_builder{
 		UserRequest: programmaticv1.UserRequest_builder{
 			Text: new("missing correlation"),
@@ -1487,7 +1488,7 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 
 // userRequest builds a generated user-request frame.
 func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: new(correlationID),
 		UserRequest: programmaticv1.UserRequest_builder{
@@ -1503,7 +1504,7 @@ func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
 
 // abortRequest builds a generated abort frame.
 func abortRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId:  new(correlationID),
 		Abort:          programmaticv1.Abort_builder{}.Build(),
@@ -1517,7 +1518,7 @@ func abortRequest(correlationID string) *programmaticv1.OpenRequest {
 
 // runStateRequest builds a generated run-state frame.
 func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId:  new(correlationID),
 		GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
@@ -1531,7 +1532,7 @@ func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 
 // getModelsRequest builds a generated model-catalog frame.
 func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId:  new(correlationID),
 		GetModels:      programmaticv1.GetModels_builder{}.Build(),
@@ -1545,7 +1546,7 @@ func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
 
 // selectModelRequest builds a generated model-selection frame.
 func selectModelRequest(correlationID, providerID, modelID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: new(correlationID),
 		SelectModel: programmaticv1.SelectModel_builder{
@@ -1565,7 +1566,7 @@ func selectReasoningRequest(
 	correlationID string,
 	level programmaticv1.ReasoningChoice,
 ) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: new(correlationID),
 		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{

@@ -1,6 +1,6 @@
 module github.com/n-r-w/glyph/experiments/codex-oauth-spike
 
-go 1.26.5
+go 1.27.0
 
 require (
 	github.com/openai/openai-go/v3 v3.49.0

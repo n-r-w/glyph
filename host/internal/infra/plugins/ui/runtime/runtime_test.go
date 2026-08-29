@@ -922,32 +922,32 @@ func (s *runtimeContractService) Open(
 // runtimeCommandResponses builds the generated alternatives used by runtime command tests.
 func runtimeCommandResponses(text string, providerID string, modelID string) []*uipb.OpenResponse {
 	return []*uipb.OpenResponse{
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
 		uipb.OpenResponse_builder{
 			Submit: uipb.SubmitCommand_builder{
 				Text: new(text),
 			}.Build(),
 		}.Build(),
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Stop field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Stop field.
 		uipb.OpenResponse_builder{
 			Stop: &uipb.StopCommand{},
 		}.Build(),
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active RetryAuthentication field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active RetryAuthentication field.
 		uipb.OpenResponse_builder{
 			RetryAuthentication: &uipb.RetryAuthenticationCommand{},
 		}.Build(),
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 		uipb.OpenResponse_builder{
 			Quit: &uipb.QuitCommand{},
 		}.Build(),
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectModel field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SelectModel field.
 		uipb.OpenResponse_builder{
 			SelectModel: uipb.SelectModelCommand_builder{
 				ProviderId: new(providerID),
 				ModelId:    new(modelID),
 			}.Build(),
 		}.Build(),
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
 		uipb.OpenResponse_builder{
 			SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
 				Choice: new(uipb.ReasoningChoice_REASONING_CHOICE_XHIGH),

@@ -87,21 +87,21 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	callID := "call-1"
 	toolName := "read"
 	toolResultText := "tool-result"
-	//nolint:exhaustruct // OpenRequest_builder sets only the active SessionChanged field.
+	//nolint:exhaustruct_v5 // OpenRequest_builder sets only the active SessionChanged field.
 	request := uiv1.OpenRequest_builder{SessionChanged: uiv1.SessionChanged_builder{
 		Info: uiv1.SessionInfo_builder{
 			Id: &id, Name: nil, WorkingDirectory: &workingDirectory, StoragePath: nil,
 			CreatedTime: createdAt, UpdateTime: createdAt,
 		}.Build(),
 		Entries: []*uiv1.SessionEntry{
-			//nolint:exhaustruct // SessionEntry_builder sets only the active User field.
+			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active User field.
 			uiv1.SessionEntry_builder{
 				Id: &id, CreatedTime: createdAt, Model: nil,
 				User: uiv1.UserMessage_builder{Content: []*uiv1.UserContent{
 					uiv1.UserContent_builder{Text: &userText}.Build(),
 				}}.Build(),
 			}.Build(),
-			//nolint:exhaustruct // SessionEntry_builder sets only the active Model field.
+			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active Model field.
 			uiv1.SessionEntry_builder{
 				Id: &id, CreatedTime: createdAt, User: nil,
 				Model: uiv1.ModelResponse_builder{
@@ -123,7 +123,7 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 					},
 				}.Build(),
 			}.Build(),
-			//nolint:exhaustruct // SessionEntry_builder sets only the active ToolResult field.
+			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active ToolResult field.
 			uiv1.SessionEntry_builder{
 				Id: &id, CreatedTime: createdAt, User: nil, Model: nil,
 				ToolResult: uiv1.ToolResult_builder{
@@ -340,7 +340,7 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 	))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Information field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Information field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Information: uiv1.Information_builder{
 			Text: new("too early"),
@@ -490,7 +490,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(initializationRequest()))
 	<-started
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Information field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Information field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Information: uiv1.Information_builder{
 			Text: new("information"),
@@ -499,7 +499,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		SessionChanged:     nil,
 		SessionInformation: nil,
 	}.Build()))
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Lifecycle: uiv1.LifecycleEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
@@ -527,7 +527,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		SessionChanged:     nil,
 		SessionInformation: nil,
 	}.Build()))
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Lifecycle: uiv1.LifecycleEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
@@ -597,7 +597,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 	}), initial.ModelSelection)
 
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active ModelSelectionChanged field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active ModelSelectionChanged field.
 	changed, err := mapRequest(uiv1.OpenRequest_builder{
 		ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
 			Selection: uiv1.ModelSelection_builder{
@@ -1043,7 +1043,7 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		lifecycle.SetToolName(frame.ToolName)
 		contents := make([]*uiv1.ToolResultContent, 0, len(frame.ToolResultContents))
 		for _, content := range frame.ToolResultContents {
-			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
 			contents = append(contents, uiv1.ToolResultContent_builder{
 				Text: new(content.Text),
 			}.Build())
@@ -1064,7 +1064,7 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	if frame.Type == "availability" {
 		lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
 	}
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	return uiv1.OpenRequest_builder{
 		Lifecycle:          lifecycle,
 		SessionList:        nil,
@@ -1393,14 +1393,14 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange unknown lifecycle and safe-error requests.
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	unknownLifecycle := uiv1.OpenRequest_builder{
 		Lifecycle:          &uiv1.LifecycleEvent{},
 		SessionList:        nil,
 		SessionChanged:     nil,
 		SessionInformation: nil,
 	}.Build()
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
 	safeError := uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("safe error"),
@@ -1502,7 +1502,7 @@ func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
-			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Image field.
+			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Image field.
 			uiv1.ToolResultContent_builder{
 				Image: uiv1.ToolResultImage_builder{
 					MediaType: new("image/png"),
@@ -1624,7 +1624,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	}
 	// Act by mapping and applying the lifecycle frame sequence.
 	for _, lifecycle := range frames {
-		//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+		//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 		event, err := mapRequest(uiv1.OpenRequest_builder{
 			Lifecycle:          proto.ValueOrDefault(lifecycle),
 			SessionList:        nil,
@@ -1813,7 +1813,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolName:   new("read"),
 				IsError:    new(true),
 				ToolResultContents: []*uiv1.ToolResultContent{
-					//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+					//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
 					uiv1.ToolResultContent_builder{
 						Text: new("denied"),
 					}.Build(),
@@ -2806,7 +2806,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a safe authentication error that permits manual retry.
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
 	request := uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("Authentication failed."),
@@ -2851,7 +2851,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 
 // initializationRequest builds the first valid Host frame used by stream tests.
 func initializationRequest() *uiv1.OpenRequest {
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Initialization field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Initialization field.
 	return uiv1.OpenRequest_builder{
 		Initialization: uiv1.Initialization_builder{
 			StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{

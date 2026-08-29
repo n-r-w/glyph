@@ -282,18 +282,18 @@ func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 	t.Parallel()
 
 	contents, err := mapResultContents([]*extensionpb.ToolResultContent{
-		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
 		extensionpb.ToolResultContent_builder{
 			Text: new("first"),
 		}.Build(),
-		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Image field.
 		extensionpb.ToolResultContent_builder{
 			Image: extensionpb.ToolResultImage_builder{
 				MediaType: new("image/png"),
 				Data:      []byte{0, 1, 2, 3},
 			}.Build(),
 		}.Build(),
-		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
 		extensionpb.ToolResultContent_builder{
 			Text: new("last"),
 		}.Build(),
@@ -334,7 +334,7 @@ func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
 	t.Parallel()
 
 	_, err := mapResultContents([]*extensionpb.ToolResultContent{
-		//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Image field.
 		extensionpb.ToolResultContent_builder{
 			Image: extensionpb.ToolResultImage_builder{
 				MediaType: new("image/png"),
@@ -590,18 +590,18 @@ func (s *protocolService) Execute(
 			return err
 		}
 	}
-	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Progress field.
+	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Progress field.
 	progress := extensionpb.ExecuteResponse_builder{
 		Progress: extensionpb.ToolProgress_builder{
 			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
 			Content: new("working"),
 		}.Build(),
 	}.Build()
-	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Result field.
+	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Result field.
 	result := extensionpb.ExecuteResponse_builder{
 		Result: extensionpb.ToolResult_builder{
 			Contents: []*extensionpb.ToolResultContent{
-				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
 				extensionpb.ToolResultContent_builder{
 					Text: new("done"),
 				}.Build(),

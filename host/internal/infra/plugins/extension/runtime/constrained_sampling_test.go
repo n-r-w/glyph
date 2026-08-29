@@ -125,7 +125,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			errorContains: "",
 		},
 		"strict prefer": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER),
@@ -140,7 +140,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			errorContains: "",
 		},
 		"strict require": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
@@ -155,7 +155,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			errorContains: "",
 		},
 		"strictness is required": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				JsonSchema: &extensionpb.JsonSchemaConstrainedSampling{},
 			}.Build()),
@@ -163,7 +163,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			expected:      mo.None[tool.ConstrainedSampling](),
 		},
 		"strictness rejects unknown enum": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness(99)),
@@ -178,7 +178,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			expected:      mo.None[tool.ConstrainedSampling](),
 		},
 		"grammar retains input property": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				Grammar: extensionpb.GrammarConstrainedSampling_builder{
 					Lark:  new("start: /[a-z]+/"),
@@ -197,7 +197,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			errorContains: "",
 		},
 		"grammar preserves independent variant absence": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				Grammar: extensionpb.GrammarConstrainedSampling_builder{
 					Regex: new("[a-z]+"),
@@ -282,7 +282,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 		"grammar rejects multiple properties": {
 			descriptor: constrainedProtoDescriptor(
 				`{"type":"object","properties":{"path":{"type":"string","description":"Path."},"query":{"type":"string","description":"Query."}},"required":["path","query"],"additionalProperties":false}`,
-				//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
+				//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
 				extensionpb.ConstrainedSampling_builder{
 					Grammar: extensionpb.GrammarConstrainedSampling_builder{
 						Regex: new(".+"),
@@ -294,7 +294,7 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 			expected:      mo.None[tool.ConstrainedSampling](),
 		},
 		"grammar rejects empty variants": {
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
 			descriptor: constrainedProtoDescriptor(validSchemaJSON, extensionpb.ConstrainedSampling_builder{
 				Grammar: &extensionpb.GrammarConstrainedSampling{},
 			}.Build()),

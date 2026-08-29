@@ -1,6 +1,6 @@
 module github.com/n-r-w/glyph/experiments/plugin-runtime-spike
 
-go 1.26.5
+go 1.27.0
 
 require (
 	charm.land/bubbletea/v2 v2.0.8

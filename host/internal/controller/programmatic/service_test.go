@@ -39,7 +39,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
 
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	userRequest := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("user"),
@@ -52,7 +52,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		SetSessionName: nil,
 		GetSessionInfo: nil,
 	}.Build()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	stateRequest := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("state"),
@@ -200,7 +200,7 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 	operation := NewMockOperation(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("accepted"),
@@ -337,7 +337,7 @@ func (s *ServiceSuite) TestEmptyCorrelationIsTerminal() {
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		Abort:             programmaticv1.Abort_builder{}.Build(),
@@ -368,7 +368,7 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 	operation := NewMockOperation(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("state"),
@@ -415,7 +415,7 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 	session := NewMockHostSession(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("user"),
@@ -462,7 +462,7 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 	operation := NewMockOperation(ctrl)
 	stream := NewMockOpenStream(ctrl)
 	stream.EXPECT().Context().Return(s.T().Context()).AnyTimes()
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		CorrelationId:     new("user"),
@@ -1082,7 +1082,7 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				stream := NewMockOpenStream(ctrl)
 				streamContext, cancelStream := context.WithCancel(t.Context())
 				stream.EXPECT().Context().Return(streamContext).AnyTimes()
-				//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+				//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 				request := programmaticv1.OpenRequest_builder{
 					GetSessionEntries: nil,
 					CorrelationId:     new("user"),

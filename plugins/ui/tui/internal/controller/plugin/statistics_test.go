@@ -44,7 +44,7 @@ func TestMapRequestReconstructsAvailableSessionStatistics(t *testing.T) {
 		ToolResults: new(int64(4)), TotalMessages: new(int64(7)), Tokens: tokens,
 		EstimatedCost: estimatedCost, CostBreakdown: costBreakdown,
 	}.Build()
-	//nolint:exhaustruct // The protobuf builder intentionally sets only the active oneof field.
+	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
 	request := uiv1.OpenRequest_builder{
 		SessionInformation: uiv1.SessionInformation_builder{Info: info, Statistics: statistics}.Build(),
 	}.Build()

@@ -8,7 +8,7 @@
 - PRB-04: The UI plugin boundary must carry user commands and Agent Core events while making any UI plugin termination cancel the active run and terminate the Glyph Host.
 - CNS-01: `docs/specs/features/initial/phases/00-prototype-baseline/baseline-prd.md` is the requirements source for the prototype.
 - CNS-02: Component ownership and dependency directions must remain suitable for the target product. Internal Go APIs are excluded from target compatibility guarantees.
-- CNS-03: The prototype is validated on macOS/arm64 and uses Go 1.26.5.
+- CNS-03: The prototype is validated on macOS/arm64 and uses Go 1.27.
 
 ## Proposed Solution
 

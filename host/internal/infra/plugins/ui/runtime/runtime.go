@@ -939,7 +939,7 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 			if !present {
 				return nil, false
 			}
-			//nolint:exhaustruct // uipb.ToolResultContent_builder sets only the active Text field.
+			//nolint:exhaustruct_v5 // uipb.ToolResultContent_builder sets only the active Text field.
 			return uipb.ToolResultContent_builder{
 				Text: &text,
 			}.Build(), true
@@ -953,7 +953,7 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 				Data:      nil,
 			}.Build()
 			mappedImage.SetData(bytes.Clone(image.Data))
-			//nolint:exhaustruct // uipb.ToolResultContent_builder sets only the active Image field.
+			//nolint:exhaustruct_v5 // uipb.ToolResultContent_builder sets only the active Image field.
 			return uipb.ToolResultContent_builder{
 				Image: mappedImage,
 			}.Build(), true

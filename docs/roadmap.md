@@ -10,7 +10,7 @@ Established the executable Host, Agent Core, bundled tools extension, and standa
 
 Documents:
 - [Ticket](specs/features/initial/phases/00-prototype-baseline/ticket.md)
-- [Technical Solution](specs/features/initial/phases/00-prototype-baseline/technical-solution.md)
+- [Technical Solution](specs/features/initial/phases/00-prototype-baseline/solution.md)
 
 ## PHS-01: Complete standard tools
 
@@ -29,7 +29,7 @@ Added the long-lived headless client contract independently of the standard TUI.
 
 Documents:
 - [Ticket](specs/features/initial/phases/02-programmatic-control/ticket.md)
-- [Technical Solution](specs/features/initial/phases/02-programmatic-control/technical-solution.md)
+- [Technical Solution](specs/features/initial/phases/02-programmatic-control/solution.md)
 
 ## PHS-03: Providers, models, and runtime selection
 
@@ -39,7 +39,7 @@ Added the required built-in providers, reasoning behavior, and runtime model sel
 
 Documents:
 - [Ticket](specs/features/initial/phases/03-providers-models-runtime-selection/ticket.md)
-- [Technical Solution](specs/features/initial/phases/03-providers-models-runtime-selection/technical-solution.md)
+- [Technical Solution](specs/features/initial/phases/03-providers-models-runtime-selection/solution.md)
 
 ## PHS-04: Persistent linear sessions
 
@@ -49,7 +49,7 @@ Added persistent conversations, session accounting, and resume after process res
 
 Documents:
 - [Ticket](specs/features/initial/phases/04-persistent-linear-sessions/ticket.md)
-- [Technical Solution](specs/features/initial/phases/04-persistent-linear-sessions/technical-solution.md)
+- [Technical Solution](specs/features/initial/phases/04-persistent-linear-sessions/solution.md)
 
 ## PHS-04.1: Model execution capabilities
 

@@ -99,7 +99,6 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 		want    Command
 	}{
 		"missing command": {
-
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries:     nil,
 				GetSessionStats:       nil,
@@ -129,7 +128,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"user request": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("user"),
@@ -154,7 +153,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"invalid user request": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("invalid"),
@@ -179,7 +178,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"abort": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active Abort field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("abort"),
@@ -202,7 +201,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"get run state": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("state"),
@@ -225,7 +224,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"get messages": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetMessages field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("messages"),
@@ -248,7 +247,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"get models": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active GetModels field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetModels field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("models"),
@@ -271,7 +270,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"select model": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("select-model"),
@@ -297,7 +296,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 			},
 		},
 		"select reasoning": {
-			//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
+			//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 			request: programmaticv1.OpenRequest_builder{
 				GetSessionEntries: nil,
 				CorrelationId:     new("select-reasoning"),
@@ -418,7 +417,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 		programmaticv1.ReasoningChoice(99):                          "",
 	}
 	for level, want := range tests {
-		//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
+		//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 		request := programmaticv1.OpenRequest_builder{
 			GetSessionEntries: nil,
 			CorrelationId:     new(level.String()),
@@ -462,7 +461,7 @@ func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
 func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 	t.Parallel()
 
-	//nolint:exhaustruct // programmaticv1.OpenRequest_builder sets only the active Abort field.
+	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active Abort field.
 	request := programmaticv1.OpenRequest_builder{
 		GetSessionEntries: nil,
 		Abort:             programmaticv1.Abort_builder{}.Build(),

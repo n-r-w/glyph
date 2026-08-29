@@ -53,7 +53,7 @@ Out of scope:
 - FRQ-02: The Host process fixture shall run the same request with Codex streaming and the real bundled tools extension through the one-shot headless path and through a semantic UI process client. The headless path shall verify DEF-02 through its public output. The UI process client shall verify DEF-03 through the public UI process contract. The fixture shall compare only DEF-04.
 - FRQ-03: The standard TUI consumer fixture shall consume the DEF-03 typed UI lifecycle sequence through real standard-TUI controller logic and verify semantic TUI state without terminal presentation text.
 - FRQ-04: The fixtures shall not infer hidden lifecycle events, treat `error == nil` as proof of hidden lifecycle events, add production observation hooks, use proxy processes, assert PTY text, or add test-only composition hooks.
-- FRQ-05: Record the prototype limitations that each later phase removes by referencing the [prototype Technical Solution](technical-solution.md).
+- FRQ-05: Record the prototype limitations that each later phase removes by referencing the [prototype Technical Solution](solution.md).
 
 ### Non-Functional Requirements
 
@@ -101,4 +101,4 @@ No product technical design is selected by this ticket. Fixture placement and ty
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
 - REF-03: [prototype requirements](baseline-prd.md) - prototype requirements.
-- REF-04: [prototype architecture](technical-solution.md) - prototype architecture.
+- REF-04: [prototype architecture](solution.md) - prototype architecture.

@@ -52,11 +52,11 @@ var _ programmaticv1.ProgrammaticControlServiceServer = (*Service)(nil)
 func New(applicationContext context.Context, session HostSession) *Service {
 	return &Service{
 		UnimplementedProgrammaticControlServiceServer: programmaticv1.UnimplementedProgrammaticControlServiceServer{},
-		applicationContext:                            applicationContext,
-		session:                                       session,
-		ownerClaimed:                                  atomic.Bool{},
-		sendMutex:                                     sync.Mutex{},
-		completions:                                   make(chan SessionCompletion, 1),
+		applicationContext: applicationContext,
+		session:            session,
+		ownerClaimed:       atomic.Bool{},
+		sendMutex:          sync.Mutex{},
+		completions:        make(chan SessionCompletion, 1),
 	}
 }
 

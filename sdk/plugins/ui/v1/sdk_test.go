@@ -67,7 +67,7 @@ func TestConnectAndServe(t *testing.T) {
 
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	//nolint:exhaustruct // uipb.OpenRequest_builder sets only the active Initialization field.
+	//nolint:exhaustruct_v5 // uipb.OpenRequest_builder sets only the active Initialization field.
 	require.NoError(t, stream.Send(uipb.OpenRequest_builder{
 		Initialization: uipb.Initialization_builder{
 			SelectedUiId:   new("contract"),
@@ -81,7 +81,7 @@ func TestConnectAndServe(t *testing.T) {
 	commandFrame, err := stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "first request", commandFrame.GetSubmit().GetText())
-	//nolint:exhaustruct // uipb.OpenRequest_builder sets only the active Information field.
+	//nolint:exhaustruct_v5 // uipb.OpenRequest_builder sets only the active Information field.
 	require.NoError(t, stream.Send(uipb.OpenRequest_builder{
 		Information: uipb.Information_builder{
 			Text: new("received"),
@@ -181,7 +181,7 @@ func (*contractService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, u
 	if initialization.GetInitialization().GetSelectedUiId() != "contract" {
 		return nil
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
 	if err := stream.Send(uipb.OpenResponse_builder{
 		Submit: uipb.SubmitCommand_builder{
 			Text: new("first request"),
@@ -192,7 +192,7 @@ func (*contractService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, u
 	if _, err := stream.Recv(); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{
 		Quit: &uipb.QuitCommand{},
 	}.Build())

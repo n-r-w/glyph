@@ -139,7 +139,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	t.Cleanup(client.Close)
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Initialization field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Initialization field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Initialization: uiv1.Initialization_builder{
 			SelectedUiId: new("glyph-tui"),
@@ -298,7 +298,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolCallId: new("call-1"),
 		ToolName:   new("read"),
 		ToolResultContents: []*uiv1.ToolResultContent{
-			//nolint:exhaustruct // uiv1.ToolResultContent_builder sets only the active Text field.
+			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
 			uiv1.ToolResultContent_builder{
 				Text: new("result"),
 			}.Build(),
@@ -368,7 +368,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "second request", response.GetSubmit().GetText())
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Error field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Error: uiv1.Error_builder{
 			Text:                new("Authentication failed safely."),
@@ -435,7 +435,7 @@ func sendAvailability(
 // sendLifecycle writes one lifecycle fixture and requires successful delivery.
 func sendLifecycle(t *testing.T, stream uiv1.UIService_OpenClient, lifecycle *uiv1.LifecycleEvent) {
 	t.Helper()
-	//nolint:exhaustruct // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 		Lifecycle:          proto.ValueOrDefault(lifecycle),
 		SessionList:        nil,

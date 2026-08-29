@@ -219,7 +219,7 @@ func (s *Service) ListTools(
 
 // strictPreferSampling requests strict schema generation while permitting provider fallback.
 func strictPreferSampling() *extensionv1.ConstrainedSampling {
-	//nolint:exhaustruct // extensionv1.ConstrainedSampling_builder sets only the active JsonSchema field.
+	//nolint:exhaustruct_v5 // extensionv1.ConstrainedSampling_builder sets only the active JsonSchema field.
 	return extensionv1.ConstrainedSampling_builder{
 		JsonSchema: extensionv1.JsonSchemaConstrainedSampling_builder{
 			Strictness: new(extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER),
@@ -488,7 +488,7 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 	default:
 		return fmt.Errorf("unknown bash progress channel %d", progress.Channel)
 	}
-	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Progress field.
+	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Progress field.
 	response := extensionv1.ExecuteResponse_builder{
 		Progress: extensionv1.ToolProgress_builder{
 			Channel: new(channel),
@@ -503,11 +503,11 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 
 // sendImageResult emits one typed image result.
 func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaType string, data []byte) error {
-	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Result field.
+	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Result field.
 	response := extensionv1.ExecuteResponse_builder{
 		Result: extensionv1.ToolResult_builder{
 			Contents: []*extensionv1.ToolResultContent{
-				//nolint:exhaustruct // extensionv1.ToolResultContent_builder sets only the active Image field.
+				//nolint:exhaustruct_v5 // extensionv1.ToolResultContent_builder sets only the active Image field.
 				extensionv1.ToolResultContent_builder{
 					Image: extensionv1.ToolResultImage_builder{
 						MediaType: new(mediaType),
@@ -526,11 +526,11 @@ func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaTyp
 
 // sendResult emits the one terminal event required for every completed tool operation.
 func sendResult(stream ResultSender, content string, isError bool) error {
-	//nolint:exhaustruct // extensionv1.ExecuteResponse_builder sets only the active Result field.
+	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Result field.
 	response := extensionv1.ExecuteResponse_builder{
 		Result: extensionv1.ToolResult_builder{
 			Contents: []*extensionv1.ToolResultContent{
-				//nolint:exhaustruct // extensionv1.ToolResultContent_builder sets only the active Text field.
+				//nolint:exhaustruct_v5 // extensionv1.ToolResultContent_builder sets only the active Text field.
 				extensionv1.ToolResultContent_builder{
 					Text: new(content),
 				}.Build(),

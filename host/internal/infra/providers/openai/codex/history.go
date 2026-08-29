@@ -105,7 +105,7 @@ func functionOutputContents(contents []tool.ResultContent) (responses.ResponseFu
 				}
 				dataURL := "data:" + image.MediaType + ";base64," +
 					base64.StdEncoding.EncodeToString(image.Data)
-				//nolint:exhaustruct // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
+				//nolint:exhaustruct_v5 // responses.ResponseFunctionCallOutputItemUnionParam sets only the active OfInputImage field.
 				return responses.ResponseFunctionCallOutputItemUnionParam{
 					OfInputImage: &responses.ResponseInputImageContentParam{
 						ImageURL:              param.NewOpt(dataURL),
@@ -137,7 +137,7 @@ func customOutputContents(
 				return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{},
 					fmt.Errorf("tool result text %d has no text", index)
 			}
-			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputText is active.
+			//nolint:exhaustruct_v5 // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputText is active.
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputText: &responses.ResponseInputTextParam{
 					Text:                  text,
@@ -156,7 +156,7 @@ func customOutputContents(
 					fmt.Errorf("tool result image %d has no media type", index)
 			}
 			dataURL := "data:" + image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
-			//nolint:exhaustruct // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputImage is active.
+			//nolint:exhaustruct_v5 // ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam: OfInputImage is active.
 			return responses.ResponseCustomToolCallOutputOutputOutputContentListItemUnionParam{
 				OfInputImage: &responses.ResponseInputImageParam{
 					ImageURL:              param.NewOpt(dataURL),
@@ -370,7 +370,7 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 					descriptor.Name,
 				)
 			}
-			//nolint:exhaustruct // responses.ToolUnionParam sets only the active OfCustom field.
+			//nolint:exhaustruct_v5 // responses.ToolUnionParam sets only the active OfCustom field.
 			return responses.ToolUnionParam{
 				OfCustom: &responses.CustomToolParam{
 					Name:           descriptor.Name,
@@ -387,7 +387,7 @@ func buildTools(descriptors []tool.Descriptor, capabilities toolCapabilities) ([
 		if err != nil {
 			return responses.ToolUnionParam{}, err
 		}
-		//nolint:exhaustruct // responses.ToolUnionParam sets only the active OfFunction field.
+		//nolint:exhaustruct_v5 // responses.ToolUnionParam sets only the active OfFunction field.
 		return responses.ToolUnionParam{
 			OfFunction: &responses.FunctionToolParam{
 				Name:           descriptor.Name,

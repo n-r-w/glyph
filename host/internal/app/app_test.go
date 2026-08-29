@@ -266,7 +266,7 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600); err != nil {
 				return err
 			}
-			//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+			//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 			return stream.Send(uipb.OpenResponse_builder{
 				Quit: &uipb.QuitCommand{},
 			}.Build())
@@ -291,7 +291,7 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 				break
 			}
 		}
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
 		if err := stream.Send(uipb.OpenResponse_builder{
 			Submit: uipb.SubmitCommand_builder{
 				Text: new("read input.txt"),
@@ -333,7 +333,7 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 					settled = true
 				}
 				if settled && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
-					//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+					//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 					return stream.Send(uipb.OpenResponse_builder{
 						Quit: &uipb.QuitCommand{},
 					}.Build())
@@ -341,7 +341,7 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 			}
 		}
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{
 		Quit: &uipb.QuitCommand{},
 	}.Build())
@@ -398,7 +398,7 @@ func runSessionRestartUI(
 		return fmt.Errorf("verify restarted empty-session statistics: %w", err)
 	}
 
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ListSessions field.
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -425,7 +425,7 @@ func runSessionRestartUI(
 		return errors.New("stored session summary did not include the full-content turn")
 	}
 
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 	if err = stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
 		SessionId: new(observation.NamedSession.ID),
 	}.Build()}.Build()); err != nil {
@@ -471,7 +471,7 @@ func runSessionRestartUI(
 	}
 
 	// A second information query proves that no replay lifecycle frame was inserted after replacement.
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -494,7 +494,7 @@ func runSessionRestartUI(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -517,7 +517,7 @@ func runSessionRecoveryUI(
 	}
 	startup := observeSessionInfo(initialization.GetSessionInfo())
 	for _, id := range []string{malformedRecoveryID, wrongCWDRecoveryID, unsupportedRecoveryID} {
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 		if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
 			SessionId: new(id),
 		}.Build()}.Build()); err != nil {
@@ -532,7 +532,7 @@ func runSessionRecoveryUI(
 		if !strings.HasPrefix(rejected.GetInformation().GetText(), "Session replacement is unavailable: ") {
 			return errors.New("invalid resume did not return detailed unavailable information")
 		}
-		//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 		if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 			return err
 		}
@@ -547,7 +547,7 @@ func runSessionRecoveryUI(
 		}
 	}
 
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ListSessions field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ListSessions field.
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -563,7 +563,7 @@ func runSessionRecoveryUI(
 		return errors.New("session list did not skip invalid recovery fixtures")
 	}
 
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 	if err = stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
 		SessionId: new(interruptedRecoveryID),
 	}.Build()}.Build()); err != nil {
@@ -595,7 +595,7 @@ func runSessionRecoveryUI(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -609,7 +609,7 @@ func completeRuntimeRecoveryFailure(
 	if !strings.Contains(failureText, "session persistence failed") {
 		return fmt.Errorf("runtime recovery failure text: %s", failureText)
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -632,7 +632,7 @@ func completeRuntimeRecoveryFailure(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -644,7 +644,7 @@ func nameRecoveryStartupSession(
 ) error {
 	startup := observeSessionInfo(startupInfo)
 	name := "recovery active"
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{
 		Name: &name,
 	}.Build()}.Build()); err != nil {
@@ -672,7 +672,7 @@ func nameRecoveryStartupSession(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -690,7 +690,7 @@ func nameStartupSession(
 		return err
 	}
 	name := "restart session"
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
 		return err
 	}
@@ -709,7 +709,7 @@ func nameStartupSession(
 	if err = submitRestartTurn(stream, "restart text"); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -736,7 +736,7 @@ func nameStartupSession(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -746,7 +746,7 @@ func assertUIStatistics(
 	tokensAvailable bool,
 	totalTokens int64,
 ) error {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return err
 	}
@@ -772,7 +772,7 @@ func configureRestartSelection(
 ) error {
 	providerID := "openai-codex"
 	modelID := "selected-model"
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectModel field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SelectModel field.
 	if err := stream.Send(uipb.OpenResponse_builder{SelectModel: uipb.SelectModelCommand_builder{
 		ProviderId: &providerID, ModelId: &modelID,
 	}.Build()}.Build()); err != nil {
@@ -789,7 +789,7 @@ func configureRestartSelection(
 		return errors.New("Host did not commit the selected provider and model")
 	}
 	high := uipb.ReasoningChoice_REASONING_CHOICE_HIGH
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SelectReasoningChoice field.
 	if err = stream.Send(uipb.OpenResponse_builder{SelectReasoningChoice: uipb.SelectReasoningChoiceCommand_builder{
 		Choice: &high,
 	}.Build()}.Build()); err != nil {
@@ -813,7 +813,7 @@ func submitRestartTurn(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	text string,
 ) error {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
 	if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: &text}.Build()}.Build()); err != nil {
 		return err
 	}
@@ -1266,7 +1266,8 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	// Arrange persistent paths, credentials, provider transport, UI helper, and extension tools.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+		nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
@@ -1343,7 +1344,8 @@ func TestRunWithPathsUISessionRecoveryPaths(t *testing.T) {
 	// Arrange a two-run Host UI helper and one persisted startup session.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+		nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
@@ -1407,7 +1409,8 @@ func TestRunWithPathsUIRuntimePersistenceFailurePaths(t *testing.T) {
 	}
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+		nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
@@ -1462,7 +1465,8 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	}
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+		nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
@@ -1925,6 +1929,7 @@ data: {"type":"response.completed","response":{"id":"resp-1","status":"completed
 data: [DONE]
 
 `
+
 const finalResponseSSE = `data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Request complete."}
 
 data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Request complete.","annotations":[],"logprobs":[]}]}}
@@ -2247,7 +2252,7 @@ func runSessionUsageRestartUI(
 	if err := configureRestartSelection(stream); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{
 		SessionId: new(observation.BeforeInfo.ID),
 	}.Build()}.Build()); err != nil {
@@ -2276,7 +2281,7 @@ func runSessionUsageRestartUI(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -2311,14 +2316,14 @@ func recordInitialSessionUsage(
 	if err = os.WriteFile(tracePath, encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
 // persistEmptyUsageSession names the empty session so the next Host process can resume it.
 func persistEmptyUsageSession(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse]) error {
 	name := "empty cost session"
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{
 		SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build(),
 	}.Build()); err != nil {
@@ -2333,7 +2338,7 @@ func persistEmptyUsageSession(stream grpc.BidiStreamingServer[uipb.OpenRequest, 
 func requestUISessionInformation(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) (*uipb.SessionInformation, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return nil, err
 	}
@@ -2487,7 +2492,8 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			// Arrange persistent Host paths, the real UI helper process, and one matrix state.
 			paths := testPaths(t, pricedRestartSelectionSettings())
 			accessToken := semanticAccessToken(t, "account")
-			require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+			require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+				nil,
 				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 				accessToken,
 			), 0o600))

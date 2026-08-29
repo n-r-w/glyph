@@ -336,8 +336,8 @@ func discoverProcessGroups(ctx context.Context, rootProcessID int) ([]int, error
 // terminateProcessGroups signals every recorded group once and preserves all signal errors.
 func terminateProcessGroups(processGroups []int) error {
 	var terminateErr error
-	for index := len(processGroups) - 1; index >= 0; index-- {
-		processGroupID := processGroups[index]
+	for _, processGroupID := range slices.Backward(processGroups) {
+
 		if err := syscall.Kill(-processGroupID, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
 			terminateErr = errors.Join(
 				terminateErr,

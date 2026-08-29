@@ -166,8 +166,7 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		response, err = s.streamResponses(ctx, request, key, handle)
 	}
 	if err != nil {
-		var deliveryFailure streamHandlerError
-		if errors.As(err, &deliveryFailure) {
+		if _, ok := errors.AsType[streamHandlerError](err); ok {
 			return err
 		}
 		outcome := model.OutcomeFailed

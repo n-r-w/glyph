@@ -1457,24 +1457,24 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 		if !ok {
 			return nil, errors.New("UI submit text is missing")
 		}
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Submit field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active Submit field.
 		return uiv1.OpenResponse_builder{
 			Submit: uiv1.SubmitCommand_builder{
 				Text: new(text),
 			}.Build(),
 		}.Build(), nil
 	case presentationdomain.CommandStop:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Stop field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active Stop field.
 		return uiv1.OpenResponse_builder{
 			Stop: &uiv1.StopCommand{},
 		}.Build(), nil
 	case presentationdomain.CommandRetryAuthentication:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active RetryAuthentication field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active RetryAuthentication field.
 		return uiv1.OpenResponse_builder{
 			RetryAuthentication: &uiv1.RetryAuthenticationCommand{},
 		}.Build(), nil
 	case presentationdomain.CommandQuit:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active Quit field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active Quit field.
 		return uiv1.OpenResponse_builder{
 			Quit: &uiv1.QuitCommand{},
 		}.Build(), nil
@@ -1484,7 +1484,7 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 		if !providerOK || !modelOK {
 			return nil, errors.New("UI model selection is missing")
 		}
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SelectModel field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectModel field.
 		return uiv1.OpenResponse_builder{
 			SelectModel: uiv1.SelectModelCommand_builder{
 				ProviderId: new(providerID),
@@ -1500,7 +1500,7 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 		if level == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
 			return nil, errors.New("UI reasoning choice is unspecified")
 		}
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SelectReasoningChoice field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectReasoningChoice field.
 		return uiv1.OpenResponse_builder{
 			SelectReasoningChoice: uiv1.SelectReasoningChoiceCommand_builder{
 				Choice: new(level),
@@ -1521,20 +1521,20 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 func mapSessionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, bool, error) {
 	switch command.Kind {
 	case presentationdomain.CommandCreateSession:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active CreateSession field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active CreateSession field.
 		return uiv1.OpenResponse_builder{CreateSession: &uiv1.CreateSessionCommand{}}.Build(), true, nil
 	case presentationdomain.CommandListSessions:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active ListSessions field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active ListSessions field.
 		return uiv1.OpenResponse_builder{ListSessions: &uiv1.ListSessionsCommand{}}.Build(), true, nil
 	case presentationdomain.CommandGetSessionInfo:
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active GetSessionInfo field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active GetSessionInfo field.
 		return uiv1.OpenResponse_builder{GetSessionInfo: &uiv1.GetSessionInfoCommand{}}.Build(), true, nil
 	case presentationdomain.CommandResumeSession:
 		id, present := command.SessionID.Get()
 		if !present || id == "" {
 			return nil, true, errors.New("UI session ID is missing")
 		}
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active ResumeSession field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active ResumeSession field.
 		response := uiv1.OpenResponse_builder{
 			ResumeSession: uiv1.ResumeSessionCommand_builder{SessionId: new(id)}.Build(),
 		}.Build()
@@ -1544,7 +1544,7 @@ func mapSessionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, 
 		if !present {
 			return nil, true, errors.New("UI session name is missing")
 		}
-		//nolint:exhaustruct // uiv1.OpenResponse_builder sets only the active SetSessionName field.
+		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SetSessionName field.
 		response := uiv1.OpenResponse_builder{
 			SetSessionName: uiv1.SetSessionNameCommand_builder{Name: new(name)}.Build(),
 		}.Build()

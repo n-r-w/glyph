@@ -91,11 +91,11 @@ None.
 
 ## Technical Supplement
 
-This ticket selects bidirectional gRPC over a Unix socket as the supported Programmatic Control transport. Contract shapes, package placement, and transport-independent Host command and event types are defined in the [PHS-02 technical solution](technical-solution.md).
+This ticket selects bidirectional gRPC over a Unix socket as the supported Programmatic Control transport. Contract shapes, package placement, and transport-independent Host command and event types are defined in the [PHS-02 technical solution](solution.md).
 
 ## References
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
 - REF-03: [existing correlated UI stream patterns](../../../../../../api/plugins/ui/v1/ui.proto) - existing correlated UI stream patterns.
-- REF-04: [PHS-02 technical solution](technical-solution.md) - approved Programmatic Control contract, package placement, lifecycle, and verification design.
+- REF-04: [PHS-02 technical solution](solution.md) - approved Programmatic Control contract, package placement, lifecycle, and verification design.

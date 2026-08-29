@@ -71,7 +71,8 @@ func TestConnectAndServe(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, catalog.GetTools(), 1)
 	assert.Equal(t, "contract", catalog.GetTools()[0].GetName())
-	assert.Equal(t,
+	assert.Equal(
+		t,
 		extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
 		catalog.GetTools()[0].GetConstrainedSampling().GetJsonSchema().GetStrictness(),
 	)
@@ -113,7 +114,7 @@ func (s *contractService) ListTools(
 			Name:            new("contract"),
 			Description:     new("Contract test tool."),
 			InputSchemaJson: []byte(`{}`),
-			//nolint:exhaustruct // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
 			ConstrainedSampling: extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
@@ -128,7 +129,7 @@ func (s *contractService) Execute(
 	_ *extensionpb.ExecuteRequest,
 	stream extensionpb.ExtensionService_ExecuteServer,
 ) error {
-	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Progress field.
+	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Progress field.
 	if err := stream.Send(extensionpb.ExecuteResponse_builder{
 		Progress: extensionpb.ToolProgress_builder{
 			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
@@ -137,15 +138,15 @@ func (s *contractService) Execute(
 	}.Build()); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // extensionpb.ExecuteResponse_builder sets only the active Result field.
+	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Result field.
 	if err := stream.Send(extensionpb.ExecuteResponse_builder{
 		Result: extensionpb.ToolResult_builder{
 			Contents: []*extensionpb.ToolResultContent{
-				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Text field.
+				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
 				extensionpb.ToolResultContent_builder{
 					Text: new("done"),
 				}.Build(),
-				//nolint:exhaustruct // extensionpb.ToolResultContent_builder sets only the active Image field.
+				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Image field.
 				extensionpb.ToolResultContent_builder{
 					Image: extensionpb.ToolResultImage_builder{
 						MediaType: new("image/png"),

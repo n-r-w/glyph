@@ -299,8 +299,8 @@ None.
 ## References
 
 - REF-01: `docs/specs/features/initial/prd.md` defines target product behavior.
-- REF-02: `docs/specs/features/initial/delivery-plan.md` defines delivery ownership and order.
-- REF-03: `docs/specs/features/initial/phases/00-prototype-baseline/technical-solution.md` records the implemented prototype baseline, not target ownership.
+- REF-02: `docs/specs/features/initial/delivery-plan.md` defines phase order and dependencies.
+- REF-03: `docs/specs/features/initial/phases/00-prototype-baseline/solution.md` records the implemented prototype baseline, not target ownership.
 - REF-04: `docs/terms.md` defines project terminology.
 - REF-05: `host/internal/usecase/agent/run` is the current Agent Core package group.
 - REF-06: `host/internal/usecase/host` is the current Host use-case package group.

@@ -31,7 +31,7 @@ For complex features:
 MUST NOT duplicate information. Instead, provide links to existing documents.
 
 ## Tech stack
-1. go 1.26
+1. go 1.27
 2. `github.com/stretchr/testify` for tests
 3. `github.com/caarlos0/env/v11` for loading configuration from environment variables
 4. `log/slog` for logging (must use structured logging with context). Use global logger with context, instead of passing logger instances around. E.g. `slog.DebugContext`.
@@ -45,8 +45,8 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
     2) `task lint`
     3) `task test`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
-3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct`.
-4. Suppressing `//nolint:exhaustruct` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
+3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
+4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`

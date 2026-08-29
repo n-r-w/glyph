@@ -292,7 +292,7 @@ func runRuntimeFailureUI(
 	if err = os.WriteFile(os.Getenv(appUITraceEnvironment), encoded, 0o600); err != nil {
 		return err
 	}
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Quit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 	return stream.Send(uipb.OpenResponse_builder{Quit: &uipb.QuitCommand{}}.Build())
 }
 
@@ -300,7 +300,7 @@ func runtimeUIName(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	name string,
 ) (sessionInfoObservation, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -315,7 +315,7 @@ func runtimeUINameFailure(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	name string,
 ) (string, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active SetSessionName field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
 	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
 		return "", err
 	}
@@ -329,7 +329,7 @@ func runtimeUINameFailure(
 func runtimeUICreate(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) (sessionInfoObservation, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active CreateSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active CreateSession field.
 	if err := stream.Send(uipb.OpenResponse_builder{CreateSession: &uipb.CreateSessionCommand{}}.Build()); err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -343,7 +343,7 @@ func runtimeUICreate(
 func runtimeUIInformation(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) (sessionInfoObservation, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
 	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -355,7 +355,7 @@ func runtimeUIInformation(
 }
 
 func runtimeUISubmit(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse], text string) error {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active Submit field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
 	return stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: &text}.Build()}.Build())
 }
 
@@ -421,7 +421,7 @@ func runtimeUIResumeFailure(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	id string,
 ) (string, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build()); err != nil {
 		return "", err
 	}
@@ -436,7 +436,7 @@ func runtimeUIResumeSuccess(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 	id string,
 ) (sessionInfoObservation, error) {
-	//nolint:exhaustruct // uipb.OpenResponse_builder sets only the active ResumeSession field.
+	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
 	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build()); err != nil {
 		return sessionInfoObservation{}, err
 	}
