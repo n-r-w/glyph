@@ -20,17 +20,28 @@ type OutputFile interface {
 
 // outputStore preserves complete raw output only after the model-visible budget is exceeded.
 type outputStore struct {
-	buffer       bytes.Buffer
-	textBuffer   bytes.Buffer
-	tail         []byte
-	file         OutputFile
-	path         string
-	totalBytes   int64
-	totalLines   int64
-	textBytes    int64
-	textLines    int64
+	// buffer retains raw output before spill.
+	buffer bytes.Buffer
+	// textBuffer retains complete model-visible output before spill.
+	textBuffer bytes.Buffer
+	// tail retains bounded final raw output after spill.
+	tail []byte
+	// file stores complete raw output after spill.
+	file OutputFile
+	// path identifies the retained complete output file.
+	path string
+	// totalBytes counts complete raw output bytes.
+	totalBytes int64
+	// totalLines counts complete raw output lines.
+	totalLines int64
+	// textBytes counts retained model-visible bytes.
+	textBytes int64
+	// textLines counts retained model-visible lines.
+	textLines int64
+	// textComplete reports whether textBuffer contains complete output.
 	textComplete bool
-	captureErr   error
+	// captureErr contains a complete-output retention failure.
+	captureErr error
 }
 
 // newOutputStore creates an in-memory store that spills after the shared text budget.

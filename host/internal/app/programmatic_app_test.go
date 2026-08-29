@@ -43,6 +43,32 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestRunWithPathsRPCInvalidSettingsStopsBeforeSocket verifies capability validation precedes socket creation.
+func TestRunWithPathsRPCInvalidSettingsStopsBeforeSocket(t *testing.T) {
+	t.Parallel()
+
+	// Arrange invalid model input and a dedicated socket path.
+	paths := testPaths(t, strings.Replace(codexSettings(""), "input: [text]", "input: [image]", 1))
+	socketPath := filepath.Join(t.TempDir(), "glyph.sock")
+	var stdout bytes.Buffer
+
+	// Act by starting RPC mode with invalid model capabilities.
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode:               cli.ModeRPC,
+		ExtensionDirectory: t.TempDir(),
+		SocketPath:         socketPath,
+		Headless:           headless.Command{},
+		UIDirectory:        "",
+		UIID:               "",
+	}, &stdout, &bytes.Buffer{})
+
+	// Assert the field-specific error arrives before socket creation or announcement.
+	require.ErrorContains(t, err, `provider "openai-codex" model "gpt-test": input must contain "text"`)
+	_, statErr := os.Lstat(socketPath)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+	assert.Empty(t, stdout.String())
+}
+
 // TestRunWithPathsRPCPublishesSocketAndCleansUp verifies the RPC process boundary on application cancellation.
 func TestRunWithPathsRPCPublishesSocketAndCleansUp(t *testing.T) {
 	t.Parallel()
@@ -103,11 +129,11 @@ func TestProgrammaticAppSuite(t *testing.T) {
 	suite.Run(t, new(ProgrammaticAppSuite))
 }
 
-// TestModelCommandsUseSharedCatalog verifies Programmatic Control application composition.
+// TestModelCommandsUseSharedCatalog proves the Unix-socket query exposes exact model capabilities.
 func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
-	// Arrange a programmatic fixture backed by the configured model catalog.
+	// Arrange a programmatic fixture backed by text-only and text-and-image models.
 	t := testSuite.T()
-	fixture := startProgrammaticFixture(t, testPaths(t, codexSettings("")))
+	fixture := startProgrammaticFixture(t, testPaths(t, programmaticModelCatalogSettings()))
 
 	// Act by querying models and selecting the model and reasoning choice.
 	require.NoError(t, fixture.stream.Send(getModelsRequest("models")))
@@ -117,9 +143,22 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	require.NoError(t, err)
 	assert.Equal(t, "models", modelsResponse.GetCorrelationId())
 	models := modelsResponse.GetCommandResponse().GetModels()
-	require.Len(t, models.GetModels(), 1)
+	require.Len(t, models.GetModels(), 2)
 	assert.Equal(t, "openai-codex", models.GetModels()[0].GetProviderId())
 	assert.Equal(t, "gpt-test", models.GetModels()[0].GetModelId())
+	assert.Equal(t, []programmaticv1.InputModality{
+		programmaticv1.InputModality_INPUT_MODALITY_TEXT,
+	}, models.GetModels()[0].GetInputModalities())
+	assert.Equal(t, int64(131072), models.GetModels()[0].GetContextWindow())
+	assert.Equal(t, int64(16384), models.GetModels()[0].GetMaxTokens())
+	assert.Equal(t, "openai-codex", models.GetModels()[1].GetProviderId())
+	assert.Equal(t, "gpt-vision", models.GetModels()[1].GetModelId())
+	assert.Equal(t, []programmaticv1.InputModality{
+		programmaticv1.InputModality_INPUT_MODALITY_TEXT,
+		programmaticv1.InputModality_INPUT_MODALITY_IMAGE,
+	}, models.GetModels()[1].GetInputModalities())
+	assert.Equal(t, int64(262144), models.GetModels()[1].GetContextWindow())
+	assert.Equal(t, int64(32768), models.GetModels()[1].GetMaxTokens())
 	assert.Equal(t, []programmaticv1.ReasoningChoice{
 		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
 	}, models.GetModels()[0].GetReasoning().GetChoices())
@@ -1528,6 +1567,25 @@ func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 		SetSessionName: nil,
 		GetSessionInfo: nil,
 	}.Build()
+}
+
+// programmaticModelCatalogSettings defines exact text-only and text-and-image catalog fixtures.
+func programmaticModelCatalogSettings() string {
+	return codexSettings("") + `      - id: gpt-vision
+        input: [text, image]
+        contextWindow: 262144
+        maxTokens: 32768
+        toolCapabilities: {}
+        pricing:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
+        reasoning:
+          supported: false
+          choices: [off]
+          default: off
+`
 }
 
 // getModelsRequest builds a generated model-catalog frame.

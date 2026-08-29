@@ -22,18 +22,26 @@ const (
 
 // HistoryEntry is one ordered session-history item.
 type HistoryEntry struct {
-	Kind       HistoryEntryKind
-	User       mo.Option[model.Message]
-	Model      mo.Option[model.Response]
+	// Kind identifies the entry payload.
+	Kind HistoryEntryKind
+	// User contains a user message when Kind is HistoryEntryUser.
+	User mo.Option[model.Message]
+	// Model contains a model response when Kind is HistoryEntryModel.
+	Model mo.Option[model.Response]
+	// ToolResult contains a tool result when Kind is HistoryEntryToolResult.
 	ToolResult mo.Option[ToolResult]
 }
 
 // ToolResult is one model-visible terminal tool result.
 type ToolResult struct {
-	CallID   string
+	// CallID identifies the model-requested tool call.
+	CallID string
+	// ToolName identifies the executed tool.
 	ToolName string
+	// Contents contains ordered model-visible result blocks.
 	Contents []tool.ResultContent
-	IsError  bool
+	// IsError reports whether tool execution failed.
+	IsError bool
 }
 
 // RunOutcome identifies the terminal Agent Core run state.

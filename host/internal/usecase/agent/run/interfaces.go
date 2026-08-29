@@ -16,18 +16,26 @@ import (
 
 // ModelRequest contains projected history and the available tool catalog.
 type ModelRequest struct {
-	Instructions    string
-	Model           model.Descriptor
+	// Instructions contains the system prompt.
+	Instructions string
+	// Model contains the immutable configured model snapshot.
+	Model model.Descriptor
+	// ReasoningChoice identifies the selected reasoning behavior.
 	ReasoningChoice model.ReasoningChoice
-	History         []agent.HistoryEntry
-	Tools           []tool.Descriptor
+	// History contains projected provider-neutral conversation history.
+	History []agent.HistoryEntry
+	// Tools contains the available model-callable tool catalog.
+	Tools []tool.Descriptor
 }
 
 // RuntimeSelection is one immutable provider request snapshot.
 type RuntimeSelection struct {
-	Model           model.Descriptor
+	// Model contains the immutable configured model snapshot.
+	Model model.Descriptor
+	// ReasoningChoice identifies the selected reasoning behavior.
 	ReasoningChoice model.ReasoningChoice
-	Provider        ModelProvider
+	// Provider executes the selected model request.
+	Provider ModelProvider
 }
 
 // ErrPersistenceUnavailable classifies a history mutation that cannot become durable.
@@ -70,12 +78,19 @@ const (
 
 // StreamEvent is one ordered provider-neutral model stream transition.
 type StreamEvent struct {
-	Kind     StreamEventKind
+	// Kind identifies the stream transition and active payload.
+	Kind StreamEventKind
+	// Position identifies the response content block order.
 	Position mo.Option[int]
-	Content  mo.Option[model.Content]
-	Delta    mo.Option[string]
-	Preview  mo.Option[model.ToolCallPreview]
+	// Content contains one typed model content block.
+	Content mo.Option[model.Content]
+	// Delta contains an exact model text fragment.
+	Delta mo.Option[string]
+	// Preview contains provisional tool call state.
+	Preview mo.Option[model.ToolCallPreview]
+	// ToolCall contains one finalized tool request.
 	ToolCall mo.Option[model.ToolCall]
+	// Response contains the authoritative terminal response.
 	Response mo.Option[model.Response]
 }
 

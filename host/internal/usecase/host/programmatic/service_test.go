@@ -566,6 +566,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	commandContext := context.WithValue(s.T().Context(), contextKey{}, "selection")
 	models := []model.Descriptor{{
 		Provider: "provider", Model: "model",
+		Input: nil, ContextWindow: 0, MaxTokens: 0,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true, Choices: []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
 			Default: model.ReasoningChoiceLow,

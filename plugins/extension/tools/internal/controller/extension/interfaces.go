@@ -18,13 +18,17 @@ type ResultSender interface {
 
 // ReadImage contains image bytes detected from file content.
 type ReadImage struct {
+	// MediaType identifies the image format.
 	MediaType string
-	Data      []byte
+	// Data contains encoded image bytes.
+	Data []byte
 }
 
 // ReadResult contains a text or image read result.
 type ReadResult struct {
-	Text  mo.Option[string]
+	// Text contains bounded file text.
+	Text mo.Option[string]
+	// Image contains detected image content.
 	Image mo.Option[ReadImage]
 }
 
@@ -40,7 +44,9 @@ type WriteTool interface {
 
 // Replacement identifies one exact source replacement.
 type Replacement struct {
+	// OldText identifies the exact source text to replace.
 	OldText string `json:"oldText"`
+	// NewText contains replacement text.
 	NewText string `json:"newText"`
 }
 
@@ -63,14 +69,19 @@ const (
 
 // BashProgress is one command output fragment.
 type BashProgress struct {
+	// Channel identifies the progress fragment meaning.
 	Channel BashProgressChannel
+	// Content contains the progress fragment text.
 	Content string
 }
 
 // BashResult contains bounded command output, exit status, and truncation metadata.
 type BashResult struct {
-	Text       string
-	ExitCode   int
+	// Text contains bounded model-visible command output.
+	Text string
+	// ExitCode contains the command process exit status.
+	ExitCode int
+	// Truncation describes omitted complete output.
 	Truncation textbudget.Truncation
 }
 
@@ -81,25 +92,37 @@ type BashTool interface {
 
 // GrepArguments contains validated grep input.
 type GrepArguments struct {
-	Pattern    string
-	Path       string
-	Glob       string
+	// Pattern contains the search expression.
+	Pattern string
+	// Path limits search to one project path.
+	Path string
+	// Glob limits search to matching project files.
+	Glob string
+	// IgnoreCase enables case-insensitive matching.
 	IgnoreCase bool
-	Literal    bool
-	Context    uint
-	Limit      mo.Option[uint]
+	// Literal treats Pattern as literal text.
+	Literal bool
+	// Context is the number of surrounding lines to include.
+	Context uint
+	// Limit is the maximum number of matches.
+	Limit mo.Option[uint]
 }
 
 // FindArguments contains validated find input.
 type FindArguments struct {
+	// Pattern contains the file name glob.
 	Pattern string
-	Path    string
-	Limit   mo.Option[uint]
+	// Path limits search to one project path.
+	Path string
+	// Limit is the maximum number of results.
+	Limit mo.Option[uint]
 }
 
 // ListArguments contains validated ls input.
 type ListArguments struct {
-	Path  string
+	// Path identifies the project directory to list.
+	Path string
+	// Limit is the maximum number of entries.
 	Limit mo.Option[uint]
 }
 

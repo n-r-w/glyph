@@ -24,9 +24,12 @@ import (
 
 // Controller maps the public UI stream to one terminal presentation program.
 type Controller struct {
+	// UnimplementedUIServiceServer provides forward-compatible gRPC defaults.
 	uiv1.UnimplementedUIServiceServer
 
+	// terminal opens controlling-terminal sessions.
 	terminal Terminal
+	// programs creates terminal presentation programs.
 	programs ProgramFactory
 }
 

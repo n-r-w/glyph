@@ -14,39 +14,53 @@ var ErrExtensionUnavailable = errors.New("extension runtime unavailable")
 
 // Directory identifies the effective extension catalog and its failure policy.
 type Directory struct {
-	Path     string
+	// Path is the effective extension catalog directory.
+	Path string
+	// Explicit reports whether the invocation supplied Path.
 	Explicit bool
 }
 
 // Candidate is one normalized executable extension candidate.
 type Candidate struct {
-	ID   string
+	// ID identifies the extension plugin.
+	ID string
+	// Path is the extension executable path.
 	Path string
 }
 
 // Issue reports one isolated catalog or runtime failure.
 type Issue struct {
+	// PluginIDs identifies affected extension plugins.
 	PluginIDs []string
-	Path      string
-	Err       error
+	// Path identifies the failed catalog entry.
+	Path string
+	// Err contains the isolated discovery or runtime failure.
+	Err error
 }
 
 // Discovery is one filtered extension catalog.
 type Discovery struct {
+	// Candidates contains valid executable extension plugins.
 	Candidates []Candidate
-	Issues     []Issue
+	// Issues contains isolated catalog failures.
+	Issues []Issue
 }
 
 // LoadedExtension identifies one available extension and its owned tools.
 type LoadedExtension struct {
-	ID    string
-	Path  string
+	// ID identifies the available extension.
+	ID string
+	// Path is the extension executable path.
+	Path string
+	// Tools contains the extension-owned tool catalog.
 	Tools []tool.Descriptor
 }
 
 // LoadReport contains isolated failures and every available loaded extension.
 type LoadReport struct {
-	Issues     []Issue
+	// Issues contains isolated catalog and runtime failures.
+	Issues []Issue
+	// Extensions contains every available loaded extension.
 	Extensions []LoadedExtension
 }
 

@@ -31,25 +31,36 @@ const (
 
 // oauthCredentials is the provider-owned payload persisted through Host opaque storage.
 type oauthCredentials struct {
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token"`
-	AccountID    string    `json:"account_id"`
-	ExpiresAt    time.Time `json:"expires_at"`
+	// AccessToken authorizes Codex requests.
+	AccessToken string `json:"access_token"`
+	// RefreshToken renews expired access tokens.
+	RefreshToken string `json:"refresh_token"`
+	// AccountID identifies the authenticated Codex account.
+	AccountID string `json:"account_id"`
+	// ExpiresAt is the access token expiration time.
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // callbackResult is the first terminal result accepted by the loopback server.
 type callbackResult struct {
+	// code contains the OAuth authorization code.
 	code string
-	err  error
+	// err contains a terminal callback failure.
+	err error
 }
 
 // loopbackServer owns one callback listener and its terminal result.
 type loopbackServer struct {
-	server   *http.Server
+	// server handles the OAuth callback.
+	server *http.Server
+	// listener owns the selected loopback port.
 	listener net.Listener
-	results  chan callbackResult
-	once     sync.Once
-	err      error
+	// results publishes the first terminal callback result.
+	results chan callbackResult
+	// once limits shutdown to one attempt.
+	once sync.Once
+	// err retains the shutdown result.
+	err error
 }
 
 // SignInProvider performs browser OAuth and persists the resulting provider payload.

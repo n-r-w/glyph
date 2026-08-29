@@ -24,19 +24,32 @@ const (
 )
 
 type activeRun struct {
-	delivery      *Delivery
+	// delivery owns this operation and its event stream.
+	delivery *Delivery
+	// correlationID identifies the accepted client request.
 	correlationID string
-	runID         string
-	coordinator   Coordinator
-	userText      string
-	runContext    context.Context
-	cancel        context.CancelFunc
-	events        chan controller.AgentEvent
-	streamDone    chan struct{}
-	done          chan struct{}
-	state         operationState
+	// runID identifies the prepared Agent Core run.
+	runID string
+	// coordinator starts and cancels the prepared run.
+	coordinator Coordinator
+	// userText contains the submitted user request.
+	userText string
+	// runContext controls Agent Core execution.
+	runContext context.Context
+	// cancel requests run cancellation.
+	cancel context.CancelFunc
+	// events publishes correlated lifecycle events.
+	events chan controller.AgentEvent
+	// streamDone closes when event delivery has stopped.
+	streamDone chan struct{}
+	// done closes when the operation has finished.
+	done chan struct{}
+	// state identifies the operation lifecycle state.
+	state operationState
+	// streamStopped reports whether events was closed.
 	streamStopped bool
-	err           error
+	// err contains the terminal operation failure.
+	err error
 }
 
 var _ controller.Operation = (*activeRun)(nil)
@@ -53,9 +66,13 @@ func (a *activeRun) Events() <-chan controller.AgentEvent {
 
 // Delivery correlates Host lifecycle delivery with one accepted user request.
 type Delivery struct {
-	mutex      sync.Mutex
-	closed     bool
-	active     *activeRun
+	// mutex protects delivery lifecycle state.
+	mutex sync.Mutex
+	// closed reports whether delivery has shut down.
+	closed bool
+	// active contains the currently running operation.
+	active *activeRun
+	// operations contains accepted operations awaiting completion.
 	operations map[*activeRun]struct{}
 }
 

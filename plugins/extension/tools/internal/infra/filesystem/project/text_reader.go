@@ -16,17 +16,28 @@ import (
 
 // textReadState tracks bounded text accumulation across reader fragments.
 type textReadState struct {
-	start         uint
-	maxLines      uint
-	line          uint
-	selected      uint
-	end           uint
-	lineSize      int
-	outputSize    int
-	stopped       bool
+	// start is the first requested one-based line.
+	start uint
+	// maxLines is the maximum number of selected lines.
+	maxLines uint
+	// line is the current one-based source line.
+	line uint
+	// selected counts selected complete lines.
+	selected uint
+	// end is the last selected one-based line.
+	end uint
+	// lineSize is the current source line byte count.
+	lineSize int
+	// outputSize is the selected text byte count.
+	outputSize int
+	// stopped reports whether the output budget was reached.
+	stopped bool
+	// oversizedSize contains one omitted oversized line byte count.
 	oversizedSize int64
+	// selectedLines contains complete bounded output lines.
 	selectedLines []string
-	lineBuffer    strings.Builder
+	// lineBuffer accumulates the current source line.
+	lineBuffer strings.Builder
 }
 
 // newTextReadState initializes a bounded line-selection state.

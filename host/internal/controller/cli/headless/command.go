@@ -10,7 +10,9 @@ import (
 
 // Command is one validated headless invocation.
 type Command struct {
-	UserText           string
+	// UserText contains the submitted user request.
+	UserText string
+	// ExtensionDirectory overrides the extension catalog directory.
 	ExtensionDirectory string
 }
 

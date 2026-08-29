@@ -240,7 +240,7 @@ func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptio
 func hookModelRequest(instructions string) run.ModelRequest {
 	return run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: instructions,
-		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
+		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		History: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
 			ToolResult: mo.None[agent.ToolResult](),
 		}},

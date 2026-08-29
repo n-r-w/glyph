@@ -22,12 +22,18 @@ var ErrCorrelationRequired = errors.New("correlation ID is required")
 
 // Service coordinates one Programmatic Control connection.
 type Service struct {
-	coordinator     Coordinator
-	modelCatalog    ModelCatalog
-	stateSnapshot   func() run.State
+	// coordinator prepares and executes Agent Core runs.
+	coordinator Coordinator
+	// modelCatalog owns configured models and the active selection.
+	modelCatalog ModelCatalog
+	// stateSnapshot returns the current Agent Core state.
+	stateSnapshot func() run.State
+	// historySnapshot returns canonical public conversation history.
 	historySnapshot func() []agent.HistoryEntry
-	sessionControl  SessionControl
-	delivery        *Delivery
+	// sessionControl owns active-session lifecycle operations.
+	sessionControl SessionControl
+	// delivery correlates run events with accepted requests.
+	delivery *Delivery
 }
 
 var _ controller.HostSession = (*Service)(nil)

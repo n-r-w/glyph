@@ -20,9 +20,13 @@ const runIDBytes = 16
 
 // Coordinator owns run IDs, operation-gate reservations, and Agent Core settlement for one Host process.
 type Coordinator struct {
-	execute  func(context.Context, run.Request) (run.Result, error)
-	settle   func(string) error
-	events   *Dispatcher
+	// execute runs one prepared Agent Core request.
+	execute func(context.Context, run.Request) (run.Result, error)
+	// settle completes Host recipient delivery for one run.
+	settle func(string) error
+	// events dispatches Agent Core and settlement events.
+	events *Dispatcher
+	// newRunID creates one opaque run identifier.
 	newRunID func() (string, error)
 	// gate is shared with session replacement across headless, UI, and Programmatic Control paths.
 	gate OperationGate

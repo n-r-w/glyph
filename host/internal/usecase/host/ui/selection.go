@@ -15,15 +15,20 @@ import (
 
 // SelectionRequest contains startup-only selection inputs.
 type SelectionRequest struct {
-	Directory  domainui.Directory
+	// Directory identifies the effective UI catalog directory.
+	Directory domainui.Directory
+	// ExplicitUI identifies an invocation-selected UI plugin.
 	ExplicitUI string
-	ActiveUI   mo.Option[string]
+	// ActiveUI identifies the preferred configured UI plugin.
+	ActiveUI mo.Option[string]
 }
 
 // SelectionIssue describes one automatically excluded UI candidate.
 type SelectionIssue struct {
+	// Candidate identifies the excluded UI plugin.
 	Candidate domainui.Candidate
-	Err       error
+	// Err contains the candidate startup failure.
+	Err error
 }
 
 // Warning preserves one excluded candidate as user-visible startup content.
@@ -38,15 +43,21 @@ func (i SelectionIssue) Warning() domainui.StartupContent {
 
 // Selection contains the single selected connected runtime.
 type Selection struct {
-	ID           string
+	// ID identifies the selected UI plugin.
+	ID string
+	// Capabilities contains immutable UI startup behavior.
 	Capabilities domainui.Capabilities
-	Runtime      Runtime
-	Issues       []SelectionIssue
+	// Runtime owns the connected UI process.
+	Runtime Runtime
+	// Issues contains automatically excluded candidates.
+	Issues []SelectionIssue
 }
 
 // Selector applies startup-only UI selection policy.
 type Selector struct {
+	// catalog discovers executable UI candidates.
 	catalog Catalog
+	// factory starts one selected UI runtime.
 	factory RuntimeFactory
 }
 

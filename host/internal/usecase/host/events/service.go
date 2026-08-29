@@ -10,7 +10,9 @@ import (
 
 // Dispatcher sends Agent Core and Host settlement events to one headless recipient.
 type Dispatcher struct {
-	deliverAgent   func(context.Context, run.Event) error
+	// deliverAgent sends one Agent Core event to the active recipient.
+	deliverAgent func(context.Context, run.Event) error
+	// deliverSettled sends one Host settlement event to the active recipient.
 	deliverSettled func(context.Context, string) error
 }
 

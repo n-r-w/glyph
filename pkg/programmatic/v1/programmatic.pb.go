@@ -198,6 +198,54 @@ func (x RejectionCode) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// InputModality identifies one model input content kind.
+type InputModality int32
+
+const (
+	// No input modality was provided.
+	InputModality_INPUT_MODALITY_UNSPECIFIED InputModality = 0
+	// Text input.
+	InputModality_INPUT_MODALITY_TEXT InputModality = 1
+	// Image input.
+	InputModality_INPUT_MODALITY_IMAGE InputModality = 2
+)
+
+// Enum value maps for InputModality.
+var (
+	InputModality_name = map[int32]string{
+		0: "INPUT_MODALITY_UNSPECIFIED",
+		1: "INPUT_MODALITY_TEXT",
+		2: "INPUT_MODALITY_IMAGE",
+	}
+	InputModality_value = map[string]int32{
+		"INPUT_MODALITY_UNSPECIFIED": 0,
+		"INPUT_MODALITY_TEXT":        1,
+		"INPUT_MODALITY_IMAGE":       2,
+	}
+)
+
+func (x InputModality) Enum() *InputModality {
+	p := new(InputModality)
+	*p = x
+	return p
+}
+
+func (x InputModality) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InputModality) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[2].Descriptor()
+}
+
+func (InputModality) Type() protoreflect.EnumType {
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[2]
+}
+
+func (x InputModality) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // ReasoningChoice identifies provider-neutral reasoning behavior.
 type ReasoningChoice int32
 
@@ -259,11 +307,11 @@ func (x ReasoningChoice) String() string {
 }
 
 func (ReasoningChoice) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[2].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[3].Descriptor()
 }
 
 func (ReasoningChoice) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[2]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[3]
 }
 
 func (x ReasoningChoice) Number() protoreflect.EnumNumber {
@@ -307,11 +355,11 @@ func (x RunState) String() string {
 }
 
 func (RunState) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[3].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[4].Descriptor()
 }
 
 func (RunState) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[3]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[4]
 }
 
 func (x RunState) Number() protoreflect.EnumNumber {
@@ -415,11 +463,11 @@ func (x AgentEventType) String() string {
 }
 
 func (AgentEventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[4].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[5].Descriptor()
 }
 
 func (AgentEventType) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[4]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[5]
 }
 
 func (x AgentEventType) Number() protoreflect.EnumNumber {
@@ -467,11 +515,11 @@ func (x ModelContentKind) String() string {
 }
 
 func (ModelContentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[5].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[6].Descriptor()
 }
 
 func (ModelContentKind) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[5]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[6]
 }
 
 func (x ModelContentKind) Number() protoreflect.EnumNumber {
@@ -519,11 +567,11 @@ func (x ProgressChannel) String() string {
 }
 
 func (ProgressChannel) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[6].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[7].Descriptor()
 }
 
 func (ProgressChannel) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[6]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[7]
 }
 
 func (x ProgressChannel) Number() protoreflect.EnumNumber {
@@ -579,11 +627,11 @@ func (x ModelOutcome) String() string {
 }
 
 func (ModelOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[7].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[8].Descriptor()
 }
 
 func (ModelOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[7]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[8]
 }
 
 func (x ModelOutcome) Number() protoreflect.EnumNumber {
@@ -631,11 +679,11 @@ func (x RunOutcome) String() string {
 }
 
 func (RunOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[8].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[9].Descriptor()
 }
 
 func (RunOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[8]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[9]
 }
 
 func (x RunOutcome) Number() protoreflect.EnumNumber {
@@ -3340,14 +3388,17 @@ func (b0 ModelsResult_builder) Build() *ModelsResult {
 
 // ConfiguredModel describes one configured provider model.
 type ConfiguredModel struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId  *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
-	xxx_hidden_ModelId     *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
-	xxx_hidden_Reasoning   *ReasoningCapabilities `protobuf:"bytes,3,opt,name=reasoning"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_Reasoning       *ReasoningCapabilities `protobuf:"bytes,3,opt,name=reasoning"`
+	xxx_hidden_InputModalities []InputModality        `protobuf:"varint,4,rep,packed,name=input_modalities,json=inputModalities,enum=glyph.programmatic.v1.InputModality"`
+	xxx_hidden_ContextWindow   int64                  `protobuf:"varint,5,opt,name=context_window,json=contextWindow"`
+	xxx_hidden_MaxTokens       int64                  `protobuf:"varint,6,opt,name=max_tokens,json=maxTokens"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *ConfiguredModel) Reset() {
@@ -3402,18 +3453,53 @@ func (x *ConfiguredModel) GetReasoning() *ReasoningCapabilities {
 	return nil
 }
 
+func (x *ConfiguredModel) GetInputModalities() []InputModality {
+	if x != nil {
+		return x.xxx_hidden_InputModalities
+	}
+	return nil
+}
+
+func (x *ConfiguredModel) GetContextWindow() int64 {
+	if x != nil {
+		return x.xxx_hidden_ContextWindow
+	}
+	return 0
+}
+
+func (x *ConfiguredModel) GetMaxTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_MaxTokens
+	}
+	return 0
+}
+
 func (x *ConfiguredModel) SetProviderId(v string) {
 	x.xxx_hidden_ProviderId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *ConfiguredModel) SetModelId(v string) {
 	x.xxx_hidden_ModelId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *ConfiguredModel) SetReasoning(v *ReasoningCapabilities) {
 	x.xxx_hidden_Reasoning = v
+}
+
+func (x *ConfiguredModel) SetInputModalities(v []InputModality) {
+	x.xxx_hidden_InputModalities = v
+}
+
+func (x *ConfiguredModel) SetContextWindow(v int64) {
+	x.xxx_hidden_ContextWindow = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *ConfiguredModel) SetMaxTokens(v int64) {
+	x.xxx_hidden_MaxTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *ConfiguredModel) HasProviderId() bool {
@@ -3437,6 +3523,20 @@ func (x *ConfiguredModel) HasReasoning() bool {
 	return x.xxx_hidden_Reasoning != nil
 }
 
+func (x *ConfiguredModel) HasContextWindow() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *ConfiguredModel) HasMaxTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *ConfiguredModel) ClearProviderId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ProviderId = nil
@@ -3451,6 +3551,16 @@ func (x *ConfiguredModel) ClearReasoning() {
 	x.xxx_hidden_Reasoning = nil
 }
 
+func (x *ConfiguredModel) ClearContextWindow() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ContextWindow = 0
+}
+
+func (x *ConfiguredModel) ClearMaxTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_MaxTokens = 0
+}
+
 type ConfiguredModel_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -3460,6 +3570,12 @@ type ConfiguredModel_builder struct {
 	ModelId *string
 	// The model reasoning capabilities.
 	Reasoning *ReasoningCapabilities
+	// The ordered input modalities accepted by the model.
+	InputModalities []InputModality
+	// The maximum combined input and generated-output token capacity.
+	ContextWindow *int64
+	// The maximum generated-output token count.
+	MaxTokens *int64
 }
 
 func (b0 ConfiguredModel_builder) Build() *ConfiguredModel {
@@ -3467,14 +3583,23 @@ func (b0 ConfiguredModel_builder) Build() *ConfiguredModel {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ProviderId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_ProviderId = b.ProviderId
 	}
 	if b.ModelId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_ModelId = b.ModelId
 	}
 	x.xxx_hidden_Reasoning = b.Reasoning
+	x.xxx_hidden_InputModalities = b.InputModalities
+	if b.ContextWindow != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_ContextWindow = *b.ContextWindow
+	}
+	if b.MaxTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_MaxTokens = *b.MaxTokens
+	}
 	return m0
 }
 
@@ -9555,12 +9680,16 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.HistoryEntryR\aentries\"\xa0\x01\n" +
 	"\fModelsResult\x12>\n" +
 	"\x06models\x18\x01 \x03(\v2&.glyph.programmatic.v1.ConfiguredModelR\x06models\x12P\n" +
-	"\x10active_selection\x18\x02 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\x0factiveSelection\"\x99\x01\n" +
+	"\x10active_selection\x18\x02 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\x0factiveSelection\"\xb0\x02\n" +
 	"\x0fConfiguredModel\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12J\n" +
-	"\treasoning\x18\x03 \x01(\v2,.glyph.programmatic.v1.ReasoningCapabilitiesR\treasoning\"\xc6\x01\n" +
+	"\treasoning\x18\x03 \x01(\v2,.glyph.programmatic.v1.ReasoningCapabilitiesR\treasoning\x12O\n" +
+	"\x10input_modalities\x18\x04 \x03(\x0e2$.glyph.programmatic.v1.InputModalityR\x0finputModalities\x12%\n" +
+	"\x0econtext_window\x18\x05 \x01(\x03R\rcontextWindow\x12\x1d\n" +
+	"\n" +
+	"max_tokens\x18\x06 \x01(\x03R\tmaxTokens\"\xc6\x01\n" +
 	"\x15ReasoningCapabilities\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x12@\n" +
 	"\achoices\x18\x02 \x03(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\achoices\x12M\n" +
@@ -9777,7 +9906,11 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"%REJECTION_CODE_CREDENTIAL_UNAVAILABLE\x10\b\x12&\n" +
 	"\"REJECTION_CODE_SESSION_UNAVAILABLE\x10\t\x12*\n" +
 	"&REJECTION_CODE_PERSISTENCE_UNAVAILABLE\x10\n" +
-	"*\x8c\x02\n" +
+	"*b\n" +
+	"\rInputModality\x12\x1e\n" +
+	"\x1aINPUT_MODALITY_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13INPUT_MODALITY_TEXT\x10\x01\x12\x18\n" +
+	"\x14INPUT_MODALITY_IMAGE\x10\x02*\x8c\x02\n" +
 	"\x0fReasoningChoice\x12 \n" +
 	"\x1cREASONING_CHOICE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REASONING_CHOICE_OFF\x10\x01\x12\x17\n" +
@@ -9838,177 +9971,179 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x1aProgrammaticControlService\x12S\n" +
 	"\x04Open\x12\".glyph.programmatic.v1.OpenRequest\x1a#.glyph.programmatic.v1.OpenResponse(\x010\x01B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
-var file_api_programmatic_v1_programmatic_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_api_programmatic_v1_programmatic_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
 var file_api_programmatic_v1_programmatic_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_api_programmatic_v1_programmatic_proto_goTypes = []any{
 	(CommandType)(0),              // 0: glyph.programmatic.v1.CommandType
 	(RejectionCode)(0),            // 1: glyph.programmatic.v1.RejectionCode
-	(ReasoningChoice)(0),          // 2: glyph.programmatic.v1.ReasoningChoice
-	(RunState)(0),                 // 3: glyph.programmatic.v1.RunState
-	(AgentEventType)(0),           // 4: glyph.programmatic.v1.AgentEventType
-	(ModelContentKind)(0),         // 5: glyph.programmatic.v1.ModelContentKind
-	(ProgressChannel)(0),          // 6: glyph.programmatic.v1.ProgressChannel
-	(ModelOutcome)(0),             // 7: glyph.programmatic.v1.ModelOutcome
-	(RunOutcome)(0),               // 8: glyph.programmatic.v1.RunOutcome
-	(*OpenRequest)(nil),           // 9: glyph.programmatic.v1.OpenRequest
-	(*UserRequest)(nil),           // 10: glyph.programmatic.v1.UserRequest
-	(*Abort)(nil),                 // 11: glyph.programmatic.v1.Abort
-	(*GetRunState)(nil),           // 12: glyph.programmatic.v1.GetRunState
-	(*GetMessages)(nil),           // 13: glyph.programmatic.v1.GetMessages
-	(*GetModels)(nil),             // 14: glyph.programmatic.v1.GetModels
-	(*SelectModel)(nil),           // 15: glyph.programmatic.v1.SelectModel
-	(*SelectReasoningChoice)(nil), // 16: glyph.programmatic.v1.SelectReasoningChoice
-	(*CreateSession)(nil),         // 17: glyph.programmatic.v1.CreateSession
-	(*ListSessions)(nil),          // 18: glyph.programmatic.v1.ListSessions
-	(*ResumeSession)(nil),         // 19: glyph.programmatic.v1.ResumeSession
-	(*SetSessionName)(nil),        // 20: glyph.programmatic.v1.SetSessionName
-	(*GetSessionInfo)(nil),        // 21: glyph.programmatic.v1.GetSessionInfo
-	(*GetSessionEntries)(nil),     // 22: glyph.programmatic.v1.GetSessionEntries
-	(*GetSessionStats)(nil),       // 23: glyph.programmatic.v1.GetSessionStats
-	(*OpenResponse)(nil),          // 24: glyph.programmatic.v1.OpenResponse
-	(*CommandResponse)(nil),       // 25: glyph.programmatic.v1.CommandResponse
-	(*UserRequestAccepted)(nil),   // 26: glyph.programmatic.v1.UserRequestAccepted
-	(*AbortCompleted)(nil),        // 27: glyph.programmatic.v1.AbortCompleted
-	(*RunStateResult)(nil),        // 28: glyph.programmatic.v1.RunStateResult
-	(*MessagesResult)(nil),        // 29: glyph.programmatic.v1.MessagesResult
-	(*ModelsResult)(nil),          // 30: glyph.programmatic.v1.ModelsResult
-	(*ConfiguredModel)(nil),       // 31: glyph.programmatic.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil), // 32: glyph.programmatic.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),        // 33: glyph.programmatic.v1.ModelSelection
-	(*ModelSelectionResult)(nil),  // 34: glyph.programmatic.v1.ModelSelectionResult
-	(*SessionInfoResult)(nil),     // 35: glyph.programmatic.v1.SessionInfoResult
-	(*SessionsResult)(nil),        // 36: glyph.programmatic.v1.SessionsResult
-	(*SessionInfo)(nil),           // 37: glyph.programmatic.v1.SessionInfo
-	(*SessionSummary)(nil),        // 38: glyph.programmatic.v1.SessionSummary
-	(*SessionStatsResult)(nil),    // 39: glyph.programmatic.v1.SessionStatsResult
-	(*SessionStatistics)(nil),     // 40: glyph.programmatic.v1.SessionStatistics
-	(*EstimatedCost)(nil),         // 41: glyph.programmatic.v1.EstimatedCost
-	(*ProviderModelCost)(nil),     // 42: glyph.programmatic.v1.ProviderModelCost
-	(*TokenUsage)(nil),            // 43: glyph.programmatic.v1.TokenUsage
-	(*CommandRejected)(nil),       // 44: glyph.programmatic.v1.CommandRejected
-	(*SessionEntriesResult)(nil),  // 45: glyph.programmatic.v1.SessionEntriesResult
-	(*SessionEntry)(nil),          // 46: glyph.programmatic.v1.SessionEntry
-	(*HistoryEntry)(nil),          // 47: glyph.programmatic.v1.HistoryEntry
-	(*UserMessage)(nil),           // 48: glyph.programmatic.v1.UserMessage
-	(*UserContent)(nil),           // 49: glyph.programmatic.v1.UserContent
-	(*UserImage)(nil),             // 50: glyph.programmatic.v1.UserImage
-	(*AgentEvent)(nil),            // 51: glyph.programmatic.v1.AgentEvent
-	(*ModelContent)(nil),          // 52: glyph.programmatic.v1.ModelContent
-	(*ToolCallPreview)(nil),       // 53: glyph.programmatic.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil),  // 54: glyph.programmatic.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),         // 55: glyph.programmatic.v1.FinalToolCall
-	(*ToolExecution)(nil),         // 56: glyph.programmatic.v1.ToolExecution
-	(*ToolProgress)(nil),          // 57: glyph.programmatic.v1.ToolProgress
-	(*ToolResult)(nil),            // 58: glyph.programmatic.v1.ToolResult
-	(*ToolResultContent)(nil),     // 59: glyph.programmatic.v1.ToolResultContent
-	(*ToolResultImage)(nil),       // 60: glyph.programmatic.v1.ToolResultImage
-	(*ModelResponse)(nil),         // 61: glyph.programmatic.v1.ModelResponse
-	(*ModelResponseItem)(nil),     // 62: glyph.programmatic.v1.ModelResponseItem
-	(*FinalText)(nil),             // 63: glyph.programmatic.v1.FinalText
-	(*ModelUsage)(nil),            // 64: glyph.programmatic.v1.ModelUsage
-	(*ModelDiagnostic)(nil),       // 65: glyph.programmatic.v1.ModelDiagnostic
-	(*TurnSummary)(nil),           // 66: glyph.programmatic.v1.TurnSummary
-	(*AgentSummary)(nil),          // 67: glyph.programmatic.v1.AgentSummary
-	(*timestamppb.Timestamp)(nil), // 68: google.protobuf.Timestamp
-	(*structpb.Value)(nil),        // 69: google.protobuf.Value
-	(*structpb.Struct)(nil),       // 70: google.protobuf.Struct
+	(InputModality)(0),            // 2: glyph.programmatic.v1.InputModality
+	(ReasoningChoice)(0),          // 3: glyph.programmatic.v1.ReasoningChoice
+	(RunState)(0),                 // 4: glyph.programmatic.v1.RunState
+	(AgentEventType)(0),           // 5: glyph.programmatic.v1.AgentEventType
+	(ModelContentKind)(0),         // 6: glyph.programmatic.v1.ModelContentKind
+	(ProgressChannel)(0),          // 7: glyph.programmatic.v1.ProgressChannel
+	(ModelOutcome)(0),             // 8: glyph.programmatic.v1.ModelOutcome
+	(RunOutcome)(0),               // 9: glyph.programmatic.v1.RunOutcome
+	(*OpenRequest)(nil),           // 10: glyph.programmatic.v1.OpenRequest
+	(*UserRequest)(nil),           // 11: glyph.programmatic.v1.UserRequest
+	(*Abort)(nil),                 // 12: glyph.programmatic.v1.Abort
+	(*GetRunState)(nil),           // 13: glyph.programmatic.v1.GetRunState
+	(*GetMessages)(nil),           // 14: glyph.programmatic.v1.GetMessages
+	(*GetModels)(nil),             // 15: glyph.programmatic.v1.GetModels
+	(*SelectModel)(nil),           // 16: glyph.programmatic.v1.SelectModel
+	(*SelectReasoningChoice)(nil), // 17: glyph.programmatic.v1.SelectReasoningChoice
+	(*CreateSession)(nil),         // 18: glyph.programmatic.v1.CreateSession
+	(*ListSessions)(nil),          // 19: glyph.programmatic.v1.ListSessions
+	(*ResumeSession)(nil),         // 20: glyph.programmatic.v1.ResumeSession
+	(*SetSessionName)(nil),        // 21: glyph.programmatic.v1.SetSessionName
+	(*GetSessionInfo)(nil),        // 22: glyph.programmatic.v1.GetSessionInfo
+	(*GetSessionEntries)(nil),     // 23: glyph.programmatic.v1.GetSessionEntries
+	(*GetSessionStats)(nil),       // 24: glyph.programmatic.v1.GetSessionStats
+	(*OpenResponse)(nil),          // 25: glyph.programmatic.v1.OpenResponse
+	(*CommandResponse)(nil),       // 26: glyph.programmatic.v1.CommandResponse
+	(*UserRequestAccepted)(nil),   // 27: glyph.programmatic.v1.UserRequestAccepted
+	(*AbortCompleted)(nil),        // 28: glyph.programmatic.v1.AbortCompleted
+	(*RunStateResult)(nil),        // 29: glyph.programmatic.v1.RunStateResult
+	(*MessagesResult)(nil),        // 30: glyph.programmatic.v1.MessagesResult
+	(*ModelsResult)(nil),          // 31: glyph.programmatic.v1.ModelsResult
+	(*ConfiguredModel)(nil),       // 32: glyph.programmatic.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil), // 33: glyph.programmatic.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),        // 34: glyph.programmatic.v1.ModelSelection
+	(*ModelSelectionResult)(nil),  // 35: glyph.programmatic.v1.ModelSelectionResult
+	(*SessionInfoResult)(nil),     // 36: glyph.programmatic.v1.SessionInfoResult
+	(*SessionsResult)(nil),        // 37: glyph.programmatic.v1.SessionsResult
+	(*SessionInfo)(nil),           // 38: glyph.programmatic.v1.SessionInfo
+	(*SessionSummary)(nil),        // 39: glyph.programmatic.v1.SessionSummary
+	(*SessionStatsResult)(nil),    // 40: glyph.programmatic.v1.SessionStatsResult
+	(*SessionStatistics)(nil),     // 41: glyph.programmatic.v1.SessionStatistics
+	(*EstimatedCost)(nil),         // 42: glyph.programmatic.v1.EstimatedCost
+	(*ProviderModelCost)(nil),     // 43: glyph.programmatic.v1.ProviderModelCost
+	(*TokenUsage)(nil),            // 44: glyph.programmatic.v1.TokenUsage
+	(*CommandRejected)(nil),       // 45: glyph.programmatic.v1.CommandRejected
+	(*SessionEntriesResult)(nil),  // 46: glyph.programmatic.v1.SessionEntriesResult
+	(*SessionEntry)(nil),          // 47: glyph.programmatic.v1.SessionEntry
+	(*HistoryEntry)(nil),          // 48: glyph.programmatic.v1.HistoryEntry
+	(*UserMessage)(nil),           // 49: glyph.programmatic.v1.UserMessage
+	(*UserContent)(nil),           // 50: glyph.programmatic.v1.UserContent
+	(*UserImage)(nil),             // 51: glyph.programmatic.v1.UserImage
+	(*AgentEvent)(nil),            // 52: glyph.programmatic.v1.AgentEvent
+	(*ModelContent)(nil),          // 53: glyph.programmatic.v1.ModelContent
+	(*ToolCallPreview)(nil),       // 54: glyph.programmatic.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil),  // 55: glyph.programmatic.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),         // 56: glyph.programmatic.v1.FinalToolCall
+	(*ToolExecution)(nil),         // 57: glyph.programmatic.v1.ToolExecution
+	(*ToolProgress)(nil),          // 58: glyph.programmatic.v1.ToolProgress
+	(*ToolResult)(nil),            // 59: glyph.programmatic.v1.ToolResult
+	(*ToolResultContent)(nil),     // 60: glyph.programmatic.v1.ToolResultContent
+	(*ToolResultImage)(nil),       // 61: glyph.programmatic.v1.ToolResultImage
+	(*ModelResponse)(nil),         // 62: glyph.programmatic.v1.ModelResponse
+	(*ModelResponseItem)(nil),     // 63: glyph.programmatic.v1.ModelResponseItem
+	(*FinalText)(nil),             // 64: glyph.programmatic.v1.FinalText
+	(*ModelUsage)(nil),            // 65: glyph.programmatic.v1.ModelUsage
+	(*ModelDiagnostic)(nil),       // 66: glyph.programmatic.v1.ModelDiagnostic
+	(*TurnSummary)(nil),           // 67: glyph.programmatic.v1.TurnSummary
+	(*AgentSummary)(nil),          // 68: glyph.programmatic.v1.AgentSummary
+	(*timestamppb.Timestamp)(nil), // 69: google.protobuf.Timestamp
+	(*structpb.Value)(nil),        // 70: google.protobuf.Value
+	(*structpb.Struct)(nil),       // 71: google.protobuf.Struct
 }
 var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
-	10, // 0: glyph.programmatic.v1.OpenRequest.user_request:type_name -> glyph.programmatic.v1.UserRequest
-	11, // 1: glyph.programmatic.v1.OpenRequest.abort:type_name -> glyph.programmatic.v1.Abort
-	12, // 2: glyph.programmatic.v1.OpenRequest.get_run_state:type_name -> glyph.programmatic.v1.GetRunState
-	13, // 3: glyph.programmatic.v1.OpenRequest.get_messages:type_name -> glyph.programmatic.v1.GetMessages
-	14, // 4: glyph.programmatic.v1.OpenRequest.get_models:type_name -> glyph.programmatic.v1.GetModels
-	15, // 5: glyph.programmatic.v1.OpenRequest.select_model:type_name -> glyph.programmatic.v1.SelectModel
-	16, // 6: glyph.programmatic.v1.OpenRequest.select_reasoning_choice:type_name -> glyph.programmatic.v1.SelectReasoningChoice
-	17, // 7: glyph.programmatic.v1.OpenRequest.create_session:type_name -> glyph.programmatic.v1.CreateSession
-	18, // 8: glyph.programmatic.v1.OpenRequest.list_sessions:type_name -> glyph.programmatic.v1.ListSessions
-	19, // 9: glyph.programmatic.v1.OpenRequest.resume_session:type_name -> glyph.programmatic.v1.ResumeSession
-	20, // 10: glyph.programmatic.v1.OpenRequest.set_session_name:type_name -> glyph.programmatic.v1.SetSessionName
-	21, // 11: glyph.programmatic.v1.OpenRequest.get_session_info:type_name -> glyph.programmatic.v1.GetSessionInfo
-	22, // 12: glyph.programmatic.v1.OpenRequest.get_session_entries:type_name -> glyph.programmatic.v1.GetSessionEntries
-	23, // 13: glyph.programmatic.v1.OpenRequest.get_session_stats:type_name -> glyph.programmatic.v1.GetSessionStats
-	2,  // 14: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	25, // 15: glyph.programmatic.v1.OpenResponse.command_response:type_name -> glyph.programmatic.v1.CommandResponse
-	51, // 16: glyph.programmatic.v1.OpenResponse.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
-	26, // 17: glyph.programmatic.v1.CommandResponse.user_request_accepted:type_name -> glyph.programmatic.v1.UserRequestAccepted
-	27, // 18: glyph.programmatic.v1.CommandResponse.abort_completed:type_name -> glyph.programmatic.v1.AbortCompleted
-	28, // 19: glyph.programmatic.v1.CommandResponse.run_state:type_name -> glyph.programmatic.v1.RunStateResult
-	29, // 20: glyph.programmatic.v1.CommandResponse.messages:type_name -> glyph.programmatic.v1.MessagesResult
-	44, // 21: glyph.programmatic.v1.CommandResponse.rejected:type_name -> glyph.programmatic.v1.CommandRejected
-	30, // 22: glyph.programmatic.v1.CommandResponse.models:type_name -> glyph.programmatic.v1.ModelsResult
-	34, // 23: glyph.programmatic.v1.CommandResponse.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
-	35, // 24: glyph.programmatic.v1.CommandResponse.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
-	36, // 25: glyph.programmatic.v1.CommandResponse.sessions:type_name -> glyph.programmatic.v1.SessionsResult
-	45, // 26: glyph.programmatic.v1.CommandResponse.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
-	39, // 27: glyph.programmatic.v1.CommandResponse.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
-	3,  // 28: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
-	47, // 29: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
-	31, // 30: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
-	33, // 31: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
-	32, // 32: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
-	2,  // 33: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
-	2,  // 34: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	2,  // 35: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	33, // 36: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
-	37, // 37: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
-	38, // 38: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
-	68, // 39: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
-	68, // 40: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
-	37, // 41: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
-	40, // 42: glyph.programmatic.v1.SessionStatsResult.statistics:type_name -> glyph.programmatic.v1.SessionStatistics
-	43, // 43: glyph.programmatic.v1.SessionStatistics.tokens:type_name -> glyph.programmatic.v1.TokenUsage
-	41, // 44: glyph.programmatic.v1.SessionStatistics.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	42, // 45: glyph.programmatic.v1.SessionStatistics.cost_breakdown:type_name -> glyph.programmatic.v1.ProviderModelCost
-	41, // 46: glyph.programmatic.v1.ProviderModelCost.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	0,  // 47: glyph.programmatic.v1.CommandRejected.command:type_name -> glyph.programmatic.v1.CommandType
-	1,  // 48: glyph.programmatic.v1.CommandRejected.code:type_name -> glyph.programmatic.v1.RejectionCode
-	46, // 49: glyph.programmatic.v1.SessionEntriesResult.entries:type_name -> glyph.programmatic.v1.SessionEntry
-	68, // 50: glyph.programmatic.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
-	48, // 51: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	61, // 52: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	58, // 53: glyph.programmatic.v1.SessionEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	41, // 54: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	48, // 55: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	61, // 56: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	58, // 57: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	49, // 58: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
-	50, // 59: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
-	4,  // 60: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
-	52, // 61: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
-	53, // 62: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
-	55, // 63: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	56, // 64: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
-	57, // 65: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
-	58, // 66: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	61, // 67: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
-	66, // 68: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
-	67, // 69: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	5,  // 70: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	54, // 71: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	69, // 72: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	70, // 73: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	6,  // 74: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	59, // 75: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	60, // 76: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	7,  // 77: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	64, // 78: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	65, // 79: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	62, // 80: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	63, // 81: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	63, // 82: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	63, // 83: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	55, // 84: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	61, // 85: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	58, // 86: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	8,  // 87: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	9,  // 88: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
-	24, // 89: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
-	89, // [89:90] is the sub-list for method output_type
-	88, // [88:89] is the sub-list for method input_type
-	88, // [88:88] is the sub-list for extension type_name
-	88, // [88:88] is the sub-list for extension extendee
-	0,  // [0:88] is the sub-list for field type_name
+	11, // 0: glyph.programmatic.v1.OpenRequest.user_request:type_name -> glyph.programmatic.v1.UserRequest
+	12, // 1: glyph.programmatic.v1.OpenRequest.abort:type_name -> glyph.programmatic.v1.Abort
+	13, // 2: glyph.programmatic.v1.OpenRequest.get_run_state:type_name -> glyph.programmatic.v1.GetRunState
+	14, // 3: glyph.programmatic.v1.OpenRequest.get_messages:type_name -> glyph.programmatic.v1.GetMessages
+	15, // 4: glyph.programmatic.v1.OpenRequest.get_models:type_name -> glyph.programmatic.v1.GetModels
+	16, // 5: glyph.programmatic.v1.OpenRequest.select_model:type_name -> glyph.programmatic.v1.SelectModel
+	17, // 6: glyph.programmatic.v1.OpenRequest.select_reasoning_choice:type_name -> glyph.programmatic.v1.SelectReasoningChoice
+	18, // 7: glyph.programmatic.v1.OpenRequest.create_session:type_name -> glyph.programmatic.v1.CreateSession
+	19, // 8: glyph.programmatic.v1.OpenRequest.list_sessions:type_name -> glyph.programmatic.v1.ListSessions
+	20, // 9: glyph.programmatic.v1.OpenRequest.resume_session:type_name -> glyph.programmatic.v1.ResumeSession
+	21, // 10: glyph.programmatic.v1.OpenRequest.set_session_name:type_name -> glyph.programmatic.v1.SetSessionName
+	22, // 11: glyph.programmatic.v1.OpenRequest.get_session_info:type_name -> glyph.programmatic.v1.GetSessionInfo
+	23, // 12: glyph.programmatic.v1.OpenRequest.get_session_entries:type_name -> glyph.programmatic.v1.GetSessionEntries
+	24, // 13: glyph.programmatic.v1.OpenRequest.get_session_stats:type_name -> glyph.programmatic.v1.GetSessionStats
+	3,  // 14: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	26, // 15: glyph.programmatic.v1.OpenResponse.command_response:type_name -> glyph.programmatic.v1.CommandResponse
+	52, // 16: glyph.programmatic.v1.OpenResponse.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
+	27, // 17: glyph.programmatic.v1.CommandResponse.user_request_accepted:type_name -> glyph.programmatic.v1.UserRequestAccepted
+	28, // 18: glyph.programmatic.v1.CommandResponse.abort_completed:type_name -> glyph.programmatic.v1.AbortCompleted
+	29, // 19: glyph.programmatic.v1.CommandResponse.run_state:type_name -> glyph.programmatic.v1.RunStateResult
+	30, // 20: glyph.programmatic.v1.CommandResponse.messages:type_name -> glyph.programmatic.v1.MessagesResult
+	45, // 21: glyph.programmatic.v1.CommandResponse.rejected:type_name -> glyph.programmatic.v1.CommandRejected
+	31, // 22: glyph.programmatic.v1.CommandResponse.models:type_name -> glyph.programmatic.v1.ModelsResult
+	35, // 23: glyph.programmatic.v1.CommandResponse.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
+	36, // 24: glyph.programmatic.v1.CommandResponse.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
+	37, // 25: glyph.programmatic.v1.CommandResponse.sessions:type_name -> glyph.programmatic.v1.SessionsResult
+	46, // 26: glyph.programmatic.v1.CommandResponse.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
+	40, // 27: glyph.programmatic.v1.CommandResponse.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
+	4,  // 28: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
+	48, // 29: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
+	32, // 30: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
+	34, // 31: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
+	33, // 32: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
+	2,  // 33: glyph.programmatic.v1.ConfiguredModel.input_modalities:type_name -> glyph.programmatic.v1.InputModality
+	3,  // 34: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
+	3,  // 35: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	3,  // 36: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	34, // 37: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
+	38, // 38: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
+	39, // 39: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
+	69, // 40: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
+	69, // 41: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
+	38, // 42: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
+	41, // 43: glyph.programmatic.v1.SessionStatsResult.statistics:type_name -> glyph.programmatic.v1.SessionStatistics
+	44, // 44: glyph.programmatic.v1.SessionStatistics.tokens:type_name -> glyph.programmatic.v1.TokenUsage
+	42, // 45: glyph.programmatic.v1.SessionStatistics.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	43, // 46: glyph.programmatic.v1.SessionStatistics.cost_breakdown:type_name -> glyph.programmatic.v1.ProviderModelCost
+	42, // 47: glyph.programmatic.v1.ProviderModelCost.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	0,  // 48: glyph.programmatic.v1.CommandRejected.command:type_name -> glyph.programmatic.v1.CommandType
+	1,  // 49: glyph.programmatic.v1.CommandRejected.code:type_name -> glyph.programmatic.v1.RejectionCode
+	47, // 50: glyph.programmatic.v1.SessionEntriesResult.entries:type_name -> glyph.programmatic.v1.SessionEntry
+	69, // 51: glyph.programmatic.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
+	49, // 52: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	62, // 53: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	59, // 54: glyph.programmatic.v1.SessionEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	42, // 55: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	49, // 56: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	62, // 57: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	59, // 58: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	50, // 59: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	51, // 60: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
+	5,  // 61: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
+	53, // 62: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
+	54, // 63: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
+	56, // 64: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	57, // 65: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
+	58, // 66: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
+	59, // 67: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	62, // 68: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
+	67, // 69: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
+	68, // 70: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
+	6,  // 71: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	55, // 72: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	70, // 73: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	71, // 74: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	7,  // 75: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	60, // 76: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	61, // 77: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	8,  // 78: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	65, // 79: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	66, // 80: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	63, // 81: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	64, // 82: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	64, // 83: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	64, // 84: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	56, // 85: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	62, // 86: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	59, // 87: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	9,  // 88: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	10, // 89: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
+	25, // 90: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
+	90, // [90:91] is the sub-list for method output_type
+	89, // [89:90] is the sub-list for method input_type
+	89, // [89:89] is the sub-list for extension type_name
+	89, // [89:89] is the sub-list for extension extendee
+	0,  // [0:89] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_programmatic_proto_init() }
@@ -10093,7 +10228,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_programmatic_proto_rawDesc), len(file_api_programmatic_v1_programmatic_proto_rawDesc)),
-			NumEnums:      9,
+			NumEnums:      10,
 			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,

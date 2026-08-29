@@ -8,6 +8,7 @@ import (
 
 // Service adapts search controller requests to project filesystem operations.
 type Service struct {
+	// projectFiles performs working-project search operations.
 	projectFiles ProjectFiles
 }
 

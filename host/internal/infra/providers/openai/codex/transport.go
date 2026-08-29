@@ -17,8 +17,11 @@ const (
 
 // errorCaptureTransport retains only one bounded failed response body for SDK error normalization.
 type errorCaptureTransport struct {
+	// base sends provider HTTP requests.
 	base http.RoundTripper
-	mu   sync.Mutex
+	// mu protects body.
+	mu sync.Mutex
+	// body contains one bounded failed response body.
 	body []byte
 }
 

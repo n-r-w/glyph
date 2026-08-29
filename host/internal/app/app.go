@@ -201,9 +201,13 @@ func runProgrammaticServer(
 
 // programmaticShutdownCollector owns non-blocking terminal collection around explicit server Stop.
 type programmaticShutdownCollector struct {
-	completions     <-chan controllerprogrammatic.SessionCompletion
-	serveResults    <-chan error
-	completionRead  bool
+	// completions receives the controller session result.
+	completions <-chan controllerprogrammatic.SessionCompletion
+	// serveResults receives the programmatic server result.
+	serveResults <-chan error
+	// completionRead reports whether the controller result was collected.
+	completionRead bool
+	// serveResultRead reports whether the server result was collected.
 	serveResultRead bool
 }
 
@@ -492,12 +496,16 @@ func newProviderCatalog(
 			}, credentials, interaction)
 			for modelIndex := range providerConfig.Models {
 				configuredModel := &providerConfig.Models[modelIndex]
-				descriptor := codex.ModelDescriptor(model.ID(configuredModel.ID))
-				descriptor.ReasoningCapabilities = reasoningCapabilities(configuredModel.Reasoning)
-				descriptor.Pricing = configuredModel.Pricing
 				entries = append(entries, providers.Entry{
-					Descriptor: descriptor, Provider: provider,
-					SelectionCredentialValidator: nil, Authentication: provider,
+					Descriptor: model.Descriptor{
+						Provider: codex.ProviderID, Model: model.ID(configuredModel.ID),
+						Input: configuredModel.Input, ContextWindow: configuredModel.ContextWindow,
+						MaxTokens:             configuredModel.MaxTokens,
+						ReasoningCapabilities: reasoningCapabilities(configuredModel.Reasoning),
+						ToolCapabilities:      configuredModel.ToolCapabilities,
+						Pricing:               configuredModel.Pricing,
+					},
+					Provider: provider, SelectionCredentialValidator: nil, Authentication: provider,
 				})
 			}
 		case settingstore.ProviderTypeOpenAICompatible:
@@ -527,11 +535,11 @@ func newProviderCatalog(
 				entries = append(entries, providers.Entry{
 					Descriptor: model.Descriptor{
 						Provider: model.ProviderID(providerID), Model: model.ID(configuredModel.ID),
+						Input: configuredModel.Input, ContextWindow: configuredModel.ContextWindow,
+						MaxTokens:             configuredModel.MaxTokens,
 						ReasoningCapabilities: reasoningCapabilities(configuredModel.Reasoning),
-						ToolCapabilities: model.ToolCapabilities{
-							StrictJSONSchema: false,
-							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
-						}, Pricing: configuredModel.Pricing,
+						ToolCapabilities:      configuredModel.ToolCapabilities,
+						Pricing:               configuredModel.Pricing,
 					},
 					Provider: provider, SelectionCredentialValidator: resolver, Authentication: nil,
 				})
@@ -542,7 +550,12 @@ func newProviderCatalog(
 	}
 	defaultProvider := configured.Providers[configured.DefaultProvider]
 	defaultModel := settingstore.Model{
-		ID: "", API: "", Reasoning: settingstore.Reasoning{
+		ID: "", API: "", Input: nil, ContextWindow: 0, MaxTokens: 0,
+		ToolCapabilities: model.ToolCapabilities{
+			StrictJSONSchema: false,
+			Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+		},
+		Reasoning: settingstore.Reasoning{
 			Supported: false, Choices: nil, Default: "", CompatibilityKey: mo.None[string](), WireFormat: "",
 		}, Pricing: mo.None[model.Pricing](),
 	}

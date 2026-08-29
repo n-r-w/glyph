@@ -931,7 +931,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	events := agentrun.NewMockEventSink(controller)
 	runtime.EXPECT().Current().Return(agentrun.RuntimeSelection{
 		Model: model.Descriptor{
-			Provider: "provider", Model: "model", ReasoningCapabilities: model.ReasoningCapabilities{},
+			Provider: "provider", Model: "model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{},
 			ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
 		ReasoningChoice: model.ReasoningChoiceOff,

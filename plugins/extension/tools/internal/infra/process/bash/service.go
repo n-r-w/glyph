@@ -21,16 +21,23 @@ var _ bashusecase.ProcessRunner = (*Service)(nil)
 
 // outputSink serializes concurrent stdout and stderr delivery to the gRPC-safe callback.
 type outputSink struct {
-	mutex          sync.Mutex
-	output         *outputStore
+	// mutex serializes output and progress delivery.
+	mutex sync.Mutex
+	// output retains bounded and complete command output.
+	output *outputStore
+	// handleProgress receives ordered command output fragments.
 	handleProgress bashusecase.ProgressHandler
-	cancel         context.CancelCauseFunc
+	// cancel stops execution after output handling failure.
+	cancel context.CancelCauseFunc
 }
 
 // streamWriter assigns one command writer to one output channel.
 type streamWriter struct {
-	sink    *outputSink
-	stream  bashusecase.Stream
+	// sink owns shared command output state.
+	sink *outputSink
+	// stream identifies standard output or standard error.
+	stream bashusecase.Stream
+	// pending retains an incomplete UTF-8 sequence.
 	pending []byte
 }
 

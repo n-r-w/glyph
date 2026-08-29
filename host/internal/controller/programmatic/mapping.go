@@ -844,6 +844,16 @@ func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
 
 func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.ConfiguredModel, error) {
 	return lo.MapErr(descriptors, func(descriptor model.Descriptor, _ int) (*programmaticv1.ConfiguredModel, error) {
+		// inputModalities preserves the descriptor order in the public contract.
+		inputModalities, err := lo.MapErr(
+			descriptor.Input,
+			func(modality model.InputModality, _ int) (programmaticv1.InputModality, error) {
+				return mapInputModality(modality)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 		choices, err := lo.MapErr(
 			descriptor.ReasoningCapabilities.Choices,
 			func(choice model.ReasoningChoice, _ int) (programmaticv1.ReasoningChoice, error) {
@@ -865,8 +875,24 @@ func mapConfiguredModels(descriptors []model.Descriptor) ([]*programmaticv1.Conf
 		configured.SetProviderId(string(descriptor.Provider))
 		configured.SetModelId(string(descriptor.Model))
 		configured.SetReasoning(capabilities)
+		configured.SetInputModalities(inputModalities)
+		configured.SetContextWindow(descriptor.ContextWindow)
+		configured.SetMaxTokens(descriptor.MaxTokens)
 		return configured, nil
 	})
+}
+
+// mapInputModality keeps the closed domain enum explicit at the public boundary.
+func mapInputModality(modality model.InputModality) (programmaticv1.InputModality, error) {
+	switch modality {
+	case model.InputModalityText:
+		return programmaticv1.InputModality_INPUT_MODALITY_TEXT, nil
+	case model.InputModalityImage:
+		return programmaticv1.InputModality_INPUT_MODALITY_IMAGE, nil
+	default:
+		return programmaticv1.InputModality_INPUT_MODALITY_UNSPECIFIED,
+			fmt.Errorf("unsupported model input modality %q", modality)
+	}
 }
 
 func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {

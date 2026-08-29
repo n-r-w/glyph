@@ -17,6 +17,7 @@ type openTTY func() (*os.File, *os.File, error)
 
 // Service opens controlling-terminal sessions.
 type Service struct {
+	// open acquires controlling-terminal input and output files.
 	open openTTY
 }
 
@@ -27,7 +28,9 @@ var (
 
 // Session owns the input and output files for one TUI program.
 type Session struct {
-	input  *os.File
+	// input is the controlling-terminal input file.
+	input *os.File
+	// output is the controlling-terminal output file.
 	output *os.File
 }
 

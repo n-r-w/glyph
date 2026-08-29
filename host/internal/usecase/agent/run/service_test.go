@@ -27,6 +27,7 @@ const testInstructions = "resolved coding instructions"
 
 var testModelDescriptor = model.Descriptor{
 	Provider: "openai-codex", Model: "gpt-test",
+	Input: nil, ContextWindow: 0, MaxTokens: 0,
 	ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{},
 	Pricing: mo.None[model.Pricing](),
 }
@@ -212,8 +213,8 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	runtime := NewMockModelRuntime(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
-	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
+	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
+	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
 	committed := false
 	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
 		if committed {

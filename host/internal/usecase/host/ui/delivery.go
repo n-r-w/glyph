@@ -22,6 +22,7 @@ import (
 
 // Delivery maps ordered Host and Agent events to one UI stream.
 type Delivery struct {
+	// channel sends frames to and receives commands from the selected UI.
 	channel Channel
 }
 

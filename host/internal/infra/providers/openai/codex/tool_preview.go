@@ -16,12 +16,19 @@ import (
 
 // functionPreviewAssembler derives provisional fields from one function-call argument stream.
 type functionPreviewAssembler struct {
-	tokenizer     *scanner.Tokenizer
-	raw           []byte
-	fields        []model.ToolCallPreviewField
-	rootStarted   bool
-	depth         int
-	currentKey    string
+	// tokenizer incrementally parses argument JSON.
+	tokenizer *scanner.Tokenizer
+	// raw contains the exact received argument bytes.
+	raw []byte
+	// fields contains provisional top-level argument fields.
+	fields []model.ToolCallPreviewField
+	// rootStarted reports whether the root object was opened.
+	rootStarted bool
+	// depth tracks nested JSON containers.
+	depth int
+	// currentKey identifies the active top-level field.
+	currentKey string
+	// containerFrom records the active container start offset.
 	containerFrom int64
 }
 

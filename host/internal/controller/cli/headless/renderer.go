@@ -18,8 +18,11 @@ import (
 
 // Renderer writes headless model, tool, startup, and terminal output.
 type Renderer struct {
-	stdout        io.Writer
-	stderr        io.Writer
+	// stdout receives normal headless output.
+	stdout io.Writer
+	// stderr receives failures and warnings.
+	stderr io.Writer
+	// modelLineOpen reports whether a streamed model line needs a trailing newline.
 	modelLineOpen bool
 }
 

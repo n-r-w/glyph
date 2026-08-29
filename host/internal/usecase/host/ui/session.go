@@ -24,19 +24,25 @@ const (
 
 // operationResult carries one active operation completion.
 type operationResult struct {
+	// kind identifies the completed asynchronous operation.
 	kind operationKind
-	err  error
+	// err contains the operation failure.
+	err error
 }
 
 // receivedCommand carries one command or authoritative stream termination.
 type receivedCommand struct {
+	// command contains one UI request.
 	command domainui.Command
-	err     error
+	// err contains authoritative stream termination.
+	err error
 }
 
 // deliveryFailureError keeps an undelivered source separate from its frame delivery failure.
 type deliveryFailureError struct {
-	sourceErr   error
+	// sourceErr contains the undelivered source failure.
+	sourceErr error
+	// deliveryErr contains the frame delivery failure.
 	deliveryErr error
 }
 
@@ -52,11 +58,17 @@ func (e *deliveryFailureError) Unwrap() []error {
 
 // Session coordinates authentication, one active run, UI commands, and stream termination.
 type Session struct {
-	channel             Channel
-	runner              AgentRunner
-	authenticator       Authenticator
-	modelCatalog        ModelCatalog
-	sessionControl      SessionControl
+	// channel sends frames to and receives commands from the selected UI.
+	channel Channel
+	// runner executes and cancels Agent Core runs.
+	runner AgentRunner
+	// authenticator manages provider authentication.
+	authenticator Authenticator
+	// modelCatalog owns configured models and the active selection.
+	modelCatalog ModelCatalog
+	// sessionControl owns active-session lifecycle operations.
+	sessionControl SessionControl
+	// afterInitialization starts work that requires a connected UI.
 	afterInitialization func(context.Context)
 }
 

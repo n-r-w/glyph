@@ -51,22 +51,31 @@ const (
 
 // ReasoningCapabilities describes one model reasoning contract.
 type ReasoningCapabilities struct {
+	// Supported reports whether the model supports reasoning controls.
 	Supported bool
-	Choices   []ReasoningChoice
-	Default   ReasoningChoice
+	// Choices lists supported reasoning choices in display order.
+	Choices []ReasoningChoice
+	// Default is the reasoning choice used without an explicit selection.
+	Default ReasoningChoice
 }
 
 // ConfiguredModel identifies one selectable model and its reasoning contract.
 type ConfiguredModel struct {
+	// ProviderID identifies the configured provider.
 	ProviderID string
-	ModelID    string
-	Reasoning  ReasoningCapabilities
+	// ModelID identifies the configured provider model.
+	ModelID string
+	// Reasoning describes the model reasoning contract.
+	Reasoning ReasoningCapabilities
 }
 
 // ModelSelection identifies the Host-confirmed active selection.
 type ModelSelection struct {
-	ProviderID      string
-	ModelID         string
+	// ProviderID identifies the selected provider.
+	ProviderID string
+	// ModelID identifies the selected provider model.
+	ModelID string
+	// ReasoningChoice identifies the selected reasoning behavior.
 	ReasoningChoice ReasoningChoice
 }
 
@@ -138,13 +147,17 @@ const (
 
 // ModelResponseContent carries one finalized visible model content block.
 type ModelResponseContent struct {
+	// Kind identifies the finalized content type.
 	Kind ModelContentKind
+	// Text contains finalized visible text.
 	Text mo.Option[string]
 }
 
 // ActiveModelContent carries one streaming visible model content block.
 type ActiveModelContent struct {
+	// Kind identifies the streaming content type.
 	Kind mo.Option[ModelContentKind]
+	// Text contains accumulated visible text.
 	Text mo.Option[string]
 }
 
@@ -162,16 +175,22 @@ const (
 
 // Extension describes startup information received from the Host.
 type Extension struct {
-	ID    string
-	Path  string
+	// ID identifies the available extension.
+	ID string
+	// Path is the extension executable path.
+	Path string
+	// Tools lists model-callable tool names.
 	Tools []string
 }
 
 // Content is one ordered public text or image block received from the Host.
 type Content struct {
-	Text      mo.Option[string]
+	// Text contains public text content.
+	Text mo.Option[string]
+	// MediaType identifies the image format.
 	MediaType mo.Option[string]
-	Data      mo.Option[[]byte]
+	// Data contains encoded image bytes.
+	Data mo.Option[[]byte]
 }
 
 // SessionInfo contains one session lifecycle snapshot.
@@ -196,40 +215,62 @@ type SessionInfo struct {
 
 // TokenUsage contains disjoint token buckets rendered by /session.
 type TokenUsage struct {
-	InputTokens      int64
-	OutputTokens     int64
-	CacheReadTokens  int64
+	// InputTokens contains uncached input tokens.
+	InputTokens int64
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64
+	// CacheReadTokens contains cached input tokens.
+	CacheReadTokens int64
+	// CacheWriteTokens contains cache creation input tokens.
 	CacheWriteTokens int64
-	ReasoningTokens  int64
-	TotalTokens      int64
+	// ReasoningTokens contains the reasoning subset of OutputTokens.
+	ReasoningTokens int64
+	// TotalTokens is the sum of disjoint input and output buckets.
+	TotalTokens int64
 }
 
 // EstimatedCost contains calculated USD cost for disjoint token buckets.
 type EstimatedCost struct {
-	Input      float64
-	Output     float64
-	CacheRead  float64
+	// Input is the cost of uncached input tokens.
+	Input float64
+	// Output is the cost of output tokens.
+	Output float64
+	// CacheRead is the cost of cached input tokens.
+	CacheRead float64
+	// CacheWrite is the cost of cache creation input tokens.
 	CacheWrite float64
-	Total      float64
+	// Total is the sum of all cost buckets.
+	Total float64
 }
 
 // ProviderModelCost groups persisted cost by configured provider and requested model.
 type ProviderModelCost struct {
-	ProviderID    string
-	ModelID       string
+	// ProviderID identifies the configured provider.
+	ProviderID string
+	// ModelID identifies the requested provider model.
+	ModelID string
+	// EstimatedCost contains the complete persisted cost for this group.
 	EstimatedCost mo.Option[EstimatedCost]
 }
 
 // SessionStatistics contains available counts and optional complete token and cost totals.
 type SessionStatistics struct {
-	UserMessages   int
+	// UserMessages counts durable user entries.
+	UserMessages int
+	// ModelResponses counts durable terminal model entries.
 	ModelResponses int
-	ToolCalls      int
-	ToolResults    int
-	TotalMessages  int
-	TokenUsage     mo.Option[TokenUsage]
-	EstimatedCost  mo.Option[EstimatedCost]
-	CostBreakdown  []ProviderModelCost
+	// ToolCalls counts finalized calls in durable model responses.
+	ToolCalls int
+	// ToolResults counts durable tool-result entries.
+	ToolResults int
+	// TotalMessages counts all client-visible terminal messages.
+	TotalMessages int
+	// TokenUsage contains complete token totals when available.
+	TokenUsage mo.Option[TokenUsage]
+	// EstimatedCost contains complete persisted cost totals when available.
+	EstimatedCost mo.Option[EstimatedCost]
+	// CostBreakdown groups persisted cost by provider and model.
+	CostBreakdown []ProviderModelCost
 }
 
 // SessionSummary contains one selector row.
@@ -246,27 +287,46 @@ type SessionSummary struct {
 
 // Event contains the fields used by one presentation update.
 type Event struct {
-	Kind    EventKind
+	// Kind identifies the presentation update and active payload.
+	Kind EventKind
+	// Startup contains ordered startup lines.
 	Startup []Line
 	// RestoredTranscript replaces transcript state only after Host confirms session replacement.
-	RestoredTranscript   []Line
-	Extensions           []Extension
-	Availability         mo.Option[Availability]
-	Position             mo.Option[int]
-	ModelContentKind     mo.Option[ModelContentKind]
+	RestoredTranscript []Line
+	// Extensions lists available extensions and their tools.
+	Extensions []Extension
+	// Availability contains the updated command availability.
+	Availability mo.Option[Availability]
+	// Position identifies the model content block order.
+	Position mo.Option[int]
+	// ModelContentKind identifies the model content type.
+	ModelContentKind mo.Option[ModelContentKind]
+	// ModelResponseContent contains finalized visible model content.
 	ModelResponseContent []ModelResponseContent
-	ToolCallID           mo.Option[string]
-	ToolName             mo.Option[string]
-	Status               mo.Option[string]
-	Stream               mo.Option[OutputStream]
-	Text                 mo.Option[string]
-	Contents             mo.Option[[]Content]
-	ErrorText            mo.Option[string]
-	ExitCode             mo.Option[int]
-	Failure              mo.Option[bool]
-	ToolCall             mo.Option[ToolCallState]
-	Models               []ConfiguredModel
-	ModelSelection       mo.Option[ModelSelection]
+	// ToolCallID identifies the active tool call.
+	ToolCallID mo.Option[string]
+	// ToolName identifies the active tool.
+	ToolName mo.Option[string]
+	// Status contains tool execution status text.
+	Status mo.Option[string]
+	// Stream identifies the tool output source.
+	Stream mo.Option[OutputStream]
+	// Text contains event-specific visible text.
+	Text mo.Option[string]
+	// Contents contains ordered terminal tool result blocks.
+	Contents mo.Option[[]Content]
+	// ErrorText contains a terminal failure message.
+	ErrorText mo.Option[string]
+	// ExitCode contains the tool process exit code.
+	ExitCode mo.Option[int]
+	// Failure reports whether the event represents failure.
+	Failure mo.Option[bool]
+	// ToolCall contains transient or finalized call state.
+	ToolCall mo.Option[ToolCallState]
+	// Models lists selectable configured models.
+	Models []ConfiguredModel
+	// ModelSelection contains the committed active selection.
+	ModelSelection mo.Option[ModelSelection]
 	// SessionInfo is present on initialization, replacement, and information events.
 	SessionInfo mo.Option[SessionInfo]
 	// Sessions carries ordered selector data on a list event.
@@ -309,42 +369,66 @@ const (
 
 // Line is one readable startup or transcript entry.
 type Line struct {
-	Kind     LineKind
+	// Kind controls the rendered line prefix.
+	Kind LineKind
+	// ToolName identifies the tool associated with the line.
 	ToolName mo.Option[string]
-	Status   mo.Option[string]
-	Text     mo.Option[string]
+	// Status contains tool status text.
+	Status mo.Option[string]
+	// Text contains rendered line text.
+	Text mo.Option[string]
+	// Contents contains ordered public text or image blocks.
 	Contents mo.Option[[]Content]
 }
 
 // ToolCallField is one rendered argument field.
 type ToolCallField struct {
-	Name   string
-	Value  mo.Option[any]
+	// Name identifies the argument field.
+	Name string
+	// Value contains a fully received JSON value.
+	Value mo.Option[any]
+	// Prefix contains an exact received scalar prefix.
 	Prefix mo.Option[string]
 }
 
 // ToolCallState is one transient or finalized function call.
 type ToolCallState struct {
-	CallID      string
-	Name        string
-	Position    int
+	// CallID identifies the tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Provisional reports whether the call can still change.
 	Provisional bool
-	Fields      []ToolCallField
-	Arguments   map[string]any
+	// Fields contains ordered provisional argument fields.
+	Fields []ToolCallField
+	// Arguments contains finalized tool input.
+	Arguments map[string]any
 }
 
 // State is the TUI-owned projection of provider-neutral Host frames.
 type State struct {
-	Startup          []Line
-	Transcript       []Line
-	ActiveModel      map[int]ActiveModelContent
-	ActiveToolCalls  map[string]ToolCallState
-	ActiveTools      map[string]string
-	Availability     mo.Option[Availability]
+	// Startup contains rendered startup lines.
+	Startup []Line
+	// Transcript contains rendered session lines.
+	Transcript []Line
+	// ActiveModel contains streaming model content by response position.
+	ActiveModel map[int]ActiveModelContent
+	// ActiveToolCalls contains tool call state by call ID.
+	ActiveToolCalls map[string]ToolCallState
+	// ActiveTools contains active tool names by call ID.
+	ActiveTools map[string]string
+	// Availability controls accepted user commands.
+	Availability mo.Option[Availability]
+	// AuthorizationURL contains the pending browser OAuth URL.
 	AuthorizationURL mo.Option[string]
-	Settled          mo.Option[bool]
-	Models           []ConfiguredModel
-	ModelSelection   mo.Option[ModelSelection]
+	// Settled reports whether the active agent run has settled.
+	Settled mo.Option[bool]
+	// Models lists selectable configured models.
+	Models []ConfiguredModel
+	// ModelSelection contains the committed active selection.
+	ModelSelection mo.Option[ModelSelection]
 	// SessionInfo identifies the transcript owner currently shown by the TUI.
 	SessionInfo mo.Option[SessionInfo]
 	// Sessions retains the latest resume selector result.
@@ -383,10 +467,15 @@ const (
 
 // Command is one user request emitted through the UI stream.
 type Command struct {
-	Kind            CommandKind
-	Text            mo.Option[string]
-	ProviderID      mo.Option[string]
-	ModelID         mo.Option[string]
+	// Kind identifies the Host action and active payload.
+	Kind CommandKind
+	// Text contains submitted user text.
+	Text mo.Option[string]
+	// ProviderID identifies a requested model provider.
+	ProviderID mo.Option[string]
+	// ModelID identifies a requested provider model.
+	ModelID mo.Option[string]
+	// ReasoningChoice identifies a requested reasoning behavior.
 	ReasoningChoice mo.Option[ReasoningChoice]
 	// SessionID is present only when the user confirms a resume row.
 	SessionID mo.Option[string]

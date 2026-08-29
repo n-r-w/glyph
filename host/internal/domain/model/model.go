@@ -12,6 +12,16 @@ type ID string
 // ReasoningChoice selects provider-neutral model reasoning behavior.
 type ReasoningChoice string
 
+// InputModality identifies one provider-neutral model input kind.
+type InputModality string
+
+const (
+	// InputModalityText accepts text input.
+	InputModalityText InputModality = "text"
+	// InputModalityImage accepts image input.
+	InputModalityImage InputModality = "image"
+)
+
 const (
 	// ReasoningChoiceOff disables reasoning.
 	ReasoningChoiceOff ReasoningChoice = "off"
@@ -33,59 +43,91 @@ const (
 
 // Selection identifies one provider, model, and reasoning combination.
 type Selection struct {
-	Provider        ProviderID
-	Model           ID
+	// Provider identifies the selected model provider.
+	Provider ProviderID
+	// Model identifies the selected provider model.
+	Model ID
+	// ReasoningChoice identifies the selected reasoning behavior.
 	ReasoningChoice ReasoningChoice
 }
 
 // ReasoningCapabilities describes one model reasoning contract.
 type ReasoningCapabilities struct {
+	// Supported reports whether the model supports reasoning controls.
 	Supported bool
-	Choices   []ReasoningChoice
-	Default   ReasoningChoice
+	// Choices lists supported reasoning choices in configured order.
+	Choices []ReasoningChoice
+	// Default is the reasoning choice used without an explicit selection.
+	Default ReasoningChoice
 }
 
 // PricingTier overrides all rates when request input exceeds InputTokensAbove.
 type PricingTier struct {
+	// InputTokensAbove is the exclusive request input threshold for this tier.
 	InputTokensAbove int64
-	Input            float64
-	Output           float64
-	CacheRead        float64
-	CacheWrite       float64
+	// Input is the USD rate for one million uncached input tokens.
+	Input float64
+	// Output is the USD rate for one million output tokens.
+	Output float64
+	// CacheRead is the USD rate for one million cached input tokens.
+	CacheRead float64
+	// CacheWrite is the USD rate for one million cache creation input tokens.
+	CacheWrite float64
 }
 
 // Pricing contains USD rates per one million tokens and ordered request-wide tiers.
 type Pricing struct {
-	Input      float64
-	Output     float64
-	CacheRead  float64
+	// Input is the base USD rate for one million uncached input tokens.
+	Input float64
+	// Output is the base USD rate for one million output tokens.
+	Output float64
+	// CacheRead is the base USD rate for one million cached input tokens.
+	CacheRead float64
+	// CacheWrite is the base USD rate for one million cache creation input tokens.
 	CacheWrite float64
-	Tiers      []PricingTier
+	// Tiers contains ordered request-wide rate overrides.
+	Tiers []PricingTier
 }
 
 // Descriptor describes one configured model and its capabilities.
 type Descriptor struct {
-	Provider              ProviderID
-	Model                 ID
+	// Provider identifies the model provider.
+	Provider ProviderID
+	// Model identifies the provider model.
+	Model ID
+	// Input lists accepted modalities in configured order.
+	Input []InputModality
+	// ContextWindow is the combined input and generated-output token capacity.
+	ContextWindow int64
+	// MaxTokens is the maximum generated-output token count.
+	MaxTokens int64
+	// ReasoningCapabilities describes supported reasoning choices.
 	ReasoningCapabilities ReasoningCapabilities
-	ToolCapabilities      ToolCapabilities
-	Pricing               mo.Option[Pricing]
+	// ToolCapabilities describes provider-owned tool constraints.
+	ToolCapabilities ToolCapabilities
+	// Pricing contains configured token rates when available.
+	Pricing mo.Option[Pricing]
 }
 
 // ToolCapabilities describes provider-neutral constrained tool support.
 type ToolCapabilities struct {
+	// StrictJSONSchema reports whether strict JSON Schema generation is available.
 	StrictJSONSchema bool
-	Grammar          GrammarCapabilities
+	// Grammar describes supported constrained grammar formats.
+	Grammar GrammarCapabilities
 }
 
 // GrammarCapabilities describes supported constrained grammar formats.
 type GrammarCapabilities struct {
-	Lark  bool
+	// Lark reports whether Lark grammars are supported.
+	Lark bool
+	// Regex reports whether regular expression grammars are supported.
 	Regex bool
 }
 
 // Message is one provider-neutral user message.
 type Message struct {
+	// Content contains ordered user-message blocks.
 	Content []InputContent
 }
 
@@ -101,10 +143,14 @@ const (
 
 // InputContent is one ordered user-message content block.
 type InputContent struct {
-	Kind      InputContentKind
-	Text      mo.Option[string]
+	// Kind identifies the content payload.
+	Kind InputContentKind
+	// Text contains user text when Kind is InputContentText.
+	Text mo.Option[string]
+	// MediaType identifies the image format when Kind is InputContentImage.
 	MediaType mo.Option[string]
-	Data      mo.Option[[]byte]
+	// Data contains encoded image bytes when Kind is InputContentImage.
+	Data mo.Option[[]byte]
 }
 
 // TextMessage creates one text-only user message.
@@ -146,31 +192,45 @@ const (
 
 // Content is one ordered response content block.
 type Content struct {
-	Kind            ContentKind
-	Text            mo.Option[string]
-	Final           bool
+	// Kind identifies the response content payload.
+	Kind ContentKind
+	// Text contains text for text, refusal, and reasoning content.
+	Text mo.Option[string]
+	// Final reports whether streamed content is complete.
+	Final bool
+	// ProviderContext contains opaque replay state for reasoning content.
 	ProviderContext mo.Option[ProviderContext]
-	ToolCall        mo.Option[ToolCall]
+	// ToolCall contains a tool request when Kind is ContentToolCall.
+	ToolCall mo.Option[ToolCall]
 }
 
 // ProviderContextSource identifies the request contract that produced opaque context.
 type ProviderContextSource struct {
-	ProviderID       ProviderID
-	API              string
-	Model            ID
+	// ProviderID identifies the provider that produced the context.
+	ProviderID ProviderID
+	// API identifies the provider API contract.
+	API string
+	// Model identifies the model that produced the context.
+	Model ID
+	// CompatibilityKey identifies an optional replay compatibility contract.
 	CompatibilityKey mo.Option[string]
 }
 
 // ProviderContext preserves an opaque replay payload with its source snapshot.
 type ProviderContext struct {
-	Source  ProviderContextSource
+	// Source identifies the request contract that produced Payload.
+	Source ProviderContextSource
+	// Payload contains opaque provider-owned replay data.
 	Payload []byte
 }
 
 // ToolCall is one provider-neutral model-requested tool invocation.
 type ToolCall struct {
-	ID        string
-	Name      string
+	// ID identifies the tool call within the model response.
+	ID string
+	// Name identifies the requested tool.
+	Name string
+	// Arguments contains the finalized tool input.
 	Arguments map[string]any
 }
 
@@ -186,29 +246,44 @@ const (
 
 // ToolCallPreviewField contains one ordered provisional argument field.
 type ToolCallPreviewField struct {
-	Name   string
-	Kind   ToolCallPreviewFieldKind
-	Value  mo.Option[any]
+	// Name identifies the argument field.
+	Name string
+	// Kind identifies whether the field value is complete.
+	Kind ToolCallPreviewFieldKind
+	// Value contains a fully received JSON value.
+	Value mo.Option[any]
+	// Prefix contains an exact received scalar prefix.
 	Prefix mo.Option[string]
 }
 
 // ToolCallPreview contains transient function-call state that must not enter history.
 type ToolCallPreview struct {
-	CallID      string
-	Name        string
-	Position    int
+	// CallID identifies the provisional tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Provisional reports whether the preview can still change.
 	Provisional bool
-	Fields      []ToolCallPreviewField
+	// Fields contains ordered provisional argument fields.
+	Fields []ToolCallPreviewField
 }
 
 // Usage contains provider-reported token accounting.
 type Usage struct {
-	InputTokens       int64
-	OutputTokens      int64
+	// InputTokens contains uncached input tokens after normalization.
+	InputTokens int64
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64
+	// CachedInputTokens contains cache-read input tokens.
 	CachedInputTokens int64
-	CacheWriteTokens  int64
-	ReasoningTokens   int64
-	TotalTokens       int64
+	// CacheWriteTokens contains cache creation input tokens.
+	CacheWriteTokens int64
+	// ReasoningTokens contains the reasoning subset of OutputTokens.
+	ReasoningTokens int64
+	// TotalTokens is the sum of disjoint input and output buckets.
+	TotalTokens int64
 }
 
 // NormalizeUsage converts provider totals into disjoint nonnegative buckets.
@@ -232,19 +307,30 @@ func NormalizeUsage(usage Usage) Usage {
 
 // Diagnostic contains typed provider or runtime failure information.
 type Diagnostic struct {
-	Code    string
+	// Code identifies the diagnostic type.
+	Code string
+	// Message contains diagnostic details.
 	Message string
 }
 
 // Response is one finalized ordered model response.
 type Response struct {
-	Content       []Content
-	Outcome       mo.Option[Outcome]
-	ErrorMessage  mo.Option[string]
-	Provider      mo.Option[ProviderID]
-	Model         mo.Option[ID]
+	// Content contains ordered finalized response blocks.
+	Content []Content
+	// Outcome identifies why the response ended.
+	Outcome mo.Option[Outcome]
+	// ErrorMessage contains a terminal provider or runtime failure message.
+	ErrorMessage mo.Option[string]
+	// Provider identifies the provider used for the request.
+	Provider mo.Option[ProviderID]
+	// Model identifies the configured model used for the request.
+	Model mo.Option[ID]
+	// ResponseModel identifies the model reported by the provider.
 	ResponseModel mo.Option[ID]
-	ResponseID    mo.Option[string]
-	Usage         mo.Option[Usage]
-	Diagnostics   []Diagnostic
+	// ResponseID identifies the response in the provider system.
+	ResponseID mo.Option[string]
+	// Usage contains provider-reported token accounting.
+	Usage mo.Option[Usage]
+	// Diagnostics contains typed provider or runtime failure details.
+	Diagnostics []Diagnostic
 }

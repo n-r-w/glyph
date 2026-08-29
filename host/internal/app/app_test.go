@@ -70,14 +70,25 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 				Type: settingstore.ProviderTypeOpenAICodex,
 				Models: []settingstore.Model{
 					{
-						ID:        "codex-first",
+						ID: "gpt-5.6-luna", API: "",
+						Input:         []model.InputModality{model.InputModalityText, model.InputModalityImage},
+						ContextWindow: 200000, MaxTokens: 20000,
+						ToolCapabilities: model.ToolCapabilities{
+							StrictJSONSchema: false,
+							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+						},
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
-						API:       "", Pricing: mo.None[model.Pricing](),
+						Pricing:   mo.None[model.Pricing](),
 					},
 					{
-						ID:        "codex-second",
+						ID: "codex-arbitrary", API: "", Input: []model.InputModality{model.InputModalityText},
+						ContextWindow: 100000, MaxTokens: 10000,
+						ToolCapabilities: model.ToolCapabilities{
+							StrictJSONSchema: true,
+							Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
+						},
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow),
-						API:       "", Pricing: mo.None[model.Pricing](),
+						Pricing:   mo.None[model.Pricing](),
 					},
 				},
 				BaseURL: "",
@@ -94,10 +105,16 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 						Supported:        true,
 						Choices:          []settingstore.ReasoningChoice{settingstore.ReasoningChoiceOn},
 						Default:          settingstore.ReasoningChoiceOn,
-						WireFormat:       settingstore.ReasoningWireFormatOllamaOrnith,
+						WireFormat:       settingstore.ReasoningWireFormatOpenAIChatReasoning,
 						CompatibilityKey: mo.None[string](),
 					},
-					API: "", Pricing: mo.None[model.Pricing](),
+					API: "", Input: []model.InputModality{model.InputModalityText},
+					ContextWindow: 32000, MaxTokens: 4000,
+					ToolCapabilities: model.ToolCapabilities{
+						StrictJSONSchema: false,
+						Grammar:          model.GrammarCapabilities{Lark: true, Regex: false},
+					},
+					Pricing: mo.None[model.Pricing](),
 				}},
 				APIKey: mo.None[settingstore.APIKey](),
 			},
@@ -112,14 +129,26 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 				}),
 				Models: []settingstore.Model{
 					{
-						ID:        "a-first",
+						ID: "a-first", API: "",
+						Input:         []model.InputModality{model.InputModalityText, model.InputModalityImage},
+						ContextWindow: 131072, MaxTokens: 16384,
+						ToolCapabilities: model.ToolCapabilities{
+							StrictJSONSchema: true,
+							Grammar:          model.GrammarCapabilities{Lark: false, Regex: true},
+						},
 						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceOff),
-						API:       "", Pricing: mo.None[model.Pricing](),
+						Pricing:   mo.None[model.Pricing](),
 					},
 					{
-						ID:        "a-second",
-						API:       settingstore.APIResponses,
-						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh), Pricing: mo.None[model.Pricing](),
+						ID: "a-second", API: settingstore.APIResponses,
+						Input:         []model.InputModality{model.InputModalityText},
+						ContextWindow: 64000, MaxTokens: 8000,
+						ToolCapabilities: model.ToolCapabilities{
+							StrictJSONSchema: false,
+							Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+						},
+						Reasoning: testSettingsReasoning(settingstore.ReasoningChoiceLow, settingstore.ReasoningChoiceHigh),
+						Pricing:   mo.None[model.Pricing](),
 					},
 				},
 			},
@@ -142,8 +171,8 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	models := catalog.Models()
 	require.Len(t, models, 5)
 	assert.Equal(t, []string{
-		"a-compatible/a-first", "a-compatible/a-second", "openai-codex/codex-first",
-		"openai-codex/codex-second", "z-compatible/z-model",
+		"a-compatible/a-first", "a-compatible/a-second", "openai-codex/gpt-5.6-luna",
+		"openai-codex/codex-arbitrary", "z-compatible/z-model",
 	}, []string{
 		string(models[0].Provider) + "/" + string(models[0].Model),
 		string(models[1].Provider) + "/" + string(models[1].Model),
@@ -157,6 +186,42 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoiceHigh,
 	}, catalog.Selection())
 	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
+	// Assert exact execution capabilities in catalog order.
+	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, models[0].Input)
+	assert.Equal(t, int64(131072), models[0].ContextWindow)
+	assert.Equal(t, int64(16384), models[0].MaxTokens)
+	assert.Equal(t, []model.InputModality{model.InputModalityText}, models[1].Input)
+	assert.Equal(t, int64(64000), models[1].ContextWindow)
+	assert.Equal(t, int64(8000), models[1].MaxTokens)
+	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, models[2].Input)
+	assert.Equal(t, int64(200000), models[2].ContextWindow)
+	assert.Equal(t, int64(20000), models[2].MaxTokens)
+	assert.Equal(t, []model.InputModality{model.InputModalityText}, models[3].Input)
+	assert.Equal(t, int64(100000), models[3].ContextWindow)
+	assert.Equal(t, int64(10000), models[3].MaxTokens)
+	assert.Equal(t, []model.InputModality{model.InputModalityText}, models[4].Input)
+	assert.Equal(t, int64(32000), models[4].ContextWindow)
+	assert.Equal(t, int64(4000), models[4].MaxTokens)
+	assert.Equal(t, model.ToolCapabilities{
+		StrictJSONSchema: true,
+		Grammar:          model.GrammarCapabilities{Lark: false, Regex: true},
+	}, models[0].ToolCapabilities)
+	assert.Equal(t, model.ToolCapabilities{
+		StrictJSONSchema: false,
+		Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+	}, models[1].ToolCapabilities)
+	assert.Equal(t, model.ToolCapabilities{
+		StrictJSONSchema: false,
+		Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+	}, models[2].ToolCapabilities)
+	assert.Equal(t, model.ToolCapabilities{
+		StrictJSONSchema: true,
+		Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
+	}, models[3].ToolCapabilities)
+	assert.Equal(t, model.ToolCapabilities{
+		StrictJSONSchema: false,
+		Grammar:          model.GrammarCapabilities{Lark: true, Regex: false},
+	}, models[4].ToolCapabilities)
 	assert.Equal(t, model.ReasoningCapabilities{
 		Supported: true,
 		Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
@@ -921,6 +986,10 @@ providers:
     type: openai-codex
     models:
       - id: codex-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -931,6 +1000,10 @@ providers:
     api: chat-completions
     models:
       - id: local-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -955,11 +1028,17 @@ providers:
 	assert.Equal(t, "compatible response\n", stdout.String())
 }
 
-// TestRunWithPathsUIInvalidSettingsStopsBeforeLogging verifies validation precedes UI startup side effects.
+// TestRunWithPathsUIInvalidSettingsStopsBeforeLogging verifies capability validation precedes UI startup effects.
 func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
 	t.Parallel()
 
-	paths := testPaths(t, "defaultProvider: openai-codex\ndefaultModel: codex-model\n")
+	// Arrange invalid model input and a UI process marker.
+	paths := testPaths(t, strings.Replace(codexSettings(""), "input: [text]", "input: [image]", 1))
+	uiDirectory := t.TempDir()
+	startupMarker := filepath.Join(t.TempDir(), "ui-started")
+	writeConfiguredUIExecutable(t, uiDirectory, "Invalid_UI", startupMarker, "snapshot")
+
+	// Act by starting UI mode with invalid model capabilities.
 	err := runWithPaths(t.Context(), paths, cli.Command{
 		Mode: cli.ModeUI,
 		Headless: headless.Command{
@@ -967,14 +1046,50 @@ func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
 			ExtensionDirectory: "",
 		},
 		ExtensionDirectory: "",
-		UIDirectory:        t.TempDir(),
-		UIID:               "",
+		UIDirectory:        uiDirectory,
+		UIID:               "invalid-ui",
 		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	require.ErrorContains(t, err, "load Glyph settings")
-	_, statErr := os.Stat(paths.LogFile)
-	require.ErrorIs(t, statErr, os.ErrNotExist)
+	// Assert the field-specific error arrives before UI startup and logging.
+	require.ErrorContains(t, err, `provider "openai-codex" model "gpt-test": input must contain "text"`)
+	_, markerErr := os.Stat(startupMarker)
+	require.ErrorIs(t, markerErr, os.ErrNotExist)
+	_, logErr := os.Stat(paths.LogFile)
+	require.ErrorIs(t, logErr, os.ErrNotExist)
+}
+
+// TestRunWithPathsHeadlessInvalidSettingsStopsBeforeRun verifies capability validation precedes provider dispatch.
+//
+//nolint:paralleltest // The test replaces process-global HTTP transport to observe provider dispatch.
+func TestRunWithPathsHeadlessInvalidSettingsStopsBeforeRun(t *testing.T) {
+	// Arrange invalid model input, a provider transport counter, and run output buffers.
+	paths := testPaths(t, strings.Replace(codexSettings(""), "input: [text]", "input: [image]", 1))
+	requests := &atomic.Int32{}
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = countingFailureTransport{requests: requests}
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	// Act by starting headless mode with invalid model capabilities.
+	err := runWithPaths(t.Context(), paths, cli.Command{
+		Mode: cli.ModeHeadless,
+		Headless: headless.Command{
+			UserText:           "request",
+			ExtensionDirectory: "",
+		},
+		ExtensionDirectory: "",
+		UIDirectory:        "",
+		UIID:               "",
+		SocketPath:         "",
+	}, &stdout, &stderr)
+
+	// Assert the field-specific error arrives before provider dispatch or run output.
+	require.ErrorContains(t, err, `provider "openai-codex" model "gpt-test": input must contain "text"`)
+	assert.Zero(t, requests.Load())
+	assert.Empty(t, stdout.String())
+	assert.Empty(t, stderr.String())
 }
 
 // TestRunWithPathsUICodexDefaultKeepsProviderAuthentication verifies Codex-owned startup authentication.
@@ -1013,6 +1128,10 @@ providers:
     type: openai-codex
     models:
       - id: codex-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -1023,6 +1142,10 @@ providers:
     api: chat-completions
     models:
       - id: local-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -2095,6 +2218,10 @@ providers:
     api: chat-completions
     models:
       - id: local-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         pricing:
           input: 0
           output: 0
@@ -2108,6 +2235,10 @@ providers:
     type: openai-codex
     models:
       - id: selected-model
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         pricing:
           input: 0
           output: 0
@@ -2125,8 +2256,8 @@ providers:
 func pricedRestartSelectionSettings() string {
 	return strings.Replace(
 		restartSelectionSettings(),
-		"      - id: selected-model\n        pricing:\n          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
-		"      - id: selected-model\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 3\n          cacheWrite: 4",
+		"      - id: selected-model\n        input: [text]\n        contextWindow: 131072\n        maxTokens: 16384\n        toolCapabilities: {}\n        pricing:\n          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
+		"      - id: selected-model\n        input: [text]\n        contextWindow: 131072\n        maxTokens: 16384\n        toolCapabilities: {}\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 3\n          cacheWrite: 4",
 		1,
 	)
 }
@@ -2150,6 +2281,10 @@ defaultModel: gpt-test
     type: openai-codex
     models:
       - id: gpt-test
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         pricing:
           input: 0
           output: 0

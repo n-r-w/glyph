@@ -134,17 +134,25 @@ type TokenUsage struct {
 
 // EstimatedCost contains calculated USD cost for disjoint token buckets.
 type EstimatedCost struct {
-	Input      float64
-	Output     float64
-	CacheRead  float64
+	// Input is the cost of uncached input tokens.
+	Input float64
+	// Output is the cost of output tokens.
+	Output float64
+	// CacheRead is the cost of cached input tokens.
+	CacheRead float64
+	// CacheWrite is the cost of cache creation input tokens.
 	CacheWrite float64
-	Total      float64
+	// Total is the sum of all cost buckets.
+	Total float64
 }
 
 // ProviderModelCost groups persisted cost by configured provider and requested model.
 type ProviderModelCost struct {
-	Provider      model.ProviderID
-	Model         model.ID
+	// Provider identifies the configured model provider.
+	Provider model.ProviderID
+	// Model identifies the requested provider model.
+	Model model.ID
+	// EstimatedCost contains the complete persisted cost for this group.
 	EstimatedCost mo.Option[EstimatedCost]
 }
 
@@ -170,6 +178,8 @@ type Statistics struct {
 
 // InformationSnapshot contains coherent active-session metadata and accounting.
 type InformationSnapshot struct {
-	Info       Info
+	// Info contains active-session metadata.
+	Info Info
+	// Statistics contains accounting from the same session state.
 	Statistics Statistics
 }

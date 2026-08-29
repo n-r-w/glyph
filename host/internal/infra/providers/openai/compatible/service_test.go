@@ -66,7 +66,7 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	models := map[model.ID]API{"demo": ""}
 	service, err := New(Config{
 		ProviderID: "openrouter", BaseURL: server.URL + "/v1", API: APIChatCompletions,
-		Models: models, ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatEffort},
+		Models: models, ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning},
 		APIKey: expectAPIKey(t, "secret", nil, 1), ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
@@ -99,8 +99,8 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
 }
 
-// TestChatEffortMapsChoices verifies the closed choice-to-field mapping for Chat Completions.
-func (s *serviceSuite) TestChatEffortMapsChoices() {
+// TestChatReasoningMapsChoices verifies the closed choice-to-field mapping for Chat Completions.
+func (s *serviceSuite) TestChatReasoningMapsChoices() {
 	for _, testCase := range []struct {
 		name     string
 		choice   model.ReasoningChoice
@@ -125,7 +125,7 @@ func (s *serviceSuite) TestChatEffortMapsChoices() {
 			driver, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
 				Models:               map[model.ID]API{"demo": ""},
-				ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatEffort},
+				ReasoningWireFormats: map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning},
 				APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 			})
 			s.Require().NoError(err)
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 		expectedContent string
 		expectedReason  string
 	}{
-		{name: "native", wireFormat: reasoningWireFormatOpenAIChatEffort, expectedContent: "answer", expectedReason: "firstsecond"},
+		{name: "native", wireFormat: reasoningWireFormatOpenAIChatReasoning, expectedContent: "answer", expectedReason: "firstsecond"},
 		{name: "text fallback", wireFormat: "", expectedContent: "firstanswersecond", expectedReason: ""},
 	} {
 		s.Run(testCase.name, func() {
@@ -208,8 +208,8 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 	}
 }
 
-// TestOrnithUsesFixedNativeReasoning verifies its control-free request, shared stream parser, and native replay.
-func (s *serviceSuite) TestOrnithUsesFixedNativeReasoning() {
+// TestChatReasoningSupportsFixedOn verifies its control-free request, shared stream parser, and native replay.
+func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	t := s.T()
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -218,19 +218,19 @@ func (s *serviceSuite) TestOrnithUsesFixedNativeReasoning() {
 		}
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writeSSE(t, writer,
-			`{"id":"ornith","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
-			`{"id":"ornith","choices":[{"index":0,"delta":{"reasoning":"think ","content":"answer"},"finish_reason":"stop"}]}`,
+			`{"id":"fixed","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
+			`{"id":"fixed","choices":[{"index":0,"delta":{"reasoning":"think ","content":"answer"},"finish_reason":"stop"}]}`,
 		)
 	}))
 	t.Cleanup(server.Close)
 	driver, err := New(Config{
-		ProviderID: "ollama", BaseURL: server.URL, API: APIChatCompletions,
-		Models:               map[model.ID]API{"ornith": ""},
-		ReasoningWireFormats: map[model.ID]string{"ornith": reasoningWireFormatOllamaOrnith},
+		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
+		Models:               map[model.ID]API{"fixed": ""},
+		ReasoningWireFormats: map[model.ID]string{"fixed": reasoningWireFormatOpenAIChatReasoning},
 		APIKey:               expectAPIKey(t, "", nil, 1), ReasoningCompatibilityKeys: nil,
 	})
 	s.Require().NoError(err)
-	request := richRequest("ollama", "ornith")
+	request := richRequest("local", "fixed")
 	request.ReasoningChoice = model.ReasoningChoiceOn
 	replaceHistoryModelContent(&request, []model.Content{
 		{Kind: model.ContentReasoning, Text: mo.Some("earlier"), Final: true, ProviderContext: mo.Some(model.ProviderContext{
@@ -710,10 +710,7 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-responses"}
 		}},
 		{name: "chat reasoning wire format API mismatch", mutate: func(config *Config) {
-			config.ReasoningWireFormats = map[model.ID]string{"demo": "openai-chat-effort"}
-		}},
-		{name: "Ornith reasoning wire format API mismatch", mutate: func(config *Config) {
-			config.ReasoningWireFormats = map[model.ID]string{"demo": reasoningWireFormatOllamaOrnith}
+			config.ReasoningWireFormats = map[model.ID]string{"demo": reasoningWireFormatOpenAIChatReasoning}
 		}},
 		{name: "no resolver", mutate: func(config *Config) { config.APIKey = nil }},
 	}
@@ -764,7 +761,7 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 			if api == APIResponses {
 				wireFormats["demo"] = "openai-responses"
 			} else {
-				wireFormats["demo"] = "openai-chat-effort"
+				wireFormats["demo"] = reasoningWireFormatOpenAIChatReasoning
 			}
 			service, err := New(Config{
 				ProviderID: "local", BaseURL: server.URL, API: api,
@@ -992,6 +989,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	catalog, err := hostproviders.New([]hostproviders.Entry{{
 		Descriptor: model.Descriptor{
 			Provider: "local", Model: "demo",
+			Input: []model.InputModality{model.InputModalityText}, ContextWindow: 131072, MaxTokens: 16384,
 			ReasoningCapabilities: model.ReasoningCapabilities{
 				Supported: true,
 				Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},
@@ -1140,7 +1138,7 @@ func appendHistoryModelContent(request *run.ModelRequest, content ...model.Conte
 
 func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 	return run.ModelRequest{
-		Instructions: "be useful", Model: model.Descriptor{Provider: provider, Model: modelID, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
+		Instructions: "be useful", Model: model.Descriptor{Provider: provider, Model: modelID, Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		ReasoningChoice: model.ReasoningChoiceHigh,
 		History: []agent.HistoryEntry{
 			{

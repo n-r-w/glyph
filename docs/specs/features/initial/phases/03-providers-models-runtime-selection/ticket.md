@@ -83,7 +83,7 @@ Out of scope:
 - FRQ-09: Visible reasoning content shall remain typed conversation content, remain available to clients, and remain in model-visible history for later requests. A provider driver shall replay it through a native reasoning field when the target wire format supports it and shall otherwise convert it to ordinary assistant text. The standard TUI shall collapse every reasoning block by default and use one display action to expand or collapse all blocks without changing provider behavior.
 - FRQ-10: Provider reasoning context shall remain hidden from clients. A provider driver may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged. Replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
 - FRQ-11: A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier. An absent key shall never create cross-model compatibility.
-- FRQ-12: Reasoning wire support shall cover OpenAI Codex Responses, OpenAI-compatible Responses, OpenAI-style reasoning effort, and Ollama Ornith reasoning through Chat Completions.
+- FRQ-12: Reasoning wire support shall use `openai-responses` for OpenAI Codex and OpenAI-compatible Responses, and shall use universal `openai-chat-reasoning` for effort-controlled, toggleable, and fixed-on Chat Completions reasoning.
 - FRQ-13: PHS-03 documentation shall state current reasoning-format limits and describe the deferred provider-specific formats listed in OSP-03.
 
 ### Non-Functional Requirements
@@ -102,7 +102,7 @@ Out of scope:
 - ACC-01: A user selects a different configured model and the next request uses it without clearing conversation history.
 - ACC-02: Failure to resolve a referenced API key preserves the active provider, model, and reasoning choice and returns an error before applying the requested selection.
 - ACC-03: An OpenAI-compatible provider instance without an API key remains selectable, and its requests contain no `Authorization` header.
-- ACC-04: An Ollama Ornith model configured with fixed reasoning exposes no ineffective effort choices, and its Chat Completions reasoning field becomes visible reasoning content rather than final answer text.
+- ACC-04: A Chat Completions model with `choices: [on]` and `default: on` sends no `reasoning_effort`, and its `delta.reasoning` field becomes visible reasoning content rather than final answer text.
 - ACC-05: Effort, on/off, fixed, and non-reasoning models expose only their effective reasoning choices through TUI and Programmatic Control.
 - ACC-06: An unsupported reasoning choice returns an error and preserves provider, model, and reasoning choice.
 - ACC-07: Visible reasoning content remains available after turn completion, is collapsed by default in the standard TUI, and expands or collapses through one session-wide display action.

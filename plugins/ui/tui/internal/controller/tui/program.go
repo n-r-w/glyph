@@ -11,6 +11,7 @@ import (
 
 // Factory creates Bubble Tea programs with the accepted terminal files.
 type Factory struct {
+	// apply projects Host events into presentation state.
 	apply Apply
 }
 
@@ -46,6 +47,7 @@ func (factory *Factory) New(
 
 // program adapts one Bubble Tea program to the plugin controller boundary.
 type program struct {
+	// tea owns the Bubble Tea event loop.
 	tea *tea.Program
 }
 

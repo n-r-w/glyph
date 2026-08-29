@@ -43,7 +43,9 @@ const (
 
 // SelectionError reports a typed catalog failure.
 type SelectionError struct {
-	Code  ErrorCode
+	// Code classifies the catalog selection failure.
+	Code ErrorCode
+	// cause contains a secret-free validation failure.
 	cause error
 }
 
@@ -67,19 +69,27 @@ func (e *SelectionError) Unwrap() error {
 
 // Entry binds one configured model descriptor to its provider runtime.
 type Entry struct {
-	Descriptor                   model.Descriptor
-	Provider                     agentrun.ModelProvider
+	// Descriptor contains configured model capabilities.
+	Descriptor model.Descriptor
+	// Provider executes requests for the configured model.
+	Provider agentrun.ModelProvider
+	// SelectionCredentialValidator validates credentials before selection.
 	SelectionCredentialValidator SelectionCredentialValidator
-	Authentication               ProviderAuthentication
+	// Authentication handles provider sign-in and sign-out.
+	Authentication ProviderAuthentication
 }
 
 // Catalog stores immutable configured entries and one active selection.
 type Catalog struct {
+	// entries contains immutable configured model bindings.
 	entries []Entry
 
-	mutex     sync.RWMutex
+	// mutex protects selection and active.
+	mutex sync.RWMutex
+	// selection contains the active provider, model, and reasoning choice.
 	selection model.Selection
-	active    int
+	// active identifies the selected entry index.
+	active int
 }
 
 var _ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
@@ -251,6 +261,8 @@ func validateDescriptor(
 ) error {
 	capabilities := descriptor.ReasoningCapabilities
 	if descriptor.Provider == "" || descriptor.Model == "" || len(capabilities.Choices) == 0 ||
+		!validDescriptorInput(descriptor.Input) || descriptor.ContextWindow <= 0 || descriptor.MaxTokens <= 0 ||
+		descriptor.MaxTokens > descriptor.ContextWindow ||
 		!slices.Contains(capabilities.Choices, capabilities.Default) {
 		return invalidConfigurationError()
 	}
@@ -274,6 +286,28 @@ func validateDescriptor(
 		levels[choice] = struct{}{}
 	}
 	return nil
+}
+
+// validDescriptorInput enforces the closed modality set without depending on settings types.
+func validDescriptorInput(input []model.InputModality) bool {
+	if len(input) == 0 {
+		return false
+	}
+	// seen rejects duplicate modalities while checking the closed set.
+	seen := make(map[model.InputModality]struct{}, len(input))
+	// Each modality is one declared provider-neutral input kind.
+	for _, modality := range input {
+		if modality != model.InputModalityText && modality != model.InputModalityImage {
+			return false
+		}
+		if _, duplicate := seen[modality]; duplicate {
+			return false
+		}
+		seen[modality] = struct{}{}
+	}
+	// containsText enforces the agent's required text input path.
+	_, containsText := seen[model.InputModalityText]
+	return containsText
 }
 
 // fallbackReasoningChoice preserves exact choices and applies the configured cross-model fallback.
@@ -348,6 +382,7 @@ func validReasoningChoice(choice model.ReasoningChoice) bool {
 
 // cloneDescriptor keeps configured capability slices immutable to catalog callers.
 func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
+	descriptor.Input = slices.Clone(descriptor.Input)
 	descriptor.ReasoningCapabilities.Choices = slices.Clone(descriptor.ReasoningCapabilities.Choices)
 	if pricing, present := descriptor.Pricing.Get(); present {
 		pricing.Tiers = slices.Clone(pricing.Tiers)

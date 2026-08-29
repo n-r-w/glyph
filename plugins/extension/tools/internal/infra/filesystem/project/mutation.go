@@ -8,13 +8,17 @@ import (
 
 // pathLocks serializes mutations by canonical absolute path.
 type pathLocks struct {
+	// mutex protects locks.
 	mutex sync.Mutex
+	// locks contains active locks by canonical absolute path.
 	locks map[string]*pathLock
 }
 
 // pathLock tracks one path's mutex and waiting users.
 type pathLock struct {
+	// mutex serializes mutations for one path.
 	mutex sync.Mutex
+	// users counts owners and waiters using this lock.
 	users int
 }
 

@@ -207,7 +207,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Provider reasoning context shall not be exposed to Glyph clients. An owning provider implementation may parse and serialize its API item structure, but provider-owned opaque values shall remain unchanged and shall be replayed only to a compatible model request.
 - Provider reasoning context replay shall require the same provider instance and API plus either the same model identifier or the same nonempty reasoning compatibility key.
 - A reasoning compatibility key shall add cross-model compatibility and shall not disable replay to the same model identifier.
-- PHS-03 reasoning wire support shall cover OpenAI Codex Responses, OpenAI-compatible Responses, OpenAI-style reasoning effort, and Ollama Ornith reasoning through Chat Completions.
+- PHS-03 reasoning wire support shall use `openai-responses` for OpenAI Codex and OpenAI-compatible Responses, and universal `openai-chat-reasoning` for effort-controlled, toggleable, and fixed-on Chat Completions reasoning.
 - OpenRouter, Together, DeepSeek, Qwen, chat-template reasoning controls, and thinking token budgets shall remain unsupported until a later feature adds and verifies their wire formats.
 - PHS-03 documentation shall state these reasoning-format limits and describe the deferred provider-specific formats.
 - An OpenAI-compatible provider instance without an API key shall remain available and shall use no request authorization.

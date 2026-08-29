@@ -338,7 +338,8 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 				ReasoningCapabilities: model.ReasoningCapabilities{},
 				ToolCapabilities:      model.ToolCapabilities{},
 				Provider:              ProviderID,
-				Model:                 "gpt-selected", Pricing: mo.None[model.Pricing](),
+				Model:                 "gpt-selected",
+				Input:                 nil, ContextWindow: 0, MaxTokens: 0, Pricing: mo.None[model.Pricing](),
 			},
 			History: []agent.HistoryEntry{
 				{
@@ -1857,6 +1858,9 @@ func testModelDescriptor(modelID string) model.Descriptor {
 		ReasoningCapabilities: model.ReasoningCapabilities{},
 		Provider:              ProviderID,
 		Model:                 model.ID(modelID),
+		Input:                 []model.InputModality{model.InputModalityText},
+		ContextWindow:         131072,
+		MaxTokens:             16384,
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: true,
 			Grammar: model.GrammarCapabilities{

@@ -45,8 +45,8 @@
 - APC-04: Fixed reasoning requires `supported: true`, `choices: [on]`, and `default: on`.
 - APC-05: Toggle reasoning requires `supported: true`, exactly the choices `off` and `on`, and a default from those choices.
 - APC-06: Effort reasoning requires `supported: true`, at least one effort choice, no `on`, an optional `off`, and a default from the configured choices.
-- APC-07: A reasoning model requires `wireFormat`. Its PHS-03 values are `openai-responses`, `openai-chat-effort`, and `ollama-ornith`.
-- APC-08: `openai-responses` requires the Responses API. `openai-chat-effort` and `ollama-ornith` require Chat Completions. `ollama-ornith` also requires fixed reasoning from APC-04.
+- APC-07: A reasoning model requires `wireFormat`. Its PHS-03 values are `openai-responses` and `openai-chat-reasoning`.
+- APC-08: `openai-responses` requires the Responses API. `openai-chat-reasoning` requires Chat Completions. The capability shape in `choices` and `default` determines whether reasoning is effort-controlled, toggleable, or fixed on.
 - APC-09: A present `compatibilityKey` must be nonempty after trimming. It is valid only when `supported` is true.
 - APC-10: Duplicate choices, unknown choices, a default outside `choices`, an invalid capability shape, and an API or wire-format mismatch fail settings loading.
 - APC-11: Provider instance identifiers and model identifiers must be nonempty after trimming. Model identifiers must be unique within one provider instance.
@@ -84,7 +84,7 @@ providers:
           choices: [on]
           default: on
           compatibilityKey: ornith-1.5
-          wireFormat: ollama-ornith
+          wireFormat: openai-chat-reasoning
 ```
 
 ### API-key resolution
@@ -134,8 +134,7 @@ providers:
 | ID | Wire format | Request mapping | Response and history mapping |
 |---|---|---|---|
 | WFM-01 | `openai-responses` | `off` sends `reasoning.effort: "none"`; an effort sends its value; `on` omits effort and uses the provider default | Reasoning summary becomes visible reasoning. A stable reasoning ID and encrypted content become opaque provider context. Compatible context becomes a Responses reasoning input item |
-| WFM-02 | `openai-chat-effort` | `off` sends `reasoning_effort: "none"`; an effort sends its value; `on` omits effort and uses the provider default | Streamed `delta.reasoning` becomes visible reasoning. Native history uses the assistant `reasoning` field |
-| WFM-03 | `ollama-ornith` | No reasoning control field is sent; the only choice is `on` | Streamed `delta.reasoning` becomes visible reasoning. Native history uses the assistant `reasoning` field |
+| WFM-02 | `openai-chat-reasoning` | `off` sends `reasoning_effort: "none"`; an effort sends its value; `on` omits `reasoning_effort` | Streamed `delta.reasoning` becomes visible reasoning. Native history uses the assistant `reasoning` field |
 
 - APC-31: The OpenAI-compatible Chat Completions driver reads `delta.reasoning` through the OpenAI SDK response extra fields and writes assistant `reasoning` through a provider-driver request override.
 - APC-32: The Responses drivers retain the stable response item ID, encrypted content, and summary values without interpreting encrypted content. Driver-owned serialization reconstructs the Responses reasoning input item, and its JSON key order and escaping are not part of provider reasoning context.
@@ -188,7 +187,7 @@ Implementation follows RED, GREEN, REFACTOR, and VERIFY. Generated protobuf code
 | TSK-01 | Prove settings capability validation | Load fixed, toggle, effort, and non-reasoning models; expect exact capabilities and per-model defaults | Duplicate choices, default outside choices, key on non-reasoning model, missing or incompatible wire format | Settings fixtures only |
 | TSK-02 | Prove catalogue fallback and atomic selection | Switch between capability shapes; expect exact preservation or the APC-18 and APC-19 result | Equal-distance effort tie, target without `off`, unsupported direct choice, credential preflight failure | Provider catalogue fixture |
 | TSK-03 | Prove OpenAI Responses reasoning behavior | Send each effective choice and replay history through an `httptest.Server`; expect exact reasoning request fields, visible summaries, and compatible encrypted context | `off`, `on`, effort, same model, shared key, different API, different provider instance | OpenAI SDK and provider-neutral fixtures |
-| TSK-04 | Prove Chat Completions and Ornith reasoning behavior | Stream `delta.reasoning`; expect typed visible reasoning and assistant `reasoning` in later history | Empty reasoning chunks, final text after reasoning, fixed choice, native replay | OpenAI SDK response extra fields and request override |
+| TSK-04 | Prove universal Chat Completions reasoning behavior | Stream `delta.reasoning`; expect typed visible reasoning and assistant `reasoning` in later history | Empty reasoning chunks, final text after reasoning, effort choice, fixed-on choice, native replay | OpenAI SDK response extra fields and request override |
 | TSK-05 | Prove model-visible fallback | Send reasoning history to a driver that cannot use its native representation; expect ordinary assistant text and no opaque context | Empty visible text, incompatible encrypted context, multiple reasoning blocks | Driver history fixtures |
 | TSK-06 | Prove client capability projection | Query and select through Programmatic Control and UI mappings; expect identical capabilities and active choice with no provider context | Fixed and non-reasoning selectors, unspecified choice, unsupported choice | Generated protobuf code |
 | TSK-07 | Prove TUI reasoning display | Stream reasoning while collapsed, toggle display, and resize; expect retained hidden text, one global state, and wrapped expanded text | Multiple blocks, empty block, narrow terminal, selection change while expanded | Existing TUI harness |

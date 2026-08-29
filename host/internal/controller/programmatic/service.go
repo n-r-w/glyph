@@ -30,20 +30,29 @@ const (
 
 // SessionCompletion reports one owner result after all controller work joins.
 type SessionCompletion struct {
-	Cause      SessionCompletionCause
-	Err        error
+	// Cause classifies why the owning stream ended.
+	Cause SessionCompletionCause
+	// Err contains the primary stream or protocol failure.
+	Err error
+	// CleanupErr contains a session cleanup failure.
 	CleanupErr error
 }
 
 // Service owns one Programmatic Control stream and its serialized sends.
 type Service struct {
+	// UnimplementedProgrammaticControlServiceServer provides forward-compatible gRPC defaults.
 	programmaticv1.UnimplementedProgrammaticControlServiceServer
 
+	// applicationContext controls Host application lifetime.
 	applicationContext context.Context
-	session            HostSession
-	ownerClaimed       atomic.Bool
-	sendMutex          sync.Mutex
-	completions        chan SessionCompletion
+	// session handles Programmatic Control commands and events.
+	session HostSession
+	// ownerClaimed reports whether the single owning stream was accepted.
+	ownerClaimed atomic.Bool
+	// sendMutex serializes responses on the owning stream.
+	sendMutex sync.Mutex
+	// completions publishes the single owner session result.
+	completions chan SessionCompletion
 }
 
 var _ programmaticv1.ProgrammaticControlServiceServer = (*Service)(nil)
@@ -74,9 +83,13 @@ func (s *Service) Open(stream grpc.BidiStreamingServer[
 }
 
 type terminalResult struct {
-	cause       SessionCompletionCause
-	err         error
-	clean       bool
+	// cause classifies why the owning stream ended.
+	cause SessionCompletionCause
+	// err contains the terminal stream or protocol failure.
+	err error
+	// clean reports whether the client closed the stream normally.
+	clean bool
+	// passthrough reports whether Open must return err unchanged.
 	passthrough bool
 }
 

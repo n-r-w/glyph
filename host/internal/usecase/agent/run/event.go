@@ -48,29 +48,45 @@ const (
 
 // Event is one synchronously delivered Agent Core lifecycle event.
 type Event struct {
-	Type       EventType
-	RunID      string
-	Position   mo.Option[int]
-	Content    mo.Option[model.Content]
-	Message    mo.Option[model.Response]
-	Preview    mo.Option[model.ToolCallPreview]
-	ToolCall   mo.Option[model.ToolCall]
-	Progress   mo.Option[tool.Progress]
+	// Type identifies the lifecycle transition and active payload.
+	Type EventType
+	// RunID identifies the agent run.
+	RunID string
+	// Position identifies the response content block order.
+	Position mo.Option[int]
+	// Content contains one typed model content block.
+	Content mo.Option[model.Content]
+	// Message contains one terminal model response.
+	Message mo.Option[model.Response]
+	// Preview contains provisional tool call state.
+	Preview mo.Option[model.ToolCallPreview]
+	// ToolCall contains one finalized tool request.
+	ToolCall mo.Option[model.ToolCall]
+	// Progress contains one tool execution update.
+	Progress mo.Option[tool.Progress]
+	// ToolResult contains one terminal tool result.
 	ToolResult mo.Option[agent.ToolResult]
-	Turn       mo.Option[TurnSummary]
-	Agent      mo.Option[AgentSummary]
+	// Turn contains one terminal turn summary.
+	Turn mo.Option[TurnSummary]
+	// Agent contains one terminal run summary.
+	Agent mo.Option[AgentSummary]
 }
 
 // TurnSummary is the self-contained terminal turn payload.
 type TurnSummary struct {
-	Response    model.Response
+	// Response contains the terminal model response.
+	Response model.Response
+	// ToolResults contains ordered terminal tool results.
 	ToolResults []agent.ToolResult
 }
 
 // AgentSummary is the self-contained terminal run payload.
 type AgentSummary struct {
-	Outcome      agent.RunOutcome
+	// Outcome identifies the terminal run state.
+	Outcome agent.RunOutcome
+	// AddedHistory contains entries appended by the run.
 	AddedHistory []agent.HistoryEntry
+	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
 }
 

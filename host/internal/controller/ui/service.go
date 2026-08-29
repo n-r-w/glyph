@@ -10,6 +10,7 @@ import (
 
 // Service delegates selected UI control to the session use case.
 type Service struct {
+	// session owns the selected UI lifecycle.
 	session Session
 }
 

@@ -3,9 +3,13 @@ package textbudget
 
 // Truncation describes a bounded model-visible text result.
 type Truncation struct {
-	Truncated      bool
-	TotalBytes     int64
-	TotalLines     int64
+	// Truncated reports whether the model-visible result was shortened.
+	Truncated bool
+	// TotalBytes is the complete output byte count.
+	TotalBytes int64
+	// TotalLines is the complete output line count.
+	TotalLines int64
+	// FullOutputPath contains the retained complete output path.
 	FullOutputPath string
 }
 

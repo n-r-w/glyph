@@ -15,12 +15,15 @@ import (
 
 // Request identifies the Glyph data directory and optional invocation override.
 type Request struct {
-	DataDirectory      string
+	// DataDirectory is the initialized Glyph data directory.
+	DataDirectory string
+	// ExtensionDirectory overrides the extension catalog directory.
 	ExtensionDirectory string
 }
 
 // Service resolves and loads the effective extension catalog.
 type Service struct {
+	// load discovers and starts extensions from the effective directory.
 	load func(context.Context, toolservice.Directory) (toolservice.LoadReport, error)
 }
 

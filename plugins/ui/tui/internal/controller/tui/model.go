@@ -24,10 +24,15 @@ type Emit func(presentationdomain.Command) error
 
 // Model is the single root Bubble Tea presentation and input model.
 type Model struct {
-	state  presentationdomain.State
-	input  []rune
+	// state contains the current TUI presentation projection.
+	state presentationdomain.State
+	// input contains editable user request runes.
+	input []rune
+	// cursor is the insertion position within input.
 	cursor int
-	width  int
+	// width is the current terminal width.
+	width int
+	// height is the current terminal height.
 	height int
 	// emitting prevents overlapping commands until the current stream send returns.
 	emitting bool
@@ -43,8 +48,10 @@ type Model struct {
 	selectorRow int
 	// reasoningExpanded controls only local display and never changes Host selection.
 	reasoningExpanded bool
-	apply             Apply
-	emit              Emit
+	// apply projects one Host event into presentation state.
+	apply Apply
+	// emit sends one accepted user command to the Host.
+	emit Emit
 }
 
 var _ tea.Model = (*Model)(nil)
@@ -58,8 +65,10 @@ const (
 
 // emissionResultMsg returns command-delivery success or failure to the update loop.
 type emissionResultMsg struct {
+	// command contains the attempted Host command.
 	command presentationdomain.Command
-	err     error
+	// err contains the command delivery failure.
+	err error
 }
 
 // NewModel creates the root model from the initialization event.

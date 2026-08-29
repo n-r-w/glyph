@@ -31,6 +31,10 @@ providers:
     type: openai-codex
     models:
       - id: codex
+        input: [text]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [off, low, high]
@@ -45,38 +49,62 @@ providers:
       environment: OPENROUTER_API_KEY
     models:
       - id: effort
+        input: [text, image]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [minimal, medium, high]
           default: medium
           wireFormat: openai-responses
       - id: toggle
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [off, on]
           default: on
           wireFormat: openai-responses
       - id: fixed
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [on]
           default: on
           wireFormat: openai-responses
-      - id: chat-effort
+      - id: chat-reasoning-effort
         api: chat-completions
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [off, low, high]
           default: low
-          wireFormat: openai-chat-effort
-      - id: ornith
+          wireFormat: openai-chat-reasoning
+      - id: chat-reasoning-fixed
         api: chat-completions
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities: {}
         reasoning:
           supported: true
           choices: [on]
           default: on
-          wireFormat: ollama-ornith
+          wireFormat: openai-chat-reasoning
       - id: plain
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -88,6 +116,9 @@ providers:
 	s.Require().NoError(err)
 	s.Equal("openrouter", loaded.DefaultProvider)
 	s.Equal("effort", loaded.DefaultModel)
+	s.Equal([]model.InputModality{model.InputModalityText, model.InputModalityImage}, loaded.Providers["openrouter"].Models[0].Input)
+	s.Equal(int64(131072), loaded.Providers["openrouter"].Models[0].ContextWindow)
+	s.Equal(int64(16384), loaded.Providers["openrouter"].Models[0].MaxTokens)
 	s.Equal(mo.Some("glyph-tui-plugin"), loaded.ActiveUI)
 	models := loaded.Providers["openrouter"].Models
 	s.Require().Len(models, 6)
@@ -102,16 +133,36 @@ providers:
 		Choices:          []ReasoningChoice{ReasoningChoiceOff, ReasoningChoiceLow, ReasoningChoiceHigh},
 		Default:          ReasoningChoiceLow,
 		CompatibilityKey: mo.None[string](),
-		WireFormat:       ReasoningWireFormatOpenAIChatEffort,
+		WireFormat:       ReasoningWireFormatOpenAIChatReasoning,
 	}, models[3].Reasoning)
 	s.Equal(Reasoning{
 		Supported: true, Choices: []ReasoningChoice{ReasoningChoiceOn}, Default: ReasoningChoiceOn,
-		CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOllamaOrnith,
+		CompatibilityKey: mo.None[string](), WireFormat: ReasoningWireFormatOpenAIChatReasoning,
 	}, models[4].Reasoning)
 	s.Equal(Reasoning{
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
 		CompatibilityKey: mo.None[string](), WireFormat: "",
 	}, models[5].Reasoning)
+}
+
+// TestLoadParsesToolCapabilities verifies exact declarative capability mapping for an arbitrary model ID.
+func (s *SettingsSuite) TestLoadParsesToolCapabilities() {
+	// Arrange settings with all capabilities enabled for an arbitrary OpenAI-compatible model.
+	path := writeSettings(s.T(), validSettings(""))
+
+	// Act by loading the strict settings document.
+	loaded, err := New(path).Load()
+
+	// Assert all nested capability values are preserved exactly.
+	s.Require().NoError(err)
+	s.Equal(model.ToolCapabilities{
+		StrictJSONSchema: true,
+		Grammar:          model.GrammarCapabilities{Lark: true, Regex: true},
+	}, loaded.Providers["compatible"].Models[0].ToolCapabilities)
+	s.Equal(model.ToolCapabilities{
+		StrictJSONSchema: false,
+		Grammar:          model.GrammarCapabilities{Lark: false, Regex: false},
+	}, loaded.Providers["compatible"].Models[1].ToolCapabilities)
 }
 
 // TestLoadAcceptsEachAPIKeySource verifies the structured union's three valid variants.
@@ -326,13 +377,15 @@ func (s *SettingsSuite) TestLoadRejectsInvalidPricing() {
 func (s *SettingsSuite) TestLoadRejectsUnknownYAMLFields() {
 	// Arrange valid settings with one unknown field at each mapping level.
 	testCases := map[string]string{
-		"settings":     validSettings("extra: value"),
-		"provider":     replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
-		"API key":      validSettings("    apiKey:\n      command: echo-key"),
-		"model":        replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
-		"pricing":      replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          currency: USD"),
-		"pricing tier": replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          tiers:\n            - inputTokensAbove: 100\n              input: 2\n              output: 3\n              cacheRead: 1\n              cacheWrite: 2\n              currency: USD"),
-		"reasoning":    replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          budget: high"),
+		"settings":          validSettings("extra: value"),
+		"provider":          replace(validSettings(""), "type: openai-compatible", "type: openai-compatible\n    timeout: 1s"),
+		"API key":           validSettings("    apiKey:\n      command: echo-key"),
+		"model":             replace(validSettings(""), "id: compatible", "id: compatible\n        displayName: Demo"),
+		"pricing":           replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          currency: USD"),
+		"pricing tier":      replace(validSettings(""), "id: compatible", "id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          tiers:\n            - inputTokensAbove: 100\n              input: 2\n              output: 3\n              cacheRead: 1\n              cacheWrite: 2\n              currency: USD"),
+		"reasoning":         replace(validSettings(""), "choices: [off, high]", "choices: [off, high]\n          budget: high"),
+		"tool capabilities": replace(validSettings(""), "strictJSONSchema: true", "strictJSONSchema: true\n          format: custom"),
+		"grammar":           replace(validSettings(""), "lark: true", "lark: true\n            json: true"),
 	}
 	for name, content := range testCases {
 		s.Run(name, func() {
@@ -379,12 +432,8 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 			"supported: null\n          choices: [off]",
 		),
 		"missing wire format":  withoutLine(validSettings(""), "wireFormat:"),
-		"API mismatch":         replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-effort"),
+		"API mismatch":         replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: openai-chat-reasoning"),
 		"unknown wire format":  replace(validSettings(""), "wireFormat: openai-responses", "wireFormat: custom"),
-		"Ornith off":           ornithSettings("choices: [off]\n          default: off", "api: chat-completions"),
-		"Ornith effort":        ornithSettings("choices: [low]\n          default: low", "api: chat-completions"),
-		"Ornith other default": ornithSettings("choices: [off, on]\n          default: off", "api: chat-completions"),
-		"Ornith wrong API":     ornithSettings("choices: [on]\n          default: on", "api: responses"),
 		"on mixed with effort": replace(validSettings(""), "choices: [off, high]", "choices: [on, high]"),
 		"key on non-reasoning": replace(validSettings(""), "supported: false\n          choices: [off]\n          default: off", "supported: false\n          choices: [off]\n          default: off\n          compatibilityKey: shared"),
 	}
@@ -392,6 +441,69 @@ func (s *SettingsSuite) TestLoadRejectsInvalidReasoning() {
 		s.Run(name, func() {
 			_, err := New(writeSettings(s.T(), content)).Load()
 			s.Require().Error(err)
+		})
+	}
+}
+
+// TestLoadRejectsInvalidModelExecutionCapabilities checks every settings capability invariant and error context.
+func (s *SettingsSuite) TestLoadRejectsInvalidModelExecutionCapabilities() {
+	testCases := map[string]struct {
+		// content is the complete settings document under test.
+		content string
+		// want is the expected field-specific error.
+		want string
+	}{
+		"empty input": {
+			content: replace(validSettings(""), "input: [text, image]", "input: []"),
+			want:    `provider "openai-codex" model "codex": input must not be empty`,
+		},
+		"missing text": {
+			content: replace(validSettings(""), "input: [text, image]", "input: [image]"),
+			want:    `provider "openai-codex" model "codex": input must contain "text"`,
+		},
+		"duplicate modality": {
+			content: replace(validSettings(""), "input: [text, image]", "input: [text, text]"),
+			want:    `provider "openai-codex" model "codex": input contains duplicate modality "text"`,
+		},
+		"unknown modality": {
+			content: replace(validSettings(""), "input: [text, image]", "input: [text, audio]"),
+			want:    `provider "openai-codex" model "codex": input contains unknown modality "audio"`,
+		},
+		"zero context window": {
+			content: replace(validSettings(""), "contextWindow: 131072", "contextWindow: 0"),
+			want:    `provider "openai-codex" model "codex": contextWindow must be greater than zero`,
+		},
+		"negative context window": {
+			content: replace(validSettings(""), "contextWindow: 131072", "contextWindow: -1"),
+			want:    `provider "openai-codex" model "codex": contextWindow must be greater than zero`,
+		},
+		"zero max tokens": {
+			content: replace(validSettings(""), "maxTokens: 16384", "maxTokens: 0"),
+			want:    `provider "openai-codex" model "codex": maxTokens must be greater than zero`,
+		},
+		"negative max tokens": {
+			content: replace(validSettings(""), "maxTokens: 16384", "maxTokens: -1"),
+			want:    `provider "openai-codex" model "codex": maxTokens must be greater than zero`,
+		},
+		"max tokens above context window": {
+			content: replace(validSettings(""), "maxTokens: 16384", "maxTokens: 131073"),
+			want:    `provider "openai-codex" model "codex": maxTokens must not exceed contextWindow`,
+		},
+		"missing tool capabilities": {
+			content: replace(validSettings(""), "        toolCapabilities:\n          strictJSONSchema: false\n          grammar:\n            lark: false\n            regex: false\n", ""),
+			want:    `provider "openai-codex" model "codex": toolCapabilities is required`,
+		},
+	}
+	for name, testCase := range testCases {
+		s.Run(name, func() {
+			// Arrange one settings file with the named invalid capability.
+			path := writeSettings(s.T(), testCase.content)
+
+			// Act by loading the settings without cached state.
+			_, err := New(path).Load()
+
+			// Assert the error identifies the provider, model, field, and violated rule.
+			s.Require().ErrorContains(err, testCase.want)
 		})
 	}
 }
@@ -493,6 +605,14 @@ providers:
     type: openai-codex
     models:
       - id: codex
+        input: [text, image]
+        contextWindow: 131072
+        maxTokens: 16384
+        toolCapabilities:
+          strictJSONSchema: false
+          grammar:
+            lark: false
+            regex: false
         reasoning:
           supported: true
           choices: [off, low, high]
@@ -504,12 +624,24 @@ providers:
     api: responses
     models:
       - id: compatible
+        input: [text]
+        contextWindow: 65536
+        maxTokens: 8192
+        toolCapabilities:
+          strictJSONSchema: true
+          grammar:
+            lark: true
+            regex: true
         reasoning:
           supported: true
           choices: [off, high]
           default: high
           wireFormat: openai-responses
       - id: plain
+        input: [text]
+        contextWindow: 32768
+        maxTokens: 4096
+        toolCapabilities: {}
         reasoning:
           supported: false
           choices: [off]
@@ -519,13 +651,6 @@ providers:
 		return content
 	}
 	return content + extra + "\n"
-}
-
-// ornithSettings builds one Ornith capability and API validation fixture.
-func ornithSettings(shape, api string) string {
-	content := replace(validSettings(""), "api: responses", api)
-	content = replace(content, "choices: [off, high]\n          default: high", shape)
-	return replace(content, "wireFormat: openai-responses\n      - id: plain", "wireFormat: ollama-ornith\n      - id: plain")
 }
 
 func withoutLine(content, prefix string) string {

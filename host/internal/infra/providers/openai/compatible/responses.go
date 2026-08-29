@@ -22,29 +22,44 @@ import (
 )
 
 type responseContext struct {
-	ID               string   `json:"id"`
-	EncryptedContent string   `json:"encrypted_content"`
-	Summary          []string `json:"summary"`
+	// ID identifies the provider reasoning item.
+	ID string `json:"id"`
+	// EncryptedContent contains opaque provider replay state.
+	EncryptedContent string `json:"encrypted_content"`
+	// Summary contains provider reasoning summary fragments.
+	Summary []string `json:"summary"`
 }
 
 // responsesToolState correlates SDK item IDs with stable Agent Core call IDs.
 type responsesToolState struct {
-	itemID    string
-	callID    string
-	name      string
-	position  int
+	// itemID identifies the provider output item.
+	itemID string
+	// callID identifies the provider tool call.
+	callID string
+	// name identifies the requested tool.
+	name string
+	// position identifies the compact response content order.
+	position int
+	// arguments accumulates streamed tool input.
 	arguments strings.Builder
-	started   bool
+	// started reports whether the tool lifecycle is open.
+	started bool
 }
 
 // responsesAccumulator assigns compact semantic positions independent of sparse provider indexes.
 type responsesAccumulator struct {
-	handle    run.StreamHandler
+	// handle receives provider-neutral stream events.
+	handle run.StreamHandler
+	// positions maps provider item keys to compact content positions.
 	positions map[string]int
-	active    map[int]model.ContentKind
-	tools     map[string]*responsesToolState
-	next      int
-	terminal  *model.Response
+	// active contains open content lifecycles by compact position.
+	active map[int]model.ContentKind
+	// tools contains active tool calls by provider item ID.
+	tools map[string]*responsesToolState
+	// next is the next compact response content position.
+	next int
+	// terminal contains the authoritative terminal response.
+	terminal *model.Response
 }
 
 func newResponsesAccumulator(handle run.StreamHandler) *responsesAccumulator {

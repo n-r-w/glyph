@@ -18,8 +18,11 @@ const (
 
 // Service owns a Unix socket listener and its Glyph-created paths.
 type Service struct {
+	// Listener accepts Programmatic Control connections.
 	net.Listener
-	path               string
+	// path is the Unix socket path.
+	path string
+	// automaticDirectory is the temporary parent directory owned by the service.
 	automaticDirectory string
 }
 

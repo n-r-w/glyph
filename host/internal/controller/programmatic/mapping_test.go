@@ -251,8 +251,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Kind:          ResponseModels,
 			Models: mo.Some(ModelsResult{
 				Models: []model.Descriptor{{
-					Provider: "provider",
-					Model:    "model",
+					Provider:      "provider",
+					Model:         "model",
+					Input:         []model.InputModality{model.InputModalityText},
+					ContextWindow: 131072,
+					MaxTokens:     16384,
 					ReasoningCapabilities: model.ReasoningCapabilities{
 						Supported: true,
 						Choices: []model.ReasoningChoice{
@@ -264,8 +267,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					},
 					ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 				}, {
-					Provider: "ollama",
-					Model:    "ornith",
+					Provider:      "ollama",
+					Model:         "ornith",
+					Input:         []model.InputModality{model.InputModalityText, model.InputModalityImage},
+					ContextWindow: 262144,
+					MaxTokens:     32768,
 					ReasoningCapabilities: model.ReasoningCapabilities{
 						Supported: true,
 						Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
@@ -348,6 +354,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				require.Len(t, models.GetModels(), 2)
 				assert.Equal(t, "provider", models.GetModels()[0].GetProviderId())
 				assert.Equal(t, "model", models.GetModels()[0].GetModelId())
+				assert.Equal(t, []programmaticv1.InputModality{
+					programmaticv1.InputModality_INPUT_MODALITY_TEXT,
+				}, models.GetModels()[0].GetInputModalities())
+				assert.Equal(t, int64(131072), models.GetModels()[0].GetContextWindow())
+				assert.Equal(t, int64(16384), models.GetModels()[0].GetMaxTokens())
 				assert.Equal(t, []programmaticv1.ReasoningChoice{
 					programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
 					programmaticv1.ReasoningChoice_REASONING_CHOICE_MINIMAL,
@@ -359,6 +370,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				}, models.GetModels()[0].GetReasoning().GetChoices())
 				assert.True(t, models.GetModels()[0].GetReasoning().GetSupported())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetModels()[0].GetReasoning().GetDefaultChoice())
+				assert.Equal(t, []programmaticv1.InputModality{
+					programmaticv1.InputModality_INPUT_MODALITY_TEXT,
+					programmaticv1.InputModality_INPUT_MODALITY_IMAGE,
+				}, models.GetModels()[1].GetInputModalities())
+				assert.Equal(t, int64(262144), models.GetModels()[1].GetContextWindow())
+				assert.Equal(t, int64(32768), models.GetModels()[1].GetMaxTokens())
 				assert.Equal(t, []programmaticv1.ReasoningChoice{
 					programmaticv1.ReasoningChoice_REASONING_CHOICE_ON,
 				}, models.GetModels()[1].GetReasoning().GetChoices())
@@ -742,6 +759,34 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			assertEventPayload(t, test.payload, event)
 		})
 	}
+}
+
+// TestMapConfiguredModelsRejectsUnknownInputModality proves unknown domain modalities do not reach protobuf.
+func TestMapConfiguredModelsRejectsUnknownInputModality(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a descriptor with a modality outside the closed domain set.
+	descriptor := model.Descriptor{
+		Provider:      "provider",
+		Model:         "model",
+		Input:         []model.InputModality{"audio"},
+		ContextWindow: 131072,
+		MaxTokens:     16384,
+		ReasoningCapabilities: model.ReasoningCapabilities{
+			Supported: false,
+			Choices:   []model.ReasoningChoice{model.ReasoningChoiceOff},
+			Default:   model.ReasoningChoiceOff,
+		},
+		ToolCapabilities: model.ToolCapabilities{},
+		Pricing:          mo.None[model.Pricing](),
+	}
+
+	// Act by mapping the invalid descriptor.
+	mapped, err := mapConfiguredModels([]model.Descriptor{descriptor})
+
+	// Assert the mapper rejects the value without emitting an unspecified enum.
+	require.Error(t, err)
+	assert.Nil(t, mapped)
 }
 
 // TestMappingRejectsInvalidValues verifies closed unions and malformed JSON values.

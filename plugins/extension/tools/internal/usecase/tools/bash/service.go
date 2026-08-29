@@ -9,7 +9,10 @@ import (
 )
 
 // Service coordinates one bash command.
-type Service struct{ runner ProcessRunner }
+type Service struct {
+	// runner executes bash commands.
+	runner ProcessRunner
+}
 
 var _ extensioncontroller.BashTool = (*Service)(nil)
 

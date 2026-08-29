@@ -21,21 +21,30 @@ const (
 
 // State is an immutable Agent Core state snapshot.
 type State struct {
-	Status          Status
-	RunID           mo.Option[string]
+	// Status identifies the current run lifecycle state.
+	Status Status
+	// RunID identifies the active or unsettled run.
+	RunID mo.Option[string]
+	// PartialResponse contains accumulated streamed model content.
 	PartialResponse mo.Option[model.Response]
-	ToolPreviews    map[string]model.ToolCallPreview
+	// ToolPreviews contains provisional tool calls by call ID.
+	ToolPreviews map[string]model.ToolCallPreview
 }
 
 // Request starts one Host-identified user run.
 type Request struct {
-	RunID    string
+	// RunID identifies the Host-prepared run.
+	RunID string
+	// UserText contains the submitted user request.
 	UserText string
 }
 
 // Result is the terminal Agent Core run result.
 type Result struct {
-	Outcome      agent.RunOutcome
+	// Outcome identifies the terminal run state.
+	Outcome agent.RunOutcome
+	// AddedHistory contains entries appended by the run.
 	AddedHistory []agent.HistoryEntry
+	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
 }

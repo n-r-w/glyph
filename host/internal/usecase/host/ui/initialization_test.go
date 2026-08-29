@@ -70,6 +70,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
 		Provider: "openai-codex",
 		Model:    "gpt",
+		Input:    nil, ContextWindow: 0, MaxTokens: 0,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true,
 			Choices: []model.ReasoningChoice{
@@ -83,6 +84,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	}, {
 		Provider: "ollama",
 		Model:    "ornith",
+		Input:    nil, ContextWindow: 0, MaxTokens: 0,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true,
 			Choices:   []model.ReasoningChoice{model.ReasoningChoiceOn},
@@ -144,6 +146,7 @@ func testModelCatalog(t *testing.T) ModelCatalog {
 	catalog.EXPECT().Models().Return([]model.Descriptor{{
 		Provider: "openai-codex",
 		Model:    "gpt",
+		Input:    nil, ContextWindow: 0, MaxTokens: 0,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: true,
 			Choices:   []model.ReasoningChoice{model.ReasoningChoiceHigh},

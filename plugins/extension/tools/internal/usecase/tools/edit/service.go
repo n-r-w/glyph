@@ -14,6 +14,7 @@ import (
 
 // Service coordinates exact project-file replacement.
 type Service struct {
+	// projectEditor applies exact project-file replacements.
 	projectEditor ProjectEditor
 }
 

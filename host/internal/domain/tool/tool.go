@@ -9,9 +9,13 @@ import (
 
 // Descriptor describes one model-callable tool.
 type Descriptor struct {
-	Name                string
-	Description         string
-	InputSchemaJSON     []byte
+	// Name identifies the tool in model requests.
+	Name string
+	// Description explains the tool to the model.
+	Description string
+	// InputSchemaJSON contains the tool input JSON Schema.
+	InputSchemaJSON []byte
+	// ConstrainedSampling defines an optional provider-side input constraint.
 	ConstrainedSampling mo.Option[ConstrainedSampling]
 }
 
@@ -27,14 +31,19 @@ const (
 
 // ResultImage contains binary image data and its media type.
 type ResultImage struct {
+	// MediaType identifies the image format.
 	MediaType string
-	Data      []byte
+	// Data contains the encoded image bytes.
+	Data []byte
 }
 
 // ResultContent is one ordered terminal tool result content block.
 type ResultContent struct {
-	Kind  ResultContentKind
-	Text  mo.Option[string]
+	// Kind identifies the content payload.
+	Kind ResultContentKind
+	// Text contains text when Kind is ResultContentText.
+	Text mo.Option[string]
+	// Image contains an image when Kind is ResultContentImage.
 	Image mo.Option[ResultImage]
 }
 
@@ -60,15 +69,21 @@ const (
 
 // GrammarVariants contains equivalent grammar definitions for supported formats.
 type GrammarVariants struct {
-	Lark  mo.Option[string]
+	// Lark contains a Lark grammar when available.
+	Lark mo.Option[string]
+	// Regex contains a regular expression grammar when available.
 	Regex mo.Option[string]
 }
 
 // ConstrainedSampling describes one optional provider-side input constraint.
 type ConstrainedSampling struct {
-	Kind                 ConstrainedSamplingKind
+	// Kind identifies the requested constraint type.
+	Kind ConstrainedSamplingKind
+	// JSONSchemaStrictness controls fallback for a JSON Schema constraint.
 	JSONSchemaStrictness mo.Option[JSONSchemaStrictness]
-	Grammar              mo.Option[GrammarVariants]
+	// Grammar contains equivalent grammar definitions for a grammar constraint.
+	Grammar mo.Option[GrammarVariants]
+	// GrammarInputProperty identifies the input property constrained by Grammar.
 	GrammarInputProperty mo.Option[string]
 }
 
@@ -86,14 +101,18 @@ const (
 
 // Progress is one ordered tool-execution progress fragment.
 type Progress struct {
+	// Channel identifies the progress fragment meaning.
 	Channel ProgressChannel
+	// Content contains the progress fragment text.
 	Content string
 }
 
 // Result is one terminal tool-execution outcome.
 type Result struct {
+	// Contents contains ordered terminal result blocks.
 	Contents []ResultContent
-	IsError  bool
+	// IsError reports whether tool execution failed.
+	IsError bool
 }
 
 // TextContents creates one text result content block.
@@ -116,7 +135,9 @@ const (
 
 // RuntimeFailure identifies one post-start extension availability failure.
 type RuntimeFailure struct {
-	PluginID  string
+	// PluginID identifies the unavailable extension.
+	PluginID string
+	// Condition classifies why the extension became unavailable.
 	Condition RuntimeUnavailableCondition
 }
 

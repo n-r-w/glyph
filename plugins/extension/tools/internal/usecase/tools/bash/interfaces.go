@@ -23,8 +23,11 @@ type ProgressHandler func(stream Stream, content string) error
 
 // ProcessResult contains bounded command output, exit status, and truncation metadata.
 type ProcessResult struct {
-	Output     string
-	ExitCode   int
+	// Output contains bounded model-visible command output.
+	Output string
+	// ExitCode contains the command process exit status.
+	ExitCode int
+	// Truncation describes omitted complete output.
 	Truncation textbudget.Truncation
 }
 

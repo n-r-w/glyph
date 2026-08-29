@@ -33,11 +33,17 @@ const (
 
 // Command is one correlated transport-independent controller operation.
 type Command struct {
-	CorrelationID   string
-	Kind            CommandKind
-	UserText        mo.Option[string]
-	ProviderID      mo.Option[model.ProviderID]
-	ModelID         mo.Option[model.ID]
+	// CorrelationID identifies the command and its result.
+	CorrelationID string
+	// Kind identifies the requested controller operation.
+	Kind CommandKind
+	// UserText contains submitted user text.
+	UserText mo.Option[string]
+	// ProviderID identifies a requested model provider.
+	ProviderID mo.Option[model.ProviderID]
+	// ModelID identifies a requested provider model.
+	ModelID mo.Option[model.ID]
+	// ReasoningChoice identifies a requested reasoning behavior.
 	ReasoningChoice mo.Option[model.ReasoningChoice]
 	// SessionID is present only for resume.
 	SessionID mo.Option[session.ID]
@@ -84,12 +90,18 @@ const (
 
 // Response is the single result of one correlated command.
 type Response struct {
+	// CorrelationID identifies the completed command.
 	CorrelationID string
-	Kind          ResponseKind
-	State         mo.Option[RunStateResult]
-	Messages      []HistoryEntry
-	Models        mo.Option[ModelsResult]
-	Selection     mo.Option[model.Selection]
+	// Kind identifies the response payload.
+	Kind ResponseKind
+	// State contains the requested run-state snapshot.
+	State mo.Option[RunStateResult]
+	// Messages contains the requested public history.
+	Messages []HistoryEntry
+	// Models contains configured models and the active selection.
+	Models mo.Option[ModelsResult]
+	// Selection contains the committed active model selection.
+	Selection mo.Option[model.Selection]
 	// SessionInfo is present for create, resume, name, and information results.
 	SessionInfo mo.Option[session.Info]
 	// Sessions contains the ordered list result.
@@ -98,31 +110,43 @@ type Response struct {
 	SessionEntries []SessionEntry
 	// SessionStatistics is present only for a statistics result.
 	SessionStatistics mo.Option[session.Statistics]
-	Rejection         mo.Option[Rejection]
+	// Rejection contains a command failure that keeps the session open.
+	Rejection mo.Option[Rejection]
 }
 
 // SessionEntry contains stable metadata and one public terminal payload.
 type SessionEntry struct {
-	ID        string
+	// ID identifies the session record.
+	ID string
+	// CreatedAt is the persisted record creation time.
 	CreatedAt time.Time
-	Kind      HistoryEntryKind
+	// Kind identifies the entry payload.
+	Kind HistoryEntryKind
 	// User carries ordered public text and image content for detailed session entries.
-	User          mo.Option[model.Message]
-	Model         mo.Option[ModelResponse]
+	User mo.Option[model.Message]
+	// Model contains a terminal model response.
+	Model mo.Option[ModelResponse]
+	// EstimatedCost contains persisted model response cost.
 	EstimatedCost mo.Option[session.EstimatedCost]
-	ToolResult    mo.Option[ToolResult]
+	// ToolResult contains a terminal tool result.
+	ToolResult mo.Option[ToolResult]
 }
 
 // ModelsResult contains configured models and the active selection.
 type ModelsResult struct {
-	Models          []model.Descriptor
+	// Models lists configured provider models.
+	Models []model.Descriptor
+	// ActiveSelection contains the active provider and model selection.
 	ActiveSelection mo.Option[model.Selection]
 }
 
 // Rejection describes one command failure that keeps the session open.
 type Rejection struct {
+	// Command identifies the rejected operation.
 	Command CommandKind
-	Code    RejectionCode
+	// Code classifies why the operation was rejected.
+	Code RejectionCode
+	// Message contains user-visible rejection details.
 	Message string
 }
 
@@ -138,7 +162,9 @@ const (
 
 // RunStateResult is a public snapshot without partial provider state.
 type RunStateResult struct {
-	State               RunState
+	// State identifies whether Agent Core is idle or running.
+	State RunState
+	// ActiveCorrelationID identifies the accepted request while running.
 	ActiveCorrelationID mo.Option[string]
 }
 
@@ -155,10 +181,13 @@ const (
 
 // HistoryEntry is one ordered public conversation entry.
 type HistoryEntry struct {
+	// Kind identifies the history payload.
 	Kind HistoryEntryKind
 	// User carries ordered public text and image content.
-	User       mo.Option[model.Message]
-	Model      mo.Option[ModelResponse]
+	User mo.Option[model.Message]
+	// Model contains a terminal model response.
+	Model mo.Option[ModelResponse]
+	// ToolResult contains a terminal tool result.
 	ToolResult mo.Option[ToolResult]
 }
 
@@ -189,18 +218,30 @@ const (
 
 // AgentEvent is one synchronous event for the accepted user request.
 type AgentEvent struct {
-	CorrelationID   string
-	Type            AgentEventType
-	RunID           string
-	ModelContent    mo.Option[ModelContent]
+	// CorrelationID identifies the accepted user request.
+	CorrelationID string
+	// Type identifies the lifecycle transition and active payload.
+	Type AgentEventType
+	// RunID identifies the agent run.
+	RunID string
+	// ModelContent contains one model content update.
+	ModelContent mo.Option[ModelContent]
+	// ToolCallPreview contains provisional tool call state.
 	ToolCallPreview mo.Option[ToolCallPreview]
-	FinalToolCall   mo.Option[FinalToolCall]
-	ToolExecution   mo.Option[ToolExecution]
-	ToolProgress    mo.Option[ToolProgress]
-	ToolResult      mo.Option[ToolResult]
-	ModelResponse   mo.Option[ModelResponse]
-	Turn            mo.Option[TurnSummary]
-	Agent           mo.Option[AgentSummary]
+	// FinalToolCall contains exact terminal tool call arguments.
+	FinalToolCall mo.Option[FinalToolCall]
+	// ToolExecution identifies an active tool invocation.
+	ToolExecution mo.Option[ToolExecution]
+	// ToolProgress contains one tool execution update.
+	ToolProgress mo.Option[ToolProgress]
+	// ToolResult contains one terminal tool result.
+	ToolResult mo.Option[ToolResult]
+	// ModelResponse contains one terminal model response.
+	ModelResponse mo.Option[ModelResponse]
+	// Turn contains one terminal turn summary.
+	Turn mo.Option[TurnSummary]
+	// Agent contains one terminal agent summary.
+	Agent mo.Option[AgentSummary]
 }
 
 // ModelContentKind identifies public model content.
@@ -216,9 +257,12 @@ const (
 
 // ModelContent carries one model content lifecycle update.
 type ModelContent struct {
-	Kind     ModelContentKind
+	// Kind identifies the public model content type.
+	Kind ModelContentKind
+	// Position identifies the content block order.
 	Position int
-	Text     mo.Option[string]
+	// Text contains a model text fragment.
+	Text mo.Option[string]
 }
 
 // ToolCallPreviewFieldKind identifies the present preview field payload.
@@ -233,32 +277,47 @@ const (
 
 // ToolCallPreviewField is one complete or provisional argument field.
 type ToolCallPreviewField struct {
-	Name   string
-	Kind   ToolCallPreviewFieldKind
-	Value  mo.Option[any]
+	// Name identifies the argument field.
+	Name string
+	// Kind identifies whether the field value is complete.
+	Kind ToolCallPreviewFieldKind
+	// Value contains a fully received JSON value.
+	Value mo.Option[any]
+	// Prefix contains an exact received scalar prefix.
 	Prefix mo.Option[string]
 }
 
 // ToolCallPreview is the complete current preview for one tool call.
 type ToolCallPreview struct {
-	CallID      string
-	Name        string
-	Position    int
+	// CallID identifies the provisional tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Provisional reports whether the preview can still change.
 	Provisional bool
-	Fields      []ToolCallPreviewField
+	// Fields contains ordered provisional argument fields.
+	Fields []ToolCallPreviewField
 }
 
 // FinalToolCall is one finalized public tool call.
 type FinalToolCall struct {
-	CallID    string
-	Name      string
-	Position  int
+	// CallID identifies the finalized tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Arguments contains the finalized tool input.
 	Arguments map[string]any
 }
 
 // ToolExecution identifies a tool invocation.
 type ToolExecution struct {
-	CallID   string
+	// CallID identifies the active tool call.
+	CallID string
+	// ToolName identifies the requested tool.
 	ToolName string
 }
 
@@ -275,7 +334,9 @@ const (
 
 // ToolProgress carries one tool execution update.
 type ToolProgress struct {
+	// Channel identifies the progress fragment meaning.
 	Channel ProgressChannel
+	// Content contains the progress fragment text.
 	Content string
 }
 
@@ -291,23 +352,32 @@ const (
 
 // ToolResultImage carries one exact image result.
 type ToolResultImage struct {
+	// MediaType identifies the image format.
 	MediaType string
-	Data      []byte
+	// Data contains encoded image bytes.
+	Data []byte
 }
 
 // ToolResultContent is one ordered tool result block.
 type ToolResultContent struct {
-	Kind  ToolResultContentKind
-	Text  mo.Option[string]
+	// Kind identifies the content payload.
+	Kind ToolResultContentKind
+	// Text contains public text content.
+	Text mo.Option[string]
+	// Image contains public image content.
 	Image mo.Option[ToolResultImage]
 }
 
 // ToolResult is one complete public tool result.
 type ToolResult struct {
-	CallID   string
+	// CallID identifies the model-requested tool call.
+	CallID string
+	// ToolName identifies the executed tool.
 	ToolName string
+	// Contents contains ordered public result blocks.
 	Contents []ToolResultContent
-	IsError  bool
+	// IsError reports whether tool execution failed.
+	IsError bool
 }
 
 // ModelOutcome identifies the terminal model response outcome.
@@ -337,44 +407,67 @@ const (
 
 // ModelResponseContent is one ordered public response item.
 type ModelResponseContent struct {
-	Kind     ModelResponseContentKind
-	Text     mo.Option[string]
+	// Kind identifies the response item payload.
+	Kind ModelResponseContentKind
+	// Text contains finalized public text.
+	Text mo.Option[string]
+	// ToolCall contains a finalized tool request.
 	ToolCall mo.Option[FinalToolCall]
 }
 
 // ModelUsage contains provider token accounting.
 type ModelUsage struct {
-	InputTokens       int64
-	OutputTokens      int64
+	// InputTokens contains uncached input tokens.
+	InputTokens int64
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64
+	// CachedInputTokens contains cache-read input tokens.
 	CachedInputTokens int64
-	CacheWriteTokens  int64
-	ReasoningTokens   int64
-	TotalTokens       int64
+	// CacheWriteTokens contains cache creation input tokens.
+	CacheWriteTokens int64
+	// ReasoningTokens contains the reasoning subset of OutputTokens.
+	ReasoningTokens int64
+	// TotalTokens is the sum of disjoint input and output buckets.
+	TotalTokens int64
 }
 
 // ModelDiagnostic is one provider diagnostic.
 type ModelDiagnostic struct {
-	Code    string
+	// Code identifies the diagnostic type.
+	Code string
+	// Message contains diagnostic details.
 	Message string
 }
 
 // ModelResponse is one provider-neutral public model response.
 type ModelResponse struct {
-	Text          string
-	Outcome       mo.Option[ModelOutcome]
-	ErrorMessage  mo.Option[string]
-	Provider      mo.Option[string]
-	Model         mo.Option[string]
+	// Text contains flattened visible response text.
+	Text string
+	// Outcome identifies why the response ended.
+	Outcome mo.Option[ModelOutcome]
+	// ErrorMessage contains a terminal failure message.
+	ErrorMessage mo.Option[string]
+	// Provider identifies the provider used for the request.
+	Provider mo.Option[string]
+	// Model identifies the configured model used for the request.
+	Model mo.Option[string]
+	// ResponseModel identifies the model reported by the provider.
 	ResponseModel mo.Option[string]
-	ResponseID    mo.Option[string]
-	Usage         mo.Option[ModelUsage]
-	Diagnostics   []ModelDiagnostic
-	Content       []ModelResponseContent
+	// ResponseID identifies the response in the provider system.
+	ResponseID mo.Option[string]
+	// Usage contains provider-reported token accounting.
+	Usage mo.Option[ModelUsage]
+	// Diagnostics contains typed provider failure details.
+	Diagnostics []ModelDiagnostic
+	// Content contains ordered finalized response items.
+	Content []ModelResponseContent
 }
 
 // TurnSummary contains one model response and its ordered tool results.
 type TurnSummary struct {
-	Response    ModelResponse
+	// Response contains the terminal model response.
+	Response ModelResponse
+	// ToolResults contains ordered terminal tool results.
 	ToolResults []ToolResult
 }
 
@@ -391,6 +484,8 @@ const (
 
 // AgentSummary contains the public terminal agent result.
 type AgentSummary struct {
-	Outcome      RunOutcome
+	// Outcome identifies the terminal agent state.
+	Outcome RunOutcome
+	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
 }

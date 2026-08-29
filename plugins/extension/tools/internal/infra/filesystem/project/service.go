@@ -64,6 +64,7 @@ func isSupportedImage(mediaType string) bool {
 
 // Service provides working-project file access.
 type Service struct {
+	// locks serializes mutations by canonical project path.
 	locks pathLocks
 }
 

@@ -20,33 +20,49 @@ import (
 
 // Service owns extension availability and globally unique tools.
 type Service struct {
-	catalog       Catalog
-	factory       RuntimeFactory
+	// catalog discovers executable extension candidates.
+	catalog Catalog
+	// factory starts extension runtimes.
+	factory RuntimeFactory
+	// reportFailure publishes extension availability failures.
 	reportFailure func(context.Context, tool.RuntimeFailure) error
 
-	mutex      sync.RWMutex
-	runtimes   map[string]*runtimeState
-	owners     map[string]toolOwner
+	// mutex protects runtime and tool ownership state.
+	mutex sync.RWMutex
+	// runtimes contains extension runtime state by plugin ID.
+	runtimes map[string]*runtimeState
+	// owners contains the owning extension for each tool name.
+	owners map[string]toolOwner
+	// monitoring reports whether runtime exit monitors are active.
 	monitoring bool
-	closing    bool
+	// closing reports whether service shutdown has started.
+	closing bool
 }
 
 var _ run.ToolRuntime = (*Service)(nil)
 
 // runtimeState contains one process and its complete catalog.
 type runtimeState struct {
-	path             string
-	runtime          ExtensionRuntime
-	tools            []tool.Descriptor
-	available        bool
+	// path is the extension executable path.
+	path string
+	// runtime owns the extension process connection.
+	runtime ExtensionRuntime
+	// tools contains the complete extension tool catalog.
+	tools []tool.Descriptor
+	// available reports whether the runtime accepts executions.
+	available bool
+	// activeExecutions counts in-flight tool calls.
 	activeExecutions int
-	exitPending      bool
+	// exitPending reports a runtime exit awaiting active calls.
+	exitPending bool
 }
 
 // toolOwner preserves the normalized plugin identity for one registered tool.
 type toolOwner struct {
+	// pluginID identifies the extension that owns the tool.
 	pluginID string
-	state    *runtimeState
+	// state points to the owning extension runtime state.
+	state *runtimeState
 }
 
 // New creates a Host extension tool service.

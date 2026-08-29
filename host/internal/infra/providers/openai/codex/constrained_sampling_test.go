@@ -278,7 +278,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	// Act by streaming the grammar tool request and collecting lifecycle events.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{
-			Provider: ProviderID, Model: "gpt-test",
+			Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0,
 			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
 		History: history, Tools: []tool.Descriptor{descriptor},
@@ -327,7 +327,7 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 
 	// Act by requesting a constraint that requires unadvertised support.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
@@ -376,7 +376,7 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 
 	// Act by streaming the preferred constraint through the provider endpoint.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})}, History: nil,
 	}, func(run.StreamEvent) error { return nil })
 
@@ -469,7 +469,7 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 			err := service.Stream(t.Context(), run.ModelRequest{
 				Instructions: "test",
 				Model: model.Descriptor{
-					Provider: ProviderID, Model: "gpt-test",
+					Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0,
 					ToolCapabilities: model.ToolCapabilities{
 						Grammar: model.GrammarCapabilities{Regex: true, Lark: true}, StrictJSONSchema: true,
 					},
@@ -505,7 +505,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
 	selectedModel := model.Descriptor{
-		Provider: ProviderID, Model: "gpt-regex-only",
+		Provider: ProviderID, Model: "gpt-regex-only", Input: nil, ContextWindow: 0, MaxTokens: 0,
 		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
@@ -549,7 +549,7 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 
 	// Act by requesting the unsupported required constraint.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test", ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
+		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
 		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)

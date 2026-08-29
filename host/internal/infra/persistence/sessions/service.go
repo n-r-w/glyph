@@ -59,116 +59,182 @@ type informationRecord struct {
 
 // userRecord stores ordered provider-neutral user content.
 type userRecord struct {
-	Type      string         `json:"type"`
-	ID        string         `json:"id"`
-	CreatedAt string         `json:"createdAt"`
-	Message   *messageRecord `json:"message"`
+	// Type must be "user".
+	Type string `json:"type"`
+	// ID uniquely identifies this append.
+	ID string `json:"id"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// Message contains ordered provider-neutral user content.
+	Message *messageRecord `json:"message"`
 }
 
 type messageRecord struct {
+	// Content contains ordered user-message blocks.
 	Content []inputContentRecord `json:"content"`
 }
 
 type inputContentRecord struct {
-	Kind      model.InputContentKind `json:"kind"`
-	Text      *string                `json:"text,omitempty"`
-	MediaType *string                `json:"mediaType,omitempty"`
-	Data      json.RawMessage        `json:"data,omitempty"`
+	// Kind identifies the content payload.
+	Kind model.InputContentKind `json:"kind"`
+	// Text contains user text for text content.
+	Text *string `json:"text,omitempty"`
+	// MediaType identifies the format of image content.
+	MediaType *string `json:"mediaType,omitempty"`
+	// Data contains encoded image bytes.
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // modelRecord stores one provider-neutral terminal model response.
 type modelRecord struct {
-	Type          string               `json:"type"`
-	ID            string               `json:"id"`
-	CreatedAt     string               `json:"createdAt"`
-	Response      modelResponseRecord  `json:"response"`
+	// Type must be "model".
+	Type string `json:"type"`
+	// ID uniquely identifies this append.
+	ID string `json:"id"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// Response contains one terminal model response.
+	Response modelResponseRecord `json:"response"`
+	// EstimatedCost contains persisted model response cost.
 	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitempty"`
 }
 
 type estimatedCostRecord struct {
-	Input      *float64 `json:"input"`
-	Output     *float64 `json:"output"`
-	CacheRead  *float64 `json:"cacheRead"`
+	// Input contains uncached input token cost.
+	Input *float64 `json:"input"`
+	// Output contains output token cost.
+	Output *float64 `json:"output"`
+	// CacheRead contains cached input token cost.
+	CacheRead *float64 `json:"cacheRead"`
+	// CacheWrite contains cache creation token cost.
 	CacheWrite *float64 `json:"cacheWrite"`
-	Total      *float64 `json:"total"`
+	// Total contains the sum of all cost buckets.
+	Total *float64 `json:"total"`
 }
 
 type modelResponseRecord struct {
-	Content       []modelContentRecord `json:"content"`
-	Outcome       model.Outcome        `json:"outcome"`
-	ErrorMessage  *string              `json:"errorMessage,omitempty"`
-	Provider      *string              `json:"provider,omitempty"`
-	Model         *string              `json:"model,omitempty"`
-	ResponseModel *string              `json:"responseModel,omitempty"`
-	ResponseID    *string              `json:"responseId,omitempty"`
-	Usage         *usageRecord         `json:"usage,omitempty"`
-	Diagnostics   []diagnosticRecord   `json:"diagnostics"`
+	// Content contains ordered finalized response blocks.
+	Content []modelContentRecord `json:"content"`
+	// Outcome identifies why the response ended.
+	Outcome model.Outcome `json:"outcome"`
+	// ErrorMessage contains a terminal failure message.
+	ErrorMessage *string `json:"errorMessage,omitempty"`
+	// Provider identifies the provider used for the request.
+	Provider *string `json:"provider,omitempty"`
+	// Model identifies the configured model used for the request.
+	Model *string `json:"model,omitempty"`
+	// ResponseModel identifies the model reported by the provider.
+	ResponseModel *string `json:"responseModel,omitempty"`
+	// ResponseID identifies the response in the provider system.
+	ResponseID *string `json:"responseId,omitempty"`
+	// Usage contains provider-reported token accounting.
+	Usage *usageRecord `json:"usage,omitempty"`
+	// Diagnostics contains typed provider failure details.
+	Diagnostics []diagnosticRecord `json:"diagnostics"`
 }
 
 type diagnosticRecord struct {
-	Code    string `json:"code"`
+	// Code identifies the diagnostic type.
+	Code string `json:"code"`
+	// Message contains diagnostic details.
 	Message string `json:"message"`
 }
 
 type modelContentRecord struct {
-	Kind            model.ContentKind      `json:"kind"`
-	Text            *string                `json:"text,omitempty"`
+	// Kind identifies the response content payload.
+	Kind model.ContentKind `json:"kind"`
+	// Text contains text, refusal, or reasoning content.
+	Text *string `json:"text,omitempty"`
+	// ProviderContext contains opaque reasoning replay state.
 	ProviderContext *providerContextRecord `json:"providerContext,omitempty"`
-	ToolCall        *toolCallRecord        `json:"toolCall,omitempty"`
+	// ToolCall contains a finalized tool request.
+	ToolCall *toolCallRecord `json:"toolCall,omitempty"`
 }
 
 type providerContextRecord struct {
-	ProviderID       string  `json:"providerId"`
-	API              string  `json:"api"`
-	Model            string  `json:"model"`
+	// ProviderID identifies the provider that produced the context.
+	ProviderID string `json:"providerId"`
+	// API identifies the provider request contract.
+	API string `json:"api"`
+	// Model identifies the model that produced the context.
+	Model string `json:"model"`
+	// CompatibilityKey identifies the replay compatibility contract.
 	CompatibilityKey *string `json:"compatibilityKey,omitempty"`
-	Payload          []byte  `json:"payload"`
+	// Payload contains opaque provider-owned replay data.
+	Payload []byte `json:"payload"`
 }
 
 type toolCallRecord struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
+	// ID identifies the tool call within the model response.
+	ID string `json:"id"`
+	// Name identifies the requested tool.
+	Name string `json:"name"`
+	// Arguments contains finalized tool input.
 	Arguments map[string]any `json:"arguments"`
 }
 
 type usageRecord struct {
-	InputTokens       int64 `json:"inputTokens"`
-	OutputTokens      int64 `json:"outputTokens"`
+	// InputTokens contains uncached input tokens.
+	InputTokens int64 `json:"inputTokens"`
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64 `json:"outputTokens"`
+	// CachedInputTokens contains cache-read input tokens.
 	CachedInputTokens int64 `json:"cachedInputTokens"`
-	CacheWriteTokens  int64 `json:"cacheWriteTokens"`
-	ReasoningTokens   int64 `json:"reasoningTokens"`
-	TotalTokens       int64 `json:"totalTokens"`
+	// CacheWriteTokens contains cache creation input tokens.
+	CacheWriteTokens int64 `json:"cacheWriteTokens"`
+	// ReasoningTokens contains the reasoning subset of OutputTokens.
+	ReasoningTokens int64 `json:"reasoningTokens"`
+	// TotalTokens contains the sum of disjoint input and output buckets.
+	TotalTokens int64 `json:"totalTokens"`
 }
 
 type toolResultRecord struct {
-	Type      string          `json:"type"`
-	ID        string          `json:"id"`
-	CreatedAt string          `json:"createdAt"`
-	Result    toolResultValue `json:"result"`
+	// Type must be "tool_result".
+	Type string `json:"type"`
+	// ID uniquely identifies this append.
+	ID string `json:"id"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// Result contains one terminal tool result.
+	Result toolResultValue `json:"result"`
 }
 
 type toolResultValue struct {
-	CallID   string                    `json:"callId"`
-	ToolName string                    `json:"toolName"`
+	// CallID identifies the model-requested tool call.
+	CallID string `json:"callId"`
+	// ToolName identifies the executed tool.
+	ToolName string `json:"toolName"`
+	// Contents contains ordered terminal result blocks.
 	Contents []toolResultContentRecord `json:"contents"`
-	IsError  bool                      `json:"isError"`
+	// IsError reports whether tool execution failed.
+	IsError bool `json:"isError"`
 }
 
 type toolResultContentRecord struct {
-	Kind      tool.ResultContentKind `json:"kind"`
-	Text      *string                `json:"text,omitempty"`
-	MediaType *string                `json:"mediaType,omitempty"`
-	Data      json.RawMessage        `json:"data,omitempty"`
+	// Kind identifies the result content payload.
+	Kind tool.ResultContentKind `json:"kind"`
+	// Text contains terminal text output.
+	Text *string `json:"text,omitempty"`
+	// MediaType identifies the image output format.
+	MediaType *string `json:"mediaType,omitempty"`
+	// Data contains encoded image bytes.
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // extensionRecord stores compact extension-owned JSON without interpreting it.
 type extensionRecord struct {
-	Type        string          `json:"type"`
-	ID          string          `json:"id"`
-	CreatedAt   string          `json:"createdAt"`
-	ExtensionID string          `json:"extensionId"`
-	EntryType   string          `json:"entryType"`
-	Data        json.RawMessage `json:"data"`
+	// Type must be "extension".
+	Type string `json:"type"`
+	// ID uniquely identifies this append.
+	ID string `json:"id"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// ExtensionID identifies the extension that owns the entry.
+	ExtensionID string `json:"extensionId"`
+	// EntryType identifies the extension-defined entry kind.
+	EntryType string `json:"entryType"`
+	// Data contains extension-owned JSON.
+	Data json.RawMessage `json:"data"`
 }
 
 // recordType reads only the discriminator used to select the current record shape.
@@ -306,7 +372,9 @@ const (
 
 // loadedPath carries validated session data and tail classification between resume steps.
 type loadedPath struct {
-	loaded      hostsessions.LoadedSession
+	// loaded contains validated session data.
+	loaded hostsessions.LoadedSession
+	// interrupted reports whether the file has an incomplete tail.
 	interrupted bool
 }
 
@@ -443,10 +511,14 @@ func repairSessionFileMode(file File, currentMode os.FileMode, enabled bool) err
 
 // scanResult retains the validated prefix and the byte boundary for optional recovery.
 type scanResult struct {
-	header       session.Header
-	entries      []session.Entry
+	// header contains the validated immutable session header.
+	header session.Header
+	// entries contains the validated complete session records.
+	entries []session.Entry
+	// completeSize is the byte boundary after the last complete record.
 	completeSize int64
-	interrupted  bool
+	// interrupted reports whether nonempty incomplete tail bytes remain.
+	interrupted bool
 }
 
 // scan classifies only final nonempty bytes as interrupted after every completed record validates.

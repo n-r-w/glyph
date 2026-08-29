@@ -35,7 +35,9 @@ func (FileSystem) OpenFile(
 
 // rootedFile owns one open file and the root that confined its path.
 type rootedFile struct {
+	// file is the open session file.
 	file *os.File
+	// root confines file operations to the session directory.
 	root *os.Root
 }
 

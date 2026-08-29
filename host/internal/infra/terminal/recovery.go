@@ -13,9 +13,12 @@ import (
 
 // Recovery resets terminal modes and restores one captured termios state exactly once.
 type Recovery struct {
+	// restoreOnce limits terminal restoration to one attempt.
 	restoreOnce sync.Once
+	// restoreFunc restores the captured terminal state.
 	restoreFunc func() error
-	restoreErr  error
+	// restoreErr retains the restoration result.
+	restoreErr error
 }
 
 // Capture opens the controlling terminal and snapshots its current state.

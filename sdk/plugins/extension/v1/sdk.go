@@ -28,16 +28,23 @@ const (
 
 // Client owns one connected extension process.
 type Client struct {
-	process   *plugin.Client
-	service   extensionpb.ExtensionServiceClient
-	done      <-chan struct{}
-	version   int
+	// process owns the go-plugin process connection.
+	process *plugin.Client
+	// service is the generated extension gRPC client.
+	service extensionpb.ExtensionServiceClient
+	// done closes when the extension process exits.
+	done <-chan struct{}
+	// version is the negotiated protocol version.
+	version int
+	// closeOnce limits process closure to one attempt.
 	closeOnce sync.Once
 }
 
 // grpcExtensionPlugin binds the generated extension service to go-plugin's gRPC transport.
 type grpcExtensionPlugin struct {
+	// NetRPCUnsupportedPlugin disables unsupported net/rpc transport.
 	plugin.NetRPCUnsupportedPlugin
+	// server implements the generated extension service.
 	server extensionpb.ExtensionServiceServer
 }
 
@@ -48,8 +55,10 @@ var (
 
 // grpcClient keeps the generated contract and the process-lifecycle signal together.
 type grpcClient struct {
+	// service is the generated extension gRPC client.
 	service extensionpb.ExtensionServiceClient
-	done    <-chan struct{}
+	// done closes when the extension process exits.
+	done <-chan struct{}
 }
 
 // Connect starts and connects to the extension process described by command.

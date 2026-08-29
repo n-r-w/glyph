@@ -17,8 +17,11 @@ import (
 
 // Runner owns ordered internal hook handlers supplied by Host composition.
 type Runner struct {
-	contextHandlers  []hooks.ContextHandler
-	requestHandlers  []hooks.RequestHandler
+	// contextHandlers contains ordered context transformations.
+	contextHandlers []hooks.ContextHandler
+	// requestHandlers contains ordered request transformations.
+	requestHandlers []hooks.RequestHandler
+	// responseHandlers contains ordered response observers.
 	responseHandlers []hooks.ResponseHandler
 }
 

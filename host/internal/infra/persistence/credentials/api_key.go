@@ -27,15 +27,20 @@ const (
 
 // APIKeySource contains one validated API-key source.
 type APIKeySource struct {
-	Kind  APIKeySourceKind
+	// Kind identifies how the API key is stored.
+	Kind APIKeySourceKind
+	// Value contains source-specific lookup data.
 	Value string
 }
 
 // APIKeyError reports an API-key resolution failure with source context.
 type APIKeyError struct {
+	// Source identifies the failed API key source.
 	Source APIKeySourceKind
-	Name   string
-	cause  error
+	// Name identifies the failed environment variable or credential entry.
+	Name string
+	// cause contains the retained resolution failure.
+	cause error
 }
 
 // Error returns source metadata without resolved key material.
@@ -57,7 +62,9 @@ func (e *APIKeyError) Unwrap() error {
 
 // APIKeyResolver resolves one immutable configured source.
 type APIKeyResolver struct {
-	path   string
+	// path is the shared credential file path.
+	path string
+	// source contains the validated API key source.
 	source APIKeySource
 }
 

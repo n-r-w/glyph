@@ -23,25 +23,40 @@ import (
 
 // chatToolState joins fragmented tool-call identity and arguments by choice index.
 type chatToolState struct {
-	id        string
-	name      string
+	// id identifies the provider tool call.
+	id string
+	// name identifies the requested tool.
+	name string
+	// arguments accumulates streamed tool input.
 	arguments strings.Builder
-	position  int
-	started   bool
+	// position identifies the compact response content order.
+	position int
+	// started reports whether the tool lifecycle is open.
+	started bool
 }
 
 // chatAccumulator keeps provider ordering while translating deltas into semantic stream events.
 type chatAccumulator struct {
-	content           []model.Content
-	textPosition      int
-	refusalPosition   int
+	// content contains finalized provider-neutral response blocks.
+	content []model.Content
+	// textPosition identifies the visible text block.
+	textPosition int
+	// refusalPosition identifies the refusal text block.
+	refusalPosition int
+	// reasoningPosition identifies the reasoning text block.
 	reasoningPosition int
-	parseReasoning    bool
-	tools             map[int64]*chatToolState
-	responseID        string
-	responseModel     string
-	usage             mo.Option[model.Usage]
-	outcome           model.Outcome
+	// parseReasoning enables provider-specific reasoning extraction.
+	parseReasoning bool
+	// tools contains active tool calls by provider index.
+	tools map[int64]*chatToolState
+	// responseID identifies the provider response.
+	responseID string
+	// responseModel identifies the model reported by the provider.
+	responseModel string
+	// usage contains provider-reported token accounting.
+	usage mo.Option[model.Usage]
+	// outcome identifies why the response ended.
+	outcome model.Outcome
 }
 
 func newChatAccumulator(parseReasoning bool) *chatAccumulator {
@@ -158,7 +173,7 @@ func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.Ch
 		ToolChoice:           openai.ChatCompletionToolChoiceOptionUnionParam{},
 		WebSearchOptions:     openai.ChatCompletionNewParamsWebSearchOptions{},
 	}
-	if reasoningWireFormat == reasoningWireFormatOpenAIChatEffort {
+	if reasoningWireFormat == reasoningWireFormatOpenAIChatReasoning {
 		switch request.ReasoningChoice {
 		case "", model.ReasoningChoiceOn:
 		case model.ReasoningChoiceOff:
@@ -173,8 +188,7 @@ func chatParams(request run.ModelRequest, reasoningWireFormat string) (openai.Ch
 
 // chatNativeReasoning identifies formats that share Chat reasoning stream and history fields.
 func chatNativeReasoning(reasoningWireFormat string) bool {
-	return reasoningWireFormat == reasoningWireFormatOpenAIChatEffort ||
-		reasoningWireFormat == reasoningWireFormatOllamaOrnith
+	return reasoningWireFormat == reasoningWireFormatOpenAIChatReasoning
 }
 
 func chatMessages(request run.ModelRequest, nativeReasoning bool) ([]openai.ChatCompletionMessageParamUnion, error) {

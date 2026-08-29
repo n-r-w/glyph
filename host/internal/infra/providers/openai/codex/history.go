@@ -22,9 +22,12 @@ import (
 
 // reasoningContext is the opaque replay value set stored by Agent Core.
 type reasoningContext struct {
-	ID               string   `json:"id"`
-	EncryptedContent string   `json:"encrypted_content"`
-	Summary          []string `json:"summary"`
+	// ID identifies the provider reasoning item.
+	ID string `json:"id"`
+	// EncryptedContent contains opaque provider replay state.
+	EncryptedContent string `json:"encrypted_content"`
+	// Summary contains provider reasoning summary fragments.
+	Summary []string `json:"summary"`
 }
 
 // buildInput converts complete projected history into ordered Responses input items.
@@ -324,9 +327,12 @@ func messageInput(role responses.EasyInputMessageRole, text string) responses.Re
 }
 
 type toolCapabilities struct {
+	// strict reports whether strict JSON Schema generation is available.
 	strict bool
-	lark   bool
-	regex  bool
+	// lark reports whether Lark grammar generation is available.
+	lark bool
+	// regex reports whether regular expression generation is available.
+	regex bool
 }
 
 // buildTools maps provider-neutral schemas into Codex tool request types.

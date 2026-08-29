@@ -37,20 +37,28 @@ var _ hostui.RuntimeFactory = (*Factory)(nil)
 
 // Runtime owns one connected UI process and its single stream.
 type Runtime struct {
-	client   *uisdk.Client
+	// client owns the UI process connection.
+	client *uisdk.Client
+	// openOnce limits the runtime to one stream.
 	openOnce sync.Once
-	channel  hostui.Channel
-	openErr  error
+	// channel contains the opened provider-neutral UI stream.
+	channel hostui.Channel
+	// openErr retains the stream opening result.
+	openErr error
 }
 
 var _ hostui.Runtime = (*Runtime)(nil)
 
 // channel maps provider-neutral frames and commands to the generated contract.
 type channel struct {
+	// stream is the generated bidirectional UI stream.
 	stream uipb.UIService_OpenClient
+	// cancel stops the stream context.
 	cancel context.CancelFunc
+	// closed reports whether the channel was closed.
 	closed atomic.Bool
-	mutex  sync.Mutex
+	// mutex serializes stream sends.
+	mutex sync.Mutex
 }
 
 var _ hostui.Channel = (*channel)(nil)

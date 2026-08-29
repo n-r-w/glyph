@@ -61,10 +61,14 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	assert.Equal(t, providerA, current.Provider)
 
 	models[0].Model = "changed"
+	models[0].Input[0] = model.InputModalityImage
+	current.Model.Input[0] = model.InputModalityImage
 	current.Model.ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
 	models[0].ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
 	fresh := catalog.Models()
 	assert.Equal(t, model.ID("a-first"), fresh[0].Model)
+	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, fresh[0].Input)
+	assert.Equal(t, model.InputModalityText, catalog.Current().Model.Input[0])
 	assert.Equal(t, []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, fresh[0].ReasoningCapabilities.Choices)
 	assert.Equal(t, model.ReasoningChoiceLow, catalog.Current().Model.ReasoningCapabilities.Choices[0])
 }
@@ -221,7 +225,59 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	assert.Equal(t, active, catalog.Selection())
 }
 
-// TestCatalogRejectsEntryWithoutProvider prevents a selectable model from producing a nil runtime.
+// TestCatalogRejectsInvalidExecutionCapabilities checks source-independent descriptor validation.
+func TestCatalogRejectsInvalidExecutionCapabilities(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]func(*model.Descriptor){
+		"empty input": func(configured *model.Descriptor) {
+			configured.Input = nil
+		},
+		"missing text": func(configured *model.Descriptor) {
+			configured.Input = []model.InputModality{model.InputModalityImage}
+		},
+		"duplicate modality": func(configured *model.Descriptor) {
+			configured.Input = []model.InputModality{model.InputModalityText, model.InputModalityText}
+		},
+		"unknown modality": func(configured *model.Descriptor) {
+			configured.Input = []model.InputModality{model.InputModalityText, "audio"}
+		},
+		"nonpositive context window": func(configured *model.Descriptor) {
+			configured.ContextWindow = 0
+		},
+		"nonpositive max tokens": func(configured *model.Descriptor) {
+			configured.MaxTokens = -1
+		},
+		"max tokens above context window": func(configured *model.Descriptor) {
+			configured.MaxTokens = configured.ContextWindow + 1
+		},
+	}
+	for name, mutate := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one descriptor with the named invalid capability.
+			configured := descriptor("provider", "model", model.ReasoningChoiceOff)
+			mutate(&configured)
+			provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+
+			// Act by constructing the source-independent catalog.
+			_, err := New([]Entry{{
+				Descriptor:                   configured,
+				Provider:                     provider,
+				SelectionCredentialValidator: nil,
+				Authentication:               nil,
+			}}, model.Selection{
+				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
+			})
+
+			// Assert invalid execution capabilities cannot enter catalog state.
+			var selectionErr *SelectionError
+			require.ErrorAs(t, err, &selectionErr)
+			assert.Equal(t, ErrorCodeInvalidConfiguration, selectionErr.Code)
+		})
+	}
+}
+
 func TestCatalogRejectsEntryWithoutProvider(t *testing.T) {
 	t.Parallel()
 
@@ -412,7 +468,9 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 	catalog, err := New([]Entry{
 		{
 			Descriptor: model.Descriptor{
-				Provider: "provider-a", Model: "shared", Pricing: mo.Some(priceA),
+				Provider: "provider-a", Model: "shared",
+				Input: []model.InputModality{model.InputModalityText}, ContextWindow: 131072, MaxTokens: 16384,
+				Pricing: mo.Some(priceA),
 				ReasoningCapabilities: model.ReasoningCapabilities{
 					Supported: false, Choices: []model.ReasoningChoice{model.ReasoningChoiceOff},
 					Default: model.ReasoningChoiceOff,
@@ -425,7 +483,9 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 		},
 		{
 			Descriptor: model.Descriptor{
-				Provider: "provider-b", Model: "shared", Pricing: mo.Some(priceB),
+				Provider: "provider-b", Model: "shared",
+				Input: []model.InputModality{model.InputModalityText}, ContextWindow: 131072, MaxTokens: 16384,
+				Pricing: mo.Some(priceB),
 				ReasoningCapabilities: model.ReasoningCapabilities{
 					Supported: false, Choices: []model.ReasoningChoice{model.ReasoningChoiceOff},
 					Default: model.ReasoningChoiceOff,
@@ -454,8 +514,11 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 
 func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningChoice) model.Descriptor {
 	return model.Descriptor{
-		Provider: provider,
-		Model:    modelID,
+		Provider:      provider,
+		Model:         modelID,
+		Input:         []model.InputModality{model.InputModalityText, model.InputModalityImage},
+		ContextWindow: 131072,
+		MaxTokens:     16384,
 		ReasoningCapabilities: model.ReasoningCapabilities{
 			Supported: levels[0] != model.ReasoningChoiceOff || len(levels) > 1,
 			Choices:   slices.Clone(levels),

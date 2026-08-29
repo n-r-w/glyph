@@ -11,11 +11,16 @@ const glyphDirectoryMode os.FileMode = 0o700
 
 // Paths contains the persistent files rooted in one Glyph data directory.
 type Paths struct {
-	Directory       string
-	SettingsFile    string
+	// Directory is the Glyph data directory.
+	Directory string
+	// SettingsFile is the settings file path.
+	SettingsFile string
+	// CredentialsFile is the shared credential file path.
 	CredentialsFile string
-	LogsDirectory   string
-	LogFile         string
+	// LogsDirectory is the log directory path.
+	LogsDirectory string
+	// LogFile is the current log file path.
+	LogFile string
 }
 
 // Initialize resolves and enforces the current user's Glyph data paths.

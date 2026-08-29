@@ -16,10 +16,14 @@ import (
 
 // hookTransport runs copied request and response values at the HTTP boundary.
 type hookTransport struct {
-	base     http.RoundTripper
-	runner   internalhooks.ProviderRunner
+	// base sends transformed HTTP requests.
+	base http.RoundTripper
+	// runner applies configured provider hooks.
+	runner internalhooks.ProviderRunner
+	// provider identifies the target model provider.
 	provider model.ProviderID
-	model    model.ID
+	// model identifies the target provider model.
+	model model.ID
 }
 
 var _ http.RoundTripper = (*hookTransport)(nil)

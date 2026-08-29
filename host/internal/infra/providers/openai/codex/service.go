@@ -26,35 +26,52 @@ const (
 
 // Config contains provider-owned Codex configuration.
 type Config struct {
-	Hooks                      hooks.ProviderRunner
-	Models                     []model.ID
+	// Hooks applies configured provider request and response hooks.
+	Hooks hooks.ProviderRunner
+	// Models lists configured Codex models.
+	Models []model.ID
+	// ReasoningCompatibilityKeys contains replay contracts by model.
 	ReasoningCompatibilityKeys map[model.ID]mo.Option[string]
 }
 
 // driverOptions contains provider-owned protocol endpoints and deterministic seams.
 type driverOptions struct {
+	// authorizationURL is the browser OAuth endpoint.
 	authorizationURL string
-	tokenURL         string
-	modelBaseURL     string
-	httpClient       *http.Client
-	listen           func(network, address string) (net.Listener, error)
-	now              func() time.Time
+	// tokenURL is the OAuth token endpoint.
+	tokenURL string
+	// modelBaseURL is the Codex Responses endpoint base URL.
+	modelBaseURL string
+	// httpClient sends OAuth and model requests.
+	httpClient *http.Client
+	// listen opens the OAuth loopback listener.
+	listen func(network, address string) (net.Listener, error)
+	// now returns the current time for credential validation.
+	now func() time.Time
 }
 
 // modelConfig contains provider-owned wire metadata for one configured model.
 type modelConfig struct {
-	api                       string
-	reasoningWireFormat       string
+	// api identifies the provider request contract.
+	api string
+	// reasoningWireFormat identifies the reasoning request format.
+	reasoningWireFormat string
+	// reasoningCompatibilityKey identifies the replay contract.
 	reasoningCompatibilityKey mo.Option[string]
 }
 
 // Driver owns Codex OAuth credentials and Responses translation.
 type Driver struct {
-	hooks       hooks.ProviderRunner
-	models      map[model.ID]modelConfig
+	// hooks applies configured provider hooks.
+	hooks hooks.ProviderRunner
+	// models contains provider wire metadata by model.
+	models map[model.ID]modelConfig
+	// credentials loads and stores Codex OAuth credentials.
 	credentials Credentials
+	// interaction presents browser authorization URLs.
 	interaction Interaction
-	options     driverOptions
+	// options contains provider endpoints and deterministic seams.
+	options driverOptions
 }
 
 var (

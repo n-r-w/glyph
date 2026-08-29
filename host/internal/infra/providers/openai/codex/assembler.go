@@ -15,53 +15,82 @@ import (
 )
 
 type outputKey struct {
-	outputIndex  int64
+	// outputIndex identifies the provider output item.
+	outputIndex int64
+	// contentIndex identifies content within the output item.
 	contentIndex int64
 }
 
 type outputSlot struct {
-	kind     model.ContentKind
+	// kind identifies the provider-neutral content type.
+	kind model.ContentKind
+	// position identifies the compact response content order.
 	position int
-	active   bool
+	// active reports whether the content lifecycle is open.
+	active bool
 }
 
 type functionOutputSlot struct {
-	itemID        string
-	callID        string
-	name          string
-	position      int
-	preview       *functionPreviewAssembler
-	custom        bool
+	// itemID identifies the provider output item.
+	itemID string
+	// callID identifies the provider tool call.
+	callID string
+	// name identifies the requested tool.
+	name string
+	// position identifies the compact response content order.
+	position int
+	// preview assembles provisional function arguments.
+	preview *functionPreviewAssembler
+	// custom reports whether the item uses custom tool input.
+	custom bool
+	// inputProperty identifies the grammar-constrained argument field.
 	inputProperty string
-	customInput   string
+	// customInput contains exact custom tool input.
+	customInput string
 }
 
 // pendingFunctionOutput retains only provider identity needed to validate later authoritative output.
 type pendingFunctionOutput struct {
+	// itemID identifies the provider output item.
 	itemID string
+	// custom reports whether the item uses custom tool input.
 	custom bool
 }
 
 // finalizedFunctionOutput prevents duplicate lifecycle events and validates repeated authoritative output.
 type finalizedFunctionOutput struct {
-	itemID      string
-	callID      string
-	name        string
-	arguments   map[string]any
-	custom      bool
+	// itemID identifies the provider output item.
+	itemID string
+	// callID identifies the provider tool call.
+	callID string
+	// name identifies the requested tool.
+	name string
+	// arguments contains finalized function arguments.
+	arguments map[string]any
+	// custom reports whether the item uses custom tool input.
+	custom bool
+	// customInput contains exact finalized custom input.
 	customInput string
 }
 
 // semanticAssembler converts Codex output indexes into provider-neutral content positions.
 type semanticAssembler struct {
-	handle                    run.StreamHandler
+	// handle receives provider-neutral stream events.
+	handle run.StreamHandler
+	// completedOutputByPosition contains authoritative terminal output by provider index.
 	completedOutputByPosition map[int64]responses.ResponseOutputItemUnion
-	slots                     map[outputKey]outputSlot
-	functionCalls             map[int64]*functionOutputSlot
-	pendingFunctionCalls      map[int64]pendingFunctionOutput
-	finalizedFunctionCalls    map[int64]finalizedFunctionOutput
-	grammarInputProperties    map[string]string
-	next                      int
+	// slots contains content lifecycle state by provider index.
+	slots map[outputKey]outputSlot
+	// functionCalls contains active function calls by provider index.
+	functionCalls map[int64]*functionOutputSlot
+	// pendingFunctionCalls contains incomplete calls awaiting terminal output.
+	pendingFunctionCalls map[int64]pendingFunctionOutput
+	// finalizedFunctionCalls contains completed calls by provider index.
+	finalizedFunctionCalls map[int64]finalizedFunctionOutput
+	// grammarInputProperties maps tool names to constrained argument fields.
+	grammarInputProperties map[string]string
+	// next is the next compact response content position.
+	next int
 }
 
 func newSemanticAssembler(

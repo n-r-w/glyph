@@ -32,14 +32,22 @@ var (
 
 // Service owns one active run state and orders dependent work around canonical history ownership.
 type Service struct {
+	// instructions contains the system prompt for each model request.
 	instructions string
-	runtime      ModelRuntime
-	hooks        hooks.ContextRunner
-	tools        ToolRuntime
-	events       EventSink
+	// runtime provides the current immutable model selection.
+	runtime ModelRuntime
+	// hooks transforms request-local history before provider dispatch.
+	hooks hooks.ContextRunner
+	// tools provides the active tool catalog and execution.
+	tools ToolRuntime
+	// events receives ordered Agent Core lifecycle events.
+	events EventSink
+	// historyStore owns canonical durable conversation history.
 	historyStore HistoryStore
 
+	// mutex protects state.
 	mutex sync.RWMutex
+	// state contains the current run snapshot.
 	state State
 }
 

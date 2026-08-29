@@ -28,24 +28,34 @@ const (
 
 // Client owns one UI plugin process connection and its fixed capabilities.
 type Client struct {
-	process      *plugin.Client
-	service      uipb.UIServiceClient
+	// process owns the go-plugin process connection.
+	process *plugin.Client
+	// service is the generated UI gRPC client.
+	service uipb.UIServiceClient
+	// capabilities contains immutable UI startup behavior.
 	capabilities *uipb.GetCapabilitiesResponse
-	done         <-chan struct{}
-	version      int
-	closeOnce    sync.Once
+	// done closes when the UI process exits.
+	done <-chan struct{}
+	// version is the negotiated protocol version.
+	version int
+	// closeOnce limits process closure to one attempt.
+	closeOnce sync.Once
 }
 
 // grpcUIPlugin adapts the generated UI service to go-plugin.
 type grpcUIPlugin struct {
+	// NetRPCUnsupportedPlugin disables unsupported net/rpc transport.
 	plugin.NetRPCUnsupportedPlugin
+	// server implements the generated UI service.
 	server uipb.UIServiceServer
 }
 
 // uiGRPCClient retains the generated client and go-plugin lifecycle signal.
 type uiGRPCClient struct {
+	// service is the generated UI gRPC client.
 	service uipb.UIServiceClient
-	done    <-chan struct{}
+	// done closes when the UI process exits.
+	done <-chan struct{}
 }
 
 // Connect starts one process, negotiates protocol v1, and retrieves fixed capabilities.

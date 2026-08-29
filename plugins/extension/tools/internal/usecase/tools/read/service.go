@@ -14,7 +14,10 @@ import (
 )
 
 // Service coordinates bounded project-file reads.
-type Service struct{ projectReader ProjectReader }
+type Service struct {
+	// projectReader reads bounded working-project content.
+	projectReader ProjectReader
+}
 
 var _ extensioncontroller.ReadTool = (*Service)(nil)
 

@@ -33,8 +33,11 @@ var _ searchtool.ProjectFiles = (*Service)(nil)
 
 // searchOutput retains complete output lines within the shared text budget.
 type searchOutput struct {
-	lines     []string
-	bytes     int
+	// lines contains complete model-visible output lines.
+	lines []string
+	// bytes is the current model-visible byte count.
+	bytes int
+	// truncated reports whether the shared text budget was reached.
 	truncated bool
 }
 
@@ -121,16 +124,26 @@ func walkDirectory(ctx context.Context, path string, visit func(string, fs.DirEn
 
 // grepSearch holds bounded state shared across one project traversal.
 type grepSearch struct {
-	ctx          context.Context
-	command      searchtool.GrepCommand
-	matcher      *regexp.Regexp
-	root         string
-	limit        uint
+	// ctx controls the search traversal.
+	ctx context.Context
+	// command contains validated grep options.
+	command searchtool.GrepCommand
+	// matcher evaluates each source line.
+	matcher *regexp.Regexp
+	// root is the canonical project root.
+	root string
+	// limit is the maximum number of matches.
+	limit uint
+	// contextLines is the number of surrounding lines to include.
 	contextLines uint
-	output       *searchOutput
-	matches      uint
-	limited      bool
-	longLine     bool
+	// output accumulates bounded model-visible lines.
+	output *searchOutput
+	// matches counts recorded matches.
+	matches uint
+	// limited reports whether the match limit was reached.
+	limited bool
+	// longLine reports whether any source line was shortened.
+	longLine bool
 }
 
 // Grep searches regular files without following symbolic links.
@@ -237,12 +250,19 @@ func (g *grepSearch) result() searchtool.GrepResult {
 
 // boundedLine is an io.RuneReader that exposes one line without storing it.
 type boundedLine struct {
-	ctx       context.Context
-	reader    *bufio.Reader
-	shown     strings.Builder
-	ended     bool
-	seen      bool
-	long      bool
+	// ctx controls source reading.
+	ctx context.Context
+	// reader provides buffered source runes.
+	reader *bufio.Reader
+	// shown retains the bounded displayed line prefix.
+	shown strings.Builder
+	// ended reports whether the source line ended.
+	ended bool
+	// seen reports whether any rune was read.
+	seen bool
+	// long reports whether the displayed line was shortened.
+	long bool
+	// sourceErr retains a source read failure.
 	sourceErr error
 }
 
@@ -313,18 +333,30 @@ func grepFile(
 
 // grepReaderState retains bounded context while processing one source.
 type grepReaderState struct {
-	ctx          context.Context
-	path         string
-	reader       *bufio.Reader
-	matcher      *regexp.Regexp
+	// ctx controls source reading.
+	ctx context.Context
+	// path identifies the displayed project-relative file.
+	path string
+	// reader provides buffered source bytes.
+	reader *bufio.Reader
+	// matcher evaluates each source line.
+	matcher *regexp.Regexp
+	// contextLines is the number of surrounding lines to include.
 	contextLines uint
-	remaining    uint
-	output       *searchOutput
-	previous     []string
-	lineNumber   uint
-	after        uint
-	matches      uint
-	longLine     bool
+	// remaining is the available match count.
+	remaining uint
+	// output accumulates bounded model-visible lines.
+	output *searchOutput
+	// previous retains bounded lines before the current match.
+	previous []string
+	// lineNumber identifies the current source line.
+	lineNumber uint
+	// after counts remaining lines after a match.
+	after uint
+	// matches counts recorded matches in this source.
+	matches uint
+	// longLine reports whether any source line was shortened.
+	longLine bool
 }
 
 // grepReader processes one source without retaining an unbounded line.

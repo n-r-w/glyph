@@ -160,6 +160,12 @@ message ConfiguredModel {
   string model_id = 2;
   // The model reasoning capabilities.
   ReasoningCapabilities reasoning = 3;
+  // The ordered input modalities accepted by the model.
+  repeated InputModality input_modalities = 4;
+  // The maximum combined input and generated-output token capacity.
+  int64 context_window = 5;
+  // The maximum generated-output token count.
+  int64 max_tokens = 6;
 }
 
 // ReasoningCapabilities describes one model reasoning contract.
@@ -610,6 +616,16 @@ enum RejectionCode {
   REJECTION_CODE_SESSION_UNAVAILABLE = 9;
   // The active session cannot accept persistence mutations.
   REJECTION_CODE_PERSISTENCE_UNAVAILABLE = 10;
+}
+
+// InputModality identifies one model input content kind.
+enum InputModality {
+  // No input modality was provided.
+  INPUT_MODALITY_UNSPECIFIED = 0;
+  // Text input.
+  INPUT_MODALITY_TEXT = 1;
+  // Image input.
+  INPUT_MODALITY_IMAGE = 2;
 }
 
 // ReasoningChoice identifies provider-neutral reasoning behavior.

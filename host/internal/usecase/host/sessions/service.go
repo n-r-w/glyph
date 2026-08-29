@@ -245,10 +245,14 @@ func (s *Service) ActiveInformation() session.InformationSnapshot {
 
 // sessionEntryCounts owns shared public-message counts for durable session entries.
 type sessionEntryCounts struct {
-	userMessages   int
+	// userMessages counts durable user entries.
+	userMessages int
+	// modelResponses counts durable terminal model entries.
 	modelResponses int
-	toolResults    int
-	totalMessages  int
+	// toolResults counts durable terminal tool result entries.
+	toolResults int
+	// totalMessages counts all public terminal messages.
+	totalMessages int
 }
 
 // add owns which durable entry kinds count as public messages.
@@ -279,12 +283,16 @@ func countSessionEntries(entries []session.Entry) sessionEntryCounts {
 }
 
 type providerModelKey struct {
+	// provider identifies the configured model provider.
 	provider model.ProviderID
-	model    model.ID
+	// model identifies the requested provider model.
+	model model.ID
 }
 
 type accumulatedCost struct {
-	value     session.EstimatedCost
+	// value contains accumulated disjoint cost buckets.
+	value session.EstimatedCost
+	// available reports whether every response had persisted cost.
 	available bool
 }
 

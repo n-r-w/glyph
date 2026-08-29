@@ -33,6 +33,7 @@ type sessionComposition struct {
 
 // pricingCatalogBinding preserves storage-first startup while binding the UI-dependent provider catalog once.
 type pricingCatalogBinding struct {
+	// catalog is the provider catalog bound after storage initialization.
 	catalog *providers.Catalog
 }
 

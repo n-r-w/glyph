@@ -22,9 +22,12 @@ var ErrSignInRequired = errors.New("OpenAI Codex sign-in required")
 
 // tokenResponse contains the provider refresh fields used to rotate credentials.
 type tokenResponse struct {
-	AccessToken  string `json:"access_token"`
+	// AccessToken contains the rotated access token.
+	AccessToken string `json:"access_token"`
+	// RefreshToken contains the rotated refresh token.
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int64  `json:"expires_in"`
+	// ExpiresIn contains the access token lifetime in seconds.
+	ExpiresIn int64 `json:"expires_in"`
 }
 
 // resolveCredentials reloads provider state and refreshes it at the approved threshold.

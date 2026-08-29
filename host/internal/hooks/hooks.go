@@ -25,23 +25,32 @@ type Header map[string][]string
 
 // Context contains one request-local provider-neutral history projection.
 type Context struct {
+	// History contains the copied provider-neutral request history.
 	History []agent.HistoryEntry
 }
 
 // Request contains copied serialized provider request values.
 type Request struct {
+	// Provider identifies the target model provider.
 	Provider model.ProviderID
-	Model    model.ID
-	Payload  []byte
-	Headers  Header
+	// Model identifies the target provider model.
+	Model model.ID
+	// Payload contains the serialized provider request body.
+	Payload []byte
+	// Headers contains copied provider request headers.
+	Headers Header
 }
 
 // Response contains copied provider response metadata without its body.
 type Response struct {
+	// Provider identifies the model provider that returned the response.
 	Provider model.ProviderID
-	Model    model.ID
-	Status   int
-	Headers  Header
+	// Model identifies the requested provider model.
+	Model model.ID
+	// Status contains the HTTP response status code.
+	Status int
+	// Headers contains copied provider response headers.
+	Headers Header
 }
 
 // ContextHandler transforms one request-local provider-neutral context.
@@ -66,7 +75,9 @@ type ProviderRunner interface {
 
 // HookError identifies the stage and cause of one internal hook failure.
 type HookError struct {
+	// Stage identifies the failed hook stage.
 	Stage Stage
+	// Cause contains the handler failure.
 	Cause error
 }
 

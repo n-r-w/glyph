@@ -10,6 +10,7 @@ import (
 
 // Service executes one parsed headless request.
 type Service struct {
+	// runner executes the validated user request.
 	runner AgentRunner
 }
 

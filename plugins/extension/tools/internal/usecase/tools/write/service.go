@@ -9,7 +9,10 @@ import (
 )
 
 // Service coordinates one complete file write.
-type Service struct{ projectWriter ProjectWriter }
+type Service struct {
+	// projectWriter writes complete working-project files.
+	projectWriter ProjectWriter
+}
 
 var _ extensioncontroller.WriteTool = (*Service)(nil)
 

@@ -30,35 +30,49 @@ const (
 	// APIResponses selects the Responses API.
 	APIResponses API = "responses"
 
-	reasoningWireFormatOpenAIResponses  = "openai-responses"
-	reasoningWireFormatOpenAIChatEffort = "openai-chat-effort"
-	reasoningWireFormatOllamaOrnith     = "ollama-ornith"
+	reasoningWireFormatOpenAIResponses     = "openai-responses"
+	reasoningWireFormatOpenAIChatReasoning = "openai-chat-reasoning"
 )
 
 // Config contains immutable configuration for one provider instance.
 type Config struct {
-	ProviderID                 model.ProviderID
-	BaseURL                    string
-	API                        API
-	Models                     map[model.ID]API
-	ReasoningWireFormats       map[model.ID]string
+	// ProviderID identifies the configured provider instance.
+	ProviderID model.ProviderID
+	// BaseURL is the provider API endpoint.
+	BaseURL string
+	// API identifies the default provider request contract.
+	API API
+	// Models contains request contract overrides by model.
+	Models map[model.ID]API
+	// ReasoningWireFormats contains reasoning request formats by model.
+	ReasoningWireFormats map[model.ID]string
+	// ReasoningCompatibilityKeys contains replay contracts by model.
 	ReasoningCompatibilityKeys map[model.ID]mo.Option[string]
-	APIKey                     APIKeyResolver
+	// APIKey resolves the provider credential for each request.
+	APIKey APIKeyResolver
 }
 
 // modelConfig contains provider-owned wire metadata for one configured model.
 type modelConfig struct {
-	api                       API
-	reasoningWireFormat       string
+	// api identifies the provider request contract.
+	api API
+	// reasoningWireFormat identifies the reasoning request format.
+	reasoningWireFormat string
+	// reasoningCompatibilityKey identifies the replay contract.
 	reasoningCompatibilityKey mo.Option[string]
 }
 
 // Driver owns one immutable OpenAI-compatible provider instance.
 type Driver struct {
+	// providerID identifies the configured provider instance.
 	providerID model.ProviderID
-	baseURL    string
-	models     map[model.ID]modelConfig
-	apiKey     APIKeyResolver
+	// baseURL is the provider API endpoint.
+	baseURL string
+	// models contains provider wire metadata by model.
+	models map[model.ID]modelConfig
+	// apiKey resolves the provider credential for each request.
+	apiKey APIKeyResolver
+	// httpClient sends provider requests.
 	httpClient *http.Client
 }
 
@@ -131,7 +145,7 @@ func reasoningWireFormatMatchesAPI(format string, api API) bool {
 		return true
 	case reasoningWireFormatOpenAIResponses:
 		return api == APIResponses
-	case reasoningWireFormatOpenAIChatEffort, reasoningWireFormatOllamaOrnith:
+	case reasoningWireFormatOpenAIChatReasoning:
 		return api == APIChatCompletions
 	default:
 		return false
@@ -268,7 +282,10 @@ func failureResponse(outcome model.Outcome, message string) model.Response {
 	}
 }
 
-type streamHandlerError struct{ err error }
+type streamHandlerError struct {
+	// err contains the retained stream handler failure.
+	err error
+}
 
 func (failure streamHandlerError) Error() string {
 	return "stream handler failed: " + failure.err.Error()

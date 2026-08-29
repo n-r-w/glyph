@@ -96,36 +96,46 @@ const (
 
 // Candidate identifies one executable UI plugin candidate.
 type Candidate struct {
-	ID   string
+	// ID identifies the UI plugin.
+	ID string
+	// Path is the UI plugin executable path.
 	Path string
 }
 
 // Directory identifies the effective UI catalog directory.
 type Directory struct {
+	// Path is the effective UI catalog directory path.
 	Path string
 }
 
 // Discovery is one complete valid UI catalog.
 type Discovery struct {
+	// Candidates contains valid UI plugins in discovery order.
 	Candidates []Candidate
 }
 
 // Capabilities contains immutable startup behavior for one UI plugin.
 type Capabilities struct {
+	// ControlsTerminal reports whether the UI plugin owns terminal setup.
 	ControlsTerminal bool
 }
 
 // StartupContent carries one initialization information or error item.
 type StartupContent struct {
+	// Severity identifies the content importance.
 	Severity ContentSeverity
-	Text     string
+	// Text contains the user-visible startup message.
+	Text string
 }
 
 // ExtensionAvailability identifies one available extension and its tool names.
 type ExtensionAvailability struct {
+	// PluginID identifies the available extension.
 	PluginID string
-	Path     string
-	Tools    []string
+	// Path is the extension executable path.
+	Path string
+	// Tools lists model-callable tool names.
+	Tools []string
 }
 
 // ReasoningChoice identifies one provider-neutral reasoning choice.
@@ -152,32 +162,47 @@ const (
 
 // ReasoningCapabilities describes one model reasoning contract.
 type ReasoningCapabilities struct {
+	// Supported reports whether the model supports reasoning controls.
 	Supported bool
-	Choices   []ReasoningChoice
-	Default   ReasoningChoice
+	// Choices lists supported reasoning choices in display order.
+	Choices []ReasoningChoice
+	// Default is the reasoning choice used without an explicit selection.
+	Default ReasoningChoice
 }
 
 // ConfiguredModel identifies one selectable model and its reasoning contract.
 type ConfiguredModel struct {
+	// ProviderID identifies the configured provider.
 	ProviderID string
-	ModelID    string
-	Reasoning  ReasoningCapabilities
+	// ModelID identifies the configured provider model.
+	ModelID string
+	// Reasoning describes the model reasoning contract.
+	Reasoning ReasoningCapabilities
 }
 
 // ModelSelection identifies one Host-confirmed active selection.
 type ModelSelection struct {
-	ProviderID      string
-	ModelID         string
+	// ProviderID identifies the selected provider.
+	ProviderID string
+	// ModelID identifies the selected provider model.
+	ModelID string
+	// ReasoningChoice identifies the selected reasoning behavior.
 	ReasoningChoice ReasoningChoice
 }
 
 // Initialization is the first Host frame sent to a selected UI.
 type Initialization struct {
-	SelectedUIID   string
+	// SelectedUIID identifies the UI plugin selected by the Host.
+	SelectedUIID string
+	// StartupContent contains ordered startup messages.
 	StartupContent []StartupContent
-	Extensions     []ExtensionAvailability
-	Availability   Availability
-	Models         []ConfiguredModel
+	// Extensions lists available extensions and their tools.
+	Extensions []ExtensionAvailability
+	// Availability identifies which user actions the Host accepts.
+	Availability Availability
+	// Models lists selectable configured models.
+	Models []ConfiguredModel
+	// ModelSelection contains the active model selection when configured.
 	ModelSelection mo.Option[ModelSelection]
 	// SessionInfo identifies the empty active session created before UI startup.
 	SessionInfo session.Info
@@ -209,91 +234,144 @@ const (
 
 // ModelContent carries one typed model content transition.
 type ModelContent struct {
-	Type     ModelContentType
-	Kind     ModelContentKind
+	// Type identifies the content lifecycle transition.
+	Type ModelContentType
+	// Kind identifies visible text, refusal, or hidden reasoning content.
+	Kind ModelContentKind
+	// Position identifies the content block order within the response.
 	Position int
-	Text     mo.Option[string]
+	// Text contains a text fragment for a delta transition.
+	Text mo.Option[string]
 }
 
 // ModelResponseContent carries one ordered finalized model block.
 type ModelResponseContent struct {
-	Kind     ModelContentKind
-	Text     string
+	// Kind identifies the finalized content type.
+	Kind ModelContentKind
+	// Text contains finalized text content.
+	Text string
+	// ToolCall contains a finalized tool call when present.
 	ToolCall mo.Option[FinalToolCall]
 }
 
 // ModelUsage carries provider-reported token accounting.
 type ModelUsage struct {
-	InputTokens       int64
-	OutputTokens      int64
+	// InputTokens contains uncached input tokens.
+	InputTokens int64
+	// OutputTokens contains output tokens including reasoning tokens.
+	OutputTokens int64
+	// CachedInputTokens contains cache-read input tokens.
 	CachedInputTokens int64
-	CacheWriteTokens  int64
-	ReasoningTokens   int64
-	TotalTokens       int64
+	// CacheWriteTokens contains cache creation input tokens.
+	CacheWriteTokens int64
+	// ReasoningTokens contains the reasoning subset of OutputTokens.
+	ReasoningTokens int64
+	// TotalTokens is the sum of disjoint input and output buckets.
+	TotalTokens int64
 }
 
 // ModelDiagnostic carries typed provider diagnostics.
 type ModelDiagnostic struct {
-	Code    string
+	// Code identifies the diagnostic type.
+	Code string
+	// Message contains diagnostic details.
 	Message string
 }
 
 // ModelResponse carries typed terminal model data.
 type ModelResponse struct {
-	Text          string
-	Outcome       mo.Option[string]
-	ErrorMessage  mo.Option[string]
-	Provider      mo.Option[string]
-	Model         mo.Option[string]
+	// Text contains the flattened visible response text.
+	Text string
+	// Outcome identifies why the response ended.
+	Outcome mo.Option[string]
+	// ErrorMessage contains a terminal provider or runtime failure message.
+	ErrorMessage mo.Option[string]
+	// Provider identifies the provider used for the request.
+	Provider mo.Option[string]
+	// Model identifies the configured model used for the request.
+	Model mo.Option[string]
+	// ResponseModel identifies the model reported by the provider.
 	ResponseModel mo.Option[string]
-	ResponseID    mo.Option[string]
-	Content       []ModelResponseContent
-	Usage         mo.Option[ModelUsage]
-	Diagnostics   []ModelDiagnostic
+	// ResponseID identifies the response in the provider system.
+	ResponseID mo.Option[string]
+	// Content contains ordered finalized response blocks.
+	Content []ModelResponseContent
+	// Usage contains provider-reported token accounting.
+	Usage mo.Option[ModelUsage]
+	// Diagnostics contains typed provider or runtime failure details.
+	Diagnostics []ModelDiagnostic
 }
 
 // ToolCallPreviewField carries one complete value or exact scalar prefix.
 type ToolCallPreviewField struct {
-	Name     string
-	Value    mo.Option[any]
-	Prefix   mo.Option[string]
+	// Name identifies the argument field.
+	Name string
+	// Value contains a fully received JSON value.
+	Value mo.Option[any]
+	// Prefix contains an exact received scalar prefix.
+	Prefix mo.Option[string]
+	// Complete reports whether Value is final.
 	Complete bool
 }
 
 // ToolCallPreview carries transient function-call state.
 type ToolCallPreview struct {
-	CallID      string
-	Name        string
-	Position    int
+	// CallID identifies the provisional tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Provisional reports whether the preview can still change.
 	Provisional bool
-	Fields      []ToolCallPreviewField
+	// Fields contains ordered provisional argument fields.
+	Fields []ToolCallPreviewField
 }
 
 // FinalToolCall carries exact terminal arguments.
 type FinalToolCall struct {
-	CallID    string
-	Name      string
-	Position  int
+	// CallID identifies the finalized tool call.
+	CallID string
+	// Name identifies the requested tool.
+	Name string
+	// Position identifies the call order within the response.
+	Position int
+	// Arguments contains the finalized tool input.
 	Arguments map[string]any
 }
 
 // Lifecycle carries one explicit provider-neutral lifecycle event.
 type Lifecycle struct {
-	Type               LifecycleType
-	RunID              mo.Option[string]
-	Text               mo.Option[string]
+	// Type identifies the lifecycle transition and active payload.
+	Type LifecycleType
+	// RunID identifies the agent run.
+	RunID mo.Option[string]
+	// Text contains transition-specific text.
+	Text mo.Option[string]
+	// ToolResultContents contains ordered terminal tool result blocks.
 	ToolResultContents mo.Option[[]tool.ResultContent]
-	ModelContent       mo.Option[ModelContent]
-	ModelResponse      mo.Option[ModelResponse]
-	ToolCallPreview    mo.Option[ToolCallPreview]
-	FinalToolCall      mo.Option[FinalToolCall]
-	ToolCallID         mo.Option[string]
-	ToolName           mo.Option[string]
-	ProgressChannel    mo.Option[ProgressChannel]
-	IsError            mo.Option[bool]
-	Outcome            mo.Option[string]
-	ErrorMessage       mo.Option[string]
-	Availability       mo.Option[Availability]
+	// ModelContent contains one model content transition.
+	ModelContent mo.Option[ModelContent]
+	// ModelResponse contains typed terminal model data.
+	ModelResponse mo.Option[ModelResponse]
+	// ToolCallPreview contains provisional tool call state.
+	ToolCallPreview mo.Option[ToolCallPreview]
+	// FinalToolCall contains exact terminal tool call arguments.
+	FinalToolCall mo.Option[FinalToolCall]
+	// ToolCallID identifies the active tool call.
+	ToolCallID mo.Option[string]
+	// ToolName identifies the active tool.
+	ToolName mo.Option[string]
+	// ProgressChannel identifies the meaning of progress Text.
+	ProgressChannel mo.Option[ProgressChannel]
+	// IsError reports whether a terminal tool result failed.
+	IsError mo.Option[bool]
+	// Outcome identifies why the agent or model run ended.
+	Outcome mo.Option[string]
+	// ErrorMessage contains a terminal failure message.
+	ErrorMessage mo.Option[string]
+	// Availability contains the updated Host availability.
+	Availability mo.Option[Availability]
 }
 
 // FrameKind identifies one Host-to-UI frame payload.
@@ -322,13 +400,20 @@ const (
 
 // Frame carries exactly one Host-to-UI payload.
 type Frame struct {
-	Kind                FrameKind
-	Initialization      mo.Option[Initialization]
-	Lifecycle           mo.Option[Lifecycle]
-	AuthorizationURL    mo.Option[string]
-	Text                mo.Option[string]
+	// Kind identifies the frame payload.
+	Kind FrameKind
+	// Initialization contains startup state for an initialization frame.
+	Initialization mo.Option[Initialization]
+	// Lifecycle contains one lifecycle transition.
+	Lifecycle mo.Option[Lifecycle]
+	// AuthorizationURL contains the browser OAuth URL.
+	AuthorizationURL mo.Option[string]
+	// Text contains user-visible information or error text.
+	Text mo.Option[string]
+	// RetryAuthentication reports whether the UI may retry authentication.
 	RetryAuthentication mo.Option[bool]
-	ModelSelection      mo.Option[ModelSelection]
+	// ModelSelection contains the committed active selection.
+	ModelSelection mo.Option[ModelSelection]
 	// SessionInfo is present on replacement and information frames.
 	SessionInfo mo.Option[session.Info]
 	// Sessions is populated only by a list frame.
@@ -341,12 +426,17 @@ type Frame struct {
 
 // SessionEntry carries one restored public terminal item.
 type SessionEntry struct {
-	ID        string
+	// ID identifies the restored session record.
+	ID string
+	// CreatedAt is the persisted record creation time.
 	CreatedAt time.Time
-	Kind      SessionEntryKind
+	// Kind identifies the restored entry payload.
+	Kind SessionEntryKind
 	// User carries ordered public text and image content for restored transcripts.
-	User       mo.Option[model.Message]
-	Model      mo.Option[ModelResponse]
+	User mo.Option[model.Message]
+	// Model contains a restored terminal model response.
+	Model mo.Option[ModelResponse]
+	// ToolResult contains a restored terminal tool result.
 	ToolResult mo.Option[agent.ToolResult]
 }
 
@@ -392,10 +482,15 @@ const (
 
 // Command carries exactly one UI-to-Host command.
 type Command struct {
-	Kind            CommandKind
-	Text            mo.Option[string]
-	ProviderID      mo.Option[string]
-	ModelID         mo.Option[string]
+	// Kind identifies the requested Host action and active payload.
+	Kind CommandKind
+	// Text contains submitted user text.
+	Text mo.Option[string]
+	// ProviderID identifies a requested model provider.
+	ProviderID mo.Option[string]
+	// ModelID identifies a requested provider model.
+	ModelID mo.Option[string]
+	// ReasoningChoice identifies a requested reasoning behavior.
 	ReasoningChoice mo.Option[ReasoningChoice]
 	// SessionID is present only for resume.
 	SessionID mo.Option[string]

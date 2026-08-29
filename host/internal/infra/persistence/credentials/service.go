@@ -22,13 +22,17 @@ const (
 
 // credentialStore is the versioned Host-owned persistence envelope.
 type credentialStore struct {
-	Version   int                        `json:"version"`
+	// Version identifies the credential file schema.
+	Version int `json:"version"`
+	// Providers contains opaque credential payloads by provider identifier.
 	Providers map[string]json.RawMessage `json:"providers"`
 }
 
 // Service stores one provider payload in the shared credential file.
 type Service struct {
-	path       string
+	// path is the shared credential file path.
+	path string
+	// providerID identifies the owned provider payload.
 	providerID string
 }
 

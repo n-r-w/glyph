@@ -26,12 +26,18 @@ const (
 
 // Command contains one validated invocation.
 type Command struct {
-	Mode               Mode
-	Headless           headless.Command
+	// Mode identifies the selected Glyph operation mode.
+	Mode Mode
+	// Headless contains the validated headless command.
+	Headless headless.Command
+	// ExtensionDirectory overrides the extension catalog directory.
 	ExtensionDirectory string
-	UIDirectory        string
-	UIID               string
-	SocketPath         string
+	// UIDirectory overrides the UI catalog directory.
+	UIDirectory string
+	// UIID identifies an explicitly selected UI plugin.
+	UIID string
+	// SocketPath overrides the Programmatic Control socket path.
+	SocketPath string
 }
 
 // Parse validates one Glyph controller invocation.

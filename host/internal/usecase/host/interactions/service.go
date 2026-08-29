@@ -20,7 +20,9 @@ type Browser interface {
 
 // Service routes provider interaction requests to one active client and browser.
 type Service struct {
+	// present sends an authorization URL to the active client.
 	present func(context.Context, string) error
+	// browser opens authorization URLs on the local system.
 	browser Browser
 }
 

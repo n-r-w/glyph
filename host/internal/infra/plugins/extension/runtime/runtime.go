@@ -26,10 +26,13 @@ import (
 
 // Runtime owns one extension process connection.
 type Runtime struct {
+	// client owns the extension process connection.
 	client *extensionsdk.Client
 
+	// catalogMutex protects schemas during catalog access.
 	catalogMutex sync.RWMutex
-	schemas      map[string]*jsonschema.Schema
+	// schemas contains compiled input schemas by tool name.
+	schemas map[string]*jsonschema.Schema
 }
 
 var _ toolservice.ExtensionRuntime = (*Runtime)(nil)

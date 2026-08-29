@@ -14,7 +14,7 @@ Run every concrete model provider through one extension contract and move the bu
 
 ## Target Picture
 
-- SOL-01: Every concrete provider implementation, including the implementations distributed with Glyph, runs as an extension through one provider contract. Host owns provider-neutral catalogue, selection, validation, credential storage, middleware coordination, retry coordination, and dispatch.
+- SOL-01: Every concrete provider implementation, including the implementations distributed with Glyph, runs as an extension through one provider contract. Each provider registration becomes the runtime source for its complete provider-neutral model descriptors. Host owns provider-neutral catalogue, selection, validation, credential storage, middleware coordination, retry coordination, and dispatch.
 
 ## Scenarios
 
@@ -50,13 +50,15 @@ Out of scope:
 
 ### Functional Requirements
 
-- FRQ-01: Add provider registration and removal with authentication, model catalogue, request serialization, streamed responses, failure classification, and provider reasoning context replay. Every registered model shall publish the provider-neutral `input`, `contextWindow`, and `maxTokens` descriptor fields defined by PHS-04.1.
+- FRQ-01: Add provider registration and removal with authentication, model catalogue, request serialization, streamed responses, failure classification, and provider reasoning context replay. Every registered model shall publish the complete provider-neutral descriptor defined by PHS-04.1, including `input`, `contextWindow`, `maxTokens`, and `toolCapabilities`. After successful registration, that descriptor shall be the runtime source for the Host catalogue, budgeting, and input validation. Programmatic Control shall expose only its defined `input`, `contextWindow`, `maxTokens`, and reasoning projection.
 - FRQ-01.1: Host shall reject a complete provider registration when any published model violates the PHS-04.1 descriptor rules and shall register none of that provider's models.
 - FRQ-01.2: Provider reasoning context emitted by a provider extension shall remain unchanged in persisted session data and shall return only to the owning compatible provider implementation after session resume.
 - FRQ-02: Move the OpenAI Codex and OpenAI-compatible provider implementations from Host infrastructure into bundled provider extensions.
 - FRQ-02.1: The bundled provider extensions shall preserve the PHS-03 behavior for OpenAI Codex OAuth, OpenAI-compatible API-key resolution, Chat Completions, Responses, streamed output, usage, failure classification, reasoning wire formats, and provider reasoning context replay.
 - FRQ-02.2: After migration, Host shall contain no provider-specific authentication, request serialization, response decoding, stream assembly, usage mapping, failure classification, or provider reasoning context replay implementation.
 - FRQ-02.3: Bundled and separately delivered provider extensions shall use the same registration, execution, cancellation, failure, process runtime, and shutdown contracts.
+- FRQ-02.4: Provider extension registration shall replace settings-defined built-in model metadata as the runtime source for bundled model descriptors. Each bundled provider extension shall register complete descriptors from declarative extension-owned model catalogue data. Host shall not construct a bundled provider's descriptor from a provider type, model identifier, or Host-owned provider-specific defaults.
+- FRQ-02.5: Executable bundled-provider code shall contain no model-identifier capability branch and no model-specific capability table. The declarative catalogue file format remains a PHS-12 technical-solution decision.
 - FRQ-03: Host shall provide provider implementations with generic credential storage and client interaction.
 - FRQ-03.1: Credential operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads and writes. This namespace shall not claim to isolate credentials from trusted extensions running with the user's operating-system permissions.
 - FRQ-04: Integrate every registered provider with the Host model catalogue, model selection, extension model requests, provider middleware, retry coordination, and Agent Core model execution.
@@ -81,11 +83,13 @@ Out of scope:
 - ACC-04: Removing or losing a provider registration preserves the active model when selection of a replacement model fails.
 - ACC-05: Invalid execution-capability metadata returns an explicit registration error and adds none of that provider's models. A duplicate provider identifier group registers no provider from that group.
 - ACC-06: A provider extension emits opaque provider reasoning context, Glyph persists and restores it with the session, and the next compatible request returns the exact payload only to that provider implementation.
-- ACC-07: Host packages contain no OpenAI Codex or OpenAI-compatible authentication, wire request, response decoding, stream assembly, usage mapping, failure classification, or provider reasoning context replay implementation.
+- ACC-07: Host packages contain no OpenAI Codex or OpenAI-compatible authentication, wire request, response decoding, stream assembly, usage mapping, failure classification, provider reasoning context replay, or built-in model-descriptor construction.
+- ACC-08: A bundled provider extension registers one complete model descriptor with explicit `input`, `contextWindow`, `maxTokens`, and `toolCapabilities`. The Host catalogue preserves the exact complete descriptor, while Programmatic Control exposes exact `input`, `contextWindow`, `maxTokens`, and reasoning values without exposing `toolCapabilities`. Host neither reconstructs nor overwrites registered descriptor values from settings-defined built-in model metadata.
+- ACC-09: Bundled provider extensions load descriptor values from declarative extension-owned model catalogue data. Executable provider code contains no model-identifier capability branch or model-specific capability table.
 
 ## Overengineering and Overspecification Considerations
 
-The ticket replaces two provider execution paths with one extension contract. It adds no separate override or restoration mechanism for bundled providers. PHS-15 applies the ordinary extension package lifecycle to bundled provider extensions.
+The ticket replaces two provider execution paths with one extension contract. It adds no separate override or restoration mechanism for bundled providers. It does not select the declarative model catalogue file format before the PHS-12 technical solution. PHS-15 applies the ordinary extension package lifecycle to bundled provider extensions.
 
 ## Constraints and Risks
 
