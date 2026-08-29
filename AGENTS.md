@@ -45,7 +45,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
 
 ## Coding rules
-1. MUST run before completing changes:
+1. MUST run before completing changes in code:
     1) `go fix -diff ./...` -> analyze proposal -> `go fix ./...`
     2) `task lint`
     3) `task test`
