@@ -2,8 +2,6 @@ package sessions_test
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json/v2"
 	"fmt"
 	"log/slog"
@@ -608,7 +606,6 @@ func newValidationRepository(t *testing.T) (*sessionstore.Service, string, strin
 	require.NoError(t, err)
 	repository := sessionstore.New(root, cwd, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
-	digest := sha256.Sum256([]byte(cwd))
-	projectDirectory := filepath.Join(root, hex.EncodeToString(digest[:]))
+	projectDirectory := filepath.Join(root, sessionstore.ProjectDirectoryName(cwd))
 	return repository, projectDirectory, cwd
 }

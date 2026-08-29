@@ -3,9 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-
-	"encoding/hex"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -27,6 +24,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	sessionstore "github.com/n-r-w/glyph/host/internal/infra/persistence/sessions"
 
 	hostterminal "github.com/n-r-w/glyph/host/internal/infra/terminal"
 )
@@ -187,10 +185,10 @@ func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testi
 	require.NoError(t, err)
 	canonical, err := filepath.EvalSymlinks(workingDirectory)
 	require.NoError(t, err)
-	digest := sha256.Sum256([]byte(filepath.Clean(canonical)))
+	projectDirectoryName := sessionstore.ProjectDirectoryName(filepath.Clean(canonical))
 	sessionRoot := filepath.Join(paths.Directory, "sessions")
 	require.NoError(t, os.Mkdir(sessionRoot, 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(sessionRoot, hex.EncodeToString(digest[:])), []byte("blocked"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(sessionRoot, projectDirectoryName), []byte("blocked"), 0o600))
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = countingFailureTransport{requests: requests}

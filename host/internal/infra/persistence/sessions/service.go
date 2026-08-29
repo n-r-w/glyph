@@ -3,9 +3,6 @@ package sessions
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-
 	"errors"
 	"fmt"
 	"io"
@@ -36,7 +33,7 @@ type Service struct {
 	root string
 	// workingDirectory is the canonical project path required in every loaded header.
 	workingDirectory string
-	// projectDirectory is the SHA-256 partition used for all path-confined file access.
+	// projectDirectory is the readable path partition used for all path-confined file access.
 	projectDirectory string
 	// fileSystem performs ordered file-descriptor durability operations.
 	fileSystem FileSystem
@@ -46,12 +43,17 @@ var _ hostsessions.Repository = (*Service)(nil)
 
 // New creates a session repository with explicit filesystem operations.
 func New(root, workingDirectory string, fileSystem FileSystem) *Service {
-	digest := sha256.Sum256([]byte(workingDirectory))
 	return &Service{
 		root: root, workingDirectory: workingDirectory,
-		projectDirectory: filepath.Join(root, hex.EncodeToString(digest[:])),
+		projectDirectory: filepath.Join(root, ProjectDirectoryName(workingDirectory)),
 		fileSystem:       fileSystem,
 	}
+}
+
+// ProjectDirectoryName returns the readable session directory name for a canonical working directory.
+func ProjectDirectoryName(workingDirectory string) string {
+	projectPath := strings.TrimPrefix(filepath.ToSlash(workingDirectory), "/")
+	return "--" + strings.ReplaceAll(projectPath, "/", "-") + "--"
 }
 
 // CanonicalWorkingDirectory resolves an absolute, symlink-free project path.
@@ -154,7 +156,7 @@ func (s *Service) CreateSnapshot(
 		return hostsessions.CreateSnapshotResult{}, err
 	}
 	payload = append(payload, line...)
-	name := filename(command.Header)
+	name := SessionFilename(command.Header)
 	file, err := s.fileSystem.OpenFile(s.projectDirectory, name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileMode)
 	if err != nil {
 		return hostsessions.CreateSnapshotResult{}, fmt.Errorf("open session snapshot: %w", err)
@@ -197,7 +199,7 @@ func (s *Service) persistPayload(header session.Header, storagePath string, muta
 		if header.Version != formatVersion || header.ID == "" || header.WorkingDirectory != s.workingDirectory {
 			return "", errors.New("invalid session header")
 		}
-		name = filename(header)
+		name = SessionFilename(header)
 		path = filepath.Join(s.projectDirectory, name)
 		encodedHeader, err := encodeHeader(header)
 		if err != nil {
@@ -244,7 +246,7 @@ func persist(file File, created bool, payload []byte) error {
 	return errors.Join(syncErr, file.Close())
 }
 
-// filename keeps creation ordering visible while retaining the opaque session ID.
-func filename(header session.Header) string {
+// SessionFilename keeps creation ordering visible while retaining the opaque session ID.
+func SessionFilename(header session.Header) string {
 	return header.CreatedAt.UTC().Format("20060102T150405.000000000Z") + "-" + string(header.ID) + ".jsonl"
 }

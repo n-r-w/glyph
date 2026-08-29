@@ -1,8 +1,6 @@
 package sessions_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -90,13 +88,11 @@ func TestReplayRejectsInvalidVersion2Tree(t *testing.T) {
 }
 
 func projectDirectory(root, project string) string {
-	digest := sha256.Sum256([]byte(project))
-	return filepath.Join(root, hex.EncodeToString(digest[:]))
+	return filepath.Join(root, persistedsessions.ProjectDirectoryName(project))
 }
 
 func sessionPath(root, project string, header session.Header) string {
-	name := header.CreatedAt.UTC().Format("20060102T150405.000000000Z") + "-" + string(header.ID) + ".jsonl"
-	return filepath.Join(projectDirectory(root, project), name)
+	return filepath.Join(projectDirectory(root, project), persistedsessions.SessionFilename(header))
 }
 
 func validRootRecord() string {

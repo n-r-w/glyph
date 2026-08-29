@@ -13,7 +13,7 @@
 ### Solution overview
 
 - SOL-01: Add a Host-owned session domain, an active-session service, and a client session-control orchestrator. The active service owns persisted state. The orchestrator owns client operations and coordinates run start against session replacement.
-- SOL-02: Store each session as one append-only, versioned JSONL file in the canonical working directory's digest partition below `~/.glyph/sessions`.
+- SOL-02: Store each session as one append-only, versioned JSONL file in the canonical working directory's readable path partition below `~/.glyph/sessions`.
 - SOL-03: Replace the in-memory history slice in `run.Service` with a consumer-owned `HistoryStore` interface. Agent Core appends only terminal provider-neutral history entries and reads immutable history snapshots.
 - SOL-04: Persist each user entry before the provider request, each terminal model response before client completion and tool execution, and each terminal tool result before another model request.
 - SOL-05: Add session operations to Programmatic Control and the UI plugin contract. The standard TUI implements `/new`, `/resume`, `/name`, and `/session` without changing transcript layout or terminal interaction outside session behavior.
@@ -77,7 +77,7 @@
 - DEC-04: A session name change appends a `session_info` entry. The latest `session_info` entry owns the name. Glyph does not generate or persist an automatic name.
 - DEC-05: User and tool images are encoded as base64 by the storage DTO. Provider-context payload bytes are encoded as base64 and remain opaque. Extension data is embedded as a compact JSON value; storage preserves its JSON meaning rather than source formatting or byte representation.
 - DEC-06: Model tool calls remain ordered content inside the terminal model response. Tool results remain separate entries linked by the provider tool-call ID.
-- DEC-07: The repository root is `~/.glyph/sessions`. Glyph obtains the canonical working directory with absolute-path resolution, symbolic-link evaluation, and path cleaning. Its SHA-256 digest maps to one fixed session directory, and the header retains the canonical path.
+- DEC-07: The repository root is `~/.glyph/sessions`. Glyph obtains the canonical working directory with absolute-path resolution, symbolic-link evaluation, and path cleaning. The project session directory uses the `--<path>--` format: Glyph removes the leading `/` and replaces each remaining `/` with `-`. The header retains the canonical path.
 - DEC-07.1: A session filename contains its creation timestamp and generated session ID. Resume resolves an ID from validated headers in the working-directory session directory and never treats a client ID as a filesystem path.
 - DEC-07.2: Creation time comes from the header. Update time equals creation time for an empty active session and the latest stored entry timestamp otherwise. Filesystem modification time does not change session ordering.
 - DEC-08: Session directories use mode `0700` and session files use mode `0600`. Open validates a regular file and reapplies mode `0600` before reading.

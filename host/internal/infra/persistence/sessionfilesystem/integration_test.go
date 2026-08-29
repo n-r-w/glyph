@@ -2,8 +2,6 @@ package sessionfilesystem_test
 
 import (
 	"bufio"
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,10 +37,9 @@ func TestApplyCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
 	})
 	require.NoError(t, err)
-	digest := sha256.Sum256([]byte(canonical))
 	expectedStoragePath := filepath.Join(
 		root,
-		hex.EncodeToString(digest[:]),
+		sessionstore.ProjectDirectoryName(canonical),
 		"20260826T200000.000000000Z-session-id.jsonl",
 	)
 	// Assert the repository creates a private, synchronized, versioned session file.
