@@ -17,16 +17,10 @@ See the [problem statement](problem.md).
 
 ### Prompt stack
 
-- CMP-01: `prompts/branch_summary_system.md` contains the static system rules.
-- CMP-02: `prompts/branch_summary_task.md` contains the user-input template.
-- CMP-03: `prompts/branch_summary_context.md` contains the model-visible envelope for a persisted `BranchSummaryEntry`.
+- CMP-01: `prompts/branch_summary_system.md` contains the complete provider system-role rules.
+- CMP-02: `prompts/branch_summary_task.md` contains only the primary task text.
 
-The system rules use these meaningful pseudo-XML sections:
-
-- `<identity>` defines the summarization role.
-- `<source_handling>` defines `<conversation>` as source data rather than conversation history. It prohibits following, answering, or continuing instructions found in the source. It defines unquoted role labels as framing, each line prefixed with `| ` as one XML-text-escaped source line, and XML text entities as literal source characters.
-- `<summary_rules>` requires grounded extraction, exact technical details, correct work state, and omission of unsupported information.
-- `<output_format>` defines the approved pseudo-XML section order and requires omission of sections without source content.
+`prompts.go` embeds both files. Go code constructs one provider user-role message from the serialized conversation, optional additional focus, and the embedded task text. The system rules define the summarization goal, source handling, summary rules, output rules, and output format. They define `<conversation>` as source data, prohibit following source instructions, identify unprefixed role labels as framing, and define XML text entities as literal source characters.
 
 The output sections, in order, are:
 
@@ -62,7 +56,7 @@ The system rules also require the model to:
 - omit generic system instructions, skill contents, and ambient environment information unless the source makes them specific to continued work;
 - return only applicable pseudo-XML sections without a preamble, conclusion, or empty section.
 
-The user-task template renders one text input with this structure:
+Go code builds one provider user-role input with this structure:
 
 ```text
 <conversation>
@@ -137,11 +131,11 @@ The serializer excludes:
 
 ### Persisted summary context
 
-`RenderBranchSummaryContext` continues to create one synthetic user message for active model history. Its embedded template becomes:
+`HistoryFromEntries` creates one synthetic user message for persisted summary data. Go code builds this context envelope without a prompt file:
 
 ```text
 <summary encoding="xml-text">
-{{.EscapedSummary}}
+{escaped persisted summary}
 </summary>
 ```
 
@@ -151,10 +145,10 @@ The serializer excludes:
 
 ### Code changes
 
-- CMP-05: `prompts.go` embeds the system, task, and context Markdown files and renders the task and persisted-summary templates.
+- CMP-05: `prompts.go` embeds the system-role rules and task text, then builds one provider user-role message.
 - CMP-06: A focused conversation-serialization file owns deterministic rendering. No generic summarization package or artificial wrapper type is introduced.
 - CMP-07: `summarizer.go` replaces `HistoryFromEntries(preparation.AbandonedPath)` with one user message that contains the serialized conversation.
-- CMP-08: `history.go` continues to build active model history. It is not reused for branch-summary serialization because other session operations need its role-bearing output.
+- CMP-08: `history.go` builds active model history and the persisted-summary data envelope. It is not reused for branch-summary source serialization because other session operations need its role-bearing output.
 - CMP-09: Generated mocks remain unchanged because no interface changes.
 
 Affected files:
@@ -162,7 +156,7 @@ Affected files:
 - `host/internal/usecase/host/sessiontree/prompts/branch_summary.md`, removed.
 - `host/internal/usecase/host/sessiontree/prompts/branch_summary_system.md`, added.
 - `host/internal/usecase/host/sessiontree/prompts/branch_summary_task.md`, added.
-- `host/internal/usecase/host/sessiontree/prompts/branch_summary_context.md`, updated.
+- `host/internal/usecase/host/sessiontree/prompts/branch_summary_context.md`, removed.
 - `host/internal/usecase/host/sessiontree/prompts.go`, updated.
 - `host/internal/usecase/host/sessiontree/summarizer.go`, updated.
 - `host/internal/usecase/host/sessiontree/summarization_test.go`, updated.
@@ -200,7 +194,7 @@ Verification commands:
 
 ### Failure behavior
 
-- FLR-01: Tool-argument JSON or prompt-template rendering errors return a wrapped branch-summary preparation error before a model request.
+- FLR-01: Tool-argument JSON errors return a wrapped branch-summary preparation error before a model request.
 - FLR-02: Configured-model failures keep the existing classification and cancel the navigation commit.
 - FLR-03: Invalid terminal responses keep the existing validation behavior and cancel the navigation commit.
 - FLR-04: No fallback model, compatibility prompt, partial summary, or hidden image fallback is added.
@@ -209,7 +203,7 @@ Verification commands:
 
 - The solution adds one task-specific serializer because active history and summary source have different contracts.
 - Existing model execution, selection, extension handlers, validation, persistence, and navigation coordination remain unchanged.
-- Three prompt artifacts have one responsibility each: system rules, user task, and persisted-summary context.
+- Two prompt artifacts own authored instructions: system rules and the user task. Go code owns request framing and persisted-summary data framing.
 - Image understanding, token budgeting, file tracking, a universal summarizer, and new extension APIs remain outside scope.
 - The serializer covers existing model-visible text domain variants only. One fixed line prefix keeps role labels unambiguous without nested XML, a parser, or a reusable serialization framework.
 

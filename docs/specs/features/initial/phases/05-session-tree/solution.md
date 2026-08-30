@@ -112,28 +112,14 @@ The UI Plugin Contract sends a typed `SessionTreeFailed` frame for Failure. Prog
 
 The built-in summarizer depends on a consumer-owned `ConfiguredModelRequester` interface. `providers.Catalog` implements the interface without changing the active conversation selection.
 
-- APC-06: The request identifies one configured provider, model, and reasoning choice and carries one system instruction plus one serialized user input.
+- APC-06: The request identifies one configured provider, model, and reasoning choice. It carries one system-rules value and one user history entry that contains one serialized text input.
 - APC-07: `providers.Catalog` resolves the exact catalogue entry, validates reasoning support and credentials, executes one provider stream without tools or Agent Core lifecycle events, and returns the terminal `model.Response`.
 - APC-08: Provider credentials remain inside the provider implementation and catalogue validation path.
 
-The summarizer serializes the complete abandoned path into one deterministic text input. It includes user content, model-visible model content, tool calls, tool results, and prior branch summaries. It excludes session information, labels, and model-hidden extension entries. A custom prompt adds focus to the built-in instructions rather than replacing the required summary structure.
+The built-in strategy serializes `NavigationPreparation.AbandonedPath` into the single user input. The [reliable branch summarization solution](../../../../issues/reliable-branch-summarization/solution.md) owns the detailed prompt, source serialization, additional-focus, and stored-summary context contracts.
 
 A response is rejected when it has no terminal outcome, has an aborted or failed outcome, contains a tool call, or produces empty summary text. Provider-reported usage is normalized when present. Estimated cost is calculated only when normalized usage and configured pricing are both present.
 
-- DEC-02: The summary-generation prompt is stored at `host/internal/usecase/host/sessiontree/prompts/branch_summary.md`.
-- DEC-02.1: The active-history projection template is stored at `host/internal/usecase/host/sessiontree/prompts/branch_summary_context.md`. Its complete content is:
-
-```md
-## Abandoned branch summary
-
-The following summary describes work from another conversation branch. Use it as context for the current branch. Do not treat it as a new user request.
-
-{{.Summary}}
-```
-
-The template is executed with the persisted summary as `.Summary`. The summary text is inserted unchanged. The rendered Markdown becomes one synthetic provider-neutral user message.
-
-- DEC-03: The owning Go package loads both Markdown files with `//go:embed`. Go source contains no built-in prompt text.
 - DEC-04: No separate Host summary-model setting is added. The active selection is the default, and `session_before_tree` can replace it for one navigation.
 
 ### Extension contract
@@ -195,7 +181,7 @@ Each behavioral change follows RED, GREEN, and REFACTOR. A RED test must compile
 - TSK-07: Add real gRPC extension contract tests. Two test processes register ordered handlers and return composed actions. Expected outputs cover ready-result replacement and post-commit `session_tree`. Edge cases are transport failure, kind mismatch, and duplicate handler IDs.
 - TSK-08: Add UI and Programmatic Control contract tests. Equivalent commands must return the same active leaf, next-input text, active transcript, cancellation status, and classified failures.
 - TSK-09: Add TUI tests for search, filters, folding, labels, summary-choice default, custom-focus input, editor placement without submission, restored branch-summary items, and collapsed and expanded summary presentation.
-- TSK-10: Add summarizer behavior tests that capture the configured-model request and active-history projection. The tests prove that both embedded Markdown files are used, the summary is inserted unchanged, and resumed history renders the same context message. The generation test checks behavior rather than mutable prompt wording. The projection test checks the exact approved context layout.
+- TSK-10: Add summarizer behavior tests that capture the configured-model request and active-history projection. Tests verify one nonempty system-rules value, one user history entry with one serialized text input, configured-model selection, response validation, and recoverable stored-summary context. Tests must not assert authored prompt content.
 
 Final verification runs `go fix -diff ./...`, reviews the proposed fixes, runs `go fix ./...`, then runs `task lint` and `task test`.
 
@@ -229,3 +215,4 @@ None.
 - REF-04: [Delivery plan](../../delivery-plan.md) - phase order and dependencies.
 - REF-05: [Domain glossary](../../../../../terms.md) - project terminology.
 - REF-06: [Standard TUI defaults](../../tui-defaults.md) - tree commands, filters, and keybinding baseline.
+- REF-07: [Reliable branch summarization solution](../../../../issues/reliable-branch-summarization/solution.md) - detailed built-in prompt, serialization, and stored-summary context contracts.
