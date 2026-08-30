@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
@@ -50,10 +51,14 @@ const (
 )
 
 const (
-	// treeBranchIndent continues one ancestor branch.
-	treeBranchIndent = "│  "
-	// treeBranchConnector connects one child row.
-	treeBranchConnector = "└─ "
+	// treeAncestorContinuation continues one visible ancestor branch.
+	treeAncestorContinuation = "│  "
+	// treeAncestorSpacing reserves one closed ancestor branch level.
+	treeAncestorSpacing = "   "
+	// treeBranchMiddleConnector connects a node before a later visible sibling.
+	treeBranchMiddleConnector = "├─ "
+	// treeBranchLastConnector connects the last visible sibling.
+	treeBranchLastConnector = "└─ "
 	// treeFoldedMarker identifies a folded branch.
 	treeFoldedMarker = "+ "
 	// treeUnfoldedMarker identifies an unfolded branch.
@@ -70,6 +75,8 @@ const (
 	treeLabelSuffix = "] "
 	// treeRowFormat renders one complete tree row.
 	treeRowFormat = "%s%s%s%s%s%s: %s"
+	// treeRowEllipsis marks a tree row truncated to terminal width.
+	treeRowEllipsis = "…"
 	// treeInputPrefix identifies a focused tree dialog editor.
 	treeInputPrefix = "> "
 	// treeInputCursor marks the local editor cursor.
@@ -180,9 +187,19 @@ func (model Model) renderTreeRow(row presentationdomain.TreeRow, selected bool) 
 	if selected {
 		prefix = activeSelectorPrefix
 	}
-	branch := strings.Repeat(treeBranchIndent, max(0, row.Depth-1))
+	ancestorSegments := lo.Map(row.AncestorContinues, func(continues bool, _ int) string {
+		if continues {
+			return treeAncestorContinuation
+		}
+		return treeAncestorSpacing
+	})
+	branch := strings.Join(ancestorSegments, "")
 	if row.Depth > 0 {
-		branch += treeBranchConnector
+		connector := treeBranchLastConnector
+		if row.HasFollowingSibling {
+			connector = treeBranchMiddleConnector
+		}
+		branch += connector
 	}
 	fold := ""
 	if row.HasChildren {
@@ -201,7 +218,7 @@ func (model Model) renderTreeRow(row presentationdomain.TreeRow, selected bool) 
 	}
 	label := ""
 	if row.Entry.Label != "" {
-		label = treeLabelPrefix + row.Entry.Label + treeLabelSuffix
+		label = treeLabelPrefix + treeInlineText(row.Entry.Label) + treeLabelSuffix
 	}
 	context := ""
 	if row.Context {
@@ -215,9 +232,14 @@ func (model Model) renderTreeRow(row presentationdomain.TreeRow, selected bool) 
 		active,
 		context,
 		label+treeEntryKindText(row.Entry.Kind),
-		row.Entry.Text,
+		treeInlineText(row.Entry.Text),
 	)
-	return ellipsize(text, max(1, model.width))
+	return ansi.Truncate(text, max(1, model.width), treeRowEllipsis)
+}
+
+// treeInlineText normalizes dynamic entry content without changing topology spacing.
+func treeInlineText(value string) string {
+	return strings.Join(strings.Fields(value), " ")
 }
 
 // treeInputLine renders one local dialog editor with its exact rune cursor.

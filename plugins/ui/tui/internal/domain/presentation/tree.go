@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -169,8 +170,12 @@ type SessionTree struct {
 type TreeRow struct {
 	// Entry is the visible public tree entry.
 	Entry TreeEntry
-	// Depth is the entry depth in the complete tree.
+	// Depth is the entry depth in the visible tree.
 	Depth int
+	// AncestorContinues marks non-root visible ancestor levels that have a following sibling.
+	AncestorContinues []bool
+	// HasFollowingSibling reports whether this row has a later visible sibling.
+	HasFollowingSibling bool
 	// ActivePath reports whether the entry belongs to the active branch.
 	ActivePath bool
 	// ActiveLeaf reports whether the entry is the active leaf.
@@ -215,7 +220,7 @@ func NewTreePanel(tree SessionTree, purpose TreePurpose) TreePanel {
 
 // VisibleRows returns the current visible tree projection.
 func (panel TreePanel) VisibleRows() []TreeRow {
-	entriesByID, childrenByID, depths := panel.treeIndexes()
+	entriesByID, childrenByID := panel.treeIndexes()
 	activePath := treePathSet(panel.Tree.ActiveLeafID, entriesByID)
 	queryTokens := strings.Fields(strings.ToLower(panel.Query))
 	directMatches := make(map[string]struct{}, len(panel.Tree.Entries))
@@ -239,25 +244,87 @@ func (panel TreePanel) VisibleRows() []TreeRow {
 		}
 	}
 
-	rows := make([]TreeRow, 0, len(visible))
+	visibleEntries := make([]TreeEntry, 0, len(visible))
+	visibleIDs := make(map[string]struct{}, len(visible))
 	for _, entry := range panel.Tree.Entries {
 		if _, included := visible[entry.ID]; !included || panel.hiddenByFold(entry, entriesByID) {
 			continue
 		}
+		visibleEntries = append(visibleEntries, entry)
+		visibleIDs[entry.ID] = struct{}{}
+	}
+
+	visibleParents := make(map[string]string, len(visibleEntries))
+	visibleChildren := make(map[string][]string, len(visibleEntries))
+	for _, entry := range visibleEntries {
+		parentID, present := nearestVisibleParent(entry, entriesByID, visibleIDs)
+		if !present {
+			continue
+		}
+		visibleParents[entry.ID] = parentID
+		visibleChildren[parentID] = append(visibleChildren[parentID], entry.ID)
+	}
+	followingSiblings := make(map[string]struct{}, len(visibleEntries))
+	for _, childIDs := range visibleChildren {
+		for _, childID := range childIDs[:max(0, len(childIDs)-1)] {
+			followingSiblings[childID] = struct{}{}
+		}
+	}
+
+	rows := make([]TreeRow, 0, len(visibleEntries))
+	for _, entry := range visibleEntries {
+		ancestorIDs := visibleAncestorIDs(entry.ID, visibleParents)
+		continuationIDs := ancestorIDs[min(1, len(ancestorIDs)):]
+		ancestorContinues := lo.Map(continuationIDs, func(ancestorID string, _ int) bool {
+			_, continues := followingSiblings[ancestorID]
+			return continues
+		})
 		_, direct := directMatches[entry.ID]
 		_, onActivePath := activePath[entry.ID]
 		_, folded := panel.Folded[entry.ID]
+		_, hasFollowingSibling := followingSiblings[entry.ID]
 		rows = append(rows, TreeRow{
-			Entry:       entry,
-			Depth:       depths[entry.ID],
-			ActivePath:  onActivePath,
-			ActiveLeaf:  panel.Tree.ActiveLeafID == mo.Some(entry.ID),
-			Context:     !direct,
-			Folded:      folded,
-			HasChildren: len(childrenByID[entry.ID]) > 0,
+			Entry:               entry,
+			Depth:               len(ancestorIDs),
+			AncestorContinues:   ancestorContinues,
+			HasFollowingSibling: hasFollowingSibling,
+			ActivePath:          onActivePath,
+			ActiveLeaf:          panel.Tree.ActiveLeafID == mo.Some(entry.ID),
+			Context:             !direct,
+			Folded:              folded,
+			HasChildren:         len(childrenByID[entry.ID]) > 0,
 		})
 	}
 	return rows
+}
+
+// nearestVisibleParent returns the closest visible ancestor of one entry.
+func nearestVisibleParent(
+	entry TreeEntry,
+	entriesByID map[string]TreeEntry,
+	visibleIDs map[string]struct{},
+) (string, bool) {
+	for parentID, present := entry.ParentID.Get(); present; {
+		if _, visible := visibleIDs[parentID]; visible {
+			return parentID, true
+		}
+		parent, found := entriesByID[parentID]
+		if !found {
+			return "", false
+		}
+		parentID, present = parent.ParentID.Get()
+	}
+	return "", false
+}
+
+// visibleAncestorIDs returns visible ancestors in root-to-parent order.
+func visibleAncestorIDs(entryID string, visibleParents map[string]string) []string {
+	ancestors := make([]string, 0)
+	for parentID, present := visibleParents[entryID]; present; parentID, present = visibleParents[parentID] {
+		ancestors = append(ancestors, parentID)
+	}
+	slices.Reverse(ancestors)
+	return ancestors
 }
 
 // SetQuery changes local search state and reconciles selection.
@@ -298,7 +365,7 @@ func (panel *TreePanel) ToggleFold() {
 	if !present {
 		return
 	}
-	_, childrenByID, _ := panel.treeIndexes()
+	_, childrenByID := panel.treeIndexes()
 	if len(childrenByID[selectedID]) == 0 {
 		return
 	}
@@ -313,7 +380,7 @@ func (panel *TreePanel) ToggleFold() {
 // Reconcile applies a committed tree and removes references to absent entries.
 func (panel *TreePanel) Reconcile(tree SessionTree) {
 	panel.Tree = cloneSessionTree(tree)
-	entriesByID, childrenByID, _ := panel.treeIndexes()
+	entriesByID, childrenByID := panel.treeIndexes()
 	maps.DeleteFunc(panel.Folded, func(id string, _ struct{}) bool {
 		_, present := entriesByID[id]
 		return !present || len(childrenByID[id]) == 0
@@ -343,19 +410,16 @@ func (panel TreePanel) filterMatches(entry TreeEntry) bool {
 func (panel TreePanel) treeIndexes() (
 	entriesByID map[string]TreeEntry,
 	childrenByID map[string][]string,
-	depths map[string]int,
 ) {
 	entriesByID = make(map[string]TreeEntry, len(panel.Tree.Entries))
 	childrenByID = make(map[string][]string, len(panel.Tree.Entries))
-	depths = make(map[string]int, len(panel.Tree.Entries))
 	for _, entry := range panel.Tree.Entries {
 		entriesByID[entry.ID] = entry
 		if parentID, present := entry.ParentID.Get(); present {
 			childrenByID[parentID] = append(childrenByID[parentID], entry.ID)
-			depths[entry.ID] = depths[parentID] + 1
 		}
 	}
-	return entriesByID, childrenByID, depths
+	return entriesByID, childrenByID
 }
 
 // hiddenByFold reports whether any ancestor is locally folded.
@@ -382,10 +446,10 @@ func (panel *TreePanel) reconcileSelection() {
 		return
 	}
 	visibleIDs := make(map[string]struct{}, len(rows))
-	for _, row := range rows {
-		visibleIDs[row.Entry.ID] = struct{}{}
+	for index := range rows {
+		visibleIDs[rows[index].Entry.ID] = struct{}{}
 	}
-	entriesByID, _, _ := panel.treeIndexes()
+	entriesByID, _ := panel.treeIndexes()
 	if selectedID, present := panel.SelectedID.Get(); present {
 		for {
 			if _, visible := visibleIDs[selectedID]; visible {

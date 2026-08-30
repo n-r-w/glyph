@@ -41,6 +41,58 @@ func (suite *TreePanelSuite) TestVisibleRowsPreserveStructureAndActiveBranch() {
 	suite.Require().Equal(TreeEntryBranchSummary, rows[3].Entry.Kind)
 }
 
+// TestLinearTreeTopologyOmitsAncestorContinuations verifies a chain has no vertical continuation levels.
+func (suite *TreePanelSuite) TestLinearTreeTopologyOmitsAncestorContinuations() {
+	// Arrange a linear three-entry branch.
+	panel := NewTreePanel(SessionTree{
+		Entries: []TreeEntry{
+			testTreeEntry("root", mo.None[string](), "root", TreeEntryUser, ""),
+			testTreeEntry("child", mo.Some("root"), "child", TreeEntryModel, ""),
+			testTreeEntry("leaf", mo.Some("child"), "leaf", TreeEntryUser, ""),
+		},
+		ActiveLeafID: mo.Some("leaf"),
+	}, TreePurposeNavigate)
+	panel.SetFilter(TreeFilterAll)
+
+	// Act by projecting visible topology.
+	rows := panel.VisibleRows()
+
+	// Assert no row requires a sibling continuation.
+	suite.Require().Equal([]int{0, 1, 2}, lo.Map(rows, func(row TreeRow, _ int) int { return row.Depth }))
+	suite.Require().Empty(rows[0].AncestorContinues)
+	suite.Require().Empty(rows[1].AncestorContinues)
+	suite.Require().Equal([]bool{false}, rows[2].AncestorContinues)
+	suite.Require().False(rows[0].HasFollowingSibling)
+	suite.Require().False(rows[1].HasFollowingSibling)
+	suite.Require().False(rows[2].HasFollowingSibling)
+}
+
+// TestBranchedTreeTopologyMarksOnlyRequiredContinuations verifies sibling topology metadata.
+func (suite *TreePanelSuite) TestBranchedTreeTopologyMarksOnlyRequiredContinuations() {
+	// Arrange a root with two children and one grandchild under the first child.
+	panel := NewTreePanel(SessionTree{
+		Entries: []TreeEntry{
+			testTreeEntry("root", mo.None[string](), "root", TreeEntryUser, ""),
+			testTreeEntry("first", mo.Some("root"), "first", TreeEntryModel, ""),
+			testTreeEntry("nested", mo.Some("first"), "nested", TreeEntryUser, ""),
+			testTreeEntry("last", mo.Some("root"), "last", TreeEntryUser, ""),
+		},
+		ActiveLeafID: mo.Some("last"),
+	}, TreePurposeNavigate)
+	panel.SetFilter(TreeFilterAll)
+
+	// Act by projecting visible topology.
+	rows := panel.VisibleRows()
+
+	// Assert the first child and its descendant carry the only required continuation.
+	suite.Require().Empty(rows[1].AncestorContinues)
+	suite.Require().True(rows[1].HasFollowingSibling)
+	suite.Require().Equal([]bool{true}, rows[2].AncestorContinues)
+	suite.Require().False(rows[2].HasFollowingSibling)
+	suite.Require().Empty(rows[3].AncestorContinues)
+	suite.Require().False(rows[3].HasFollowingSibling)
+}
+
 // TestSearchRetainsAncestorContext verifies AND-token search and branch context.
 func (suite *TreePanelSuite) TestSearchRetainsAncestorContext() {
 	// Arrange a full tree selector.

@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -407,6 +408,107 @@ func TestDurableTreeResultsOwnTranscriptAndExactEditorReplacement(t *testing.T) 
 	require.Equal(t, len([]rune(" exact next input ")), model.cursor)
 	require.Equal(t, treeInteractionClosed, model.treeMode)
 	require.True(t, model.treePanel.IsNone())
+}
+
+// TestLinearTreeRenderingOmitsAncestorVerticals verifies a chain does not imply sibling continuation.
+func TestLinearTreeRenderingOmitsAncestorVerticals(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a visible three-entry linear branch.
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	tree := controllerTree()
+	tree.Entries = tree.Entries[:3]
+	panel := presentationdomain.NewTreePanel(tree, presentationdomain.TreePurposeNavigate)
+	panel.SetFilter(presentationdomain.TreeFilterAll)
+	model.treePanel = mo.Some(panel)
+	model.treeMode = treeInteractionSelect
+	model.width = 200
+
+	// Act by rendering the complete selector.
+	lines := model.treeSelectorLines()
+
+	// Assert depth alone does not produce an ancestor continuation line.
+	require.NotContains(t, strings.Join(lines, "\n"), "│")
+}
+
+// TestTreeRenderingKeepsMultilineEntryTextOnOneRow verifies content cannot break selector topology.
+func TestTreeRenderingKeepsMultilineEntryTextOnOneRow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a tree entry containing multiline tool output.
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	tree := controllerTree()
+	tree.Entries[2].Text = "read output\nnext line"
+	panel := presentationdomain.NewTreePanel(tree, presentationdomain.TreePurposeNavigate)
+	panel.SetFilter(presentationdomain.TreeFilterAll)
+	model.treePanel = mo.Some(panel)
+	model.treeMode = treeInteractionSelect
+	model.width = 200
+
+	// Act by rendering the selector rows.
+	lines := model.treeSelectorLines()
+
+	// Assert dynamic content is normalized without changing row indentation.
+	require.NotContains(t, lines[3], "\n")
+	require.Contains(t, lines[3], "read output next line")
+}
+
+// TestBranchedTreeRenderingUsesVisibleSiblingTopology verifies terminal branch glyph placement.
+func TestBranchedTreeRenderingUsesVisibleSiblingTopology(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a first root child with one descendant and a later root child.
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	tree := controllerTree()
+	tree.Entries[3].ParentID = mo.Some("root")
+	panel := presentationdomain.NewTreePanel(tree, presentationdomain.TreePurposeNavigate)
+	panel.SetFilter(presentationdomain.TreeFilterAll)
+	model.treePanel = mo.Some(panel)
+	model.treeMode = treeInteractionSelect
+	model.width = 200
+
+	// Act by rendering the branched selector.
+	lines := strings.Join(model.treeSelectorLines(), "\n")
+
+	// Assert only visible following siblings produce middle and ancestor continuations.
+	require.Contains(t, lines, "├─")
+	require.Contains(t, lines, "│  └─")
+	require.Contains(t, lines, "└─")
+}
+
+// TestTreeSelectionMovementPreservesVisibleTopology verifies navigation does not alter branch structure.
+func TestTreeSelectionMovementPreservesVisibleTopology(t *testing.T) {
+	t.Parallel()
+
+	// Arrange selection on the last row of a branched visible tree.
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, nil)
+	tree := controllerTree()
+	tree.Entries[3].ParentID = mo.Some("root")
+	panel := presentationdomain.NewTreePanel(tree, presentationdomain.TreePurposeNavigate)
+	panel.SetFilter(presentationdomain.TreeFilterAll)
+	panel.SelectedID = mo.Some("alternate")
+	model.treePanel = mo.Some(panel)
+	model.treeMode = treeInteractionSelect
+	model.width = 200
+	before := lo.Map(model.treeSelectorLines(), withoutTreeSelectionPrefix)
+
+	// Act by moving selection to the preceding visible entry.
+	model = updateModel(t, model, tea.KeyPressMsg(testKey(tea.KeyUp)))
+	after := lo.Map(model.treeSelectorLines(), withoutTreeSelectionPrefix)
+
+	// Assert selection changed while every rendered topology glyph stayed fixed.
+	panel, present := model.treePanel.Get()
+	require.True(t, present)
+	require.Equal(t, mo.Some("tool"), panel.SelectedID)
+	require.Equal(t, before, after)
+}
+
+// withoutTreeSelectionPrefix removes only the local selector marker for topology comparison.
+func withoutTreeSelectionPrefix(line string, _ int) string {
+	if after, ok := strings.CutPrefix(line, activeSelectorPrefix); ok {
+		return after
+	}
+	return strings.TrimPrefix(line, inactiveSelectorPrefix)
 }
 
 // controllerTree creates a branch with every entry type needed by controller tests.
