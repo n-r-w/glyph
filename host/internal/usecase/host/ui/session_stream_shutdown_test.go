@@ -103,7 +103,8 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 	runStopped := make(chan struct{})
 	var readyOnce sync.Once
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 		}
 		return nil
@@ -127,7 +128,14 @@ func (s *SessionSuite) TestSessionStreamFailureCancelsAndAwaitsActiveRun() {
 		return domainui.Command{}, io.ErrUnexpectedEOF
 	}).Times(2)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(
+		channel,
+		runner,
+		authenticator,
+		s.modelCatalog,
+		nil,
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,

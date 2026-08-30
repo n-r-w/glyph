@@ -96,10 +96,12 @@ type ToolResult struct {
 func (result ToolResult) Clone() ToolResult {
 	result.Contents = slices.Clone(result.Contents)
 	for index := range result.Contents {
-		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
-			image.Data = bytes.Clone(image.Data)
-			return image
-		})
+		result.Contents[index].Image = result.Contents[index].Image.MapValue(
+			func(image tool.ResultImage) tool.ResultImage {
+				image.Data = bytes.Clone(image.Data)
+				return image
+			},
+		)
 	}
 	return result
 }

@@ -52,7 +52,12 @@ func TestNameMutationOrdersModeWriteSyncCloseBeforeActiveMutation(t *testing.T) 
 				return result, applyErr
 			},
 		),
-		fileSystem.EXPECT().OpenFile(repository.projectDirectory, gomock.Any(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(fileMode)).DoAndReturn(
+		fileSystem.EXPECT().OpenFile(
+			repository.projectDirectory,
+			gomock.Any(),
+			os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+			os.FileMode(fileMode),
+		).DoAndReturn(
 			func(string, string, int, os.FileMode) (File, error) {
 				steps = append(steps, "open")
 				return file, nil

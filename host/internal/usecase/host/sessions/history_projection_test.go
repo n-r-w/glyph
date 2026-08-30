@@ -67,10 +67,16 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call),
 			},
 		},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.Some(model.ProviderID("provider")),
-		Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(model.ID("response-model")),
-		ResponseID: mo.Some("response-id"), Usage: mo.None[model.Usage](),
-		Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
+		Outcome: mo.Some(
+			model.OutcomeToolUse,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.Some(model.ProviderID("provider")),
+		Model:         mo.Some(model.ID("model")),
+		ResponseModel: mo.Some(model.ID("response-model")),
+		ResponseID:    mo.Some("response-id"),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 	}
 	result := agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name, IsError: false,
@@ -83,7 +89,12 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	}
 	user := model.Message{Content: []model.InputContent{
 		{Kind: model.InputContentText, Text: mo.Some("first"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-		{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{4, 5, 6})},
+		{
+			Kind:      model.InputContentImage,
+			Text:      mo.None[string](),
+			MediaType: mo.Some("image/png"),
+			Data:      mo.Some([]byte{4, 5, 6}),
+		},
 	}}
 	s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(user),
@@ -140,8 +151,14 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	events := agentrun.NewMockEventSink(controller)
 	runtime.EXPECT().Current().Return(agentrun.RuntimeSelection{
 		Model: model.Descriptor{
-			Provider: "provider", Model: "model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{},
-			ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
+			Provider:              "provider",
+			Model:                 "model",
+			Input:                 nil,
+			ContextWindow:         0,
+			MaxTokens:             0,
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities:      model.ToolCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
 		},
 		ReasoningChoice: model.ReasoningChoiceOff,
 		Provider:        provider,

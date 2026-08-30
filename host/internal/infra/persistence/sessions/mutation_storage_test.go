@@ -36,7 +36,12 @@ func TestApplySynchronizesOneTreeMutation(t *testing.T) {
 	}
 	steps := make([]string, 0, 5)
 	gomock.InOrder(
-		fileSystem.EXPECT().OpenFile(repository.projectDirectory, gomock.Any(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(fileMode)).Return(file, nil),
+		fileSystem.EXPECT().OpenFile(
+			repository.projectDirectory,
+			gomock.Any(),
+			os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+			os.FileMode(fileMode),
+		).Return(file, nil),
 		file.EXPECT().Chmod(os.FileMode(fileMode)).Return(nil),
 		file.EXPECT().WritePayload(gomock.Any()).DoAndReturn(func(payload []byte) (int, error) {
 			steps = append(steps, "write")
@@ -53,8 +58,10 @@ func TestApplySynchronizesOneTreeMutation(t *testing.T) {
 		Header:      session.Header{Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation: hostsessions.Mutation{
-			Entry: mo.Some(entry), Navigation: mo.None[hostsessions.NavigationMutation](),
-			Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
+			Entry:              mo.Some(entry),
+			Navigation:         mo.None[hostsessions.NavigationMutation](),
+			Label:              mo.None[hostsessions.LabelMutation](),
+			SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
 		},
 	})
 
@@ -110,9 +117,13 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 	// Assert IDs, labels, leaf, and unresolved summary provenance survive.
 	require.NoError(t, err)
 	require.FileExists(t, result.StoragePath)
-	require.Equal(t, []string{"root", "summary"}, lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
-		return entry.ID
-	}))
+	require.Equal(
+		t,
+		[]string{"root", "summary"},
+		lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
+			return entry.ID
+		}),
+	)
 	require.Equal(t, mo.Some("summary"), loaded.Tree.ActiveLeafID())
 	require.Equal(t, map[string]string{"root": "kept"}, loaded.Tree.Labels())
 	require.Equal(t, mo.Some(informationUpdatedAt), loaded.InformationUpdatedAt)

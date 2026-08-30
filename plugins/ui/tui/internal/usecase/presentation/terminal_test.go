@@ -143,7 +143,10 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 
 	// Arrange terminal lifecycle events that carry the same safe error.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("partial"), mo.Some(1)))
+	state := service.Apply(
+		presentationdomain.State{},
+		testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("partial"), mo.Some(1)),
+	)
 	// Act by applying every terminal event.
 	for _, event := range []presentationdomain.Event{
 		testFailureEvent(presentationdomain.EventModelEnd, "Provider failed."),
@@ -233,7 +236,10 @@ func TestServiceRetainsTranscriptAcrossSettlementAndSecondTurn(t *testing.T) {
 		Kind: presentationdomain.ModelContentText,
 		Text: mo.Some("first response"),
 	}))
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventAgentSettled, mo.Some("completed"), mo.None[int]()))
+	state = service.Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventAgentSettled, mo.Some("completed"), mo.None[int]()),
+	)
 	state = service.Apply(state, testAvailabilityEvent(
 		presentationdomain.EventAvailability, presentationdomain.AvailabilityIdle,
 	))

@@ -96,7 +96,9 @@ func TestServiceReadFileKeepsPartialResultWithinCompleteBudget(t *testing.T) {
 	content := strings.Repeat("x\n", textbudget.MaximumLines+1)
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
+	result, err := readtool.New(New()).Read(
+		t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0),
+	)
 
 	require.NoError(t, err)
 	text := result.Text.OrEmpty()
@@ -122,7 +124,9 @@ func TestServiceReadFileReturnsBoundedNoticeWhenFirstLineLeavesNoContinuationRoo
 	content := strings.Repeat("x", textbudget.MaximumBytes-1) + "\nsecond\n"
 	require.NoError(t, writeTestFile(filePath, content))
 
-	result, err := readtool.New(New()).Read(t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0))
+	result, err := readtool.New(New()).Read(
+		t.Context(), filePath, mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](0),
+	)
 
 	require.NoError(t, err)
 	text := result.Text.OrEmpty()
@@ -143,7 +147,9 @@ func TestServiceReadFileReadsEmptyFileAtFirstOffset(t *testing.T) {
 	for name, offset := range map[string]uint{"default": 0, "explicit": 1} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			content, err := New().ReadFile(t.Context(), filePath, mo.EmptyableToOption[uint](offset), mo.EmptyableToOption[uint](0))
+			content, err := New().ReadFile(
+				t.Context(), filePath, mo.EmptyableToOption[uint](offset), mo.EmptyableToOption[uint](0),
+			)
 
 			require.NoError(t, err)
 			assert.Equal(t, mo.Some(""), content.Text)
@@ -256,7 +262,9 @@ func TestServiceEditKeepsOriginalBytesForOverlappingOccurrences(t *testing.T) {
 	filePath := t.TempDir() + "/notes.txt"
 	require.NoError(t, writeTestFile(filePath, "aaa"))
 
-	err := edittool.New(New()).Edit(t.Context(), filePath, []extensioncontroller.Replacement{{OldText: "aa", NewText: "b"}})
+	err := edittool.New(New()).Edit(
+		t.Context(), filePath, []extensioncontroller.Replacement{{OldText: "aa", NewText: "b"}},
+	)
 
 	require.ErrorContains(t, err, "occur exactly once")
 	content, readErr := os.ReadFile(filePath)
@@ -351,7 +359,9 @@ func TestServiceReadFileCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	content, err := New().ReadFile(ctx, t.TempDir()+"/notes.txt", mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1))
+	content, err := New().ReadFile(
+		ctx, t.TempDir()+"/notes.txt", mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1),
+	)
 
 	assert.Empty(t, content)
 	require.ErrorIs(t, err, context.Canceled)

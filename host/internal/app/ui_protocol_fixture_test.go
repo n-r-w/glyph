@@ -181,10 +181,13 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 			}
 			if lifecycle := frame.GetLifecycle(); lifecycle != nil {
 				payload, marshalErr := json.Marshal(map[string]any{
-					"type": lifecycle.GetType(), "text": lifecycle.GetText(),
-					"model_text": lifecycle.GetModelResponse().GetText(),
-					"tool_name":  lifecycle.GetToolName(), "tool_status": !lifecycle.GetIsError(),
-					"outcome": lifecycle.GetOutcome(), "settled": lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
+					"type":                 lifecycle.GetType(),
+					"text":                 lifecycle.GetText(),
+					"model_text":           lifecycle.GetModelResponse().GetText(),
+					"tool_name":            lifecycle.GetToolName(),
+					"tool_status":          !lifecycle.GetIsError(),
+					"outcome":              lifecycle.GetOutcome(),
+					"settled":              lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
 					"availability":         lifecycle.GetAvailability(),
 					"tool_result_contents": semanticToolResultContents(lifecycle.GetToolResultContents()),
 				})
@@ -197,7 +200,8 @@ func (*appUIService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb
 				if lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
 					settled = true
 				}
-				if settled && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
+				if settled && lifecycle.GetType() == uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED &&
+					lifecycle.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE {
 					//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
 					return stream.Send(uipb.OpenResponse_builder{
 						Quit: &uipb.QuitCommand{},

@@ -37,7 +37,10 @@ func assertOutputContents[T any](
 	t.Helper()
 	contents, err := convert([]tool.ResultContent{
 		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
-		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}})},
+		{
+			Kind: tool.ResultContentImage, Text: mo.None[string](),
+			Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}}),
+		},
 		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
 	})
 	require.NoError(t, err)

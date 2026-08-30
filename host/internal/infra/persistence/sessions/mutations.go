@@ -58,7 +58,12 @@ func (state *replayState) applyMutation(data []byte) error {
 	if err := decodeRecord(data, &record); err != nil {
 		return err
 	}
-	payloads := countPresent(record.Entry != nil, record.Navigation != nil, record.Label != nil, record.SessionInfo != nil)
+	payloads := countPresent(
+		record.Entry != nil,
+		record.Navigation != nil,
+		record.Label != nil,
+		record.SessionInfo != nil,
+	)
 	if payloads != 1 {
 		return errors.New("session mutation must contain exactly one payload")
 	}
@@ -167,7 +172,9 @@ func encodeEntryMutation(entry session.Entry) ([]byte, error) {
 		return nil, err
 	}
 	raw := jsontext.Value(bytes.TrimSuffix(encoded, []byte{'\n'}))
-	return encodeLine(mutationRecord{Type: mutationTypeEntry, Entry: &raw, Navigation: nil, Label: nil, SessionInfo: nil})
+	return encodeLine(
+		mutationRecord{Type: mutationTypeEntry, Entry: &raw, Navigation: nil, Label: nil, SessionInfo: nil},
+	)
 }
 
 // encodeNavigationMutation frames one destination and optional embedded summary.
@@ -205,8 +212,14 @@ func encodeInformationMutation(information hostsessions.SessionInformationMutati
 		return nil, errors.New("session information is invalid")
 	}
 	return encodeLine(mutationRecord{
-		Type: recordTypeSessionInfo, Entry: nil, Navigation: nil, Label: nil,
-		SessionInfo: &sessionInfoRecord{Name: information.Name, CreatedAt: information.CreatedAt.Format(time.RFC3339Nano)},
+		Type:       recordTypeSessionInfo,
+		Entry:      nil,
+		Navigation: nil,
+		Label:      nil,
+		SessionInfo: &sessionInfoRecord{
+			Name:      information.Name,
+			CreatedAt: information.CreatedAt.Format(time.RFC3339Nano),
+		},
 	})
 }
 

@@ -26,9 +26,24 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 		expectedLeaf      mo.Option[string]
 		expectedNextInput mo.Option[string]
 	}{
-		{name: "non-root user", targetID: "user", expectedLeaf: mo.Some("root"), expectedNextInput: mo.Some("exact input")},
-		{name: "root user", targetID: "root", expectedLeaf: mo.None[string](), expectedNextInput: mo.Some("root input")},
-		{name: "non-user", targetID: "extension", expectedLeaf: mo.Some("extension"), expectedNextInput: mo.None[string]()},
+		{
+			name:              "non-root user",
+			targetID:          "user",
+			expectedLeaf:      mo.Some("root"),
+			expectedNextInput: mo.Some("exact input"),
+		},
+		{
+			name:              "root user",
+			targetID:          "root",
+			expectedLeaf:      mo.None[string](),
+			expectedNextInput: mo.Some("root input"),
+		},
+		{
+			name:              "non-user",
+			targetID:          "extension",
+			expectedLeaf:      mo.Some("extension"),
+			expectedNextInput: mo.None[string](),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -121,11 +136,17 @@ func navigationTree(t *testing.T, createdAt time.Time) session.Tree {
 		navigationUserEntry("root", mo.None[string](), "root input", createdAt),
 		navigationUserEntry("user", mo.Some("root"), "exact input", createdAt.Add(time.Second)),
 		{
-			ID: "extension", ParentID: mo.Some("user"), CreatedAt: createdAt.Add(2 * time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-			Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+			ID:            "extension",
+			ParentID:      mo.Some("user"),
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 			ToolResult:    mo.None[session.ToolResult](),
-			Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)}),
+			Extension: mo.Some(
+				session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)},
+			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		navigationUserEntry("active", mo.Some("extension"), "active input", createdAt.Add(3*time.Second)),

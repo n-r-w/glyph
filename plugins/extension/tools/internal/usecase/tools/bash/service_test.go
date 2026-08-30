@@ -63,7 +63,11 @@ func TestServiceExecutePreservesTimeoutOutput(t *testing.T) {
 		timeoutErr,
 	)
 
-	result, err := New(runner).Execute(t.Context(), "sleep 30", func(extensioncontroller.BashProgress) error { return nil })
+	result, err := New(runner).Execute(
+		t.Context(),
+		"sleep 30",
+		func(extensioncontroller.BashProgress) error { return nil },
+	)
 
 	require.ErrorIs(t, err, timeoutErr)
 	assert.Equal(t, "started\n\n[bash command timed out after 1 seconds]\n", result.Text)

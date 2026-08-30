@@ -180,7 +180,12 @@ func (configured modelFile) validate(providerID string, providerType ProviderTyp
 			return Model{}, fmt.Errorf("provider %q model %q cannot override API", providerID, configured.ID)
 		}
 		if !configured.API.Supported() {
-			return Model{}, fmt.Errorf("provider %q model %q has unsupported API %q", providerID, configured.ID, configured.API)
+			return Model{}, fmt.Errorf(
+				"provider %q model %q has unsupported API %q",
+				providerID,
+				configured.ID,
+				configured.API,
+			)
 		}
 	}
 	toolCapabilities, err := validateToolCapabilities(providerID, configured.ID, configured.ToolCapabilities)
@@ -248,7 +253,12 @@ func validateModelInput(providerID, modelID string, configured []string) ([]mode
 	}
 	// The required text entry makes every model usable by the text-based agent path.
 	if _, exists := seen[model.InputModalityText]; !exists {
-		return nil, fmt.Errorf("provider %q model %q: input must contain %q", providerID, modelID, model.InputModalityText)
+		return nil, fmt.Errorf(
+			"provider %q model %q: input must contain %q",
+			providerID,
+			modelID,
+			model.InputModalityText,
+		)
 	}
 	return input, nil
 }

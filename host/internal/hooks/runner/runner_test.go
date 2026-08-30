@@ -62,11 +62,25 @@ func TestRunnerAppliesSequentialCopiedValues(t *testing.T) {
 			},
 		},
 	)
-	originalContext := hooks.Context{History: []agent.HistoryEntry{{
-		Kind:  agent.HistoryEntryUser,
-		User:  mo.Some(model.Message{Content: []model.InputContent{{Kind: model.InputContentText, Text: mo.Some("original-context"), MediaType: mo.None[string](), Data: mo.None[[]byte]()}}}),
-		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
-	}}}
+	originalContext := hooks.Context{History: []agent.HistoryEntry{
+		{
+			Kind: agent.HistoryEntryUser,
+			User: mo.Some(
+				model.Message{
+					Content: []model.InputContent{
+						{
+							Kind:      model.InputContentText,
+							Text:      mo.Some("original-context"),
+							MediaType: mo.None[string](),
+							Data:      mo.None[[]byte](),
+						},
+					},
+				},
+			),
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		},
+	}}
 	originalRequest := hooks.Request{
 		Provider: "provider", Model: "model", Payload: []byte("abc"),
 		Headers: hooks.Header{"X-Test": {"original-request"}},
@@ -164,12 +178,22 @@ func TestRunnerClonesHistoryOptions(t *testing.T) {
 		Kind: agent.HistoryEntryModel,
 		Model: mo.Some(model.Response{Content: []model.Content{
 			{
-				Kind: model.ContentReasoning, Text: mo.Some("reason"),
-				ProviderContext: mo.Some(model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}}), Final: false, ToolCall: mo.None[model.ToolCall](),
+				Kind: model.ContentReasoning,
+				Text: mo.Some("reason"),
+				ProviderContext: mo.Some(
+					model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}},
+				),
+				Final:    false,
+				ToolCall: mo.None[model.ToolCall](),
 			},
 			{
-				Kind:     model.ContentToolCall,
-				ToolCall: mo.Some(model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
+				Kind: model.ContentToolCall,
+				ToolCall: mo.Some(
+					model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""},
+				),
+				Text:            mo.None[string](),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
 			},
 		}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
@@ -199,6 +223,10 @@ func TestRunnerClonesHistoryOptions(t *testing.T) {
 	_, err := runner.TransformContext(t.Context(), original)
 	require.NoError(t, err)
 	assert.Equal(t, byte(1), original.History[0].Model.OrEmpty().Content[0].ProviderContext.OrEmpty().Payload[0])
-	assert.Equal(t, "first", original.History[0].Model.OrEmpty().Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
+	assert.Equal(
+		t,
+		"first",
+		original.History[0].Model.OrEmpty().Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0],
+	)
 	assert.Equal(t, byte(4), original.History[1].ToolResult.OrEmpty().Contents[0].Image.OrEmpty().Data[0])
 }

@@ -169,13 +169,23 @@ func TestApplyToolCallStreamEventChecksPayloadPresenceFirst(t *testing.T) {
 		errorContains string
 	}{
 		{
-			name:          "delta without preview",
-			event:         testStreamEvent(StreamEventToolCallDelta, mo.Some(0), mo.None[model.Content](), mo.None[string]()),
+			name: "delta without preview",
+			event: testStreamEvent(
+				StreamEventToolCallDelta,
+				mo.Some(0),
+				mo.None[model.Content](),
+				mo.None[string](),
+			),
 			errorContains: "tool-call delta requires preview",
 		},
 		{
-			name:          "end without tool call",
-			event:         testStreamEvent(StreamEventToolCallEnd, mo.Some(0), mo.None[model.Content](), mo.None[string]()),
+			name: "end without tool call",
+			event: testStreamEvent(
+				StreamEventToolCallEnd,
+				mo.Some(0),
+				mo.None[model.Content](),
+				mo.None[string](),
+			),
 			errorContains: "tool-call end requires tool call",
 		},
 	}
@@ -354,7 +364,12 @@ func TestApplyStreamEventRequiresNonzeroTerminalOutcome(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
-	err := testStreamEvent(StreamEventDone, mo.None[int](), mo.None[model.Content](), mo.None[string]()).applyTo(&partial)
+	err := testStreamEvent(
+		StreamEventDone,
+		mo.None[int](),
+		mo.None[model.Content](),
+		mo.None[string](),
+	).applyTo(&partial)
 
 	require.ErrorContains(t, err, "requires an outcome")
 	assert.True(t, partial.Outcome.IsNone())
@@ -375,7 +390,9 @@ func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
 		CallID: "call", Name: "tool", Position: 0, Provisional: true, Fields: nil,
 	}
 	call := model.ToolCall{
-		ID: "call", Name: "tool", Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+		ID:        "call",
+		Name:      "tool",
+		Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
 	}
 	response := model.Response{
 		Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
@@ -386,14 +403,75 @@ func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
 		name  string
 		valid StreamEvent
 	}{
-		{name: "content start", valid: testStreamEvent(StreamEventContentStart, mo.Some(0), mo.Some(content), mo.None[string]())},
+		{
+			name:  "content start",
+			valid: testStreamEvent(StreamEventContentStart, mo.Some(0), mo.Some(content), mo.None[string]()),
+		},
 		{name: "text delta", valid: testStreamEvent(StreamEventTextDelta, mo.Some(0), mo.Some(content), mo.Some(""))},
-		{name: "content end wildcard", valid: testStreamEvent(StreamEventContentEnd, mo.Some(0), mo.Some(model.Content{}), mo.None[string]())},
-		{name: "tool call start", valid: StreamEvent{Kind: StreamEventToolCallStart, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.Some(preview), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
-		{name: "tool call delta", valid: StreamEvent{Kind: StreamEventToolCallDelta, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.Some(preview), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response]()}},
-		{name: "tool call end", valid: StreamEvent{Kind: StreamEventToolCallEnd, Position: mo.Some(0), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.Some(call), Response: mo.None[model.Response]()}},
-		{name: "done", valid: StreamEvent{Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.Some(response)}},
-		{name: "error", valid: StreamEvent{Kind: StreamEventError, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.Some(response)}},
+		{
+			name:  "content end wildcard",
+			valid: testStreamEvent(StreamEventContentEnd, mo.Some(0), mo.Some(model.Content{}), mo.None[string]()),
+		},
+		{
+			name: "tool call start",
+			valid: StreamEvent{
+				Kind:     StreamEventToolCallStart,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.Some(preview),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
+			},
+		},
+		{
+			name: "tool call delta",
+			valid: StreamEvent{
+				Kind:     StreamEventToolCallDelta,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.Some(preview),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
+			},
+		},
+		{
+			name: "tool call end",
+			valid: StreamEvent{
+				Kind:     StreamEventToolCallEnd,
+				Position: mo.Some(0),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.Some(call),
+				Response: mo.None[model.Response](),
+			},
+		},
+		{
+			name: "done",
+			valid: StreamEvent{
+				Kind:     StreamEventDone,
+				Position: mo.None[int](),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.Some(response),
+			},
+		},
+		{
+			name: "error",
+			valid: StreamEvent{
+				Kind:     StreamEventError,
+				Position: mo.None[int](),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.Some(response),
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -409,7 +487,10 @@ func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
 		})
 	}
 	for _, kind := range []StreamEventKind{0, 99} {
-		require.Error(t, testStreamEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[string]()).validateShape())
+		require.Error(
+			t,
+			testStreamEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[string]()).validateShape(),
+		)
 	}
 }
 
@@ -424,18 +505,74 @@ func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
 		Payload: []byte{0},
 	}
 	call := model.ToolCall{
-		ID: "call", Name: "tool", Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+		ID:        "call",
+		Name:      "tool",
+		Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
 	}
 	tests := []struct {
 		name    string
 		content model.Content
 	}{
-		{name: "empty text", content: model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
-		{name: "empty refusal", content: model.Content{Kind: model.ContentRefusal, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
-		{name: "reasoning text", content: model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
-		{name: "reasoning provider context", content: model.Content{Kind: model.ContentReasoning, Text: mo.None[string](), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()}},
-		{name: "reasoning text and provider context", content: model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()}},
-		{name: "tool call null arguments", content: model.Content{Kind: model.ContentToolCall, Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)}},
+		{
+			name: "empty text",
+			content: model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some(""),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		{
+			name: "empty refusal",
+			content: model.Content{
+				Kind:            model.ContentRefusal,
+				Text:            mo.Some(""),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		{
+			name: "reasoning text",
+			content: model.Content{
+				Kind:            model.ContentReasoning,
+				Text:            mo.Some(""),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		{
+			name: "reasoning provider context",
+			content: model.Content{
+				Kind:            model.ContentReasoning,
+				Text:            mo.None[string](),
+				Final:           true,
+				ProviderContext: mo.Some(providerContext),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		{
+			name: "reasoning text and provider context",
+			content: model.Content{
+				Kind:            model.ContentReasoning,
+				Text:            mo.Some(""),
+				Final:           true,
+				ProviderContext: mo.Some(providerContext),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		{
+			name: "tool call null arguments",
+			content: model.Content{
+				Kind:            model.ContentToolCall,
+				Text:            mo.None[string](),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.Some(call),
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -445,13 +582,55 @@ func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
 	}
 
 	invalid := []model.Content{
-		{Kind: model.ContentText, Text: mo.None[string](), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-		{Kind: model.ContentRefusal, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()},
-		{Kind: model.ContentReasoning, Text: mo.None[string](), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-		{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)},
-		{Kind: model.ContentToolCall, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(call)},
-		{Kind: model.ContentKind(99), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-		{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{
+			Kind:            model.ContentText,
+			Text:            mo.None[string](),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		{
+			Kind:            model.ContentRefusal,
+			Text:            mo.Some(""),
+			Final:           true,
+			ProviderContext: mo.Some(providerContext),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		{
+			Kind:            model.ContentReasoning,
+			Text:            mo.None[string](),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		{
+			Kind:            model.ContentReasoning,
+			Text:            mo.Some(""),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.Some(call),
+		},
+		{
+			Kind:            model.ContentToolCall,
+			Text:            mo.Some(""),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.Some(call),
+		},
+		{
+			Kind:            model.ContentKind(99),
+			Text:            mo.None[string](),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		{
+			Kind:            model.ContentText,
+			Text:            mo.Some(""),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
 	}
 	for _, content := range invalid {
 		require.Error(t, testTerminalContentResponse([]model.Content{content}).ValidateTerminalContent())

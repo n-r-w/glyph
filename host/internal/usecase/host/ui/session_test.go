@@ -32,8 +32,16 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 	control.EXPECT().Information().Return(session.InformationSnapshot{
 		Info: info,
 		Statistics: session.Statistics{
-			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-			TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
+			UserMessages:   0,
+			ModelResponses: 0,
+			ToolCalls:      0,
+			ToolResults:    0,
+			TotalMessages:  0,
+			TokenUsage: mo.Some(
+				session.TokenUsage{},
+			),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			CostBreakdown: nil,
 		},
 	})
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
@@ -51,7 +59,13 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		SessionID:       mo.None[string](),
-		SessionName:     mo.Some("renamed"), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		SessionName: mo.Some(
+			"renamed",
+		),
+		TargetEntryID: mo.None[string](),
+		SummaryMode:   domainui.SummaryModeNoSummary,
+		CustomFocus:   mo.None[string](),
+		EntryLabel:    mo.None[string](),
 	})
 	// Assert the command is handled and the information frame is sent.
 	require.NoError(t, err)
@@ -64,9 +78,17 @@ type sessionContextKey struct{}
 // testUICommand creates a complete command for focused session lifecycle tests.
 func testUICommand(kind domainui.CommandKind, text mo.Option[string]) domainui.Command {
 	return domainui.Command{
-		Kind: kind, Text: text, ProviderID: mo.None[string](), ModelID: mo.None[string](),
-		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		Kind:            kind,
+		Text:            text,
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+		SessionID:       mo.None[string](),
+		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     domainui.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 }
 

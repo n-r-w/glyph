@@ -194,9 +194,15 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	assert.Contains(t, strings.ToLower(terminalText), "permission")
 	assert.Equal(t, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED, events[len(events)-1])
 	require.NoError(t, os.Chmod(named.GetStoragePath(), 0o600))
-	resumed := sendProgrammaticCommand(t, fixture, "resume-after-terminal-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
-	}).GetSessionInfo().GetInfo()
+	resumed := sendProgrammaticCommand(
+		t,
+		fixture,
+		"resume-after-terminal-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
+		},
+	).GetSessionInfo().
+		GetInfo()
 	assert.Equal(t, named.GetId(), resumed.GetId())
 }
 
@@ -266,9 +272,17 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	writeProgrammaticCredentials(t, paths)
 	fixture := startProgrammaticFixture(t, paths)
 	defer fixture.closeOwner(t)
-	active := sendProgrammaticCommand(t, fixture, "persist-active-before-recovery-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("active before recovery failure")}.Build())
-	}).GetSessionInfo().GetInfo()
+	active := sendProgrammaticCommand(
+		t,
+		fixture,
+		"persist-active-before-recovery-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetSetSessionName(
+				programmaticv1.SetSessionName_builder{Name: new("active before recovery failure")}.Build(),
+			)
+		},
+	).GetSessionInfo().
+		GetInfo()
 	recoveryFixtures := writeSessionRecoveryFixture(t, active.GetStoragePath(), active.GetWorkingDirectory())
 	setImmutable := exec.CommandContext(t.Context(), "/usr/bin/chflags", "uchg", recoveryFixtures.interruptedPath)
 	require.NoError(t, setImmutable.Run())
@@ -288,20 +302,48 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 
 	// Act by letting immutable interrupted-tail recovery fail during mode repair, then query and mutate prior state.
 	rejected := sendProgrammaticCommand(t, fixture, "resume-immutable-tail", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build())
+		request.SetResumeSession(
+			programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build(),
+		)
 	}).GetRejected()
-	priorInfo := sendProgrammaticCommand(t, fixture, "info-after-recovery-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
-	}).GetSessionInfo().GetInfo()
-	priorEntries := sendProgrammaticCommand(t, fixture, "entries-after-recovery-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
-	}).GetSessionEntries().GetEntries()
-	priorStatistics := sendProgrammaticCommand(t, fixture, "statistics-after-recovery-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
-	}).GetSessionStats().GetStatistics()
-	priorRenamed := sendProgrammaticCommand(t, fixture, "name-prior-active-after-recovery-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("prior active remains writable")}.Build())
-	}).GetSessionInfo().GetInfo()
+	priorInfo := sendProgrammaticCommand(
+		t,
+		fixture,
+		"info-after-recovery-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		},
+	).GetSessionInfo().
+		GetInfo()
+	priorEntries := sendProgrammaticCommand(
+		t,
+		fixture,
+		"entries-after-recovery-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		},
+	).GetSessionEntries().
+		GetEntries()
+	priorStatistics := sendProgrammaticCommand(
+		t,
+		fixture,
+		"statistics-after-recovery-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		},
+	).GetSessionStats().
+		GetStatistics()
+	priorRenamed := sendProgrammaticCommand(
+		t,
+		fixture,
+		"name-prior-active-after-recovery-failure",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetSetSessionName(
+				programmaticv1.SetSessionName_builder{Name: new("prior active remains writable")}.Build(),
+			)
+		},
+	).GetSessionInfo().
+		GetInfo()
 
 	// Assert detailed rejection, preserved prior state, and a failed-recovery diagnostic.
 	require.NotNil(t, rejected)
@@ -324,15 +366,35 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	// Act by clearing the fault, resuming the interrupted session, and mutating recovered storage.
 	clearCommand := exec.CommandContext(t.Context(), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
 	require.NoError(t, clearCommand.Run())
-	resumed := sendProgrammaticCommand(t, fixture, "resume-after-recovery-fault-cleared", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build())
-	}).GetSessionInfo().GetInfo()
-	recoveredEntries := sendProgrammaticCommand(t, fixture, "entries-after-recovery", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
-	}).GetSessionEntries().GetEntries()
-	recoveredRenamed := sendProgrammaticCommand(t, fixture, "name-after-recovery", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("recovered writable")}.Build())
-	}).GetSessionInfo().GetInfo()
+	resumed := sendProgrammaticCommand(
+		t,
+		fixture,
+		"resume-after-recovery-fault-cleared",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetResumeSession(
+				programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build(),
+			)
+		},
+	).GetSessionInfo().
+		GetInfo()
+	recoveredEntries := sendProgrammaticCommand(
+		t,
+		fixture,
+		"entries-after-recovery",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		},
+	).GetSessionEntries().
+		GetEntries()
+	recoveredRenamed := sendProgrammaticCommand(
+		t,
+		fixture,
+		"name-after-recovery",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("recovered writable")}.Build())
+		},
+	).GetSessionInfo().
+		GetInfo()
 
 	// Assert successful retry publishes complete durable state and restores mutation.
 	assert.Equal(t, recoveryFixtures.interruptedID, resumed.GetId())
@@ -360,11 +422,17 @@ func sendProgrammaticCommand(
 
 func selectProgrammaticFailureModel(t *testing.T, fixture *programmaticFixture) {
 	t.Helper()
-	selection := sendProgrammaticCommand(t, fixture, "select-runtime-failure-model", func(request *programmaticv1.OpenRequest) {
-		request.SetSelectModel(programmaticv1.SelectModel_builder{
-			ProviderId: new("openai-codex"), ModelId: new("selected-model"),
-		}.Build())
-	}).GetModelSelection().GetSelection()
+	selection := sendProgrammaticCommand(
+		t,
+		fixture,
+		"select-runtime-failure-model",
+		func(request *programmaticv1.OpenRequest) {
+			request.SetSelectModel(programmaticv1.SelectModel_builder{
+				ProviderId: new("openai-codex"), ModelId: new("selected-model"),
+			}.Build())
+		},
+	).GetModelSelection().
+		GetSelection()
 	require.Equal(t, "openai-codex", selection.GetProviderId())
 	require.Equal(t, "selected-model", selection.GetModelId())
 }
@@ -431,7 +499,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(test.id)}.Build())
 		})
 		require.NotNil(t, response.GetRejected())
-		assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, response.GetRejected().GetCode())
+		assert.Equal(
+			t,
+			programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE,
+			response.GetRejected().GetCode(),
+		)
 		current := send("active-after-"+test.name, func(request *programmaticv1.OpenRequest) {
 			request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 		}).GetSessionInfo().GetInfo()

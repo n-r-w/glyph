@@ -25,27 +25,49 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 		expectedType controller.CommandKind
 	}{
 		{
-			name: "missing payload precedes active correlation and busy state", active: true,
+			name:         "missing payload precedes active correlation and busy state",
+			active:       true,
 			command:      testProgrammaticCommand("active", controller.CommandUnspecified),
-			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUnspecified, prepareErr: nil,
+			expectedCode: controller.RejectionInvalidArgument,
+			expectedType: controller.CommandUnspecified,
+			prepareErr:   nil,
 		},
 		{
-			name: "blank user request precedes active correlation and busy state", active: true,
+			name:         "blank user request precedes active correlation and busy state",
+			active:       true,
 			command:      testProgrammaticUserCommand("active", " \t"),
-			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandUserRequest, prepareErr: nil,
+			expectedCode: controller.RejectionInvalidArgument,
+			expectedType: controller.CommandUserRequest,
+			prepareErr:   nil,
 		},
 		{
-			name: "unexpected query payload precedes active correlation", active: true,
-			command: controller.Command{CorrelationID: "active", Kind: controller.CommandGetRunState, UserText: mo.Some("unexpected"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+			name:   "unexpected query payload precedes active correlation",
+			active: true,
+			command: controller.Command{
+				CorrelationID:   "active",
+				Kind:            controller.CommandGetRunState,
+				UserText:        mo.Some("unexpected"),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[session.ID](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			},
-			expectedCode: controller.RejectionInvalidArgument, expectedType: controller.CommandGetRunState, prepareErr: nil,
+			expectedCode: controller.RejectionInvalidArgument,
+			expectedType: controller.CommandGetRunState,
+			prepareErr:   nil,
 		},
 		{
-			name: "active correlation precedes busy state", active: true,
+			name:         "active correlation precedes busy state",
+			active:       true,
 			command:      testProgrammaticUserCommand("active", "next"),
-			expectedCode: controller.RejectionCorrelationInUse, expectedType: controller.CommandUserRequest, prepareErr: nil,
+			expectedCode: controller.RejectionCorrelationInUse,
+			expectedType: controller.CommandUserRequest,
+			prepareErr:   nil,
 		},
 		{
 			name: "busy state precedes allocation failure", active: true,
@@ -54,8 +76,12 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			expectedType: controller.CommandUserRequest,
 		},
 		{
-			name: "abort without active run", command: testProgrammaticCommand("abort", controller.CommandAbort),
-			expectedCode: controller.RejectionNoActiveRun, expectedType: controller.CommandAbort, active: false, prepareErr: nil,
+			name:         "abort without active run",
+			command:      testProgrammaticCommand("abort", controller.CommandAbort),
+			expectedCode: controller.RejectionNoActiveRun,
+			expectedType: controller.CommandAbort,
+			active:       false,
+			prepareErr:   nil,
 		},
 		{
 			name:       "allocation failure after valid idle request",
@@ -74,9 +100,18 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 				_, operation, err := service.Handle(s.T().Context(), controller.Command{
-					CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-					SessionID:   mo.None[session.ID](),
-					SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+					CorrelationID:   "active",
+					Kind:            controller.CommandUserRequest,
+					UserText:        mo.Some("first"),
+					ProviderID:      mo.None[model.ProviderID](),
+					ModelID:         mo.None[model.ID](),
+					ReasoningChoice: mo.None[model.ReasoningChoice](),
+					SessionID:       mo.None[session.ID](),
+					SessionName:     mo.None[string](),
+					TargetEntryID:   mo.None[string](),
+					SummaryMode:     controller.SummaryModeNoSummary,
+					CustomFocus:     mo.None[string](),
+					EntryLabel:      mo.None[string](),
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(operation)
@@ -108,9 +143,18 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, activeOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		CorrelationID:   "active",
+		Kind:            controller.CommandUserRequest,
+		UserText:        mo.Some("request"),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](),
+		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     controller.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(activeOperation)
@@ -131,7 +175,9 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog.EXPECT().Models().Return(models)
 	catalog.EXPECT().Selection().Return(initial)
-	catalog.EXPECT().SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).Return(selectedModel, nil)
+	catalog.EXPECT().
+		SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).
+		Return(selectedModel, nil)
 	catalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceHigh).Return(selectedReasoning, nil)
 
 	tests := []struct {
@@ -142,40 +188,87 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			command: testProgrammaticCommand("models", controller.CommandGetModels),
 			want: controller.Response{
 				SessionEntries: nil,
-				CorrelationID:  "models", Kind: controller.ResponseModels,
-				Models: mo.Some(controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)}), State: mo.None[controller.RunStateResult](), Messages: nil, Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+				CorrelationID:  "models",
+				Kind:           controller.ResponseModels,
+				Models: mo.Some(
+					controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)},
+				),
+				State:             mo.None[controller.RunStateResult](),
+				Messages:          nil,
+				Selection:         mo.None[model.Selection](),
+				Rejection:         mo.None[controller.Rejection](),
 				SessionInfo:       mo.None[session.Info](),
 				Sessions:          nil,
-				SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](), Replacement: mo.None[controller.SessionReplacement](),
+				SessionStatistics: mo.None[session.Statistics](),
+				SessionTree:       mo.None[controller.SessionTree](),
+				TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+				Replacement:       mo.None[controller.SessionReplacement](),
 			},
 		},
 		{
 			command: controller.Command{
-				CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("other")), ModelID: mo.Some(model.ID("next")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				CorrelationID:   "model",
+				Kind:            controller.CommandSelectModel,
+				ProviderID:      mo.Some(model.ProviderID("other")),
+				ModelID:         mo.Some(model.ID("next")),
+				UserText:        mo.None[string](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[session.ID](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			},
 			want: controller.Response{
-				SessionEntries: nil,
-				CorrelationID:  "model", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedModel), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionEntries:    nil,
+				CorrelationID:     "model",
+				Kind:              controller.ResponseModelSelection,
+				Selection:         mo.Some(selectedModel),
+				State:             mo.None[controller.RunStateResult](),
+				Messages:          nil,
+				Models:            mo.None[controller.ModelsResult](),
+				Rejection:         mo.None[controller.Rejection](),
 				SessionInfo:       mo.None[session.Info](),
 				Sessions:          nil,
-				SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](), Replacement: mo.None[controller.SessionReplacement](),
+				SessionStatistics: mo.None[session.Statistics](),
+				SessionTree:       mo.None[controller.SessionTree](),
+				TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+				Replacement:       mo.None[controller.SessionReplacement](),
 			},
 		},
 		{
 			command: controller.Command{
-				CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice,
-				ReasoningChoice: mo.Some(model.ReasoningChoiceHigh), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				CorrelationID: "reasoning",
+				Kind:          controller.CommandSelectReasoningChoice,
+				ReasoningChoice: mo.Some(
+					model.ReasoningChoiceHigh,
+				),
+				UserText:      mo.None[string](),
+				ProviderID:    mo.None[model.ProviderID](),
+				ModelID:       mo.None[model.ID](),
+				SessionID:     mo.None[session.ID](),
+				SessionName:   mo.None[string](),
+				TargetEntryID: mo.None[string](),
+				SummaryMode:   controller.SummaryModeNoSummary,
+				CustomFocus:   mo.None[string](),
+				EntryLabel:    mo.None[string](),
 			},
 			want: controller.Response{
-				SessionEntries: nil,
-				CorrelationID:  "reasoning", Kind: controller.ResponseModelSelection, Selection: mo.Some(selectedReasoning), State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Rejection: mo.None[controller.Rejection](),
+				SessionEntries:    nil,
+				CorrelationID:     "reasoning",
+				Kind:              controller.ResponseModelSelection,
+				Selection:         mo.Some(selectedReasoning),
+				State:             mo.None[controller.RunStateResult](),
+				Messages:          nil,
+				Models:            mo.None[controller.ModelsResult](),
+				Rejection:         mo.None[controller.Rejection](),
 				SessionInfo:       mo.None[session.Info](),
 				Sessions:          nil,
-				SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](), Replacement: mo.None[
+				SessionStatistics: mo.None[session.Statistics](),
+				SessionTree:       mo.None[controller.SessionTree](),
+				TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+				Replacement:       mo.None[
 
 				// Act by handling each catalog command while the run remains active.
 				controller.SessionReplacement](),
@@ -202,15 +295,48 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	)
 
 	commands := []controller.Command{
-		{CorrelationID: "provider", Kind: controller.CommandSelectModel, ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
-			TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string]()},
-		{CorrelationID: "model", Kind: controller.CommandSelectModel, ProviderID: mo.Some(model.ProviderID("provider")), UserText: mo.None[string](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
-			TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string]()},
-		{CorrelationID: "reasoning", Kind: controller.CommandSelectReasoningChoice, UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
-			TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string]()},
+		{
+			CorrelationID:   "provider",
+			Kind:            controller.CommandSelectModel,
+			ModelID:         mo.Some(model.ID("model")),
+			UserText:        mo.None[string](),
+			ProviderID:      mo.None[model.ProviderID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
+		},
+		{
+			CorrelationID:   "model",
+			Kind:            controller.CommandSelectModel,
+			ProviderID:      mo.Some(model.ProviderID("provider")),
+			UserText:        mo.None[string](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
+		},
+		{
+			CorrelationID:   "reasoning",
+			Kind:            controller.CommandSelectReasoningChoice,
+			UserText:        mo.None[string](),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
+		},
 	}
 	for _, command := range commands {
 		response, operation, err := service.Handle(s.T().Context(), command)
@@ -254,13 +380,25 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 				NewMockCoordinator(ctrl), catalog,
 				idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery(),
 			)
-			catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(model.Selection{}, test.err)
+			catalog.EXPECT().
+				SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).
+				Return(model.Selection{}, test.err)
 
 			response, operation, err := service.Handle(s.T().Context(), controller.Command{
-				CorrelationID: "selection", Kind: controller.CommandSelectModel,
-				ProviderID: mo.Some(model.ProviderID("provider")), ModelID: mo.Some(model.ID("model")), UserText: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				CorrelationID: "selection",
+				Kind:          controller.CommandSelectModel,
+				ProviderID: mo.Some(
+					model.ProviderID("provider"),
+				),
+				ModelID:         mo.Some(model.ID("model")),
+				UserText:        mo.None[string](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[session.ID](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			})
 			s.Require().NoError(err)
 			s.Nil(operation)

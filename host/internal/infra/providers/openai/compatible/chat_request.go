@@ -152,7 +152,10 @@ func chatUserContent(message model.Message) ([]openai.ChatCompletionContentPartU
 					Detail: "",
 				}), nil
 			default:
-				return openai.ChatCompletionContentPartUnionParam{}, fmt.Errorf("unsupported user content kind %d", item.Kind)
+				return openai.ChatCompletionContentPartUnionParam{}, fmt.Errorf(
+					"unsupported user content kind %d",
+					item.Kind,
+				)
 			}
 		},
 	)
@@ -175,13 +178,19 @@ func chatAssistantMessage(
 		case model.ContentText:
 			value, present := item.Text.Get()
 			if !present {
-				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("model content %d has no text", index)
+				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf(
+					"model content %d has no text",
+					index,
+				)
 			}
 			text.WriteString(value)
 		case model.ContentRefusal:
 			value, present := item.Text.Get()
 			if !present {
-				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("model content %d has no text", index)
+				return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf(
+					"model content %d has no text",
+					index,
+				)
 			}
 			refusal.WriteString(value)
 		case model.ContentReasoning:
@@ -206,7 +215,10 @@ func chatAssistantMessage(
 			}
 			calls = append(calls, call)
 		default:
-			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf("unsupported model content kind %d", item.Kind)
+			return openai.ChatCompletionMessageParamUnion{}, false, fmt.Errorf(
+				"unsupported model content kind %d",
+				item.Kind,
+			)
 		}
 	}
 	return buildChatAssistantMessage(text.String(), reasoning.String(), reasoningDetails, refusal.String(), calls)
@@ -296,7 +308,11 @@ func chatTools(descriptors []tool.Descriptor, strictSupported bool) ([]openai.Ch
 			}
 			var schema map[string]any
 			if err := json.Unmarshal(descriptor.InputSchemaJSON, &schema); err != nil {
-				return openai.ChatCompletionToolUnionParam{}, fmt.Errorf("tool %d has invalid input schema: %w", index, err)
+				return openai.ChatCompletionToolUnionParam{}, fmt.Errorf(
+					"tool %d has invalid input schema: %w",
+					index,
+					err,
+				)
 			}
 			definition := shared.FunctionDefinitionParam{
 				Name:        descriptor.Name,

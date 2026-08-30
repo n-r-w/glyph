@@ -160,7 +160,10 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolC
 		case uiv1.ToolCallPreviewField_Prefix_case:
 			mapped.Prefix = mo.Some(field.GetPrefix())
 		case uiv1.ToolCallPreviewField_Content_not_set_case:
-			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d content is missing", index)
+			return presentationdomain.ToolCallState{}, fmt.Errorf(
+				"tool call preview field %d content is missing",
+				index,
+			)
 		}
 		fields[index] = mapped
 	}

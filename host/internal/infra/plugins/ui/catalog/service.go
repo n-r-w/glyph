@@ -51,7 +51,10 @@ func (*Service) Discover(ctx context.Context, directory domainui.Directory) (dom
 			Path: filepath.Join(directory.Path, entry.Name()),
 		}
 		if candidate.ID == "" {
-			catalogErr = errors.Join(catalogErr, fmt.Errorf("UI candidate %q has an empty normalized ID", candidate.Path))
+			catalogErr = errors.Join(
+				catalogErr,
+				fmt.Errorf("UI candidate %q has an empty normalized ID", candidate.Path),
+			)
 			continue
 		}
 		groups[candidate.ID] = append(groups[candidate.ID], candidate)

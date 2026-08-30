@@ -166,7 +166,10 @@ func TestRendererFinalizesVisibleTextWithOneTrailingNewline(t *testing.T) {
 			var stdout bytes.Buffer
 			renderer := NewRenderer(&stdout, &bytes.Buffer{})
 			for _, chunk := range testCase.chunks {
-				require.NoError(t, renderer.DeliverAgent(t.Context(), rendererTextDeltaEvent(0, model.ContentText, chunk)))
+				require.NoError(
+					t,
+					renderer.DeliverAgent(t.Context(), rendererTextDeltaEvent(0, model.ContentText, chunk)),
+				)
 			}
 			require.NoError(t, renderer.DeliverAgent(t.Context(), rendererMessageEndEvent()))
 
@@ -438,7 +441,8 @@ func TestRendererWritesStartupInformationAndFailures(t *testing.T) {
 
 	assert.Equal(
 		t,
-		"[extension:error] broken (/plugins/broken): handshake failed\n[info] headless\n[info] extension tools: read, bash\n[error] provider failed\n",
+		"[extension:error] broken (/plugins/broken): handshake failed\n[info] headless\n"+
+			"[info] extension tools: read, bash\n[error] provider failed\n",
 		stderr.String(),
 	)
 }

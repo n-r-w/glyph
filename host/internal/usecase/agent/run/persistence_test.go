@@ -139,7 +139,10 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 						err := handleProgress(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"})
 						require.ErrorIs(t, err, progressErr)
 						return agent.ToolResult{
-							CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("partial"), IsError: false,
+							CallID:   call.ID,
+							ToolName: call.Name,
+							Contents: tool.TextContents("partial"),
+							IsError:  false,
 						}, fmt.Errorf("runtime propagated progress: %w", err)
 					}
 					return agent.ToolResult{}, toolErr
@@ -171,7 +174,8 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 	}
 }
 
-// TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails verifies tool-result persistence causes reach the terminal result.
+// TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails verifies tool-result persistence causes reach
+// the terminal result.
 func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.T) {
 	t.Parallel()
 
@@ -206,7 +210,10 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 		func(context.Context, model.ToolCall, tool.ProgressHandler) (agent.ToolResult, error) {
 			toolCompleted = true
 			return agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("external effect complete"), IsError: false,
+				CallID:   call.ID,
+				ToolName: call.Name,
+				Contents: tool.TextContents("external effect complete"),
+				IsError:  false,
 			}, nil
 		},
 	)
@@ -257,8 +264,12 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
 			return handle(StreamEvent{
-				Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
-				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](),
+				Kind:     StreamEventDone,
+				Position: mo.None[int](),
+				Content:  mo.None[model.Content](),
+				Delta:    mo.None[string](),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
 				Response: mo.Some(model.Response{
 					Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop),
 					ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),

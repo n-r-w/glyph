@@ -64,7 +64,11 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some("destination"), committed.ActiveLeafID())
 	assert.Equal(t, mo.Some("continuation"), service.Tree().ActiveLeafID())
-	assert.Equal(t, []string{"root", "destination", "abandoned", "continuation"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+	assert.Equal(
+		t,
+		[]string{"root", "destination", "abandoned", "continuation"},
+		treeBehaviorEntryIDs(service.Tree().Entries()),
+	)
 }
 
 // TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence verifies optimistic leaf comparison precedes storage.

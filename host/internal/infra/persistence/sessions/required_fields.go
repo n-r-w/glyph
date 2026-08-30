@@ -94,7 +94,11 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 			fieldInputTokens, fieldOutputTokens, "cacheReadTokens",
 			fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
 		}
-		if validationErr := entry.validateOptionalRequiredObject("usage", usageFields, usageFields); validationErr != nil {
+		if validationErr := entry.validateOptionalRequiredObject(
+			"usage",
+			usageFields,
+			usageFields,
+		); validationErr != nil {
 			return validationErr
 		}
 		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}

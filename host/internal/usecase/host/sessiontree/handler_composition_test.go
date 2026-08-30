@@ -17,7 +17,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
-// TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation, issue order, and observer timing.
+// TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation, issue order,
+// and observer timing.
 func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	t.Parallel()
 
@@ -401,11 +402,17 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	models := NewMockModelCompleter(controller)
 	handlers := NewMockHandlerRunner(controller)
 	entry := session.Entry{
-		ID: "extension", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0).UTC(),
-		Information: mo.None[session.Information](), User: mo.None[model.Message](),
-		Model: mo.None[model.Response](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ID:            "extension",
+		ParentID:      mo.None[string](),
+		CreatedAt:     time.Unix(1, 0).UTC(),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[model.Message](),
+		Model:         mo.None[model.Response](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[agent.ToolResult](),
-		Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)}),
+		Extension: mo.Some(
+			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)},
+		),
 		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	tree, err := session.NewTree([]session.Entry{entry}, mo.Some("extension"), nil)

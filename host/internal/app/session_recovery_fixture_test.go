@@ -34,36 +34,39 @@ func findSessionStoragePath(t *testing.T, dataDirectory, id string) (string, str
 	t.Helper()
 	var matchedPath string
 	var workingDirectory string
-	err := filepath.WalkDir(filepath.Join(dataDirectory, "sessions"), func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || filepath.Ext(path) != ".jsonl" {
+	err := filepath.WalkDir(
+		filepath.Join(dataDirectory, "sessions"),
+		func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || filepath.Ext(path) != ".jsonl" {
+				return nil
+			}
+			file, openErr := os.Open(path)
+			if openErr != nil {
+				return openErr
+			}
+			scanner := bufio.NewScanner(file)
+			if !scanner.Scan() {
+				return errors.Join(scanner.Err(), file.Close())
+			}
+			var header struct {
+				ID  string `json:"id"`
+				CWD string `json:"cwd"`
+			}
+			decodeErr := json.Unmarshal(scanner.Bytes(), &header)
+			closeErr := file.Close()
+			if decodeErr != nil || closeErr != nil {
+				return errors.Join(decodeErr, closeErr)
+			}
+			if header.ID == id {
+				matchedPath = path
+				workingDirectory = header.CWD
+			}
 			return nil
-		}
-		file, openErr := os.Open(path)
-		if openErr != nil {
-			return openErr
-		}
-		scanner := bufio.NewScanner(file)
-		if !scanner.Scan() {
-			return errors.Join(scanner.Err(), file.Close())
-		}
-		var header struct {
-			ID  string `json:"id"`
-			CWD string `json:"cwd"`
-		}
-		decodeErr := json.Unmarshal(scanner.Bytes(), &header)
-		closeErr := file.Close()
-		if decodeErr != nil || closeErr != nil {
-			return errors.Join(decodeErr, closeErr)
-		}
-		if header.ID == id {
-			matchedPath = path
-			workingDirectory = header.CWD
-		}
-		return nil
-	})
+		},
+	)
 	require.NoError(t, err)
 	require.NotEmpty(t, matchedPath)
 	require.NotEmpty(t, workingDirectory)
@@ -96,7 +99,11 @@ func writeSessionRecoveryFixture(t *testing.T, storagePath, workingDirectory str
 	unsupported := header(1, fixture.unsupportedID, workingDirectory)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "unsupported.jsonl"), []byte(unsupported), 0o600))
 	user := `{"type":"entry","entry":{"type":"user","id":"preceding-entry","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"preceding tail text"}]}}}` + "\n"
-	interrupted := header(2, fixture.interruptedID, workingDirectory) + user + `{"type":"entry","entry":{"type":"model","id":"interrupted-entry"`
+	interrupted := header(
+		2,
+		fixture.interruptedID,
+		workingDirectory,
+	) + user + `{"type":"entry","entry":{"type":"model","id":"interrupted-entry"`
 	require.NoError(t, os.WriteFile(fixture.interruptedPath, []byte(interrupted), 0o640))
 	return fixture
 }

@@ -347,7 +347,10 @@ func (s *Service) complete(
 		if cleanupErr != nil {
 			completion.Cause = SessionCompletionCleanupFailure
 			completion.Err = cleanupErr
-			return completion, status.Error(codes.Internal, fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr))
+			return completion, status.Error(
+				codes.Internal,
+				fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr),
+			)
 		}
 		completion.Cause = SessionCompletionCleanClientClosure
 		completion.Err = nil

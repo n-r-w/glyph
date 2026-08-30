@@ -97,7 +97,11 @@ func (s *Service) createReplacement(ctx context.Context, tree session.Tree) (ses
 	})
 	if err != nil {
 		logPersistenceFailure(ctx, persistenceOperationReplacement, s.active.Header.ID, err)
-		return session.Replacement{}, fmt.Errorf("%w: create replacement session: %w", session.ErrPersistenceUnavailable, err)
+		return session.Replacement{}, fmt.Errorf(
+			"%w: create replacement session: %w",
+			session.ErrPersistenceUnavailable,
+			err,
+		)
 	}
 	loaded := LoadedSession{
 		Header: header, StoragePath: result.StoragePath, Tree: tree,

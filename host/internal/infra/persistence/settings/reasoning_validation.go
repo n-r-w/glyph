@@ -46,7 +46,12 @@ func (configured reasoningFile) validatedChoices(providerID, modelID string) ([]
 			)
 		}
 		if _, duplicate := seen[choice]; duplicate {
-			return nil, fmt.Errorf("provider %q model %q has duplicate reasoning choice %q", providerID, modelID, choice)
+			return nil, fmt.Errorf(
+				"provider %q model %q has duplicate reasoning choice %q",
+				providerID,
+				modelID,
+				choice,
+			)
 		}
 		seen[choice] = struct{}{}
 	}

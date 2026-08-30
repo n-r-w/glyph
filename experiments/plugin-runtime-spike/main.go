@@ -55,7 +55,9 @@ func runMain() error {
 		if !report.passed() {
 			return fmt.Errorf("automated runtime outcomes incomplete: %+v", report)
 		}
-		fmt.Println("PASS: protocol v1, multiple extensions, streaming, cancellation, crash isolation, collision cleanup, and bidirectional UI")
+		fmt.Println(
+			"PASS: protocol v1, multiple extensions, streaming, cancellation, crash isolation, collision cleanup, and bidirectional UI",
+		)
 		return nil
 	case modeCheckTerminal:
 		return printTerminalResult(ctx, executable)
@@ -74,7 +76,9 @@ func runMain() error {
 		if !terminal.passed() {
 			return fmt.Errorf("terminal outcomes incomplete: %+v", terminal)
 		}
-		fmt.Println("PASS: plugin SDK, multiple extensions, bidirectional UI, cancellation, crash isolation, and terminal restoration")
+		fmt.Println(
+			"PASS: plugin SDK, multiple extensions, bidirectional UI, cancellation, crash isolation, and terminal restoration",
+		)
 		return nil
 	default:
 		return fmt.Errorf("unknown mode %q", os.Args[1])

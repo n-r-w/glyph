@@ -24,15 +24,27 @@ func TestResumeProjectsOnlyRootFirstActiveBranch(t *testing.T) {
 	root := treeBehaviorUserEntry("root", mo.None[string](), createdAt)
 	abandoned := treeBehaviorUserEntry("abandoned", mo.Some("root"), createdAt.Add(time.Second))
 	active := treeBehaviorUserEntry("active", mo.Some("root"), createdAt.Add(2*time.Second))
-	activeModel := branchAccountingModelEntry("active-model", mo.Some("active"), mo.Some(model.Usage{}), mo.None[session.EstimatedCost]())
+	activeModel := branchAccountingModelEntry(
+		"active-model",
+		mo.Some("active"),
+		mo.Some(model.Usage{}),
+		mo.None[session.EstimatedCost](),
+	)
 	tree, err := session.NewTree(
 		[]session.Entry{root, abandoned, active, activeModel}, mo.Some("active-model"), nil,
 	)
 	require.NoError(t, err)
 	repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl", Tree: tree,
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "stored",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/stored.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	service := New(repository, nil, nil, nil, "/project")
 
@@ -66,9 +78,16 @@ func TestStatisticsAndStoredSummaryCountAllBranches(t *testing.T) {
 	tree, err := session.NewTree([]session.Entry{root, abandoned, active}, mo.Some("active"), nil)
 	require.NoError(t, err)
 	loaded := LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl", Tree: tree,
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "stored",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/stored.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{loaded}, nil)
 	service := New(repository, nil, nil, nil, "/project")
@@ -144,8 +163,20 @@ func TestBranchSummaryMissingAccountingPreservesCompleteTotalRules(t *testing.T)
 		usagePresent bool
 		costPresent  bool
 	}{
-		{name: "missing usage", usage: mo.None[session.TokenUsage](), cost: mo.Some(session.EstimatedCost{}), usagePresent: false, costPresent: true},
-		{name: "missing cost", usage: mo.Some(session.TokenUsage{}), cost: mo.None[session.EstimatedCost](), usagePresent: true, costPresent: false},
+		{
+			name:         "missing usage",
+			usage:        mo.None[session.TokenUsage](),
+			cost:         mo.Some(session.EstimatedCost{}),
+			usagePresent: false,
+			costPresent:  true,
+		},
+		{
+			name:         "missing cost",
+			usage:        mo.Some(session.TokenUsage{}),
+			cost:         mo.None[session.EstimatedCost](),
+			usagePresent: true,
+			costPresent:  false,
+		},
 	}
 	for index := range testCases {
 		testCase := testCases[index]
@@ -194,10 +225,16 @@ func branchAccountingSummaryEntry(
 	cost mo.Option[session.EstimatedCost],
 ) session.Entry {
 	return session.Entry{
-		ID: "summary", ParentID: mo.None[string](), CreatedAt: time.Unix(3, 0).UTC(),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.Some(session.BranchSummaryEntry{
+		ID:            "summary",
+		ParentID:      mo.None[string](),
+		CreatedAt:     time.Unix(3, 0).UTC(),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: "summary", FirstEntryID: "first", LastEntryID: "last",
 			Provider: "summary-provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceOff,
 			Usage: usage, EstimatedCost: cost,

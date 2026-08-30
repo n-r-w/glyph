@@ -34,19 +34,27 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 		errorContains string
 	}{
 		"existing tool remains strict": {
-			descriptor:   tool.Descriptor{Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema), ConstrainedSampling: mo.None[tool.ConstrainedSampling]()},
-			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
-			expected:     `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`, errorContains: "",
+			descriptor: tool.Descriptor{
+				Name:                "sample",
+				Description:         "Sample.",
+				InputSchemaJSON:     []byte(constrainedToolSchema),
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+			},
+			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
+			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`,
+			errorContains: "",
 		},
 		"strict prefer uses supported strict mode": {
-			descriptor:   constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
-			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
-			expected:     `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`, errorContains: "",
+			descriptor:    constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
+			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
+			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`,
+			errorContains: "",
 		},
 		"strict prefer preserves provider fallback": {
-			descriptor:   constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
-			capabilities: toolCapabilities{strict: false, lark: true, regex: true},
-			expected:     `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":false}]`, errorContains: "",
+			descriptor:    constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
+			capabilities:  toolCapabilities{strict: false, lark: true, regex: true},
+			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":false}]`,
+			errorContains: "",
 		},
 		"strict require rejects unsupported mode": {
 			descriptor:    constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
@@ -54,50 +62,97 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 			errorContains: "requires JSON Schema constrained sampling", expected: "",
 		},
 		"grammar chooses lark before regex": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")}),
-			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
-			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"lark","definition":"start: /[a-z]+/"}}]`, errorContains: "",
+			descriptor: constrainedDescriptor(
+				0,
+				tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")},
+			),
+			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
+			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"lark","definition":"start: /[a-z]+/"}}]`,
+			errorContains: "",
 		},
 		"grammar uses regex when lark is empty": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()}),
-			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
-			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`, errorContains: "",
+			descriptor: constrainedDescriptor(
+				0,
+				tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()},
+			),
+			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
+			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
+			errorContains: "",
 		},
 		"grammar chooses a format supported by the model": {
-			descriptor:   constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")}),
-			capabilities: toolCapabilities{strict: true, lark: false, regex: true},
-			expected:     `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`, errorContains: "",
+			descriptor: constrainedDescriptor(
+				0,
+				tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")},
+			),
+			capabilities:  toolCapabilities{strict: true, lark: false, regex: true},
+			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
+			errorContains: "",
 		},
 		"grammar rejects when offered formats are unsupported": {
-			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}),
+			descriptor: constrainedDescriptor(
+				0,
+				tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()},
+			),
 			capabilities:  toolCapabilities{strict: true, lark: false, regex: true},
-			errorContains: "no supported grammar variant", expected: "",
+			errorContains: "no supported grammar variant",
+			expected:      "",
 		},
 		"grammar rejects unsupported mode": {
-			descriptor:    constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()}),
+			descriptor: constrainedDescriptor(
+				0,
+				tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()},
+			),
 			capabilities:  toolCapabilities{strict: true, lark: false, regex: false},
-			errorContains: "requires grammar constrained sampling", expected: "",
+			errorContains: "requires grammar constrained sampling",
+			expected:      "",
 		},
 		"grammar requires a nonempty variant": {
 			descriptor: tool.Descriptor{
-				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](), Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string]()}),
+				Name:            "sample",
+				Description:     "Sample.",
+				InputSchemaJSON: []byte(constrainedToolSchema),
+				ConstrainedSampling: mo.Some(
+					tool.ConstrainedSampling{
+						Kind:                 tool.ConstrainedSamplingGrammar,
+						JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+						Grammar:              mo.None[tool.GrammarVariants](),
+						GrammarInputProperty: mo.None[string](),
+					},
+				),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "no supported grammar variant", expected: "",
 		},
 		"JSON Schema requires valid strictness": {
 			descriptor: tool.Descriptor{
-				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](), Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string]()}),
+				Name:            "sample",
+				Description:     "Sample.",
+				InputSchemaJSON: []byte(constrainedToolSchema),
+				ConstrainedSampling: mo.Some(
+					tool.ConstrainedSampling{
+						Kind:                 tool.ConstrainedSamplingJSONSchema,
+						JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+						Grammar:              mo.None[tool.GrammarVariants](),
+						GrammarInputProperty: mo.None[string](),
+					},
+				),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid JSON Schema strictness", expected: "",
 		},
 		"constraint kind must be known": {
 			descriptor: tool.Descriptor{
-				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
-				ConstrainedSampling: mo.Some(tool.ConstrainedSampling{Kind: tool.ConstrainedSamplingKind(99), JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](), Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string]()}),
+				Name:            "sample",
+				Description:     "Sample.",
+				InputSchemaJSON: []byte(constrainedToolSchema),
+				ConstrainedSampling: mo.Some(
+					tool.ConstrainedSampling{
+						Kind:                 tool.ConstrainedSamplingKind(99),
+						JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+						Grammar:              mo.None[tool.GrammarVariants](),
+						GrammarInputProperty: mo.None[string](),
+					},
+				),
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid constrained sampling kind", expected: "",
@@ -132,42 +187,60 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 		unconstrained bool
 	}{
 		"compatible object remains strict": {
-			schema: constrainedToolSchema, strictness: tool.JSONSchemaStrictPrefer, expectStrict: true, errorContains: "", unconstrained: false,
+			schema:        constrainedToolSchema,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  true,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"compatible nested and array item objects remain strict": {
-			schema:       `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"}},"required":["limit"],"additionalProperties":false},"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["options","ranges"],"additionalProperties":false}`,
-			strictness:   tool.JSONSchemaStrictPrefer,
-			expectStrict: true, errorContains: "", unconstrained: false,
+			schema:        `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"}},"required":["limit"],"additionalProperties":false},"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["options","ranges"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  true,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"preferred optional root falls back": {
-			schema:       `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
-			strictness:   tool.JSONSchemaStrictPrefer,
-			expectStrict: false, errorContains: "", unconstrained: false,
+			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  false,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"unconstrained optional root falls back": {
 			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
 			expectStrict:  false,
-			unconstrained: true, strictness: 0, errorContains: "",
+			unconstrained: true,
+			strictness:    0,
+			errorContains: "",
 		},
 		"duplicate required property falls back": {
-			schema:       `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}},"required":["a","a"],"additionalProperties":false}`,
-			strictness:   tool.JSONSchemaStrictPrefer,
-			expectStrict: false, errorContains: "", unconstrained: false,
+			schema:        `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}},"required":["a","a"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  false,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"required optional root rejects locally": {
 			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictRequire,
-			errorContains: "not compatible with Codex strict JSON Schema", expectStrict: false, unconstrained: false,
+			errorContains: "not compatible with Codex strict JSON Schema",
+			expectStrict:  false,
+			unconstrained: false,
 		},
 		"preferred nested optional object falls back": {
-			schema:       `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"},"offset":{"type":"integer"}},"required":["limit"],"additionalProperties":false}},"required":["options"],"additionalProperties":false}`,
-			strictness:   tool.JSONSchemaStrictPrefer,
-			expectStrict: false, errorContains: "", unconstrained: false,
+			schema:        `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"},"offset":{"type":"integer"}},"required":["limit"],"additionalProperties":false}},"required":["options"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  false,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"preferred array item optional object falls back": {
-			schema:       `{"type":"object","properties":{"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"},"end":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["ranges"],"additionalProperties":false}`,
-			strictness:   tool.JSONSchemaStrictPrefer,
-			expectStrict: false, errorContains: "", unconstrained: false,
+			schema:        `{"type":"object","properties":{"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"},"end":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["ranges"],"additionalProperties":false}`,
+			strictness:    tool.JSONSchemaStrictPrefer,
+			expectStrict:  false,
+			errorContains: "",
+			unconstrained: false,
 		},
 		"preferred object without additional properties restriction falls back": {
 			schema:       `{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`,
@@ -181,8 +254,12 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 			t.Parallel()
 
 			constraint := mo.Some(tool.ConstrainedSampling{
-				Kind:                 tool.ConstrainedSamplingJSONSchema,
-				JSONSchemaStrictness: mo.Some(testCase.strictness), Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+				Kind: tool.ConstrainedSamplingJSONSchema,
+				JSONSchemaStrictness: mo.Some(
+					testCase.strictness,
+				),
+				Grammar:              mo.None[tool.GrammarVariants](),
+				GrammarInputProperty: mo.None[string](),
 			})
 			if testCase.unconstrained {
 				constraint = mo.None[tool.ConstrainedSampling]()
@@ -191,7 +268,10 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(testCase.schema),
 				ConstrainedSampling: constraint,
 			}
-			params, err := buildTools([]tool.Descriptor{descriptor}, toolCapabilities{strict: true, lark: false, regex: false})
+			params, err := buildTools(
+				[]tool.Descriptor{descriptor},
+				toolCapabilities{strict: true, lark: false, regex: false},
+			)
 			if testCase.errorContains != "" {
 				require.ErrorContains(t, err, testCase.errorContains)
 				return
@@ -249,7 +329,8 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		assert.Equal(t, "custom_tool_call", input[0].(map[string]any)["type"])
 		assert.Equal(t, "old", input[0].(map[string]any)["input"])
 		assert.Equal(t, "custom_tool_call_output", input[1].(map[string]any)["type"])
-		writeSSE(writer,
+		writeSSE(
+			writer,
 			`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
 			`{"type":"response.custom_tool_call_input.delta","output_index":0,"item_id":"ctc-1","delta":"ab"}`,
 			`{"type":"response.output_item.done","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"abc","status":"completed"}}`,
@@ -280,8 +361,17 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	// Act by streaming the grammar tool request and collecting lifecycle events.
 	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions: "test", Model: model.Descriptor{
-			Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0,
-			ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
+			Provider:      ProviderID,
+			Model:         "gpt-test",
+			Input:         nil,
+			ContextWindow: 0,
+			MaxTokens:     0,
+			ToolCapabilities: model.ToolCapabilities{
+				Grammar:          model.GrammarCapabilities{Regex: true, Lark: false},
+				StrictJSONSchema: false,
+			},
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
 		},
 		History: history, Tools: []tool.Descriptor{descriptor},
 	}, func(event run.StreamEvent) error {
@@ -304,7 +394,11 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
 	assert.Equal(t, run.StreamEventDone, events[3].Kind)
 	require.Len(t, events[3].Response.OrEmpty().Content, 1)
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[3].Response.OrEmpty().Content[0].ToolCall.OrEmpty().Arguments)
+	assert.Equal(
+		t,
+		map[string]any{"payload": "abc"},
+		events[3].Response.OrEmpty().Content[0].ToolCall.OrEmpty().Arguments,
+	)
 }
 
 // TestDriverStreamDoesNotInferMissingCapabilities verifies omitted support remains unsupported.
@@ -328,9 +422,23 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	events := make([]run.StreamEvent, 0)
 
 	// Act by requesting a constraint that requires unadvertised support.
-	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
-		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "test",
+		Model: model.Descriptor{
+			Provider:              ProviderID,
+			Model:                 "gpt-unknown",
+			Input:                 nil,
+			ContextWindow:         0,
+			MaxTokens:             0,
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities:      model.ToolCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
+		},
+		Tools: []tool.Descriptor{
+			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
+		},
+		History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -377,9 +485,23 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	// Act by streaming the preferred constraint through the provider endpoint.
-	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-unknown", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
-		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{})}, History: nil,
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "test",
+		Model: model.Descriptor{
+			Provider:              ProviderID,
+			Model:                 "gpt-unknown",
+			Input:                 nil,
+			ContextWindow:         0,
+			MaxTokens:             0,
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities:      model.ToolCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
+		},
+		Tools: []tool.Descriptor{
+			constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
+		},
+		History: nil,
 	}, func(run.StreamEvent) error { return nil })
 
 	// Assert the request is sent once with non-strict schema handling.
@@ -398,38 +520,60 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 			Kind: tool.ConstrainedSamplingKind(99), JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
 			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
 		}),
-		"JSON Schema active payload missing": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
-			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
-		}),
-		"JSON Schema inactive payloads present": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
-			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
-		}),
-		"JSON Schema strictness unknown": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictness(99)),
-			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
-		}),
-		"grammar active payload missing": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
-			Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.Some("payload"),
-		}),
-		"grammar inactive payload present": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
-			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
-		}),
+		"JSON Schema active payload missing": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+			},
+		),
+		"JSON Schema inactive payloads present": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
+				Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+			},
+		),
+		"JSON Schema strictness unknown": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingJSONSchema, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictness(99)),
+				Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.None[string](),
+			},
+		),
+		"grammar active payload missing": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.None[tool.GrammarVariants](), GrammarInputProperty: mo.Some("payload"),
+			},
+		),
+		"grammar inactive payload present": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.Some(tool.JSONSchemaStrictPrefer),
+				Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("payload"),
+			},
+		),
 		"grammar definitions blank": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
-			Grammar: mo.Some(tool.GrammarVariants{Lark: mo.Some(" \t"), Regex: mo.Some("\n")}), GrammarInputProperty: mo.Some("payload"),
+			Kind:                 tool.ConstrainedSamplingGrammar,
+			JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+			Grammar: mo.Some(
+				tool.GrammarVariants{Lark: mo.Some(" \t"), Regex: mo.Some("\n")},
+			),
+			GrammarInputProperty: mo.Some("payload"),
 		}),
 		"grammar property empty": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
 			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
 			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some(""),
 		}),
-		"grammar property mismatches schema": malformedConstrainedDescriptor(constrainedToolSchema, tool.ConstrainedSampling{
-			Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
-			Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("other"),
-		}),
+		"grammar property mismatches schema": malformedConstrainedDescriptor(
+			constrainedToolSchema,
+			tool.ConstrainedSampling{
+				Kind: tool.ConstrainedSamplingGrammar, JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
+				Grammar: mo.Some(grammar), GrammarInputProperty: mo.Some("other"),
+			},
+		),
 		"grammar schema has multiple properties": malformedConstrainedDescriptor(
 			`{"type":"object","properties":{"payload":{"type":"string"},"other":{"type":"string"}},"required":["payload"]}`,
 			tool.ConstrainedSampling{
@@ -507,16 +651,30 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
 	selectedModel := model.Descriptor{
-		Provider: ProviderID, Model: "gpt-regex-only", Input: nil, ContextWindow: 0, MaxTokens: 0,
-		ToolCapabilities: model.ToolCapabilities{Grammar: model.GrammarCapabilities{Regex: true, Lark: false}, StrictJSONSchema: false}, ReasoningCapabilities: model.ReasoningCapabilities{}, Pricing: mo.None[model.Pricing](),
+		Provider:      ProviderID,
+		Model:         "gpt-regex-only",
+		Input:         nil,
+		ContextWindow: 0,
+		MaxTokens:     0,
+		ToolCapabilities: model.ToolCapabilities{
+			Grammar:          model.GrammarCapabilities{Regex: true, Lark: false},
+			StrictJSONSchema: false,
+		},
+		ReasoningCapabilities: model.ReasoningCapabilities{},
+		Pricing:               mo.None[model.Pricing](),
 	}
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	events := make([]run.StreamEvent, 0)
 
 	// Act by requesting the unsupported grammar variant.
-	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: selectedModel,
-		Tools: []tool.Descriptor{constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()})}, History: nil,
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "test",
+		Model:           selectedModel,
+		Tools: []tool.Descriptor{
+			constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}),
+		},
+		History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -550,9 +708,23 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	events := make([]run.StreamEvent, 0)
 
 	// Act by requesting the unsupported required constraint.
-	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
-		Tools: []tool.Descriptor{constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{})}, History: nil,
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "test",
+		Model: model.Descriptor{
+			Provider:              ProviderID,
+			Model:                 "gpt-test",
+			Input:                 nil,
+			ContextWindow:         0,
+			MaxTokens:             0,
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities:      model.ToolCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
+		},
+		Tools: []tool.Descriptor{
+			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
+		},
+		History: nil,
 	}, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil

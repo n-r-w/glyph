@@ -278,10 +278,17 @@ func TestSessionCommandDeliveryClosurePreservesOperationSource(t *testing.T) {
 		{
 			name: "selection source with response cancellation",
 			command: domainui.Command{
-				Kind: domainui.CommandSelectModel, Text: mo.None[string](),
-				ProviderID: mo.Some("provider"), ModelID: mo.Some("model"),
-				ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				Kind:            domainui.CommandSelectModel,
+				Text:            mo.None[string](),
+				ProviderID:      mo.Some("provider"),
+				ModelID:         mo.Some("model"),
+				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+				SessionID:       mo.None[string](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     domainui.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			},
 			failureKind: domainui.FrameError, sendErr: context.Canceled,
 			closure: receivedCommand{

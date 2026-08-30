@@ -120,7 +120,10 @@ func mapModelResponseProjection(response model.Response) (controller.ModelRespon
 		if mapped.Kind == controller.ModelResponseContentText || mapped.Kind == controller.ModelResponseContentRefusal {
 			mappedText, hasText := mapped.Text.Get()
 			if !hasText {
-				return controller.ModelResponse{}, fmt.Errorf("map model response content %d: text is missing", position)
+				return controller.ModelResponse{}, fmt.Errorf(
+					"map model response content %d: text is missing",
+					position,
+				)
 			}
 			text.WriteString(mappedText)
 		}
@@ -211,7 +214,10 @@ func mapModelResponseContent(
 			}),
 		}), nil
 	}
-	return mo.None[controller.ModelResponseContent](), fmt.Errorf("unknown model response content kind %d", content.Kind)
+	return mo.None[controller.ModelResponseContent](), fmt.Errorf(
+		"unknown model response content kind %d",
+		content.Kind,
+	)
 }
 
 func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPreview {

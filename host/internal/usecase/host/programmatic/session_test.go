@@ -31,8 +31,18 @@ func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
 		expectedCode    controller.RejectionCode
 		expectedMessage string
 	}{
-		{name: "busy", prepareErr: session.ErrBusy, expectedCode: controller.RejectionBusy, expectedMessage: "another operation is active"},
-		{name: "internal", prepareErr: errors.New("allocate unique run ID"), expectedCode: controller.RejectionInternal, expectedMessage: "Host run ID allocation failed: allocate unique run ID"},
+		{
+			name:            "busy",
+			prepareErr:      session.ErrBusy,
+			expectedCode:    controller.RejectionBusy,
+			expectedMessage: "another operation is active",
+		},
+		{
+			name:            "internal",
+			prepareErr:      errors.New("allocate unique run ID"),
+			expectedCode:    controller.RejectionInternal,
+			expectedMessage: "Host run ID allocation failed: allocate unique run ID",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -45,10 +55,18 @@ func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
 
 			// Act by handling a user request while run preparation fails.
 			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID: test.name, Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
-				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+				CorrelationID:   test.name,
+				Kind:            controller.CommandUserRequest,
+				UserText:        mo.Some("request"),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[session.ID](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				SessionID:       mo.None[session.ID](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			})
 
 			// Assert domain classification remains stable and internal details reach the rejection boundary.
@@ -100,7 +118,10 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, sessions, NewDelivery())
 
 			// Act by reading selection before and after replacing the active session.
-			before, _, err := service.Handle(t.Context(), commandWithoutArguments("before", controller.CommandGetModels))
+			before, _, err := service.Handle(
+				t.Context(),
+				commandWithoutArguments("before", controller.CommandGetModels),
+			)
 			require.NoError(t, err)
 			command := commandWithoutArguments("replace", test.kind)
 			if test.kind == controller.CommandResumeSession {
@@ -132,12 +153,63 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 		expected        controller.RejectionCode
 		expectedMessage string
 	}{
-		{name: "busy", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: session.ErrBusy, expected: controller.RejectionBusy, expectedMessage: "another operation is active"},
-		{name: "invalid name", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("invalid"), operationErr: session.ErrInvalidName, expected: controller.RejectionInvalidArgument, expectedMessage: "session name is required"},
-		{name: "unknown ID", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("missing")), sessionName: mo.None[string](), operationErr: os.ErrNotExist, expected: controller.RejectionNotFound, expectedMessage: "session was not found"},
-		{name: "unavailable session", kind: controller.CommandResumeSession, sessionID: mo.Some(session.ID("stored")), sessionName: mo.None[string](), operationErr: fmt.Errorf("load session: %w: decode record 7: unique parser failure", session.ErrUnavailable), expected: controller.RejectionSessionUnavailable, expectedMessage: "load session: session is unavailable: decode record 7: unique parser failure"},
-		{name: "persistence unavailable", kind: controller.CommandSetSessionName, sessionID: mo.None[session.ID](), sessionName: mo.Some("session name"), operationErr: fmt.Errorf("rename session: %w: disk sync failed", session.ErrPersistenceUnavailable), expected: controller.RejectionPersistenceUnavailable, expectedMessage: "rename session: session persistence failed: disk sync failed"},
-		{name: "internal", kind: controller.CommandCreateSession, sessionID: mo.None[session.ID](), sessionName: mo.None[string](), operationErr: errors.New("create session invariant failed"), expected: controller.RejectionInternal, expectedMessage: "session operation failed: create session invariant failed"},
+		{
+			name:            "busy",
+			kind:            controller.CommandCreateSession,
+			sessionID:       mo.None[session.ID](),
+			sessionName:     mo.None[string](),
+			operationErr:    session.ErrBusy,
+			expected:        controller.RejectionBusy,
+			expectedMessage: "another operation is active",
+		},
+		{
+			name:            "invalid name",
+			kind:            controller.CommandSetSessionName,
+			sessionID:       mo.None[session.ID](),
+			sessionName:     mo.Some("invalid"),
+			operationErr:    session.ErrInvalidName,
+			expected:        controller.RejectionInvalidArgument,
+			expectedMessage: "session name is required",
+		},
+		{
+			name:            "unknown ID",
+			kind:            controller.CommandResumeSession,
+			sessionID:       mo.Some(session.ID("missing")),
+			sessionName:     mo.None[string](),
+			operationErr:    os.ErrNotExist,
+			expected:        controller.RejectionNotFound,
+			expectedMessage: "session was not found",
+		},
+		{
+			name:        "unavailable session",
+			kind:        controller.CommandResumeSession,
+			sessionID:   mo.Some(session.ID("stored")),
+			sessionName: mo.None[string](),
+			operationErr: fmt.Errorf(
+				"load session: %w: decode record 7: unique parser failure",
+				session.ErrUnavailable,
+			),
+			expected:        controller.RejectionSessionUnavailable,
+			expectedMessage: "load session: session is unavailable: decode record 7: unique parser failure",
+		},
+		{
+			name:            "persistence unavailable",
+			kind:            controller.CommandSetSessionName,
+			sessionID:       mo.None[session.ID](),
+			sessionName:     mo.Some("session name"),
+			operationErr:    fmt.Errorf("rename session: %w: disk sync failed", session.ErrPersistenceUnavailable),
+			expected:        controller.RejectionPersistenceUnavailable,
+			expectedMessage: "rename session: session persistence failed: disk sync failed",
+		},
+		{
+			name:            "internal",
+			kind:            controller.CommandCreateSession,
+			sessionID:       mo.None[session.ID](),
+			sessionName:     mo.None[string](),
+			operationErr:    errors.New("create session invariant failed"),
+			expected:        controller.RejectionInternal,
+			expectedMessage: "session operation failed: create session invariant failed",
+		},
 	}
 
 	// Act by handling each failing session command in an independent subtest.
@@ -149,9 +221,13 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 			case controller.CommandCreateSession:
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.operationErr)
 			case controller.CommandResumeSession:
-				control.EXPECT().Resume(gomock.Any(), test.sessionID.MustGet()).Return(session.Replacement{}, test.operationErr)
+				control.EXPECT().
+					Resume(gomock.Any(), test.sessionID.MustGet()).
+					Return(session.Replacement{}, test.operationErr)
 			case controller.CommandSetSessionName:
-				control.EXPECT().SetName(gomock.Any(), test.sessionName.MustGet()).Return(session.Info{}, test.operationErr)
+				control.EXPECT().
+					SetName(gomock.Any(), test.sessionName.MustGet()).
+					Return(session.Info{}, test.operationErr)
 			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
@@ -163,10 +239,18 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 			}
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID: test.name, Kind: test.kind, UserText: mo.None[string](),
-				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: test.sessionID,
-				SessionName: test.sessionName, TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				CorrelationID:   test.name,
+				Kind:            test.kind,
+				UserText:        mo.None[string](),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       test.sessionID,
+				SessionName:     test.sessionName,
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			})
 			require.NoError(t, err)
 			assert.Nil(t, operation)
@@ -184,14 +268,29 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 
 	// Arrange session control to return an invalid stored model response.
 	control := NewMockSessionControl(gomock.NewController(t))
-	control.EXPECT().Entries().Return([]session.Entry{{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.Some(invalidStoredModelResponse()),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-	}})
+	control.EXPECT().
+		Entries().
+		Return([]session.Entry{
+			{
+				ParentID:      mo.None[string](),
+				ID:            "model",
+				CreatedAt:     time.Unix(1, 0),
+				Information:   mo.None[session.Information](),
+				User:          mo.None[session.UserMessage](),
+				Model:         mo.Some(invalidStoredModelResponse()),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
+			},
+		})
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 
 	// Act by requesting the active session entries.
-	response, operation, err := service.Handle(t.Context(), testProgrammaticCommand("entries", controller.CommandGetSessionEntries))
+	response, operation, err := service.Handle(
+		t.Context(),
+		testProgrammaticCommand("entries", controller.CommandGetSessionEntries),
+	)
 
 	// Assert the service returns the mapping cause with an internal rejection and no partial entries.
 	require.NoError(t, err)
@@ -283,7 +382,11 @@ func TestSessionLifecycleCommands(t *testing.T) {
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
 				SessionID:       test.sessionID,
-				SessionName:     test.sessionName, TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				SessionName:     test.sessionName,
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			})
 
 			// Assert handling succeeds without a run operation and returns the expected response kind.

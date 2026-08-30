@@ -214,10 +214,28 @@ func TestMapLifecycleValidatesFinalResponseContent(t *testing.T) {
 		item *uiv1.ModelResponseContent
 	}{
 		{name: "nil item", item: nil},
-		{name: "missing kind", item: uiv1.ModelResponseContent_builder{Kind: nil, Text: new(""), ToolCall: nil}.Build()},
-		{name: "unspecified kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: new(""), ToolCall: nil}.Build()},
-		{name: "unknown kind", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind(99)), Text: new(""), ToolCall: nil}.Build()},
-		{name: "missing text", item: uiv1.ModelResponseContent_builder{Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: nil, ToolCall: nil}.Build()},
+		{
+			name: "missing kind",
+			item: uiv1.ModelResponseContent_builder{Kind: nil, Text: new(""), ToolCall: nil}.Build(),
+		},
+		{
+			name: "unspecified kind",
+			item: uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: new(""), ToolCall: nil,
+			}.Build(),
+		},
+		{
+			name: "unknown kind",
+			item: uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind(99)), Text: new(""), ToolCall: nil,
+			}.Build(),
+		},
+		{
+			name: "missing text",
+			item: uiv1.ModelResponseContent_builder{
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: nil, ToolCall: nil,
+			}.Build(),
+		},
 	}
 	for _, test := range invalid {
 		t.Run(test.name, func(t *testing.T) {
@@ -269,7 +287,8 @@ func TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument(t *te
 		ModelSelectionChanged: nil,
 		SessionList:           nil,
 		SessionChanged:        nil,
-		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil,
+		SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
@@ -360,7 +379,8 @@ func TestOpenRejectsInactiveModelContentTextAsInvalidArgument(t *testing.T) {
 				Authorization: nil, Information: nil, Error: nil, ModelSelectionChanged: nil,
 				SessionList:        nil,
 				SessionChanged:     nil,
-				SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+				SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil,
+				SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 			}.Build()))
 			require.NoError(t, stream.CloseSend())
 			_, err = stream.Recv()

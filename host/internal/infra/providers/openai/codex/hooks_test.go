@@ -50,7 +50,11 @@ func TestDriverStreamAppliesRequestHooksBeforeOneDispatch(t *testing.T) {
 			assert.Equal(t, model.ID("gpt-test"), value.Model)
 			assert.Contains(t, string(value.Payload), `"instructions":"original instructions"`)
 			assert.NotEmpty(t, value.Headers["Authorization"])
-			value.Payload = bytes.ReplaceAll(value.Payload, []byte("original instructions"), []byte("first instructions"))
+			value.Payload = bytes.ReplaceAll(
+				value.Payload,
+				[]byte("original instructions"),
+				[]byte("first instructions"),
+			)
 			value.Headers["X-Hook"] = []string{"first-header"}
 			return value, nil
 		},
@@ -179,10 +183,15 @@ func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	service := hookTestDriver(t, runner, options, 1)
 	events := make([]run.StreamEvent, 0)
 
-	events, err := collectStreamEvents(service, t.Context(), hookModelRequest("instructions"), func(event run.StreamEvent) error {
-		events = append(events, event)
-		return nil
-	})
+	events, err := collectStreamEvents(
+		service,
+		t.Context(),
+		hookModelRequest("instructions"),
+		func(event run.StreamEvent) error {
+			events = append(events, event)
+			return nil
+		},
+	)
 	response := terminalResponse(events)
 
 	require.Error(t, err)
@@ -236,16 +245,33 @@ func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptio
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	).Times(calls)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	return newDriver(Config{Hooks: runner, Models: testConfig().Models, ReasoningCompatibilityKeys: nil}, credentials, interaction, options)
+	return newDriver(
+		Config{Hooks: runner, Models: testConfig().Models, ReasoningCompatibilityKeys: nil},
+		credentials,
+		interaction,
+		options,
+	)
 }
 
 func hookModelRequest(instructions string) run.ModelRequest {
-	return run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: instructions,
-		Model:        model.Descriptor{Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()},
-		History: []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
-			ToolResult: mo.None[agent.ToolResult](),
-		}},
+	return run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    instructions,
+		Model: model.Descriptor{
+			Provider:              ProviderID,
+			Model:                 "gpt-test",
+			Input:                 nil,
+			ContextWindow:         0,
+			MaxTokens:             0,
+			ReasoningCapabilities: model.ReasoningCapabilities{},
+			ToolCapabilities:      model.ToolCapabilities{},
+			Pricing:               mo.None[model.Pricing](),
+		},
+		History: []agent.HistoryEntry{
+			{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
+				ToolResult: mo.None[agent.ToolResult](),
+			},
+		},
 		Tools: nil,
 	}
 }

@@ -76,7 +76,18 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	// Arrange persistent paths, credentials, real UI and extension executables, control socket, and PTY.
 	paths := testPaths(t, pricedRestartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil, `{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(
+			paths.CredentialsFile,
+			fmt.Appendf(
+				nil,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				accessToken,
+			),
+			0o600,
+		),
+	)
 	uiDirectory := buildStandardTUIExecutable(t)
 	extensionDirectory := buildToolsExecutable(t)
 	controlDirectory, err := os.MkdirTemp("/tmp", "glyph-tui-control-")
@@ -400,7 +411,12 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	immutable := exec.CommandContext(t.Context(), "/usr/bin/chflags", "uchg", recoveryFixtures.interruptedPath)
 	require.NoError(t, immutable.Run())
 	t.Cleanup(func() {
-		clearCommand := exec.CommandContext(context.WithoutCancel(t.Context()), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
+		clearCommand := exec.CommandContext(
+			context.WithoutCancel(t.Context()),
+			"/usr/bin/chflags",
+			"nouchg",
+			recoveryFixtures.interruptedPath,
+		)
 		_ = clearCommand.Run()
 	})
 
@@ -445,7 +461,11 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	assert.Contains(t, observer.String(), "[info] full_notice: full diagnostic")
 	assert.Contains(t, observer.String(), "[tool:done] bash full tool output[image image/png, 4 bytes]")
 	assert.Contains(t, observer.String(), "reasoning: full reasoning")
-	assert.Contains(t, observer.String(), "Session status: Session replacement is unavailable: another operation is active")
+	assert.Contains(
+		t,
+		observer.String(),
+		"Session status: Session replacement is unavailable: another operation is active",
+	)
 	assert.Contains(t, observer.String(), "PASS")
 }
 
@@ -528,8 +548,16 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)
 	assert.Less(t, bytes.Index(body, []byte("read input.txt")), bytes.Index(body, []byte(`"type":"function_call"`)))
-	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
-	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
+	assert.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call"`)),
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+	)
+	assert.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+		bytes.Index(body, []byte("Request complete.")),
+	)
 	assert.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 	require.NoError(t, <-controlDone)
 }

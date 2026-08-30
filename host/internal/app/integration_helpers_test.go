@@ -15,7 +15,14 @@ func buildToolsExecutable(t *testing.T) string {
 	t.Helper()
 	root := repoRoot(t)
 	output := filepath.Join(t.TempDir(), "glyph-tools")
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", output, "./plugins/extension/tools/cmd/glyph-tools")
+	command := exec.CommandContext(
+		t.Context(),
+		"go",
+		"build",
+		"-o",
+		output,
+		"./plugins/extension/tools/cmd/glyph-tools",
+	)
 	command.Dir = root
 	outputBytes, err := command.CombinedOutput()
 	require.NoError(t, err, string(outputBytes))

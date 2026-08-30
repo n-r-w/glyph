@@ -211,7 +211,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
 	assert.Equal(t, "resp-1", messages[1].GetModel().GetResponseId())
 	require.Len(t, messages[1].GetModel().GetContent(), 2)
-	assert.Equal(t, programmaticv1.ModelResponseItem_Reasoning_case, messages[1].GetModel().GetContent()[0].WhichContent())
+	assert.Equal(
+		t,
+		programmaticv1.ModelResponseItem_Reasoning_case,
+		messages[1].GetModel().GetContent()[0].WhichContent(),
+	)
 	assert.Equal(t, "call-1", messages[1].GetModel().GetContent()[1].GetToolCall().GetCallId())
 	assert.Equal(t, "call-1", messages[2].GetToolResult().GetCallId())
 	assert.Contains(t, messages[2].GetToolResult().GetContents()[0].GetText(), "tool-ok")
@@ -261,8 +265,16 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Contains(t, string(body), `"model":"selected-model"`)
 	assert.Contains(t, string(body), `"effort":"high"`)
 	assert.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte(`"type":"function_call"`)))
-	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
-	assert.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
+	assert.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call"`)),
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+	)
+	assert.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+		bytes.Index(body, []byte("Request complete.")),
+	)
 	assert.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 	assert.Equal(t, int32(3), requestCount.Load())
 }

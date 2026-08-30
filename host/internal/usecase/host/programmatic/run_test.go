@@ -45,18 +45,36 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		)
 
 		response, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "c1", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+			CorrelationID:   "c1",
+			Kind:            controller.CommandUserRequest,
+			UserText:        mo.Some("request"),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		})
 
 		require.NoError(t, err)
 		assert.Equal(t, controller.Response{
-			SessionEntries: nil,
-			CorrelationID:  "c1", Kind: controller.ResponseUserRequestAccepted, State: mo.None[controller.RunStateResult](), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+			SessionEntries:    nil,
+			CorrelationID:     "c1",
+			Kind:              controller.ResponseUserRequestAccepted,
+			State:             mo.None[controller.RunStateResult](),
+			Messages:          nil,
+			Models:            mo.None[controller.ModelsResult](),
+			Selection:         mo.None[model.Selection](),
+			Rejection:         mo.None[controller.Rejection](),
 			SessionInfo:       mo.None[session.Info](),
 			Sessions:          nil,
-			SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](), Replacement: mo.None[controller.SessionReplacement](),
+			SessionStatistics: mo.None[session.Statistics](),
+			SessionTree:       mo.None[controller.SessionTree](),
+			TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+			Replacement:       mo.None[controller.SessionReplacement](),
 		}, response)
 		require.NotNil(t, operation)
 		select {
@@ -126,9 +144,18 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 				},
 			)
 			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID: values.correlationID, Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:   mo.None[session.ID](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+				CorrelationID:   values.correlationID,
+				Kind:            controller.CommandUserRequest,
+				UserText:        mo.Some("request"),
+				ProviderID:      mo.None[model.ProviderID](),
+				ModelID:         mo.None[model.ID](),
+				ReasoningChoice: mo.None[model.ReasoningChoice](),
+				SessionID:       mo.None[session.ID](),
+				SessionName:     mo.None[string](),
+				TargetEntryID:   mo.None[string](),
+				SummaryMode:     controller.SummaryModeNoSummary,
+				CustomFocus:     mo.None[string](),
+				EntryLabel:      mo.None[string](),
 			})
 			require.NoError(t, err)
 			assert.Equal(t, controller.ResponseUserRequestAccepted, response.Kind)

@@ -37,40 +37,73 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 		content func(string) string
 	}{
 		{name: "unsupported version", content: func(cwd string) string {
-			return fmt.Sprintf(`{"type":"session","version":3,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", cwd)
+			return fmt.Sprintf(
+				`{"type":"session","version":3,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+				cwd,
+			)
 		}},
 		{name: "unknown header field", content: func(cwd string) string {
-			return fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q,"extra":true}`+"\n", cwd)
+			return fmt.Sprintf(
+				`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q,"extra":true}`+"\n",
+				cwd,
+			)
 		}},
 		{name: "missing required header field", content: func(string) string {
 			return `{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z"}` + "\n"
 		}},
 		{name: "empty header ID", content: func(cwd string) string {
-			return fmt.Sprintf(`{"type":"session","version":2,"id":"","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", cwd)
+			return fmt.Sprintf(
+				`{"type":"session","version":2,"id":"","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+				cwd,
+			)
 		}},
 		{name: "malformed header timestamp", content: func(cwd string) string {
-			return fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"yesterday","cwd":%q}`+"\n", cwd)
+			return fmt.Sprintf(
+				`{"type":"session","version":2,"id":"stored","createdAt":"yesterday","cwd":%q}`+"\n",
+				cwd,
+			)
 		}},
 		{name: "unknown entry field", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored","extra":true}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored","extra":true}}` + "\n"
 		}},
 		{name: "missing required entry field", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z"}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z"}}` + "\n"
 		}},
 		{name: "empty entry ID", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"user","id":"","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]}}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"entry","entry":{"type":"user","id":"","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]}}}` + "\n"
 		}},
 		{name: "malformed entry timestamp", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"session_info","sessionInfo":{"createdAt":"yesterday","name":"Stored"}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"session_info","sessionInfo":{"createdAt":"yesterday","name":"Stored"}}` + "\n"
 		}},
 		{name: "missing required user payload", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z"}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z"}}` + "\n"
 		}},
 		{name: "unknown nested core field", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[],"extra":true}}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[],"extra":true}}}` + "\n"
 		}},
 		{name: "conflicting entry payload", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[]},"response":{}}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[]},"response":{}}}` + "\n"
 		}},
 		{name: "duplicate entry ID", content: func(cwd string) string {
 			return fmt.Sprintf(validHeader, cwd) + validTreeEntry + validTreeEntry
@@ -82,7 +115,10 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 			return fmt.Sprintf(validHeader, filepath.Join(string(filepath.Separator), "another-project"))
 		}},
 		{name: "invalid extension JSON", content: func(cwd string) string {
-			return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"extension","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":}}` + "\n"
+			return fmt.Sprintf(
+				validHeader,
+				cwd,
+			) + `{"type":"entry","entry":{"type":"extension","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":}}` + "\n"
 		}},
 	}
 
@@ -200,7 +236,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 		{
 			name: "header timestamp",
 			content: func(cwd string) string {
-				return fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"yesterday","cwd":%q}`+"\n", cwd)
+				return fmt.Sprintf(
+					`{"type":"session","version":2,"id":"stored","createdAt":"yesterday","cwd":%q}`+"\n",
+					cwd,
+				)
 			},
 			context: "decode session header record",
 			cause:   "cannot parse",
@@ -216,7 +255,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 		{
 			name: "entry timestamp",
 			content: func(cwd string) string {
-				return fmt.Sprintf(validHeader, cwd) + `{"type":"session_info","sessionInfo":{"createdAt":"yesterday","name":"Stored"}}` + "\n"
+				return fmt.Sprintf(
+					validHeader,
+					cwd,
+				) + `{"type":"session_info","sessionInfo":{"createdAt":"yesterday","name":"Stored"}}` + "\n"
 			},
 			context: "decode session mutation record 1",
 			cause:   "cannot parse",
@@ -224,7 +266,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 		{
 			name: "user image base64",
 			content: func(cwd string) string {
-				return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":2,"mediaType":"image/png","data":"%%%"}]}}}` + "\n"
+				return fmt.Sprintf(
+					validHeader,
+					cwd,
+				) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":2,"mediaType":"image/png","data":"%%%"}]}}}` + "\n"
 			},
 			context: "decode session mutation record 1: user image data",
 			cause:   "illegal base64 data",
@@ -232,7 +277,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 		{
 			name: "tool result image base64",
 			content: func(cwd string) string {
-				return fmt.Sprintf(validHeader, cwd) + `{"type":"entry","entry":{"type":"tool_result","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","result":{"callId":"call-1","toolName":"read","contents":[{"kind":2,"mediaType":"image/png","data":"%%%"}],"isError":false}}}` + "\n"
+				return fmt.Sprintf(
+					validHeader,
+					cwd,
+				) + `{"type":"entry","entry":{"type":"tool_result","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","result":{"callId":"call-1","toolName":"read","contents":[{"kind":2,"mediaType":"image/png","data":"%%%"}],"isError":false}}}` + "\n"
 			},
 			context: "decode session mutation record 1: tool result image data",
 			cause:   "illegal base64 data",
@@ -346,9 +394,26 @@ func TestListSkipsNonregularAndInvalidFiles(t *testing.T) {
 
 	// Arrange one valid file, one malformed file, and one symlink with a session extension.
 	repository, projectDirectory, cwd := newValidationRepository(t)
-	require.NoError(t, os.WriteFile(filepath.Join(projectDirectory, "valid.jsonl"), []byte(fmt.Sprintf(validHeader, cwd)+validEntry), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(projectDirectory, "invalid.jsonl"), []byte(fmt.Sprintf(validHeader, cwd)+"not-json\n"), 0o600))
-	require.NoError(t, os.Symlink(filepath.Join(projectDirectory, "valid.jsonl"), filepath.Join(projectDirectory, "linked.jsonl")))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(projectDirectory, "valid.jsonl"),
+			[]byte(fmt.Sprintf(validHeader, cwd)+validEntry),
+			0o600,
+		),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(projectDirectory, "invalid.jsonl"),
+			[]byte(fmt.Sprintf(validHeader, cwd)+"not-json\n"),
+			0o600,
+		),
+	)
+	require.NoError(
+		t,
+		os.Symlink(filepath.Join(projectDirectory, "valid.jsonl"), filepath.Join(projectDirectory, "linked.jsonl")),
+	)
 
 	// Act by listing sessions in the project partition.
 	listed, err := repository.List(t.Context())
@@ -427,9 +492,20 @@ func TestExtensionDataAcceptsEveryJSONValue(t *testing.T) {
 	// Arrange each JSON value family in an otherwise valid extension entry.
 	values := []string{"null", "true", "42", `"text"`, "[]", "{}"}
 	for index, value := range values {
-		entry := fmt.Sprintf(`{"type":"entry","entry":{"type":"extension","id":"entry-%d","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":%s}}`+"\n", index, value)
+		entry := fmt.Sprintf(
+			`{"type":"entry","entry":{"type":"extension","id":"entry-%d","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":%s}}`+"\n",
+			index,
+			value,
+		)
 		repository, projectDirectory, cwd := newValidationRepository(t)
-		require.NoError(t, os.WriteFile(filepath.Join(projectDirectory, "stored.jsonl"), []byte(fmt.Sprintf(validHeader, cwd)+entry), 0o600))
+		require.NoError(
+			t,
+			os.WriteFile(
+				filepath.Join(projectDirectory, "stored.jsonl"),
+				[]byte(fmt.Sprintf(validHeader, cwd)+entry),
+				0o600,
+			),
+		)
 
 		// Act by loading the valid extension data value.
 		loaded, err := repository.Load(t.Context(), session.ID("stored"))
@@ -556,7 +632,10 @@ func TestLoadRecoversOnlyTheRequestedHeaderID(t *testing.T) {
 	repository, projectDirectory, cwd := newValidationRepository(t)
 	requestedPath := filepath.Join(projectDirectory, "requested.jsonl")
 	require.NoError(t, os.WriteFile(requestedPath, []byte(fmt.Sprintf(validHeader, cwd)+validEntry), 0o600))
-	otherHeader := fmt.Sprintf(`{"type":"session","version":2,"id":"other","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", cwd)
+	otherHeader := fmt.Sprintf(
+		`{"type":"session","version":2,"id":"other","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+		cwd,
+	)
 	otherPath := filepath.Join(projectDirectory, "000-other.jsonl")
 	otherContent := otherHeader + validEntry + `{"type":"entry","entry":{"type":"user"}`
 	require.NoError(t, os.WriteFile(otherPath, []byte(otherContent), 0o600))

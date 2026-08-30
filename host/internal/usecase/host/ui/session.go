@@ -358,7 +358,10 @@ func (s *Session) forkSession(ctx context.Context, command domainui.Command) err
 	}
 	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
 	if err != nil {
-		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Session fork is unavailable.")))
+		return preserveUndeliveredSource(
+			err,
+			s.sendInformation(sessionFailureText(err, "Session fork is unavailable.")),
+		)
 	}
 	frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
 	if err != nil {
@@ -373,7 +376,10 @@ func (s *Session) forkSession(ctx context.Context, command domainui.Command) err
 func (s *Session) cloneSession(ctx context.Context) error {
 	replacement, err := s.sessionControl.Clone(ctx)
 	if err != nil {
-		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Session clone is unavailable.")))
+		return preserveUndeliveredSource(
+			err,
+			s.sendInformation(sessionFailureText(err, "Session clone is unavailable.")),
+		)
 	}
 	frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
 	if err != nil {
@@ -392,7 +398,10 @@ func (s *Session) setEntryLabel(ctx context.Context, command domainui.Command) e
 	}
 	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
 	if err != nil {
-		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Entry labeling is unavailable.")))
+		return preserveUndeliveredSource(
+			err,
+			s.sendInformation(sessionFailureText(err, "Entry labeling is unavailable.")),
+		)
 	}
 	frame, err := sessionTreeFrame(tree)
 	if err != nil {

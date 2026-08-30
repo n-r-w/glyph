@@ -73,7 +73,16 @@ func TestServiceRunEventDeliveryFailure(t *testing.T) {
 			return nil
 		},
 	)
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-delivery", UserText: "hi"})
 
@@ -94,9 +103,28 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 	call := model.ToolCall{ID: "length-call", Name: "read", Arguments: map[string]any{"path": "x"}}
 	length := model.Response{
 		Content: []model.Content{testCallItem(call)},
-		Outcome: mo.Some(model.OutcomeLength), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeLength,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
-	stop := model.Response{Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}
+	stop := model.Response{
+		Content:       nil,
+		Outcome:       mo.Some(model.OutcomeStop),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
+	}
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(length, nil))
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -107,7 +135,16 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-length", UserText: "go"})
 

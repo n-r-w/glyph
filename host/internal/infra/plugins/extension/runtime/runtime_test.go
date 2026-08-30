@@ -104,7 +104,8 @@ func TestRuntimeHelperProcess(t *testing.T) {
 	})
 }
 
-// TestRuntimeWithRealGlyphTools verifies the production process handshake, read descriptor, execution, validation, and shutdown.
+// TestRuntimeWithRealGlyphTools verifies the production process handshake, read descriptor, execution, validation,
+// and shutdown.
 func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	t.Parallel()
 

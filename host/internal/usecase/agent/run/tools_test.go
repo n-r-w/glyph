@@ -34,11 +34,29 @@ func TestServiceRunToolUse(t *testing.T) {
 	}
 	firstResponse := model.Response{
 		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeToolUse,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 	stopResponse := model.Response{
 		Content: []model.Content{testTextItem("done")},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeStop,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 	order := make([]string, 0, 4)
 	providerCall := 0
@@ -55,17 +73,35 @@ func TestServiceRunToolUse(t *testing.T) {
 						Provisional: true, Fields: nil,
 					}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallStart, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+						Kind:     StreamEventToolCallStart,
+						Position: mo.Some(position),
+						Preview:  mo.Some(preview),
+						Content:  mo.None[model.Content](),
+						Delta:    mo.None[string](),
+						ToolCall: mo.None[model.ToolCall](),
+						Response: mo.None[model.Response](),
 					}))
 					preview.Fields = []model.ToolCallPreviewField{{
 						Name: "value", Kind: model.ToolCallPreviewFieldPrefix,
 						Prefix: mo.Some("1"), Value: mo.None[any](),
 					}}
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallDelta, Position: mo.Some(position), Preview: mo.Some(preview), Content: mo.None[model.Content](), Delta: mo.None[string](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+						Kind:     StreamEventToolCallDelta,
+						Position: mo.Some(position),
+						Preview:  mo.Some(preview),
+						Content:  mo.None[model.Content](),
+						Delta:    mo.None[string](),
+						ToolCall: mo.None[model.ToolCall](),
+						Response: mo.None[model.Response](),
 					}))
 					require.NoError(t, update(StreamEvent{
-						Kind: StreamEventToolCallEnd, Position: mo.Some(position), ToolCall: mo.Some(call), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), Response: mo.None[model.Response](),
+						Kind:     StreamEventToolCallEnd,
+						Position: mo.Some(position),
+						ToolCall: mo.Some(call),
+						Content:  mo.None[model.Content](),
+						Delta:    mo.None[string](),
+						Preview:  mo.None[model.ToolCallPreview](),
+						Response: mo.None[model.Response](),
 					}))
 				}
 				return emitStream(update, firstResponse, nil)
@@ -101,7 +137,16 @@ func TestServiceRunToolUse(t *testing.T) {
 			return nil
 		},
 	).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-tools", UserText: "go"})
 
@@ -132,8 +177,26 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	runtime := NewMockModelRuntime(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	oldModel := model.Descriptor{Provider: "old-provider", Model: "old-model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
-	newModel := model.Descriptor{Provider: "new-provider", Model: "new-model", Input: nil, ContextWindow: 0, MaxTokens: 0, ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing]()}
+	oldModel := model.Descriptor{
+		Provider:              "old-provider",
+		Model:                 "old-model",
+		Input:                 nil,
+		ContextWindow:         0,
+		MaxTokens:             0,
+		ReasoningCapabilities: model.ReasoningCapabilities{},
+		ToolCapabilities:      model.ToolCapabilities{},
+		Pricing:               mo.None[model.Pricing](),
+	}
+	newModel := model.Descriptor{
+		Provider:              "new-provider",
+		Model:                 "new-model",
+		Input:                 nil,
+		ContextWindow:         0,
+		MaxTokens:             0,
+		ReasoningCapabilities: model.ReasoningCapabilities{},
+		ToolCapabilities:      model.ToolCapabilities{},
+		Pricing:               mo.None[model.Pricing](),
+	}
 	committed := false
 	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
 		if committed {
@@ -156,14 +219,32 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			<-releaseRequest
 			return emitStream(update, model.Response{
 				Content: []model.Content{
-					{Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+					{
+						Kind:            model.ContentReasoning,
+						Text:            mo.Some("visible reasoning"),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
 					testCallItem(call),
 				},
-				Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+				Outcome: mo.Some(
+					model.OutcomeToolUse,
+				),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
 			}, nil)
 		},
 	)
-	oldProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("stale provider used")).AnyTimes()
+	oldProvider.EXPECT().
+		Stream(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(errors.New("stale provider used")).
+		AnyTimes()
 	newProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			assert.Equal(t, newModel, request.Model)
@@ -176,7 +257,17 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 			assert.Equal(t, "visible reasoning", request.History[1].Model.OrEmpty().Content[0].Text.OrEmpty())
 			assert.Equal(t, agent.HistoryEntryToolResult, request.History[2].Kind)
 			return emitStream(update, model.Response{
-				Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+				Content: []model.Content{
+					testTextItem("done"),
+				},
+				Outcome:       mo.Some(model.OutcomeStop),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
 			}, nil)
 		},
 	)
@@ -219,9 +310,28 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 	}
 	toolUse := model.Response{
 		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeToolUse,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
-	stop := model.Response{Content: []model.Content{testTextItem("done")}, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}
+	stop := model.Response{
+		Content:       []model.Content{testTextItem("done")},
+		Outcome:       mo.Some(model.OutcomeStop),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
+	}
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(toolUse, nil))
 	toolErr := errors.New("tool operation failed")
@@ -229,20 +339,38 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 		agent.ToolResult{}, toolErr,
 	)
 	tools.EXPECT().Execute(gomock.Any(), calls[1], gomock.Any()).Return(
-		agent.ToolResult{CallID: calls[1].ID, ToolName: calls[1].Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
+		agent.ToolResult{
+			CallID:   calls[1].ID,
+			ToolName: calls[1].Name,
+			Contents: tool.TextContents("ok"),
+			IsError:  false,
+		}, nil,
 	)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			require.Len(t, request.History, 4)
 			assert.Equal(t, "failed", request.History[2].ToolResult.OrEmpty().CallID)
 			assert.True(t, request.History[2].ToolResult.OrEmpty().IsError)
-			require.ErrorContains(t, errors.New(request.History[2].ToolResult.OrEmpty().Contents[0].Text.OrEmpty()), "tool operation failed")
+			require.ErrorContains(
+				t,
+				errors.New(request.History[2].ToolResult.OrEmpty().Contents[0].Text.OrEmpty()),
+				"tool operation failed",
+			)
 			assert.Equal(t, "succeeded", request.History[3].ToolResult.OrEmpty().CallID)
 			return emitStream(update, stop, nil)
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-tool-error", UserText: "go"})
 
@@ -261,7 +389,16 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 	call := model.ToolCall{ID: "delivery", Name: "bash", Arguments: map[string]any{}}
 	response := model.Response{
 		Content: []model.Content{testCallItem(call)},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeToolUse,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
@@ -282,7 +419,16 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 				fmt.Errorf("runtime propagated delivery: %w", err)
 		},
 	)
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-progress-error", UserText: "go"})
 

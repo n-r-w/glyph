@@ -48,13 +48,21 @@ func (s *ServiceSuite) TestServiceLoadIsolatesCollisions() {
 	first := NewMockExtensionRuntime(controller)
 	second := NewMockExtensionRuntime(controller)
 	unaffected := NewMockExtensionRuntime(controller)
-	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{Candidates: []Candidate{{ID: "first", Path: "/first"}, {ID: "second", Path: "/second"}, {ID: "other", Path: "/other"}}, Issues: nil}, nil)
+	catalog.EXPECT().
+		Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).
+		Return(Discovery{Candidates: []Candidate{{ID: "first", Path: "/first"}, {ID: "second", Path: "/second"}, {ID: "other", Path: "/other"}}, Issues: nil}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "first", Path: "/first"}).Return(first, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "second", Path: "/second"}).Return(second, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "other", Path: "/other"}).Return(unaffected, nil)
-	first.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("first-only")}, Handlers: nil}, nil)
-	second.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("second-only")}, Handlers: nil}, nil)
-	unaffected.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("safe")}, Handlers: nil}, nil)
+	first.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("first-only")}, Handlers: nil}, nil)
+	second.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("second-only")}, Handlers: nil}, nil)
+	unaffected.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("safe")}, Handlers: nil}, nil)
 	first.EXPECT().Close()
 	second.EXPECT().Close()
 	service := New(catalog, factory, discardRuntimeFailure)
@@ -82,12 +90,19 @@ func (s *ServiceSuite) TestServiceLoadReportsMultipleExtensionsInIDOrder() {
 	first := NewMockExtensionRuntime(controller)
 	second := NewMockExtensionRuntime(controller)
 	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(
-		Discovery{Candidates: []Candidate{{ID: "second", Path: "/second"}, {ID: "first", Path: "/first"}}, Issues: nil}, nil,
+		Discovery{
+			Candidates: []Candidate{{ID: "second", Path: "/second"}, {ID: "first", Path: "/first"}},
+			Issues:     nil,
+		}, nil,
 	)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "second", Path: "/second"}).Return(second, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "first", Path: "/first"}).Return(first, nil)
-	second.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
-	first.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	second.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
+	first.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	service := New(catalog, factory, discardRuntimeFailure)
 
 	report, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
@@ -144,9 +159,12 @@ func (s *ServiceSuite) TestServicePreservesHandlerRegistrationOrder() {
 func (s *ServiceSuite) TestServiceRejectsInvalidHandlerRegistration() {
 	// Arrange invalid registration shapes.
 	testCases := map[string][]HandlerDescriptor{
-		"empty ID":      {{ID: "", Kind: HandlerKindSessionTree}},
-		"unknown kind":  {{ID: "observer", Kind: HandlerKind(99)}},
-		"duplicate IDs": {{ID: "same", Kind: HandlerKindSessionTree}, {ID: "same", Kind: HandlerKindSessionBeforeTreeRequest}},
+		"empty ID":     {{ID: "", Kind: HandlerKindSessionTree}},
+		"unknown kind": {{ID: "observer", Kind: HandlerKind(99)}},
+		"duplicate IDs": {
+			{ID: "same", Kind: HandlerKindSessionTree},
+			{ID: "same", Kind: HandlerKindSessionBeforeTreeRequest},
+		},
 	}
 	for name, handlers := range testCases {
 		s.Run(name, func() {
@@ -324,9 +342,13 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	catalog := s.catalog
 	factory := s.factory
 	runtime := NewMockExtensionRuntime(controller)
-	catalog.EXPECT().Discover(t.Context(), Directory{Path: "", Explicit: false}).Return(Discovery{Candidates: []Candidate{{ID: "broken", Path: "/broken"}}, Issues: nil}, nil)
+	catalog.EXPECT().
+		Discover(t.Context(), Directory{Path: "", Explicit: false}).
+		Return(Discovery{Candidates: []Candidate{{ID: "broken", Path: "/broken"}}, Issues: nil}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "broken", Path: "/broken"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	service := New(catalog, factory, discardRuntimeFailure)
 	require.Empty(t, mustLoad(t, service))
 	runtime.EXPECT().Execute(t.Context(), "read", []byte(`{}`), gomock.Any()).Return(
@@ -358,7 +380,9 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 		Discovery{Candidates: []Candidate{{ID: "healthy", Path: "/healthy"}}, Issues: nil}, nil,
 	)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "healthy", Path: "/healthy"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
 	service := New(catalog, factory, discardRuntimeFailure)
 	require.Empty(t, mustLoad(t, service))
 	deliveryErr := errors.New("event consumer failed")
@@ -369,8 +393,18 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 		gomock.Any(),
 	).DoAndReturn(
 		func(_ context.Context, _ string, _ []byte, handler tool.ProgressHandler) (tool.Result, error) {
-			require.ErrorIs(t, handler(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"}), deliveryErr)
-			return tool.Result{Contents: tool.TextContents(""), IsError: false}, fmt.Errorf("deliver progress: %w", deliveryErr)
+			require.ErrorIs(
+				t,
+				handler(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"}),
+				deliveryErr,
+			)
+			return tool.Result{
+				Contents: tool.TextContents(""),
+				IsError:  false,
+			}, fmt.Errorf(
+				"deliver progress: %w",
+				deliveryErr,
+			)
 		},
 	)
 
@@ -417,18 +451,27 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	healthyDone := make(chan struct{})
 	crashedClosed := make(chan struct{})
 	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
-		Candidates: []Candidate{{ID: "crashed-plugin", Path: "/plugins/crashed"}, {ID: "healthy-plugin", Path: "/plugins/healthy"}},
-		Issues:     nil,
+		Candidates: []Candidate{
+			{ID: "crashed-plugin", Path: "/plugins/crashed"},
+			{ID: "healthy-plugin", Path: "/plugins/healthy"},
+		},
+		Issues: nil,
 	}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "crashed-plugin", Path: "/plugins/crashed"}).Return(crashed, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "healthy-plugin", Path: "/plugins/healthy"}).Return(healthy, nil)
-	crashed.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
-	healthy.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
+	crashed.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	healthy.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
 	crashed.EXPECT().Done().Return(crashedDone)
 	healthy.EXPECT().Done().Return(healthyDone)
 	crashed.EXPECT().Close().Do(func() { close(crashedClosed) })
 	contextKey := serviceContextKey{}
-	activationContext, cancelActivation := context.WithCancel(context.WithValue(t.Context(), contextKey, "monitor-value"))
+	activationContext, cancelActivation := context.WithCancel(
+		context.WithValue(t.Context(), contextKey, "monitor-value"),
+	)
 	failures := make([]tool.RuntimeFailure, 0, 1)
 	reportedContexts := make(chan context.Context, 1)
 	service := New(catalog, factory, func(ctx context.Context, failure tool.RuntimeFailure) error {
@@ -454,7 +497,11 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	healthy.EXPECT().Execute(t.Context(), "bash", []byte(`{}`), gomock.Any()).Return(
 		tool.Result{Contents: tool.TextContents("ok"), IsError: false}, nil,
 	)
-	result, executeErr := service.Execute(t.Context(), model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}}, discardProgress)
+	result, executeErr := service.Execute(
+		t.Context(),
+		model.ToolCall{ID: "call", Name: "bash", Arguments: map[string]any{}},
+		discardProgress,
+	)
 	require.NoError(t, executeErr)
 	assert.Equal(t, "ok", result.Contents[0].Text.OrEmpty())
 	healthy.EXPECT().Close()
@@ -477,7 +524,9 @@ func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 		Candidates: []Candidate{{ID: "active-plugin", Path: "/plugins/active"}}, Issues: nil,
 	}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "active-plugin", Path: "/plugins/active"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().Execute(gomock.Any(), "read", []byte(`{}`), gomock.Any()).DoAndReturn(
 		func(context.Context, string, []byte, tool.ProgressHandler) (tool.Result, error) {
@@ -536,11 +585,18 @@ func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservati
 		catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
 			Candidates: []Candidate{{ID: "rpc-first-plugin", Path: "/plugins/rpc-first"}}, Issues: nil,
 		}, nil)
-		factory.EXPECT().Start(t.Context(), Candidate{ID: "rpc-first-plugin", Path: "/plugins/rpc-first"}).Return(runtime, nil)
-		runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+		factory.EXPECT().
+			Start(t.Context(), Candidate{ID: "rpc-first-plugin", Path: "/plugins/rpc-first"}).
+			Return(runtime, nil)
+		runtime.EXPECT().
+			Register(t.Context()).
+			Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 		runtime.EXPECT().Done().Return(done)
 		runtime.EXPECT().Execute(t.Context(), "read", []byte(`{}`), gomock.Any()).Return(
-			tool.Result{Contents: tool.TextContents(""), IsError: false}, fmt.Errorf("process exited: %w", ErrExtensionUnavailable),
+			tool.Result{
+				Contents: tool.TextContents(""),
+				IsError:  false,
+			}, fmt.Errorf("process exited: %w", ErrExtensionUnavailable),
 		)
 		runtime.EXPECT().Close()
 		failures := make([]tool.RuntimeFailure, 0, 1)
@@ -582,8 +638,12 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
 		Candidates: []Candidate{{ID: "successful-plugin", Path: "/plugins/successful"}}, Issues: nil,
 	}, nil)
-	factory.EXPECT().Start(t.Context(), Candidate{ID: "successful-plugin", Path: "/plugins/successful"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	factory.EXPECT().
+		Start(t.Context(), Candidate{ID: "successful-plugin", Path: "/plugins/successful"}).
+		Return(runtime, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().Execute(gomock.Any(), "read", []byte(`{}`), gomock.Any()).DoAndReturn(
 		func(context.Context, string, []byte, tool.ProgressHandler) (tool.Result, error) {
@@ -637,7 +697,9 @@ func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 		Candidates: []Candidate{{ID: "planned-plugin", Path: "/plugins/planned"}}, Issues: nil,
 	}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "planned-plugin", Path: "/plugins/planned"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().Execute(gomock.Any(), "read", []byte(`{}`), gomock.Any()).DoAndReturn(
 		func(context.Context, string, []byte, tool.ProgressHandler) (tool.Result, error) {
@@ -686,7 +748,9 @@ func (s *ServiceSuite) TestServiceRemovesToolsWhenRuntimeExits() {
 		Discovery{Candidates: []Candidate{{ID: "crash", Path: "/crash"}}, Issues: nil}, nil,
 	)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "crash", Path: "/crash"}).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
+	runtime.EXPECT().
+		Register(t.Context()).
+		Return(Registration{Tools: []tool.Descriptor{testDescriptor("bash")}, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().Close().Do(func() { close(closed) })
 	service := New(catalog, factory, discardRuntimeFailure)

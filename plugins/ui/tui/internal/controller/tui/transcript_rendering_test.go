@@ -253,12 +253,17 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 	assert.Equal(t, 1, strings.Count(model.View().Content, "complete answer"))
 }
 
-// TestModelRendersProvisionalToolCallNameFieldsAndPrefix verifies provisional complete and prefix fields remain visible.
+// TestModelRendersProvisionalToolCallNameFieldsAndPrefix verifies provisional complete and prefix fields remain
+// visible.
 func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a provisional tool call with complete and prefix fields.
-	model := newTestModel(t, presentationdomain.AvailabilityRunning, func(presentationdomain.Command) error { return nil })
+	model := newTestModel(
+		t,
+		presentationdomain.AvailabilityRunning,
+		func(presentationdomain.Command) error { return nil },
+	)
 	// Act by applying and rendering the provisional call.
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,

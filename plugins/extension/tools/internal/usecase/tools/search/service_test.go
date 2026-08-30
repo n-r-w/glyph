@@ -14,9 +14,15 @@ func TestServiceGrepMapsControllerArguments(t *testing.T) {
 	t.Parallel()
 	control := gomock.NewController(t)
 	projectFiles := NewMockProjectFiles(control)
-	projectFiles.EXPECT().Grep(t.Context(), GrepCommand{Pattern: "needle", Path: "src", Glob: "**/*.go", IgnoreCase: true, Literal: true, Context: 2, Limit: mo.Some(uint(7))}).Return(GrepResult{Text: "result"}, nil)
+	projectFiles.EXPECT().Grep(t.Context(), GrepCommand{
+		Pattern: "needle", Path: "src", Glob: "**/*.go", IgnoreCase: true, Literal: true,
+		Context: 2, Limit: mo.Some(uint(7)),
+	}).Return(GrepResult{Text: "result"}, nil)
 
-	result, err := New(projectFiles).Grep(t.Context(), extensioncontroller.GrepArguments{Pattern: "needle", Path: "src", Glob: "**/*.go", IgnoreCase: true, Literal: true, Context: 2, Limit: mo.Some(uint(7))})
+	result, err := New(projectFiles).Grep(t.Context(), extensioncontroller.GrepArguments{
+		Pattern: "needle", Path: "src", Glob: "**/*.go", IgnoreCase: true, Literal: true,
+		Context: 2, Limit: mo.Some(uint(7)),
+	})
 
 	require.NoError(t, err)
 	require.Equal(t, "result", result)

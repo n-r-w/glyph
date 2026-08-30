@@ -28,8 +28,19 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 	createdAt := time.Unix(1, 0).UTC()
 	service := New(repository, ids, clock, pricing, "/project")
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
-	selection := model.Selection{Provider: "provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceHigh}
-	usage := session.TokenUsage{InputTokens: 5, OutputTokens: 4, CacheReadTokens: 3, CacheWriteTokens: 2, ReasoningTokens: 1, TotalTokens: 14}
+	selection := model.Selection{
+		Provider:        "provider",
+		Model:           "summary-model",
+		ReasoningChoice: model.ReasoningChoiceHigh,
+	}
+	usage := session.TokenUsage{
+		InputTokens:      5,
+		OutputTokens:     4,
+		CacheReadTokens:  3,
+		CacheWriteTokens: 2,
+		ReasoningTokens:  1,
+		TotalTokens:      14,
+	}
 	ids.EXPECT().NewID().Return("summary-entry", nil)
 	clock.EXPECT().Now().Return(createdAt.Add(3 * time.Second))
 	pricing.EXPECT().Pricing(selection.Provider, selection.Model).Return(mo.Some(model.Pricing{
@@ -107,10 +118,16 @@ func TestCommitNavigationKeepsUsageAndCostAbsentWhenProviderUsageIsAbsent(t *tes
 	_, err := service.CommitNavigation(t.Context(), sessiontree.CommitCommand{
 		ExpectedActiveLeafID: mo.Some("abandoned"), DestinationID: mo.Some("destination"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
-			Summary: "generated", FirstEntryID: "abandoned", LastEntryID: "abandoned",
+			Summary:          "generated",
+			FirstEntryID:     "abandoned",
+			LastEntryID:      "abandoned",
 			CommonAncestorID: mo.Some("destination"),
-			Selection:        model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff},
-			Usage:            mo.None[session.TokenUsage](),
+			Selection: model.Selection{
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceOff,
+			},
+			Usage: mo.None[session.TokenUsage](),
 		}),
 	})
 

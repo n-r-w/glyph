@@ -101,21 +101,50 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 	}
 	user := model.Message{Content: []model.InputContent{
 		{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-		{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{4, 5, 6})},
+		{
+			Kind:      model.InputContentImage,
+			Text:      mo.None[string](),
+			MediaType: mo.Some("image/png"),
+			Data:      mo.Some([]byte{4, 5, 6}),
+		},
 		{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
 	}}
 	entries := []session.Entry{
-		{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "user-entry",
+			CreatedAt:     createdAt,
+			Information:   mo.None[session.Information](),
+			User:          mo.Some(user),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "model-entry",
+			CreatedAt:     createdAt.Add(time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.Some(response),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "tool-entry",
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.Some(result),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -142,7 +171,11 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 	require.Equal(t, mo.Some(controller.ModelOutcomeToolUse), publicResponse.Outcome)
 	require.Equal(t, mo.Some("response-id"), publicResponse.ResponseID)
 	require.True(t, publicResponse.Usage.IsPresent())
-	require.Equal(t, []controller.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}}, publicResponse.Diagnostics)
+	require.Equal(
+		t,
+		[]controller.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}},
+		publicResponse.Diagnostics,
+	)
 	require.Len(t, publicResponse.Content, 3)
 	require.Equal(t, controller.ModelResponseContentReasoning, publicResponse.Content[0].Kind)
 	require.Equal(t, "visible reasoning", publicResponse.Content[0].Text.MustGet())
@@ -208,8 +241,16 @@ func TestMapHistoryProjectsTerminalToolResults(t *testing.T) {
 				case tool.ResultContentText:
 					require.Equal(t, test.contents[index].Text.MustGet(), result.Contents[index].Text.MustGet())
 				case tool.ResultContentImage:
-					require.Equal(t, test.contents[index].Image.MustGet().MediaType, result.Contents[index].Image.MustGet().MediaType)
-					require.Equal(t, test.contents[index].Image.MustGet().Data, result.Contents[index].Image.MustGet().Data)
+					require.Equal(
+						t,
+						test.contents[index].Image.MustGet().MediaType,
+						result.Contents[index].Image.MustGet().MediaType,
+					)
+					require.Equal(
+						t,
+						test.contents[index].Image.MustGet().Data,
+						result.Contents[index].Image.MustGet().Data,
+					)
 				}
 			}
 		})

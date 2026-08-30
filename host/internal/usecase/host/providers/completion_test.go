@@ -27,15 +27,48 @@ func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
 	active := model.Selection{Provider: "active", Model: "main", ReasoningChoice: model.ReasoningChoiceLow}
 	alternate := model.Selection{Provider: "alternate", Model: "summary", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog, err := New([]Entry{
-		{Descriptor: descriptor("active", "main", model.ReasoningChoiceLow), Provider: activeProvider, SelectionCredentialValidator: nil, Authentication: nil},
-		{Descriptor: descriptor("alternate", "summary", model.ReasoningChoiceHigh), Provider: alternateProvider, SelectionCredentialValidator: validator, Authentication: nil},
+		{
+			Descriptor:                   descriptor("active", "main", model.ReasoningChoiceLow),
+			Provider:                     activeProvider,
+			SelectionCredentialValidator: nil,
+			Authentication:               nil,
+		},
+		{
+			Descriptor:                   descriptor("alternate", "summary", model.ReasoningChoiceHigh),
+			Provider:                     alternateProvider,
+			SelectionCredentialValidator: validator,
+			Authentication:               nil,
+		},
 	}, active)
 	require.NoError(t, err)
-	history := []agent.HistoryEntry{{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("abandoned")), Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult]()}}
+	history := []agent.HistoryEntry{
+		{
+			Kind:       agent.HistoryEntryUser,
+			User:       mo.Some(model.TextMessage("abandoned")),
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		},
+	}
 	terminal := model.Response{
-		Content: []model.Content{{Kind: model.ContentText, Text: mo.Some("summary"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.Some(model.ProviderID("alternate")), Model: mo.Some(model.ID("summary")),
-		ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Content: []model.Content{
+			{
+				Kind:            model.ContentText,
+				Text:            mo.Some("summary"),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		Outcome: mo.Some(
+			model.OutcomeStop,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.Some(model.ProviderID("alternate")),
+		Model:         mo.Some(model.ID("summary")),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 	alternateProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request agentrun.ModelRequest, handle agentrun.StreamHandler) error {
@@ -47,7 +80,17 @@ func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
 			assert.Equal(t, alternate, actualSelection)
 			assert.Equal(t, history, request.History)
 			assert.Empty(t, request.Tools)
-			return handle(agentrun.StreamEvent{Kind: agentrun.StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.Some(terminal)})
+			return handle(
+				agentrun.StreamEvent{
+					Kind:     agentrun.StreamEventDone,
+					Position: mo.None[int](),
+					Content:  mo.None[model.Content](),
+					Delta:    mo.None[string](),
+					Preview:  mo.None[model.ToolCallPreview](),
+					ToolCall: mo.None[model.ToolCall](),
+					Response: mo.Some(terminal),
+				},
+			)
 		},
 	)
 
@@ -95,8 +138,20 @@ func TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation(t *testing
 		selection model.Selection
 		code      ErrorCode
 	}{
-		{name: "model", selection: model.Selection{Provider: "missing", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}, code: ErrorCodeNotFound},
-		{name: "reasoning", selection: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}, code: ErrorCodeReasoningUnsupported},
+		{
+			name:      "model",
+			selection: model.Selection{Provider: "missing", Model: "model", ReasoningChoice: model.ReasoningChoiceOff},
+			code:      ErrorCodeNotFound,
+		},
+		{
+			name: "reasoning",
+			selection: model.Selection{
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceHigh,
+			},
+			code: ErrorCodeReasoningUnsupported,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -30,7 +30,9 @@ func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *tes
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 	}
 	// Act by applying a pending replacement before session identity is confirmed.
-	pending := testSessionEvent(presentationdomain.EventSessionChanged, mo.None[presentationdomain.SessionInfo](), restored)
+	pending := testSessionEvent(
+		presentationdomain.EventSessionChanged, mo.None[presentationdomain.SessionInfo](), restored,
+	)
 	state = service.Apply(state, pending)
 
 	// Assert the pending event retains the existing transcript.
@@ -51,7 +53,9 @@ func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *tes
 	state = service.Apply(state, confirmed)
 	require.Equal(t, restored, state.Transcript)
 
-	information := testSessionEvent(presentationdomain.EventSessionInformation, mo.Some(info), []presentationdomain.Line{oldLine})
+	information := testSessionEvent(
+		presentationdomain.EventSessionInformation, mo.Some(info), []presentationdomain.Line{oldLine},
+	)
 	state = service.Apply(state, information)
 	require.Equal(t, restored, state.Transcript)
 }

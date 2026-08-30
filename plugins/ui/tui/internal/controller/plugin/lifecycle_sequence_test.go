@@ -18,7 +18,8 @@ import (
 	presentationusecase "github.com/n-r-w/glyph/plugins/ui/tui/internal/usecase/presentation"
 )
 
-// TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer mapping.
+// TestSemanticLifecycleSequenceUsesContractMapping verifies shared lifecycle data through the standard consumer
+// mapping.
 func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	t.Parallel()
 	// Arrange the semantic lifecycle fixture and an initialized presentation state.
@@ -154,10 +155,13 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	if frame.Type == "tool_result" {
 		lifecycle.SetToolCallId("call")
 		lifecycle.SetToolName(frame.ToolName)
-		contents := lo.Map(frame.ToolResultContents, func(content semanticToolResultContent, _ int) *uiv1.ToolResultContent {
-			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
-			return uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build()
-		})
+		contents := lo.Map(
+			frame.ToolResultContents,
+			func(content semanticToolResultContent, _ int) *uiv1.ToolResultContent {
+				//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
+				return uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build()
+			},
+		)
 		lifecycle.SetToolResultContents(contents)
 	}
 	if frame.Type == "tool_execution_end" {
@@ -176,13 +180,18 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	}
 	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
 	return uiv1.OpenRequest_builder{
-		Lifecycle:          lifecycle,
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+		Lifecycle:             lifecycle,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
+		SessionTree:           nil,
+		SessionTreeNavigation: nil,
+		SessionTreeFailed:     nil,
+		SessionForked:         nil,
 
 		// repositoryRoot resolves shared testdata from the source file location.
-		SessionCloned: nil, EntryLabelSet: nil,
+		SessionCloned: nil,
+		EntryLabelSet: nil,
 	}.Build()
 }
 

@@ -55,7 +55,11 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	require.NoError(t, err)
 	assert.Equal(t, "c1", accepted.GetCorrelationId())
 	require.Equal(t, programmaticv1.OpenResponse_CommandResponse_case, accepted.WhichContent())
-	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, accepted.GetCommandResponse().WhichResult())
+	assert.Equal(
+		t,
+		programmaticv1.CommandResponse_UserRequestAccepted_case,
+		accepted.GetCommandResponse().WhichResult(),
+	)
 
 	firstEvent, err := stream.Recv()
 	require.NoError(t, err)
@@ -76,12 +80,17 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 		case programmaticv1.OpenResponse_Content_not_set_case:
 			require.FailNow(t, "received response without content")
 		case programmaticv1.OpenResponse_AgentEvent_case:
-			if response.GetCorrelationId() == "c1" && response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+			if response.GetCorrelationId() == "c1" &&
+				response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
 				settled = true
 			}
 		case programmaticv1.OpenResponse_CommandResponse_case:
 			if response.GetCorrelationId() == "abort-c1" {
-				assert.Equal(t, programmaticv1.CommandResponse_AbortCompleted_case, response.GetCommandResponse().WhichResult())
+				assert.Equal(
+					t,
+					programmaticv1.CommandResponse_AbortCompleted_case,
+					response.GetCommandResponse().WhichResult(),
+				)
 				aborted = true
 			}
 		}
@@ -97,11 +106,17 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerCanAbortAndStartAnotherRun() {
 	secondAccepted, err := stream.Recv()
 	require.NoError(t, err)
 	assert.Equal(t, "c2", secondAccepted.GetCorrelationId())
-	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, secondAccepted.GetCommandResponse().WhichResult())
+	assert.Equal(
+		t,
+		programmaticv1.CommandResponse_UserRequestAccepted_case,
+		secondAccepted.GetCommandResponse().WhichResult(),
+	)
 	for {
 		response, receiveErr := stream.Recv()
 		require.NoError(t, receiveErr)
-		if response.GetCorrelationId() == "c2" && response.WhichContent() == programmaticv1.OpenResponse_AgentEvent_case && response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+		if response.GetCorrelationId() == "c2" &&
+			response.WhichContent() == programmaticv1.OpenResponse_AgentEvent_case &&
+			response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
 			break
 		}
 	}
@@ -128,7 +143,11 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosureCancelsActiveRun() {
 	require.NoError(t, fixture.stream.Send(userRequest("c1", "disconnect this request")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, accepted.GetCommandResponse().WhichResult())
+	assert.Equal(
+		t,
+		programmaticv1.CommandResponse_UserRequestAccepted_case,
+		accepted.GetCommandResponse().WhichResult(),
+	)
 	_, err = fixture.stream.Recv()
 	require.NoError(t, err)
 	<-providerStarted
@@ -155,7 +174,11 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationWinsOverStream
 	require.NoError(t, fixture.stream.Send(userRequest("c1", "cancel this request")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	assert.Equal(t, programmaticv1.CommandResponse_UserRequestAccepted_case, accepted.GetCommandResponse().WhichResult())
+	assert.Equal(
+		t,
+		programmaticv1.CommandResponse_UserRequestAccepted_case,
+		accepted.GetCommandResponse().WhichResult(),
+	)
 	_, err = fixture.stream.Recv()
 	require.NoError(t, err)
 	<-providerStarted

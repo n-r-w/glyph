@@ -250,7 +250,10 @@ func costAppendService(
 		Header: session.Header{
 			Version: formatVersion, ID: "active", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/active.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		StoragePath:          "/sessions/active.jsonl",
+		Tree:                 session.Tree{},
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	return service, captured
 }
@@ -276,15 +279,21 @@ func costStatisticsEntry(
 	modelID model.ID,
 	estimatedCost mo.Option[session.EstimatedCost],
 ) session.Entry {
-	return session.Entry{ParentID: mo.None[string](), ID: string(providerID) + "/" + string(modelID), CreatedAt: time.Unix(10, 0).UTC(),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+	return session.Entry{
+		ParentID:    mo.None[string](),
+		ID:          string(providerID) + "/" + string(modelID),
+		CreatedAt:   time.Unix(10, 0).UTC(),
+		Information: mo.None[session.Information](),
+		User:        mo.None[session.UserMessage](),
 		Model: mo.Some(model.Response{
 			Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
 			Provider: mo.Some(providerID), Model: mo.Some(modelID), ResponseModel: mo.None[model.ID](),
 			ResponseID: mo.None[string](), Usage: mo.Some(model.Usage{}), Diagnostics: nil,
 		}),
-		EstimatedCost: estimatedCost, ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		EstimatedCost: estimatedCost,
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 

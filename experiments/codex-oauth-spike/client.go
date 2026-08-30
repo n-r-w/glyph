@@ -67,8 +67,10 @@ func readTools(schema map[string]any) []responses.ToolUnionParam {
 // baseRequest applies the stateless Codex policy shared by both model turns.
 func baseRequest(tools []responses.ToolUnionParam) responses.ResponseNewParams {
 	return responses.ResponseNewParams{
-		Model:             shared.ResponsesModel(modelID),
-		Instructions:      param.NewOpt("You are validating a safe Glyph tool-calling integration. Follow the requested tool flow exactly."),
+		Model: shared.ResponsesModel(modelID),
+		Instructions: param.NewOpt(
+			"You are validating a safe Glyph tool-calling integration. Follow the requested tool flow exactly.",
+		),
 		Store:             param.NewOpt(false),
 		ParallelToolCalls: param.NewOpt(false),
 		Include: []responses.ResponseIncludable{
@@ -155,6 +157,8 @@ func secondRequest(
 	request.ToolChoice = responses.ResponseNewParamsToolChoiceUnion{
 		OfToolChoiceMode: param.NewOpt(responses.ToolChoiceOptionsNone),
 	}
-	request.Instructions = param.NewOpt("Report the exact tool output marker in the final answer. Do not call another tool.")
+	request.Instructions = param.NewOpt(
+		"Report the exact tool output marker in the final answer. Do not call another tool.",
+	)
 	return request, nil
 }

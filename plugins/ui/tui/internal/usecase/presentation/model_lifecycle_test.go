@@ -9,15 +9,22 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-// TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies terminal content merges deltas from distinct stream positions.
+// TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions verifies terminal content merges deltas
+// from distinct stream positions.
 func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing.T) {
 	t.Parallel()
 
 	// Arrange model deltas that occupy distinct stream positions.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, testPresentationEvent(presentationdomain.EventModelDelta, mo.None[string](), mo.Some(0)))
+	state := service.Apply(
+		presentationdomain.State{},
+		testPresentationEvent(presentationdomain.EventModelDelta, mo.None[string](), mo.Some(0)),
+	)
 	// Act by applying later deltas and the terminal model response.
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("complete answer"), mo.Some(1)))
+	state = service.Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("complete answer"), mo.Some(1)),
+	)
 	state = service.Apply(state, testModelEndEvent(presentationdomain.ModelResponseContent{
 		Kind: presentationdomain.ModelContentText,
 		Text: mo.Some("complete answer"),
@@ -40,7 +47,10 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 
 	// Arrange a streamed refusal followed by terminal response content.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, testModelDeltaEvent(0, presentationdomain.ModelContentText, "draft"))
+	state := service.Apply(
+		presentationdomain.State{},
+		testModelDeltaEvent(0, presentationdomain.ModelContentText, "draft"),
+	)
 	// Act by applying the model-end event.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -103,9 +113,15 @@ func TestServiceEmptyModelEndClearsStaleFragmentsWithoutTranscriptLine(t *testin
 
 	// Arrange an active model fragment with no terminal content.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("stale fragment"), mo.Some(1)))
+	state := service.Apply(
+		presentationdomain.State{},
+		testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("stale fragment"), mo.Some(1)),
+	)
 	// Act by applying an empty model-end event.
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventModelEnd, mo.None[string](), mo.None[int]()))
+	state = service.Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventModelEnd, mo.None[string](), mo.None[int]()),
+	)
 
 	// Assert stale fragments are cleared without adding a transcript line.
 	assert.Empty(t, state.Transcript)

@@ -42,7 +42,11 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	assert.Equal(t, []programmaticv1.ReasoningChoice{
 		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
 	}, models.GetModels()[0].GetReasoning().GetChoices())
-	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF, models.GetActiveSelection().GetReasoningChoice())
+	assert.Equal(
+		t,
+		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
+		models.GetActiveSelection().GetReasoningChoice(),
+	)
 
 	require.NoError(t, fixture.stream.Send(selectModelRequest("model", "openai-codex", "gpt-test")))
 	modelResponse, err := fixture.stream.Recv()

@@ -60,16 +60,37 @@ func appendFullContentFixtureWithUsage(
 		ID: "full-call", Name: "bash", Arguments: map[string]any{"command": "printf full-tool"},
 	}
 	entries := []session.Entry{
-		{ParentID: mo.None[string](), ID: "full-user-entry", CreatedAt: createdAt.Add(time.Second),
+		{
+			ParentID:    mo.None[string](),
+			ID:          "full-user-entry",
+			CreatedAt:   createdAt.Add(time.Second),
 			Information: mo.None[session.Information](),
 			User: mo.Some(model.Message{Content: []model.InputContent{
-				{Kind: model.InputContentText, Text: mo.Some("full user"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-				{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3, 4})},
-				{Kind: model.InputContentText, Text: mo.Some("after image"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+				{
+					Kind:      model.InputContentText,
+					Text:      mo.Some("full user"),
+					MediaType: mo.None[string](),
+					Data:      mo.None[[]byte](),
+				},
+				{
+					Kind:      model.InputContentImage,
+					Text:      mo.None[string](),
+					MediaType: mo.Some("image/png"),
+					Data:      mo.Some([]byte{1, 2, 3, 4}),
+				},
+				{
+					Kind:      model.InputContentText,
+					Text:      mo.Some("after image"),
+					MediaType: mo.None[string](),
+					Data:      mo.None[[]byte](),
+				},
 			}}),
-			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
 		},
 		{ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -82,7 +103,9 @@ func appendFullContentFixtureWithUsage(
 								ProviderID: "openai-codex", API: "responses", Model: "selected-model",
 								CompatibilityKey: mo.None[string](),
 							},
-							Payload: []byte(`{"id":"r-full","encrypted_content":"enc-full","summary":["full summary"]}`),
+							Payload: []byte(
+								`{"id":"r-full","encrypted_content":"enc-full","summary":["full summary"]}`,
+							),
 						}),
 						ToolCall: mo.None[model.ToolCall](),
 					},
@@ -105,18 +128,32 @@ func appendFullContentFixtureWithUsage(
 			EstimatedCost: estimatedCost, BranchSummary: mo.None[session.
 					BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "full-tool-entry", CreatedAt: createdAt.Add(3 * time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-			Model: mo.None[session.ModelResponse](),
+		{
+			ParentID:    mo.None[string](),
+			ID:          "full-tool-entry",
+			CreatedAt:   createdAt.Add(3 * time.Second),
+			Information: mo.None[session.Information](),
+			User:        mo.None[session.UserMessage](),
+			Model:       mo.None[session.ModelResponse](),
 			ToolResult: mo.Some(agent.ToolResult{
 				CallID: call.ID, ToolName: call.Name, IsError: false,
 				Contents: []tool.ResultContent{
-					{Kind: tool.ResultContentText, Text: mo.Some("full tool output"), Image: mo.None[tool.ResultImage]()},
-					{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{9, 8, 7, 6}})},
+					{
+						Kind:  tool.ResultContentText,
+						Text:  mo.Some("full tool output"),
+						Image: mo.None[tool.ResultImage](),
+					},
+					{
+						Kind:  tool.ResultContentImage,
+						Text:  mo.None[string](),
+						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{9, 8, 7, 6}}),
+					},
 				},
 			}),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
 		},
 		{ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),

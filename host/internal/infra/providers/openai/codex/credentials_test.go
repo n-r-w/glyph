@@ -47,7 +47,9 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 		},
 	)
 	credentials := NewMockCredentials(gomock.NewController(t))
-	credentials.EXPECT().Load().Return(testCredentialPayload(t, oldAccess, "refresh-old", accountID, now.Add(5*time.Minute)), true, nil)
+	credentials.EXPECT().
+		Load().
+		Return(testCredentialPayload(t, oldAccess, "refresh-old", accountID, now.Add(5*time.Minute)), true, nil)
 	credentials.EXPECT().Save(gomock.Any()).DoAndReturn(func(payload []byte) error {
 		var rotated oauthCredentials
 		require.NoError(t, json.Unmarshal(payload, &rotated))
@@ -132,7 +134,9 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 		},
 	)
 	credentials := NewMockCredentials(gomock.NewController(t))
-	credentials.EXPECT().Load().Return(testCredentialPayload(t, accessToken, "refresh", accountID, now.Add(6*time.Minute)), true, nil)
+	credentials.EXPECT().
+		Load().
+		Return(testCredentialPayload(t, accessToken, "refresh", accountID, now.Add(6*time.Minute)), true, nil)
 	interaction := NewMockInteraction(gomock.NewController(t))
 	server := httptest.NewServer(
 		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

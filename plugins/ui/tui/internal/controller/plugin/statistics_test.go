@@ -46,7 +46,8 @@ func TestMapRequestReconstructsAvailableSessionStatistics(t *testing.T) {
 	}.Build()
 	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
 	request := uiv1.OpenRequest_builder{
-		SessionInformation: uiv1.SessionInformation_builder{Info: info, Statistics: statistics}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+		SessionInformation: uiv1.SessionInformation_builder{Info: info, Statistics: statistics}.Build(),
+		SessionTree:        nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
 
 		// Act by reconstructing the TUI presentation event.
 		SessionCloned: nil, EntryLabelSet: nil,

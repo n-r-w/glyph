@@ -116,7 +116,11 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 				if api == APIChatCompletions {
 					writeSSE(t, writer, `{"id":"chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)
 				} else {
-					writeSSE(t, writer, `{"type":"response.completed","response":{"id":"resp","status":"completed","output":[]}}`)
+					writeSSE(
+						t,
+						writer,
+						`{"type":"response.completed","response":{"id":"resp","status":"completed","output":[]}}`,
+					)
 				}
 			}))
 			t.Cleanup(server.Close)

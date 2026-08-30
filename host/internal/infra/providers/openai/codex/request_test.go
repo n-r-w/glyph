@@ -52,7 +52,9 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
 	})
 	credentials := NewMockCredentials(gomock.NewController(t))
-	credentials.EXPECT().Load().Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
+	credentials.EXPECT().
+		Load().
+		Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
 	interaction := NewMockInteraction(gomock.NewController(t))
 	server := httptest.NewServer(
 		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

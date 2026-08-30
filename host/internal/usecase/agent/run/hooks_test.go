@@ -44,10 +44,41 @@ func TestServiceRunTransformsRequestLocalContext(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
 			assert.Equal(t, "final transformation", request.History[0].User.OrEmpty().Content[0].Text.OrEmpty())
-			return handle(StreamEvent{Kind: StreamEventDone, Response: mo.Some(model.Response{Outcome: mo.Some(model.OutcomeStop), Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}), Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall]()})
+			return handle(
+				StreamEvent{
+					Kind: StreamEventDone,
+					Response: mo.Some(
+						model.Response{
+							Outcome:       mo.Some(model.OutcomeStop),
+							Content:       nil,
+							ErrorMessage:  mo.None[string](),
+							Provider:      mo.None[model.ProviderID](),
+							Model:         mo.None[model.ID](),
+							ResponseModel: mo.None[model.ID](),
+							ResponseID:    mo.None[string](),
+							Usage:         mo.None[model.Usage](),
+							Diagnostics:   nil,
+						},
+					),
+					Position: mo.None[int](),
+					Content:  mo.None[model.Content](),
+					Delta:    mo.None[string](),
+					Preview:  mo.None[model.ToolCallPreview](),
+					ToolCall: mo.None[model.ToolCall](),
+				},
+			)
 		},
 	)
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookRunner, tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookRunner,
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "context-success", UserText: "persisted input"})
 
@@ -79,7 +110,16 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 			return value, nil
 		},
 	}, nil, nil)
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookRunner, tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookRunner,
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "context-failure", UserText: "persisted input"})
 
@@ -94,7 +134,11 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 	assert.Equal(t, "persisted input", history[0].User.OrEmpty().Content[0].Text.OrEmpty())
 	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
 	assert.Contains(t, history[1].Model.OrEmpty().ErrorMessage.OrEmpty(), hookErr.Error())
-	assert.Equal(t, []model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}}, history[1].Model.OrEmpty().Diagnostics)
+	assert.Equal(
+		t,
+		[]model.Diagnostic{{Code: "internal_hook_failed", Message: "context"}},
+		history[1].Model.OrEmpty().Diagnostics,
+	)
 	assert.Equal(t, []agent.HistoryEntry{history[0]}, service.ProjectHistory())
 }
 

@@ -27,7 +27,10 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 			{
 				ProviderID: "openai-codex",
 				ModelID:    "gpt",
-				Reasoning:  testReasoning(presentationdomain.ReasoningChoiceLow, presentationdomain.ReasoningChoiceHigh),
+				Reasoning: testReasoning(
+					presentationdomain.ReasoningChoiceLow,
+					presentationdomain.ReasoningChoiceHigh,
+				),
 			},
 			{
 				ProviderID: "openrouter",

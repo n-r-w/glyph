@@ -29,10 +29,18 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	mapped, err := mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "information", Kind: ResponseSessionInfo,
-		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
-		Selection: mo.None[model.Selection](), SessionInfo: mo.Some(info), Sessions: nil,
-		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement:
+		CorrelationID:     "information",
+		Kind:              ResponseSessionInfo,
+		State:             mo.None[RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.Some(info),
+		Sessions:          nil,
+		Rejection:         mo.None[Rejection](),
+		SessionTree:       mo.None[SessionTree](),
+		TreeNavigation:    mo.None[TreeNavigationResult](),
+		Replacement:
 
 		// Assert optional presence and summary values survive protobuf mapping.
 		mo.None[SessionReplacement](),
@@ -47,11 +55,18 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	mapped, err = mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "list", Kind: ResponseSessions,
-		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
-		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](),
-		Sessions:  []session.Summary{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
-		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+		CorrelationID:     "list",
+		Kind:              ResponseSessions,
+		State:             mo.None[RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          []session.Summary{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
+		Rejection:         mo.None[Rejection](),
+		SessionTree:       mo.None[SessionTree](),
+		TreeNavigation:    mo.None[TreeNavigationResult](),
+		Replacement:       mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	rows := mapped.GetCommandResponse().GetSessions().GetSessions()
@@ -217,8 +232,18 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Messages: []HistoryEntry{
 				{
 					Kind: HistoryEntryUser, User: mo.Some(model.Message{Content: []model.InputContent{
-						{Kind: model.InputContentText, Text: mo.Some("user"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-						{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2})},
+						{
+							Kind:      model.InputContentText,
+							Text:      mo.Some("user"),
+							MediaType: mo.None[string](),
+							Data:      mo.None[[]byte](),
+						},
+						{
+							Kind:      model.InputContentImage,
+							Text:      mo.None[string](),
+							MediaType: mo.Some("image/png"),
+							Data:      mo.Some([]byte{1, 2}),
+						},
 					}}),
 					Model: mo.None[ModelResponse](), ToolResult: mo.None[ToolResult](),
 				},
@@ -392,7 +417,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX,
 				}, models.GetModels()[0].GetReasoning().GetChoices())
 				assert.True(t, models.GetModels()[0].GetReasoning().GetSupported())
-				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetModels()[0].GetReasoning().GetDefaultChoice())
+				assert.Equal(
+					t,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH,
+					models.GetModels()[0].GetReasoning().GetDefaultChoice(),
+				)
 				assert.Equal(t, []programmaticv1.InputModality{
 					programmaticv1.InputModality_INPUT_MODALITY_TEXT,
 					programmaticv1.InputModality_INPUT_MODALITY_IMAGE,
@@ -403,15 +432,30 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 					programmaticv1.ReasoningChoice_REASONING_CHOICE_ON,
 				}, models.GetModels()[1].GetReasoning().GetChoices())
 				assert.True(t, models.GetModels()[1].GetReasoning().GetSupported())
-				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_ON, models.GetModels()[1].GetReasoning().GetDefaultChoice())
-				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, models.GetActiveSelection().GetReasoningChoice())
+				assert.Equal(
+					t,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_ON,
+					models.GetModels()[1].GetReasoning().GetDefaultChoice(),
+				)
+				assert.Equal(
+					t,
+					programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH,
+					models.GetActiveSelection().GetReasoningChoice(),
+				)
 			case ResponseModelSelection:
 				selection := wire.GetModelSelection().GetSelection()
 				assert.Equal(t, "provider", selection.GetProviderId())
 				assert.Equal(t, "model", selection.GetModelId())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, selection.GetReasoningChoice())
-			case ResponseUnspecified, ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
-				ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
+			case ResponseUnspecified,
+				ResponseSessionInfo,
+				ResponseSessions,
+				ResponseSessionEntries,
+				ResponseSessionStats,
+				ResponseSessionTree,
+				ResponseSessionTreeNavigation,
+				ResponseForkSession,
+				ResponseCloneSession,
 				ResponseSetEntryLabel:
 				require.Fail(t, "unexpected response kind")
 			}
@@ -439,12 +483,15 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			}),
 			User: mo.None[model.Message](), ToolResult: mo.None[ToolResult](),
 		}},
-		State:       mo.None[RunStateResult](),
-		Models:      mo.None[ModelsResult](),
-		Selection:   mo.None[model.Selection](),
-		Rejection:   mo.None[Rejection](),
-		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+		State:          mo.None[RunStateResult](),
+		Models:         mo.None[ModelsResult](),
+		Selection:      mo.None[model.Selection](),
+		Rejection:      mo.None[Rejection](),
+		SessionInfo:    mo.None[session.Info](),
+		Sessions:       nil,
+		SessionTree:    mo.None[SessionTree](),
+		TreeNavigation: mo.None[TreeNavigationResult](),
+		Replacement:    mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	modelResponse := mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel()
@@ -464,12 +511,15 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			State:               RunStateIdle,
 			ActiveCorrelationID: mo.None[string](),
 		}),
-		Messages:    nil,
-		Models:      mo.None[ModelsResult](),
-		Selection:   mo.None[model.Selection](),
-		Rejection:   mo.None[Rejection](),
-		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+		Messages:       nil,
+		Models:         mo.None[ModelsResult](),
+		Selection:      mo.None[model.Selection](),
+		Rejection:      mo.None[Rejection](),
+		SessionInfo:    mo.None[session.Info](),
+		Sessions:       nil,
+		SessionTree:    mo.None[SessionTree](),
+		TreeNavigation: mo.None[TreeNavigationResult](),
+		Replacement:    mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	assert.False(t, mapped.GetCommandResponse().GetRunState().HasActiveCorrelationId())

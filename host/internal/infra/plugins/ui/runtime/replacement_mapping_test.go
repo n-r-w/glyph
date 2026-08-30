@@ -81,7 +81,12 @@ func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
 }
 
 // replacementFrame creates one fully initialized public UI frame.
-func replacementFrame(kind domainui.FrameKind, info session.Info, nextInput mo.Option[string], tree mo.Option[domainui.SessionTree]) domainui.Frame {
+func replacementFrame(
+	kind domainui.FrameKind,
+	info session.Info,
+	nextInput mo.Option[string],
+	tree mo.Option[domainui.SessionTree],
+) domainui.Frame {
 	return domainui.Frame{
 		Kind: kind, Initialization: mo.None[domainui.Initialization](), Lifecycle: mo.None[domainui.Lifecycle](),
 		AuthorizationURL: mo.None[string](), Text: nextInput, RetryAuthentication: mo.None[bool](),

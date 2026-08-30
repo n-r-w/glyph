@@ -20,10 +20,14 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 	t.Parallel()
 
 	var commands []presentationdomain.Command
-	model := newSelectionTestModel(t, presentationdomain.AvailabilityIdle, func(command presentationdomain.Command) error {
-		commands = append(commands, command)
-		return nil
-	})
+	model := newSelectionTestModel(
+		t,
+		presentationdomain.AvailabilityIdle,
+		func(command presentationdomain.Command) error {
+			commands = append(commands, command)
+			return nil
+		},
+	)
 	model.input = []rune("draft")
 	model.cursor = len(model.input)
 	originalTranscript := slices.Clone(model.state.Transcript)
@@ -241,10 +245,14 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 
 	// Arrange a running model with command capture.
 	var commands []presentationdomain.Command
-	model := newSelectionTestModel(t, presentationdomain.AvailabilityRunning, func(command presentationdomain.Command) error {
-		commands = append(commands, command)
-		return nil
-	})
+	model := newSelectionTestModel(
+		t,
+		presentationdomain.AvailabilityRunning,
+		func(command presentationdomain.Command) error {
+			commands = append(commands, command)
+			return nil
+		},
+	)
 	// Act by cycling provider, model, and reasoning choices during the run.
 	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'p',

@@ -75,9 +75,11 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 		return true, nil
 	case ResponseSessions:
 		result := new(programmaticv1.SessionsResult)
-		result.SetSessions(lo.Map(response.Sessions, func(summary session.Summary, _ int) *programmaticv1.SessionSummary {
-			return mapSessionSummary(summary)
-		}))
+		result.SetSessions(
+			lo.Map(response.Sessions, func(summary session.Summary, _ int) *programmaticv1.SessionSummary {
+				return mapSessionSummary(summary)
+			}),
+		)
 		wire.SetSessions(result)
 		return true, nil
 	case ResponseSessionEntries:

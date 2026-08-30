@@ -54,7 +54,10 @@ func (s *Service) validateFinalState(
 		)
 	}
 	if selectionErr := s.models.ValidateConfigured(ctx, current.Request.SummaryModel); selectionErr != nil {
-		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), classifyCompletionError(ctx, selectionErr)
+		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), classifyCompletionError(
+			ctx,
+			selectionErr,
+		)
 	}
 
 	draft := BranchSummaryDraft{

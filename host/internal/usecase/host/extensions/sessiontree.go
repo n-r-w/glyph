@@ -67,7 +67,10 @@ func (s *Service) HandleResult(
 	}
 	action, present := response.SessionBeforeTreeResult.Get()
 	if !present {
-		return sessiontree.ResultHandlerAction{}, fmt.Errorf("%w: result handler returned no action", ErrExtensionUnavailable)
+		return sessiontree.ResultHandlerAction{}, fmt.Errorf(
+			"%w: result handler returned no action",
+			ErrExtensionUnavailable,
+		)
 	}
 	return mapResultAction(action), nil
 }

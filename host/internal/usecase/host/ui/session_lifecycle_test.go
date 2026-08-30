@@ -39,7 +39,8 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 		assertFrame   func(*testing.T, domainui.Frame)
 	}{
 		{
-			name: "create", command: testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
+			name:         "create",
+			command:      testSessionCommand(domainui.CommandCreateSession, mo.None[string](), mo.None[string]()),
 			expectedKind: domainui.FrameSessionChanged,
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
@@ -47,7 +48,8 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			assertFrame: func(t *testing.T, frame domainui.Frame) { assert.Equal(t, info, frame.SessionInfo.MustGet()) },
 		},
 		{
-			name: "list", command: testSessionCommand(domainui.CommandListSessions, mo.None[string](), mo.None[string]()),
+			name:         "list",
+			command:      testSessionCommand(domainui.CommandListSessions, mo.None[string](), mo.None[string]()),
 			expectedKind: domainui.FrameSessionList,
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().List(gomock.Any()).Return([]session.Summary{summary}, nil)
@@ -57,7 +59,8 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			},
 		},
 		{
-			name: "resume", command: testSessionCommand(domainui.CommandResumeSession, mo.Some("stored"), mo.None[string]()),
+			name:         "resume",
+			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("stored"), mo.None[string]()),
 			expectedKind: domainui.FrameSessionChanged,
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(
@@ -67,7 +70,8 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			assertFrame: func(t *testing.T, frame domainui.Frame) { assert.Equal(t, info, frame.SessionInfo.MustGet()) },
 		},
 		{
-			name: "information", command: testSessionCommand(domainui.CommandGetSessionInfo, mo.None[string](), mo.None[string]()),
+			name:         "information",
+			command:      testSessionCommand(domainui.CommandGetSessionInfo, mo.None[string](), mo.None[string]()),
 			expectedKind: domainui.FrameSessionInformation,
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().Information().Return(session.InformationSnapshot{
@@ -95,7 +99,14 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 				return nil
 			})
 			// Act by applying the session command.
-			handled, err := NewSession(channel, nil, nil, nil, control, nil).applySessionCommand(t.Context(), test.command)
+			handled, err := NewSession(
+				channel,
+				nil,
+				nil,
+				nil,
+				control,
+				nil,
+			).applySessionCommand(t.Context(), test.command)
 			// Assert the command is handled and sends the expected typed frame.
 			require.NoError(t, err)
 			assert.True(t, handled)
@@ -129,12 +140,21 @@ func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
 	// Act by preparing and sending the SessionChanged frame.
 	err := NewSession(channel, nil, nil, nil, nil, nil).sendSessionChanged(session.Replacement{
 		Info: testSessionInfo("stored"),
-		Entries: []session.Entry{{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Unix(1, 0), Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.Some(response),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
+		Entries: []session.Entry{
+			{
+				ParentID:      mo.None[string](),
+				ID:            "model",
+				CreatedAt:     time.Unix(1, 0),
+				Information:   mo.None[session.Information](),
+				User:          mo.None[session.UserMessage](),
+				Model:         mo.Some(response),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.
 					BranchSummaryEntry](),
-		}},
+			},
+		},
 	})
 
 	// Assert mapping fails before a partial frame can be delivered.
@@ -152,12 +172,18 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	infoA := testSessionInfo("session-a")
 	infoB := testSessionInfo("session-b")
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	entryB := session.Entry{ParentID: mo.None[string](), ID: "entry-b", CreatedAt: createdAt, Information: mo.None[session.Information](),
-		User:       mo.Some(model.TextMessage("session-b-text")),
-		Model:      mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](),
-		Extension:  mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-				BranchSummaryEntry](),
+	entryB := session.Entry{
+		ParentID:      mo.None[string](),
+		ID:            "entry-b",
+		CreatedAt:     createdAt,
+		Information:   mo.None[session.Information](),
+		User:          mo.Some(model.TextMessage("session-b-text")),
+		Model:         mo.None[session.ModelResponse](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.
+			BranchSummaryEntry](),
 	}
 	firstReplacementReady := make(chan struct{})
 	releaseFirstReplacement := make(chan struct{})
@@ -166,7 +192,9 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 		<-releaseFirstReplacement
 		return session.Replacement{Info: infoA, Entries: nil}, nil
 	})
-	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: infoB, Entries: []session.Entry{entryB}}, nil)
+	control.EXPECT().
+		Create(gomock.Any()).
+		Return(session.Replacement{Info: infoB, Entries: []session.Entry{entryB}}, nil)
 	frameSent := make(chan domainui.Frame, 1)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		frameSent <- frame
@@ -228,29 +256,62 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 		CallID: call.ID, ToolName: call.Name, IsError: false,
 		Contents: []tool.ResultContent{
 			{Kind: tool.ResultContentText, Text: mo.Some("result"), Image: mo.None[tool.ResultImage]()},
-			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{7, 8, 9}})},
+			{
+				Kind:  tool.ResultContentImage,
+				Text:  mo.None[string](),
+				Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{7, 8, 9}}),
+			},
 		},
 	}
 	user := model.Message{Content: []model.InputContent{
 		{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-		{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{4, 5, 6})},
+		{
+			Kind:      model.InputContentImage,
+			Text:      mo.None[string](),
+			MediaType: mo.Some("image/png"),
+			Data:      mo.Some([]byte{4, 5, 6}),
+		},
 	}}
 	// Act by creating the confirmed replacement frame.
 	frame, err := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
-		{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-			User: mo.Some(user), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "user-entry",
+			CreatedAt:     createdAt,
+			Information:   mo.None[session.Information](),
+			User:          mo.Some(user),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "model-entry",
+			CreatedAt:     createdAt.Add(time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.Some(response),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-			Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+		{
+			ParentID:      mo.None[string](),
+			ID:            "tool-entry",
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.Some(result),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.
+				BranchSummaryEntry](),
 		},
 		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -272,7 +333,11 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 	require.Equal(t, mo.Some("tool_use"), publicResponse.Outcome)
 	require.Equal(t, mo.Some("response-id"), publicResponse.ResponseID)
 	require.True(t, publicResponse.Usage.IsPresent())
-	require.Equal(t, []domainui.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}}, publicResponse.Diagnostics)
+	require.Equal(
+		t,
+		[]domainui.ModelDiagnostic{{Code: "notice", Message: "safe diagnostic"}},
+		publicResponse.Diagnostics,
+	)
 	require.Len(t, publicResponse.Content, 3)
 	require.Equal(t, "visible reasoning", publicResponse.Content[0].Text)
 	require.Equal(t, "visible refusal", publicResponse.Content[1].Text)
@@ -326,7 +391,9 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("missing"), mo.None[string]()),
 			expectedText: "Session replacement is unavailable: file does not exist",
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("missing")).Return(session.Replacement{}, os.ErrNotExist)
+				control.EXPECT().
+					Resume(gomock.Any(), session.ID("missing")).
+					Return(session.Replacement{}, os.ErrNotExist)
 			},
 		},
 		{
@@ -334,7 +401,9 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 			command:      testSessionCommand(domainui.CommandResumeSession, mo.Some("stored"), mo.None[string]()),
 			expectedText: "Session replacement is unavailable: session persistence failed",
 			expectControl: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Replacement{}, session.ErrPersistenceUnavailable)
+				control.EXPECT().
+					Resume(gomock.Any(), session.ID("stored")).
+					Return(session.Replacement{}, session.ErrPersistenceUnavailable)
 			},
 		},
 		{
@@ -346,8 +415,12 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 			},
 		},
 		{
-			name:         "persistence unavailable",
-			command:      testSessionCommand(domainui.CommandSetSessionName, mo.None[string](), mo.Some("secret session name")),
+			name: "persistence unavailable",
+			command: testSessionCommand(
+				domainui.CommandSetSessionName,
+				mo.None[string](),
+				mo.Some("secret session name"),
+			),
 			expectedText: "Session naming is unavailable: session persistence failed: /secret/path provider-context extension-json disk failed",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().SetName(gomock.Any(), "secret session name").Return(
@@ -371,7 +444,14 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 				assert.Equal(t, test.expectedText, frame.Text.MustGet())
 				return nil
 			})
-			handled, err := NewSession(channel, nil, nil, nil, control, nil).applySessionCommand(t.Context(), test.command)
+			handled, err := NewSession(
+				channel,
+				nil,
+				nil,
+				nil,
+				control,
+				nil,
+			).applySessionCommand(t.Context(), test.command)
 			require.NoError(t, err)
 			assert.True(t, handled)
 		})
@@ -394,8 +474,16 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	control.EXPECT().Information().Return(session.InformationSnapshot{
 		Info: info,
 		Statistics: session.Statistics{
-			UserMessages: 0, ModelResponses: 0, ToolCalls: 0, ToolResults: 0, TotalMessages: 0,
-			TokenUsage: mo.Some(session.TokenUsage{}), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
+			UserMessages:   0,
+			ModelResponses: 0,
+			ToolCalls:      0,
+			ToolResults:    0,
+			TotalMessages:  0,
+			TokenUsage: mo.Some(
+				session.TokenUsage{},
+			),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			CostBreakdown: nil,
 		},
 	}).Times(2)
 	channel.EXPECT().Send(gomock.Any()).Times(5)
@@ -423,8 +511,17 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 
 func testSessionCommand(kind domainui.CommandKind, id, name mo.Option[string]) domainui.Command {
 	return domainui.Command{
-		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
-		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		Kind:            kind,
+		Text:            mo.None[string](),
+		ProviderID:      mo.None[string](),
+		ModelID:         mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
+		SessionID:       id,
+		SessionName:     name,
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     domainui.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 }
 

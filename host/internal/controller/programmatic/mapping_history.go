@@ -288,12 +288,15 @@ func mapModelResponse(response ModelResponse) (*programmaticv1.ModelResponse, er
 		return nil, err
 	}
 
-	diagnostics := lo.Map(response.Diagnostics, func(diagnostic ModelDiagnostic, _ int) *programmaticv1.ModelDiagnostic {
-		mapped := new(programmaticv1.ModelDiagnostic)
-		mapped.SetCode(diagnostic.Code)
-		mapped.SetMessage(diagnostic.Message)
-		return mapped
-	})
+	diagnostics := lo.Map(
+		response.Diagnostics,
+		func(diagnostic ModelDiagnostic, _ int) *programmaticv1.ModelDiagnostic {
+			mapped := new(programmaticv1.ModelDiagnostic)
+			mapped.SetCode(diagnostic.Code)
+			mapped.SetMessage(diagnostic.Message)
+			return mapped
+		},
+	)
 	mapped := new(programmaticv1.ModelResponse)
 	mapped.SetText(response.Text)
 	mapped.SetOutcome(outcome)

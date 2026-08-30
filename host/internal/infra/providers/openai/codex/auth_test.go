@@ -60,7 +60,11 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		assert.NotEmpty(t, request.Form.Get("code_verifier"))
 		assert.Equal(t, codexClientID, request.Form.Get("client_id"))
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintf(writer, `{"access_token":%q,"refresh_token":"refresh-1","expires_in":3600,"token_type":"Bearer"}`, accessToken)
+		_, _ = fmt.Fprintf(
+			writer,
+			`{"access_token":%q,"refresh_token":"refresh-1","expires_in":3600,"token_type":"Bearer"}`,
+			accessToken,
+		)
 	}))
 	t.Cleanup(tokenServer.Close)
 
@@ -100,7 +104,12 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 				redirectURL := query.Get("redirect_uri")
 				assert.True(t, strings.HasPrefix(redirectURL, "http://localhost:"))
 
-				mismatchRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, redirectURL+"?code=ignored&state=wrong", nil)
+				mismatchRequest, err := http.NewRequestWithContext(
+					ctx,
+					http.MethodGet,
+					redirectURL+"?code=ignored&state=wrong",
+					nil,
+				)
 				require.NoError(t, err)
 				mismatchResponse, err := options.httpClient.Do(mismatchRequest)
 				require.NoError(t, err)
@@ -254,7 +263,10 @@ func TestAccountIDFromAccessTokenPreservesParserCauses(t *testing.T) {
 		expected string
 	}{
 		"base64": {token: "header.%.signature", expected: "illegal base64 data"},
-		"JSON":   {token: "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"id":`)) + ".signature", expected: "unexpected EOF"},
+		"JSON": {
+			token:    "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"id":`)) + ".signature",
+			expected: "unexpected EOF",
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

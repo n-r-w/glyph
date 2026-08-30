@@ -45,7 +45,8 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			},
 		},
 		{
-			name: "known zero", submit: true,
+			name:      "known zero",
+			submit:    true,
 			usageJSON: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
@@ -63,7 +64,8 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			},
 		},
 		{
-			name: "available nonzero", submit: true,
+			name:      "available nonzero",
+			submit:    true,
 			usageJSON: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
@@ -115,7 +117,9 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			} else {
 				request := new(programmaticv1.OpenRequest)
 				request.SetCorrelationId("persist-empty")
-				request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("empty cost session")}.Build())
+				request.SetSetSessionName(
+					programmaticv1.SetSessionName_builder{Name: new("empty cost session")}.Build(),
+				)
 				require.NoError(t, fixture.stream.Send(request))
 				_, err := fixture.stream.Recv()
 				require.NoError(t, err)
@@ -227,7 +231,10 @@ func (transport usageCodexTransport) RoundTrip(*http.Request) (*http.Response, e
 	if transport.usageJSON != "" {
 		usageField = fmt.Sprintf(",\"usage\":%s", transport.usageJSON)
 	}
-	body := fmt.Sprintf("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"usage-response\",\"model\":\"selected-model\",\"status\":\"completed\",\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\ndata: [DONE]\n\n", usageField)
+	body := fmt.Sprintf(
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"usage-response\",\"model\":\"selected-model\",\"status\":\"completed\",\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\ndata: [DONE]\n\n",
+		usageField,
+	)
 	return &http.Response{
 		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header),
 		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,

@@ -40,7 +40,11 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	require.Len(t, mapped.Entries, 3)
 	require.Equal(t, mo.Some("root"), mapped.Entries[1].ParentID)
 	require.Equal(t, "branch", mapped.Entries[1].Label)
-	require.Equal(t, controller.ExtensionEntry{ExtensionID: "example", EntryType: "checkpoint"}, mapped.Entries[2].Extension.MustGet())
+	require.Equal(
+		t,
+		controller.ExtensionEntry{ExtensionID: "example", EntryType: "checkpoint"},
+		mapped.Entries[2].Extension.MustGet(),
+	)
 }
 
 // TestNoSummaryNavigationReturnsCommittedState verifies navigation returns committed tree, transcript, and exact next input.
@@ -129,15 +133,69 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 		expected      controller.RejectionCode
 		summaryMode   controller.SummaryMode
 	}{
-		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: controller.RejectionInvalidArgument, summaryMode: controller.SummaryModeNoSummary},
-		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: controller.RejectionNotFound, summaryMode: controller.SummaryModeNoSummary},
-		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: controller.RejectionBusy, summaryMode: controller.SummaryModeNoSummary},
-		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: controller.RejectionModelUnavailable, summaryMode: controller.SummaryModeSummarize},
-		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: controller.RejectionCredentialUnavailable, summaryMode: controller.SummaryModeSummarize},
-		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: controller.RejectionModelFailed, summaryMode: controller.SummaryModeSummarize},
-		{name: "extension invalid result", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionInvalidResult, expected: controller.RejectionExtensionInvalidResult, summaryMode: controller.SummaryModeSummarize},
-		{name: "extension unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionUnavailable, expected: controller.RejectionExtensionUnavailable, summaryMode: controller.SummaryModeSummarize},
-		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: controller.RejectionPersistenceUnavailable, summaryMode: controller.SummaryModeNoSummary},
+		{
+			name:          "invalid",
+			target:        mo.None[string](),
+			navigationErr: nil,
+			expected:      controller.RejectionInvalidArgument,
+			summaryMode:   controller.SummaryModeNoSummary,
+		},
+		{
+			name:          "missing",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrEntryNotFound,
+			expected:      controller.RejectionNotFound,
+			summaryMode:   controller.SummaryModeNoSummary,
+		},
+		{
+			name:          "busy",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrBusy,
+			expected:      controller.RejectionBusy,
+			summaryMode:   controller.SummaryModeNoSummary,
+		},
+		{
+			name:          "model unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrModelUnavailable,
+			expected:      controller.RejectionModelUnavailable,
+			summaryMode:   controller.SummaryModeSummarize,
+		},
+		{
+			name:          "credential unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrCredentialUnavailable,
+			expected:      controller.RejectionCredentialUnavailable,
+			summaryMode:   controller.SummaryModeSummarize,
+		},
+		{
+			name:          "model failed",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrModelFailed,
+			expected:      controller.RejectionModelFailed,
+			summaryMode:   controller.SummaryModeSummarize,
+		},
+		{
+			name:          "extension invalid result",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrExtensionInvalidResult,
+			expected:      controller.RejectionExtensionInvalidResult,
+			summaryMode:   controller.SummaryModeSummarize,
+		},
+		{
+			name:          "extension unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrExtensionUnavailable,
+			expected:      controller.RejectionExtensionUnavailable,
+			summaryMode:   controller.SummaryModeSummarize,
+		},
+		{
+			name:          "persistence",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrPersistenceUnavailable,
+			expected:      controller.RejectionPersistenceUnavailable,
+			summaryMode:   controller.SummaryModeNoSummary,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -149,7 +207,9 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
 			if _, present := test.target.Get(); present {
-				control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, test.navigationErr)
+				control.EXPECT().
+					Navigate(gomock.Any(), gomock.Any()).
+					Return(sessionnavigation.Result{}, test.navigationErr)
 			}
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
@@ -201,11 +261,17 @@ func programmaticTree(t *testing.T) session.Tree {
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{
-			ID: "extension", ParentID: mo.Some("user"), CreatedAt: createdAt.Add(2 * time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-			Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+			ID:            "extension",
+			ParentID:      mo.Some("user"),
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
 			ToolResult:    mo.None[session.ToolResult](),
-			Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "example", EntryType: "checkpoint", Data: []byte("private")}),
+			Extension: mo.Some(
+				session.ExtensionEnvelope{ExtensionID: "example", EntryType: "checkpoint", Data: []byte("private")},
+			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 	}

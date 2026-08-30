@@ -20,10 +20,17 @@ func TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext(t *testin
 	// Arrange one model-hidden extension and one persisted branch summary.
 	entries := []session.Entry{
 		{
-			ID: "extension", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0).UTC(),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-			Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "hidden", EntryType: "state", Data: []byte("secret")}),
+			ID:            "extension",
+			ParentID:      mo.None[string](),
+			CreatedAt:     time.Unix(1, 0).UTC(),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension: mo.Some(
+				session.ExtensionEnvelope{ExtensionID: "hidden", EntryType: "state", Data: []byte("secret")},
+			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{

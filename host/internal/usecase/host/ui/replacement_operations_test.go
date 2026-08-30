@@ -72,7 +72,14 @@ func TestApplyReplacementAndLabelCommandsSendsCommittedFrames(t *testing.T) {
 				test.assert(t, frame)
 				return nil
 			})
-			service := NewSession(channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller), NewMockModelCatalog(controller), control, func(context.Context) {})
+			service := NewSession(
+				channel,
+				NewMockAgentRunner(controller),
+				NewMockAuthenticator(controller),
+				NewMockModelCatalog(controller),
+				control,
+				func(context.Context) {},
+			)
 
 			// Act through the UI session command path.
 			handled, err := service.applySessionCommand(t.Context(), test.command)
@@ -99,10 +106,20 @@ func TestForkFailureUsesExistingSessionFailureFrame(t *testing.T) {
 		require.True(t, frame.Text.IsSome())
 		return nil
 	})
-	service := NewSession(channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller), NewMockModelCatalog(controller), control, func(context.Context) {})
+	service := NewSession(
+		channel,
+		NewMockAgentRunner(controller),
+		NewMockAuthenticator(controller),
+		NewMockModelCatalog(controller),
+		control,
+		func(context.Context) {},
+	)
 
 	// Act by forking a non-user entry.
-	handled, err := service.applySessionCommand(t.Context(), uiReplacementCommand(domainui.CommandForkSession, mo.Some("model"), mo.None[string]()))
+	handled, err := service.applySessionCommand(
+		t.Context(),
+		uiReplacementCommand(domainui.CommandForkSession, mo.Some("model"), mo.None[string]()),
+	)
 
 	// Assert the failure is handled through the existing session failure path.
 	require.NoError(t, err)

@@ -26,7 +26,11 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 		focus mo.Option[string]
 	}{
 		{name: "built in", mode: sessionnavigation.SummaryModeSummarize, focus: mo.None[string]()},
-		{name: "custom focus", mode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt, focus: mo.Some("focus on tests")},
+		{
+			name:  "custom focus",
+			mode:  sessionnavigation.SummaryModeSummarizeWithCustomPrompt,
+			focus: mo.Some("focus on tests"),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -38,7 +42,11 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			models := NewMockModelCompleter(controller)
 			handlers := NewMockHandlerRunner(controller)
 			tree := navigationTree(t, time.Unix(1, 0).UTC())
-			selection := model.Selection{Provider: "provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceHigh}
+			selection := model.Selection{
+				Provider:        "provider",
+				Model:           "summary-model",
+				ReasoningChoice: model.ReasoningChoiceHigh,
+			}
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
 			models.EXPECT().Selection().Return(selection)
@@ -115,8 +123,24 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 // summaryResponse creates one terminal text response for summarizer tests.
 func summaryResponse(text string, usage mo.Option[model.Usage]) model.Response {
 	return model.Response{
-		Content: []model.Content{{Kind: model.ContentText, Text: mo.Some(text), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
-		ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: usage, Diagnostics: nil,
+		Content: []model.Content{
+			{
+				Kind:            model.ContentText,
+				Text:            mo.Some(text),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		},
+		Outcome: mo.Some(
+			model.OutcomeStop,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         usage,
+		Diagnostics:   nil,
 	}
 }

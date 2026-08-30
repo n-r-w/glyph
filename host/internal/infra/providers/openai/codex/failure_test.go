@@ -92,7 +92,9 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 	)
 	interaction := NewMockInteraction(gomock.NewController(t))
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		payload := []byte("data: " + `{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"partial"}` + "\n\n")
+		payload := []byte(
+			"data: " + `{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"partial"}` + "\n\n",
+		)
 		writer.Header().Set("Content-Type", "text/event-stream")
 		writer.Header().Set("Content-Length", fmt.Sprint(len(payload)+100))
 		_, err := writer.Write(payload)
@@ -181,7 +183,13 @@ func TestModelResponsePreservesToolArgumentDecodeCause(t *testing.T) {
 
 	// Arrange one completed SDK function call with malformed arguments.
 	var sdkResponse responses.Response
-	require.NoError(t, json.Unmarshal([]byte(`{"output":[{"type":"function_call","call_id":"call","name":"read","arguments":"{\"path\":"}]}`), &sdkResponse))
+	require.NoError(
+		t,
+		json.Unmarshal(
+			[]byte(`{"output":[{"type":"function_call","call_id":"call","name":"read","arguments":"{\"path\":"}]}`),
+			&sdkResponse,
+		),
+	)
 
 	// Act by converting the terminal SDK response.
 	response, err := modelResponse(sdkResponse, model.OutcomeStop, nil)
@@ -216,7 +224,10 @@ func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 				ToolCall: mo.None[model.ToolCall](),
 				ProviderContext: mo.Some(model.ProviderContext{
 					Source: model.ProviderContextSource{
-						ProviderID: ProviderID, API: "responses", Model: "gpt-test", CompatibilityKey: mo.None[string](),
+						ProviderID:       ProviderID,
+						API:              "responses",
+						Model:            "gpt-test",
+						CompatibilityKey: mo.None[string](),
 					},
 					Payload: []byte(`{"id":`),
 				}),
@@ -274,7 +285,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 				},
 			)
 			credentials := NewMockCredentials(gomock.NewController(t))
-			credentials.EXPECT().Load().Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
+			credentials.EXPECT().
+				Load().
+				Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
 			interaction := NewMockInteraction(gomock.NewController(t))
 			var requests atomic.Int32
 			server := httptest.NewServer(
@@ -353,7 +366,9 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 				},
 			)
 			credentials := NewMockCredentials(gomock.NewController(t))
-			credentials.EXPECT().Load().Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
+			credentials.EXPECT().
+				Load().
+				Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
 			interaction := NewMockInteraction(gomock.NewController(t))
 			server := httptest.NewServer(
 				http.HandlerFunc(
@@ -411,7 +426,9 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 		},
 	)
 	credentials := NewMockCredentials(gomock.NewController(t))
-	credentials.EXPECT().Load().Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
+	credentials.EXPECT().
+		Load().
+		Return(testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil)
 	interaction := NewMockInteraction(gomock.NewController(t))
 	started := make(chan struct{})
 	server := httptest.NewServer(

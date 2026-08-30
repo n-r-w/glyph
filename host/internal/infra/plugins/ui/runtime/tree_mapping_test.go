@@ -56,9 +56,14 @@ func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 			Tree:         domainui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()},
 			ActiveBranch: nil, NextInput: mo.Some("exact input"),
 		}),
-		Issues: []domainui.OperationIssue{{
-			Code: domainui.OperationIssueObserverError, ExtensionID: "extension", HandlerID: "observer", Message: "safe message",
-		}},
+		Issues: []domainui.OperationIssue{
+			{
+				Code:        domainui.OperationIssueObserverError,
+				ExtensionID: "extension",
+				HandlerID:   "observer",
+				Message:     "safe message",
+			},
+		},
 	})
 
 	// Act by mapping the committed frame.
@@ -143,9 +148,30 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	require.True(t, mappedNavigation.HasNextInput())
 	require.Empty(t, mappedNavigation.GetNextInput())
 	require.False(t, absentTree.HasActiveLeafId())
-	require.True(t, mappedNavigation.ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("next_input")).HasOptionalKeyword())
-	require.True(t, mappedTree.ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("active_leaf_id")).HasOptionalKeyword())
-	require.True(t, mappedTree.GetEntries()[0].ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("parent_id")).HasOptionalKeyword())
+	require.True(
+		t,
+		mappedNavigation.ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("next_input")).
+			HasOptionalKeyword(),
+	)
+	require.True(
+		t,
+		mappedTree.ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("active_leaf_id")).
+			HasOptionalKeyword(),
+	)
+	require.True(
+		t,
+		mappedTree.GetEntries()[0].ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("parent_id")).
+			HasOptionalKeyword(),
+	)
 }
 
 // runtimeTreeFrame initializes all frame fields for one tree result.

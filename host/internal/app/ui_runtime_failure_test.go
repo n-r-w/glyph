@@ -134,7 +134,12 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	immutable := exec.CommandContext(t.Context(), "/usr/bin/chflags", "uchg", fixtures.interruptedPath)
 	require.NoError(t, immutable.Run())
 	t.Cleanup(func() {
-		clearCommand := exec.CommandContext(context.WithoutCancel(t.Context()), "/usr/bin/chflags", "nouchg", fixtures.interruptedPath)
+		clearCommand := exec.CommandContext(
+			context.WithoutCancel(t.Context()),
+			"/usr/bin/chflags",
+			"nouchg",
+			fixtures.interruptedPath,
+		)
 		_ = clearCommand.Run()
 	})
 

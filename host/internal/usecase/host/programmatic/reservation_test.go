@@ -49,9 +49,20 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			defer calls.Done()
 			results[index].response, results[index].operation, results[index].err = service.Handle(
 				s.T().Context(), controller.Command{
-					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-					SessionID:   mo.None[session.ID](),
-					SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+					CorrelationID: string(
+						rune('a' + index),
+					),
+					Kind:            controller.CommandUserRequest,
+					UserText:        mo.Some("request"),
+					ProviderID:      mo.None[model.ProviderID](),
+					ModelID:         mo.None[model.ID](),
+					ReasoningChoice: mo.None[model.ReasoningChoice](),
+					SessionID:       mo.None[session.ID](),
+					SessionName:     mo.None[string](),
+					TargetEntryID:   mo.None[string](),
+					SummaryMode:     controller.SummaryModeNoSummary,
+					CustomFocus:     mo.None[string](),
+					EntryLabel:      mo.None[string](),
 				},
 			)
 		}()
@@ -116,9 +127,18 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 	result := make(chan handleResult)
 	go func() {
 		response, operation, err := service.Handle(s.T().Context(), controller.Command{
-			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+			CorrelationID:   "late",
+			Kind:            controller.CommandUserRequest,
+			UserText:        mo.Some("request"),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		})
 		result <- handleResult{response: response, operation: operation, err: err}
 	}()
@@ -143,48 +163,152 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 	delivery := NewDelivery()
 	state := run.State{
-		Status: run.StatusRunning, RunID: mo.Some("run-active"),
-		PartialResponse: mo.Some(model.Response{Content: []model.Content{{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}),
-		ToolPreviews:    map[string]model.ToolCallPreview{"preview": {CallID: "preview", Name: "", Position: 0, Provisional: false, Fields: nil}},
+		Status: run.StatusRunning,
+		RunID:  mo.Some("run-active"),
+		PartialResponse: mo.Some(
+			model.Response{
+				Content: []model.Content{
+					{
+						Kind:            model.ContentText,
+						Text:            mo.Some("partial"),
+						Final:           false,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
+				},
+				Outcome:       mo.None[model.Outcome](),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
+			},
+		),
+		ToolPreviews: map[string]model.ToolCallPreview{
+			"preview": {CallID: "preview", Name: "", Position: 0, Provisional: false, Fields: nil},
+		},
 	}
 	var history []agent.HistoryEntry
-	service := New(coordinator, nil, func() run.State { return state }, func() []agent.HistoryEntry { return history }, nil, delivery)
+	service := New(
+		coordinator,
+		nil,
+		func() run.State { return state },
+		func() []agent.HistoryEntry { return history },
+		nil,
+		delivery,
+	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 
 	// Act by accepting a run and querying state and messages while it remains active.
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		CorrelationID:   "active",
+		Kind:            controller.CommandUserRequest,
+		UserText:        mo.Some("first"),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](),
+		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     controller.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
 	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
 
-	response, returnedOperation, err := service.Handle(s.T().Context(), testProgrammaticCommand("state", controller.CommandGetRunState))
+	response, returnedOperation, err := service.Handle(
+		s.T().Context(),
+		testProgrammaticCommand("state", controller.CommandGetRunState),
+	)
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
 		SessionEntries: nil,
-		CorrelationID:  "state", Kind: controller.ResponseRunState,
-		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
+		CorrelationID:  "state",
+		Kind:           controller.ResponseRunState,
+		State: mo.Some(
+			controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")},
+		),
+		Messages:          nil,
+		Models:            mo.None[controller.ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		Rejection:         mo.None[controller.Rejection](),
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
-		SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](), Replacement: mo.None[controller.SessionReplacement](),
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[controller.SessionTree](),
+		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+		Replacement:       mo.None[controller.SessionReplacement](),
 	}, response)
 
 	responseModel := model.ID("response-model")
 	history = []agent.HistoryEntry{
-		{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult]()},
+		{
+			Kind:       agent.HistoryEntryUser,
+			User:       mo.Some(model.TextMessage("hello")),
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		},
 		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
 			Content: []model.Content{
-				{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentText, Text: mo.Some("partial"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentReasoning, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "provider", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"secret":true}`)}), Text: mo.None[string](), Final: true, ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentReasoning, Text: mo.Some("reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentRefusal, Text: mo.Some("refusal"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+				{
+					Kind:            model.ContentText,
+					Text:            mo.Some("answer"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
+				{
+					Kind:            model.ContentText,
+					Text:            mo.Some("partial"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
+				{
+					Kind: model.ContentReasoning,
+					ProviderContext: mo.Some(
+						model.ProviderContext{
+							Source: model.ProviderContextSource{
+								ProviderID:       "provider",
+								API:              "",
+								Model:            "",
+								CompatibilityKey: mo.None[string](),
+							},
+							Payload: []byte(`{"secret":true}`),
+						},
+					),
+					Text:     mo.None[string](),
+					Final:    true,
+					ToolCall: mo.None[model.ToolCall](),
+				},
+				{
+					Kind:            model.ContentReasoning,
+					Text:            mo.Some("reason"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
+				{
+					Kind:            model.ContentRefusal,
+					Text:            mo.Some("refusal"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
 			},
-			Outcome: mo.Some(model.OutcomeStop), Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(responseModel), ErrorMessage: mo.None[string](), ResponseID: mo.Some("response-id"),
+			Outcome: mo.Some(
+				model.OutcomeStop,
+			),
+			Provider:      mo.Some(model.ProviderID("provider")),
+			Model:         mo.Some(model.ID("model")),
+			ResponseModel: mo.Some(responseModel),
+			ErrorMessage:  mo.None[string](),
+			ResponseID:    mo.Some("response-id"),
 			Usage: mo.Some(model.Usage{
 				InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
 				CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
@@ -196,12 +320,19 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 			CallID: "call", ToolName: "tool",
 			Contents: []tool.ResultContent{
 				{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()},
-				{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}})},
+				{
+					Kind:  tool.ResultContentImage,
+					Text:  mo.None[string](),
+					Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}),
+				},
 			}, IsError: false,
 		}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		},
 	}
-	response, returnedOperation, err = service.Handle(s.T().Context(), testProgrammaticCommand("messages", controller.CommandGetMessages))
+	response, returnedOperation, err = service.Handle(
+		s.T().Context(),
+		testProgrammaticCommand("messages", controller.CommandGetMessages),
+	)
 	// Assert the query includes ordered public content without private provider context.
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)

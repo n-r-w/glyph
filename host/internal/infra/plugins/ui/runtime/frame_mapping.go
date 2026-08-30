@@ -159,31 +159,34 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 			if !present {
 				return nil, fmt.Errorf("map restored session entry %d: user payload is missing", index)
 			}
-			content, err := lo.MapErr(user.Content, func(item model.InputContent, contentIndex int) (*uipb.UserContent, error) {
-				wireContent := new(uipb.UserContent)
-				switch item.Kind {
-				case model.InputContentText:
-					text, hasText := item.Text.Get()
-					if !hasText || item.MediaType.IsSome() || item.Data.IsSome() {
-						return nil, fmt.Errorf("map restored user content %d: invalid text payload", contentIndex)
+			content, err := lo.MapErr(
+				user.Content,
+				func(item model.InputContent, contentIndex int) (*uipb.UserContent, error) {
+					wireContent := new(uipb.UserContent)
+					switch item.Kind {
+					case model.InputContentText:
+						text, hasText := item.Text.Get()
+						if !hasText || item.MediaType.IsSome() || item.Data.IsSome() {
+							return nil, fmt.Errorf("map restored user content %d: invalid text payload", contentIndex)
+						}
+						wireContent.SetText(text)
+					case model.InputContentImage:
+						mediaType, hasMediaType := item.MediaType.Get()
+						data, hasData := item.Data.Get()
+						if item.Text.IsSome() || !hasMediaType || !hasData {
+							return nil, fmt.Errorf("map restored user content %d: invalid image payload", contentIndex)
+						}
+						image := uipb.UserImage_builder{
+							MediaType: new(mediaType), Data: nil,
+						}.Build()
+						image.SetData(bytes.Clone(data))
+						wireContent.SetImage(image)
+					default:
+						return nil, fmt.Errorf("map restored user content %d: unknown kind %d", contentIndex, item.Kind)
 					}
-					wireContent.SetText(text)
-				case model.InputContentImage:
-					mediaType, hasMediaType := item.MediaType.Get()
-					data, hasData := item.Data.Get()
-					if item.Text.IsSome() || !hasMediaType || !hasData {
-						return nil, fmt.Errorf("map restored user content %d: invalid image payload", contentIndex)
-					}
-					image := uipb.UserImage_builder{
-						MediaType: new(mediaType), Data: nil,
-					}.Build()
-					image.SetData(bytes.Clone(data))
-					wireContent.SetImage(image)
-				default:
-					return nil, fmt.Errorf("map restored user content %d: unknown kind %d", contentIndex, item.Kind)
-				}
-				return wireContent, nil
-			})
+					return wireContent, nil
+				},
+			)
 			if err != nil {
 				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
 			}

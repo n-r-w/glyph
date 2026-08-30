@@ -99,8 +99,16 @@ func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	require.NotContains(t, string(body), "full-extension")
 	require.Contains(t, string(body), "continue")
 	require.Less(t, bytes.Index(body, []byte("restart text")), bytes.Index(body, []byte(`"type":"function_call"`)))
-	require.Less(t, bytes.Index(body, []byte(`"type":"function_call"`)), bytes.Index(body, []byte(`"type":"function_call_output"`)))
-	require.Less(t, bytes.Index(body, []byte(`"type":"function_call_output"`)), bytes.Index(body, []byte("Request complete.")))
+	require.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call"`)),
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+	)
+	require.Less(
+		t,
+		bytes.Index(body, []byte(`"type":"function_call_output"`)),
+		bytes.Index(body, []byte("Request complete.")),
+	)
 	require.Less(t, bytes.Index(body, []byte("Request complete.")), bytes.Index(body, []byte("continue")))
 }
 

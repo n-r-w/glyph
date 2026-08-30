@@ -72,7 +72,11 @@ func (s *Service) executeWrite(arguments []byte, stream extensionv1.ExtensionSer
 // executeEdit decodes and executes edit.
 func (s *Service) executeEdit(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
 	return executeDecoded(arguments, stream, "edit", func(input editArguments) (string, error) {
-		return mutationResult(input.Path, "replaced text in ", s.editTool.Edit(stream.Context(), input.Path, input.Edits))
+		return mutationResult(
+			input.Path,
+			"replaced text in ",
+			s.editTool.Edit(stream.Context(), input.Path, input.Edits),
+		)
 	})
 }
 

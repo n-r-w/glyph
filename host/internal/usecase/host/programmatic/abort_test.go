@@ -27,13 +27,25 @@ func (s *ServiceSuite) TestAbortCancelsAcceptedOperationWithoutStarting() {
 	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-accepted", nil)
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		CorrelationID:   "active",
+		Kind:            controller.CommandUserRequest,
+		UserText:        mo.Some("request"),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](),
+		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     controller.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	})
 	s.Require().NoError(err)
 
-	response, returnedOperation, err := service.Handle(s.T().Context(), testProgrammaticCommand("abort", controller.CommandAbort))
+	response, returnedOperation, err := service.Handle(
+		s.T().Context(),
+		testProgrammaticCommand("abort", controller.CommandAbort),
+	)
 
 	s.Require().NoError(err)
 	s.Nil(returnedOperation)
@@ -66,9 +78,18 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+			CorrelationID:   "active",
+			Kind:            controller.CommandUserRequest,
+			UserText:        mo.Some("first"),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -85,7 +106,10 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		}
 		aborted := make(chan abortResult)
 		go func() {
-			response, _, abortErr := service.Handle(t.Context(), testProgrammaticCommand("abort", controller.CommandAbort))
+			response, _, abortErr := service.Handle(
+				t.Context(),
+				testProgrammaticCommand("abort", controller.CommandAbort),
+			)
 			aborted <- abortResult{response: response, err: abortErr}
 		}()
 		synctest.Wait()
@@ -101,7 +125,10 @@ func (s *ServiceSuite) TestAbortCancelsJoinsAndReportsIdle() {
 		assert.Equal(t, controller.ResponseAbortCompleted, result.response.Kind)
 		require.ErrorIs(t, runContextErr, context.Canceled)
 
-		state, _, stateErr := service.Handle(t.Context(), testProgrammaticCommand("state", controller.CommandGetRunState))
+		state, _, stateErr := service.Handle(
+			t.Context(),
+			testProgrammaticCommand("state", controller.CommandGetRunState),
+		)
 		require.NoError(t, stateErr)
 		assert.Equal(t, controller.RunStateIdle, state.State.OrEmpty().State)
 	})
@@ -127,9 +154,18 @@ func (s *ServiceSuite) TestAbortPreservesJoinedNonCancellationError() {
 			},
 		)
 		_, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+			CorrelationID:   "active",
+			Kind:            controller.CommandUserRequest,
+			UserText:        mo.Some("first"),
+			ProviderID:      mo.None[model.ProviderID](),
+			ModelID:         mo.None[model.ID](),
+			ReasoningChoice: mo.None[model.ReasoningChoice](),
+			SessionID:       mo.None[session.ID](),
+			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     controller.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()

@@ -16,10 +16,23 @@ func TestServiceProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 
 	// Arrange authorization, information, and safe-error lifecycle events.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, testPresentationEvent(presentationdomain.EventAuthorization, mo.Some("https://example.test/oauth"), mo.None[int]()))
+	state := service.Apply(
+		presentationdomain.State{},
+		testPresentationEvent(
+			presentationdomain.EventAuthorization, mo.Some("https://example.test/oauth"), mo.None[int](),
+		),
+	)
 	// Act by applying the information and safe-error events.
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventInformation, mo.Some("Open the authorization URL."), mo.None[int]()))
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventError, mo.Some("Authentication failed."), mo.None[int]()))
+	state = service.Apply(
+		state,
+		testPresentationEvent(
+			presentationdomain.EventInformation, mo.Some("Open the authorization URL."), mo.None[int](),
+		),
+	)
+	state = service.Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventError, mo.Some("Authentication failed."), mo.None[int]()),
+	)
 	state = service.Apply(state, testAvailabilityEvent(
 		presentationdomain.EventAvailability, presentationdomain.AvailabilityAuthenticationFailed,
 	))
@@ -129,7 +142,10 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 	assert.Equal(t, mo.Some(presentationdomain.ModelContentText), state.ActiveModel[0].Kind)
 	assert.True(t, state.ActiveModel[0].Text.IsNone())
 
-	state = New().Apply(state, testPresentationEvent(presentationdomain.EventTurnStarted, mo.None[string](), mo.None[int]()))
+	state = New().Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventTurnStarted, mo.None[string](), mo.None[int]()),
+	)
 	assert.Equal(t, mo.Some(false), state.Settled)
 }
 

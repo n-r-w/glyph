@@ -60,9 +60,17 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 		}),
 		Diagnostics: nil,
 	}
-	modelEntry := session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	modelEntry := session.Entry{
+		ParentID:      mo.None[string](),
+		ID:            "model-entry",
+		CreatedAt:     createdAt,
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.Some(response),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 
 	// Act by round-tripping terminal model and tool-result records through JSONL.
@@ -79,9 +87,17 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	result := agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("tool output"), IsError: false,
 	}
-	toolEntry := session.Entry{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	toolEntry := session.Entry{
+		ParentID:      mo.None[string](),
+		ID:            "tool-entry",
+		CreatedAt:     createdAt.Add(time.Second),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		ToolResult:    mo.Some(result),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	encodedTool, err := encodeEntry(toolEntry)
 	require.NoError(t, err)
@@ -103,14 +119,27 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entry := session.Entry{ParentID: mo.None[string](), ID: "terminal-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](),
+			entry := session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "terminal-entry",
+				CreatedAt:   createdAt,
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
-					Content: nil, Outcome: mo.Some(test.outcome), ErrorMessage: mo.Some("safe terminal failure"),
-					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-					ResponseID: test.responseID, Usage: test.usage, Diagnostics: nil,
+					Content:       nil,
+					Outcome:       mo.Some(test.outcome),
+					ErrorMessage:  mo.Some("safe terminal failure"),
+					Provider:      mo.None[model.ProviderID](),
+					Model:         mo.None[model.ID](),
+					ResponseModel: mo.None[model.ID](),
+					ResponseID:    test.responseID,
+					Usage:         test.usage,
+					Diagnostics:   nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 			encoded, encodeErr := encodeEntry(entry)
 			require.NoError(t, encodeErr)
@@ -140,14 +169,36 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 	}{
 		{
 			name: "ordered user text and image",
-			entry: session.Entry{ParentID: mo.None[string](), ID: "user-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			entry: session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "user-entry",
+				CreatedAt:   createdAt,
+				Information: mo.None[session.Information](),
 				User: mo.Some(model.Message{Content: []model.InputContent{
-					{Kind: model.InputContentText, Text: mo.Some("before"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
-					{Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{0, 10, 255})},
-					{Kind: model.InputContentText, Text: mo.Some("after"), MediaType: mo.None[string](), Data: mo.None[[]byte]()},
+					{
+						Kind:      model.InputContentText,
+						Text:      mo.Some("before"),
+						MediaType: mo.None[string](),
+						Data:      mo.None[[]byte](),
+					},
+					{
+						Kind:      model.InputContentImage,
+						Text:      mo.None[string](),
+						MediaType: mo.Some("image/png"),
+						Data:      mo.Some([]byte{0, 10, 255}),
+					},
+					{
+						Kind:      model.InputContentText,
+						Text:      mo.Some("after"),
+						MediaType: mo.None[string](),
+						Data:      mo.None[[]byte](),
+					},
 				}}),
-				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Model:         mo.None[session.ModelResponse](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -159,12 +210,28 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "visible model content diagnostics and opaque context",
-			entry: session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](),
+			entry: session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "model-entry",
+				CreatedAt:   createdAt.Add(time.Second),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: []model.Content{
-						{Kind: model.ContentRefusal, Text: mo.Some("refused"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-						{Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true, ProviderContext: mo.Some(providerContext), ToolCall: mo.None[model.ToolCall]()},
+						{
+							Kind:            model.ContentRefusal,
+							Text:            mo.Some("refused"),
+							Final:           true,
+							ProviderContext: mo.None[model.ProviderContext](),
+							ToolCall:        mo.None[model.ToolCall](),
+						},
+						{
+							Kind:            model.ContentReasoning,
+							Text:            mo.Some("visible reasoning"),
+							Final:           true,
+							ProviderContext: mo.Some(providerContext),
+							ToolCall:        mo.None[model.ToolCall](),
+						},
 					},
 					Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
 					Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
@@ -172,7 +239,10 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					Usage:       mo.None[model.Usage](),
 					Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -184,16 +254,27 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "ordered tool result image",
-			entry: session.Entry{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			entry: session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "tool-entry",
+				CreatedAt:   createdAt.Add(2 * time.Second),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
+				Model:       mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{
 						{Kind: tool.ResultContentText, Text: mo.Some("preview"), Image: mo.None[tool.ResultImage]()},
-						{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/webp", Data: []byte{3, 2, 1, 0}})},
+						{
+							Kind:  tool.ResultContentImage,
+							Text:  mo.None[string](),
+							Image: mo.Some(tool.ResultImage{MediaType: "image/webp", Data: []byte{3, 2, 1, 0}}),
+						},
 					},
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -204,18 +285,29 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 		},
 		{
 			name: "compact extension JSON",
-			entry: session.Entry{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
-				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+			entry: session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "extension-entry",
+				CreatedAt:   createdAt.Add(3 * time.Second),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
+				Model:       mo.None[session.ModelResponse](),
+				ToolResult:  mo.None[session.ToolResult](),
 				Extension: mo.Some(session.ExtensionEnvelope{
 					ExtensionID: "example.extension", EntryType: "checkpoint",
 					Data: []byte("{\n  \"text\": \"line\\nvalue\", \"items\": [1, 2]\n}"),
-				}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				}),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
 				require.Equal(t, 1, bytes.Count(encoded, []byte{'\n'}))
-				require.JSONEq(t, `{ "text": "line\nvalue", "items": [1, 2] }`, string(decoded.Extension.MustGet().Data))
+				require.JSONEq(
+					t,
+					`{ "text": "line\nvalue", "items": [1, 2] }`,
+					string(decoded.Extension.MustGet().Data),
+				)
 			},
 		},
 	}
@@ -245,15 +337,32 @@ func TestApplyEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
 	repository := New(t.TempDir(), t.TempDir(), fileSystem)
 	createdAt := time.Date(2026, 8, 27, 13, 0, 0, 0, time.UTC)
 	command := hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "session", CreatedAt: createdAt, WorkingDirectory: repository.workingDirectory},
+		Header: session.Header{
+			Version:          2,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: repository.workingDirectory,
+		},
 		StoragePath: "",
 		Mutation: hostsessions.Mutation{
-			Entry: mo.Some(session.Entry{ParentID: mo.None[string](), ID: "entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](), EstimatedCost: mo.None[session.EstimatedCost](),
-				Extension: mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")}), BranchSummary: mo.None[session.BranchSummaryEntry](),
-			}),
-			Navigation: mo.None[hostsessions.NavigationMutation](), Label: mo.None[hostsessions.LabelMutation](),
+			Entry: mo.Some(
+				session.Entry{
+					ParentID:      mo.None[string](),
+					ID:            "entry",
+					CreatedAt:     createdAt,
+					Information:   mo.None[session.Information](),
+					User:          mo.None[session.UserMessage](),
+					Model:         mo.None[session.ModelResponse](),
+					ToolResult:    mo.None[session.ToolResult](),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+					Extension: mo.Some(
+						session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")},
+					),
+					BranchSummary: mo.None[session.BranchSummaryEntry](),
+				},
+			),
+			Navigation:         mo.None[hostsessions.NavigationMutation](),
+			Label:              mo.None[hostsessions.LabelMutation](),
 			SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
 		},
 	}

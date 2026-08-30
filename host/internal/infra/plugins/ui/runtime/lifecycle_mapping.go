@@ -37,9 +37,12 @@ func mapInitialization(initialization domainui.Initialization) (*uipb.Initializa
 		},
 	)
 	models := lo.Map(initialization.Models, func(configured domainui.ConfiguredModel, _ int) *uipb.ConfiguredModel {
-		choices := lo.Map(configured.Reasoning.Choices, func(choice domainui.ReasoningChoice, _ int) uipb.ReasoningChoice {
-			return mapReasoningChoice(choice)
-		})
+		choices := lo.Map(
+			configured.Reasoning.Choices,
+			func(choice domainui.ReasoningChoice, _ int) uipb.ReasoningChoice {
+				return mapReasoningChoice(choice)
+			},
+		)
 		reasoning := uipb.ReasoningCapabilities_builder{
 			Supported:     new(configured.Reasoning.Supported),
 			Choices:       choices,

@@ -30,13 +30,20 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			createdAt := time.Date(2026, 8, 27, 3, 0, 0, 0, time.UTC)
-			userEntry := session.Entry{ParentID: mo.None[string](), ID: "user-image", CreatedAt: createdAt, Information: mo.None[session.Information](),
+			userEntry := session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "user-image",
+				CreatedAt:   createdAt,
+				Information: mo.None[session.Information](),
 				User: mo.Some(model.Message{Content: []model.InputContent{{
 					Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"),
 					Data: mo.Some(test.data),
 				}}}),
-				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Model:         mo.None[session.ModelResponse](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 
 			// Act by round-tripping user and tool-result images through JSONL.
@@ -50,8 +57,13 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 			require.Equal(t, test.data, userData)
 			require.Equal(t, test.data == nil, userData == nil)
 
-			toolEntry := session.Entry{ParentID: mo.None[string](), ID: "tool-image", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+			toolEntry := session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "tool-image",
+				CreatedAt:   createdAt.Add(time.Second),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
+				Model:       mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{{
@@ -59,7 +71,9 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: test.data}),
 					}},
 				}),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 			encoded, err = encodeEntry(toolEntry)
 			require.NoError(t, err)
@@ -93,11 +107,19 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 	for _, test := range contentsCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entry := session.Entry{ParentID: mo.None[string](), ID: "tool-entry", CreatedAt: time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC),
-				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-				Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
+			entry := session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "tool-entry",
+				CreatedAt:   time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
+				Model:       mo.None[session.ModelResponse](),
+				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "tool", Contents: test.contents, IsError: false,
-				}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				}),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 
 			encoded, err := encodeEntry(entry)
@@ -131,8 +153,12 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 	for _, test := range payloadCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entry := session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC),
-				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+			entry := session.Entry{
+				ParentID:    mo.None[string](),
+				ID:          "model-entry",
+				CreatedAt:   time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: []model.Content{{
 						Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
@@ -150,7 +176,10 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 					Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			}
 
 			encoded, err := encodeEntry(entry)

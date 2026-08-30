@@ -59,7 +59,10 @@ func readCredentialStore(path string) (credentialStore, bool, error) {
 		return credentialStore{}, false, fmt.Errorf("stat Glyph credential store: %w", err)
 	}
 	if info.Mode().Perm() != 0o600 {
-		return credentialStore{}, false, fmt.Errorf("Glyph credential store has mode %04o, expected 0600", info.Mode().Perm())
+		return credentialStore{}, false, fmt.Errorf(
+			"Glyph credential store has mode %04o, expected 0600",
+			info.Mode().Perm(),
+		)
 	}
 	if info.Size() > maxCredentialStore {
 		return credentialStore{}, false, fmt.Errorf("Glyph credential store exceeds %d bytes", maxCredentialStore)
@@ -73,7 +76,11 @@ func readCredentialStore(path string) (credentialStore, bool, error) {
 		return credentialStore{}, false, fmt.Errorf("decode Glyph credential store: %w", err)
 	}
 	if store.Version != credentialsVersion {
-		return credentialStore{}, false, fmt.Errorf("Glyph credential store version is %d, expected %d", store.Version, credentialsVersion)
+		return credentialStore{}, false, fmt.Errorf(
+			"Glyph credential store version is %d, expected %d",
+			store.Version,
+			credentialsVersion,
+		)
 	}
 	if store.Providers == nil {
 		store.Providers = make(map[string]jsontext.Value)

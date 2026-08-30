@@ -19,7 +19,11 @@ func TestReadTextContentCanceled(t *testing.T) {
 	cancel()
 
 	content, err := readTextContent(
-		ctx, bufio.NewReader(strings.NewReader("line\n")), "notes.txt", mo.EmptyableToOption[uint](1), mo.EmptyableToOption[uint](1),
+		ctx,
+		bufio.NewReader(strings.NewReader("line\n")),
+		"notes.txt",
+		mo.EmptyableToOption[uint](1),
+		mo.EmptyableToOption[uint](1),
 	)
 
 	assert.Empty(t, content)

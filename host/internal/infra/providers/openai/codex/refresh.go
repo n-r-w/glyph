@@ -139,7 +139,12 @@ func decodeRefreshResponse(response *http.Response) (tokenResponse, error) {
 		if detail == "" {
 			return tokenResponse{}, fmt.Errorf("%w: token endpoint returned %s", ErrSignInRequired, response.Status)
 		}
-		return tokenResponse{}, fmt.Errorf("%w: token endpoint returned %s: %s", ErrSignInRequired, response.Status, detail)
+		return tokenResponse{}, fmt.Errorf(
+			"%w: token endpoint returned %s: %s",
+			ErrSignInRequired,
+			response.Status,
+			detail,
+		)
 	}
 	var refreshed tokenResponse
 	decodeErr := json.Unmarshal(body, &refreshed)

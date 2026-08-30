@@ -107,19 +107,22 @@ func mapInitializationStartup(contents []*uiv1.StartupContent) ([]presentationdo
 
 // mapInitializationExtensions validates and maps extension availability.
 func mapInitializationExtensions(extensions []*uiv1.ExtensionAvailability) ([]presentationdomain.Extension, error) {
-	return lo.MapErr(extensions, func(extension *uiv1.ExtensionAvailability, _ int) (presentationdomain.Extension, error) {
-		if !extension.HasPluginId() {
-			return presentationdomain.Extension{}, errors.New("extension plugin ID is required")
-		}
-		if !extension.HasPath() {
-			return presentationdomain.Extension{}, errors.New("extension path is required")
-		}
-		return presentationdomain.Extension{
-			ID:    extension.GetPluginId(),
-			Path:  extension.GetPath(),
-			Tools: slices.Clone(extension.GetTools()),
-		}, nil
-	})
+	return lo.MapErr(
+		extensions,
+		func(extension *uiv1.ExtensionAvailability, _ int) (presentationdomain.Extension, error) {
+			if !extension.HasPluginId() {
+				return presentationdomain.Extension{}, errors.New("extension plugin ID is required")
+			}
+			if !extension.HasPath() {
+				return presentationdomain.Extension{}, errors.New("extension path is required")
+			}
+			return presentationdomain.Extension{
+				ID:    extension.GetPluginId(),
+				Path:  extension.GetPath(),
+				Tools: slices.Clone(extension.GetTools()),
+			}, nil
+		},
+	)
 }
 
 // mapInitializationModels validates and maps configured models.

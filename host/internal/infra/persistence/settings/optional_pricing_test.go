@@ -25,8 +25,16 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 	})
 	s.Run("null", func() {
 		content := replace(validSettings(""), "providers:", "activeUI: null\nproviders:")
-		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey: null")
-		content = replace(content, "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: null\n      - id: plain")
+		content = replace(
+			content,
+			"    baseURL: https://example.com/v1",
+			"    baseURL: https://example.com/v1\n    apiKey: null",
+		)
+		content = replace(
+			content,
+			"          default: high\n      - id: plain",
+			"          default: high\n          compatibilityKey: null\n      - id: plain",
+		)
 		decoded := decodeSettingsFile(s.T(), content)
 		s.True(decoded.ActiveUI.IsNone())
 		s.True(decoded.Providers["compatible"].APIKey.IsNone())
@@ -48,7 +56,11 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 				assert:  func(decoded settingsFile) { s.Equal(mo.Some(""), decoded.ActiveUI) },
 			},
 			"API key source": {
-				content: replace(validSettings(""), "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey:\n      literal: ''"),
+				content: replace(
+					validSettings(""),
+					"    baseURL: https://example.com/v1",
+					"    baseURL: https://example.com/v1\n    apiKey:\n      literal: ''",
+				),
 				assert: func(decoded settingsFile) {
 					apiKey, present := decoded.Providers["compatible"].APIKey.Get()
 					s.Require().True(present)
@@ -56,7 +68,11 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 				},
 			},
 			"compatibility key": {
-				content: replace(validSettings(""), "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: ''\n      - id: plain"),
+				content: replace(
+					validSettings(""),
+					"          default: high\n      - id: plain",
+					"          default: high\n          compatibilityKey: ''\n      - id: plain",
+				),
 				assert: func(decoded settingsFile) {
 					s.Equal(mo.Some(""), decoded.Providers["compatible"].Models[0].Reasoning.CompatibilityKey)
 				},
@@ -72,8 +88,16 @@ func (s *SettingsSuite) TestLoadPreservesOptionalScalarYAML() {
 	})
 	s.Run("non-empty", func() {
 		content := replace(validSettings(""), "providers:", "activeUI: glyph-tui\nproviders:")
-		content = replace(content, "    baseURL: https://example.com/v1", "    baseURL: https://example.com/v1\n    apiKey:\n      literal: secret")
-		content = replace(content, "          default: high\n      - id: plain", "          default: high\n          compatibilityKey: family\n      - id: plain")
+		content = replace(
+			content,
+			"    baseURL: https://example.com/v1",
+			"    baseURL: https://example.com/v1\n    apiKey:\n      literal: secret",
+		)
+		content = replace(
+			content,
+			"          default: high\n      - id: plain",
+			"          default: high\n          compatibilityKey: family\n      - id: plain",
+		)
 		decoded := decodeSettingsFile(s.T(), content)
 		s.Equal(mo.Some("glyph-tui"), decoded.ActiveUI)
 		decodedAPIKey, present := decoded.Providers["compatible"].APIKey.Get()

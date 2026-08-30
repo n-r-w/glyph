@@ -54,15 +54,20 @@ tasks:
         ./sdk/plugins/ui/v1
 
   fix:
-    desc: "Run go fix"
+    desc: "Run go fix the codebase"
     cmds:
       - go fix ./...
-      - go fmt ./...
+
+  fix_dry_run:
+    desc: "Show go fix changes without modifying files"
+    cmds:
+      - go fix -diff ./...
 
   fmt:
     desc: "Format the codebase"
     cmds:
       - go fmt ./...
+      - go tool golangci-lint fmt --config .golangci.yml ./...
 
   vet:
     desc: "Run go vet"

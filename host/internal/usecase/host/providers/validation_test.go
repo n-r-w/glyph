@@ -47,18 +47,32 @@ func TestValidateConfiguredClassifiesUnavailableState(t *testing.T) {
 		expected       ErrorCode
 	}{
 		{
-			name: "model", selection: model.Selection{Provider: "missing", Model: "model", ReasoningChoice: model.ReasoningChoiceOff},
-			authentication: func(*MockProviderAuthentication) {}, expected: ErrorCodeNotFound,
+			name: "model",
+			selection: model.Selection{
+				Provider:        "missing",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceOff,
+			},
+			authentication: func(*MockProviderAuthentication) {},
+			expected:       ErrorCodeNotFound,
 		},
 		{
-			name: "reasoning", selection: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh},
-			authentication: func(*MockProviderAuthentication) {}, expected: ErrorCodeReasoningUnsupported,
+			name: "reasoning",
+			selection: model.Selection{
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceHigh,
+			},
+			authentication: func(*MockProviderAuthentication) {},
+			expected:       ErrorCodeReasoningUnsupported,
 		},
 		{
-			name: "credentials", selection: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff},
+			name:      "credentials",
+			selection: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff},
 			authentication: func(authentication *MockProviderAuthentication) {
 				authentication.EXPECT().CheckProviderAuthentication(gomock.Any()).Return(context.Canceled)
-			}, expected: ErrorCodeCredentialUnavailable,
+			},
+			expected: ErrorCodeCredentialUnavailable,
 		},
 	}
 	for _, test := range tests {

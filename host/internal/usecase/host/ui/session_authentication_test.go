@@ -46,10 +46,12 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		mutex.Lock()
 		frames = append(frames, frame)
 		mutex.Unlock()
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityAuthenticationFailed {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityAuthenticationFailed {
 			authFailedOnce.Do(func() { close(authFailed) })
 		}
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 		}
 		return nil
@@ -69,7 +71,14 @@ func (s *SessionSuite) TestSessionOAuthFailureRequiresExplicitRetry() {
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(
+		channel,
+		runner,
+		authenticator,
+		s.modelCatalog,
+		nil,
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
@@ -111,7 +120,8 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		mutex.Lock()
 		frames = append(frames, frame)
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			idleCount++
 		}
 		currentIdleCount := idleCount
@@ -119,7 +129,8 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		if currentIdleCount == 1 {
 			initialIdleOnce.Do(func() { close(initialIdle) })
 		}
-		if currentIdleCount >= 2 || (frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), "retry is not available")) {
+		if currentIdleCount >= 2 ||
+			(frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), "retry is not available")) {
 			terminalReadyOnce.Do(func() { close(terminalReady) })
 		}
 		if frame.Kind == domainui.FrameError && frame.Text.MustGet() == signInRequired.Error() {
@@ -143,7 +154,14 @@ func (s *SessionSuite) TestSessionSignInRequiredRunWaitsForExplicitAuthenticatio
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(
+		channel,
+		runner,
+		authenticator,
+		s.modelCatalog,
+		nil,
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,

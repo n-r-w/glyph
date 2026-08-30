@@ -288,7 +288,9 @@ func userMessageInput(message model.Message) (responses.ResponseInputItemUnionPa
 			mediaType, hasMediaType := item.MediaType.Get()
 			data, hasData := item.Data.Get()
 			if !hasMediaType || !hasData || mediaType == "" || len(data) == 0 {
-				return responses.ResponseInputItemUnionParam{}, errors.New("codex image media type and data are required")
+				return responses.ResponseInputItemUnionParam{}, errors.New(
+					"codex image media type and data are required",
+				)
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
 			image.OfInputImage.ImageURL = param.NewOpt(

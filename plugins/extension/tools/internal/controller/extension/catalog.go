@@ -14,8 +14,10 @@ func (s *Service) Register(
 	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{
 			extensionv1.ToolDescriptor_builder{
-				Name:                new(readToolName),
-				Description:         new("Read bounded text or supported image contents from a file in the working project."),
+				Name: new(readToolName),
+				Description: new(
+					"Read bounded text or supported image contents from a file in the working project.",
+				),
 				InputSchemaJson:     []byte(readInputSchemaJSON),
 				ConstrainedSampling: strictPreferSampling(),
 			}.Build(),

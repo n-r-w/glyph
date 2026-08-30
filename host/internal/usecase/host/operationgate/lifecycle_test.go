@@ -50,7 +50,11 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	coordinator := events.NewCoordinator(func(context.Context, agentrun.Request) (agentrun.Result, error) {
 		close(started)
 		<-settle
-		return agentrun.Result{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()}, nil
+		return agentrun.Result{
+			Outcome:      agent.RunOutcomeCompleted,
+			AddedHistory: nil,
+			ErrorMessage: mo.None[string](),
+		}, nil
 	}, nil, nil, gate)
 	// Act by reserving a run and attempting replacement before the run starts.
 	runID, err := coordinator.PrepareRun()
@@ -76,8 +80,12 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	require.NoError(t, <-runResult)
 
 	resumedInfo := session.Info{
-		ID: "stored", Name: mo.Some("stored"), WorkingDirectory: "/project", StoragePath: mo.Some("/sessions/stored.jsonl"),
-		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
+		ID:               "stored",
+		Name:             mo.Some("stored"),
+		WorkingDirectory: "/project",
+		StoragePath:      mo.Some("/sessions/stored.jsonl"),
+		CreatedAt:        time.Time{},
+		UpdatedAt:        time.Time{},
 	}
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
 		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
@@ -251,9 +259,18 @@ func programmaticSessionCommand(
 	name mo.Option[string],
 ) programmaticcontroller.Command {
 	return programmaticcontroller.Command{
-		CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
-		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		CorrelationID:   correlationID,
+		Kind:            kind,
+		UserText:        mo.None[string](),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       id,
+		SessionName:     name,
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     programmaticcontroller.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 }
 
@@ -267,19 +284,39 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	var agentStarts atomic.Int32
 	realCoordinator := events.NewCoordinator(func(context.Context, agentrun.Request) (agentrun.Result, error) {
 		agentStarts.Add(1)
-		return agentrun.Result{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()}, nil
+		return agentrun.Result{
+			Outcome:      agent.RunOutcomeCompleted,
+			AddedHistory: nil,
+			ErrorMessage: mo.None[string](),
+		}, nil
 	}, nil, nil, gate)
 	coordinator := programmatic.NewMockCoordinator(controller)
 	coordinator.EXPECT().PrepareRun().DoAndReturn(realCoordinator.PrepareRun)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).Do(realCoordinator.CancelPrepared).Times(1)
 	coordinator.EXPECT().RunPrepared(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	service := programmatic.New(coordinator, nil, func() agentrun.State { return agentrun.State{} }, func() []agent.HistoryEntry { return nil }, nil, programmatic.NewDelivery())
+	service := programmatic.New(
+		coordinator,
+		nil,
+		func() agentrun.State { return agentrun.State{} },
+		func() []agent.HistoryEntry { return nil },
+		nil,
+		programmatic.NewDelivery(),
+	)
 
 	// Act by accepting a request and canceling its delivery twice.
 	response, operation, err := service.Handle(t.Context(), programmaticcontroller.Command{
-		CorrelationID: "accepted", Kind: programmaticcontroller.CommandUserRequest, UserText: mo.Some("request"),
-		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID: mo.None[session.ID](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		CorrelationID:   "accepted",
+		Kind:            programmaticcontroller.CommandUserRequest,
+		UserText:        mo.Some("request"),
+		ProviderID:      mo.None[model.ProviderID](),
+		ModelID:         mo.None[model.ID](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](),
+		SessionID:       mo.None[session.ID](),
+		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     programmaticcontroller.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	})
 	require.NoError(t, err)
 	require.Equal(t, programmaticcontroller.ResponseUserRequestAccepted, response.Kind)

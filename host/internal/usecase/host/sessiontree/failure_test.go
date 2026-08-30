@@ -37,10 +37,30 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 		cancel   bool
 		expected error
 	}{
-		{name: "model unavailable", failure: completionFailureError{code: selectionCodeNotFound}, cancel: false, expected: sessionnavigation.ErrModelUnavailable},
-		{name: "reasoning unavailable", failure: completionFailureError{code: selectionCodeReasoningUnsupported}, cancel: false, expected: sessionnavigation.ErrModelUnavailable},
-		{name: "credential unavailable", failure: completionFailureError{code: selectionCodeCredentialUnavailable}, cancel: false, expected: sessionnavigation.ErrCredentialUnavailable},
-		{name: "model failed", failure: errors.New("provider failed"), cancel: false, expected: sessionnavigation.ErrModelFailed},
+		{
+			name:     "model unavailable",
+			failure:  completionFailureError{code: selectionCodeNotFound},
+			cancel:   false,
+			expected: sessionnavigation.ErrModelUnavailable,
+		},
+		{
+			name:     "reasoning unavailable",
+			failure:  completionFailureError{code: selectionCodeReasoningUnsupported},
+			cancel:   false,
+			expected: sessionnavigation.ErrModelUnavailable,
+		},
+		{
+			name:     "credential unavailable",
+			failure:  completionFailureError{code: selectionCodeCredentialUnavailable},
+			cancel:   false,
+			expected: sessionnavigation.ErrCredentialUnavailable,
+		},
+		{
+			name:     "model failed",
+			failure:  errors.New("provider failed"),
+			cancel:   false,
+			expected: sessionnavigation.ErrModelFailed,
+		},
 		{name: "canceled", failure: context.Canceled, cancel: true, expected: context.Canceled},
 	}
 	for _, test := range tests {
@@ -52,7 +72,11 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			active := NewMockActiveSession(controller)
 			models := NewMockModelCompleter(controller)
 			handlers := NewMockHandlerRunner(controller)
-			selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
+			selection := model.Selection{
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceOff,
+			}
 			active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 			active.EXPECT().SessionID().Return("session")
 			models.EXPECT().Selection().Return(selection)

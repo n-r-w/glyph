@@ -426,7 +426,9 @@ func mapUIModelResponseContent(
 		}
 		return mo.None[domainui.ModelResponseContent](), errors.New("UI model response content text is missing")
 	}
-	return mo.Some(domainui.ModelResponseContent{Kind: kind, Text: text, ToolCall: mo.None[domainui.FinalToolCall]()}), nil
+	return mo.Some(
+		domainui.ModelResponseContent{Kind: kind, Text: text, ToolCall: mo.None[domainui.FinalToolCall]()},
+	), nil
 }
 
 // modelContentKind maps only UI-safe streamed content kinds.

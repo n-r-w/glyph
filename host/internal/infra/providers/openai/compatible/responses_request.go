@@ -153,7 +153,10 @@ func responsesUserMessage(message model.Message) (responses.ResponseInputItemUni
 			mediaType, hasMediaType := item.MediaType.Get()
 			data, hasData := item.Data.Get()
 			if !hasMediaType || !hasData || mediaType == "" || len(data) == 0 {
-				return responses.ResponseInputItemUnionParam{}, fmt.Errorf("user image %d requires media type and data", index)
+				return responses.ResponseInputItemUnionParam{}, fmt.Errorf(
+					"user image %d requires media type and data",
+					index,
+				)
 			}
 			image := responses.ResponseInputContentParamOfInputImage(responses.ResponseInputImageDetailAuto)
 			image.OfInputImage.ImageURL = param.NewOpt(dataURL(mediaType, data))

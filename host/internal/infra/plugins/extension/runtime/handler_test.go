@@ -15,7 +15,8 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// TestMapHandleRequestPreservesTypedNavigationContext verifies request and Host context mapping without extension data exposure.
+// TestMapHandleRequestPreservesTypedNavigationContext verifies request and Host context mapping without extension data
+// exposure.
 func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 	t.Parallel()
 

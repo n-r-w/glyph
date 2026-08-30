@@ -83,7 +83,8 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 	assert.True(t, cloned.Content[1].ProviderContext.IsNone())
 }
 
-// TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder verifies call order, skipped results, and clone ownership.
+// TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder verifies call order, skipped results,
+// and clone ownership.
 func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.T) {
 	t.Parallel()
 
@@ -128,7 +129,9 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 			for _, callID := range test.storedIDs {
 				stored[callID] = true
 				history = append(history, agent.HistoryEntry{
-					Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+					Kind:  agent.HistoryEntryToolResult,
+					User:  mo.None[model.Message](),
+					Model: mo.None[model.Response](),
 					ToolResult: mo.Some(agent.ToolResult{
 						CallID: callID, ToolName: "stored-tool", Contents: tool.TextContents("stored-" + callID),
 						IsError: false,

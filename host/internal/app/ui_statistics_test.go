@@ -147,7 +147,9 @@ func requestUISessionInformation(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) (*uipb.SessionInformation, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
-	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build(),
+	); err != nil {
 		return nil, err
 	}
 	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
@@ -249,8 +251,10 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			},
 		},
 		{
-			name: "known zero", state: "known-zero", namePresent: false,
-			usage: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			name:        "known zero",
+			state:       "known-zero",
+			namePresent: false,
+			usage:       `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{
@@ -267,8 +271,10 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			},
 		},
 		{
-			name: "available nonzero", state: "nonzero", namePresent: false,
-			usage: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			name:        "available nonzero",
+			state:       "nonzero",
+			namePresent: false,
+			usage:       `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{

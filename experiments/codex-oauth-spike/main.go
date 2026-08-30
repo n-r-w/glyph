@@ -42,7 +42,10 @@ const (
 	maxProviderErrorDetail = 4000
 )
 
-var callbackPorts = [...]string{"1455", "1457"} //nolint:gochecknoglobals // Registered OpenAI loopback ports are immutable protocol data.
+var callbackPorts = [...]string{
+	"1455",
+	"1457",
+} //nolint:gochecknoglobals // Registered OpenAI loopback ports are immutable protocol data.
 
 const readSchemaJSON = `{
   "type": "object",
@@ -205,7 +208,10 @@ func run() (runErr error) {
 		return fmt.Errorf("first Responses turn did not include a reasoning item; output types: %v", first.OutputTypes)
 	}
 	if first.Reasoning.EncryptedContent == "" {
-		return fmt.Errorf("first Responses reasoning item has no encrypted content; output types: %v", first.OutputTypes)
+		return fmt.Errorf(
+			"first Responses reasoning item has no encrypted content; output types: %v",
+			first.OutputTypes,
+		)
 	}
 	if !first.IsCompleted || first.EventCount == 0 {
 		return fmt.Errorf("first Responses SSE stream did not complete")

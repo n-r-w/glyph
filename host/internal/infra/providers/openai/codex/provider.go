@@ -439,7 +439,13 @@ func (s *Driver) streamError(
 			detail = boundedDetail(strings.TrimSpace(apiError.Message))
 		}
 		message := providerFailureMessage(detail)
-		return terminalModelResponse(message, model.OutcomeFailed), fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
+		return terminalModelResponse(
+				message,
+				model.OutcomeFailed,
+			), fmt.Errorf(
+				"OpenAI Codex request failed: %w",
+				streamErr,
+			)
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure

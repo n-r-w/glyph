@@ -110,7 +110,9 @@ data: [DONE]
 // semanticAccessToken creates credentials accepted by the local deterministic provider path.
 func semanticAccessToken(t *testing.T, accountID string) string {
 	t.Helper()
-	payload, err := json.Marshal(map[string]any{"https://api.openai.com/auth": map[string]string{"chatgpt_account_id": accountID}})
+	payload, err := json.Marshal(
+		map[string]any{"https://api.openai.com/auth": map[string]string{"chatgpt_account_id": accountID}},
+	)
 	require.NoError(t, err)
 	return "header." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
 }

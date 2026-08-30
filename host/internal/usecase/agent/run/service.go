@@ -172,10 +172,18 @@ func (s *Service) begin(request Request) (int, error) {
 //nolint:gocyclo // The branches preserve explicit stream, delivery, and terminal failure paths.
 func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, error) {
 	if err := s.deliver(ctx, newEvent(EventTurnStart, runID)); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+		return Result{
+			Outcome:      agent.RunOutcomeFailed,
+			AddedHistory: nil,
+			ErrorMessage: mo.Some(err.Error()),
+		}, false, err
 	}
 	if err := s.deliver(ctx, newEvent(EventMessageStart, runID)); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+		return Result{
+			Outcome:      agent.RunOutcomeFailed,
+			AddedHistory: nil,
+			ErrorMessage: mo.Some(err.Error()),
+		}, false, err
 	}
 
 	projectedContext, hookErr := s.hooks.TransformContext(ctx, hooks.Context{History: s.ProjectHistory()})
@@ -278,7 +286,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	messageEnd := newEvent(EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	if err := s.deliver(context.WithoutCancel(ctx), messageEnd); err != nil {
-		return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+		return Result{
+			Outcome:      agent.RunOutcomeFailed,
+			AddedHistory: nil,
+			ErrorMessage: mo.Some(err.Error()),
+		}, false, err
 	}
 	return s.applyOutcome(ctx, runID, response)
 }
@@ -349,7 +361,8 @@ func (s *Service) finalizeProviderError(
 		finalizeRetainedStreamedContent(response.Content)
 	}
 	outcome := model.OutcomeFailed
-	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) || ctx.Err() != nil {
+	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) ||
+		ctx.Err() != nil {
 		outcome = model.OutcomeAborted
 	}
 	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
@@ -494,7 +507,11 @@ func (s *Service) applyOutcome(
 			toolResult := newEvent(EventToolResult, runID)
 			toolResult.ToolResult = mo.Some(result)
 			if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-				return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+				return Result{
+					Outcome:      agent.RunOutcomeFailed,
+					AddedHistory: nil,
+					ErrorMessage: mo.Some(err.Error()),
+				}, false, err
 			}
 		}
 		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
@@ -537,7 +554,11 @@ func (s *Service) executeCalls(
 		toolStart := newEvent(EventToolExecutionStart, runID)
 		toolStart.ToolCall = mo.Some(call)
 		if err := s.deliver(ctx, toolStart); err != nil {
-			return Result{Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(err.Error())}, false, err
+			return Result{
+				Outcome:      agent.RunOutcomeFailed,
+				AddedHistory: nil,
+				ErrorMessage: mo.Some(err.Error()),
+			}, false, err
 		}
 		var progressDeliveryErr error
 		result, executeErr := s.tools.Execute(ctx, call, func(progress tool.Progress) error {

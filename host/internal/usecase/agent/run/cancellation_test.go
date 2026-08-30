@@ -116,7 +116,10 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 			siblingErr := errors.New("unique " + test.failure + " failure")
 			history := make([]agent.HistoryEntry, 0, 2)
 			modelAppendCalls := 0
-			store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
+			store.EXPECT().
+				Snapshot().
+				DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).
+				AnyTimes()
 			store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, entry agent.HistoryEntry) error {
 					if entry.Kind == agent.HistoryEntryModel {
@@ -142,9 +145,15 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 						return context.Canceled
 					}
 					return emitStream(handle, model.Response{
-						Content: nil, Outcome: mo.Some(model.OutcomeAborted), ErrorMessage: mo.None[string](),
-						Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-						ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+						Content:       nil,
+						Outcome:       mo.Some(model.OutcomeAborted),
+						ErrorMessage:  mo.None[string](),
+						Provider:      mo.None[model.ProviderID](),
+						Model:         mo.None[model.ID](),
+						ResponseModel: mo.None[model.ID](),
+						ResponseID:    mo.None[string](),
+						Usage:         mo.None[model.Usage](),
+						Diagnostics:   nil,
 					}, context.Canceled)
 				},
 			)
@@ -200,7 +209,16 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		tools.EXPECT().Tools().Return(nil)
 		partial := model.Response{
 			Content: []model.Content{testTextItem("partial")},
-			Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			Outcome: mo.Some(
+				model.OutcomeStop,
+			),
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
 		}
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, _ ModelRequest, update StreamHandler) error {
@@ -217,7 +235,16 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 				return nil
 			},
 		).AnyTimes()
-		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(
+			t,
+			testInstructions,
+			testModelDescriptor,
+			model.ReasoningChoiceHigh,
+			provider,
+			hookrunner.New(nil, nil, nil),
+			tools,
+			events,
+		)
 
 		_, err := service.Run(ctx, Request{RunID: "run-provider-cancel", UserText: "hi"})
 
@@ -239,10 +266,22 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		provider := NewMockModelProvider(gomock.NewController(t))
 		tools := NewMockToolRuntime(gomock.NewController(t))
 		events := NewMockEventSink(gomock.NewController(t))
-		calls := []model.ToolCall{{ID: "active", Name: "bash", Arguments: map[string]any{}}, {ID: "skipped", Name: "edit", Arguments: map[string]any{}}}
+		calls := []model.ToolCall{
+			{ID: "active", Name: "bash", Arguments: map[string]any{}},
+			{ID: "skipped", Name: "edit", Arguments: map[string]any{}},
+		}
 		response := model.Response{
 			Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
-			Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			Outcome: mo.Some(
+				model.OutcomeToolUse,
+			),
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
 		}
 		tools.EXPECT().Tools().Return(nil)
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
@@ -255,7 +294,16 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(
+			t,
+			testInstructions,
+			testModelDescriptor,
+			model.ReasoningChoiceHigh,
+			provider,
+			hookrunner.New(nil, nil, nil),
+			tools,
+			events,
+		)
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		outcome := make(chan error, 1)
@@ -289,7 +337,17 @@ func TestNormalizeTerminalResponseTreatsEmptyMessageAsAbsent(t *testing.T) {
 	t.Parallel()
 
 	response := (&Service{}).normalizeTerminalResponse(model.Response{
-		Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some(""), Content: nil, Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeFailed,
+		),
+		ErrorMessage:  mo.Some(""),
+		Content:       nil,
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	})
 
 	assert.Equal(t, failedModelMessage, response.ErrorMessage.OrEmpty())
@@ -325,10 +383,30 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 			events := NewMockEventSink(gomock.NewController(t))
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(
-				model.Response{Content: nil, Outcome: mo.Some(testCase.modelOutcome), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}, nil,
+				model.Response{
+					Content:       nil,
+					Outcome:       mo.Some(testCase.modelOutcome),
+					ErrorMessage:  mo.None[string](),
+					Provider:      mo.None[model.ProviderID](),
+					Model:         mo.None[model.ID](),
+					ResponseModel: mo.None[model.ID](),
+					ResponseID:    mo.None[string](),
+					Usage:         mo.None[model.Usage](),
+					Diagnostics:   nil,
+				},
+				nil,
 			))
 			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-			service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+			service := newTestService(
+				t,
+				testInstructions,
+				testModelDescriptor,
+				model.ReasoningChoiceHigh,
+				provider,
+				hookrunner.New(nil, nil, nil),
+				tools,
+				events,
+			)
 
 			result, err := service.Run(t.Context(), Request{RunID: "run-" + name, UserText: "hi"})
 

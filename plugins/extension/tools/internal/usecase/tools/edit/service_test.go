@@ -25,7 +25,9 @@ func TestServiceEdit(t *testing.T) {
 		},
 	)
 
-	err := New(editor).Edit(t.Context(), "notes.txt", []extensioncontroller.Replacement{{OldText: "old", NewText: "new"}})
+	err := New(
+		editor,
+	).Edit(t.Context(), "notes.txt", []extensioncontroller.Replacement{{OldText: "old", NewText: "new"}})
 
 	require.NoError(t, err)
 }
@@ -65,7 +67,11 @@ func TestServiceEditRejectsNonUniqueSource(t *testing.T) {
 				},
 			)
 
-			err := New(editor).Edit(t.Context(), "notes.txt", []extensioncontroller.Replacement{{OldText: "old", NewText: "new"}})
+			err := New(editor).Edit(
+				t.Context(),
+				"notes.txt",
+				[]extensioncontroller.Replacement{{OldText: "old", NewText: "new"}},
+			)
 
 			require.Error(t, err)
 			assert.ErrorContains(t, err, "occur exactly once")

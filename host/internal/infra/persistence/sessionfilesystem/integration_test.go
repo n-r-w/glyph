@@ -83,7 +83,12 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	require.NoError(t, canonicalRepository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	_, err = canonicalRepository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
+		Header: session.Header{
+			Version:          2,
+			ID:               "shared-id",
+			CreatedAt:        createdAt,
+			WorkingDirectory: canonicalProject,
+		},
 		StoragePath: "",
 		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", createdAt, "shared project")),
 	})
@@ -140,12 +145,14 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	command := hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
-			Information: mo.Some(session.Information{Name: "known session"}),
-			User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		}),
+		Mutation: sessionInformationMutation(
+			session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
+				Information: mo.Some(session.Information{Name: "known session"}),
+				User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
+				Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+			},
+		),
 	}
 
 	// Act by appending, reopening, loading, listing, and requesting an unknown session.
@@ -184,7 +191,9 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", createdAt.Add(time.Second), largeName)),
+		Mutation: sessionInformationMutation(
+			sessionInformationEntry("entry-id", createdAt.Add(time.Second), largeName),
+		),
 	})
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
@@ -212,11 +221,20 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
-		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: time.Now(), Information: mo.Some(session.Information{Name: "name"}),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		}),
+		Mutation: sessionInformationMutation(
+			session.Entry{
+				ParentID:      mo.None[string](),
+				ID:            "entry-id",
+				CreatedAt:     time.Now(),
+				Information:   mo.Some(session.Information{Name: "name"}),
+				User:          mo.None[session.UserMessage](),
+				Model:         mo.None[session.ModelResponse](),
+				EstimatedCost: mo.None[session.EstimatedCost](),
+				ToolResult:    mo.None[session.ToolResult](),
+				Extension:     mo.None[session.ExtensionEnvelope](),
+				BranchSummary: mo.None[session.BranchSummaryEntry](),
+			},
+		),
 	})
 
 	// Assert the append fails and leaves the sentinel file unchanged.
@@ -246,8 +264,10 @@ func sessionInformationEntry(id string, createdAt time.Time, name string) sessio
 func sessionInformationMutation(entry session.Entry) hostsessions.Mutation {
 	information := entry.Information.MustGet()
 	return hostsessions.Mutation{
-		Entry: mo.None[session.Entry](), Navigation: mo.None[hostsessions.NavigationMutation](),
-		Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.Some(hostsessions.SessionInformationMutation{
+		Entry:      mo.None[session.Entry](),
+		Navigation: mo.None[hostsessions.NavigationMutation](),
+		Label:      mo.None[hostsessions.LabelMutation](),
+		SessionInformation: mo.Some(hostsessions.SessionInformationMutation{
 			Name: information.Name, CreatedAt: entry.CreatedAt,
 		}),
 	}

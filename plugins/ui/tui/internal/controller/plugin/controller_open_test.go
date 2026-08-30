@@ -52,9 +52,15 @@ func modelTextDeltaOpenRequest(
 			FinalToolCall:      nil,
 			ToolResultContents: nil,
 		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
+		SessionTree:           nil,
+		SessionTreeNavigation: nil,
+		SessionTreeFailed:     nil,
+		SessionForked:         nil,
+		SessionCloned:         nil,
+		EntryLabelSet:         nil,
 	}.Build()
 }
 
@@ -73,9 +79,15 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 		Information: uiv1.Information_builder{
 			Text: new("too early"),
 		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
+		SessionTree:           nil,
+		SessionTreeNavigation: nil,
+		SessionTreeFailed:     nil,
+		SessionForked:         nil,
+		SessionCloned:         nil,
+		EntryLabelSet:         nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
@@ -199,9 +211,15 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		Information: uiv1.Information_builder{
 			Text: new("information"),
 		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
+		SessionTree:           nil,
+		SessionTreeNavigation: nil,
+		SessionTreeFailed:     nil,
+		SessionForked:         nil,
+		SessionCloned:         nil,
+		EntryLabelSet:         nil,
 	}.Build()))
 	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
 		uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, 1, "hidden reasoning",
@@ -259,9 +277,15 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
 			}.Build(),
 		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionList:           nil,
+		SessionChanged:        nil,
+		SessionInformation:    nil,
+		SessionTree:           nil,
+		SessionTreeNavigation: nil,
+		SessionTreeFailed:     nil,
+		SessionForked:         nil,
+		SessionCloned:         nil,
+		EntryLabelSet:         nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)

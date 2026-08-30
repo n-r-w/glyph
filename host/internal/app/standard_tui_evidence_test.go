@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount verifies incomplete or corrupted restart transcripts fail validation.
+// TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount verifies incomplete or corrupted restart
+// transcripts fail validation.
 func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testing.T) {
 	t.Parallel()
 

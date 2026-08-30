@@ -176,7 +176,12 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 			return model.Response{}, true, err
 		}
 		if done.OutputIndex < 0 || done.OutputIndex > int64(^uint(0)>>1) {
-			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, safeError(requestFailedMessage)
+			return terminalModelResponse(
+					requestFailedMessage,
+					model.OutcomeFailed,
+				), true, safeError(
+					requestFailedMessage,
+				)
 		}
 		a.completedOutputByPosition[done.OutputIndex] = done.Item
 	case "response.completed":
@@ -336,7 +341,8 @@ func (finalized finalizedFunctionOutput) Validate(
 	custom bool,
 	customInput string,
 ) error {
-	if finalized.itemID != itemID || finalized.callID != callID || finalized.name != name || finalized.custom != custom {
+	if finalized.itemID != itemID || finalized.callID != callID || finalized.name != name ||
+		finalized.custom != custom {
 		return safeError(requestFailedMessage)
 	}
 	if custom {
@@ -354,7 +360,8 @@ func (finalized finalizedFunctionOutput) Validate(
 // addRecoveryDiagnostic records provider output recovered during assembly.
 func (*semanticAssembler) addRecoveryDiagnostic(response model.Response) model.Response {
 	response.Diagnostics = append(response.Diagnostics, model.Diagnostic{
-		Code: "recovered_finalized_output", Message: "Recovered finalized provider output omitted from the terminal event.",
+		Code:    "recovered_finalized_output",
+		Message: "Recovered finalized provider output omitted from the terminal event.",
 	})
 	return response
 }

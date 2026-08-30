@@ -58,7 +58,10 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 	assert.Equal(t, models, state.Models)
 	// Act by applying unrelated and selection-confirmation events.
-	state = service.Apply(state, testPresentationEvent(presentationdomain.EventError, mo.Some("rejected"), mo.None[int]()))
+	state = service.Apply(
+		state,
+		testPresentationEvent(presentationdomain.EventError, mo.Some("rejected"), mo.None[int]()),
+	)
 	// Assert the rejected change preserves the host-confirmed selection.
 	assert.Equal(t, mo.Some(initial), state.ModelSelection)
 
@@ -97,7 +100,8 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 	assert.Equal(t, mo.Some(confirmed), state.ModelSelection)
 }
 
-// TestServiceReplacesProvisionalToolCallBeforeExecutionStart verifies final arguments replace provisional fields before execution.
+// TestServiceReplacesProvisionalToolCallBeforeExecutionStart verifies final arguments replace provisional fields
+// before execution.
 func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	t.Parallel()
 

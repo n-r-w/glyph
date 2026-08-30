@@ -71,7 +71,8 @@ func TestServiceReadOversizedLineProvidesBoundedCommand(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		"[Line 7 is 51201 bytes and exceeds the 51200 byte limit. Use `sed -n '7p' 'dir/a'\\''b.txt' | head -c 51200` to inspect that line.]",
+		"[Line 7 is 51201 bytes and exceeds the 51200 byte limit. "+
+			"Use `sed -n '7p' 'dir/a'\\''b.txt' | head -c 51200` to inspect that line.]",
 		result.Text.OrEmpty(),
 	)
 }

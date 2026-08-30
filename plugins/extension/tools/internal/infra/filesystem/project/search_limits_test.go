@@ -76,7 +76,10 @@ func TestServiceFindReportsLimitsOnlyAfterAnAdditionalResult(t *testing.T) {
 		{path: "caller-over", limit: 2, wantNotice: true, wantCount: 2},
 	}
 	for _, testCase := range cases {
-		result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.txt", Path: testCase.path, Limit: mo.EmptyableToOption[uint](testCase.limit)})
+		result, err := service.Find(t.Context(), searchtool.FindCommand{
+			Pattern: "**/*.txt", Path: testCase.path,
+			Limit: mo.EmptyableToOption[uint](testCase.limit),
+		})
 		require.NoError(t, err)
 		hasNotice := strings.Contains(result.Text, "[Result limit reached.]\n")
 		require.Equal(t, testCase.wantNotice, hasNotice)
@@ -108,7 +111,9 @@ func TestServiceListReportsLimitsOnlyAfterAnAdditionalEntry(t *testing.T) {
 		{path: "caller-over", limit: 2, wantNotice: true, wantCount: 2},
 	}
 	for _, testCase := range cases {
-		result, err := service.List(t.Context(), searchtool.ListCommand{Path: testCase.path, Limit: mo.EmptyableToOption[uint](testCase.limit)})
+		result, err := service.List(t.Context(), searchtool.ListCommand{
+			Path: testCase.path, Limit: mo.EmptyableToOption[uint](testCase.limit),
+		})
 		require.NoError(t, err)
 		hasNotice := strings.Contains(result.Text, "[Entry limit reached.]\n")
 		require.Equal(t, testCase.wantNotice, hasNotice)

@@ -35,7 +35,18 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	// Arrange shared paths, credentials, provider transport, and extension executable.
 	paths := testPaths(t, codexSettings(""))
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil, `{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`, accessToken), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(
+			paths.CredentialsFile,
+			fmt.Appendf(
+				nil,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				accessToken,
+			),
+			0o600,
+		),
+	)
 	requestCount := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = deterministicCodexTransport{

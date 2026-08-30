@@ -92,7 +92,10 @@ func TestServiceClonesContentsAcrossStateSnapshots(t *testing.T) {
 		Sessions:         nil,
 	}
 	// Act by applying an event and mutating both image copies in the next state.
-	next := New().Apply(previous, testPresentationEvent(presentationdomain.EventTurnStarted, mo.None[string](), mo.None[int]()))
+	next := New().Apply(
+		previous,
+		testPresentationEvent(presentationdomain.EventTurnStarted, mo.None[string](), mo.None[int]()),
+	)
 
 	for _, lines := range [][]presentationdomain.Line{next.Startup, next.Transcript} {
 		contents, ok := lines[0].Contents.Get()

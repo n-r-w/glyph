@@ -99,7 +99,10 @@ providers:
 	s.Require().NoError(err)
 	s.Equal("openrouter", loaded.DefaultProvider)
 	s.Equal("effort", loaded.DefaultModel)
-	s.Equal([]model.InputModality{model.InputModalityText, model.InputModalityImage}, loaded.Providers["openrouter"].Models[0].Input)
+	s.Equal(
+		[]model.InputModality{model.InputModalityText, model.InputModalityImage},
+		loaded.Providers["openrouter"].Models[0].Input,
+	)
 	s.Equal(int64(131072), loaded.Providers["openrouter"].Models[0].ContextWindow)
 	s.Equal(int64(16384), loaded.Providers["openrouter"].Models[0].MaxTokens)
 	s.Equal(mo.Some("glyph-tui-plugin"), loaded.ActiveUI)

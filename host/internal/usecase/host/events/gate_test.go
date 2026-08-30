@@ -29,7 +29,8 @@ func TestPrepareRunReturnsDomainBusyError(t *testing.T) {
 	require.ErrorIs(t, err, session.ErrBusy)
 }
 
-// TestCancelPreparedReleasesReservationWithoutStartingAgentCore verifies repeated cancellation releases once without a run.
+// TestCancelPreparedReleasesReservationWithoutStartingAgentCore verifies repeated cancellation releases once
+// without a run.
 func TestCancelPreparedReleasesReservationWithoutStartingAgentCore(t *testing.T) {
 	t.Parallel()
 

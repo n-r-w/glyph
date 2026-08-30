@@ -38,7 +38,10 @@ func (s *Service) runRequestHandlers(
 			if contextErr := ctx.Err(); contextErr != nil {
 				return HandlerNavigationState{}, mo.None[HandlerBranchSummaryResult](), nil, false, contextErr
 			}
-			issues = append(issues, operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage))
+			issues = append(
+				issues,
+				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage),
+			)
 			continue
 		}
 		candidate, result, canceled, valid := applyRequestHandlerAction(tree, current, currentResult, action)
@@ -66,7 +69,8 @@ func applyRequestHandlerAction(
 	action RequestHandlerAction,
 ) (HandlerNavigationState, mo.Option[HandlerBranchSummaryResult], bool, bool) {
 	if action.Cancel {
-		valid := action.RequestAction == 0 && action.Request.IsNone() && action.ResultAction == 0 && action.Result.IsNone()
+		valid := action.RequestAction == 0 && action.Request.IsNone() && action.ResultAction == 0 &&
+			action.Result.IsNone()
 		return current, currentResult, valid, valid
 	}
 	candidate, requestValid := applyNavigationRequestAction(tree, current, action)
@@ -147,7 +151,10 @@ func (s *Service) runResultHandlers(
 			if contextErr := ctx.Err(); contextErr != nil {
 				return mo.None[HandlerBranchSummaryResult](), nil, false, contextErr
 			}
-			issues = append(issues, operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage))
+			issues = append(
+				issues,
+				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage),
+			)
 			continue
 		}
 		candidate, canceled, valid := applyResultHandlerAction(currentResult, action)
@@ -208,7 +215,10 @@ func (s *Service) runObservers(
 	}
 	for _, handler := range s.handlers.Handlers(HandlerKindObserver) {
 		if err := s.handlers.Observe(observerContext, handler, invocation); err != nil {
-			issues = append(issues, operationIssue(sessionnavigation.OperationIssueObserverError, handler, observerErrorMessage))
+			issues = append(
+				issues,
+				operationIssue(sessionnavigation.OperationIssueObserverError, handler, observerErrorMessage),
+			)
 		}
 	}
 	return issues

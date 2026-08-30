@@ -38,9 +38,13 @@ func TestForkActivePersistsOnlyTheSelectedUserParentPath(t *testing.T) {
 		func(_ any, command CreateSnapshotCommand) (CreateSnapshotResult, error) {
 			require.Equal(t, session.ID("forked"), command.Header.ID)
 			require.Equal(t, createdAt, command.Header.CreatedAt)
-			require.Equal(t, []string{"root", "extension", "summary"}, lo.Map(command.Tree.Entries(), func(entry session.Entry, _ int) string {
-				return entry.ID
-			}))
+			require.Equal(
+				t,
+				[]string{"root", "extension", "summary"},
+				lo.Map(command.Tree.Entries(), func(entry session.Entry, _ int) string {
+					return entry.ID
+				}),
+			)
 			require.Equal(t, mo.Some("summary"), command.Tree.ActiveLeafID())
 			require.Equal(t, map[string]string{"summary": "kept"}, command.Tree.Labels())
 			require.Equal(t, mo.Some(session.Information{Name: "source name"}), command.Information)
@@ -59,9 +63,13 @@ func TestForkActivePersistsOnlyTheSelectedUserParentPath(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "exact target text", nextInput)
 	require.Equal(t, session.ID("forked"), replacement.Info.ID)
-	require.Equal(t, []string{"root", "extension", "summary"}, lo.Map(replacement.Entries, func(entry session.Entry, _ int) string {
-		return entry.ID
-	}))
+	require.Equal(
+		t,
+		[]string{"root", "extension", "summary"},
+		lo.Map(replacement.Entries, func(entry session.Entry, _ int) string {
+			return entry.ID
+		}),
+	)
 	require.Equal(t, source.Tree.Entries(), tree.Entries())
 	require.Equal(t, source.Tree.Labels(), tree.Labels())
 	require.Equal(t, "/sessions/forked.jsonl", service.active.StoragePath)
@@ -79,7 +87,12 @@ func TestForkActiveRootUserCreatesEmptyReplacement(t *testing.T) {
 	pricing := NewMockPricingCatalog(controller)
 	ids.EXPECT().NewID().Return("forked", nil)
 	clock.EXPECT().Now().Return(time.Unix(100, 0).UTC())
-	tree := replacementTree(t, []session.Entry{replacementUserEntry("root", mo.None[string](), "root text")}, "root", nil)
+	tree := replacementTree(
+		t,
+		[]session.Entry{replacementUserEntry("root", mo.None[string](), "root text")},
+		"root",
+		nil,
+	)
 	service := New(repository, ids, clock, pricing, "/project")
 	service.active = replacementLoadedSession(tree)
 	repository.EXPECT().CreateSnapshot(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -117,7 +130,13 @@ func TestForkActiveRejectsInvalidTargetsWithoutReplacement(t *testing.T) {
 			// Arrange strict dependencies with no creation or persistence calls expected.
 			controller := gomock.NewController(t)
 			repository := NewMockRepository(controller)
-			service := New(repository, NewMockIDGenerator(controller), NewMockClock(controller), NewMockPricingCatalog(controller), "/project")
+			service := New(
+				repository,
+				NewMockIDGenerator(controller),
+				NewMockClock(controller),
+				NewMockPricingCatalog(controller),
+				"/project",
+			)
 			service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
 			before := service.active.Clone()
 
@@ -164,9 +183,13 @@ func TestCloneActivePersistsTheCompleteActiveBranch(t *testing.T) {
 			service.active = replacementLoadedSession(test.tree(t))
 			repository.EXPECT().CreateSnapshot(gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ any, command CreateSnapshotCommand) (CreateSnapshotResult, error) {
-					require.Equal(t, test.expectedIDs, lo.Map(command.Tree.Entries(), func(entry session.Entry, _ int) string {
-						return entry.ID
-					}))
+					require.Equal(
+						t,
+						test.expectedIDs,
+						lo.Map(command.Tree.Entries(), func(entry session.Entry, _ int) string {
+							return entry.ID
+						}),
+					)
 					require.Equal(t, test.expectedLeaf, command.Tree.ActiveLeafID())
 					return CreateSnapshotResult{StoragePath: "/sessions/clone.jsonl"}, nil
 				},
@@ -196,7 +219,9 @@ func TestReplacementCreationFailurePreservesSource(t *testing.T) {
 	clock := NewMockClock(controller)
 	ids.EXPECT().NewID().Return("clone", nil)
 	clock.EXPECT().Now().Return(time.Unix(100, 0).UTC())
-	repository.EXPECT().CreateSnapshot(gomock.Any(), gomock.Any()).Return(CreateSnapshotResult{}, errors.New("sync failed"))
+	repository.EXPECT().
+		CreateSnapshot(gomock.Any(), gomock.Any()).
+		Return(CreateSnapshotResult{}, errors.New("sync failed"))
 	service := New(repository, ids, clock, NewMockPricingCatalog(controller), "/project")
 	service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
 	service.history = sessiontree.HistoryFromEntries(service.active.Tree.ActiveBranch())
@@ -221,12 +246,20 @@ func TestSetLabelPublishesOnlyAfterPersistence(t *testing.T) {
 	// Arrange one labeled tree and ordered successful and failed repository mutations.
 	controller := gomock.NewController(t)
 	repository := NewMockRepository(controller)
-	service := New(repository, NewMockIDGenerator(controller), NewMockClock(controller), NewMockPricingCatalog(controller), "/project")
+	service := New(
+		repository,
+		NewMockIDGenerator(controller),
+		NewMockClock(controller),
+		NewMockPricingCatalog(controller),
+		"/project",
+	)
 	service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
-	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, command ApplyCommand) (ApplyResult, error) {
-		require.Equal(t, LabelMutation{TargetID: "target", Label: "branch"}, command.Mutation.Label.MustGet())
-		return ApplyResult{StoragePath: "/sessions/source.jsonl"}, nil
-	})
+	repository.EXPECT().
+		Apply(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ any, command ApplyCommand) (ApplyResult, error) {
+			require.Equal(t, LabelMutation{TargetID: "target", Label: "branch"}, command.Mutation.Label.MustGet())
+			return ApplyResult{StoragePath: "/sessions/source.jsonl"}, nil
+		})
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("sync failed"))
 
 	// Act by setting a label, attempting a failed clear, and targeting a missing entry.
@@ -246,9 +279,18 @@ func TestSetLabelPublishesOnlyAfterPersistence(t *testing.T) {
 func replacementLoadedSession(tree session.Tree) LoadedSession {
 	createdAt := time.Unix(1, 0).UTC()
 	return LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "source", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/source.jsonl", Tree: tree,
-		Information: mo.Some(session.Information{Name: "source name"}), InformationUpdatedAt: mo.Some(createdAt.Add(time.Minute)),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "source",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath: "/sessions/source.jsonl",
+		Tree:        tree,
+		Information: mo.Some(
+			session.Information{Name: "source name"},
+		),
+		InformationUpdatedAt: mo.Some(createdAt.Add(time.Minute)),
 	}
 }
 
@@ -258,16 +300,29 @@ func replacementEntries() []session.Entry {
 	return []session.Entry{
 		replacementUserEntry("root", mo.None[string](), "root"),
 		{
-			ID: "extension", ParentID: mo.Some("root"), CreatedAt: createdAt.Add(time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "opaque", Data: []byte("opaque")}),
+			ID:            "extension",
+			ParentID:      mo.Some("root"),
+			CreatedAt:     createdAt.Add(time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension: mo.Some(
+				session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "opaque", Data: []byte("opaque")},
+			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{
-			ID: "summary", ParentID: mo.Some("extension"), CreatedAt: createdAt.Add(2 * time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ID:            "summary",
+			ParentID:      mo.Some("extension"),
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
 			BranchSummary: mo.Some(session.BranchSummaryEntry{
 				Summary: "summary", FirstEntryID: "outside-first", LastEntryID: "outside-last",
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
@@ -281,9 +336,18 @@ func replacementEntries() []session.Entry {
 // replacementUserEntry creates one fully initialized user tree entry.
 func replacementUserEntry(id string, parent mo.Option[string], text string) session.Entry {
 	return session.Entry{
-		ID: id, ParentID: parent, CreatedAt: time.Unix(1, 0).UTC(), Information: mo.None[session.Information](),
-		User: mo.Some(model.TextMessage(text)), Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ID:          id,
+		ParentID:    parent,
+		CreatedAt:   time.Unix(1, 0).UTC(),
+		Information: mo.None[session.Information](),
+		User: mo.Some(
+			model.TextMessage(text),
+		),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 

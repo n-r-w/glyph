@@ -306,7 +306,8 @@ func (model Model) updateControlKey(code rune) (tea.Model, tea.Cmd) {
 	case 'q':
 		return model.emitCommand(emptyCommand(presentationdomain.CommandQuit))
 	case 'c':
-		if availability, ok := model.state.Availability.Get(); ok && availability == presentationdomain.AvailabilityRunning {
+		if availability, ok := model.state.Availability.Get(); ok &&
+			availability == presentationdomain.AvailabilityRunning {
 			return model.emitCommand(emptyCommand(presentationdomain.CommandStop))
 		}
 	case 'r':

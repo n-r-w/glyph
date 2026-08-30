@@ -29,7 +29,12 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 			Authentication:               nil,
 		},
 		{
-			Descriptor:                   descriptor("a-provider", "a-first", model.ReasoningChoiceLow, model.ReasoningChoiceHigh),
+			Descriptor: descriptor(
+				"a-provider",
+				"a-first",
+				model.ReasoningChoiceLow,
+				model.ReasoningChoiceHigh,
+			),
 			Provider:                     providerA,
 			SelectionCredentialValidator: nil,
 			Authentication:               nil,
@@ -69,7 +74,11 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	assert.Equal(t, model.ID("a-first"), fresh[0].Model)
 	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, fresh[0].Input)
 	assert.Equal(t, model.InputModalityText, catalog.Current().Model.Input[0])
-	assert.Equal(t, []model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh}, fresh[0].ReasoningCapabilities.Choices)
+	assert.Equal(
+		t,
+		[]model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
+		fresh[0].ReasoningCapabilities.Choices,
+	)
 	assert.Equal(t, model.ReasoningChoiceLow, catalog.Current().Model.ReasoningCapabilities.Choices[0])
 }
 
@@ -90,10 +99,14 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 			expected:  model.ReasoningChoiceHigh,
 		},
 		{
-			name:      "greatest lower",
-			active:    model.ReasoningChoiceHigh,
-			supported: []model.ReasoningChoice{model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceMedium},
-			expected:  model.ReasoningChoiceMedium,
+			name:   "greatest lower",
+			active: model.ReasoningChoiceHigh,
+			supported: []model.ReasoningChoice{
+				model.ReasoningChoiceOff,
+				model.ReasoningChoiceMinimal,
+				model.ReasoningChoiceMedium,
+			},
+			expected: model.ReasoningChoiceMedium,
 		},
 		{
 			name:      "lowest when no lower",
@@ -314,13 +327,23 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 	})
 	catalog, err := New([]Entry{
 		{
-			Descriptor:                   descriptor("provider", "active", model.ReasoningChoiceLow, model.ReasoningChoiceHigh),
+			Descriptor: descriptor(
+				"provider",
+				"active",
+				model.ReasoningChoiceLow,
+				model.ReasoningChoiceHigh,
+			),
 			Provider:                     provider,
 			SelectionCredentialValidator: nil,
 			Authentication:               nil,
 		},
 		{
-			Descriptor:                   descriptor("provider", "target", model.ReasoningChoiceOff, model.ReasoningChoiceLow),
+			Descriptor: descriptor(
+				"provider",
+				"target",
+				model.ReasoningChoiceOff,
+				model.ReasoningChoiceLow,
+			),
 			Provider:                     provider,
 			SelectionCredentialValidator: validator,
 			Authentication:               nil,

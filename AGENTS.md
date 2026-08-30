@@ -46,9 +46,10 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 
 ## Coding rules
 1. MUST run before completing changes in code:
-    1) `go fix -diff ./...` -> analyze proposal -> `go fix ./...`
-    2) `task lint`
-    3) `task test`, `task itest`
+    1) `task fmt`
+    2) `task fix_dry_run` -> analyze proposal -> `task fix`
+    3) `task lint`
+    4) `task test`, `task itest`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only active field.

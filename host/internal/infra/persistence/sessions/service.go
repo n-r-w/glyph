@@ -116,8 +116,10 @@ func (s *Service) CreateSnapshot(
 	entries := command.Tree.Entries()
 	for index := range entries {
 		line, encodeErr := encodeMutation(hostsessions.Mutation{
-			Entry: mo.Some(entries[index]), Navigation: mo.None[hostsessions.NavigationMutation](),
-			Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
+			Entry:              mo.Some(entries[index]),
+			Navigation:         mo.None[hostsessions.NavigationMutation](),
+			Label:              mo.None[hostsessions.LabelMutation](),
+			SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
 		})
 		if encodeErr != nil {
 			return hostsessions.CreateSnapshotResult{}, encodeErr
@@ -147,10 +149,12 @@ func (s *Service) CreateSnapshot(
 	}
 	payload = append(payload, informationLine...)
 	line, err := encodeMutation(hostsessions.Mutation{
-		Entry: mo.None[session.Entry](), Navigation: mo.Some(hostsessions.NavigationMutation{
+		Entry: mo.None[session.Entry](),
+		Navigation: mo.Some(hostsessions.NavigationMutation{
 			DestinationID: command.Tree.ActiveLeafID(), BranchSummary: mo.None[session.Entry](),
 		}),
-		Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
+		Label:              mo.None[hostsessions.LabelMutation](),
+		SessionInformation: mo.None[hostsessions.SessionInformationMutation](),
 	})
 	if err != nil {
 		return hostsessions.CreateSnapshotResult{}, err
@@ -181,8 +185,10 @@ func encodeSnapshotInformation(
 		return nil, nil
 	}
 	return encodeMutation(hostsessions.Mutation{
-		Entry: mo.None[session.Entry](), Navigation: mo.None[hostsessions.NavigationMutation](),
-		Label: mo.None[hostsessions.LabelMutation](), SessionInformation: mo.Some(hostsessions.SessionInformationMutation{
+		Entry:      mo.None[session.Entry](),
+		Navigation: mo.None[hostsessions.NavigationMutation](),
+		Label:      mo.None[hostsessions.LabelMutation](),
+		SessionInformation: mo.Some(hostsessions.SessionInformationMutation{
 			Name: value.Name, CreatedAt: timestamp,
 		}),
 	})

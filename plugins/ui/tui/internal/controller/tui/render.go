@@ -338,7 +338,12 @@ func selectionText(selectionOption mo.Option[presentationdomain.ModelSelection])
 	if !ok || selection.ProviderID == "" || selection.ModelID == "" {
 		return "model unavailable"
 	}
-	return fmt.Sprintf("%s / %s / %s", selection.ProviderID, selection.ModelID, reasoningText(selection.ReasoningChoice))
+	return fmt.Sprintf(
+		"%s / %s / %s",
+		selection.ProviderID,
+		selection.ModelID,
+		reasoningText(selection.ReasoningChoice),
+	)
 }
 
 // reasoningText maps the closed reasoning set to its configured spelling.

@@ -146,7 +146,10 @@ func newLoopbackServer(listener net.Listener, state string) *loopbackServer {
 		deliverCallback(results, authCallback{Code: code})
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		writer.Header().Set("Connection", "close")
-		_, _ = io.WriteString(writer, "<!doctype html><html><body><p>Authentication completed. Return to Glyph.</p></body></html>")
+		_, _ = io.WriteString(
+			writer,
+			"<!doctype html><html><body><p>Authentication completed. Return to Glyph.</p></body></html>",
+		)
 	})
 
 	go func() {

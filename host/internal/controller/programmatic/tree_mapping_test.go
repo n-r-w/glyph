@@ -71,11 +71,19 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 	// Assert committed status, tree presence, and exact next input reach the contract.
 	require.NoError(t, err)
 	result := wire.GetCommandResponse().GetSessionTreeNavigation()
-	require.Equal(t, programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED, result.GetStatus())
+	require.Equal(
+		t,
+		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED,
+		result.GetStatus(),
+	)
 	require.True(t, result.HasTree())
 	require.True(t, result.HasNextInput())
 	require.Equal(t, "exact input", result.GetNextInput())
-	require.Equal(t, programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR, result.GetIssues()[0].GetCode())
+	require.Equal(
+		t,
+		programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR,
+		result.GetIssues()[0].GetCode(),
+	)
 	require.Equal(t, "extension", result.GetIssues()[0].GetExtensionId())
 	require.Equal(t, "handler", result.GetIssues()[0].GetHandlerId())
 	require.Equal(t, "safe message", result.GetIssues()[0].GetMessage())
@@ -97,7 +105,11 @@ func TestMapCanceledNavigationOmitsSpeculativeState(t *testing.T) {
 	// Assert no tree, transcript, or next input is emitted.
 	require.NoError(t, err)
 	result := wire.GetCommandResponse().GetSessionTreeNavigation()
-	require.Equal(t, programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED, result.GetStatus())
+	require.Equal(
+		t,
+		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED,
+		result.GetStatus(),
+	)
 	require.False(t, result.HasTree())
 	require.Empty(t, result.GetActiveBranch())
 	require.False(t, result.HasNextInput())
@@ -146,18 +158,48 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	require.True(t, mappedNavigation.HasNextInput())
 	require.Empty(t, mappedNavigation.GetNextInput())
 	require.False(t, absentTree.HasActiveLeafId())
-	require.True(t, mappedNavigation.ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("next_input")).HasOptionalKeyword())
-	require.True(t, mappedTree.ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("active_leaf_id")).HasOptionalKeyword())
-	require.True(t, mappedTree.GetEntries()[0].ProtoReflect().Descriptor().Fields().ByName(protoreflect.Name("parent_id")).HasOptionalKeyword())
+	require.True(
+		t,
+		mappedNavigation.ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("next_input")).
+			HasOptionalKeyword(),
+	)
+	require.True(
+		t,
+		mappedTree.ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("active_leaf_id")).
+			HasOptionalKeyword(),
+	)
+	require.True(
+		t,
+		mappedTree.GetEntries()[0].ProtoReflect().
+			Descriptor().
+			Fields().
+			ByName(protoreflect.Name("parent_id")).
+			HasOptionalKeyword(),
+	)
 }
 
 // treeControllerResponse creates one fully initialized tree response.
 func treeControllerResponse(correlationID string, kind ResponseKind) Response {
 	return Response{
-		CorrelationID: correlationID, Kind: kind, State: mo.None[RunStateResult](), Messages: nil,
-		Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](),
-		SessionInfo: mo.None[session.Info](), Sessions: nil, SessionEntries: nil,
-		SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
-		TreeNavigation: mo.None[TreeNavigationResult](), Rejection: mo.None[Rejection](), Replacement: mo.None[SessionReplacement](),
+		CorrelationID:     correlationID,
+		Kind:              kind,
+		State:             mo.None[RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionEntries:    nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[SessionTree](),
+		TreeNavigation:    mo.None[TreeNavigationResult](),
+		Rejection:         mo.None[Rejection](),
+		Replacement:       mo.None[SessionReplacement](),
 	}
 }

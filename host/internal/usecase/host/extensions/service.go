@@ -230,9 +230,10 @@ func (s *Service) handle(
 
 	s.mutex.Lock()
 	state, exists := s.runtimes[handler.ExtensionID]
-	registered := exists && state.available && slices.ContainsFunc(state.handlers, func(candidate HandlerDescriptor) bool {
-		return candidate.ID == handler.ID && candidate.Kind == handler.Kind
-	})
+	registered := exists && state.available &&
+		slices.ContainsFunc(state.handlers, func(candidate HandlerDescriptor) bool {
+			return candidate.ID == handler.ID && candidate.Kind == handler.Kind
+		})
 	if registered {
 		state.activeExecutions++
 	}
@@ -249,7 +250,11 @@ func (s *Service) handle(
 	responseKind, validResponse := response.Kind()
 	if err == nil && (!validResponse || responseKind != handler.Kind) {
 		response = HandlerResponse{}
-		err = fmt.Errorf("%w: extension handler %q returned an action for another kind", ErrExtensionUnavailable, handler.ID)
+		err = fmt.Errorf(
+			"%w: extension handler %q returned an action for another kind",
+			ErrExtensionUnavailable,
+			handler.ID,
+		)
 	}
 	closeRuntime, failure, reportFailure := s.finishExecution(toolOwner{
 		pluginID: handler.ExtensionID,

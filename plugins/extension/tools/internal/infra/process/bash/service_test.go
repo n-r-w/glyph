@@ -26,11 +26,15 @@ func TestServiceRun(t *testing.T) {
 
 	events := make([]bashusecase.Stream, 0, 2)
 	fragments := make([]string, 0, 2)
-	result, err := New().Run(t.Context(), "printf out; printf err >&2; exit 7", func(stream bashusecase.Stream, content string) error {
-		events = append(events, stream)
-		fragments = append(fragments, content)
-		return nil
-	})
+	result, err := New().Run(
+		t.Context(),
+		"printf out; printf err >&2; exit 7",
+		func(stream bashusecase.Stream, content string) error {
+			events = append(events, stream)
+			fragments = append(fragments, content)
+			return nil
+		},
+	)
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []bashusecase.Stream{bashusecase.StreamStdout, bashusecase.StreamStderr}, events)
@@ -43,10 +47,14 @@ func TestServiceRunKeepsRawInvalidUTF8(t *testing.T) {
 	t.Parallel()
 
 	validProgress := true
-	result, err := New().Run(t.Context(), `printf '\377'; printf '%060000d' 0`, func(_ bashusecase.Stream, content string) error {
-		validProgress = validProgress && utf8.ValidString(content)
-		return nil
-	})
+	result, err := New().Run(
+		t.Context(),
+		`printf '\377'; printf '%060000d' 0`,
+		func(_ bashusecase.Stream, content string) error {
+			validProgress = validProgress && utf8.ValidString(content)
+			return nil
+		},
+	)
 
 	require.NoError(t, err)
 	assert.True(t, validProgress)

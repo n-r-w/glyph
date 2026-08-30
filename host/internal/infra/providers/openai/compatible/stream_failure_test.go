@@ -51,8 +51,15 @@ func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIChatCompletions,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIChatCompletions,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "", nil, 1),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	handlerErr := errors.New("sink stopped")
@@ -177,9 +184,18 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""},
-		APIKey: expectAPIKey(t, "", errors.New("credential store checksum mismatch"), 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIResponses,
+		Models:     map[model.ID]API{"demo": ""},
+		APIKey: expectAPIKey(
+			t,
+			"",
+			errors.New("credential store checksum mismatch"),
+			1,
+		),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	var events []run.StreamEvent
@@ -196,7 +212,11 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 	require.Len(t, events, 1)
 	terminal := events[0]
 	assert.Equal(t, run.StreamEventError, terminal.Kind)
-	assert.Contains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), "resolve OpenAI-compatible API key: credential store checksum mismatch")
+	assert.Contains(
+		t,
+		terminal.Response.OrEmpty().ErrorMessage.OrEmpty(),
+		"resolve OpenAI-compatible API key: credential store checksum mismatch",
+	)
 }
 
 // TestResponsesFailedEventPreservesProviderMessage verifies a failed event keeps provider diagnostics.
@@ -206,12 +226,23 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 	// Arrange a terminal provider failure with a unique message.
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer, `{"type":"response.failed","response":{"id":"resp-failed","status":"failed","error":{"code":"server_error","message":"provider capacity shard unavailable"},"output":[]}}`)
+		writeSSE(
+			t,
+			writer,
+			`{"type":"response.failed","response":{"id":"resp-failed","status":"failed","error":{"code":"server_error","message":"provider capacity shard unavailable"},"output":[]}}`,
+		)
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIResponses,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "", nil, 1),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	var events []run.StreamEvent
@@ -344,7 +375,11 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 	assert.Zero(t, calls.Load())
 	require.Len(t, events, 1)
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
-	assert.Contains(t, events[0].Response.OrEmpty().ErrorMessage.OrEmpty(), "decode OpenAI-compatible provider context: jsontext: invalid character")
+	assert.Contains(
+		t,
+		events[0].Response.OrEmpty().ErrorMessage.OrEmpty(),
+		"decode OpenAI-compatible provider context: jsontext: invalid character",
+	)
 }
 
 // TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
@@ -423,13 +458,24 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 	t := s.T()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
-		_, err := writer.Write([]byte("data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"content_index\":0,\"delta\":\"partial\"}\n\n"))
+		_, err := writer.Write(
+			[]byte(
+				"data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"content_index\":0,\"delta\":\"partial\"}\n\n",
+			),
+		)
 		assert.NoError(t, err)
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIResponses,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "", nil, 1),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
@@ -451,8 +497,15 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 2), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIResponses,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "", nil, 2),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 

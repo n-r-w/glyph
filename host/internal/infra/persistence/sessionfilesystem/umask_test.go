@@ -30,7 +30,11 @@ func TestInitialSessionFileHasExactModeUnderRestrictiveUmask(t *testing.T) {
 		runRestrictiveUmaskApply(t)
 		return
 	}
-	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestInitialSessionFileHasExactModeUnderRestrictiveUmask$")
+	command := exec.CommandContext(
+		t.Context(),
+		os.Args[0],
+		"-test.run=^TestInitialSessionFileHasExactModeUnderRestrictiveUmask$",
+	)
 	command.Env = append(os.Environ(), restrictiveUmaskHelperEnvironment+"=1")
 	// Act by running the append in the isolated subprocess.
 	output, err := command.CombinedOutput()

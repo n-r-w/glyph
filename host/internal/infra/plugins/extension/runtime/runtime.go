@@ -85,7 +85,10 @@ func (r *Runtime) Execute(
 
 	schema, ok := r.toolSchema(toolName)
 	if !ok {
-		return tool.Result{Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", toolName)), IsError: true}, nil
+		return tool.Result{
+			Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", toolName)),
+			IsError:  true,
+		}, nil
 	}
 	if validationErr := validateArguments(schema, argumentsJSON); validationErr != nil {
 		return tool.Result{

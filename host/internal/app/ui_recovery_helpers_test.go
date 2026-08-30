@@ -60,7 +60,8 @@ func runSessionRestartUI(
 		return err
 	}
 	startup := observeSessionInfo(initialization.GetSessionInfo())
-	if startup.ID == "" || startup.ID == observation.NamedSession.ID || startup.NamePresent || startup.StoragePathPresent {
+	if startup.ID == "" || startup.ID == observation.NamedSession.ID || startup.NamePresent ||
+		startup.StoragePathPresent {
 		return errors.New("second Host did not initialize a new unpersisted session")
 	}
 	observation.NewStartup = startup
@@ -75,7 +76,10 @@ func runSessionRestartUI(
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
 		return err
 	}
-	listedFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil })
+	listedFrame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil },
+	)
 	if err != nil {
 		return err
 	}
@@ -104,7 +108,10 @@ func runSessionRestartUI(
 	}.Build()}.Build()); err != nil {
 		return err
 	}
-	changedFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	changedFrame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil },
+	)
 	if err != nil {
 		return err
 	}
@@ -148,7 +155,10 @@ func runSessionRestartUI(
 	if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
 		return err
 	}
-	infoFrame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	infoFrame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil },
+	)
 	if err != nil {
 		return err
 	}
@@ -206,7 +216,9 @@ func runSessionRecoveryUI(
 			return errors.New("invalid resume did not return detailed unavailable information")
 		}
 		//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
-		if err = stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+		if err = stream.Send(
+			uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build(),
+		); err != nil {
 			return err
 		}
 		information, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
@@ -224,7 +236,10 @@ func runSessionRecoveryUI(
 	if err := stream.Send(uipb.OpenResponse_builder{ListSessions: &uipb.ListSessionsCommand{}}.Build()); err != nil {
 		return err
 	}
-	listed, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil })
+	listed, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionList() != nil },
+	)
 	if err != nil {
 		return err
 	}
@@ -283,7 +298,9 @@ func completeRuntimeRecoveryFailure(
 		return fmt.Errorf("runtime recovery failure text: %s", failureText)
 	}
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
-	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build(),
+	); err != nil {
 		return err
 	}
 	active, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {

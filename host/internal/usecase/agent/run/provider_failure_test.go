@@ -35,15 +35,38 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 				StreamEventContentStart, 0, model.ContentText, "", mo.None[string](),
 			)))
 			require.NoError(t, handle(StreamEvent{
-				Kind: StreamEventTextDelta, Position: mo.Some(0),
-				Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some("partial"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}),
-				Delta:   mo.Some("partial"), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+				Kind:     StreamEventTextDelta,
+				Position: mo.Some(0),
+				Content: mo.Some(
+					model.Content{
+						Kind:            model.ContentText,
+						Text:            mo.Some("partial"),
+						Final:           false,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
+				),
+				Delta: mo.Some(
+					"partial",
+				),
+				Preview:  mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](),
+				Response: mo.None[model.Response](),
 			}))
 			return errors.New("provider transport failed")
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-failed-partial", UserText: "hi"})
 
@@ -78,7 +101,16 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 			return nil
 		},
 	).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-malformed-partial", UserText: "hi"})
 
@@ -103,15 +135,35 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	response := model.Response{
 		Content: []model.Content{
 			testTextItem("partial"),
-			{Kind: model.ContentToolCall, ToolCall: mo.Some(model.ToolCall{ID: "unsafe", Name: "read", Arguments: map[string]any{}}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext]()},
+			{
+				Kind:            model.ContentToolCall,
+				ToolCall:        mo.Some(model.ToolCall{ID: "unsafe", Name: "read", Arguments: map[string]any{}}),
+				Text:            mo.None[string](),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+			},
 		},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.Some(safeMessage),
-		Provider: mo.Some(model.ProviderID("openai-codex")), Model: mo.Some(model.ID("gpt-test")),
-		ResponseModel: mo.Some(actualModel), ResponseID: mo.Some("resp-failed"),
-		Usage:       mo.Some(model.Usage{InputTokens: 3, OutputTokens: 2, TotalTokens: 5, CachedInputTokens: 0, CacheWriteTokens: 0, ReasoningTokens: 0}),
+		Outcome:       mo.Some(model.OutcomeStop),
+		ErrorMessage:  mo.Some(safeMessage),
+		Provider:      mo.Some(model.ProviderID("openai-codex")),
+		Model:         mo.Some(model.ID("gpt-test")),
+		ResponseModel: mo.Some(actualModel),
+		ResponseID:    mo.Some("resp-failed"),
+		Usage: mo.Some(
+			model.Usage{
+				InputTokens:       3,
+				OutputTokens:      2,
+				TotalTokens:       5,
+				CachedInputTokens: 0,
+				CacheWriteTokens:  0,
+				ReasoningTokens:   0,
+			},
+		),
 		Diagnostics: []model.Diagnostic{{Code: "provider_error", Message: safeMessage}},
 	}
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, errors.New("provider transport failed")))
+	provider.EXPECT().
+		Stream(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(streamResult(response, errors.New("provider transport failed")))
 	delivered := make([]Event, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, event Event) error {
@@ -119,7 +171,16 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 			return nil
 		},
 	).AnyTimes()
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-safe-error", UserText: "go"})
 
@@ -137,7 +198,11 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	preservedHistory := service.History()
 	assert.Equal(t, model.ID("gpt-actual"), preservedHistory[1].Model.OrEmpty().ResponseModel.OrEmpty())
 	assert.Equal(t, int64(5), history[1].Model.OrEmpty().Usage.OrEmpty().TotalTokens)
-	assert.Equal(t, []model.Diagnostic{{Code: "provider_error", Message: safeMessage}}, history[1].Model.OrEmpty().Diagnostics)
+	assert.Equal(
+		t,
+		[]model.Diagnostic{{Code: "provider_error", Message: safeMessage}},
+		history[1].Model.OrEmpty().Diagnostics,
+	)
 	assert.Len(t, history[1].Model.OrEmpty().Content, 2)
 	assert.Len(t, service.ProjectHistory(), 1)
 	var messageEnd Event
@@ -288,7 +353,16 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		tools.EXPECT().Tools().Return(nil)
 		partial := model.Response{
 			Content: []model.Content{testTextItem("partial")},
-			Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			Outcome: mo.Some(
+				model.OutcomeStop,
+			),
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
 		}
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, _ ModelRequest, update StreamHandler) error {
@@ -299,7 +373,16 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+		service := newTestService(
+			t,
+			testInstructions,
+			testModelDescriptor,
+			model.ReasoningChoiceHigh,
+			provider,
+			hookrunner.New(nil, nil, nil),
+			tools,
+			events,
+		)
 		outcome := make(chan error, 1)
 		go func() {
 			_, err := service.Run(t.Context(), Request{RunID: "run-failed", UserText: "hi"})

@@ -72,7 +72,15 @@ func TestGrepReaderPreservesSourceError(t *testing.T) {
 	t.Parallel()
 	wantErr := errors.New("source failure")
 
-	_, _, _, err := grepReader(t.Context(), "file.txt", &failingReader{read: false, err: wantErr}, regexp.MustCompile("missing"), 0, 100, newSearchOutput())
+	_, _, _, err := grepReader(
+		t.Context(),
+		"file.txt",
+		&failingReader{read: false, err: wantErr},
+		regexp.MustCompile("missing"),
+		0,
+		100,
+		newSearchOutput(),
+	)
 
 	require.ErrorIs(t, err, wantErr)
 }

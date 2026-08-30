@@ -38,7 +38,11 @@ func TestReplayVersion2Tree(t *testing.T) {
 {"type":"session_info","sessionInfo":{"name":"branched session","createdAt":"%s"}}
 {"type":"navigation","navigation":{"destinationId":"root","branchSummary":{"type":"branch_summary","id":"summary","parentId":"root","createdAt":"%s","summary":"completed work","firstEntryId":"old","lastEntryId":"old","provider":"provider","model":"model","reasoningChoice":"low","usage":{"inputTokens":1,"outputTokens":2,"cacheReadTokens":3,"cacheWriteTokens":4,"reasoningTokens":1,"totalTokens":10},"estimatedCost":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"total":10}}}}
 `, createdAt.Format(time.RFC3339Nano), project, createdAt.Format(time.RFC3339Nano), createdAt.Add(time.Second).Format(time.RFC3339Nano), createdAt.Add(2*time.Second).Format(time.RFC3339Nano), createdAt.Add(3*time.Second).Format(time.RFC3339Nano), createdAt.Add(4*time.Second).Format(time.RFC3339Nano))
-	path := sessionPath(root, project, session.Header{Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: project})
+	path := sessionPath(
+		root,
+		project,
+		session.Header{Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
+	)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
 	// Act by replaying the complete JSONL file.
@@ -48,14 +52,35 @@ func TestReplayVersion2Tree(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mo.Some("summary"), loaded.Tree.ActiveLeafID())
 	require.Equal(t, map[string]string{"old": "kept branch"}, loaded.Tree.Labels())
-	require.Equal(t, []string{"root", "old", "new", "summary"}, lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
-		return entry.ID
-	}))
+	require.Equal(
+		t,
+		[]string{"root", "old", "new", "summary"},
+		lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
+			return entry.ID
+		}),
+	)
 	require.Equal(t, mo.Some(session.Information{Name: "branched session"}), loaded.Information)
 	summary := loaded.Tree.Entries()[3].BranchSummary.MustGet()
 	require.Equal(t, model.ReasoningChoiceLow, summary.ReasoningChoice)
-	require.Equal(t, mo.Some(session.TokenUsage{InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheWriteTokens: 4, ReasoningTokens: 1, TotalTokens: 10}), summary.Usage)
-	require.Equal(t, mo.Some(session.EstimatedCost{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10}), summary.EstimatedCost)
+	require.Equal(
+		t,
+		mo.Some(
+			session.TokenUsage{
+				InputTokens:      1,
+				OutputTokens:     2,
+				CacheReadTokens:  3,
+				CacheWriteTokens: 4,
+				ReasoningTokens:  1,
+				TotalTokens:      10,
+			},
+		),
+		summary.Usage,
+	)
+	require.Equal(
+		t,
+		mo.Some(session.EstimatedCost{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10}),
+		summary.EstimatedCost,
+	)
 }
 
 // TestReplayRejectsInvalidVersion2Tree verifies corruption never returns a partial aggregate.

@@ -20,7 +20,11 @@ func (s *serviceSuite) TestAPIKeyResolvesBeforeEveryRequest() {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authorizations = append(authorizations, request.Header.Get("Authorization"))
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer, `{"id":"chat-key","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
+		writeSSE(
+			t,
+			writer,
+			`{"id":"chat-key","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`,
+		)
 	}))
 	t.Cleanup(server.Close)
 	resolver := NewMockAPIKeyResolver(gomock.NewController(t))

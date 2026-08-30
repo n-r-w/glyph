@@ -25,7 +25,9 @@ func (s *ServiceSuite) TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnav
 	s.clock.EXPECT().Now().Return(createdAt)
 	gomock.InOrder(
 		s.clock.EXPECT().Now().Return(createdAt.Add(time.Minute)),
-		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil),
+		s.repository.EXPECT().
+			Apply(gomock.Any(), gomock.Any()).
+			Return(ApplyResult{StoragePath: "/sessions/file.jsonl"}, nil),
 		s.clock.EXPECT().Now().Return(createdAt.Add(2*time.Minute)),
 		s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("write failed")),
 	)
@@ -89,14 +91,24 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 
 	resumedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{
-		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: resumedAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          1,
+			ID:               "stored",
+			CreatedAt:        resumedAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/stored.jsonl",
+		Tree:                 session.Tree{},
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	_, err = service.ResumeActive(s.T().Context(), "stored")
 	s.Require().NoError(err)
 	s.ids.EXPECT().NewID().Return("resumed-entry", nil)
 	s.clock.EXPECT().Now().Return(resumedAt.Add(time.Second))
-	s.repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{StoragePath: "/sessions/stored.jsonl"}, nil)
+	s.repository.EXPECT().
+		Apply(gomock.Any(), gomock.Any()).
+		Return(ApplyResult{StoragePath: "/sessions/stored.jsonl"}, nil)
 	err = service.Append(s.T().Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("resumed write")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),

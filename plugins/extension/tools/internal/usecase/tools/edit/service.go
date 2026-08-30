@@ -55,7 +55,10 @@ func (s *Service) Edit(ctx context.Context, path string, replacements []extensio
 				return nil, fmt.Errorf("source fragment must occur exactly once in %q", path)
 			}
 			start := strings.Index(content, replacement.OldText)
-			matches = append(matches, match{start: start, end: start + len(replacement.OldText), text: replacement.NewText})
+			matches = append(
+				matches,
+				match{start: start, end: start + len(replacement.OldText), text: replacement.NewText},
+			)
 		}
 		slices.SortFunc(matches, func(left, right match) int {
 			return cmp.Compare(right.start, left.start)

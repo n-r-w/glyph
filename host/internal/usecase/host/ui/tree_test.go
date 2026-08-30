@@ -139,15 +139,69 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 		expected      domainui.TreeFailureCode
 		summaryMode   domainui.SummaryMode
 	}{
-		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: domainui.TreeFailureInvalidArgument, summaryMode: domainui.SummaryModeNoSummary},
-		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: domainui.TreeFailureNotFound, summaryMode: domainui.SummaryModeNoSummary},
-		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: domainui.TreeFailureBusy, summaryMode: domainui.SummaryModeNoSummary},
-		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: domainui.TreeFailureModelUnavailable, summaryMode: domainui.SummaryModeSummarize},
-		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: domainui.TreeFailureCredentialUnavailable, summaryMode: domainui.SummaryModeSummarize},
-		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: domainui.TreeFailureModelFailed, summaryMode: domainui.SummaryModeSummarize},
-		{name: "extension invalid result", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionInvalidResult, expected: domainui.TreeFailureExtensionInvalidResult, summaryMode: domainui.SummaryModeSummarize},
-		{name: "extension unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionUnavailable, expected: domainui.TreeFailureExtensionUnavailable, summaryMode: domainui.SummaryModeSummarize},
-		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: domainui.TreeFailurePersistenceUnavailable, summaryMode: domainui.SummaryModeNoSummary},
+		{
+			name:          "invalid",
+			target:        mo.None[string](),
+			navigationErr: nil,
+			expected:      domainui.TreeFailureInvalidArgument,
+			summaryMode:   domainui.SummaryModeNoSummary,
+		},
+		{
+			name:          "missing",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrEntryNotFound,
+			expected:      domainui.TreeFailureNotFound,
+			summaryMode:   domainui.SummaryModeNoSummary,
+		},
+		{
+			name:          "busy",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrBusy,
+			expected:      domainui.TreeFailureBusy,
+			summaryMode:   domainui.SummaryModeNoSummary,
+		},
+		{
+			name:          "model unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrModelUnavailable,
+			expected:      domainui.TreeFailureModelUnavailable,
+			summaryMode:   domainui.SummaryModeSummarize,
+		},
+		{
+			name:          "credential unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrCredentialUnavailable,
+			expected:      domainui.TreeFailureCredentialUnavailable,
+			summaryMode:   domainui.SummaryModeSummarize,
+		},
+		{
+			name:          "model failed",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrModelFailed,
+			expected:      domainui.TreeFailureModelFailed,
+			summaryMode:   domainui.SummaryModeSummarize,
+		},
+		{
+			name:          "extension invalid result",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrExtensionInvalidResult,
+			expected:      domainui.TreeFailureExtensionInvalidResult,
+			summaryMode:   domainui.SummaryModeSummarize,
+		},
+		{
+			name:          "extension unavailable",
+			target:        mo.Some("target"),
+			navigationErr: sessionnavigation.ErrExtensionUnavailable,
+			expected:      domainui.TreeFailureExtensionUnavailable,
+			summaryMode:   domainui.SummaryModeSummarize,
+		},
+		{
+			name:          "persistence",
+			target:        mo.Some("target"),
+			navigationErr: session.ErrPersistenceUnavailable,
+			expected:      domainui.TreeFailurePersistenceUnavailable,
+			summaryMode:   domainui.SummaryModeNoSummary,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -161,7 +215,9 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
 			if _, present := test.target.Get(); present {
-				control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, test.navigationErr)
+				control.EXPECT().
+					Navigate(gomock.Any(), gomock.Any()).
+					Return(sessionnavigation.Result{}, test.navigationErr)
 			}
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				require.Equal(t, domainui.FrameSessionTreeFailed, frame.Kind)

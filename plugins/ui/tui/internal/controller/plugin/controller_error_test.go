@@ -60,7 +60,8 @@ func TestOpenRejectsMalformedLifecycleAsInvalidArgument(t *testing.T) {
 		ModelSelectionChanged: nil,
 		SessionList:           nil,
 		SessionChanged:        nil,
-		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil,
+		SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()

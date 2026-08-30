@@ -77,7 +77,9 @@ func TestServiceRejectsMalformedGlobsInEmptyRoot(t *testing.T) {
 	service := New()
 
 	_, grepErr := service.Grep(t.Context(), grepCommand("match", ".", "[", false, false, 0, 100))
-	_, findErr := service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: ".", Limit: mo.EmptyableToOption[uint](1000)})
+	_, findErr := service.Find(t.Context(), searchtool.FindCommand{
+		Pattern: "[", Path: ".", Limit: mo.EmptyableToOption[uint](1000),
+	})
 
 	require.ErrorContains(t, grepErr, "invalid grep glob")
 	require.ErrorContains(t, findErr, "invalid find glob")
@@ -90,16 +92,24 @@ func TestServiceFindFiltersLimitsAndErrors(t *testing.T) {
 	require.NoError(t, os.WriteFile("root/a.go", nil, 0o644))
 	require.NoError(t, os.WriteFile("root/nested/b.go", nil, 0o644))
 	service := New()
-	result, err := service.Find(t.Context(), searchtool.FindCommand{Pattern: "root/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1000)})
+	result, err := service.Find(t.Context(), searchtool.FindCommand{
+		Pattern: "root/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1000),
+	})
 	require.NoError(t, err)
 	require.Contains(t, result.Text, "root/a.go\n")
 	require.NotContains(t, result.Text, "nested/b.go")
-	result, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "**/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1)})
+	result, err = service.Find(t.Context(), searchtool.FindCommand{
+		Pattern: "**/*.go", Path: "root", Limit: mo.EmptyableToOption[uint](1),
+	})
 	require.NoError(t, err)
 	require.Contains(t, result.Text, "[Result limit reached.]\n")
-	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "[", Path: "root", Limit: mo.EmptyableToOption[uint](1)})
+	_, err = service.Find(t.Context(), searchtool.FindCommand{
+		Pattern: "[", Path: "root", Limit: mo.EmptyableToOption[uint](1),
+	})
 	require.ErrorContains(t, err, "invalid find glob")
-	_, err = service.Find(t.Context(), searchtool.FindCommand{Pattern: "*", Path: "missing", Limit: mo.EmptyableToOption[uint](1)})
+	_, err = service.Find(t.Context(), searchtool.FindCommand{
+		Pattern: "*", Path: "missing", Limit: mo.EmptyableToOption[uint](1),
+	})
 	require.ErrorContains(t, err, "find project files")
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

@@ -331,7 +331,10 @@ func grammarProtoConstraint() *extensionpb.ConstrainedSampling {
 	}.Build()
 }
 
-func constrainedProtoDescriptor(schema string, constraint *extensionpb.ConstrainedSampling) *extensionpb.ToolDescriptor {
+func constrainedProtoDescriptor(
+	schema string,
+	constraint *extensionpb.ConstrainedSampling,
+) *extensionpb.ToolDescriptor {
 	return extensionpb.ToolDescriptor_builder{
 		Name:                new("sample"),
 		Description:         new("Sample."),

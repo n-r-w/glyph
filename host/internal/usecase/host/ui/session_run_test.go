@@ -52,7 +52,8 @@ func (s *SessionSuite) TestSessionReadyRunAndQuit() {
 		}
 		frameCount := len(frames)
 		mutex.Unlock()
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			if frameCount == 2 {
 				readyOnce.Do(func() { close(ready) })
 			} else if frameCount > 2 {
@@ -119,7 +120,8 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		frames = append(frames, frame)
 		frameCount := len(frames)
 		mutex.Unlock()
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			readyOnce.Do(func() { close(ready) })
 			if frameCount > 3 {
 				stoppedOnce.Do(func() { close(idleAfterStop) })
@@ -152,7 +154,14 @@ func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
 		}
 	}).Times(4)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(
+		channel,
+		runner,
+		authenticator,
+		s.modelCatalog,
+		nil,
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,
@@ -186,7 +195,8 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 	idleCount := 0
 	var mutex sync.Mutex
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
+		if frame.Kind == domainui.FrameLifecycle &&
+			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
 			mutex.Lock()
 			index := idleCount
 			idleCount++
@@ -210,7 +220,14 @@ func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
 		}
 	}).Times(3)
 
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(context.Context) {}).Run(t.Context(), domainui.Initialization{
+	err := NewSession(
+		channel,
+		runner,
+		authenticator,
+		s.modelCatalog,
+		nil,
+		func(context.Context) {},
+	).Run(t.Context(), domainui.Initialization{
 		SelectedUIID:   "ui",
 		StartupContent: nil,
 		Extensions:     nil,

@@ -21,7 +21,11 @@ func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
 	t := s.T()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer, `{"type":"response.completed","response":{"id":"resp-reasoning","status":"completed","output":[{"id":"","type":"reasoning","summary":[{"type":"summary_text","text":"visible reason"}]}]}}`)
+		writeSSE(
+			t,
+			writer,
+			`{"type":"response.completed","response":{"id":"resp-reasoning","status":"completed","output":[{"id":"","type":"reasoning","summary":[{"type":"summary_text","text":"visible reason"}]}]}}`,
+		)
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
@@ -33,7 +37,11 @@ func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
 	events := streamEvents(t, service, richRequest("local", "demo"))
 	terminal := events[len(events)-1]
 	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{
-		Kind: model.ContentReasoning, Text: mo.Some("visible reason"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+		Kind:            model.ContentReasoning,
+		Text:            mo.Some("visible reason"),
+		Final:           true,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
 	})
 	require.Len(t, terminal.Response.OrEmpty().Content, 1)
 	assert.Empty(t, terminal.Response.OrEmpty().Content[0].ProviderContext.OrEmpty().Payload)
@@ -47,7 +55,9 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 		assert.Empty(t, request.Header.Values("Authorization"))
 		assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer,
+		writeSSE(
+			t,
+			writer,
 			`{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"answer"}`,
 			`{"type":"response.completed","response":{"id":"resp-1","model":"actual-model","status":"completed","output":[{"id":"m-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"answer","annotations":[],"logprobs":[]}]}],"usage":{"input_tokens":5,"output_tokens":3,"total_tokens":8,"input_tokens_details":{"cached_tokens":1},"output_tokens_details":{"reasoning_tokens":2}}}}`,
 		)
@@ -64,9 +74,42 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 
 	request := richRequest("local", "demo")
 	request.Model.ReasoningCapabilities.Supported = true
-	appendHistoryModelContent(&request,
-		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "local", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-local","encrypted_content":"cipher","summary":["old"]}`)}), ToolCall: mo.None[model.ToolCall]()},
-		model.Content{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "foreign", API: "responses", Model: "demo", CompatibilityKey: mo.None[string]()}, Payload: []byte(`{"id":"r-foreign","encrypted_content":"secret","summary":[]}`)}), ToolCall: mo.None[model.ToolCall]()},
+	appendHistoryModelContent(
+		&request,
+		model.Content{
+			Kind:  model.ContentReasoning,
+			Text:  mo.Some(""),
+			Final: true,
+			ProviderContext: mo.Some(
+				model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID:       "local",
+						API:              "responses",
+						Model:            "demo",
+						CompatibilityKey: mo.None[string](),
+					},
+					Payload: []byte(`{"id":"r-local","encrypted_content":"cipher","summary":["old"]}`),
+				},
+			),
+			ToolCall: mo.None[model.ToolCall](),
+		},
+		model.Content{
+			Kind:  model.ContentReasoning,
+			Text:  mo.Some(""),
+			Final: true,
+			ProviderContext: mo.Some(
+				model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID:       "foreign",
+						API:              "responses",
+						Model:            "demo",
+						CompatibilityKey: mo.None[string](),
+					},
+					Payload: []byte(`{"id":"r-foreign","encrypted_content":"secret","summary":[]}`),
+				},
+			),
+			ToolCall: mo.None[model.ToolCall](),
+		},
 	)
 	events := streamEvents(t, service, request)
 	terminal := events[len(events)-1]
@@ -191,7 +234,9 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	// Arrange a Responses stream with cache buckets above input and reasoning above output.
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer,
+		writeSSE(
+			t,
+			writer,
 			`{"type":"response.refusal.delta","output_index":0,"content_index":0,"delta":"blocked"}`,
 			`{"type":"response.output_item.added","output_index":8,"item":{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
 			`{"type":"response.function_call_arguments.delta","output_index":8,"item_id":"item-1","delta":"{\"path\":\"fi"}`,
@@ -202,8 +247,15 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	}))
 	t.Cleanup(server.Close)
 	service, err := New(Config{
-		ProviderID: "local", BaseURL: server.URL, API: APIResponses,
-		Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+		ProviderID: "local",
+		BaseURL:    server.URL,
+		API:        APIResponses,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "", nil, 1),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
 	// Act by collecting the terminal adapter response.
@@ -215,6 +267,27 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallEnd)
 	terminal := events[len(events)-1]
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
-	assert.Equal(t, model.Usage{InputTokens: 0, OutputTokens: 2, CachedInputTokens: 4, CacheWriteTokens: 1, ReasoningTokens: 2, TotalTokens: 7}, terminal.Response.OrEmpty().Usage.OrEmpty())
-	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("blocked"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
+	assert.Equal(
+		t,
+		model.Usage{
+			InputTokens:       0,
+			OutputTokens:      2,
+			CachedInputTokens: 4,
+			CacheWriteTokens:  1,
+			ReasoningTokens:   2,
+			TotalTokens:       7,
+		},
+		terminal.Response.OrEmpty().Usage.OrEmpty(),
+	)
+	assert.Contains(
+		t,
+		terminal.Response.OrEmpty().Content,
+		model.Content{
+			Kind:            model.ContentRefusal,
+			Text:            mo.Some("blocked"),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+	)
 }

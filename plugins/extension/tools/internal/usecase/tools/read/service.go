@@ -68,7 +68,10 @@ func (s *Service) Read(
 				start, oversizedSize, command, next,
 			)
 		}
-		return extensioncontroller.ReadResult{Text: mo.Some(message), Image: mo.None[extensioncontroller.ReadImage]()}, nil
+		return extensioncontroller.ReadResult{
+			Text:  mo.Some(message),
+			Image: mo.None[extensioncontroller.ReadImage](),
+		}, nil
 	}
 	text, present := content.Text.Get()
 	if !present {

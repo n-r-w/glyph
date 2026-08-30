@@ -64,7 +64,14 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			controllerMock := gomock.NewController(t)
 			control := NewMockSessionControl(controllerMock)
 			test.expect(control)
-			service := New(NewMockCoordinator(controllerMock), NewMockModelCatalog(controllerMock), idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			service := New(
+				NewMockCoordinator(controllerMock),
+				NewMockModelCatalog(controllerMock),
+				idleStateSnapshot,
+				emptyHistorySnapshot,
+				control,
+				NewDelivery(),
+			)
 
 			// Act through Programmatic Control.
 			response, operation, err := service.Handle(t.Context(), test.command)
@@ -85,10 +92,20 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 	controllerMock := gomock.NewController(t)
 	control := NewMockSessionControl(controllerMock)
 	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
-	service := New(NewMockCoordinator(controllerMock), NewMockModelCatalog(controllerMock), idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(
+		NewMockCoordinator(controllerMock),
+		NewMockModelCatalog(controllerMock),
+		idleStateSnapshot,
+		emptyHistorySnapshot,
+		control,
+		NewDelivery(),
+	)
 
 	// Act by forking a non-user entry.
-	response, operation, err := service.Handle(t.Context(), replacementCommand("fork", controller.CommandForkSession, mo.Some("model"), mo.None[string]()))
+	response, operation, err := service.Handle(
+		t.Context(),
+		replacementCommand("fork", controller.CommandForkSession, mo.Some("model"), mo.None[string]()),
+	)
 
 	// Assert the existing invalid-argument mapping contains no speculative replacement or input.
 	require.NoError(t, err)
@@ -99,7 +116,11 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 }
 
 // replacementCommand creates one fully initialized fork, clone, or label command.
-func replacementCommand(correlationID string, kind controller.CommandKind, target, label mo.Option[string]) controller.Command {
+func replacementCommand(
+	correlationID string,
+	kind controller.CommandKind,
+	target, label mo.Option[string],
+) controller.Command {
 	command := testProgrammaticCommand(correlationID, kind)
 	command.TargetEntryID = target
 	command.EntryLabel = label

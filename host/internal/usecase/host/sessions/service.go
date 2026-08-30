@@ -379,7 +379,10 @@ func (s *Service) estimatedUsageCost(
 	}
 	rates := model.PricingTier{
 		InputTokensAbove: 0,
-		Input:            pricing.Input, Output: pricing.Output, CacheRead: pricing.CacheRead, CacheWrite: pricing.CacheWrite,
+		Input:            pricing.Input,
+		Output:           pricing.Output,
+		CacheRead:        pricing.CacheRead,
+		CacheWrite:       pricing.CacheWrite,
 	}
 	requestInput := usage.InputTokens + usage.CacheReadTokens + usage.CacheWriteTokens
 	for tierIndex := range pricing.Tiers {

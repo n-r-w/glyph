@@ -99,7 +99,8 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 					ListSessions:   nil,
 					ResumeSession:  nil,
 					SetSessionName: nil,
-					GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
+					GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+					ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 				}.Build()
 				events := make(chan AgentEvent)
 				receiveBlocked := make(chan struct{})

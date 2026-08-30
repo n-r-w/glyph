@@ -52,7 +52,11 @@ func TestServiceRegister(t *testing.T) {
 	assert.Equal(t, extensionv1.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER, strict)
 	assert.Equal(t, "write", response.GetTools()[1].GetName())
 	assert.Equal(t, "edit", response.GetTools()[2].GetName())
-	assert.Equal(t, "Apply ordered unique exact text replacements to a project file.", response.GetTools()[2].GetDescription())
+	assert.Equal(
+		t,
+		"Apply ordered unique exact text replacements to a project file.",
+		response.GetTools()[2].GetDescription(),
+	)
 	assert.Equal(t, "grep", response.GetTools()[3].GetName())
 	assert.Equal(t, "find", response.GetTools()[4].GetName())
 	assert.Equal(t, "ls", response.GetTools()[5].GetName())
@@ -91,8 +95,17 @@ func TestServiceExecuteGrepDispatchesValidatedArguments(t *testing.T) {
 	t.Parallel()
 
 	searchTool := NewMockSearchTool(gomock.NewController(t))
-	searchTool.EXPECT().Grep(gomock.Any(), GrepArguments{Pattern: "needle", Path: "src", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: mo.Some(uint(2))}).Return("src/a.go:1:needle\n", nil)
-	client := newTestClientWithTools(t, NewMockReadTool(gomock.NewController(t)), NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), searchTool)
+	searchTool.EXPECT().Grep(gomock.Any(), GrepArguments{
+		Pattern: "needle", Path: "src", Glob: "", IgnoreCase: false, Literal: false,
+		Context: 0, Limit: mo.Some(uint(2)),
+	}).Return("src/a.go:1:needle\n", nil)
+	client := newTestClientWithTools(
+		t,
+		NewMockReadTool(gomock.NewController(t)),
+		NewMockWriteTool(gomock.NewController(t)),
+		NewMockEditTool(gomock.NewController(t)),
+		searchTool,
+	)
 
 	events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
 		ToolName: new("grep"), ArgumentsJson: []byte(`{"pattern":"needle","path":"src","limit":2}`),
@@ -261,11 +274,23 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 
 // newTestClient serves one controller over an in-memory gRPC connection.
 func newTestClient(t *testing.T, readTool ReadTool) extensionv1.ExtensionServiceClient {
-	return newTestClientWithTools(t, readTool, NewMockWriteTool(gomock.NewController(t)), NewMockEditTool(gomock.NewController(t)), NewMockSearchTool(gomock.NewController(t)))
+	return newTestClientWithTools(
+		t,
+		readTool,
+		NewMockWriteTool(gomock.NewController(t)),
+		NewMockEditTool(gomock.NewController(t)),
+		NewMockSearchTool(gomock.NewController(t)),
+	)
 }
 
 // newTestClientWithTools serves selected use cases over an in-memory gRPC connection.
-func newTestClientWithTools(t *testing.T, readTool ReadTool, writeTool WriteTool, editTool EditTool, searchTool SearchTool) extensionv1.ExtensionServiceClient {
+func newTestClientWithTools(
+	t *testing.T,
+	readTool ReadTool,
+	writeTool WriteTool,
+	editTool EditTool,
+	searchTool SearchTool,
+) extensionv1.ExtensionServiceClient {
 	t.Helper()
 	return newTestClientWithAllTools(
 		t,

@@ -70,7 +70,10 @@ func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {
 	require.NoError(t, os.Chmod(path, 0o600))
 	recoveryInfo, err := os.Stat(path)
 	require.NoError(t, err)
-	header := fmt.Sprintf(`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n", project)
+	header := fmt.Sprintf(
+		`{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}`+"\n",
+		project,
+	)
 	entry := `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored"}}` + "\n"
 	payload := []byte(header + entry + `{"type":"entry","entry":{"type":"user"}`)
 	completeSize := int64(len(header + entry))
@@ -90,13 +93,17 @@ func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {
 		probe.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
 		probe.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),
 		probe.EXPECT().Close().Return(nil),
-		fileSystem.EXPECT().OpenFile(repository.projectDirectory, name, os.O_RDONLY, os.FileMode(0)).Return(preparation, nil),
+		fileSystem.EXPECT().
+			OpenFile(repository.projectDirectory, name, os.O_RDONLY, os.FileMode(0)).
+			Return(preparation, nil),
 		preparation.EXPECT().Stat().Return(readOnlyInfo, nil),
 		preparation.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
 		preparation.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),
 		preparation.EXPECT().Chmod(os.FileMode(fileMode)).Return(nil),
 		preparation.EXPECT().Close().Return(nil),
-		fileSystem.EXPECT().OpenFile(repository.projectDirectory, name, os.O_RDWR, os.FileMode(0)).Return(recovery, nil),
+		fileSystem.EXPECT().
+			OpenFile(repository.projectDirectory, name, os.O_RDWR, os.FileMode(0)).
+			Return(recovery, nil),
 		recovery.EXPECT().Stat().Return(recoveryInfo, nil),
 		recovery.EXPECT().ReadPayload(gomock.Any()).DoAndReturn(readPayload(payload)),
 		recovery.EXPECT().ReadPayload(gomock.Any()).Return(0, io.EOF),

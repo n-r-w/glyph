@@ -26,18 +26,57 @@ func TestServiceRunStop(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	descriptor := tool.Descriptor{Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`), ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}
+	descriptor := tool.Descriptor{
+		Name:                "read",
+		Description:         "read",
+		InputSchemaJSON:     []byte(`{}`),
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+	}
 	tools.EXPECT().Tools().Return([]tool.Descriptor{descriptor})
 	response := model.Response{
 		Content: []model.Content{
-			{Kind: model.ContentText, Text: mo.Some("hello"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 			{
-				Kind: model.ContentReasoning, Text: mo.Some(""),
-				ProviderContext: mo.Some(model.ProviderContext{Source: model.ProviderContextSource{ProviderID: "codex", API: "", Model: "", CompatibilityKey: mo.None[string]()}, Payload: []byte{1, 2, 3}}), Final: true, ToolCall: mo.None[model.ToolCall](),
+				Kind:            model.ContentText,
+				Text:            mo.Some("hello"),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
 			},
-			{Kind: model.ContentText, Text: mo.Some(" world"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+			{
+				Kind: model.ContentReasoning,
+				Text: mo.Some(""),
+				ProviderContext: mo.Some(
+					model.ProviderContext{
+						Source: model.ProviderContextSource{
+							ProviderID:       "codex",
+							API:              "",
+							Model:            "",
+							CompatibilityKey: mo.None[string](),
+						},
+						Payload: []byte{1, 2, 3},
+					},
+				),
+				Final:    true,
+				ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind:            model.ContentText,
+				Text:            mo.Some(" world"),
+				Final:           true,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
 		},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+		Outcome: mo.Some(
+			model.OutcomeStop,
+		),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
 	}
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
@@ -55,7 +94,16 @@ func TestServiceRunStop(t *testing.T) {
 		delivered = append(delivered, event)
 		return nil
 	}).Times(12)
-	service := newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, hookrunner.New(nil, nil, nil), tools, events)
+	service := newTestService(
+		t,
+		testInstructions,
+		testModelDescriptor,
+		model.ReasoningChoiceHigh,
+		provider,
+		hookrunner.New(nil, nil, nil),
+		tools,
+		events,
+	)
 
 	result, err := service.Run(t.Context(), Request{RunID: "run-1", UserText: "hi"})
 
@@ -79,7 +127,15 @@ func TestServiceRunStop(t *testing.T) {
 	update := delivered[4]
 	expectedUpdate := newEvent(EventTextDelta, "run-1")
 	expectedUpdate.Position = mo.Some(0)
-	expectedUpdate.Content = mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some("hello"), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
+	expectedUpdate.Content = mo.Some(
+		model.Content{
+			Kind:            model.ContentText,
+			Text:            mo.Some("hello"),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+	)
 	assert.Equal(t, expectedUpdate, update)
 	_, err = service.Run(t.Context(), Request{RunID: "run-2", UserText: "blocked"})
 	require.ErrorIs(t, err, ErrRunActive)

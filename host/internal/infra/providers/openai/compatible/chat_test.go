@@ -29,7 +29,9 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 		assert.Equal(t, []string{"Bearer secret"}, request.Header.Values("Authorization"))
 		assert.NoError(t, json.UnmarshalRead(request.Body, &body))
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer,
+		writeSSE(
+			t,
+			writer,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":"think ","content":"hello "}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"refusal":"no"}}]}`,
@@ -57,7 +59,18 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	terminal := events[len(events)-1]
 	assert.Equal(t, run.StreamEventDone, terminal.Kind)
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
-	assert.Equal(t, model.Usage{InputTokens: 9, OutputTokens: 7, CachedInputTokens: 3, ReasoningTokens: 2, TotalTokens: 19, CacheWriteTokens: 0}, terminal.Response.OrEmpty().Usage.OrEmpty())
+	assert.Equal(
+		t,
+		model.Usage{
+			InputTokens:       9,
+			OutputTokens:      7,
+			CachedInputTokens: 3,
+			ReasoningTokens:   2,
+			TotalTokens:       19,
+			CacheWriteTokens:  0,
+		},
+		terminal.Response.OrEmpty().Usage.OrEmpty(),
+	)
 	assert.Equal(t, "actual-model", string(terminal.Response.OrEmpty().ResponseModel.OrEmpty()))
 	assert.Equal(t, "high", body["reasoning_effort"])
 	assert.Equal(t, false, body["parallel_tool_calls"])
@@ -70,10 +83,52 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Contains(t, eventKinds(events), run.StreamEventTextDelta)
 	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
 	require.GreaterOrEqual(t, len(terminal.Response.OrEmpty().Content), 2)
-	assert.Equal(t, model.Content{Kind: model.ContentReasoning, Text: mo.Some("think "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.OrEmpty().Content[0])
-	assert.Equal(t, model.Content{Kind: model.ContentText, Text: mo.Some("hello "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}, terminal.Response.OrEmpty().Content[1])
-	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentRefusal, Text: mo.Some("no"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()})
-	assert.Contains(t, terminal.Response.OrEmpty().Content, model.Content{Kind: model.ContentToolCall, Final: true, ToolCall: mo.Some(model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}}), Text: mo.None[string](), ProviderContext: mo.None[model.ProviderContext]()})
+	assert.Equal(
+		t,
+		model.Content{
+			Kind:            model.ContentReasoning,
+			Text:            mo.Some("think "),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		terminal.Response.OrEmpty().Content[0],
+	)
+	assert.Equal(
+		t,
+		model.Content{
+			Kind:            model.ContentText,
+			Text:            mo.Some("hello "),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		terminal.Response.OrEmpty().Content[1],
+	)
+	assert.Contains(
+		t,
+		terminal.Response.OrEmpty().Content,
+		model.Content{
+			Kind:            model.ContentRefusal,
+			Text:            mo.Some("no"),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+	)
+	assert.Contains(
+		t,
+		terminal.Response.OrEmpty().Content,
+		model.Content{
+			Kind:  model.ContentToolCall,
+			Final: true,
+			ToolCall: mo.Some(
+				model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}},
+			),
+			Text:            mo.None[string](),
+			ProviderContext: mo.None[model.ProviderContext](),
+		},
+	)
 }
 
 // TestOpenRouterRequestsIncludeAttributionHeaders verifies both supported APIs identify Glyph to OpenRouter.
@@ -190,14 +245,20 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 		bodies = append(bodies, body)
 		writer.Header().Set("Content-Type", "text/event-stream")
 		if len(bodies) == 1 {
-			writeSSE(t, writer,
+			writeSSE(
+				t,
+				writer,
 				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"think ","reasoning_details":[{"type":"reasoning.text","text":"part ","id":null,"format":"","index":null,"signature":""}]}}]}`,
 				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"more","reasoning_details":[{"type":"reasoning.text","text":"two","id":"r1","format":"unknown","index":0,"signature":"sig"},{"type":"reasoning.summary","summary":"sum ","id":null,"format":"","index":null}]}}]}`,
 				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"mary","id":"s1","format":"unknown","index":1},{"type":"reasoning.encrypted","data":"cipher","id":"e1","format":"unknown","index":2,"vendor":{"x":1}}],"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"file\"}"}}]},"finish_reason":"tool_calls"}]}`,
 			)
 			return
 		}
-		writeSSE(t, writer, `{"id":"chat-next","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
+		writeSSE(
+			t,
+			writer,
+			`{"id":"chat-next","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`,
+		)
 	}))
 	t.Cleanup(server.Close)
 	driver, err := New(Config{
@@ -243,9 +304,23 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 	var capturedDetails []map[string]any
 	require.NoError(t, json.Unmarshal(providerContext.Payload, &capturedDetails))
 	expectedDetails := []map[string]any{
-		{"type": "reasoning.text", "text": "part two", "id": "r1", "format": "unknown", "index": float64(0), "signature": "sig"},
+		{
+			"type":      "reasoning.text",
+			"text":      "part two",
+			"id":        "r1",
+			"format":    "unknown",
+			"index":     float64(0),
+			"signature": "sig",
+		},
 		{"type": "reasoning.summary", "summary": "sum mary", "id": "s1", "format": "unknown", "index": float64(1)},
-		{"type": "reasoning.encrypted", "data": "cipher", "id": "e1", "format": "unknown", "index": float64(2), "vendor": map[string]any{"x": float64(1)}},
+		{
+			"type":   "reasoning.encrypted",
+			"data":   "cipher",
+			"id":     "e1",
+			"format": "unknown",
+			"index":  float64(2),
+			"vendor": map[string]any{"x": float64(1)},
+		},
 	}
 	assert.Equal(t, expectedDetails, capturedDetails)
 	messages := bodies[1]["messages"].([]any)
@@ -273,7 +348,11 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 					return
 				}
 				writer.Header().Set("Content-Type", "text/event-stream")
-				writeSSE(t, writer, `{"id":"chat-history","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`)
+				writeSSE(
+					t,
+					writer,
+					`{"id":"chat-history","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"stop"}]}`,
+				)
 			}))
 			t.Cleanup(server.Close)
 			formats := map[model.ID]string(nil)
@@ -289,18 +368,68 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 			s.Require().NoError(err)
 			request := richRequest("local", "demo")
 			replaceHistoryModelContent(&request, []model.Content{
-				{Kind: model.ContentReasoning, Text: mo.Some("first"), Final: true, ProviderContext: mo.Some(model.ProviderContext{
-					Source:  model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source", CompatibilityKey: mo.None[string]()},
-					Payload: []byte("opaque-secret"),
-				}), ToolCall: mo.None[model.ToolCall](),
+				{
+					Kind:  model.ContentReasoning,
+					Text:  mo.Some("first"),
+					Final: true,
+					ProviderContext: mo.Some(model.ProviderContext{
+						Source: model.ProviderContextSource{
+							ProviderID:       "other",
+							API:              "responses",
+							Model:            "source",
+							CompatibilityKey: mo.None[string](),
+						},
+						Payload: []byte("opaque-secret"),
+					}),
+					ToolCall: mo.None[model.ToolCall](),
 				},
-				{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-				{Kind: model.ContentReasoning, Text: mo.Some("second"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+				{
+					Kind:            model.ContentText,
+					Text:            mo.Some("answer"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
+				{
+					Kind:            model.ContentReasoning,
+					Text:            mo.Some(""),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
+				{
+					Kind:            model.ContentReasoning,
+					Text:            mo.Some("second"),
+					Final:           true,
+					ProviderContext: mo.None[model.ProviderContext](),
+					ToolCall:        mo.None[model.ToolCall](),
+				},
 			})
 			request.History = append(request.History, agent.HistoryEntry{
-				Kind:  agent.HistoryEntryModel,
-				Model: mo.Some(model.Response{Content: []model.Content{{Kind: model.ContentReasoning, Text: mo.Some(""), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
+				Kind: agent.HistoryEntryModel,
+				Model: mo.Some(
+					model.Response{
+						Content: []model.Content{
+							{
+								Kind:            model.ContentReasoning,
+								Text:            mo.Some(""),
+								Final:           true,
+								ProviderContext: mo.None[model.ProviderContext](),
+								ToolCall:        mo.None[model.ToolCall](),
+							},
+						},
+						Outcome:       mo.None[model.Outcome](),
+						ErrorMessage:  mo.None[string](),
+						Provider:      mo.None[model.ProviderID](),
+						Model:         mo.None[model.ID](),
+						ResponseModel: mo.None[model.ID](),
+						ResponseID:    mo.None[string](),
+						Usage:         mo.None[model.Usage](),
+						Diagnostics:   nil,
+					},
+				),
+				User:       mo.None[model.Message](),
+				ToolResult: mo.None[agent.ToolResult](),
 			})
 
 			events := streamEvents(t, driver, request)
@@ -331,7 +460,9 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 			return
 		}
 		writer.Header().Set("Content-Type", "text/event-stream")
-		writeSSE(t, writer,
+		writeSSE(
+			t,
+			writer,
 			`{"id":"fixed","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
 			`{"id":"fixed","choices":[{"index":0,"delta":{"reasoning":"think ","content":"answer"},"finish_reason":"stop"}]}`,
 		)
@@ -347,11 +478,28 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	request := richRequest("local", "fixed")
 	request.ReasoningChoice = model.ReasoningChoiceOn
 	replaceHistoryModelContent(&request, []model.Content{
-		{Kind: model.ContentReasoning, Text: mo.Some("earlier"), Final: true, ProviderContext: mo.Some(model.ProviderContext{
-			Source: model.ProviderContextSource{ProviderID: "other", API: "responses", Model: "source", CompatibilityKey: mo.None[string]()}, Payload: []byte("opaque-secret"),
-		}), ToolCall: mo.None[model.ToolCall](),
+		{
+			Kind:  model.ContentReasoning,
+			Text:  mo.Some("earlier"),
+			Final: true,
+			ProviderContext: mo.Some(model.ProviderContext{
+				Source: model.ProviderContextSource{
+					ProviderID:       "other",
+					API:              "responses",
+					Model:            "source",
+					CompatibilityKey: mo.None[string](),
+				},
+				Payload: []byte("opaque-secret"),
+			}),
+			ToolCall: mo.None[model.ToolCall](),
 		},
-		{Kind: model.ContentText, Text: mo.Some("history"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{
+			Kind:            model.ContentText,
+			Text:            mo.Some("history"),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
 	})
 
 	events := streamEvents(t, driver, request)
@@ -372,8 +520,20 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	terminal := events[len(events)-1]
 	s.Equal(run.StreamEventDone, terminal.Kind)
 	s.Equal([]model.Content{
-		{Kind: model.ContentReasoning, Text: mo.Some("think "), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
-		{Kind: model.ContentText, Text: mo.Some("answer"), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
+		{
+			Kind:            model.ContentReasoning,
+			Text:            mo.Some("think "),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
+		{
+			Kind:            model.ContentText,
+			Text:            mo.Some("answer"),
+			Final:           true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		},
 	}, terminal.Response.OrEmpty().Content)
 	s.NotContains(body, "reasoning_effort")
 	s.NotContains(body, "reasoning")

@@ -38,7 +38,8 @@ func TestStandardTUIHostRuntimePersistenceFailures(t *testing.T) {
 	// Arrange persistent paths, real executables, deterministic fault transport inputs, and a PTY wrapper.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
-	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(nil,
+	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
+		nil,
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
@@ -238,9 +239,14 @@ func TestStandardTUIHostRuntimePersistenceFailuresInner(t *testing.T) {
 	testsupporttui.SetTerminalSize(t, terminalFile, 100, 44)
 	dataDirectory := os.Getenv(standardTUIHostDataEnvironment)
 	paths := persistence.Paths{
-		Directory: dataDirectory, SettingsFile: filepath.Join(dataDirectory, "settings.yaml"),
+		Directory:       dataDirectory,
+		SettingsFile:    filepath.Join(dataDirectory, "settings.yaml"),
 		CredentialsFile: filepath.Join(dataDirectory, "credentials.json"),
-		LogsDirectory:   filepath.Join(dataDirectory, "logs"), LogFile: filepath.Join(dataDirectory, "logs", "glyph.log"),
+		LogsDirectory: filepath.Join(
+			dataDirectory,
+			"logs",
+		),
+		LogFile: filepath.Join(dataDirectory, "logs", "glyph.log"),
 	}
 	transport := &uiRuntimeFailureTransport{
 		dataDirectory: dataDirectory,
@@ -254,10 +260,15 @@ func TestStandardTUIHostRuntimePersistenceFailuresInner(t *testing.T) {
 
 	// Act by running the real standard TUI until the parent completes every failure and recovery interaction.
 	runErr := runWithPaths(testContext, paths, cli.Command{
-		Mode:               cli.ModeUI,
-		Headless:           headless.Command{UserText: "", ExtensionDirectory: os.Getenv(standardTUIHostExtensionEnvironment)},
+		Mode: cli.ModeUI,
+		Headless: headless.Command{
+			UserText:           "",
+			ExtensionDirectory: os.Getenv(standardTUIHostExtensionEnvironment),
+		},
 		ExtensionDirectory: os.Getenv(standardTUIHostExtensionEnvironment),
-		UIDirectory:        os.Getenv(standardTUIHostUIEnvironment), UIID: "glyph-tui", SocketPath: "",
+		UIDirectory:        os.Getenv(standardTUIHostUIEnvironment),
+		UIID:               "glyph-tui",
+		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
 	// Assert only the three approved provider requests occurred and no dependent request followed tool-result failure.

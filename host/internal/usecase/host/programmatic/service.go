@@ -338,7 +338,11 @@ func (s *Service) forkSession(ctx context.Context, command controller.Command) c
 	}
 	entries, mapErr := mapSessionEntries(replacement.Entries)
 	if mapErr != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", mapErr))
+		return s.rejection(
+			command,
+			controller.RejectionInternal,
+			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
+		)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseForkSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
@@ -355,7 +359,11 @@ func (s *Service) cloneSession(ctx context.Context, command controller.Command) 
 	}
 	entries, mapErr := mapSessionEntries(replacement.Entries)
 	if mapErr != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", mapErr))
+		return s.rejection(
+			command,
+			controller.RejectionInternal,
+			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
+		)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseCloneSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
@@ -421,7 +429,11 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 	}
 	committed, mapErr := mapTreeNavigationCommitted(result)
 	if mapErr != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", mapErr))
+		return s.rejection(
+			command,
+			controller.RejectionInternal,
+			fmt.Sprintf("Session tree is unavailable: %v", mapErr),
+		)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
 	response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
@@ -435,7 +447,11 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
 	entries, err := mapSessionEntries(s.sessionControl.Entries())
 	if err != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", err))
+		return s.rejection(
+			command,
+			controller.RejectionInternal,
+			fmt.Sprintf("Session entries are unavailable: %v", err),
+		)
 	}
 	response := emptyResponse(command.CorrelationID, controller.ResponseSessionEntries)
 	response.SessionEntries = entries

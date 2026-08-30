@@ -85,7 +85,11 @@ type ResponseWire struct {
 }
 
 // replacementMappingResponse creates one fully initialized controller response.
-func replacementMappingResponse(kind ResponseKind, replacement mo.Option[SessionReplacement], tree mo.Option[SessionTree]) Response {
+func replacementMappingResponse(
+	kind ResponseKind,
+	replacement mo.Option[SessionReplacement],
+	tree mo.Option[SessionTree],
+) Response {
 	return Response{
 		CorrelationID: "correlation", Kind: kind, State: mo.None[RunStateResult](), Messages: nil,
 		Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](),

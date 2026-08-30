@@ -71,8 +71,14 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 			require.NoError(t, repository.Initialize(t.Context()))
 			sourceTree := restartSourceTree(t)
 			_, err := repository.CreateSnapshot(t.Context(), hostsessions.CreateSnapshotCommand{
-				Header: session.Header{Version: 2, ID: "source", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: project},
-				Tree:   sourceTree, Information: mo.Some(session.Information{Name: "source"}),
+				Header: session.Header{
+					Version:          2,
+					ID:               "source",
+					CreatedAt:        time.Unix(1, 0).UTC(),
+					WorkingDirectory: project,
+				},
+				Tree:                 sourceTree,
+				Information:          mo.Some(session.Information{Name: "source"}),
 				InformationUpdatedAt: mo.Some(time.Unix(2, 0).UTC()),
 			})
 			require.NoError(t, err)
@@ -111,9 +117,13 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 			}
 			source, err := restarted.Load(t.Context(), "source")
 			require.NoError(t, err)
-			require.Equal(t, []string{"root", "extension", "summary", "target"}, lo.Map(source.Tree.Entries(), func(entry session.Entry, _ int) string {
-				return entry.ID
-			}))
+			require.Equal(
+				t,
+				[]string{"root", "extension", "summary", "target"},
+				lo.Map(source.Tree.Entries(), func(entry session.Entry, _ int) string {
+					return entry.ID
+				}),
+			)
 			require.Equal(t, test.sourceLabels, source.Tree.Labels())
 		})
 	}
@@ -126,16 +136,33 @@ func restartSourceTree(t *testing.T) session.Tree {
 	entries := []session.Entry{
 		restartUserEntry("root", mo.None[string](), "root", createdAt),
 		{
-			ID: "extension", ParentID: mo.Some("root"), CreatedAt: createdAt.Add(time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-			Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: []byte(`{"opaque":true}`)}),
+			ID:            "extension",
+			ParentID:      mo.Some("root"),
+			CreatedAt:     createdAt.Add(time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension: mo.Some(
+				session.ExtensionEnvelope{
+					ExtensionID: "extension",
+					EntryType:   "checkpoint",
+					Data:        []byte(`{"opaque":true}`),
+				},
+			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{
-			ID: "summary", ParentID: mo.Some("extension"), CreatedAt: createdAt.Add(2 * time.Second),
-			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ID:            "summary",
+			ParentID:      mo.Some("extension"),
+			CreatedAt:     createdAt.Add(2 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
 			BranchSummary: mo.Some(session.BranchSummaryEntry{
 				Summary: "summary", FirstEntryID: "outside-first", LastEntryID: "outside-last",
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
@@ -152,8 +179,17 @@ func restartSourceTree(t *testing.T) session.Tree {
 // restartUserEntry creates one complete user entry.
 func restartUserEntry(id string, parent mo.Option[string], text string, createdAt time.Time) session.Entry {
 	return session.Entry{
-		ID: id, ParentID: parent, CreatedAt: createdAt, Information: mo.None[session.Information](),
-		User: mo.Some(model.TextMessage(text)), Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ID:          id,
+		ParentID:    parent,
+		CreatedAt:   createdAt,
+		Information: mo.None[session.Information](),
+		User: mo.Some(
+			model.TextMessage(text),
+		),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }

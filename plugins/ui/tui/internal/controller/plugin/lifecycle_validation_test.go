@@ -250,7 +250,8 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			Lifecycle:          proto.ValueOrDefault(lifecycle),
 			SessionList:        nil,
 			SessionChanged:     nil,
-			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil,
+			SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build())
 		require.NoError(t, err)
 		state = projection.Apply(state, event)

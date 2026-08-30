@@ -71,23 +71,26 @@ func runtimeFailureHTTPResponse(body string) *http.Response {
 func latestRuntimeSessionPath(dataDirectory string) (string, error) {
 	var latestPath string
 	var latestTime time.Time
-	err := filepath.WalkDir(filepath.Join(dataDirectory, "sessions"), func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+	err := filepath.WalkDir(
+		filepath.Join(dataDirectory, "sessions"),
+		func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+				return nil
+			}
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				return infoErr
+			}
+			if latestPath == "" || info.ModTime().After(latestTime) {
+				latestPath = path
+				latestTime = info.ModTime()
+			}
 			return nil
-		}
-		info, infoErr := entry.Info()
-		if infoErr != nil {
-			return infoErr
-		}
-		if latestPath == "" || info.ModTime().After(latestTime) {
-			latestPath = path
-			latestTime = info.ModTime()
-		}
-		return nil
-	})
+		},
+	)
 	if err != nil {
 		return "", err
 	}
@@ -303,10 +306,15 @@ func runtimeUIName(
 	name string,
 ) (sessionInfoObservation, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
-	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build(),
+	); err != nil {
 		return sessionInfoObservation{}, err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil },
+	)
 	if err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -318,10 +326,15 @@ func runtimeUINameFailure(
 	name string,
 ) (string, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
-	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build(),
+	); err != nil {
 		return "", err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetInformation() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetInformation() != nil },
+	)
 	if err != nil {
 		return "", err
 	}
@@ -335,7 +348,10 @@ func runtimeUICreate(
 	if err := stream.Send(uipb.OpenResponse_builder{CreateSession: &uipb.CreateSessionCommand{}}.Build()); err != nil {
 		return sessionInfoObservation{}, err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil },
+	)
 	if err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -346,10 +362,15 @@ func runtimeUIInformation(
 	stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse],
 ) (sessionInfoObservation, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
-	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build(),
+	); err != nil {
 		return sessionInfoObservation{}, err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil },
+	)
 	if err != nil {
 		return sessionInfoObservation{}, err
 	}
@@ -424,10 +445,15 @@ func runtimeUIResumeFailure(
 	id string,
 ) (string, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
-	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build(),
+	); err != nil {
 		return "", err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetInformation() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetInformation() != nil },
+	)
 	if err != nil {
 		return "", err
 	}
@@ -439,10 +465,15 @@ func runtimeUIResumeSuccess(
 	id string,
 ) (sessionInfoObservation, error) {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active ResumeSession field.
-	if err := stream.Send(uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{ResumeSession: uipb.ResumeSessionCommand_builder{SessionId: &id}.Build()}.Build(),
+	); err != nil {
 		return sessionInfoObservation{}, err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionChanged() != nil },
+	)
 	if err != nil {
 		return sessionInfoObservation{}, err
 	}

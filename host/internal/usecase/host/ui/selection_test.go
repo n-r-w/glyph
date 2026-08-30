@@ -91,7 +91,9 @@ func TestSelectorDoesNotFallbackWhenExplicitStartFails(t *testing.T) {
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
 	directory := domainui.Directory{Path: "/ui"}
 	candidate := domainui.Candidate{ID: "selected", Path: "/ui/selected"}
-	catalog.EXPECT().Discover(gomock.Any(), directory).Return(domainui.Discovery{Candidates: []domainui.Candidate{candidate}}, nil)
+	catalog.EXPECT().
+		Discover(gomock.Any(), directory).
+		Return(domainui.Discovery{Candidates: []domainui.Candidate{candidate}}, nil)
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(nil, errors.New("startup failed"))
 
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
@@ -115,7 +117,9 @@ func TestSelectorProbesEveryCandidateAndRestartsSoleCompatible(t *testing.T) {
 	directory := domainui.Directory{Path: "/ui"}
 	first := domainui.Candidate{ID: "first", Path: "/ui/first"}
 	second := domainui.Candidate{ID: "second", Path: "/ui/second"}
-	catalog.EXPECT().Discover(gomock.Any(), directory).Return(domainui.Discovery{Candidates: []domainui.Candidate{first, second}}, nil)
+	catalog.EXPECT().
+		Discover(gomock.Any(), directory).
+		Return(domainui.Discovery{Candidates: []domainui.Candidate{first, second}}, nil)
 	gomock.InOrder(
 		factory.EXPECT().Start(gomock.Any(), first).Return(probeRuntime, nil),
 		probeRuntime.EXPECT().Close(),
@@ -209,7 +213,9 @@ func TestSelectorRejectsMultipleCompatibleCandidates(t *testing.T) {
 	directory := domainui.Directory{Path: "/ui"}
 	first := domainui.Candidate{ID: "first", Path: "/ui/first"}
 	second := domainui.Candidate{ID: "second", Path: "/ui/second"}
-	catalog.EXPECT().Discover(gomock.Any(), directory).Return(domainui.Discovery{Candidates: []domainui.Candidate{first, second}}, nil)
+	catalog.EXPECT().
+		Discover(gomock.Any(), directory).
+		Return(domainui.Discovery{Candidates: []domainui.Candidate{first, second}}, nil)
 	gomock.InOrder(
 		factory.EXPECT().Start(gomock.Any(), first).Return(firstRuntime, nil),
 		firstRuntime.EXPECT().Close(),

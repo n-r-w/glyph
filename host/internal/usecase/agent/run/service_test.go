@@ -61,12 +61,24 @@ func newMockHistoryStore(t *testing.T) *MockHistoryStore {
 
 // testTextItem creates one complete text content item.
 func testTextItem(text string) model.Content {
-	return model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: true, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}
+	return model.Content{
+		Kind:            model.ContentText,
+		Text:            mo.Some(text),
+		Final:           true,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
+	}
 }
 
 // testCallItem creates one complete tool-call content item.
 func testCallItem(call model.ToolCall) model.Content {
-	return model.Content{Kind: model.ContentToolCall, ToolCall: mo.Some(call), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext]()}
+	return model.Content{
+		Kind:            model.ContentToolCall,
+		ToolCall:        mo.Some(call),
+		Text:            mo.None[string](),
+		Final:           false,
+		ProviderContext: mo.None[model.ProviderContext](),
+	}
 }
 
 // eventTypes extracts observable event order for compact assertions.
@@ -86,20 +98,59 @@ func streamResult(response model.Response, streamErr error) func(context.Context
 // emitText emits one complete text block.
 func emitText(handle StreamHandler, position int, text string) error {
 	if err := handle(StreamEvent{
-		Kind: StreamEventContentStart, Position: mo.Some(position),
-		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+		Kind:     StreamEventContentStart,
+		Position: mo.Some(position),
+		Content: mo.Some(
+			model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 	}); err != nil {
 		return err
 	}
 	if err := handle(StreamEvent{
-		Kind: StreamEventTextDelta, Position: mo.Some(position),
-		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(text), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.Some(text), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+		Kind:     StreamEventTextDelta,
+		Position: mo.Some(position),
+		Content: mo.Some(
+			model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some(text),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		),
+		Delta:    mo.Some(text),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 	}); err != nil {
 		return err
 	}
 	return handle(StreamEvent{
-		Kind: StreamEventContentEnd, Position: mo.Some(position),
-		Content: mo.Some(model.Content{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()}), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+		Kind:     StreamEventContentEnd,
+		Position: mo.Some(position),
+		Content: mo.Some(
+			model.Content{
+				Kind:            model.ContentText,
+				Text:            mo.Some(""),
+				Final:           false,
+				ProviderContext: mo.None[model.ProviderContext](),
+				ToolCall:        mo.None[model.ToolCall](),
+			},
+		),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
 	})
 }
 
@@ -124,7 +175,17 @@ func emitStream(handle StreamHandler, response model.Response, streamErr error) 
 	if streamErr != nil {
 		kind = StreamEventError
 	}
-	if err := handle(StreamEvent{Kind: kind, Response: mo.Some(response), Position: mo.None[int](), Content: mo.None[model.Content](), Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall]()}); err != nil {
+	if err := handle(
+		StreamEvent{
+			Kind:     kind,
+			Response: mo.Some(response),
+			Position: mo.None[int](),
+			Content:  mo.None[model.Content](),
+			Delta:    mo.None[string](),
+			Preview:  mo.None[model.ToolCallPreview](),
+			ToolCall: mo.None[model.ToolCall](),
+		},
+	); err != nil {
 		return err
 	}
 	return streamErr

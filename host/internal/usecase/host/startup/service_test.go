@@ -47,8 +47,11 @@ func TestServiceStartUsesDefaultAndOverrideDirectories(t *testing.T) {
 		expected extensionservice.Directory
 	}{
 		"default": {
-			request:  Request{DataDirectory: "/home/user/.glyph", ExtensionDirectory: ""},
-			expected: extensionservice.Directory{Path: filepath.Join("/home/user/.glyph", "plugins", "extension"), Explicit: false},
+			request: Request{DataDirectory: "/home/user/.glyph", ExtensionDirectory: ""},
+			expected: extensionservice.Directory{
+				Path:     filepath.Join("/home/user/.glyph", "plugins", "extension"),
+				Explicit: false,
+			},
 		},
 		"override": {
 			request:  Request{DataDirectory: "/home/user/.glyph", ExtensionDirectory: "/tmp/extensions"},
@@ -85,7 +88,9 @@ func TestServiceLoadLogsExtensionCatalog(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 	report := extensionservice.LoadReport{
-		Issues: []extensionservice.Issue{{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("start failed")}},
+		Issues: []extensionservice.Issue{
+			{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("start failed")},
+		},
 		Extensions: []extensionservice.LoadedExtension{{
 			ID: "glyph-tools", Path: "/plugins/glyph-tools",
 			Tools: []tool.Descriptor{
@@ -122,12 +127,21 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 	t.Parallel()
 
 	reporter := NewMockReporter(gomock.NewController(t))
-	firstIssue := extensionservice.Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("start failed")}
+	firstIssue := extensionservice.Issue{
+		PluginIDs: []string{"broken"},
+		Path:      "/broken",
+		Err:       errors.New("start failed"),
+	}
 	secondIssue := extensionservice.Issue{PluginIDs: nil, Path: "/unreadable", Err: errors.New("unreadable default")}
 	report := extensionservice.LoadReport{
 		Issues: []extensionservice.Issue{firstIssue, secondIssue},
 		Extensions: []extensionservice.LoadedExtension{
-			{ID: "first", Path: "/override/first", Tools: []tool.Descriptor{testStartupDescriptor("read")}, Handlers: nil},
+			{
+				ID:       "first",
+				Path:     "/override/first",
+				Tools:    []tool.Descriptor{testStartupDescriptor("read")},
+				Handlers: nil,
+			},
 			{ID: "second", Path: "/override/second", Tools: nil, Handlers: nil},
 		},
 	}

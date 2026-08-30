@@ -36,7 +36,10 @@ func TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization(t *testing.T) {
 		assert.Equal(t, "/v1/chat/completions", request.URL.Path)
 		assert.Empty(t, request.Header.Values("Authorization"))
 		writer.Header().Set("Content-Type", "text/event-stream")
-		_, err := io.WriteString(writer, "data: {\"id\":\"chat-1\",\"model\":\"local-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compatible response\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+		_, err := io.WriteString(
+			writer,
+			"data: {\"id\":\"chat-1\",\"model\":\"local-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compatible response\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+		)
 		assert.NoError(t, err)
 	}))
 	t.Cleanup(server.Close)

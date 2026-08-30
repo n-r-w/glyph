@@ -35,9 +35,16 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 	require.NoError(t, err)
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/session.jsonl", Tree: tree,
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/session.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	entryIDs := []string{"user", "model", "tool", "extension"}
 	entryTimes := []time.Time{
@@ -104,9 +111,16 @@ func TestAppendFailureKeepsCurrentActiveLeaf(t *testing.T) {
 	require.NoError(t, err)
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/session.jsonl", Tree: tree,
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/session.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	ids.EXPECT().NewID().Return("candidate", nil)
 	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
@@ -131,14 +145,26 @@ func TestTreeReturnsDefensiveSnapshot(t *testing.T) {
 	// Arrange an active tree with mutable message bytes, extension bytes, and a label.
 	createdAt := time.Unix(1, 0).UTC()
 	user := treeBehaviorUserEntry("user", mo.None[string](), createdAt)
-	user.User = mo.Some(model.Message{Content: []model.InputContent{{
-		Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3}),
-	}}})
+	user.User = mo.Some(model.Message{Content: []model.InputContent{
+		{
+			Kind:      model.InputContentImage,
+			Text:      mo.None[string](),
+			MediaType: mo.Some("image/png"),
+			Data:      mo.Some([]byte{1, 2, 3}),
+		},
+	}})
 	extension := session.Entry{
-		ID: "extension", ParentID: mo.Some("user"), CreatedAt: createdAt.Add(time.Second),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-		Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte{4, 5, 6}}),
+		ID:            "extension",
+		ParentID:      mo.Some("user"),
+		CreatedAt:     createdAt.Add(time.Second),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension: mo.Some(
+			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte{4, 5, 6}},
+		),
 		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	tree, err := session.NewTree(

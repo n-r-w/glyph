@@ -159,10 +159,13 @@ severity:
 formatters:
   enable:
     - goimports
+    - golines
   settings:
     goimports:
       local-prefixes:
         - github.com/n-r-w/glyph
+    golines:
+      max-len: 120
   exclusions:
     generated: lax
     paths:

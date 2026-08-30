@@ -109,10 +109,20 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	history[0].User.MustGet().Content[0].Text = mo.Some("mutated")
 	s.Equal("hello", service.Snapshot()[0].User.MustGet().Content[0].Text.MustGet())
 
-	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
-		Header:      session.Header{Version: 1, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/file.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(persisted),
-	}}, nil)
+	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
+		{
+			Header: session.Header{
+				Version:          1,
+				ID:               "session-id",
+				CreatedAt:        createdAt,
+				WorkingDirectory: "/project",
+			},
+			StoragePath:          "/sessions/file.jsonl",
+			Information:          mo.None[session.Information](),
+			InformationUpdatedAt: mo.None[time.Time](),
+			Tree:                 mustSessionTree(persisted),
+		},
+	}, nil)
 	listed, err := service.ListStored(s.T().Context())
 	s.Require().NoError(err)
 	s.Require().Len(listed, 1)
@@ -144,8 +154,16 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
 			ProviderContext: mo.Some(providerContext), ToolCall: mo.Some(call),
 		}},
-		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.Some(model.ProviderID("provider")),
-		Model: mo.Some(model.ID("model")), ResponseModel: mo.Some(model.ID("response-model")), ResponseID: mo.Some("response-id"),
+		Outcome: mo.Some(
+			model.OutcomeToolUse,
+		),
+		ErrorMessage: mo.None[string](),
+		Provider:     mo.Some(model.ProviderID("provider")),
+		Model: mo.Some(
+			model.ID("model"),
+		),
+		ResponseModel: mo.Some(model.ID("response-model")),
+		ResponseID:    mo.Some("response-id"),
 		Usage: mo.Some(model.Usage{
 			InputTokens: 1, OutputTokens: 2, CachedInputTokens: 3,
 			CacheWriteTokens: 4, ReasoningTokens: 1, TotalTokens: 10,
@@ -415,9 +433,16 @@ func (s *ServiceSuite) TestHistoryAppendRejectsInvalidTreeMutationBeforePersiste
 	}
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	service.active = LoadedSession{
-		Header:      session.Header{Version: formatVersion, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/active.jsonl", Tree: mustSessionTree([]session.Entry{root}),
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "active",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/active.jsonl",
+		Tree:                 mustSessionTree([]session.Entry{root}),
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	s.ids.EXPECT().NewID().Return("duplicate", nil)
 	s.clock.EXPECT().Now().Return(createdAt.Add(time.Second))

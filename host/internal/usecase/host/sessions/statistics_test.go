@@ -130,7 +130,10 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 		Header: session.Header{
 			Version: 1, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
-		StoragePath: "/sessions/active.jsonl", Tree: session.Tree{}, Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+		StoragePath:          "/sessions/active.jsonl",
+		Tree:                 session.Tree{},
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
 	}
 	appendDone := make(chan error, 1)
 	informationStarted := make(chan struct{})
@@ -242,9 +245,17 @@ func testStatisticsExtensionEntry() session.Entry {
 }
 
 func testStatisticsUserEntry() session.Entry {
-	return session.Entry{ParentID: mo.None[string](), ID: "user", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-		User: mo.Some(model.TextMessage("request")), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	return session.Entry{
+		ParentID:      mo.None[string](),
+		ID:            "user",
+		CreatedAt:     time.Time{},
+		Information:   mo.None[session.Information](),
+		User:          mo.Some(model.TextMessage("request")),
+		Model:         mo.None[session.ModelResponse](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 
@@ -258,22 +269,37 @@ func testStatisticsModelEntry(outcome model.Outcome, usage mo.Option[model.Usage
 			}),
 		})
 	}
-	return session.Entry{ParentID: mo.None[string](), ID: "model", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.Some(model.Response{
+	return session.Entry{
+		ParentID:    mo.None[string](),
+		ID:          "model",
+		CreatedAt:   time.Time{},
+		Information: mo.None[session.Information](),
+		User:        mo.None[session.UserMessage](),
+		Model: mo.Some(model.Response{
 			Content: content, Outcome: mo.Some(outcome), ErrorMessage: mo.None[string](),
 			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
 			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: usage, Diagnostics: nil,
 		}),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 
 func testStatisticsToolResultEntry() session.Entry {
-	return session.Entry{ParentID: mo.None[string](), ID: "tool", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
+	return session.Entry{
+		ParentID:    mo.None[string](),
+		ID:          "tool",
+		CreatedAt:   time.Time{},
+		Information: mo.None[session.Information](),
+		User:        mo.None[session.UserMessage](),
+		Model:       mo.None[session.ModelResponse](),
 		ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call", ToolName: "tool", Contents: nil, IsError: false,
 		}),
-		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }

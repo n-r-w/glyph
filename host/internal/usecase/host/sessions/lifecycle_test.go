@@ -190,9 +190,42 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	// Arrange stored unnamed sessions with tied and distinct update times.
 	base := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
-		{Header: session.Header{Version: 1, ID: "older", CreatedAt: base, WorkingDirectory: "/project"}, StoragePath: "/older.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
-		{Header: session.Header{Version: 1, ID: "z-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/z.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
-		{Header: session.Header{Version: 1, ID: "a-id", CreatedAt: base.Add(time.Minute), WorkingDirectory: "/project"}, StoragePath: "/a.jsonl", Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree(nil)},
+		{
+			Header: session.Header{
+				Version:          1,
+				ID:               "older",
+				CreatedAt:        base,
+				WorkingDirectory: "/project",
+			},
+			StoragePath:          "/older.jsonl",
+			Information:          mo.None[session.Information](),
+			InformationUpdatedAt: mo.None[time.Time](),
+			Tree:                 mustSessionTree(nil),
+		},
+		{
+			Header: session.Header{
+				Version:          1,
+				ID:               "z-id",
+				CreatedAt:        base.Add(time.Minute),
+				WorkingDirectory: "/project",
+			},
+			StoragePath:          "/z.jsonl",
+			Information:          mo.None[session.Information](),
+			InformationUpdatedAt: mo.None[time.Time](),
+			Tree:                 mustSessionTree(nil),
+		},
+		{
+			Header: session.Header{
+				Version:          1,
+				ID:               "a-id",
+				CreatedAt:        base.Add(time.Minute),
+				WorkingDirectory: "/project",
+			},
+			StoragePath:          "/a.jsonl",
+			Information:          mo.None[session.Information](),
+			InformationUpdatedAt: mo.None[time.Time](),
+			Tree:                 mustSessionTree(nil),
+		},
 	}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
@@ -215,32 +248,65 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	// Arrange a stored session containing model and tool-result terminal entries.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{{
-		Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
-		StoragePath: "/sessions/stored.jsonl",
+	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
+		{
+			Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
+			StoragePath: "/sessions/stored.jsonl",
 
-		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](), Tree: mustSessionTree([]session.Entry{
-			{ParentID: mo.None[string](), ID: "user", CreatedAt: createdAt.Add(time.Second), Information: mo.None[session.Information](),
-				User: mo.Some(model.TextMessage("question")), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-			},
-			{ParentID: mo.None[string](), ID: "model", CreatedAt: createdAt.Add(2 * time.Second), Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](), Model: mo.Some(model.Response{
-					Content: nil, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
-					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-					ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-				}),
-				ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-			},
-			{ParentID: mo.None[string](), ID: "tool", CreatedAt: createdAt.Add(3 * time.Second), Information: mo.None[session.Information](),
-				User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				ToolResult: mo.Some(agent.ToolResult{
-					CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
-				}),
-				Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-			},
-		}),
-	}}, nil)
+			Information:          mo.None[session.Information](),
+			InformationUpdatedAt: mo.None[time.Time](),
+			Tree: mustSessionTree([]session.Entry{
+				{
+					ParentID:      mo.None[string](),
+					ID:            "user",
+					CreatedAt:     createdAt.Add(time.Second),
+					Information:   mo.None[session.Information](),
+					User:          mo.Some(model.TextMessage("question")),
+					Model:         mo.None[session.ModelResponse](),
+					ToolResult:    mo.None[session.ToolResult](),
+					Extension:     mo.None[session.ExtensionEnvelope](),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+					BranchSummary: mo.None[session.BranchSummaryEntry](),
+				},
+				{
+					ParentID:    mo.None[string](),
+					ID:          "model",
+					CreatedAt:   createdAt.Add(2 * time.Second),
+					Information: mo.None[session.Information](),
+					User:        mo.None[session.UserMessage](),
+					Model: mo.Some(model.Response{
+						Content:       nil,
+						Outcome:       mo.Some(model.OutcomeToolUse),
+						ErrorMessage:  mo.None[string](),
+						Provider:      mo.None[model.ProviderID](),
+						Model:         mo.None[model.ID](),
+						ResponseModel: mo.None[model.ID](),
+						ResponseID:    mo.None[string](),
+						Usage:         mo.None[model.Usage](),
+						Diagnostics:   nil,
+					}),
+					ToolResult:    mo.None[session.ToolResult](),
+					Extension:     mo.None[session.ExtensionEnvelope](),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+					BranchSummary: mo.None[session.BranchSummaryEntry](),
+				},
+				{
+					ParentID:    mo.None[string](),
+					ID:          "tool",
+					CreatedAt:   createdAt.Add(3 * time.Second),
+					Information: mo.None[session.Information](),
+					User:        mo.None[session.UserMessage](),
+					Model:       mo.None[session.ModelResponse](),
+					ToolResult: mo.Some(agent.ToolResult{
+						CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
+					}),
+					Extension:     mo.None[session.ExtensionEnvelope](),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+					BranchSummary: mo.None[session.BranchSummaryEntry](),
+				},
+			}),
+		},
+	}, nil)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by listing the stored session.
@@ -282,13 +348,22 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 	createdAt := time.Date(2026, 8, 27, 4, 0, 0, 0, time.UTC)
 	want := []byte(`{"checkpoint":true}`)
 	repositoryBytes := append([]byte(nil), want...)
-	entries := []session.Entry{{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt, Information: mo.None[session.Information](),
-		User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.Some(session.ExtensionEnvelope{
-			ExtensionID: "example.extension", EntryType: "checkpoint", Data: repositoryBytes,
-		}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-	}}
+	entries := []session.Entry{
+		{
+			ParentID:    mo.None[string](),
+			ID:          "extension-entry",
+			CreatedAt:   createdAt,
+			Information: mo.None[session.Information](),
+			User:        mo.None[session.UserMessage](),
+			Model:       mo.None[session.ModelResponse](),
+			ToolResult:  mo.None[session.ToolResult](),
+			Extension: mo.Some(session.ExtensionEnvelope{
+				ExtensionID: "example.extension", EntryType: "checkpoint", Data: repositoryBytes,
+			}),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](),
+		},
+	}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header: session.Header{
 			Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project",

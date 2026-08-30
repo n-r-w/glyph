@@ -93,7 +93,8 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 	assert.Equal(t, []string{"run-fixed", "run-fixed", "run-fixed", "run-fixed"}, seenRunIDs)
 }
 
-// TestCoordinatorSettlesPersistenceFailureWithoutHistory verifies terminal cleanup and gate release after the first append fails.
+// TestCoordinatorSettlesPersistenceFailureWithoutHistory verifies terminal cleanup and gate release after the first
+// append fails.
 func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 	t.Parallel()
 

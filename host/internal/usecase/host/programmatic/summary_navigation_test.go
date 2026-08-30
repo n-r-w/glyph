@@ -25,8 +25,22 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 		cancel       bool
 		expected     controller.TreeNavigationStatus
 	}{
-		{name: "built in committed", publicMode: controller.SummaryModeSummarize, focus: mo.None[string](), internalMode: sessionnavigation.SummaryModeSummarize, cancel: false, expected: controller.TreeNavigationStatusCommitted},
-		{name: "custom canceled", publicMode: controller.SummaryModeSummarizeWithCustomPrompt, focus: mo.Some("focus"), internalMode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt, cancel: true, expected: controller.TreeNavigationStatusCanceled},
+		{
+			name:         "built in committed",
+			publicMode:   controller.SummaryModeSummarize,
+			focus:        mo.None[string](),
+			internalMode: sessionnavigation.SummaryModeSummarize,
+			cancel:       false,
+			expected:     controller.TreeNavigationStatusCommitted,
+		},
+		{
+			name:         "custom canceled",
+			publicMode:   controller.SummaryModeSummarizeWithCustomPrompt,
+			focus:        mo.Some("focus"),
+			internalMode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt,
+			cancel:       true,
+			expected:     controller.TreeNavigationStatusCanceled,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

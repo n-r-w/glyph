@@ -71,10 +71,15 @@ func nameStartupSession(
 	}
 	name := "restart session"
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active SetSessionName field.
-	if err := stream.Send(uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{SetSessionName: uipb.SetSessionNameCommand_builder{Name: &name}.Build()}.Build(),
+	); err != nil {
 		return err
 	}
-	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil })
+	frame, err := receiveSessionFrame(
+		stream,
+		func(frame *uipb.OpenRequest) bool { return frame.GetSessionInformation() != nil },
+	)
 	if err != nil {
 		return err
 	}
@@ -127,7 +132,9 @@ func assertUIStatistics(
 	totalTokens int64,
 ) error {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active GetSessionInfo field.
-	if err := stream.Send(uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{GetSessionInfo: &uipb.GetSessionInfoCommand{}}.Build(),
+	); err != nil {
 		return err
 	}
 	frame, err := receiveSessionFrame(stream, func(frame *uipb.OpenRequest) bool {
@@ -194,7 +201,9 @@ func submitRestartTurn(
 	text string,
 ) error {
 	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
-	if err := stream.Send(uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: &text}.Build()}.Build()); err != nil {
+	if err := stream.Send(
+		uipb.OpenResponse_builder{Submit: uipb.SubmitCommand_builder{Text: &text}.Build()}.Build(),
+	); err != nil {
 		return err
 	}
 	for {
