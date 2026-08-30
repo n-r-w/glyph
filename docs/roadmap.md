@@ -70,6 +70,9 @@ Documents:
 - [Ticket](specs/features/initial/phases/05-session-tree/ticket.md)
 - [Technical Solution](specs/features/initial/phases/05-session-tree/solution.md)
 
+Follow-up issues:
+- [Reliable branch summarization](specs/issues/reliable-branch-summarization/problem.md): In progress
+
 ## PHS-07: Extension context and lifecycle
 
 Status: Planned
