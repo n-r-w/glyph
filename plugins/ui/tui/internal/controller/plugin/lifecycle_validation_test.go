@@ -53,7 +53,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		Lifecycle:          &uiv1.LifecycleEvent{},
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()
 	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
 	safeError := uiv1.OpenRequest_builder{
@@ -63,7 +63,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()
 
 	// Act by mapping both requests.
@@ -260,7 +260,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			Lifecycle:          proto.ValueOrDefault(lifecycle),
 			SessionList:        nil,
 			SessionChanged:     nil,
-			SessionInformation: nil,
+			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 		}.Build())
 		require.NoError(t, err)
 		state = projection.Apply(state, event)

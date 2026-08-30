@@ -51,7 +51,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 				s.T().Context(), controller.Command{
 					CorrelationID: string(rune('a' + index)), Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 					SessionID:   mo.None[session.ID](),
-					SessionName: mo.None[string](),
+					SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 				},
 			)
 		}()
@@ -79,7 +79,9 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 			controller.ResponseSessionInfo,
 			controller.ResponseSessions,
 			controller.ResponseSessionEntries,
-			controller.ResponseSessionStats:
+			controller.ResponseSessionStats,
+			controller.ResponseSessionTree,
+			controller.ResponseSessionTreeNavigation:
 			s.Fail("unexpected response", "kind %d", result.response.Kind)
 		}
 	}
@@ -113,7 +115,7 @@ func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
 		response, operation, err := service.Handle(s.T().Context(), controller.Command{
 			CorrelationID: "late", Kind: controller.CommandUserRequest, UserText: mo.Some("request"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](),
+			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		})
 		result <- handleResult{response: response, operation: operation, err: err}
 	}()
@@ -150,7 +152,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	_, operation, err := service.Handle(s.T().Context(), controller.Command{
 		CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:   mo.None[session.ID](),
-		SessionName: mo.None[string](),
+		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
@@ -165,7 +167,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		State: mo.Some(controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")}), Messages: nil, Models: mo.None[controller.ModelsResult](), Selection: mo.None[model.Selection](), Rejection: mo.None[controller.Rejection](),
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
-		SessionStatistics: mo.None[session.Statistics](),
+		SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[controller.SessionTree](), TreeNavigation: mo.None[controller.TreeNavigationResult](),
 	}, response)
 
 	responseModel := model.ID("response-model")

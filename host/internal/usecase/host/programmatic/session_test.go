@@ -48,7 +48,7 @@ func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
 				CorrelationID: test.name, Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
 				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[session.ID](), SessionName: mo.None[string](),
+				SessionID:       mo.None[session.ID](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			})
 
 			// Assert domain classification remains stable and internal details reach the rejection boundary.
@@ -156,7 +156,8 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
 				controller.CommandListSessions, controller.CommandGetSessionInfo,
-				controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
+				controller.CommandGetSessionEntries, controller.CommandGetSessionStats,
+				controller.CommandGetSessionTree, controller.CommandNavigateSessionTree:
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -164,7 +165,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				CorrelationID: test.name, Kind: test.kind, UserText: mo.None[string](),
 				ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: test.sessionID,
-				SessionName: test.sessionName,
+				SessionName: test.sessionName, TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			})
 			require.NoError(t, err)
 			assert.Nil(t, operation)
@@ -281,7 +282,7 @@ func TestSessionLifecycleCommands(t *testing.T) {
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
 				SessionID:       test.sessionID,
-				SessionName:     test.sessionName,
+				SessionName:     test.sessionName, TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			})
 
 			// Assert handling succeeds without a run operation and returns the expected response kind.

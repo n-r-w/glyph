@@ -17,6 +17,7 @@ import (
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	ui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -417,6 +418,21 @@ func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionControl)(nil).List), arg0)
 }
 
+// Navigate mocks base method.
+func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 string) (sessionnavigation.Result, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Navigate", arg0, arg1)
+	ret0, _ := ret[0].(sessionnavigation.Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Navigate indicates an expected call of Navigate.
+func (mr *MockSessionControlMockRecorder) Navigate(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Navigate", reflect.TypeOf((*MockSessionControl)(nil).Navigate), arg0, arg1)
+}
+
 // Resume mocks base method.
 func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Replacement, error) {
 	m.ctrl.T.Helper()
@@ -445,6 +461,20 @@ func (m *MockSessionControl) SetName(arg0 context.Context, arg1 string) (session
 func (mr *MockSessionControlMockRecorder) SetName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetName", reflect.TypeOf((*MockSessionControl)(nil).SetName), arg0, arg1)
+}
+
+// Tree mocks base method.
+func (m *MockSessionControl) Tree() session.Tree {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tree")
+	ret0, _ := ret[0].(session.Tree)
+	return ret0
+}
+
+// Tree indicates an expected call of Tree.
+func (mr *MockSessionControlMockRecorder) Tree() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockSessionControl)(nil).Tree))
 }
 
 // MockAuthenticator is a mock of Authenticator interface.

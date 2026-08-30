@@ -73,6 +73,9 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
@@ -440,7 +443,9 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 			Data:      []byte{1, 2, 3},
 		}),
 	}}
-	cloned := cloneResultContents(original)
+	cloned := (agent.ToolResult{
+		CallID: "", ToolName: "", Contents: original, IsError: false,
+	}).Clone().Contents
 	image, ok := cloned[0].Image.Get()
 	require.True(t, ok)
 	image.Data[0] = 9

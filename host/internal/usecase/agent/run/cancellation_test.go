@@ -125,7 +125,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 							return siblingErr
 						}
 					}
-					history = append(history, cloneHistoryEntry(entry))
+					history = append(history, entry.Clone())
 					return nil
 				},
 			).AnyTimes()
@@ -288,7 +288,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 func TestNormalizeTerminalResponseTreatsEmptyMessageAsAbsent(t *testing.T) {
 	t.Parallel()
 
-	response := normalizeTerminalResponse(model.Response{
+	response := (&Service{}).normalizeTerminalResponse(model.Response{
 		Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some(""), Content: nil, Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	})
 

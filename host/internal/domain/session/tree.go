@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"slices"
-	"strings"
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
 // Tree owns parent-linked entries, the active leaf, and entry labels.
@@ -103,13 +101,22 @@ func (tree *Tree) add(entry Entry, advance bool) error {
 	if payloads != 1 || entry.Information.IsSome() || entry.Model.IsNone() && entry.EstimatedCost.IsSome() {
 		return errors.New("entry must contain exactly one tree payload")
 	}
-	owned := cloneTreeEntry(entry)
+	owned := entry.Clone()
 	tree.index[owned.ID] = len(tree.entries)
 	tree.entries = append(tree.entries, owned)
 	if advance {
 		tree.activeLeafID = mo.Some(owned.ID)
 	}
 	return nil
+}
+
+// Clone returns an independently owned valid tree snapshot.
+func (tree Tree) Clone() Tree {
+	cloned, err := NewTree(tree.Entries(), tree.ActiveLeafID(), tree.Labels())
+	if err != nil {
+		panic(err)
+	}
+	return cloned
 }
 
 // ActiveBranch returns the active path in root-first order.
@@ -122,14 +129,14 @@ func (tree Tree) ActiveBranch() []Entry {
 func (tree Tree) NavigationPreparation(targetID string) (NavigationPreparation, error) {
 	targetIndex, exists := tree.index[targetID]
 	if !exists {
-		return NavigationPreparation{}, errors.New("navigation target does not exist")
+		return NavigationPreparation{}, fmt.Errorf("prepare navigation: %w", ErrEntryNotFound)
 	}
 	target := tree.entries[targetIndex]
 	destinationID := mo.Some(target.ID)
 	nextInput := mo.None[string]()
 	if user, present := target.User.Get(); present {
 		destinationID = target.ParentID
-		nextInput = mo.Some(userText(user))
+		nextInput = mo.Some(user.Text("\n"))
 	}
 	activePath := tree.pathTo(tree.activeLeafID)
 	destinationPath := tree.pathTo(destinationID)
@@ -160,6 +167,28 @@ func (tree Tree) Labels() map[string]string {
 	labels := make(map[string]string, len(tree.labels))
 	maps.Copy(labels, tree.labels)
 	return labels
+}
+
+// ValidateSummaryBoundary checks that a branch summary covers one connected ancestor path.
+func (tree Tree) ValidateSummaryBoundary(summary BranchSummaryEntry) error {
+	firstIndex, firstExists := tree.index[summary.FirstEntryID]
+	_, lastExists := tree.index[summary.LastEntryID]
+	if !firstExists || !lastExists {
+		return nil
+	}
+	first := tree.entries[firstIndex]
+	current := summary.LastEntryID
+	for {
+		if current == first.ID {
+			return nil
+		}
+		entry := tree.entries[tree.index[current]]
+		parent, present := entry.ParentID.Get()
+		if !present {
+			return errors.New("branch summary boundary is disconnected")
+		}
+		current = parent
+	}
 }
 
 // SetActiveLeaf validates and changes the entry used for subsequent appends.
@@ -207,104 +236,26 @@ func (tree Tree) pathTo(id mo.Option[string]) []Entry {
 	return path
 }
 
-// userText preserves ordered text blocks for editable next input.
-func userText(message model.Message) string {
-	parts := make([]string, 0, len(message.Content))
-	for _, content := range message.Content {
-		if text, present := content.Text.Get(); present {
-			parts = append(parts, text)
-		}
-	}
-	return strings.Join(parts, "\n")
-}
-
 // cloneTreeEntries prevents snapshots from sharing mutable entry payloads.
 func cloneTreeEntries(entries []Entry) []Entry {
 	result := make([]Entry, len(entries))
 	for index := range entries {
-		result[index] = cloneTreeEntry(entries[index])
+		result[index] = entries[index].Clone()
 	}
 	return result
 }
 
-// cloneTreeEntry owns every mutable payload carried by one entry.
-func cloneTreeEntry(entry Entry) Entry {
-	entry.User = entry.User.MapValue(cloneTreeMessage)
-	entry.Model = entry.Model.MapValue(cloneTreeModelResponse)
-	entry.ToolResult = entry.ToolResult.MapValue(cloneTreeToolResult)
-	entry.Extension = entry.Extension.MapValue(func(extension ExtensionEnvelope) ExtensionEnvelope {
-		extension.Data = bytes.Clone(extension.Data)
-		return extension
-	})
+// Clone returns a deep copy of the entry.
+func (entry Entry) Clone() Entry {
+	entry.User = entry.User.MapValue(model.Message.Clone)
+	entry.Model = entry.Model.MapValue(model.Response.Clone)
+	entry.ToolResult = entry.ToolResult.MapValue(agent.ToolResult.Clone)
+	entry.Extension = entry.Extension.MapValue(ExtensionEnvelope.Clone)
 	return entry
 }
 
-// cloneTreeMessage owns mutable input-content bytes.
-func cloneTreeMessage(message model.Message) model.Message {
-	message.Content = slices.Clone(message.Content)
-	for index := range message.Content {
-		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
-	}
-	return message
-}
-
-// cloneTreeModelResponse owns content, provider context, tool arguments, and diagnostics.
-func cloneTreeModelResponse(response model.Response) model.Response {
-	response.Content = slices.Clone(response.Content)
-	for index := range response.Content {
-		response.Content[index].ProviderContext = response.Content[index].ProviderContext.MapValue(
-			func(context model.ProviderContext) model.ProviderContext {
-				context.Payload = bytes.Clone(context.Payload)
-				return context
-			},
-		)
-		response.Content[index].ToolCall = response.Content[index].ToolCall.MapValue(
-			func(call model.ToolCall) model.ToolCall {
-				call.Arguments = cloneTreeArguments(call.Arguments)
-				return call
-			},
-		)
-	}
-	response.Diagnostics = slices.Clone(response.Diagnostics)
-	return response
-}
-
-// cloneTreeArguments owns nested JSON-compatible tool arguments.
-func cloneTreeArguments(arguments map[string]any) map[string]any {
-	if arguments == nil {
-		return nil
-	}
-	cloned := maps.Clone(arguments)
-	for name, value := range cloned {
-		cloned[name] = cloneTreeJSONValue(value)
-	}
-	return cloned
-}
-
-// cloneTreeJSONValue recursively owns JSON-compatible maps and slices.
-func cloneTreeJSONValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneTreeArguments(typed)
-	case []any:
-		cloned := slices.Clone(typed)
-		for index := range cloned {
-			cloned[index] = cloneTreeJSONValue(cloned[index])
-		}
-		return cloned
-	default:
-		return value
-	}
-}
-
-// cloneTreeToolResult owns tool-result content and image bytes.
-func cloneTreeToolResult(result ToolResult) ToolResult {
-	result.Contents = slices.Clone(result.Contents)
-	for index := range result.Contents {
-		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
-			image.Data = bytes.Clone(image.Data)
-			return image
-		})
-	}
-	return result
+// Clone returns a deep copy of the extension envelope.
+func (extension ExtensionEnvelope) Clone() ExtensionEnvelope {
+	extension.Data = bytes.Clone(extension.Data)
+	return extension
 }

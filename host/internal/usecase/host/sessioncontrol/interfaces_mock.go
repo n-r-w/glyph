@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -157,6 +158,20 @@ func (mr *MockActiveSessionsMockRecorder) SetActiveName(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActiveName", reflect.TypeOf((*MockActiveSessions)(nil).SetActiveName), arg0, arg1)
 }
 
+// Tree mocks base method.
+func (m *MockActiveSessions) Tree() session.Tree {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tree")
+	ret0, _ := ret[0].(session.Tree)
+	return ret0
+}
+
+// Tree indicates an expected call of Tree.
+func (mr *MockActiveSessionsMockRecorder) Tree() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockActiveSessions)(nil).Tree))
+}
+
 // MockNavigator is a mock of Navigator interface.
 type MockNavigator struct {
 	ctrl     *gomock.Controller
@@ -182,10 +197,10 @@ func (m *MockNavigator) EXPECT() *MockNavigatorMockRecorder {
 }
 
 // NavigateTree mocks base method.
-func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 string) (NavigationResult, error) {
+func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 string) (sessionnavigation.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NavigateTree", arg0, arg1)
-	ret0, _ := ret[0].(NavigationResult)
+	ret0, _ := ret[0].(sessionnavigation.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

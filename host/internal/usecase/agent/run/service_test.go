@@ -52,7 +52,7 @@ func newMockHistoryStore(t *testing.T) *MockHistoryStore {
 	}).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, entry agent.HistoryEntry) error {
-			history = append(history, cloneHistoryEntry(entry))
+			history = append(history, entry.Clone())
 			return nil
 		},
 	).AnyTimes()

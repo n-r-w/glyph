@@ -50,7 +50,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		SessionID:       mo.None[string](),
-		SessionName:     mo.Some("renamed"),
+		SessionName:     mo.Some("renamed"), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	})
 	// Assert the command is handled and the information frame is sent.
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func testUICommand(kind domainui.CommandKind, text mo.Option[string]) domainui.C
 	return domainui.Command{
 		Kind: kind, Text: text, ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
-		SessionName: mo.None[string](),
+		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	}
 }
 

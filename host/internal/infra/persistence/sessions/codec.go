@@ -72,12 +72,12 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 // encodeBranchSummaryEntry validates and encodes one complete summary payload.
 func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummaryEntry) ([]byte, error) {
 	if summary.Summary == "" || summary.FirstEntryID == "" || summary.LastEntryID == "" ||
-		summary.Provider == "" || summary.Model == "" || !validReasoningChoice(summary.ReasoningChoice) {
+		summary.Provider == "" || summary.Model == "" || !summary.ReasoningChoice.Valid() {
 		return nil, errors.New("invalid branch summary entry")
 	}
 	var usage *sessionUsageRecord
 	if value, present := summary.Usage.Get(); present {
-		if !validTokenUsage(value) {
+		if !value.Valid() {
 			return nil, errors.New("invalid branch summary usage")
 		}
 		usage = &sessionUsageRecord{
@@ -88,7 +88,7 @@ func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummary
 	}
 	var estimatedCost *estimatedCostRecord
 	if cost, present := summary.EstimatedCost.Get(); present {
-		if !validEstimatedCost(cost) {
+		if !cost.Valid() {
 			return nil, errors.New("invalid branch summary cost")
 		}
 		estimatedCost = &estimatedCostRecord{

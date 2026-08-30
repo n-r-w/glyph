@@ -187,7 +187,7 @@ func executeAndCollect(
 	if err != nil {
 		return nil, toolOutcome{}, err
 	}
-	return collectExecution(stream)
+	return stream.collectExecution()
 }
 
 // checkUIRuntime verifies handshake-only probing and the persistent bidirectional lifecycle stream.
@@ -210,13 +210,13 @@ func checkUIRuntime(ctx context.Context, executable string, report *automatedRep
 	if err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventReady, ""); err != nil {
+	if err := stream.expectEvent(uiEventReady, ""); err != nil {
 		return err
 	}
 	if err := stream.send(uiCommandEcho); err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventEchoed, "echo"); err != nil {
+	if err := stream.expectEvent(uiEventEchoed, "echo"); err != nil {
 		return err
 	}
 	report.bidirectionalUI = true
@@ -224,7 +224,7 @@ func checkUIRuntime(ctx context.Context, executable string, report *automatedRep
 	if err := stream.send(uiCommandQuit); err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventExited, ""); err != nil {
+	if err := stream.expectEvent(uiEventExited, ""); err != nil {
 		return err
 	}
 	_, streamErr := stream.recv()

@@ -44,13 +44,16 @@ const (
 	fieldProviderID = "providerId"
 )
 
+// jsonObject contains one decoded JSON object.
+type jsonObject map[string]jsontext.Value
+
 // validateHeaderRequiredFields rejects omitted or null scalar fields before header conversion.
 func validateHeaderRequiredFields(data []byte) error {
 	header, err := requiredJSONObject(data, "type", "version", "id", "createdAt", "cwd")
 	if err != nil {
 		return err
 	}
-	return requireNonNullJSONFields(header, "type", "version", "id", "createdAt", "cwd")
+	return header.requireNonNullFields("type", "version", "id", "createdAt", "cwd")
 }
 
 // validateEntryRequiredFields checks required key presence without changing valid zero or collection states.
@@ -59,50 +62,51 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 	if err != nil {
 		return err
 	}
-	if validationErr := requireNonNullJSONFields(entry, "type", "id", "createdAt"); validationErr != nil {
+	if validationErr := entry.requireNonNullFields("type", "id", "createdAt"); validationErr != nil {
 		return validationErr
 	}
 	switch kind {
 	case recordTypeSessionInfo:
-		if validationErr := requireJSONFields(entry, "name"); validationErr != nil {
+		if validationErr := entry.requireFields("name"); validationErr != nil {
 			return validationErr
 		}
-		return requireNonNullJSONFields(entry, "name")
+		return entry.requireNonNullFields("name")
 	case recordTypeUser:
-		return validateUserRequiredFields(entry)
+		return entry.validateUserRequiredFields()
 	case recordTypeModel:
-		return validateModelRequiredFields(entry)
+		return entry.validateModelRequiredFields()
 	case recordTypeToolResult:
-		return validateToolResultRequiredFields(entry)
+		return entry.validateToolResultRequiredFields()
 	case recordTypeExtension:
-		if validationErr := requireJSONFields(entry, "extensionId", "entryType", "data"); validationErr != nil {
+		if validationErr := entry.requireFields("extensionId", "entryType", "data"); validationErr != nil {
 			return validationErr
 		}
-		return requireNonNullJSONFields(entry, "extensionId", "entryType")
+		return entry.requireNonNullFields("extensionId", "entryType")
 	case recordTypeBranchSummary:
 		fields := []string{"summary", "firstEntryId", "lastEntryId", "provider", fieldModel, "reasoningChoice"}
-		if validationErr := requireJSONFields(entry, fields...); validationErr != nil {
+		if validationErr := entry.requireFields(fields...); validationErr != nil {
 			return validationErr
 		}
-		if validationErr := requireNonNullJSONFields(entry, fields...); validationErr != nil {
+		if validationErr := entry.requireNonNullFields(fields...); validationErr != nil {
 			return validationErr
 		}
 		usageFields := []string{
 			fieldInputTokens, fieldOutputTokens, "cacheReadTokens",
 			fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
 		}
-		if validationErr := validateOptionalRequiredObject(entry, "usage", usageFields, usageFields); validationErr != nil {
+		if validationErr := entry.validateOptionalRequiredObject("usage", usageFields, usageFields); validationErr != nil {
 			return validationErr
 		}
 		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
-		return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
+		return entry.validateOptionalRequiredObject("estimatedCost", costFields, costFields)
 	default:
 		return errors.New("invalid session entry")
 	}
 }
 
-func validateUserRequiredFields(entry jsonObject) error {
-	message, err := requiredChildJSONObject(entry, "message", "content")
+// validateUserRequiredFields validates one user entry object.
+func (entry jsonObject) validateUserRequiredFields() error {
+	message, err := entry.requiredChild("message", "content")
 	if err != nil {
 		return err
 	}
@@ -111,12 +115,13 @@ func validateUserRequiredFields(entry jsonObject) error {
 	})
 }
 
-func validateModelRequiredFields(entry jsonObject) error {
-	response, err := requiredChildJSONObject(entry, "response", "content", "outcome", "diagnostics")
+// validateModelRequiredFields validates one model entry object.
+func (entry jsonObject) validateModelRequiredFields() error {
+	response, err := entry.requiredChild("response", "content", "outcome", "diagnostics")
 	if err != nil {
 		return err
 	}
-	if validationErr := requireNonNullJSONFields(response, "outcome"); validationErr != nil {
+	if validationErr := response.requireNonNullFields("outcome"); validationErr != nil {
 		return validationErr
 	}
 	if validationErr := validateJSONArray(
@@ -133,13 +138,13 @@ func validateModelRequiredFields(entry jsonObject) error {
 		fieldInputTokens, fieldOutputTokens, "cachedInputTokens",
 		fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
 	}
-	if validationErr := validateOptionalRequiredObject(
-		response, "usage", usageFields, usageFields,
+	if validationErr := response.validateOptionalRequiredObject(
+		"usage", usageFields, usageFields,
 	); validationErr != nil {
 		return validationErr
 	}
 	costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
-	return validateOptionalRequiredObject(entry, "estimatedCost", costFields, costFields)
+	return entry.validateOptionalRequiredObject("estimatedCost", costFields, costFields)
 }
 
 func validateDiagnosticRequiredFields(raw jsontext.Value) error {
@@ -147,7 +152,7 @@ func validateDiagnosticRequiredFields(raw jsontext.Value) error {
 	if err != nil {
 		return err
 	}
-	return requireNonNullJSONFields(diagnostic, "code", "message")
+	return diagnostic.requireNonNullFields("code", "message")
 }
 
 func validateModelContentRequiredFields(raw jsontext.Value) error {
@@ -155,36 +160,35 @@ func validateModelContentRequiredFields(raw jsontext.Value) error {
 	if err != nil {
 		return err
 	}
-	if validationErr := requireNonNullJSONFields(content, "kind"); validationErr != nil {
+	if validationErr := content.requireNonNullFields("kind"); validationErr != nil {
 		return validationErr
 	}
 	if _, present := content["text"]; present {
-		if validationErr := requireNonNullJSONFields(content, "text"); validationErr != nil {
+		if validationErr := content.requireNonNullFields("text"); validationErr != nil {
 			return validationErr
 		}
 	}
-	if validationErr := validateOptionalRequiredObject(
-		content,
+	if validationErr := content.validateOptionalRequiredObject(
 		"providerContext",
 		[]string{fieldProviderID, fieldAPI, fieldModel, "payload"},
 		[]string{fieldProviderID, fieldAPI, fieldModel},
 	); validationErr != nil {
 		return validationErr
 	}
-	return validateOptionalRequiredObject(
-		content,
+	return content.validateOptionalRequiredObject(
 		"toolCall",
 		[]string{fieldID, fieldName, "arguments"},
 		[]string{fieldID, fieldName},
 	)
 }
 
-func validateToolResultRequiredFields(entry jsonObject) error {
-	result, err := requiredChildJSONObject(entry, "result", "callId", "toolName", "contents", "isError")
+// validateToolResultRequiredFields validates one tool-result entry object.
+func (entry jsonObject) validateToolResultRequiredFields() error {
+	result, err := entry.requiredChild("result", "callId", "toolName", "contents", "isError")
 	if err != nil {
 		return err
 	}
-	if validationErr := requireNonNullJSONFields(result, "callId", "toolName", "isError"); validationErr != nil {
+	if validationErr := result.requireNonNullFields("callId", "toolName", "isError"); validationErr != nil {
 		return validationErr
 	}
 	return validateJSONArray(result["contents"], "tool result content", func(raw jsontext.Value) error {
@@ -197,7 +201,7 @@ func validateTextOrImageRequiredFields(raw jsontext.Value, textKind, imageKind i
 	if err != nil {
 		return err
 	}
-	if validationErr := requireNonNullJSONFields(content, "kind"); validationErr != nil {
+	if validationErr := content.requireNonNullFields("kind"); validationErr != nil {
 		return validationErr
 	}
 	var discriminator struct {
@@ -208,21 +212,19 @@ func validateTextOrImageRequiredFields(raw jsontext.Value, textKind, imageKind i
 	}
 	switch discriminator.Kind {
 	case textKind:
-		if validationErr := requireJSONFields(content, "text"); validationErr != nil {
+		if validationErr := content.requireFields("text"); validationErr != nil {
 			return validationErr
 		}
-		return requireNonNullJSONFields(content, "text")
+		return content.requireNonNullFields("text")
 	case imageKind:
-		if validationErr := requireJSONFields(content, "mediaType", "data"); validationErr != nil {
+		if validationErr := content.requireFields("mediaType", "data"); validationErr != nil {
 			return validationErr
 		}
-		return requireNonNullJSONFields(content, "mediaType")
+		return content.requireNonNullFields("mediaType")
 	default:
 		return nil
 	}
 }
-
-type jsonObject map[string]jsontext.Value
 
 func requiredJSONObject(data []byte, fields ...string) (jsonObject, error) {
 	var object jsonObject
@@ -232,27 +234,28 @@ func requiredJSONObject(data []byte, fields ...string) (jsonObject, error) {
 	if object == nil {
 		return nil, errors.New("required JSON object is null")
 	}
-	if err := requireJSONFields(object, fields...); err != nil {
+	if err := object.requireFields(fields...); err != nil {
 		return nil, err
 	}
 	return object, nil
 }
 
-func requiredChildJSONObject(parent jsonObject, field string, fields ...string) (jsonObject, error) {
-	raw, present := parent[field]
+// requiredChild returns one required child object.
+func (entry jsonObject) requiredChild(field string, fields ...string) (jsonObject, error) {
+	raw, present := entry[field]
 	if !present {
 		return nil, fmt.Errorf("required field %q is missing", field)
 	}
 	return requiredJSONObject(raw, fields...)
 }
 
-func validateOptionalRequiredObject(
-	parent jsonObject,
+// validateOptionalRequiredObject validates one present optional child object.
+func (entry jsonObject) validateOptionalRequiredObject(
 	field string,
 	requiredFields []string,
 	nonNullFields []string,
 ) error {
-	raw, present := parent[field]
+	raw, present := entry[field]
 	if !present {
 		return nil
 	}
@@ -260,10 +263,10 @@ func validateOptionalRequiredObject(
 	if err != nil {
 		return fmt.Errorf("decode optional object %q: %w", field, err)
 	}
-	if validationErr := requireJSONFields(object, requiredFields...); validationErr != nil {
+	if validationErr := object.requireFields(requiredFields...); validationErr != nil {
 		return validationErr
 	}
-	return requireNonNullJSONFields(object, nonNullFields...)
+	return object.requireNonNullFields(nonNullFields...)
 }
 
 func validateJSONArray(raw jsontext.Value, name string, validate func(jsontext.Value) error) error {
@@ -279,18 +282,20 @@ func validateJSONArray(raw jsontext.Value, name string, validate func(jsontext.V
 	return nil
 }
 
-func requireJSONFields(object jsonObject, fields ...string) error {
+// requireFields checks required field presence.
+func (entry jsonObject) requireFields(fields ...string) error {
 	for _, field := range fields {
-		if _, present := object[field]; !present {
+		if _, present := entry[field]; !present {
 			return fmt.Errorf("required field %q is missing", field)
 		}
 	}
 	return nil
 }
 
-func requireNonNullJSONFields(object jsonObject, fields ...string) error {
+// requireNonNullFields checks required fields for explicit null values.
+func (entry jsonObject) requireNonNullFields(fields ...string) error {
 	for _, field := range fields {
-		if bytes.Equal(bytes.TrimSpace(object[field]), []byte("null")) {
+		if bytes.Equal(bytes.TrimSpace(entry[field]), []byte("null")) {
 			return fmt.Errorf("required field %q is null", field)
 		}
 	}

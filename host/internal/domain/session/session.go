@@ -3,6 +3,7 @@ package session
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	"github.com/samber/mo"
@@ -23,6 +24,8 @@ var (
 	ErrUnavailable = errors.New("session is unavailable")
 	// ErrPersistenceUnavailable reports an active session that cannot accept mutations.
 	ErrPersistenceUnavailable = errors.New("session persistence failed")
+	// ErrEntryNotFound reports an unknown session-tree entry target.
+	ErrEntryNotFound = errors.New("session tree entry not found")
 )
 
 // Header is the first record in a persisted session.
@@ -156,6 +159,27 @@ type TokenUsage struct {
 	TotalTokens int64
 }
 
+// Valid reports whether all token buckets and their derived total satisfy session invariants.
+func (usage TokenUsage) Valid() bool {
+	if usage.InputTokens < 0 || usage.OutputTokens < 0 || usage.CacheReadTokens < 0 ||
+		usage.CacheWriteTokens < 0 || usage.ReasoningTokens < 0 || usage.TotalTokens < 0 {
+		return false
+	}
+	return usage.ReasoningTokens <= usage.OutputTokens &&
+		usage.TotalTokens == usage.InputTokens+usage.OutputTokens+usage.CacheReadTokens+usage.CacheWriteTokens
+}
+
+// Add returns the component-wise sum of two token-usage values.
+func (usage TokenUsage) Add(other TokenUsage) TokenUsage {
+	return TokenUsage{
+		InputTokens: usage.InputTokens + other.InputTokens, OutputTokens: usage.OutputTokens + other.OutputTokens,
+		CacheReadTokens:  usage.CacheReadTokens + other.CacheReadTokens,
+		CacheWriteTokens: usage.CacheWriteTokens + other.CacheWriteTokens,
+		ReasoningTokens:  usage.ReasoningTokens + other.ReasoningTokens,
+		TotalTokens:      usage.TotalTokens + other.TotalTokens,
+	}
+}
+
 // EstimatedCost contains calculated USD cost for disjoint token buckets.
 type EstimatedCost struct {
 	// Input is the cost of uncached input tokens.
@@ -168,6 +192,26 @@ type EstimatedCost struct {
 	CacheWrite float64
 	// Total is the sum of all cost buckets.
 	Total float64
+}
+
+// Valid reports whether all cost buckets and their derived total satisfy session invariants.
+func (cost EstimatedCost) Valid() bool {
+	values := []float64{cost.Input, cost.Output, cost.CacheRead, cost.CacheWrite, cost.Total}
+	for _, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+			return false
+		}
+	}
+	return cost.Total == cost.Input+cost.Output+cost.CacheRead+cost.CacheWrite
+}
+
+// Add returns the component-wise sum of two estimated-cost values.
+func (cost EstimatedCost) Add(other EstimatedCost) EstimatedCost {
+	return EstimatedCost{
+		Input: cost.Input + other.Input, Output: cost.Output + other.Output,
+		CacheRead: cost.CacheRead + other.CacheRead, CacheWrite: cost.CacheWrite + other.CacheWrite,
+		Total: cost.Total + other.Total,
+	}
 }
 
 // ProviderModelCost groups persisted cost by configured provider and requested model.

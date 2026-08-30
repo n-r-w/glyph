@@ -366,7 +366,7 @@ func mapProgrammaticToolEvent(event run.Event, mapped *controller.AgentEvent) er
 			return errors.New("tool call end event requires tool call and position")
 		}
 		mapped.FinalToolCall = mo.Some(controller.FinalToolCall{
-			CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+			CallID: call.ID, Name: call.Name, Position: position, Arguments: call.Clone().Arguments,
 		})
 	case run.EventToolExecutionStart:
 		call, present := event.ToolCall.Get()

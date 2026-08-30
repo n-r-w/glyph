@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -139,7 +138,7 @@ func (s *Service) handleImmediate(
 		return controller.Response{}, false, nil
 	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandResumeSession,
 		controller.CommandSetSessionName, controller.CommandGetSessionInfo, controller.CommandGetSessionEntries,
-		controller.CommandGetSessionStats:
+		controller.CommandGetSessionStats, controller.CommandGetSessionTree, controller.CommandNavigateSessionTree:
 		return controller.Response{}, false, nil
 	default:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
@@ -163,6 +162,10 @@ func (s *Service) handleSessionImmediate(ctx context.Context, command controller
 		return s.sessionEntries(command), true
 	case controller.CommandGetSessionStats:
 		return sessionStatisticsResponse(command.CorrelationID, s.sessionControl.Statistics()), true
+	case controller.CommandGetSessionTree:
+		return s.sessionTree(command), true
+	case controller.CommandNavigateSessionTree:
+		return s.navigateSessionTree(ctx, command), true
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
@@ -314,6 +317,37 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 	return sessionInfoResponse(command.CorrelationID, info)
 }
 
+// navigateSessionTree commits no-summary navigation or returns one classified terminal result.
+func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) controller.Response {
+	targetID, present := command.TargetEntryID.Get()
+	if !present || targetID == "" {
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required")
+	}
+	if command.SummaryMode != controller.SummaryModeNoSummary {
+		return s.rejection(command, controller.RejectionInvalidArgument, "summary mode is not available")
+	}
+	result, err := s.sessionControl.Navigate(ctx, targetID)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+			response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
+				Status: controller.TreeNavigationStatusCanceled, Committed: mo.None[controller.TreeNavigationCommitted](),
+			})
+			return response
+		}
+		return s.sessionRejection(command, err)
+	}
+	committed, mapErr := mapTreeNavigationCommitted(result)
+	if mapErr != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", mapErr))
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+	response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
+		Status: controller.TreeNavigationStatusCommitted, Committed: mo.Some(committed),
+	})
+	return response
+}
+
 // sessionEntries returns the current active-session entries without taking the replacement gate.
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
 	entries, err := mapSessionEntries(s.sessionControl.Entries())
@@ -332,6 +366,8 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionBusy, "another operation is active")
 	case errors.Is(err, session.ErrInvalidName):
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	case errors.Is(err, session.ErrEntryNotFound):
+		return s.rejection(command, controller.RejectionNotFound, "session tree entry was not found")
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return s.rejection(command, controller.RejectionPersistenceUnavailable, err.Error())
 	case errors.Is(err, session.ErrUnavailable):
@@ -341,6 +377,17 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 	default:
 		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("session operation failed: %v", err))
 	}
+}
+
+// sessionTree returns the complete active-session tree without private extension payload bytes.
+func (s *Service) sessionTree(command controller.Command) controller.Response {
+	tree, err := mapSessionTree(s.sessionControl.Tree())
+	if err != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", err))
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTree)
+	response.SessionTree = mo.Some(tree)
+	return response
 }
 
 // sessionInfoResponse initializes only the session-information response variant.
@@ -363,6 +410,8 @@ func sessionStatisticsResponse(correlationID string, statistics session.Statisti
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionStatistics: mo.Some(statistics),
+		SessionTree:       mo.None[controller.SessionTree](),
+		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
 		Rejection:         mo.None[controller.Rejection](),
 	}
 }
@@ -373,7 +422,7 @@ func (s *Service) preflight(
 	if command.CorrelationID == "" {
 		return nil, nil, ErrCorrelationRequired
 	}
-	if invalidCommand(command) {
+	if !command.Valid() {
 		response := s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload")
 		return nil, &response, nil
 	}
@@ -391,95 +440,6 @@ func (s *Service) preflight(
 		return nil, &response, nil
 	}
 	return active, nil, nil
-}
-
-func invalidCommand(command controller.Command) bool {
-	if invalid, handled := invalidSessionCommand(command); handled {
-		return invalid
-	}
-	switch command.Kind {
-	case controller.CommandUserRequest:
-		return invalidUserRequest(command)
-	case controller.CommandAbort, controller.CommandGetRunState,
-		controller.CommandGetMessages, controller.CommandGetModels:
-		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command)
-	case controller.CommandSelectModel:
-		return invalidModelSelection(command)
-	case controller.CommandSelectReasoningChoice:
-		return invalidReasoningSelection(command)
-	case controller.CommandCreateSession, controller.CommandListSessions,
-		controller.CommandResumeSession, controller.CommandSetSessionName,
-		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
-		return true
-	case controller.CommandUnspecified:
-		return true
-	}
-	return true
-}
-
-// invalidSessionCommand validates exact argument presence for lifecycle commands.
-func invalidSessionCommand(command controller.Command) (invalid, handled bool) {
-	switch command.Kind {
-	case controller.CommandCreateSession, controller.CommandListSessions,
-		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats:
-		return command.UserText.IsSome() || hasModelArguments(command) || hasSessionArguments(command), true
-	case controller.CommandResumeSession:
-		id, present := command.SessionID.Get()
-		isInvalid := !present || id == "" || command.SessionName.IsSome() ||
-			command.UserText.IsSome() || hasModelArguments(command)
-		return isInvalid, true
-	case controller.CommandSetSessionName:
-		isInvalid := command.SessionName.IsNone() || command.SessionID.IsSome() ||
-			command.UserText.IsSome() || hasModelArguments(command)
-		return isInvalid, true
-	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
-		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
-		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
-		return false, false
-	default:
-		return false, false
-	}
-}
-
-// invalidUserRequest validates the payload selected by a user-request discriminator.
-func invalidUserRequest(command controller.Command) bool {
-	userText, ok := command.UserText.Get()
-	return !ok || strings.TrimSpace(userText) == "" || hasModelArguments(command) || hasSessionArguments(command)
-}
-
-// invalidModelSelection validates the payload selected by a model-selection discriminator.
-func invalidModelSelection(command controller.Command) bool {
-	providerID, providerPresent := command.ProviderID.Get()
-	modelID, modelPresent := command.ModelID.Get()
-	return command.UserText.IsSome() || !providerPresent || providerID == "" ||
-		!modelPresent || modelID == "" || command.ReasoningChoice.IsSome() || hasSessionArguments(command)
-}
-
-// invalidReasoningSelection validates the payload selected by a reasoning-selection discriminator.
-func invalidReasoningSelection(command controller.Command) bool {
-	reasoningChoice, reasoningPresent := command.ReasoningChoice.Get()
-	return command.UserText.IsSome() || command.ProviderID.IsSome() || command.ModelID.IsSome() ||
-		!reasoningPresent || !validReasoningChoice(reasoningChoice) || hasSessionArguments(command)
-}
-
-func hasModelArguments(command controller.Command) bool {
-	return command.ProviderID.IsSome() || command.ModelID.IsSome() || command.ReasoningChoice.IsSome()
-}
-
-// hasSessionArguments reports arguments that are invalid on non-session commands.
-func hasSessionArguments(command controller.Command) bool {
-	return command.SessionID.IsSome() || command.SessionName.IsSome()
-}
-
-func validReasoningChoice(level model.ReasoningChoice) bool {
-	switch level {
-	case model.ReasoningChoiceOff, model.ReasoningChoiceOn, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
-		model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
-		model.ReasoningChoiceMax:
-		return true
-	default:
-		return false
-	}
 }
 
 func filterRunError(outcome agent.RunOutcome, runErr error) error {
@@ -529,6 +489,8 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[controller.SessionTree](),
+		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
 		Rejection:         mo.None[controller.Rejection](),
 	}
 }

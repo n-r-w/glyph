@@ -44,7 +44,7 @@ func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	// Act by sending the invalid protocol request and receiving stream termination.
 	require.NoError(t, fixture.stream.Send(invalid))

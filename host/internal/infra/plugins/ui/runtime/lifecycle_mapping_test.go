@@ -162,6 +162,9 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 			SessionInfo:         mo.None[session.Info](),
 			Sessions:            nil,
 			SessionStatistics:   mo.None[session.Statistics](),
+			SessionTree:         mo.None[domainui.SessionTree](),
+			TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+			TreeFailure:         mo.None[domainui.TreeFailure](),
 		})
 		require.Error(t, err)
 	}

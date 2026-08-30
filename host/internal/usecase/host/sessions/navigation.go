@@ -32,7 +32,7 @@ func (s *Service) CommitNavigation(
 		return session.Tree{}, errors.New("commit session navigation: active leaf changed")
 	}
 
-	candidateTree := cloneTree(s.active.Tree)
+	candidateTree := s.active.Tree.Clone()
 	if err := candidateTree.SetActiveLeaf(destinationID); err != nil {
 		return session.Tree{}, fmt.Errorf("validate session navigation destination: %w", err)
 	}
@@ -59,5 +59,5 @@ func (s *Service) CommitNavigation(
 	// Publish the destination only after the repository synchronizes the complete navigation mutation.
 	s.active.StoragePath = result.StoragePath
 	s.active.Tree = candidateTree
-	return cloneTree(candidateTree), nil
+	return candidateTree.Clone(), nil
 }

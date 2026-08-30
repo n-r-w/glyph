@@ -43,11 +43,16 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES, nil
 	case CommandGetSessionStats:
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_STATS, nil
+	case CommandGetSessionTree:
+		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_TREE, nil
+	case CommandNavigateSessionTree:
+		return programmaticv1.CommandType_COMMAND_TYPE_NAVIGATE_SESSION_TREE, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}
 }
 
+//nolint:gocyclo // The switch maps every closed public rejection code.
 func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) {
 	switch code {
 	case RejectionInvalidArgument:
@@ -70,6 +75,14 @@ func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) 
 		return programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, nil
 	case RejectionPersistenceUnavailable:
 		return programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, nil
+	case RejectionModelUnavailable:
+		return programmaticv1.RejectionCode_REJECTION_CODE_MODEL_UNAVAILABLE, nil
+	case RejectionModelFailed:
+		return programmaticv1.RejectionCode_REJECTION_CODE_MODEL_FAILED, nil
+	case RejectionExtensionInvalidResult:
+		return programmaticv1.RejectionCode_REJECTION_CODE_EXTENSION_INVALID_RESULT, nil
+	case RejectionExtensionUnavailable:
+		return programmaticv1.RejectionCode_REJECTION_CODE_EXTENSION_UNAVAILABLE, nil
 	case RejectionUnspecified:
 		return 0, errors.New("map rejection code: unspecified value")
 	default:

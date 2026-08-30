@@ -1,16 +1,13 @@
 package ui
 
 import (
-	"bytes"
 	"fmt"
-	"slices"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -28,67 +25,56 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 		Sessions:            append([]session.Summary(nil), listed...),
 		SessionEntries:      nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
 // sessionChangedFrame confirms replacement and carries the complete restored transcript.
 func sessionChangedFrame(info session.Info, entries []session.Entry) (domainui.Frame, error) {
+	mapped, err := mapSessionEntries(entries)
+	if err != nil {
+		return domainui.Frame{}, err
+	}
 	frame := sessionInfoFrame(domainui.FrameSessionChanged, info, mo.None[session.Statistics]())
-	frame.SessionEntries = make([]domainui.SessionEntry, 0, len(entries))
+	frame.SessionEntries = mapped
+	return frame, nil
+}
+
+// mapSessionEntries projects public transcript entries and skips model-hidden tree entries.
+func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error) {
+	mappedEntries := make([]domainui.SessionEntry, 0, len(entries))
 	for position := range entries {
 		entry := &entries[position]
 		if user, present := entry.User.Get(); present {
-			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
-				User:  mo.Some(cloneRestoredUser(user)),
-				Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
+				User: mo.Some(user.Clone()), Model: mo.None[domainui.ModelResponse](),
+				ToolResult: mo.None[agent.ToolResult](),
 			})
 			continue
 		}
 		if response, present := entry.Model.Get(); present {
 			mapped, err := mapModelResponseProjection(response, false)
 			if err != nil {
-				return domainui.Frame{}, fmt.Errorf("map restored session entry %d: %w", position, err)
+				return nil, fmt.Errorf("map restored session entry %d: %w", position, err)
 			}
-			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
-				User:  mo.None[model.Message](),
-				Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
+				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
 			})
 			continue
 		}
 		if result, present := entry.ToolResult.Get(); present {
-			frame.SessionEntries = append(frame.SessionEntries, domainui.SessionEntry{
+			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryToolResult,
 				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.Some(cloneRestoredToolResult(result)),
+				ToolResult: mo.Some(result.Clone()),
 			})
 		}
 	}
-	return frame, nil
-}
-
-// cloneRestoredUser copies ordered user content and image bytes for frame ownership.
-func cloneRestoredUser(message model.Message) model.Message {
-	message.Content = slices.Clone(message.Content)
-	for index := range message.Content {
-		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
-	}
-	return message
-}
-
-// cloneRestoredToolResult copies ordered tool-result content and image bytes for frame ownership.
-func cloneRestoredToolResult(result agent.ToolResult) agent.ToolResult {
-	contents := append([]tool.ResultContent(nil), result.Contents...)
-	for index := range contents {
-		if image, present := contents[index].Image.Get(); present {
-			image.Data = append([]byte(nil), image.Data...)
-			contents[index].Image = mo.Some(image)
-		}
-	}
-	return agent.ToolResult{
-		CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
-	}
+	return mappedEntries, nil
 }
 
 // sessionInformationFrame composes current metadata and statistics without replacing the transcript.
@@ -114,5 +100,8 @@ func sessionInfoFrame(
 		Sessions:            nil,
 		SessionEntries:      nil,
 		SessionStatistics:   statistics,
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }

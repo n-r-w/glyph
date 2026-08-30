@@ -33,14 +33,14 @@ func expectToolResultPersistenceFailure(
 	gomock.InOrder(
 		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, entry agent.HistoryEntry) error {
-				*history = append(*history, cloneHistoryEntry(entry))
+				*history = append(*history, entry.Clone())
 				return nil
 			},
 		),
 		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, entry agent.HistoryEntry) error {
 				require.Equal(t, agent.HistoryEntryModel, entry.Kind)
-				*history = append(*history, cloneHistoryEntry(entry))
+				*history = append(*history, entry.Clone())
 				return nil
 			},
 		),
@@ -245,7 +245,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, entry agent.HistoryEntry) error {
-			history = append(history, cloneHistoryEntry(entry))
+			history = append(history, entry.Clone())
 			return nil
 		},
 	)

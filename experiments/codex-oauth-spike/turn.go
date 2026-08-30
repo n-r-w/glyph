@@ -30,11 +30,11 @@ func streamTurn(
 			text.WriteString(delta)
 			result.TextDeltas++
 		case "response.output_item.done":
-			captureOutputItem(&result, event.AsResponseOutputItemDone().Item)
+			result.captureOutputItem(event.AsResponseOutputItemDone().Item)
 		case "response.completed":
 			completed := event.AsResponseCompleted().Response
 			for _, item := range completed.Output {
-				captureOutputItem(&result, item)
+				result.captureOutputItem(item)
 			}
 			result.IsCompleted = true
 		case "response.failed":
@@ -53,7 +53,7 @@ func streamTurn(
 }
 
 // captureOutputItem retains one reasoning item and one function call from completed events.
-func captureOutputItem(result *streamedTurn, item responses.ResponseOutputItemUnion) {
+func (result *streamedTurn) captureOutputItem(item responses.ResponseOutputItemUnion) {
 	result.OutputTypes = append(result.OutputTypes, item.Type)
 	switch item.Type {
 	case "reasoning":

@@ -46,7 +46,7 @@ func (s *Driver) resolveCredentials(ctx context.Context) (oauthCredentials, erro
 	if decodeErr != nil {
 		return oauthCredentials{}, fmt.Errorf("decode stored OpenAI Codex credentials: %w", decodeErr)
 	}
-	validationErr := validateCredentials(credentials)
+	validationErr := credentials.Validate()
 	if validationErr != nil {
 		return oauthCredentials{}, validationErr
 	}
@@ -56,8 +56,8 @@ func (s *Driver) resolveCredentials(ctx context.Context) (oauthCredentials, erro
 	return s.refreshCredentials(ctx, credentials)
 }
 
-// validateCredentials rejects incomplete and account-inconsistent persisted provider data.
-func validateCredentials(credentials oauthCredentials) error {
+// Validate rejects incomplete and account-inconsistent persisted provider data.
+func (credentials oauthCredentials) Validate() error {
 	if credentials.AccessToken == "" || credentials.RefreshToken == "" ||
 		credentials.AccountID == "" || credentials.ExpiresAt.IsZero() {
 		return ErrSignInRequired

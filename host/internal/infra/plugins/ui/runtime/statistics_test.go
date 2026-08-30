@@ -35,11 +35,20 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 		},
 	}
 	frame := domainui.Frame{
-		Kind: domainui.FrameSessionInformation, Initialization: mo.None[domainui.Initialization](),
-		Lifecycle: mo.None[domainui.Lifecycle](), AuthorizationURL: mo.None[string](), Text: mo.None[string](),
-		RetryAuthentication: mo.None[bool](), ModelSelection: mo.None[domainui.ModelSelection](),
-		SessionInfo: mo.Some(info), Sessions: nil, SessionEntries: nil,
-		SessionStatistics: mo.Some(statistics),
+		Kind:                domainui.FrameSessionInformation,
+		Initialization:      mo.None[domainui.Initialization](),
+		Lifecycle:           mo.None[domainui.Lifecycle](),
+		AuthorizationURL:    mo.None[string](),
+		Text:                mo.None[string](),
+		RetryAuthentication: mo.None[bool](),
+		ModelSelection:      mo.None[domainui.ModelSelection](),
+		SessionInfo:         mo.Some(info),
+		Sessions:            nil,
+		SessionEntries:      nil,
+		SessionStatistics:   mo.Some(statistics),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 
 	// Act by mapping the Host frame to the UI protobuf request.

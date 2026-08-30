@@ -2,7 +2,10 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -23,10 +26,31 @@ const (
 // Header contains copied HTTP header values without an HTTP request or response.
 type Header map[string][]string
 
+// Clone returns a deep copy of the header.
+func (header Header) Clone() Header {
+	if header == nil {
+		return nil
+	}
+	cloned := maps.Clone(header)
+	for name, values := range cloned {
+		cloned[name] = slices.Clone(values)
+	}
+	return cloned
+}
+
 // Context contains one request-local provider-neutral history projection.
 type Context struct {
 	// History contains the copied provider-neutral request history.
 	History []agent.HistoryEntry
+}
+
+// Clone returns a deep copy of the hook context.
+func (value Context) Clone() Context {
+	value.History = slices.Clone(value.History)
+	for index := range value.History {
+		value.History[index] = value.History[index].Clone()
+	}
+	return value
 }
 
 // Request contains copied serialized provider request values.
@@ -41,6 +65,13 @@ type Request struct {
 	Headers Header
 }
 
+// Clone returns a deep copy of the hook request.
+func (value Request) Clone() Request {
+	value.Payload = bytes.Clone(value.Payload)
+	value.Headers = value.Headers.Clone()
+	return value
+}
+
 // Response contains copied provider response metadata without its body.
 type Response struct {
 	// Provider identifies the model provider that returned the response.
@@ -51,6 +82,12 @@ type Response struct {
 	Status int
 	// Headers contains copied provider response headers.
 	Headers Header
+}
+
+// Clone returns a deep copy of the hook response.
+func (value Response) Clone() Response {
+	value.Headers = value.Headers.Clone()
+	return value
 }
 
 // ContextHandler transforms one request-local provider-neutral context.

@@ -1,4 +1,4 @@
-edition = "2023";
+syntax = "proto3";
 
 package glyph.programmatic.v1;
 
@@ -16,7 +16,7 @@ service ProgrammaticControlService {
 // OpenRequest carries one correlated command.
 message OpenRequest {
   // The controller-assigned command correlation identifier.
-  string correlation_id = 1;
+  optional string correlation_id = 1;
   // The command payload.
   oneof command {
     UserRequest user_request = 2;
@@ -33,13 +33,15 @@ message OpenRequest {
     GetSessionInfo get_session_info = 13;
     GetSessionEntries get_session_entries = 14;
     GetSessionStats get_session_stats = 15;
+    GetSessionTree get_session_tree = 16;
+    NavigateSessionTree navigate_session_tree = 17;
   }
 }
 
 // UserRequest starts an agent run for user text.
 message UserRequest {
   // The user request text.
-  string text = 1;
+  optional string text = 1;
 }
 
 // Abort cancels the active agent run.
@@ -57,15 +59,15 @@ message GetModels {}
 // SelectModel selects one configured provider and model.
 message SelectModel {
   // The configured provider identifier.
-  string provider_id = 1;
+  optional string provider_id = 1;
   // The configured model identifier.
-  string model_id = 2;
+  optional string model_id = 2;
 }
 
 // SelectReasoningChoice selects the active model reasoning choice.
 message SelectReasoningChoice {
   // The requested reasoning choice.
-  ReasoningChoice choice = 1;
+  optional ReasoningChoice choice = 1;
 }
 
 // CreateSession requests a new empty active session.
@@ -77,13 +79,13 @@ message ListSessions {}
 // ResumeSession requests active-session replacement by opaque identifier.
 message ResumeSession {
   // The opaque stored session identifier.
-  string session_id = 1;
+  optional string session_id = 1;
 }
 
 // SetSessionName requests a persisted active-session name.
 message SetSessionName {
   // The requested session name before Host normalization.
-  string name = 1;
+  optional string name = 1;
 }
 
 // GetSessionInfo requests active-session information.
@@ -95,10 +97,23 @@ message GetSessionEntries {}
 // GetSessionStats requests active-session counts and token totals.
 message GetSessionStats {}
 
+// GetSessionTree requests the complete active-session tree.
+message GetSessionTree {}
+
+// NavigateSessionTree requests one session-tree navigation.
+message NavigateSessionTree {
+  // The selected tree entry identifier.
+  optional string target_entry_id = 1;
+  // The requested branch-summary behavior.
+  optional SummaryMode summary_mode = 2;
+  // The custom summary focus. It is valid only for custom-prompt mode.
+  optional string custom_focus = 3;
+}
+
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
   // The correlation identifier associated with the response.
-  string correlation_id = 1;
+  optional string correlation_id = 1;
   // The response payload.
   oneof content {
     CommandResponse command_response = 2;
@@ -121,6 +136,8 @@ message CommandResponse {
     SessionsResult sessions = 9;
     SessionEntriesResult session_entries = 10;
     SessionStatsResult session_stats = 11;
+    SessionTreeResult session_tree = 12;
+    SessionTreeNavigationResult session_tree_navigation = 13;
   }
 }
 
@@ -133,9 +150,9 @@ message AbortCompleted {}
 // RunStateResult reports the current agent run state.
 message RunStateResult {
   // The current run state.
-  RunState state = 1;
+  optional RunState state = 1;
   // The correlation identifier of the active user request.
-  string active_correlation_id = 2;
+  optional string active_correlation_id = 2;
 }
 
 // MessagesResult contains the ordered public message history.
@@ -155,37 +172,37 @@ message ModelsResult {
 // ConfiguredModel describes one configured provider model.
 message ConfiguredModel {
   // The configured provider identifier.
-  string provider_id = 1;
+  optional string provider_id = 1;
   // The configured model identifier.
-  string model_id = 2;
+  optional string model_id = 2;
   // The model reasoning capabilities.
   ReasoningCapabilities reasoning = 3;
   // The ordered input modalities accepted by the model.
   repeated InputModality input_modalities = 4;
   // The maximum combined input and generated-output token capacity.
-  int64 context_window = 5;
+  optional int64 context_window = 5;
   // The maximum generated-output token count.
-  int64 max_tokens = 6;
+  optional int64 max_tokens = 6;
 }
 
 // ReasoningCapabilities describes one model reasoning contract.
 message ReasoningCapabilities {
   // Whether the model can produce reasoning.
-  bool supported = 1;
+  optional bool supported = 1;
   // The effective choices in configured order.
   repeated ReasoningChoice choices = 2;
   // The model default choice.
-  ReasoningChoice default_choice = 3;
+  optional ReasoningChoice default_choice = 3;
 }
 
 // ModelSelection identifies the active provider, model, and reasoning choice.
 message ModelSelection {
   // The configured provider identifier.
-  string provider_id = 1;
+  optional string provider_id = 1;
   // The configured model identifier.
-  string model_id = 2;
+  optional string model_id = 2;
   // The active reasoning choice.
-  ReasoningChoice reasoning_choice = 3;
+  optional ReasoningChoice reasoning_choice = 3;
 }
 
 // ModelSelectionResult contains the committed model selection.
@@ -209,13 +226,13 @@ message SessionsResult {
 // SessionInfo contains lifecycle information for one session.
 message SessionInfo {
   // The opaque session identifier.
-  string id = 1;
+  optional string id = 1;
   // The user-assigned name when present.
-  string name = 2;
+  optional string name = 2;
   // The canonical project working directory.
-  string working_directory = 3;
+  optional string working_directory = 3;
   // The persisted JSONL path when present.
-  string storage_path = 4;
+  optional string storage_path = 4;
   // The session creation time.
   google.protobuf.Timestamp created_time = 5;
   // The most recent stored update time.
@@ -227,9 +244,9 @@ message SessionSummary {
   // The session lifecycle information.
   SessionInfo info = 1;
   // The first public user text when present.
-  string first_user_text = 2;
+  optional string first_user_text = 2;
   // The number of stored public messages.
-  int64 total_messages = 3;
+  optional int64 total_messages = 3;
 }
 
 // SessionStatsResult contains active-session counts and token totals.
@@ -241,15 +258,15 @@ message SessionStatsResult {
 // SessionStatistics contains counts and complete normalized token totals.
 message SessionStatistics {
   // The number of stored user entries.
-  int64 user_messages = 1;
+  optional int64 user_messages = 1;
   // The number of stored terminal model entries, including failures.
-  int64 model_responses = 2;
+  optional int64 model_responses = 2;
   // The number of finalized tool calls inside model entries.
-  int64 tool_calls = 3;
+  optional int64 tool_calls = 3;
   // The number of stored tool-result entries.
-  int64 tool_results = 4;
+  optional int64 tool_results = 4;
   // User messages plus model responses plus tool results.
-  int64 total_messages = 5;
+  optional int64 total_messages = 5;
   // Tokens is absent when any stored model response has no usage.
   TokenUsage tokens = 6;
   // Estimated cost is absent when any stored model response has no persisted cost.
@@ -261,23 +278,23 @@ message SessionStatistics {
 // EstimatedCost contains calculated USD cost for disjoint token buckets.
 message EstimatedCost {
   // Uncached input cost.
-  double input = 1;
+  optional double input = 1;
   // Output cost, including reasoning cost.
-  double output = 2;
+  optional double output = 2;
   // Cache-read cost.
-  double cache_read = 3;
+  optional double cache_read = 3;
   // Cache-write cost.
-  double cache_write = 4;
+  optional double cache_write = 4;
   // The sum of all four cost buckets.
-  double total = 5;
+  optional double total = 5;
 }
 
 // ProviderModelCost groups persisted cost by configured provider and requested model.
 message ProviderModelCost {
   // The configured provider identifier.
-  string provider_id = 1;
+  optional string provider_id = 1;
   // The requested model identifier.
-  string model_id = 2;
+  optional string model_id = 2;
   // Estimated cost is absent when any response in this group has no persisted cost.
   EstimatedCost estimated_cost = 3;
 }
@@ -285,27 +302,115 @@ message ProviderModelCost {
 // TokenUsage contains disjoint normalized token buckets.
 message TokenUsage {
   // Uncached input tokens.
-  int64 input_tokens = 1;
+  optional int64 input_tokens = 1;
   // Output tokens, including reasoning tokens.
-  int64 output_tokens = 2;
+  optional int64 output_tokens = 2;
   // Cached input tokens.
-  int64 cache_read_tokens = 3;
+  optional int64 cache_read_tokens = 3;
   // Cache creation input tokens.
-  int64 cache_write_tokens = 4;
+  optional int64 cache_write_tokens = 4;
   // Reasoning tokens are a subset of output tokens.
-  int64 reasoning_tokens = 5;
+  optional int64 reasoning_tokens = 5;
   // The sum of input, output, cache-read, and cache-write tokens.
-  int64 total_tokens = 6;
+  optional int64 total_tokens = 6;
 }
 
 // CommandRejected describes a command that was not executed.
 message CommandRejected {
   // The rejected command type.
-  CommandType command = 1;
+  optional CommandType command = 1;
   // The stable rejection code.
-  RejectionCode code = 2;
+  optional RejectionCode code = 2;
   // The safe rejection message.
-  string message = 3;
+  optional string message = 3;
+}
+
+// SessionTreeResult contains the complete active-session tree.
+message SessionTreeResult {
+  // The committed active-session tree.
+  SessionTree tree = 1;
+}
+
+// SessionTreeNavigationResult reports one committed or canceled navigation.
+message SessionTreeNavigationResult {
+  // The navigation terminal status.
+  optional SessionTreeNavigationStatus status = 1;
+  // The committed tree. It is absent for canceled navigation.
+  SessionTree tree = 2;
+  // The committed active-branch transcript.
+  repeated SessionEntry active_branch = 3;
+  // The exact editable user input when the selected target is a user message.
+  optional string next_input = 4;
+  // Safe ordered operation issues.
+  repeated OperationIssue issues = 5;
+}
+
+// SessionTree contains every persisted conversation entry and the optional active leaf.
+message SessionTree {
+  // Entries in persistence order.
+  repeated SessionTreeEntry entries = 1;
+  // The active leaf when the tree is not at its implicit root.
+  optional string active_leaf_id = 2;
+}
+
+// SessionTreeEntry contains one entry, its parent relation, and label state.
+message SessionTreeEntry {
+  // The persisted entry identifier.
+  optional string id = 1;
+  // The parent entry identifier. Absence identifies a root entry.
+  optional string parent_id = 2;
+  // The persisted entry timestamp.
+  google.protobuf.Timestamp created_time = 3;
+  // The current label. An empty value means no label.
+  optional string label = 4;
+  // The entry payload.
+  oneof entry {
+    UserMessage user = 5;
+    ModelResponse model = 6;
+    ToolResult tool_result = 7;
+    ExtensionEntry extension = 8;
+    BranchSummary branch_summary = 9;
+  }
+}
+
+// ExtensionEntry identifies one opaque extension entry without private payload bytes.
+message ExtensionEntry {
+  // The configured extension identifier.
+  optional string extension_id = 1;
+  // The extension-defined entry type.
+  optional string entry_type = 2;
+}
+
+// BranchSummary contains one persisted abandoned-branch summary.
+message BranchSummary {
+  // The summary text.
+  optional string summary = 1;
+  // The first summarized abandoned-path entry identifier.
+  optional string first_entry_id = 2;
+  // The last summarized abandoned-path entry identifier.
+  optional string last_entry_id = 3;
+  // The configured provider identifier.
+  optional string provider_id = 4;
+  // The configured model identifier.
+  optional string model_id = 5;
+  // The reasoning choice used for the summary.
+  optional ReasoningChoice reasoning_choice = 6;
+  // Normalized usage when reported by the provider.
+  TokenUsage usage = 7;
+  // Persisted estimated cost when available.
+  EstimatedCost estimated_cost = 8;
+}
+
+// OperationIssue reports one safe nonterminal handler or observer issue.
+message OperationIssue {
+  // The stable issue code.
+  optional OperationIssueCode code = 1;
+  // The configured extension identifier when applicable.
+  optional string extension_id = 2;
+  // The registered handler identifier when applicable.
+  optional string handler_id = 3;
+  // The safe issue message.
+  optional string message = 4;
 }
 
 // SessionEntriesResult contains ordered detailed active-session entries.
@@ -317,7 +422,7 @@ message SessionEntriesResult {
 // SessionEntry contains stable metadata and one public terminal payload.
 message SessionEntry {
   // The persisted entry identifier.
-  string id = 1;
+  optional string id = 1;
   // The persisted entry timestamp.
   google.protobuf.Timestamp created_time = 2;
   // The entry payload.
@@ -343,7 +448,7 @@ message HistoryEntry {
 // UserMessage carries one user history item.
 message UserMessage {
   reserved 1;
-  reserved text;
+  reserved "text";
   // The ordered provider-neutral user content.
   repeated UserContent content = 2;
 }
@@ -360,17 +465,17 @@ message UserContent {
 // UserImage carries exact binary image data and its media type.
 message UserImage {
   // The image media type.
-  string media_type = 1;
+  optional string media_type = 1;
   // The exact binary image data.
-  bytes data = 2;
+  optional bytes data = 2;
 }
 
 // AgentEvent carries one correlated agent lifecycle event.
 message AgentEvent {
   // The event type.
-  AgentEventType type = 1;
+  optional AgentEventType type = 1;
   // The Host run identifier.
-  string run_id = 2;
+  optional string run_id = 2;
   // The event payload.
   oneof payload {
     ModelContent model_content = 3;
@@ -388,23 +493,23 @@ message AgentEvent {
 // ModelContent carries one typed model content transition.
 message ModelContent {
   // The semantic content kind.
-  ModelContentKind kind = 1;
+  optional ModelContentKind kind = 1;
   // The zero-based position in the model response.
-  int32 position = 2;
+  optional int32 position = 2;
   // The text carried by the transition.
-  string text = 3;
+  optional string text = 3;
 }
 
 // ToolCallPreview carries transient function-call state.
 message ToolCallPreview {
   // The provider-assigned tool call identifier.
-  string call_id = 1;
+  optional string call_id = 1;
   // The current tool name.
-  string name = 2;
+  optional string name = 2;
   // The zero-based position in the model response.
-  int32 position = 3;
+  optional int32 position = 3;
   // Whether the preview can still change.
-  bool provisional = 4;
+  optional bool provisional = 4;
   // The currently decoded argument fields.
   repeated ToolCallPreviewField fields = 5;
 }
@@ -412,7 +517,7 @@ message ToolCallPreview {
 // ToolCallPreviewField carries one decoded value or scalar prefix.
 message ToolCallPreviewField {
   // The argument field name.
-  string name = 1;
+  optional string name = 1;
   // The decoded field content.
   oneof content {
     google.protobuf.Value value = 2;
@@ -423,11 +528,11 @@ message ToolCallPreviewField {
 // FinalToolCall carries a completed function call.
 message FinalToolCall {
   // The provider-assigned tool call identifier.
-  string call_id = 1;
+  optional string call_id = 1;
   // The finalized tool name.
-  string name = 2;
+  optional string name = 2;
   // The zero-based position in the model response.
-  int32 position = 3;
+  optional int32 position = 3;
   // The decoded tool arguments.
   google.protobuf.Struct arguments = 4;
 }
@@ -435,29 +540,29 @@ message FinalToolCall {
 // ToolExecution identifies a tool execution transition.
 message ToolExecution {
   // The provider-assigned tool call identifier.
-  string call_id = 1;
+  optional string call_id = 1;
   // The executed tool name.
-  string tool_name = 2;
+  optional string tool_name = 2;
 }
 
 // ToolProgress carries one tool progress fragment.
 message ToolProgress {
   // The semantic progress channel.
-  ProgressChannel channel = 1;
+  optional ProgressChannel channel = 1;
   // The progress fragment content.
-  string content = 2;
+  optional string content = 2;
 }
 
 // ToolResult carries the terminal result of one tool call.
 message ToolResult {
   // The provider-assigned tool call identifier.
-  string call_id = 1;
+  optional string call_id = 1;
   // The executed tool name.
-  string tool_name = 2;
+  optional string tool_name = 2;
   // The ordered result content blocks.
   repeated ToolResultContent contents = 3;
   // Whether tool execution failed.
-  bool is_error = 4;
+  optional bool is_error = 4;
 }
 
 // ToolResultContent carries one ordered tool result block.
@@ -472,27 +577,27 @@ message ToolResultContent {
 // ToolResultImage carries binary image data and its media type.
 message ToolResultImage {
   // The image media type.
-  string media_type = 1;
+  optional string media_type = 1;
   // The exact binary image data.
-  bytes data = 2;
+  optional bytes data = 2;
 }
 
 // ModelResponse carries a finalized model response.
 message ModelResponse {
   // The concatenated finalized public text.
-  string text = 1;
+  optional string text = 1;
   // The provider-neutral response outcome.
-  ModelOutcome outcome = 2;
+  optional ModelOutcome outcome = 2;
   // The safe terminal error message.
-  string error_message = 3;
+  optional string error_message = 3;
   // The provider that produced the response.
-  string provider = 4;
+  optional string provider = 4;
   // The configured model identifier.
-  string model = 5;
+  optional string model = 5;
   // The model identifier reported by the provider response.
-  string response_model = 6;
+  optional string response_model = 6;
   // The provider-assigned response identifier.
-  string response_id = 7;
+  optional string response_id = 7;
   // The provider-reported token usage.
   ModelUsage usage = 8;
   // The safe response diagnostics.
@@ -515,31 +620,31 @@ message ModelResponseItem {
 // FinalText carries one finalized text block.
 message FinalText {
   // The finalized block text.
-  string text = 1;
+  optional string text = 1;
 }
 
 // ModelUsage carries provider-reported token accounting.
 message ModelUsage {
   // The number of input tokens processed.
-  int64 input_tokens = 1;
+  optional int64 input_tokens = 1;
   // The number of output tokens generated.
-  int64 output_tokens = 2;
+  optional int64 output_tokens = 2;
   // The number of input tokens read from a cache.
-  int64 cached_input_tokens = 3;
+  optional int64 cached_input_tokens = 3;
   // The number of input tokens written to a cache.
-  int64 cache_write_tokens = 4;
+  optional int64 cache_write_tokens = 4;
   // The number of output tokens used for reasoning.
-  int64 reasoning_tokens = 5;
+  optional int64 reasoning_tokens = 5;
   // The total provider-reported token count.
-  int64 total_tokens = 6;
+  optional int64 total_tokens = 6;
 }
 
 // ModelDiagnostic carries one safe provider diagnostic.
 message ModelDiagnostic {
   // The stable machine-readable diagnostic code.
-  string code = 1;
+  optional string code = 1;
   // The safe diagnostic message.
-  string message = 2;
+  optional string message = 2;
 }
 
 // TurnSummary carries the finalized response and tool results for one turn.
@@ -553,9 +658,9 @@ message TurnSummary {
 // AgentSummary carries the terminal outcome of one agent run.
 message AgentSummary {
   // The run outcome.
-  RunOutcome outcome = 1;
+  optional RunOutcome outcome = 1;
   // The safe terminal error message.
-  string error_message = 2;
+  optional string error_message = 2;
 }
 
 // CommandType identifies a controller command.
@@ -590,6 +695,10 @@ enum CommandType {
   COMMAND_TYPE_GET_SESSION_ENTRIES = 13;
   // An active-session statistics query.
   COMMAND_TYPE_GET_SESSION_STATS = 14;
+  // A complete session-tree query.
+  COMMAND_TYPE_GET_SESSION_TREE = 15;
+  // A session-tree navigation command.
+  COMMAND_TYPE_NAVIGATE_SESSION_TREE = 16;
 }
 
 // RejectionCode identifies why a command was rejected.
@@ -616,6 +725,48 @@ enum RejectionCode {
   REJECTION_CODE_SESSION_UNAVAILABLE = 9;
   // The active session cannot accept persistence mutations.
   REJECTION_CODE_PERSISTENCE_UNAVAILABLE = 10;
+  // The selected summary model is unavailable.
+  REJECTION_CODE_MODEL_UNAVAILABLE = 11;
+  // Summary-model execution failed.
+  REJECTION_CODE_MODEL_FAILED = 12;
+  // An extension returned an invalid result.
+  REJECTION_CODE_EXTENSION_INVALID_RESULT = 13;
+  // An extension is unavailable.
+  REJECTION_CODE_EXTENSION_UNAVAILABLE = 14;
+}
+
+// SummaryMode identifies branch-summary behavior for tree navigation.
+enum SummaryMode {
+  // No summary mode was provided.
+  SUMMARY_MODE_UNSPECIFIED = 0;
+  // Navigation creates no branch summary.
+  SUMMARY_MODE_NO_SUMMARY = 1;
+  // Navigation uses the built-in branch summarizer.
+  SUMMARY_MODE_SUMMARIZE = 2;
+  // Navigation uses the built-in summarizer with a custom focus.
+  SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT = 3;
+}
+
+// SessionTreeNavigationStatus identifies a tree-navigation terminal result.
+enum SessionTreeNavigationStatus {
+  // No terminal status was provided.
+  SESSION_TREE_NAVIGATION_STATUS_UNSPECIFIED = 0;
+  // Navigation committed.
+  SESSION_TREE_NAVIGATION_STATUS_COMMITTED = 1;
+  // Navigation was canceled before commit.
+  SESSION_TREE_NAVIGATION_STATUS_CANCELED = 2;
+}
+
+// OperationIssueCode identifies one safe nonterminal issue.
+enum OperationIssueCode {
+  // No issue code was provided.
+  OPERATION_ISSUE_CODE_UNSPECIFIED = 0;
+  // An extension handler returned an ordinary error.
+  OPERATION_ISSUE_CODE_HANDLER_ERROR = 1;
+  // An extension handler returned an invalid action.
+  OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
+  // A post-commit observer returned an error.
+  OPERATION_ISSUE_CODE_OBSERVER_ERROR = 3;
 }
 
 // InputModality identifies one model input content kind.

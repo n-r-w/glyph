@@ -1,13 +1,9 @@
 package ui
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -199,7 +195,7 @@ func mapUIToolEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 			return errors.New("deliver UI agent event: tool call end event requires tool call and position")
 		}
 		lifecycle.FinalToolCall = mo.Some(domainui.FinalToolCall{
-			CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+			CallID: call.ID, Name: call.Name, Position: position, Arguments: call.Clone().Arguments,
 		})
 	case run.EventToolExecutionStart:
 		call, present := event.ToolCall.Get()
@@ -222,7 +218,7 @@ func mapUIToolEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		}
 		lifecycle.ToolCallID = mo.Some(result.CallID)
 		lifecycle.ToolName = mo.Some(result.ToolName)
-		lifecycle.ToolResultContents = mo.Some(cloneResultContents(result.Contents))
+		lifecycle.ToolResultContents = mo.Some(result.Clone().Contents)
 		lifecycle.IsError = mo.Some(result.IsError)
 	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
 		run.EventContentStart, run.EventTextDelta, run.EventContentEnd, run.EventMessageEnd,
@@ -240,10 +236,10 @@ func mapUITerminalEvent(event run.Event, lifecycle *domainui.Lifecycle) error {
 		if !present {
 			return errors.New("deliver UI agent event: turn end event requires turn summary")
 		}
-		if err := run.ValidateTerminalContent(turn.Response); err != nil {
+		if err := turn.Response.ValidateTerminalContent(); err != nil {
 			return fmt.Errorf("deliver UI turn end: %w", err)
 		}
-		lifecycle.Text = mo.Some(responseText(turn.Response))
+		lifecycle.Text = mo.Some(turn.Response.Text())
 		if outcome, hasOutcome := turn.Response.Outcome.Get(); hasOutcome {
 			lifecycle.Outcome = mo.Some(modelOutcome(outcome))
 		}
@@ -317,7 +313,7 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 		}
 		switch field.Kind {
 		case model.ToolCallPreviewFieldComplete:
-			mapped.Value = field.Value.MapValue(cloneJSONValue)
+			mapped.Value = field.Clone().Value
 			mapped.Complete = true
 		case model.ToolCallPreviewFieldPrefix:
 			mapped.Prefix = field.Prefix
@@ -330,50 +326,6 @@ func mapToolCallPreview(preview model.ToolCallPreview) domainui.ToolCallPreview 
 	}
 }
 
-// cloneArguments isolates nested JSON argument values before lifecycle delivery.
-func cloneArguments(arguments map[string]any) map[string]any {
-	if arguments == nil {
-		return nil
-	}
-	cloned := maps.Clone(arguments)
-	for key, value := range cloned {
-		cloned[key] = cloneJSONValue(value)
-	}
-	return cloned
-}
-
-// cloneJSONValue copies mutable JSON-compatible values.
-func cloneJSONValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneArguments(typed)
-	case []any:
-		cloned := slices.Clone(typed)
-		for index, item := range cloned {
-			cloned[index] = cloneJSONValue(item)
-		}
-		return cloned
-	case []byte:
-		return bytes.Clone(typed)
-	default:
-		return typed
-	}
-}
-
-// cloneResultContents isolates mutable image bytes before lifecycle delivery.
-func cloneResultContents(contents []tool.ResultContent) []tool.ResultContent {
-	cloned := slices.Clone(contents)
-	for index := range cloned {
-		image, ok := cloned[index].Image.Get()
-		if !ok {
-			continue
-		}
-		image.Data = bytes.Clone(image.Data)
-		cloned[index].Image = mo.Some(image)
-	}
-	return cloned
-}
-
 // mapModelResponse copies typed terminal data while excluding opaque provider context.
 func mapModelResponse(response model.Response) (domainui.ModelResponse, error) {
 	return mapModelResponseProjection(response, false)
@@ -383,7 +335,7 @@ func mapModelResponseProjection(
 	response model.Response,
 	continuationOnly bool,
 ) (domainui.ModelResponse, error) {
-	if err := run.ValidateTerminalContent(response); err != nil {
+	if err := response.ValidateTerminalContent(); err != nil {
 		return domainui.ModelResponse{}, fmt.Errorf("map UI model response: %w", err)
 	}
 	mappedContent, err := lo.MapErr(response.Content, func(
@@ -440,7 +392,7 @@ func mapModelResponseProjection(
 		})
 	}
 	return domainui.ModelResponse{
-		Text: responseText(response), Outcome: outcome, ErrorMessage: errorMessage,
+		Text: response.Text(), Outcome: outcome, ErrorMessage: errorMessage,
 		Provider: provider, Model: configuredModel, ResponseModel: responseModel,
 		ResponseID: responseID, Content: content, Usage: mappedUsage, Diagnostics: diagnostics,
 	}, nil
@@ -459,7 +411,7 @@ func mapUIModelResponseContent(
 		return mo.Some(domainui.ModelResponseContent{
 			Kind: domainui.ModelContentKind(0), Text: "",
 			ToolCall: mo.Some(domainui.FinalToolCall{
-				CallID: call.ID, Name: call.Name, Position: position, Arguments: cloneArguments(call.Arguments),
+				CallID: call.ID, Name: call.Name, Position: position, Arguments: call.Clone().Arguments,
 			}),
 		}), nil
 	}
@@ -491,20 +443,6 @@ func modelContentKind(kind model.ContentKind) domainui.ModelContentKind {
 	default:
 		return 0
 	}
-}
-
-// responseText joins only public model text items.
-func responseText(response model.Response) string {
-	var builder strings.Builder
-	for index := range response.Content {
-		item := &response.Content[index]
-		if item.Kind == model.ContentText || item.Kind == model.ContentRefusal {
-			if text, present := item.Text.Get(); present {
-				builder.WriteString(text)
-			}
-		}
-	}
-	return builder.String()
 }
 
 // modelOutcome maps a terminal model outcome to one stable UI value.

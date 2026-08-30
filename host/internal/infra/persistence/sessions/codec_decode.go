@@ -222,7 +222,7 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 		return session.Entry{}, fmt.Errorf("parse branch summary timestamp: %w", err)
 	}
 	if record.ID == "" || record.Summary == "" || record.FirstEntryID == "" || record.LastEntryID == "" ||
-		record.Provider == "" || record.Model == "" || !validReasoningChoice(record.ReasoningChoice) {
+		record.Provider == "" || record.Model == "" || !record.ReasoningChoice.Valid() {
 		return session.Entry{}, errors.New("invalid branch summary entry")
 	}
 	usage := mo.None[session.TokenUsage]()
@@ -232,7 +232,7 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 			CacheReadTokens: record.Usage.CacheReadTokens, CacheWriteTokens: record.Usage.CacheWriteTokens,
 			ReasoningTokens: record.Usage.ReasoningTokens, TotalTokens: record.Usage.TotalTokens,
 		}
-		if !validTokenUsage(value) {
+		if !value.Valid() {
 			return session.Entry{}, errors.New("invalid branch summary usage")
 		}
 		usage = mo.Some(value)
@@ -241,7 +241,7 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 	if err != nil {
 		return session.Entry{}, err
 	}
-	if value, present := cost.Get(); present && !validEstimatedCost(value) {
+	if value, present := cost.Get(); present && !value.Valid() {
 		return session.Entry{}, errors.New("invalid branch summary cost")
 	}
 	return session.Entry{

@@ -37,7 +37,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
 	stateRequest := programmaticv1.OpenRequest_builder{
@@ -48,7 +48,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 		ListSessions:      nil,
 		ResumeSession:     nil,
 		SetSessionName:    nil,
-		GetSessionInfo:    nil,
+		GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	events := make(chan AgentEvent)
 	acceptanceSent := make(chan struct{})
@@ -75,7 +75,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 			ModelID:         mo.None[model.ID](),
 			ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:       mo.None[domainsession.ID](),
-			SessionName:     mo.None[string](),
+			SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		}).Return(Response{
 			SessionEntries:    nil,
 			SessionStatistics: mo.None[domainsession.Statistics](),
@@ -87,7 +87,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 			Selection:         mo.None[model.Selection](),
 			Rejection:         mo.None[Rejection](),
 			SessionInfo:       mo.None[domainsession.Info](),
-			Sessions:          nil,
+			Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 		}, operation, nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 			<-started
@@ -102,7 +102,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 			ModelID:         mo.None[model.ID](),
 			ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:       mo.None[domainsession.ID](),
-			SessionName:     mo.None[string](),
+			SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		}).DoAndReturn(func(context.Context, Command) (Response, Operation, error) {
 			close(stateHandled)
 			return Response{
@@ -119,7 +119,7 @@ func (s *ServiceSuite) TestAcceptedOperationSendsAcceptanceBeforeStartAndReceive
 				Selection:   mo.None[model.Selection](),
 				Rejection:   mo.None[Rejection](),
 				SessionInfo: mo.None[domainsession.Info](),
-				Sessions:    nil,
+				Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 			}, nil, nil
 		}),
 		stream.EXPECT().Recv().Return(nil, io.EOF),
@@ -192,7 +192,7 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 		GetSessionEntries: nil,
 		CorrelationId:     new("accepted"),
 		UserRequest:       programmaticv1.UserRequest_builder{Text: new("request")}.Build(),
-		CreateSession:     nil, ListSessions: nil, ResumeSession: nil, SetSessionName: nil, GetSessionInfo: nil,
+		CreateSession:     nil, ListSessions: nil, ResumeSession: nil, SetSessionName: nil, GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	events := make(chan AgentEvent)
 	stream.EXPECT().Recv().Return(request, nil)
@@ -201,7 +201,7 @@ func (s *ServiceSuite) TestAcceptedResponseDeliveryFailureDoesNotStartOperation(
 		SessionStatistics: mo.None[domainsession.Statistics](),
 		CorrelationID:     "accepted", Kind: ResponseUserRequestAccepted, State: mo.None[RunStateResult](),
 		Messages: nil, Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](),
-		Rejection: mo.None[Rejection](), SessionInfo: mo.None[domainsession.Info](), Sessions: nil,
+		Rejection: mo.None[Rejection](), SessionInfo: mo.None[domainsession.Info](), Sessions: nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 	}, operation, nil)
 	operation.EXPECT().Events().Return(events)
 	operation.EXPECT().Start().Times(0)
@@ -241,7 +241,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 		ListSessions:          nil,
 		ResumeSession:         nil,
 		SetSessionName:        nil,
-		GetSessionInfo:        nil,
+		GetSessionInfo:        nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -253,7 +253,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 			ModelID:         mo.None[model.ID](),
 			ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:       mo.None[domainsession.ID](),
-			SessionName:     mo.None[string](),
+			SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		}).Return(Response{
 			SessionEntries:    nil,
 			SessionStatistics: mo.None[domainsession.Statistics](),
@@ -269,7 +269,7 @@ func (s *ServiceSuite) TestCorrelatedMissingCommandReachesHost() {
 			Models:      mo.None[ModelsResult](),
 			Selection:   mo.None[model.Selection](),
 			SessionInfo: mo.None[domainsession.Info](),
-			Sessions:    nil,
+			Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 		}, nil, nil),
 		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
 			s.Equal(programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, response.GetCommandResponse().GetRejected().GetCode())
@@ -332,7 +332,7 @@ func (s *ServiceSuite) TestEmptyCorrelationIsTerminal() {
 		ListSessions:      nil,
 		ResumeSession:     nil,
 		SetSessionName:    nil,
-		GetSessionInfo:    nil,
+		GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -364,7 +364,7 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 		ListSessions:      nil,
 		ResumeSession:     nil,
 		SetSessionName:    nil,
-		GetSessionInfo:    nil,
+		GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -382,7 +382,7 @@ func (s *ServiceSuite) TestOperationProtocolInvariantIsTerminal() {
 			Selection:   mo.None[model.Selection](),
 			Rejection:   mo.None[Rejection](),
 			SessionInfo: mo.None[domainsession.Info](),
-			Sessions:    nil,
+			Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 		}, operation, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -413,7 +413,7 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -428,7 +428,7 @@ func (s *ServiceSuite) TestAcceptedResponseRequiresOperation() {
 			Selection:         mo.None[model.Selection](),
 			Rejection:         mo.None[Rejection](),
 			SessionInfo:       mo.None[domainsession.Info](),
-			Sessions:          nil,
+			Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 		}, nil, nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),
 	)
@@ -460,7 +460,7 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(request, nil),
@@ -475,7 +475,7 @@ func (s *ServiceSuite) TestAcceptedOperationRequiresEventStream() {
 			Selection:         mo.None[model.Selection](),
 			Rejection:         mo.None[Rejection](),
 			SessionInfo:       mo.None[domainsession.Info](),
-			Sessions:          nil,
+			Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 		}, operation, nil),
 		operation.EXPECT().Events().Return(nil),
 		session.EXPECT().CancelAndWait(gomock.Any()).Return(nil),

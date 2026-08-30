@@ -12,7 +12,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // TestNavigateCommitsPreparedDestination verifies user and non-user targets select their defined destinations.
@@ -39,13 +39,9 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			active := NewMockActiveSession(controller)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
-			active.EXPECT().CommitNavigation(gomock.Any(), mo.Some("active"), test.expectedLeaf).DoAndReturn(
-				func(_ context.Context, _ mo.Option[string], destination mo.Option[string]) (session.Tree, error) {
-					committed := tree
-					require.NoError(t, committed.SetActiveLeaf(destination))
-					return committed, nil
-				},
-			)
+			committed := tree
+			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
+			active.EXPECT().CommitNavigation(gomock.Any(), mo.Some("active"), test.expectedLeaf).Return(committed, nil)
 			service := New(active)
 
 			// Act by navigating to the selected tree entry.
@@ -53,8 +49,10 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
-			assert.Equal(t, sessioncontrol.NavigationResult{
+			assert.Equal(t, sessionnavigation.Result{
+				Tree:         committed,
 				ActiveLeafID: test.expectedLeaf,
+				ActiveBranch: committed.ActiveBranch(),
 				NextInput:    test.expectedNextInput,
 			}, result)
 		})
@@ -74,8 +72,8 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	// Act by selecting an unknown entry.
 	_, err := service.NavigateTree(t.Context(), "unknown")
 
-	// Assert preparation fails before commit.
-	require.Error(t, err)
+	// Assert preparation fails with the stable target classification before commit.
+	require.ErrorIs(t, err, session.ErrEntryNotFound)
 }
 
 // TestNavigateHonorsCanceledContextBeforeReadingTree verifies cancellation performs no session work.

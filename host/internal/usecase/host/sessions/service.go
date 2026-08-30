@@ -112,7 +112,7 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 	s.history = nil
 	// Active replacement creates a new process-local write state independent from the replaced session.
 	s.writeUnavailable = false
-	replacement := replacementFromLoaded(s.active)
+	replacement := s.active.Replacement()
 	s.mutex.Unlock()
 	return replacement, nil
 }
@@ -133,13 +133,13 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 	if loaded.Header.WorkingDirectory != s.workingDirectory {
 		return session.Replacement{}, errors.New("session working directory does not match")
 	}
-	loaded = cloneLoaded(loaded)
+	loaded = loaded.Clone()
 	history := historyFromEntries(loaded.Tree.ActiveBranch())
 	s.active = loaded
 	s.history = history
 	// Successful validation and replacement are the only resume path that restores mutation access.
 	s.writeUnavailable = false
-	return replacementFromLoaded(s.active), nil
+	return s.active.Replacement(), nil
 }
 
 // SetActiveName persists a normalized session name.
@@ -173,7 +173,7 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	s.active.StoragePath = result.StoragePath
 	s.active.Information = mo.Some(session.Information{Name: name})
 	s.active.InformationUpdatedAt = mo.Some(updatedAt)
-	return infoFromLoaded(s.active), nil
+	return s.active.Info(), nil
 }
 
 // ListStored returns stored sessions ordered by update time and ID.
@@ -191,14 +191,14 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 		for entryIndex := range activeBranch {
 			entry := &activeBranch[entryIndex]
 			if user, present := entry.User.Get(); present && firstUserText.IsNone() {
-				text := strings.TrimSpace(lineBreaks.ReplaceAllString(publicUserText(user), " "))
+				text := strings.TrimSpace(lineBreaks.ReplaceAllString(user.Text(""), " "))
 				if text != "" {
 					firstUserText = mo.Some(text)
 				}
 			}
 		}
 		result = append(result, session.Summary{
-			Info:          infoFromLoaded(*item),
+			Info:          item.Info(),
 			FirstUserText: firstUserText,
 			TotalMessages: counts.totalMessages,
 		})
@@ -216,7 +216,7 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 func (s *Service) ActiveInfo() session.Info {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return infoFromLoaded(s.active)
+	return s.active.Info()
 }
 
 // ActiveEntries returns immutable active-branch records in root-first order.
@@ -230,7 +230,7 @@ func (s *Service) ActiveEntries() []session.Entry {
 func (s *Service) Tree() session.Tree {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return cloneTree(s.active.Tree)
+	return s.active.Tree.Clone()
 }
 
 // ActiveStatistics derives counts and complete token totals from durable entries.
@@ -244,7 +244,7 @@ func (s *Service) ActiveStatistics() session.Statistics {
 func (s *Service) ActiveInformation() session.InformationSnapshot {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	info := infoFromLoaded(s.active)
+	info := s.active.Info()
 	return session.InformationSnapshot{
 		Info:       info,
 		Statistics: statisticsFromEntries(s.active.Tree.Entries()),
@@ -261,7 +261,7 @@ func (s *Service) Snapshot() []agent.HistoryEntry {
 // Append transfers one history entry to active ownership. Complete valid user, terminal model,
 // and tool-result history is durable when Append succeeds.
 func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error {
-	owned, err := cloneValidatedHistoryEntry(history)
+	owned, err := history.ValidatedClone()
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) er
 	entry.ID = entryID
 	entry.ParentID = s.active.Tree.ActiveLeafID()
 	entry.CreatedAt = s.clock.Now()
-	candidateTree := cloneTree(s.active.Tree)
+	candidateTree := s.active.Tree.Clone()
 	if err = candidateTree.Add(entry); err != nil {
 		return fmt.Errorf("validate session tree entry: %w", err)
 	}

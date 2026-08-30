@@ -87,7 +87,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Selection:         mo.None[model.Selection](),
 				Rejection:         mo.None[Rejection](),
 				SessionInfo:       mo.None[session.Info](),
-				Sessions:          nil,
+				Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 			})
 			return err
 		},
@@ -107,7 +107,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				Selection:     mo.None[model.Selection](),
 				Rejection:     mo.None[Rejection](),
 				SessionInfo:   mo.None[session.Info](),
-				Sessions:      nil,
+				Sessions:      nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 			})
 			return err
 		},

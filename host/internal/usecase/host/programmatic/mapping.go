@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -16,7 +14,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error) {
@@ -30,7 +27,7 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 				return nil, fmt.Errorf("map history entry %d: user payload is missing", position)
 			}
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryUser, User: mo.Some(clonePublicMessage(user)),
+				Kind: controller.HistoryEntryUser, User: mo.Some(user.Clone()),
 				Model:      mo.None[controller.ModelResponse](),
 				ToolResult: mo.None[controller.ToolResult](),
 			})
@@ -71,7 +68,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 		if user, present := entry.User.Get(); present {
 			result = append(result, controller.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
-				User: mo.Some(clonePublicMessage(user)), Model: mo.None[controller.ModelResponse](),
+				User: mo.Some(user.Clone()), Model: mo.None[controller.ModelResponse](),
 				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
 			})
 			continue
@@ -99,16 +96,8 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 	return result, nil
 }
 
-func clonePublicMessage(message model.Message) model.Message {
-	message.Content = slices.Clone(message.Content)
-	for index := range message.Content {
-		message.Content[index].Data = message.Content[index].Data.MapValue(bytes.Clone)
-	}
-	return message
-}
-
 func mapModelResponseProjection(response model.Response) (controller.ModelResponse, error) {
-	if err := run.ValidateTerminalContent(response); err != nil {
+	if err := response.ValidateTerminalContent(); err != nil {
 		return controller.ModelResponse{}, fmt.Errorf("map model response: %w", err)
 	}
 	mappedContent, err := lo.MapErr(response.Content, func(
@@ -218,7 +207,7 @@ func mapModelResponseContent(
 			Kind: controller.ModelResponseContentToolCall, Text: mo.None[string](),
 			ToolCall: mo.Some(controller.FinalToolCall{
 				CallID: call.ID, Name: call.Name, Position: position,
-				Arguments: cloneArguments(call.Arguments),
+				Arguments: call.Clone().Arguments,
 			}),
 		}), nil
 	}
@@ -234,7 +223,7 @@ func mapToolCallPreview(preview model.ToolCallPreview) controller.ToolCallPrevie
 		switch field.Kind {
 		case model.ToolCallPreviewFieldComplete:
 			mapped.Kind = controller.ToolCallPreviewFieldComplete
-			mapped.Value = field.Value.MapValue(cloneJSONValue)
+			mapped.Value = field.Clone().Value
 		case model.ToolCallPreviewFieldPrefix:
 			mapped.Kind = controller.ToolCallPreviewFieldPrefix
 			mapped.Prefix = field.Prefix
@@ -335,32 +324,4 @@ func mapModelOutcome(outcome model.Outcome) controller.ModelOutcome {
 		return controller.ModelOutcomeFailed
 	}
 	return controller.ModelOutcomeUnspecified
-}
-
-func cloneArguments(arguments map[string]any) map[string]any {
-	if arguments == nil {
-		return nil
-	}
-	cloned := maps.Clone(arguments)
-	for key, value := range cloned {
-		cloned[key] = cloneJSONValue(value)
-	}
-	return cloned
-}
-
-func cloneJSONValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneArguments(typed)
-	case []any:
-		cloned := slices.Clone(typed)
-		for index, item := range cloned {
-			cloned[index] = cloneJSONValue(item)
-		}
-		return cloned
-	case []byte:
-		return bytes.Clone(typed)
-	default:
-		return typed
-	}
 }

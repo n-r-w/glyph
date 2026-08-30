@@ -7,6 +7,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=ui
@@ -60,6 +61,10 @@ type SessionControl interface {
 	List(context.Context) ([]session.Summary, error)
 	// Information returns metadata and statistics from one coherent active-session snapshot.
 	Information() session.InformationSnapshot
+	// Tree returns the complete active-session tree snapshot.
+	Tree() session.Tree
+	// Navigate commits one no-summary tree navigation.
+	Navigate(context.Context, string) (sessionnavigation.Result, error)
 }
 
 // Authenticator keeps credential interpretation and refresh inside the provider.

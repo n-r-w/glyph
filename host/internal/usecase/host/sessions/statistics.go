@@ -88,7 +88,7 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 				// One absent model usage makes only token totals unavailable. Counts remain complete.
 				statistics.TokenUsage = mo.None[session.TokenUsage]()
 			} else {
-				usage = addTokenUsage(usage, session.TokenUsage{
+				usage = usage.Add(session.TokenUsage{
 					InputTokens: modelUsage.InputTokens, OutputTokens: modelUsage.OutputTokens,
 					CacheReadTokens: modelUsage.CachedInputTokens, CacheWriteTokens: modelUsage.CacheWriteTokens,
 					ReasoningTokens: modelUsage.ReasoningTokens, TotalTokens: modelUsage.TotalTokens,
@@ -103,7 +103,7 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 			if !usagePresent {
 				statistics.TokenUsage = mo.None[session.TokenUsage]()
 			} else {
-				usage = addTokenUsage(usage, summaryUsage)
+				usage = usage.Add(summaryUsage)
 			}
 			accumulateCost(
 				mo.Some(summary.Provider), mo.Some(summary.Model), summary.EstimatedCost,
@@ -123,18 +123,6 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 	return statistics
 }
 
-// addTokenUsage sums normalized disjoint token buckets without recalculation.
-func addTokenUsage(left, right session.TokenUsage) session.TokenUsage {
-	return session.TokenUsage{
-		InputTokens:      left.InputTokens + right.InputTokens,
-		OutputTokens:     left.OutputTokens + right.OutputTokens,
-		CacheReadTokens:  left.CacheReadTokens + right.CacheReadTokens,
-		CacheWriteTokens: left.CacheWriteTokens + right.CacheWriteTokens,
-		ReasoningTokens:  left.ReasoningTokens + right.ReasoningTokens,
-		TotalTokens:      left.TotalTokens + right.TotalTokens,
-	}
-}
-
 // accumulateCost keeps aggregate and exact provider-model availability independent.
 func accumulateCost(
 	provider mo.Option[model.ProviderID],
@@ -147,7 +135,7 @@ func accumulateCost(
 	if !costPresent {
 		aggregate.available = false
 	} else if aggregate.available {
-		aggregate.value = addEstimatedCost(aggregate.value, cost)
+		aggregate.value = aggregate.value.Add(cost)
 	}
 	providerID, providerPresent := provider.Get()
 	requestedModelID, modelPresent := modelID.Get()
@@ -162,7 +150,7 @@ func accumulateCost(
 	if !costPresent {
 		group.available = false
 	} else if group.available {
-		group.value = addEstimatedCost(group.value, cost)
+		group.value = group.value.Add(cost)
 	}
 	groups[key] = group
 }
@@ -189,13 +177,4 @@ func costBreakdown(groups map[providerModelKey]accumulatedCost) []session.Provid
 		return breakdown[left].Model < breakdown[right].Model
 	})
 	return breakdown
-}
-
-// addEstimatedCost sums the five persisted cost values without recalculation.
-func addEstimatedCost(left, right session.EstimatedCost) session.EstimatedCost {
-	return session.EstimatedCost{
-		Input: left.Input + right.Input, Output: left.Output + right.Output,
-		CacheRead: left.CacheRead + right.CacheRead, CacheWrite: left.CacheWrite + right.CacheWrite,
-		Total: left.Total + right.Total,
-	}
 }

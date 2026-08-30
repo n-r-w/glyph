@@ -176,7 +176,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 	testsupporttui.SetTerminalSize(t, terminalFile, 100, 40)
 
@@ -378,7 +378,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED)
 
@@ -442,7 +442,7 @@ func sendLifecycle(t *testing.T, stream uiv1.UIService_OpenClient, lifecycle *ui
 		Lifecycle:          proto.ValueOrDefault(lifecycle),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 }
 

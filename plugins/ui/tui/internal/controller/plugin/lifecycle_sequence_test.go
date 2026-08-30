@@ -177,7 +177,7 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		Lifecycle:          lifecycle,
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()
 }
 

@@ -46,5 +46,5 @@ func (s *Service) Load() (Settings, error) {
 		}
 		return Settings{}, fmt.Errorf("decode trailing Glyph settings: %w", trailingErr)
 	}
-	return validate(decoded)
+	return decoded.validate()
 }

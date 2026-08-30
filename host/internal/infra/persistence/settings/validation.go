@@ -17,8 +17,8 @@ import (
 )
 
 // validate applies the closed provider and startup selection rules.
-func validate(decoded settingsFile) (Settings, error) {
-	if err := validateDefaults(decoded); err != nil {
+func (decoded settingsFile) validate() (Settings, error) {
+	if err := decoded.validateDefaults(); err != nil {
 		return Settings{}, err
 	}
 	providers, err := validateProviders(decoded.Providers)
@@ -47,7 +47,8 @@ func validate(decoded settingsFile) (Settings, error) {
 	}, nil
 }
 
-func validateDefaults(decoded settingsFile) error {
+// validateDefaults validates required top-level settings fields.
+func (decoded settingsFile) validateDefaults() error {
 	if err := validateIdentifier("defaultProvider", decoded.DefaultProvider); err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func validateProviders(configured map[string]providerFile) (map[string]Provider,
 		if err := validateIdentifier("provider ID", providerID); err != nil {
 			return nil, err
 		}
-		provider, err := validateProvider(providerID, configured[providerID])
+		provider, err := configured[providerID].validate(providerID)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +98,8 @@ func validateActiveUI(configured mo.Option[string]) (mo.Option[string], error) {
 	return mo.Some(activeUI), nil
 }
 
-func validateProvider(providerID string, configured providerFile) (Provider, error) {
+// validate maps one provider file after checking its complete contract.
+func (configured providerFile) validate(providerID string) (Provider, error) {
 	if configured.Type != ProviderTypeOpenAICodex && configured.Type != ProviderTypeOpenAICompatible {
 		return Provider{}, fmt.Errorf("provider %q has unsupported type %q", providerID, configured.Type)
 	}
@@ -115,7 +117,7 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 			return Provider{}, fmt.Errorf("provider %q has fields that are not valid for openai-codex", providerID)
 		}
 	case ProviderTypeOpenAICompatible:
-		apiKey, err := validateCompatibleProvider(providerID, configured)
+		apiKey, err := configured.validateCompatible(providerID)
 		if err != nil {
 			return Provider{}, err
 		}
@@ -124,7 +126,7 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 
 	seenModels := make(map[string]struct{}, len(configured.Models))
 	for modelIndex := range configured.Models {
-		validatedModel, err := validateModel(providerID, configured.Type, configured.Models[modelIndex])
+		validatedModel, err := configured.Models[modelIndex].validate(providerID, configured.Type)
 		if err != nil {
 			return Provider{}, err
 		}
@@ -137,18 +139,19 @@ func validateProvider(providerID string, configured providerFile) (Provider, err
 	return provider, nil
 }
 
-func validateCompatibleProvider(providerID string, configured providerFile) (mo.Option[APIKey], error) {
+// validateCompatible validates fields specific to an OpenAI-compatible provider.
+func (configured providerFile) validateCompatible(providerID string) (mo.Option[APIKey], error) {
 	if err := validateBaseURL(configured.BaseURL); err != nil {
 		return mo.None[APIKey](), fmt.Errorf("provider %q: %w", providerID, err)
 	}
-	if !isAPISupported(configured.API) {
+	if !configured.API.Supported() {
 		return mo.None[APIKey](), fmt.Errorf("provider %q has unsupported API %q", providerID, configured.API)
 	}
 	return validateAPIKey(providerID, configured.APIKey)
 }
 
-// validateModel validates one model and its provider-neutral execution capabilities.
-func validateModel(providerID string, providerType ProviderType, configured modelFile) (Model, error) {
+// validate validates one model and its provider-neutral execution capabilities.
+func (configured modelFile) validate(providerID string, providerType ProviderType) (Model, error) {
 	if err := validateIdentifier("model ID", configured.ID); err != nil {
 		return Model{}, fmt.Errorf("provider %q: %w", providerID, err)
 	}
@@ -176,7 +179,7 @@ func validateModel(providerID string, providerType ProviderType, configured mode
 		if providerType != ProviderTypeOpenAICompatible {
 			return Model{}, fmt.Errorf("provider %q model %q cannot override API", providerID, configured.ID)
 		}
-		if !isAPISupported(configured.API) {
+		if !configured.API.Supported() {
 			return Model{}, fmt.Errorf("provider %q model %q has unsupported API %q", providerID, configured.ID, configured.API)
 		}
 	}
@@ -184,7 +187,7 @@ func validateModel(providerID string, providerType ProviderType, configured mode
 	if err != nil {
 		return Model{}, err
 	}
-	reasoning, err := validateReasoning(providerID, configured.ID, configured.Reasoning)
+	reasoning, err := configured.Reasoning.validate(providerID, configured.ID)
 	if err != nil {
 		return Model{}, err
 	}
@@ -331,88 +334,6 @@ func validatePricingRates(
 	return pricingRates{input: input, output: output, cacheRead: cacheRead, cacheWrite: cacheWrite}, nil
 }
 
-// validateReasoning validates one provider-neutral capability shape and opaque provider format.
-//
-//nolint:gocyclo // The flat validation mirrors the closed capability shapes.
-func validateReasoning(providerID, modelID string, configured reasoningFile) (Reasoning, error) {
-	supported, supportedPresent := configured.Supported.Get()
-	if !supportedPresent {
-		return Reasoning{}, fmt.Errorf("provider %q model %q reasoning requires supported", providerID, modelID)
-	}
-	choices := slices.Clone(configured.Choices)
-	seen := make(map[ReasoningChoice]struct{}, len(choices))
-	for _, choice := range choices {
-		if !isReasoningChoiceSupported(choice) {
-			return Reasoning{}, fmt.Errorf(
-				"provider %q model %q has unsupported reasoning choice %q", providerID, modelID, choice,
-			)
-		}
-		if _, duplicate := seen[choice]; duplicate {
-			return Reasoning{}, fmt.Errorf("provider %q model %q has duplicate reasoning choice %q", providerID, modelID, choice)
-		}
-		seen[choice] = struct{}{}
-	}
-	if len(choices) == 0 || !slices.Contains(choices, configured.Default) {
-		return Reasoning{}, fmt.Errorf(
-			"provider %q model %q reasoning default must be listed in choices", providerID, modelID,
-		)
-	}
-	key := configured.CompatibilityKey
-	if value, present := key.Get(); present {
-		if value == "" || value != strings.TrimSpace(value) {
-			return Reasoning{}, fmt.Errorf(
-				"provider %q model %q reasoning compatibilityKey must be nonempty without surrounding whitespace",
-				providerID, modelID,
-			)
-		}
-	}
-	if !supported {
-		invalidShape := len(choices) != 1 || choices[0] != ReasoningChoiceOff ||
-			configured.Default != ReasoningChoiceOff || key.IsSome() || configured.Format != ""
-		if invalidShape {
-			return Reasoning{}, fmt.Errorf(
-				"provider %q model %q has contradictory non-reasoning capabilities", providerID, modelID,
-			)
-		}
-		return Reasoning{
-			Supported: false, Choices: choices, Default: configured.Default,
-			CompatibilityKey: mo.None[string](), Format: "",
-		}, nil
-	}
-	if err := validateReasoningShape(choices, configured.Default); err != nil {
-		return Reasoning{}, fmt.Errorf("provider %q model %q: %w", providerID, modelID, err)
-	}
-	return Reasoning{
-		Supported: true, Choices: choices, Default: configured.Default,
-		CompatibilityKey: key, Format: configured.Format,
-	}, nil
-}
-
-// validateReasoningShape accepts fixed, toggle, and effort reasoning shapes.
-func validateReasoningShape(choices []ReasoningChoice, defaultChoice ReasoningChoice) error {
-	if len(choices) == 1 && choices[0] == ReasoningChoiceOn && defaultChoice == ReasoningChoiceOn {
-		return nil
-	}
-	isToggle := len(choices) == 2 && slices.Contains(choices, ReasoningChoiceOff) &&
-		slices.Contains(choices, ReasoningChoiceOn)
-	if isToggle {
-		return nil
-	}
-	hasEffort := false
-	for _, choice := range choices {
-		if choice == ReasoningChoiceOn {
-			return errors.New("effort reasoning cannot contain on")
-		}
-		if choice != ReasoningChoiceOff {
-			hasEffort = true
-		}
-	}
-	if !hasEffort {
-		return errors.New("reasoning choices have an invalid capability shape")
-	}
-	return nil
-}
-
 func validateAPIKey(providerID string, configured mo.Option[apiKeyFile]) (mo.Option[APIKey], error) {
 	configuredAPIKey, configuredPresent := configured.Get()
 	if !configuredPresent {
@@ -462,12 +383,13 @@ func validateIdentifier(name, value string) error {
 	return nil
 }
 
-func isAPISupported(api API) bool {
+// Supported reports whether the API belongs to the closed settings contract.
+func (api API) Supported() bool {
 	return api == APIChatCompletions || api == APIResponses
 }
 
-// isReasoningChoiceSupported recognizes the complete configured reasoning-choice set.
-func isReasoningChoiceSupported(level ReasoningChoice) bool {
+// Supported reports whether the reasoning choice belongs to the closed settings contract.
+func (level ReasoningChoice) Supported() bool {
 	switch level {
 	case ReasoningChoiceOff,
 		ReasoningChoiceOn,

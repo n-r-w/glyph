@@ -65,12 +65,12 @@ func (r *toolRegistry) execute(ctx context.Context, toolName, input string) (too
 	if err != nil {
 		return toolOutcome{}, err
 	}
-	_, result, err := collectExecution(stream)
+	_, result, err := stream.collectExecution()
 	return result, err
 }
 
 // collectExecution consumes ordered progress until the single terminal result.
-func collectExecution(stream *executionStream) ([]string, toolOutcome, error) {
+func (stream *executionStream) collectExecution() ([]string, toolOutcome, error) {
 	var progress []string
 	for {
 		event, err := stream.recv()

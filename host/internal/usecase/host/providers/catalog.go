@@ -108,7 +108,7 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	seen := make(map[model.ProviderID]map[model.ID]struct{})
 	for index := range entries {
 		entry := entries[index]
-		entry.Descriptor = cloneDescriptor(entry.Descriptor)
+		entry.Descriptor = entry.Descriptor.Clone()
 		if entry.Provider == nil {
 			return nil, invalidConfigurationError()
 		}
@@ -136,7 +136,7 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 func (c *Catalog) Models() []model.Descriptor {
 	models := make([]model.Descriptor, len(c.entries))
 	for index := range c.entries {
-		models[index] = cloneDescriptor(c.entries[index].Descriptor)
+		models[index] = c.entries[index].Descriptor.Clone()
 	}
 	return models
 }
@@ -169,7 +169,7 @@ func (c *Catalog) Current() agentrun.RuntimeSelection {
 
 	entry := c.entries[c.active]
 	return agentrun.RuntimeSelection{
-		Model:           cloneDescriptor(entry.Descriptor),
+		Model:           entry.Descriptor.Clone(),
 		ReasoningChoice: c.selection.ReasoningChoice,
 		Provider:        entry.Provider,
 	}
@@ -259,11 +259,7 @@ func validateDescriptor(
 	descriptor model.Descriptor,
 	seen map[model.ProviderID]map[model.ID]struct{},
 ) error {
-	capabilities := descriptor.ReasoningCapabilities
-	if descriptor.Provider == "" || descriptor.Model == "" || len(capabilities.Choices) == 0 ||
-		!validDescriptorInput(descriptor.Input) || descriptor.ContextWindow <= 0 || descriptor.MaxTokens <= 0 ||
-		descriptor.MaxTokens > descriptor.ContextWindow ||
-		!slices.Contains(capabilities.Choices, capabilities.Default) {
+	if !descriptor.Valid() {
 		return invalidConfigurationError()
 	}
 	models, exists := seen[descriptor.Provider]
@@ -275,39 +271,7 @@ func validateDescriptor(
 		return invalidConfigurationError()
 	}
 	models[descriptor.Model] = struct{}{}
-	levels := make(map[model.ReasoningChoice]struct{}, len(capabilities.Choices))
-	for _, choice := range capabilities.Choices {
-		if !validReasoningChoice(choice) {
-			return invalidConfigurationError()
-		}
-		if _, duplicate := levels[choice]; duplicate {
-			return invalidConfigurationError()
-		}
-		levels[choice] = struct{}{}
-	}
 	return nil
-}
-
-// validDescriptorInput enforces the closed modality set without depending on settings types.
-func validDescriptorInput(input []model.InputModality) bool {
-	if len(input) == 0 {
-		return false
-	}
-	// seen rejects duplicate modalities while checking the closed set.
-	seen := make(map[model.InputModality]struct{}, len(input))
-	// Each modality is one declared provider-neutral input kind.
-	for _, modality := range input {
-		if modality != model.InputModalityText && modality != model.InputModalityImage {
-			return false
-		}
-		if _, duplicate := seen[modality]; duplicate {
-			return false
-		}
-		seen[modality] = struct{}{}
-	}
-	// containsText enforces the agent's required text input path.
-	_, containsText := seen[model.InputModalityText]
-	return containsText
 }
 
 // fallbackReasoningChoice preserves exact choices and applies the configured cross-model fallback.
@@ -321,7 +285,7 @@ func fallbackReasoningChoice(active model.ReasoningChoice, target model.Reasonin
 	if active == model.ReasoningChoiceOn {
 		return target.Default
 	}
-	if isEffort(active) {
+	if active.Effort() {
 		if slices.Contains(target.Choices, model.ReasoningChoiceOn) {
 			return model.ReasoningChoiceOn
 		}
@@ -367,28 +331,6 @@ func reasoningRank(level model.ReasoningChoice) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-// isEffort reports whether a choice belongs to the ordered effort set.
-func isEffort(choice model.ReasoningChoice) bool {
-	_, ok := reasoningRank(choice)
-	return ok
-}
-
-// validReasoningChoice accepts the complete provider-neutral choice set.
-func validReasoningChoice(choice model.ReasoningChoice) bool {
-	return choice == model.ReasoningChoiceOff || choice == model.ReasoningChoiceOn || isEffort(choice)
-}
-
-// cloneDescriptor keeps configured capability slices immutable to catalog callers.
-func cloneDescriptor(descriptor model.Descriptor) model.Descriptor {
-	descriptor.Input = slices.Clone(descriptor.Input)
-	descriptor.ReasoningCapabilities.Choices = slices.Clone(descriptor.ReasoningCapabilities.Choices)
-	if pricing, present := descriptor.Pricing.Get(); present {
-		pricing.Tiers = slices.Clone(pricing.Tiers)
-		descriptor.Pricing = mo.Some(pricing)
-	}
-	return descriptor
 }
 
 func invalidConfigurationError() *SelectionError {

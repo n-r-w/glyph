@@ -6,6 +6,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
@@ -33,6 +34,10 @@ type SessionControl interface {
 	Entries() []session.Entry
 	// Statistics returns active-session counts and complete token totals.
 	Statistics() session.Statistics
+	// Tree returns the complete active-session tree snapshot.
+	Tree() session.Tree
+	// Navigate commits one no-summary tree navigation.
+	Navigate(context.Context, string) (sessionnavigation.Result, error)
 }
 
 // SelectionCode identifies a model catalog selection failure.

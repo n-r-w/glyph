@@ -107,7 +107,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()
 
 	// Act by mapping the authentication error request.
@@ -172,7 +172,7 @@ func initializationRequest() *uiv1.OpenRequest {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()
 }
 

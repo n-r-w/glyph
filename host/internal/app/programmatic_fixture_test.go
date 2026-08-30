@@ -228,7 +228,7 @@ func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }
 
@@ -242,7 +242,7 @@ func abortRequest(correlationID string) *programmaticv1.OpenRequest {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }
 
@@ -256,7 +256,7 @@ func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }
 
@@ -289,7 +289,7 @@ func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }
 
@@ -306,7 +306,7 @@ func selectModelRequest(correlationID, providerID, modelID string) *programmatic
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }
 
@@ -325,6 +325,6 @@ func selectReasoningRequest(
 		ListSessions:   nil,
 		ResumeSession:  nil,
 		SetSessionName: nil,
-		GetSessionInfo: nil,
+		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 }

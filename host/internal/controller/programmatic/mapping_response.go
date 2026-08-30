@@ -47,7 +47,8 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
 			return nil, err
 		}
-	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats, ResponseRejected:
+	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
+		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseRejected:
 		return nil, errors.New("map command response: handled response was not mapped")
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
@@ -94,6 +95,18 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 		result.SetStatistics(mapSessionStatistics(statistics))
 		wire.SetSessionStats(result)
 		return true, nil
+	case ResponseSessionTree:
+		tree, present := response.SessionTree.Get()
+		if !present {
+			return true, errors.New("map session tree: result is absent")
+		}
+		return true, mapSessionTreeCommandResponse(wire, tree)
+	case ResponseSessionTreeNavigation:
+		navigation, present := response.TreeNavigation.Get()
+		if !present {
+			return true, errors.New("map tree navigation: result is absent")
+		}
+		return true, mapTreeNavigationCommandResponse(wire, navigation)
 	case ResponseRejected:
 		return true, mapRejectionCommandResponse(wire, response.Rejection)
 	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,

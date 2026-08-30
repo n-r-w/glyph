@@ -135,7 +135,7 @@ func (s *Service) State() State {
 	return State{
 		Status:          s.state.Status,
 		RunID:           s.state.RunID,
-		PartialResponse: s.state.PartialResponse.MapValue(cloneModelResponse),
+		PartialResponse: s.state.PartialResponse.MapValue(model.Response.Clone),
 		ToolPreviews:    cloneToolPreviews(s.state.ToolPreviews),
 	}
 }
@@ -207,7 +207,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 			return err
 		}
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
-			response = cloneModelResponse(terminal)
+			response = terminal.Clone()
 			return nil
 		}
 		event := newEvent(EventContentStart, runID)
@@ -266,7 +266,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		return s.finalizeProviderError(ctx, runID, response, errors.New("model stream ended without a terminal event"))
 	}
 
-	response = normalizeTerminalResponse(cloneModelResponse(response))
+	response = s.normalizeTerminalResponse(response.Clone())
 	s.clearPartial()
 	// The terminal model response must transfer to history ownership before completion is exposed.
 	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
@@ -310,7 +310,7 @@ func mergeTerminalResponse(
 	if !present {
 		return model.Response{}, errors.New("terminal model stream event has no response")
 	}
-	terminal = cloneModelResponse(terminal)
+	terminal = terminal.Clone()
 	if partial, hasPartial := partialOption.Get(); len(terminal.Content) == 0 && hasPartial {
 		terminal.Content = partial.Content
 	}
@@ -318,7 +318,7 @@ func mergeTerminalResponse(
 }
 
 // normalizeTerminalResponse supplies default text for provider-declared terminal failures.
-func normalizeTerminalResponse(response model.Response) model.Response {
+func (*Service) normalizeTerminalResponse(response model.Response) model.Response {
 	if errorMessage, present := response.ErrorMessage.Get(); present && errorMessage != "" {
 		return response
 	}
@@ -343,7 +343,7 @@ func (s *Service) finalizeProviderError(
 	response model.Response,
 	providerErr error,
 ) (Result, bool, error) {
-	response = cloneModelResponse(response)
+	response = response.Clone()
 	if partial, present := s.State().PartialResponse.Get(); len(response.Content) == 0 && present {
 		response.Content = partial.Content
 		finalizeRetainedStreamedContent(response.Content)
@@ -361,7 +361,7 @@ func (s *Service) finalizeProviderError(
 	}
 	response.Outcome = mo.Some(outcome)
 	response.ErrorMessage = mo.Some(errorMessage)
-	validationErr := ValidateTerminalContent(response)
+	validationErr := response.ValidateTerminalContent()
 	s.clearPartial()
 	if validationErr != nil {
 		combinedErr := errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
@@ -441,10 +441,10 @@ func visibleErrorMessage(err error) string {
 func finalizeRetainedStreamedContent(content []model.Content) {
 	for position := range content {
 		item := &content[position]
-		if item.Final || !isStreamedContent(item.Kind) {
+		if item.Final || !item.Kind.Streamed() {
 			continue
 		}
-		if validateTerminalContentShape(*item) == nil {
+		if item.ValidateShape() == nil {
 			item.Final = true
 		}
 	}
@@ -632,7 +632,7 @@ func (s *Service) endTurn(
 	errorMessage string,
 	runErr error,
 ) (Result, bool, error) {
-	turn := TurnSummary{Response: cloneModelResponse(response), ToolResults: slices.Clone(results)}
+	turn := TurnSummary{Response: response.Clone(), ToolResults: slices.Clone(results)}
 	turnEnd := newEvent(EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {
@@ -684,7 +684,7 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 	defer s.mutex.Unlock()
 	if event.Kind == StreamEventToolCallStart || event.Kind == StreamEventToolCallDelta ||
 		event.Kind == StreamEventToolCallEnd {
-		return applyToolCallStreamEvent(s.state.ToolPreviews, event)
+		return event.applyToolCallTo(s.state.ToolPreviews)
 	}
 	partial, present := s.state.PartialResponse.Get()
 	if !present {
@@ -700,7 +700,7 @@ func (s *Service) applyStreamEvent(event StreamEvent) error {
 			Diagnostics:   nil,
 		}
 	}
-	if err := applyStreamEvent(&partial, event); err != nil {
+	if err := event.applyTo(&partial); err != nil {
 		return err
 	}
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
@@ -722,7 +722,7 @@ func (s *Service) clearPartial() {
 func (s *Service) appendModel(ctx context.Context, response model.Response) error {
 	return s.historyStore.Append(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
-		Model: mo.Some(cloneModelResponse(response)), ToolResult: mo.None[agent.ToolResult](),
+		Model: mo.Some(response.Clone()), ToolResult: mo.None[agent.ToolResult](),
 	})
 }
 
@@ -730,7 +730,7 @@ func (s *Service) appendModel(ctx context.Context, response model.Response) erro
 func (s *Service) appendToolResult(ctx context.Context, result agent.ToolResult) error {
 	return s.historyStore.Append(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](),
-		Model: mo.None[model.Response](), ToolResult: mo.Some(cloneToolResult(result)),
+		Model: mo.None[model.Response](), ToolResult: mo.Some(result.Clone()),
 	})
 }
 

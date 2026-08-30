@@ -92,7 +92,7 @@ func New(config Config) (*Driver, error) {
 	if !parsedURL.IsAbs() || !validScheme || parsedURL.Host == "" {
 		return nil, errors.New("OpenAI-compatible base URL must be an absolute HTTP or HTTPS URL")
 	}
-	if apiErr := validateAPI(config.API); apiErr != nil {
+	if apiErr := config.API.Validate(); apiErr != nil {
 		return nil, apiErr
 	}
 	if len(config.Models) == 0 {
@@ -101,7 +101,7 @@ func New(config Config) (*Driver, error) {
 	if config.APIKey == nil {
 		return nil, errors.New("OpenAI-compatible API key resolver is required")
 	}
-	models, err := configuredModels(config)
+	models, err := config.configuredModels()
 	if err != nil {
 		return nil, err
 	}
@@ -143,14 +143,14 @@ func (s *Driver) requestOptions(key string) []option.RequestOption {
 }
 
 // configuredModels validates and snapshots each model-specific API and reasoning configuration.
-func configuredModels(config Config) (map[model.ID]modelConfig, error) {
+func (config Config) configuredModels() (map[model.ID]modelConfig, error) {
 	return lo.MapEntriesErr(config.Models, func(modelID model.ID, override API) (model.ID, modelConfig, error) {
 		if strings.TrimSpace(string(modelID)) == "" {
 			return "", modelConfig{}, errors.New("OpenAI-compatible model ID is required")
 		}
 		selectedAPI := config.API
 		if override != "" {
-			if err := validateAPI(override); err != nil {
+			if err := override.Validate(); err != nil {
 				return "", modelConfig{}, fmt.Errorf("model %q API override: %w", modelID, err)
 			}
 			selectedAPI = override
@@ -167,7 +167,8 @@ func configuredModels(config Config) (map[model.ID]modelConfig, error) {
 	})
 }
 
-func validateAPI(api API) error {
+// Validate checks whether the API belongs to the supported closed set.
+func (api API) Validate() error {
 	if api != APIChatCompletions && api != APIResponses {
 		return fmt.Errorf("unsupported OpenAI-compatible API %q", api)
 	}

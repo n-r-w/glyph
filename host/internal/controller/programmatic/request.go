@@ -32,6 +32,9 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:       mo.None[session.ID](),
 		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
 	}
 	if mapSessionRequest(request, &command) {
 		return command, nil
@@ -78,7 +81,9 @@ func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (C
 		programmaticv1.OpenRequest_SetSessionName_case,
 		programmaticv1.OpenRequest_GetSessionInfo_case,
 		programmaticv1.OpenRequest_GetSessionEntries_case,
-		programmaticv1.OpenRequest_GetSessionStats_case:
+		programmaticv1.OpenRequest_GetSessionStats_case,
+		programmaticv1.OpenRequest_GetSessionTree_case,
+		programmaticv1.OpenRequest_NavigateSessionTree_case:
 		return Command{}, status.Error(codes.Internal, "session command was not mapped")
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
@@ -110,6 +115,18 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		command.Kind = CommandGetSessionEntries
 	case programmaticv1.OpenRequest_GetSessionStats_case:
 		command.Kind = CommandGetSessionStats
+	case programmaticv1.OpenRequest_GetSessionTree_case:
+		command.Kind = CommandGetSessionTree
+	case programmaticv1.OpenRequest_NavigateSessionTree_case:
+		navigate := request.GetNavigateSessionTree()
+		command.Kind = CommandNavigateSessionTree
+		if navigate.HasTargetEntryId() {
+			command.TargetEntryID = mo.Some(navigate.GetTargetEntryId())
+		}
+		command.SummaryMode = mapRequestSummaryMode(navigate.GetSummaryMode())
+		if navigate.HasCustomFocus() {
+			command.CustomFocus = mo.Some(navigate.GetCustomFocus())
+		}
 	case programmaticv1.OpenRequest_Command_not_set_case,
 		programmaticv1.OpenRequest_UserRequest_case, programmaticv1.OpenRequest_Abort_case,
 		programmaticv1.OpenRequest_GetRunState_case, programmaticv1.OpenRequest_GetMessages_case,
@@ -120,6 +137,22 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		return false
 	}
 	return true
+}
+
+// mapRequestSummaryMode maps the closed public navigation mode.
+func mapRequestSummaryMode(mode programmaticv1.SummaryMode) SummaryMode {
+	switch mode {
+	case programmaticv1.SummaryMode_SUMMARY_MODE_NO_SUMMARY:
+		return SummaryModeNoSummary
+	case programmaticv1.SummaryMode_SUMMARY_MODE_SUMMARIZE:
+		return SummaryModeSummarize
+	case programmaticv1.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT:
+		return SummaryModeSummarizeWithCustomPrompt
+	case programmaticv1.SummaryMode_SUMMARY_MODE_UNSPECIFIED:
+		return SummaryMode(^uint8(0))
+	default:
+		return SummaryMode(^uint8(0))
+	}
 }
 
 func mapRequestReasoningChoice(level programmaticv1.ReasoningChoice) model.ReasoningChoice {

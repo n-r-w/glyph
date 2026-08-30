@@ -19,7 +19,7 @@ func TestMapOpenRequestAcceptsSessionStatisticsQuery(t *testing.T) {
 	// Arrange a correlated GetSessionStats request.
 	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: new("stats"), GetSessionStats: programmaticv1.GetSessionStats_builder{}.Build(),
+		CorrelationId: new("stats"), GetSessionStats: programmaticv1.GetSessionStats_builder{}.Build(), GetSessionTree: nil, NavigateSessionTree: nil,
 	}.Build()
 
 	// Act by mapping the public request.
@@ -44,7 +44,7 @@ func TestMapResponsePreservesSessionStatisticsAvailability(t *testing.T) {
 		CorrelationID: "stats", Kind: ResponseSessionStats,
 		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
 		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
-		SessionEntries: nil, SessionStatistics: mo.Some(statistics), Rejection: mo.None[Rejection](),
+		SessionEntries: nil, SessionStatistics: mo.Some(statistics), Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 	}
 
 	// Act by mapping the Host response to protobuf.
@@ -78,10 +78,19 @@ func TestMapResponsePreservesEstimatedCostAndOrderedBreakdown(t *testing.T) {
 		},
 	}
 	response := Response{
-		CorrelationID: "stats", Kind: ResponseSessionStats,
-		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
-		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
-		SessionEntries: nil, SessionStatistics: mo.Some(statistics), Rejection: mo.None[Rejection](),
+		CorrelationID:     "stats",
+		Kind:              ResponseSessionStats,
+		State:             mo.None[RunStateResult](),
+		Messages:          nil,
+		Models:            mo.None[ModelsResult](),
+		Selection:         mo.None[model.Selection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionEntries:    nil,
+		SessionStatistics: mo.Some(statistics),
+		Rejection:         mo.None[Rejection](),
+		SessionTree:       mo.None[SessionTree](),
+		TreeNavigation:    mo.None[TreeNavigationResult](),
 	}
 
 	// Act by mapping the Host statistics response to protobuf.

@@ -105,13 +105,13 @@ func applyChatReasoningControl(
 }
 
 // usesChatReasoning reports whether the format has native Chat Completions reasoning fields.
-func usesChatReasoning(format reasoningFormat) bool {
+func (format reasoningFormat) usesChatReasoning() bool {
 	return format == reasoningFormatOpenAIChat || format == reasoningFormatOpenRouter
 }
 
 // chatReasoningDelta extracts provider-visible reasoning text from one stream chunk.
 func chatReasoningDelta(format reasoningFormat, delta openai.ChatCompletionChunkChoiceDelta) (string, error) {
-	if !usesChatReasoning(format) {
+	if !format.usesChatReasoning() {
 		return "", nil
 	}
 	field, ok := delta.JSON.ExtraFields[reasoningField]
@@ -152,7 +152,7 @@ func openRouterReasoningDetailsDelta(
 // appendOpenRouterReasoningDetails joins consecutive text and summary fragments and preserves other fields.
 func appendOpenRouterReasoningDetails(current, incoming []reasoningDetail) []reasoningDetail {
 	for _, detail := range incoming {
-		detailType, typePresent := reasoningDetailString(detail, "type")
+		detailType, typePresent := detail.String("type")
 		contentField := ""
 		switch detailType {
 		case reasoningDetailTypeText:
@@ -162,41 +162,41 @@ func appendOpenRouterReasoningDetails(current, incoming []reasoningDetail) []rea
 		}
 		if typePresent && contentField != "" && len(current) != 0 {
 			last := current[len(current)-1]
-			lastType, lastTypePresent := reasoningDetailString(last, "type")
-			lastContent, lastContentPresent := reasoningDetailString(last, contentField)
-			nextContent, nextContentPresent := reasoningDetailString(detail, contentField)
+			lastType, lastTypePresent := last.String("type")
+			lastContent, lastContentPresent := last.String(contentField)
+			nextContent, nextContentPresent := detail.String(contentField)
 			if lastTypePresent && lastType == detailType && lastContentPresent && nextContentPresent {
 				for key, value := range detail {
 					if _, exists := last[key]; !exists {
 						last[key] = bytes.Clone(value)
 					}
 				}
-				fillOpenRouterReasoningDetailMetadata(last, detail, detailType)
+				last.fillMetadata(detail, detailType)
 				last[contentField], _ = json.Marshal(lastContent + nextContent)
 				continue
 			}
 		}
-		current = append(current, cloneReasoningDetail(detail))
+		current = append(current, detail.Clone())
 	}
 	return current
 }
 
-// fillOpenRouterReasoningDetailMetadata fills common fields that arrive after the first text fragment.
-func fillOpenRouterReasoningDetailMetadata(target, source reasoningDetail, detailType string) {
+// fillMetadata fills common fields that arrive after the first text fragment.
+func (detail reasoningDetail) fillMetadata(source reasoningDetail, detailType string) {
 	fields := []string{"id", reasoningDetailFormatField, "index"}
 	if detailType == reasoningDetailTypeText {
 		fields = append(fields, "signature")
 	}
 	for _, field := range fields {
-		if !reasoningDetailFieldMissing(target, field) || reasoningDetailFieldMissing(source, field) {
+		if !detail.FieldMissing(field) || source.FieldMissing(field) {
 			continue
 		}
-		target[field] = bytes.Clone(source[field])
+		detail[field] = bytes.Clone(source[field])
 	}
 }
 
-// reasoningDetailFieldMissing identifies nullable metadata and empty string metadata from partial chunks.
-func reasoningDetailFieldMissing(detail reasoningDetail, field string) bool {
+// FieldMissing identifies nullable metadata and empty string metadata from partial chunks.
+func (detail reasoningDetail) FieldMissing(field string) bool {
 	raw, present := detail[field]
 	if !present || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return true
@@ -204,12 +204,12 @@ func reasoningDetailFieldMissing(detail reasoningDetail, field string) bool {
 	if field != reasoningDetailFormatField && field != "signature" {
 		return false
 	}
-	value, valid := reasoningDetailString(detail, field)
+	value, valid := detail.String(field)
 	return !valid || value == ""
 }
 
-// reasoningDetailString reads one string field used to assemble streamed detail fragments.
-func reasoningDetailString(detail reasoningDetail, field string) (string, bool) {
+// String reads one string field used to assemble streamed detail fragments.
+func (detail reasoningDetail) String(field string) (string, bool) {
 	raw, present := detail[field]
 	if !present {
 		return "", false
@@ -221,8 +221,8 @@ func reasoningDetailString(detail reasoningDetail, field string) (string, bool) 
 	return value, true
 }
 
-// cloneReasoningDetail isolates mutable raw JSON fields from the stream decoder.
-func cloneReasoningDetail(detail reasoningDetail) reasoningDetail {
+// Clone isolates mutable raw JSON fields from the stream decoder.
+func (detail reasoningDetail) Clone() reasoningDetail {
 	cloned := make(reasoningDetail, len(detail))
 	for key, value := range detail {
 		cloned[key] = bytes.Clone(value)
@@ -252,7 +252,7 @@ func openRouterReplayDetails(
 		return nil, nil
 	}
 	providerContext, present := content.ProviderContext.Get()
-	if !present || len(providerContext.Payload) == 0 || !providerContextCompatible(providerContext.Source, target) {
+	if !present || len(providerContext.Payload) == 0 || !providerContext.Source.CompatibleWith(target) {
 		return nil, nil
 	}
 	var details []jsontext.Value
@@ -266,17 +266,4 @@ func openRouterReplayDetails(
 		}
 	}
 	return details, nil
-}
-
-// providerContextCompatible applies exact-model and additive compatibility-key replay rules.
-func providerContextCompatible(source, target model.ProviderContextSource) bool {
-	if source.ProviderID != target.ProviderID || source.API != target.API {
-		return false
-	}
-	if source.Model == target.Model {
-		return true
-	}
-	sourceKey, sourceHasKey := source.CompatibilityKey.Get()
-	targetKey, targetHasKey := target.CompatibilityKey.Get()
-	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }

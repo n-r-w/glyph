@@ -196,7 +196,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		}
 		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
 		if recovered {
-			response = addRecoveryDiagnostic(response)
+			response = a.addRecoveryDiagnostic(response)
 		}
 		return response, true, err
 	case "response.failed":
@@ -211,7 +211,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		}
 		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
 		if recovered {
-			response = addRecoveryDiagnostic(response)
+			response = a.addRecoveryDiagnostic(response)
 		}
 		return response, true, err
 	case "error":
@@ -241,7 +241,7 @@ func (a *semanticAssembler) complete(
 	}
 	converted, err := modelResponse(response, outcome, a.grammarInputProperties)
 	if recovered {
-		converted = addRecoveryDiagnostic(converted)
+		converted = a.addRecoveryDiagnostic(converted)
 	}
 	return converted, true, err
 }
@@ -303,7 +303,7 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 			if err != nil {
 				return err
 			}
-			return validateFinalizedFunctionOutput(finalized, call.ID, call.CallID, call.Name, arguments, false, "")
+			return finalized.Validate(call.ID, call.CallID, call.Name, arguments, false, "")
 		}
 		if _, active := a.functionCalls[outputIndex]; !active {
 			if err := a.startFunction(outputIndex, call.ID, call.CallID, call.Name, ""); err != nil {
@@ -314,7 +314,7 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 	case responseItemTypeCustomToolCall:
 		call := item.AsCustomToolCall()
 		if finalized, ok := a.finalizedFunctionCalls[outputIndex]; ok {
-			return validateFinalizedFunctionOutput(finalized, call.ID, call.CallID, call.Name, nil, true, call.Input)
+			return finalized.Validate(call.ID, call.CallID, call.Name, nil, true, call.Input)
 		}
 		if _, active := a.functionCalls[outputIndex]; !active {
 			if err := a.startCustom(outputIndex, call.ID, call.CallID, call.Name, ""); err != nil {
@@ -327,9 +327,8 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 	}
 }
 
-// validateFinalizedFunctionOutput rejects contradictory repeated provider completion data.
-func validateFinalizedFunctionOutput(
-	finalized finalizedFunctionOutput,
+// Validate rejects contradictory repeated provider completion data.
+func (finalized finalizedFunctionOutput) Validate(
 	itemID string,
 	callID string,
 	name string,
@@ -352,7 +351,8 @@ func validateFinalizedFunctionOutput(
 	return nil
 }
 
-func addRecoveryDiagnostic(response model.Response) model.Response {
+// addRecoveryDiagnostic records provider output recovered during assembly.
+func (*semanticAssembler) addRecoveryDiagnostic(response model.Response) model.Response {
 	response.Diagnostics = append(response.Diagnostics, model.Diagnostic{
 		Code: "recovered_finalized_output", Message: "Recovered finalized provider output omitted from the terminal event.",
 	})

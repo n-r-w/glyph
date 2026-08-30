@@ -53,7 +53,7 @@ func TestApplyStreamEventBuildsOrderedTextState(t *testing.T) {
 		testTextStreamEvent(StreamEventTextDelta, 1, model.ContentText, "lo", mo.Some("lo")),
 		testTextStreamEvent(StreamEventContentEnd, 1, model.ContentText, "", mo.None[string]()),
 	} {
-		require.NoError(t, applyStreamEvent(&partial, event))
+		require.NoError(t, event.applyTo(&partial))
 	}
 
 	require.Len(t, partial.Content, 2)
@@ -84,7 +84,7 @@ func TestApplyStreamEventBuildsOrderedReasoningState(t *testing.T) {
 		testTextStreamEvent(StreamEventTextDelta, 1, model.ContentText, "answer", mo.Some("answer")),
 		testTextStreamEvent(StreamEventContentEnd, 1, model.ContentText, "", mo.None[string]()),
 	} {
-		require.NoError(t, applyStreamEvent(&partial, event))
+		require.NoError(t, event.applyTo(&partial))
 	}
 
 	require.Len(t, partial.Content, 2)
@@ -117,9 +117,9 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 	}
 	missingPosition := start
 	missingPosition.Position = mo.None[int]()
-	require.Error(t, applyToolCallStreamEvent(previews, missingPosition))
+	require.Error(t, missingPosition.applyToolCallTo(previews))
 	require.Empty(t, previews)
-	require.NoError(t, applyToolCallStreamEvent(previews, start))
+	require.NoError(t, start.applyToolCallTo(previews))
 	require.Equal(t, start.Preview.OrEmpty(), previews["call-1"])
 
 	delta := start
@@ -132,7 +132,7 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 		Prefix: mo.Some(""),
 	}}
 	delta.Preview = mo.Some(deltaPreview)
-	require.NoError(t, applyToolCallStreamEvent(previews, delta))
+	require.NoError(t, delta.applyToolCallTo(previews))
 	require.Equal(t, delta.Preview.OrEmpty(), previews["call-1"])
 
 	end := StreamEvent{
@@ -148,7 +148,7 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 			Arguments: map[string]any{"path": "file.txt"},
 		}),
 	}
-	require.NoError(t, applyToolCallStreamEvent(previews, end))
+	require.NoError(t, end.applyToolCallTo(previews))
 	require.NotContains(t, previews, "call-1")
 }
 
@@ -184,7 +184,7 @@ func TestApplyToolCallStreamEventChecksPayloadPresenceFirst(t *testing.T) {
 			t.Parallel()
 			previews := map[string]model.ToolCallPreview{"": active}
 
-			require.ErrorContains(t, applyToolCallStreamEvent(previews, testCase.event), testCase.errorContains)
+			require.ErrorContains(t, testCase.event.applyToolCallTo(previews), testCase.errorContains)
 			assert.Equal(t, map[string]model.ToolCallPreview{"": active}, previews)
 		})
 	}
@@ -225,7 +225,7 @@ func TestApplyToolCallStreamEventRejectsMissingPreviewFieldPayload(t *testing.T)
 				}),
 			}
 
-			require.Error(t, applyToolCallStreamEvent(previews, event))
+			require.Error(t, event.applyToolCallTo(previews))
 			require.Empty(t, previews)
 		})
 	}
@@ -342,11 +342,11 @@ func TestApplyStreamEventRequiresTextDeltaPresence(t *testing.T) {
 		ProviderContext: mo.None[model.ProviderContext](),
 		ToolCall:        mo.None[model.ToolCall](),
 	}), mo.None[string]())
-	require.NoError(t, applyStreamEvent(&partial, start))
+	require.NoError(t, start.applyTo(&partial))
 
 	missingDelta := start
 	missingDelta.Kind = StreamEventTextDelta
-	require.Error(t, applyStreamEvent(&partial, missingDelta))
+	require.Error(t, missingDelta.applyTo(&partial))
 	assert.Empty(t, partial.Content[0].Text.OrEmpty())
 }
 
@@ -354,7 +354,7 @@ func TestApplyStreamEventRequiresNonzeroTerminalOutcome(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
-	err := applyStreamEvent(&partial, testStreamEvent(StreamEventDone, mo.None[int](), mo.None[model.Content](), mo.None[string]()))
+	err := testStreamEvent(StreamEventDone, mo.None[int](), mo.None[model.Content](), mo.None[string]()).applyTo(&partial)
 
 	require.ErrorContains(t, err, "requires an outcome")
 	assert.True(t, partial.Outcome.IsNone())
@@ -398,18 +398,18 @@ func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			require.NoError(t, validateStreamEventShape(test.valid))
+			require.NoError(t, test.valid.validateShape())
 			malformed := test.valid
 			if malformed.Response.IsSome() {
 				malformed.Position = mo.Some(0)
 			} else {
 				malformed.Response = mo.Some(response)
 			}
-			require.Error(t, validateStreamEventShape(malformed))
+			require.Error(t, malformed.validateShape())
 		})
 	}
 	for _, kind := range []StreamEventKind{0, 99} {
-		require.Error(t, validateStreamEventShape(testStreamEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[string]())))
+		require.Error(t, testStreamEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[string]()).validateShape())
 	}
 }
 
@@ -440,7 +440,7 @@ func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			require.NoError(t, ValidateTerminalContent(testTerminalContentResponse([]model.Content{test.content})))
+			require.NoError(t, testTerminalContentResponse([]model.Content{test.content}).ValidateTerminalContent())
 		})
 	}
 
@@ -454,7 +454,7 @@ func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
 		{Kind: model.ContentText, Text: mo.Some(""), Final: false, ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall]()},
 	}
 	for _, content := range invalid {
-		require.Error(t, ValidateTerminalContent(testTerminalContentResponse([]model.Content{content})))
+		require.Error(t, testTerminalContentResponse([]model.Content{content}).ValidateTerminalContent())
 	}
 }
 
@@ -469,7 +469,7 @@ func TestApplyStreamEventRejectsMalformedTerminalContentBeforeMutation(t *testin
 		ProviderContext: mo.None[model.ProviderContext](),
 		ToolCall:        mo.None[model.ToolCall](),
 	}})
-	err := applyStreamEvent(&partial, StreamEvent{
+	err := (StreamEvent{
 		Kind:     StreamEventDone,
 		Position: mo.None[int](),
 		Content:  mo.None[model.Content](),
@@ -493,7 +493,7 @@ func TestApplyStreamEventRejectsMalformedTerminalContentBeforeMutation(t *testin
 			Diagnostics:   nil,
 			Outcome:       mo.Some(model.OutcomeStop),
 		}),
-	})
+	}).applyTo(&partial)
 
 	require.Error(t, err)
 	assert.Equal(t, "streamed", partial.Content[0].Text.OrEmpty())
@@ -504,7 +504,7 @@ func TestApplyStreamEventRejectsInactiveTerminalPosition(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
-	err := applyStreamEvent(&partial, StreamEvent{
+	err := (StreamEvent{
 		Kind:     StreamEventDone,
 		Position: mo.Some(0),
 		Content:  mo.None[model.Content](),
@@ -522,7 +522,7 @@ func TestApplyStreamEventRejectsInactiveTerminalPosition(t *testing.T) {
 			Diagnostics:   nil,
 			Outcome:       mo.Some(model.OutcomeStop),
 		}),
-	})
+	}).applyTo(&partial)
 
 	require.Error(t, err)
 	assert.True(t, partial.Outcome.IsNone())
@@ -554,9 +554,9 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
-	require.NoError(t, applyStreamEvent(&partial, testTerminalEvent(StreamEventDone, model.OutcomeStop)))
+	require.NoError(t, testTerminalEvent(StreamEventDone, model.OutcomeStop).applyTo(&partial))
 
-	err := applyStreamEvent(&partial, StreamEvent{
+	err := (StreamEvent{
 		Position: mo.None[int](),
 		Content:  mo.None[model.Content](),
 		Delta:    mo.None[string](),
@@ -574,7 +574,7 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 			Outcome:       mo.Some(model.OutcomeFailed),
 			ErrorMessage:  mo.Some("failed"),
 		}),
-	})
+	}).applyTo(&partial)
 
 	require.ErrorContains(t, err, "already terminated")
 	assert.Equal(t, model.OutcomeStop, partial.Outcome.OrEmpty())

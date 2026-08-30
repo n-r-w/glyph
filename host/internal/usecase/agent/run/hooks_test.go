@@ -108,7 +108,7 @@ func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {
 		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
 	}}, CallID: "", ToolName: "", IsError: false,
 	}
-	cloned := cloneToolResult(original)
+	cloned := original.Clone()
 	image, ok := cloned.Contents[0].Image.Get()
 	require.True(t, ok)
 	image.Data[0] = 9

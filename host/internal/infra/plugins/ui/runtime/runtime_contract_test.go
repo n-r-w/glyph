@@ -109,6 +109,9 @@ func testInitializationFrame() domainui.Frame {
 		SessionInfo: mo.None[session.
 			Info](),
 		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:       mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -142,6 +145,9 @@ func testLifecycleFrame() domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -160,6 +166,9 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 			SessionInfo:         mo.None[session.Info](),
 			Sessions:            nil,
 			SessionStatistics:   mo.None[session.Statistics](),
+			SessionTree:         mo.None[domainui.SessionTree](),
+			TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+			TreeFailure:         mo.None[domainui.TreeFailure](),
 		}
 	}
 	return domainui.Frame{
@@ -174,6 +183,9 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -191,6 +203,9 @@ func testErrorFrame() domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -212,6 +227,9 @@ func testModelSelectionFrame() domainui.Frame {
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:       mo.None[domainui.TreeFailure](),
 	}
 }
 

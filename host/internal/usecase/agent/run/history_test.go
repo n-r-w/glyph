@@ -21,7 +21,7 @@ func TestCloneMessageClonesImageBytesInsideOption(t *testing.T) {
 		MediaType: mo.Some("image/png"), Data: mo.Some([]byte{1, 2, 3}),
 	}}}
 
-	cloned := cloneMessage(original)
+	cloned := original.Clone()
 	clonedData, ok := cloned.Content[0].Data.Get()
 	require.True(t, ok)
 	clonedData[0] = 9
@@ -71,7 +71,7 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 		Diagnostics:   nil,
 	}
 
-	cloned := cloneModelResponse(original)
+	cloned := original.Clone()
 	clonedContext := cloned.Content[0].ProviderContext.OrEmpty()
 	clonedContext.Payload[0] = 9
 	clonedCall := cloned.Content[1].ToolCall.OrEmpty()

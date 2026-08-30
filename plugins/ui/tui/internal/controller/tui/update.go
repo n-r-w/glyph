@@ -165,7 +165,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	if isSelectionShortcut(key) {
 		availability, ok := model.state.Availability.Get()
-		if !ok || !selectionAvailable(availability) {
+		if !ok || !availability.SelectionAllowed() {
 			return model, nil
 		}
 	}
@@ -285,12 +285,6 @@ func isSelectionShortcut(key tea.Key) bool {
 	return key.Mod == tea.ModCtrl && (key.Code == 'l' || key.Code == 'p') ||
 		key.Mod == tea.ModCtrl|tea.ModShift && key.Code == 'p' ||
 		key.Mod == tea.ModShift && key.Code == tea.KeyTab
-}
-
-// selectionAvailable rejects only active authentication availability.
-func selectionAvailable(availability presentationdomain.Availability) bool {
-	return availability != presentationdomain.AvailabilityChecking &&
-		availability != presentationdomain.AvailabilityAuthenticating
 }
 
 // emptyCommand creates a command without an operation-specific payload.

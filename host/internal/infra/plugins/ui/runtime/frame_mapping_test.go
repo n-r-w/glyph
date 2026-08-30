@@ -69,6 +69,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandStop,
@@ -78,6 +81,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandRetryAuthentication,
@@ -87,6 +93,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandQuit,
@@ -96,6 +105,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectModel,
@@ -105,6 +117,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectReasoningChoice,
@@ -114,6 +129,9 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			ModelID:         mo.None[string](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		},
 	} {
 		command, receiveErr := transport.Receive()

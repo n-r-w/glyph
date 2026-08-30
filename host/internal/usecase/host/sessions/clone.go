@@ -1,22 +1,20 @@
 package sessions
 
 import (
-	"bytes"
-
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// replacementFromLoaded returns independent public state for an active-session replacement.
-func replacementFromLoaded(loaded LoadedSession) session.Replacement {
+// Replacement returns independent public state for an active-session replacement.
+func (loaded LoadedSession) Replacement() session.Replacement {
 	return session.Replacement{
-		Info: infoFromLoaded(loaded), Entries: cloneEntries(loaded.Tree.ActiveBranch()),
+		Info: loaded.Info(), Entries: cloneEntries(loaded.Tree.ActiveBranch()),
 	}
 }
 
-// infoFromLoaded derives name and update time from durable aggregate state.
-func infoFromLoaded(loaded LoadedSession) session.Info {
+// Info derives name and update time from durable aggregate state.
+func (loaded LoadedSession) Info() session.Info {
 	name := mo.None[string]()
 	if information, present := loaded.Information.Get(); present {
 		name = mo.Some(information.Name)
@@ -42,40 +40,19 @@ func infoFromLoaded(loaded LoadedSession) session.Info {
 	}
 }
 
-// cloneLoaded prevents repository-owned aggregate state from becoming mutable active state.
-func cloneLoaded(value LoadedSession) LoadedSession {
+// Clone prevents repository-owned aggregate state from becoming mutable active state.
+func (loaded LoadedSession) Clone() LoadedSession {
 	return LoadedSession{
-		Header: value.Header, StoragePath: value.StoragePath, Tree: cloneTree(value.Tree),
-		Information: value.Information, InformationUpdatedAt: value.InformationUpdatedAt,
+		Header: loaded.Header, StoragePath: loaded.StoragePath, Tree: loaded.Tree.Clone(),
+		Information: loaded.Information, InformationUpdatedAt: loaded.InformationUpdatedAt,
 	}
-}
-
-// cloneTree returns an independently owned valid tree snapshot.
-func cloneTree(value session.Tree) session.Tree {
-	tree, err := session.NewTree(value.Entries(), value.ActiveLeafID(), value.Labels())
-	if err != nil {
-		panic(err)
-	}
-	return tree
 }
 
 // cloneEntries returns independent mutable payload ownership for every entry.
 func cloneEntries(entries []session.Entry) []session.Entry {
 	cloned := make([]session.Entry, len(entries))
 	for index := range entries {
-		cloned[index] = cloneSessionEntry(entries[index])
+		cloned[index] = entries[index].Clone()
 	}
 	return cloned
-}
-
-// cloneSessionEntry owns the mutable payloads carried by one domain entry.
-func cloneSessionEntry(entry session.Entry) session.Entry {
-	entry.User = entry.User.MapValue(cloneMessage)
-	entry.Model = entry.Model.MapValue(cloneModelResponse)
-	entry.ToolResult = entry.ToolResult.MapValue(cloneToolResult)
-	entry.Extension = entry.Extension.MapValue(func(value session.ExtensionEnvelope) session.ExtensionEnvelope {
-		value.Data = bytes.Clone(value.Data)
-		return value
-	})
-	return entry
 }

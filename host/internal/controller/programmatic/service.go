@@ -119,11 +119,11 @@ func (s *Service) open(stream OpenStream) error {
 	commandWork.Unlock()
 	eventWork.Wait()
 	if applicationErr := s.applicationContext.Err(); applicationErr != nil {
-		terminal = collectReadyTerminal(terminal, eventTerminals)
-		terminal = collectReadyTerminal(terminal, receiveTerminals)
+		terminal = terminal.collectReady(eventTerminals)
+		terminal = terminal.collectReady(receiveTerminals)
 		terminal = applicationCanceledTerminal(applicationErr, terminal.err)
 	} else if terminal.clean || stream.Context().Err() != nil {
-		terminal = ownerClosedTerminal(terminal, eventTerminals, receiveTerminals)
+		terminal = terminal.ownerClosed(eventTerminals, receiveTerminals)
 	}
 	completion, rpcErr := s.complete(stream.Context(), terminal, cleanupErr)
 	s.completions <- completion
@@ -159,18 +159,18 @@ func (s *Service) applyTerminalPrecedence(
 	receiveTerminals <-chan terminalResult,
 ) terminalResult {
 	if err := s.applicationContext.Err(); err != nil {
-		selected = collectReadyTerminal(selected, eventTerminals)
-		selected = collectReadyTerminal(selected, receiveTerminals)
+		selected = selected.collectReady(eventTerminals)
+		selected = selected.collectReady(receiveTerminals)
 		return applicationCanceledTerminal(err, selected.err)
 	}
 	if selected.clean || streamContext.Err() != nil {
-		return ownerClosedTerminal(selected, eventTerminals, receiveTerminals)
+		return selected.ownerClosed(eventTerminals, receiveTerminals)
 	}
 	select {
 	case received := <-receiveTerminals:
 		if received.clean {
 			selected.err = joinIndependentError(selected.err, received.err)
-			return ownerClosedTerminal(selected, eventTerminals, nil)
+			return selected.ownerClosed(eventTerminals, nil)
 		}
 	default:
 	}
@@ -373,14 +373,13 @@ func (s *Service) complete(
 	return completion, status.Error(codes.Internal, message)
 }
 
-// ownerClosedTerminal removes only closure leaves after collecting already-ready terminals.
-func ownerClosedTerminal(
-	selected terminalResult,
+// ownerClosed removes only closure leaves after collecting already-ready terminals.
+func (selected terminalResult) ownerClosed(
 	eventTerminals <-chan terminalResult,
 	receiveTerminals <-chan terminalResult,
 ) terminalResult {
-	selected = collectReadyTerminal(selected, eventTerminals)
-	selected = collectReadyTerminal(selected, receiveTerminals)
+	selected = selected.collectReady(eventTerminals)
+	selected = selected.collectReady(receiveTerminals)
 	selected.err = withoutOwnerClosure(selected.err)
 	selected.clean = true
 	if selected.err == nil {
@@ -390,18 +389,18 @@ func ownerClosedTerminal(
 	return selected
 }
 
-// collectReadyTerminal joins one terminal that is already published without blocking arbitration.
-func collectReadyTerminal(current terminalResult, terminals <-chan terminalResult) terminalResult {
+// collectReady joins one terminal that is already published without blocking arbitration.
+func (selected terminalResult) collectReady(terminals <-chan terminalResult) terminalResult {
 	select {
 	case ready := <-terminals:
-		if ready.err != nil && (current.err == nil || current.clean) {
-			current.cause = ready.cause
-			current.passthrough = ready.passthrough
+		if ready.err != nil && (selected.err == nil || selected.clean) {
+			selected.cause = ready.cause
+			selected.passthrough = ready.passthrough
 		}
-		current.err = joinIndependentError(current.err, ready.err)
+		selected.err = joinIndependentError(selected.err, ready.err)
 	default:
 	}
-	return current
+	return selected
 }
 
 // withoutOwnerClosure removes closure-equivalent leaves and keeps wrappers around surviving causes.

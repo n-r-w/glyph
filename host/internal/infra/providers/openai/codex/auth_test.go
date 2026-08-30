@@ -1,3 +1,5 @@
+//go:build integration
+
 package codex
 
 import (
@@ -415,15 +417,4 @@ func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrSignInRequired)
 	assert.Contains(t, err.Error(), "unexpected EOF")
-}
-
-// testJWT encodes unsigned claims used only for provider routing tests.
-func testJWT(t *testing.T, claims map[string]any) string {
-	t.Helper()
-	header, err := json.Marshal(map[string]string{"alg": "none"})
-	require.NoError(t, err)
-	payload, err := json.Marshal(claims)
-	require.NoError(t, err)
-	return base64.RawURLEncoding.EncodeToString(header) + "." +
-		base64.RawURLEncoding.EncodeToString(payload) + ".signature"
 }

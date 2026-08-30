@@ -2,6 +2,11 @@
 package agent
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"slices"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -32,6 +37,49 @@ type HistoryEntry struct {
 	ToolResult mo.Option[ToolResult]
 }
 
+// Clone returns a deep copy of the history entry.
+func (entry HistoryEntry) Clone() HistoryEntry {
+	entry.User = entry.User.MapValue(model.Message.Clone)
+	entry.Model = entry.Model.MapValue(model.Response.Clone)
+	entry.ToolResult = entry.ToolResult.MapValue(ToolResult.Clone)
+	return entry
+}
+
+// ValidatedClone returns a deep copy after validating the selected payload.
+func (entry HistoryEntry) ValidatedClone() (HistoryEntry, error) {
+	switch entry.Kind {
+	case HistoryEntryUser:
+		message, present := entry.User.Get()
+		if !present {
+			return HistoryEntry{}, errors.New("user history payload is missing")
+		}
+		return HistoryEntry{
+			Kind: entry.Kind, User: mo.Some(message.Clone()), Model: mo.None[model.Response](),
+			ToolResult: mo.None[ToolResult](),
+		}, nil
+	case HistoryEntryModel:
+		response, present := entry.Model.Get()
+		if !present {
+			return HistoryEntry{}, errors.New("model history payload is missing")
+		}
+		return HistoryEntry{
+			Kind: entry.Kind, User: mo.None[model.Message](), Model: mo.Some(response.Clone()),
+			ToolResult: mo.None[ToolResult](),
+		}, nil
+	case HistoryEntryToolResult:
+		result, present := entry.ToolResult.Get()
+		if !present {
+			return HistoryEntry{}, errors.New("tool-result history payload is missing")
+		}
+		return HistoryEntry{
+			Kind: entry.Kind, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+			ToolResult: mo.Some(result.Clone()),
+		}, nil
+	default:
+		return HistoryEntry{}, fmt.Errorf("unsupported history entry kind %d", entry.Kind)
+	}
+}
+
 // ToolResult is one model-visible terminal tool result.
 type ToolResult struct {
 	// CallID identifies the model-requested tool call.
@@ -42,6 +90,18 @@ type ToolResult struct {
 	Contents []tool.ResultContent
 	// IsError reports whether tool execution failed.
 	IsError bool
+}
+
+// Clone returns a deep copy of the tool result.
+func (result ToolResult) Clone() ToolResult {
+	result.Contents = slices.Clone(result.Contents)
+	for index := range result.Contents {
+		result.Contents[index].Image = result.Contents[index].Image.MapValue(func(image tool.ResultImage) tool.ResultImage {
+			image.Data = bytes.Clone(image.Data)
+			return image
+		})
+	}
+	return result
 }
 
 // RunOutcome identifies the terminal Agent Core run state.

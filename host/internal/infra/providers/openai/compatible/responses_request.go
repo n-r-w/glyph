@@ -185,7 +185,7 @@ func responsesModelItems(
 			items = append(items, message)
 		case model.ContentReasoning:
 			providerContext, hasProviderContext := item.ProviderContext.Get()
-			if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
+			if hasProviderContext && providerContext.Source.CompatibleWith(target) &&
 				len(providerContext.Payload) != 0 {
 				reasoning, err := responsesReasoningItem(providerContext.Payload)
 				if err != nil {

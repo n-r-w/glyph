@@ -194,7 +194,7 @@ func chatAssistantMessage(
 			if !present || visibleText == "" {
 				continue
 			}
-			if usesChatReasoning(format) {
+			if format.usesChatReasoning() {
 				reasoning.WriteString(visibleText)
 			} else {
 				text.WriteString(visibleText)

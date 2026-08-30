@@ -36,7 +36,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 		return domainui.Command{}, errors.New("receive UI command: selection command was not mapped")
 	case command.GetCreateSession() != nil, command.GetListSessions() != nil,
 		command.GetGetSessionInfo() != nil, command.GetResumeSession() != nil,
-		command.GetSetSessionName() != nil:
+		command.GetSetSessionName() != nil, command.GetGetSessionTree() != nil,
+		command.GetNavigateSessionTree() != nil:
 		return domainui.Command{}, errors.New("receive UI command: session command was not mapped")
 	default:
 		return domainui.Command{}, errors.New("receive UI command: payload is required")
@@ -60,6 +61,9 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
@@ -78,6 +82,9 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 			ModelID:         mo.None[string](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TargetEntryID:   mo.None[string](),
+			SummaryMode:     domainui.SummaryModeNoSummary,
+			CustomFocus:     mo.None[string](),
 		}, true, nil
 	default:
 		return domainui.Command{}, false, nil
@@ -93,6 +100,19 @@ func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, erro
 		return newCommand(domainui.CommandListSessions, mo.None[string]()), true, nil
 	case command.GetGetSessionInfo() != nil:
 		return newCommand(domainui.CommandGetSessionInfo, mo.None[string]()), true, nil
+	case command.GetGetSessionTree() != nil:
+		return newCommand(domainui.CommandGetSessionTree, mo.None[string]()), true, nil
+	case command.GetNavigateSessionTree() != nil:
+		navigate := command.GetNavigateSessionTree()
+		mapped := newCommand(domainui.CommandNavigateSessionTree, mo.None[string]())
+		if navigate.HasTargetEntryId() {
+			mapped.TargetEntryID = mo.Some(navigate.GetTargetEntryId())
+		}
+		mapped.SummaryMode = mapSummaryModeFromProto(navigate.GetSummaryMode())
+		if navigate.HasCustomFocus() {
+			mapped.CustomFocus = mo.Some(navigate.GetCustomFocus())
+		}
+		return mapped, true, nil
 	case command.GetResumeSession() != nil:
 		resume := command.GetResumeSession()
 		if !resume.HasSessionId() || resume.GetSessionId() == "" {
@@ -124,6 +144,25 @@ func newCommand(kind domainui.CommandKind, text mo.Option[string]) domainui.Comm
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TargetEntryID:   mo.None[string](),
+		SummaryMode:     domainui.SummaryModeNoSummary,
+		CustomFocus:     mo.None[string](),
+	}
+}
+
+// mapSummaryModeFromProto maps all public modes and preserves unknown values for typed rejection.
+func mapSummaryModeFromProto(value uipb.SummaryMode) domainui.SummaryMode {
+	switch value {
+	case uipb.SummaryMode_SUMMARY_MODE_NO_SUMMARY:
+		return domainui.SummaryModeNoSummary
+	case uipb.SummaryMode_SUMMARY_MODE_SUMMARIZE:
+		return domainui.SummaryModeSummarize
+	case uipb.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT:
+		return domainui.SummaryModeSummarizeWithCustomPrompt
+	case uipb.SummaryMode_SUMMARY_MODE_UNSPECIFIED:
+		return domainui.SummaryMode(^uint8(0))
+	default:
+		return domainui.SummaryMode(^uint8(0))
 	}
 }
 

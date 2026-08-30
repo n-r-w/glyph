@@ -16,10 +16,10 @@ func TestServiceReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *tes
 	t.Parallel()
 
 	// Arrange an existing transcript, restored entries, and pending and confirmed session events.
-	oldLine := textLine(presentationdomain.LineUser, mo.Some("old"))
+	oldLine := presentationdomain.NewTextLine(presentationdomain.LineUser, mo.Some("old"))
 	restored := []presentationdomain.Line{
-		textLine(presentationdomain.LineUser, mo.Some("prior-user")),
-		textLine(presentationdomain.LineModel, mo.Some("prior-model")),
+		presentationdomain.NewTextLine(presentationdomain.LineUser, mo.Some("prior-user")),
+		presentationdomain.NewTextLine(presentationdomain.LineModel, mo.Some("prior-model")),
 	}
 	service := New()
 	state := presentationdomain.State{

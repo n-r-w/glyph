@@ -22,6 +22,9 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -39,6 +42,9 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -56,6 +62,9 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -73,6 +82,9 @@ func informationFrame(text string) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -90,6 +102,9 @@ func errorFrame(text string, retryAuthentication bool) domainui.Frame {
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 
@@ -107,6 +122,9 @@ func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Fram
 		SessionInfo:         mo.None[session.Info](),
 		Sessions:            nil,
 		SessionStatistics:   mo.None[session.Statistics](),
+		SessionTree:         mo.None[domainui.SessionTree](),
+		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
+		TreeFailure:         mo.None[domainui.TreeFailure](),
 	}
 }
 

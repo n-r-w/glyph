@@ -38,7 +38,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 				Text:            mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 		},
 		{
@@ -52,7 +52,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsRejectActiveAuthenticationOpe
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 		},
 	}
@@ -112,7 +112,7 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ModelID:         mo.Some("sonnet"),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
@@ -126,7 +126,7 @@ func (s *SessionSuite) TestSessionRejectsMissingSelectedCommandPayload() {
 				ModelID:         mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 			expectedKind: domainui.FrameError,
 			expectedText: "Could not change model selection.",
@@ -185,7 +185,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 				Text:            mo.None[string](),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 		},
 		{
@@ -198,7 +198,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsAllowNonAuthenticationStates(
 				ProviderID:      mo.None[string](),
 				ModelID:         mo.None[string](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			},
 		},
 	}
@@ -284,7 +284,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 			Text:            mo.None[string](),
 			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
+			SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		}, make(chan operationResult),
 	)
 	require.NoError(t, err)
@@ -296,7 +296,7 @@ func (s *SessionSuite) TestSessionSelectionCommandsCommitDuringActiveRun() {
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),
 			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
+			SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		}, make(chan operationResult),
 	)
 
@@ -362,7 +362,7 @@ func (s *SessionSuite) TestSessionSelectionSendFailureCancelsAndAwaitsActiveRun(
 				ModelID:         mo.Some("sonnet"),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 				SessionID:       mo.None[string](),
-				SessionName:     mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 			}, nil
 		}),
 		s.channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
@@ -421,7 +421,7 @@ func (s *SessionSuite) TestSessionSelectionFailureSendsCauseWithoutConfirmation(
 		ProviderID:      mo.None[string](),
 		ModelID:         mo.None[string](),
 		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
+		SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	}, make(chan operationResult))
 
 	require.NoError(t, err)

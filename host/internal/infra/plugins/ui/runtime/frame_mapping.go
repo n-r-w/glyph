@@ -21,6 +21,9 @@ import (
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.
 func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
+	if request, handled, err := mapTreeFrame(frame); handled {
+		return request, err
+	}
 	if request, handled, err := mapSessionFrame(frame); handled {
 		return request, err
 	}
@@ -71,7 +74,8 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 			Selection: mapModelSelection(selection),
 		}.Build())
 		return request, nil
-	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation:
+	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed:
 		return nil, errors.New("map UI frame: session frame was not mapped")
 	default:
 		return nil, errors.New("map UI frame: payload is required")
@@ -112,7 +116,8 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		}
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
-		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged:
+		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed:
 		return nil, false, nil
 	default:
 		return nil, false, nil

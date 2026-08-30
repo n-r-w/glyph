@@ -318,7 +318,7 @@ func (s *grepReaderState) record(formatted string, matched bool) (more bool, rec
 		return s.recordMatch(formatted)
 	}
 	if s.after > 0 {
-		if appendErr := appendGrepLine(s.output, s.path, formatted); appendErr != nil {
+		if appendErr := s.output.appendLine(s.path, formatted); appendErr != nil {
 			return false, appendErr
 		}
 		s.after--
@@ -337,7 +337,7 @@ func (s *grepReaderState) recordMatch(formatted string) (more bool, recordErr er
 	}
 	s.matches++
 	s.after = s.contextLines
-	if appendErr := appendGrepLine(s.output, s.path, formatted); appendErr != nil {
+	if appendErr := s.output.appendLine(s.path, formatted); appendErr != nil {
 		return false, appendErr
 	}
 	s.remember(formatted)
@@ -347,7 +347,7 @@ func (s *grepReaderState) recordMatch(formatted string) (more bool, recordErr er
 // appendPrevious emits the bounded lines retained before a match.
 func (s *grepReaderState) appendPrevious() error {
 	for _, prior := range s.previous {
-		if appendErr := appendGrepLine(s.output, s.path, prior); appendErr != nil {
+		if appendErr := s.output.appendLine(s.path, prior); appendErr != nil {
 			return appendErr
 		}
 	}
@@ -365,8 +365,8 @@ func (s *grepReaderState) remember(formatted string) {
 	}
 }
 
-// appendGrepLine formats and appends one complete grep output line.
-func appendGrepLine(output *searchOutput, path, line string) error {
+// appendLine formats and appends one complete grep output line.
+func (output *searchOutput) appendLine(path, line string) error {
 	formatted, formatErr := formatGrepLine(path, line)
 	if formatErr != nil {
 		return formatErr

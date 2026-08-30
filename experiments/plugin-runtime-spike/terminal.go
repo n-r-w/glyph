@@ -107,16 +107,16 @@ func runNormalTerminalSession(ctx context.Context, executable string) (returnErr
 	if err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventReady, ""); err != nil {
+	if err := stream.expectEvent(uiEventReady, ""); err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventResized, ""); err != nil {
+	if err := stream.expectEvent(uiEventResized, ""); err != nil {
 		return err
 	}
 	if err := stream.send(uiCommandQuit); err != nil {
 		return err
 	}
-	if err := expectUIEvent(stream, uiEventExited, ""); err != nil {
+	if err := stream.expectEvent(uiEventExited, ""); err != nil {
 		return err
 	}
 	if _, err := stream.recv(); !errors.Is(err, io.EOF) {
@@ -155,10 +155,10 @@ func runCrashingTerminalSession(
 	if err != nil {
 		return false, err
 	}
-	if err := expectUIEvent(stream, uiEventReady, ""); err != nil {
+	if err := stream.expectEvent(uiEventReady, ""); err != nil {
 		return false, err
 	}
-	if err := expectUIEvent(stream, uiEventResized, ""); err != nil {
+	if err := stream.expectEvent(uiEventResized, ""); err != nil {
 		return false, err
 	}
 
@@ -178,13 +178,13 @@ func runCrashingTerminalSession(
 	}
 
 	expectedSize := fmt.Sprintf("%dx%d", columns, rows)
-	if err := expectUIEvent(stream, uiEventResized, expectedSize); err != nil {
+	if err := stream.expectEvent(uiEventResized, expectedSize); err != nil {
 		return false, err
 	}
 	if err := stream.send(uiCommandCrash); err != nil {
 		return false, err
 	}
-	if err := waitForUIStreamFailure(stream); err != nil {
+	if err := stream.waitForFailure(); err != nil {
 		return false, err
 	}
 	if err := waitForExit(ctx, runtime.exited); err != nil {
@@ -193,8 +193,8 @@ func runCrashingTerminalSession(
 	return true, nil
 }
 
-// waitForUIStreamFailure drains pending events until hard process exit terminates the stream.
-func waitForUIStreamFailure(stream *uiStream) error {
+// waitForFailure drains pending events until hard process exit terminates the stream.
+func (stream *uiStream) waitForFailure() error {
 	for {
 		if _, err := stream.recv(); err != nil {
 			return nil
@@ -202,8 +202,8 @@ func waitForUIStreamFailure(stream *uiStream) error {
 	}
 }
 
-// expectUIEvent validates event ordering and optional event text.
-func expectUIEvent(stream *uiStream, expected uiEvent, expectedText string) error {
+// expectEvent validates event ordering and optional event text.
+func (stream *uiStream) expectEvent(expected uiEvent, expectedText string) error {
 	message, err := stream.recv()
 	if err != nil {
 		return fmt.Errorf("receive UI event %d: %w", expected, err)

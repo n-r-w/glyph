@@ -13,6 +13,27 @@ import (
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
+// TestMapTreeCommandsPreservesNavigationFields verifies tree commands retain target, mode, and custom focus.
+func TestMapTreeCommandsPreservesNavigationFields(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a no-summary navigation command with one exact target.
+	request := new(uipb.OpenResponse)
+	request.SetNavigateSessionTree(uipb.NavigateSessionTreeCommand_builder{
+		TargetEntryId: new("entry"), SummaryMode: new(uipb.SummaryMode_SUMMARY_MODE_NO_SUMMARY), CustomFocus: nil,
+	}.Build())
+
+	// Act by mapping the public UI command.
+	command, err := mapCommand(request)
+
+	// Assert all navigation fields retain their exact semantic values.
+	require.NoError(t, err)
+	require.Equal(t, domainui.CommandNavigateSessionTree, command.Kind)
+	require.Equal(t, mo.Some("entry"), command.TargetEntryID)
+	require.Equal(t, domainui.SummaryModeNoSummary, command.SummaryMode)
+	require.True(t, command.CustomFocus.IsNone())
+}
+
 // TestMapSessionCommands verifies UI session commands retain their kind and optional session values.
 func TestMapSessionCommands(t *testing.T) {
 	t.Parallel()

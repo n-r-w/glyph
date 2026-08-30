@@ -44,7 +44,7 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](),
+			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()
@@ -84,7 +84,7 @@ func (s *ServiceSuite) TestDisconnectJoinsRunAfterSettlement() {
 		_, operation, err := service.Handle(t.Context(), controller.Command{
 			CorrelationID: "active", Kind: controller.CommandUserRequest, UserText: mo.Some("first"), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 			SessionID:   mo.None[session.ID](),
-			SessionName: mo.None[string](),
+			SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		})
 		require.NoError(t, err)
 		operation.Start()

@@ -245,7 +245,7 @@ func (s *Session) applyCommand(
 		return availability, activeCancel, activeKind, s.applySelectionCommand(ctx, command)
 	case domainui.CommandSubmit, domainui.CommandCreateSession, domainui.CommandListSessions,
 		domainui.CommandResumeSession, domainui.CommandSetSessionName,
-		domainui.CommandGetSessionInfo:
+		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree:
 		return availability, activeCancel, activeKind, s.sendInformation("Session command was not handled.")
 	default:
 		return availability, activeCancel, activeKind, s.sendInformation("Unsupported UI command.")
@@ -276,6 +276,8 @@ func (s *Session) applySubmit(
 }
 
 // applySessionCommand maps lifecycle results to frames only after the active-session operation succeeds.
+//
+//nolint:gocyclo // The switch dispatches every closed UI session command.
 func (s *Session) applySessionCommand(ctx context.Context, command domainui.Command) (bool, error) {
 	switch command.Kind {
 	case domainui.CommandCreateSession:
@@ -321,12 +323,51 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 	case domainui.CommandGetSessionInfo:
 		snapshot := s.sessionControl.Information()
 		return true, s.channel.Send(sessionInformationFrame(snapshot.Info, snapshot.Statistics))
+	case domainui.CommandGetSessionTree:
+		frame, err := sessionTreeFrame(s.sessionControl.Tree())
+		if err != nil {
+			return true, s.channel.Send(treeFailureFrame(domainui.TreeFailureInternal, err.Error()))
+		}
+		return true, s.channel.Send(frame)
+	case domainui.CommandNavigateSessionTree:
+		return true, s.navigateSessionTree(ctx, command)
 	case domainui.CommandSubmit, domainui.CommandStop, domainui.CommandRetryAuthentication,
 		domainui.CommandQuit, domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
 		return false, nil
 	default:
 		return false, nil
 	}
+}
+
+// navigateSessionTree commits no-summary navigation or sends one closed terminal result.
+func (s *Session) navigateSessionTree(ctx context.Context, command domainui.Command) error {
+	targetID, present := command.TargetEntryID.Get()
+	customFocus := command.CustomFocus.OrEmpty()
+	invalidFocus := command.SummaryMode == domainui.SummaryModeSummarizeWithCustomPrompt && customFocus == "" ||
+		command.SummaryMode != domainui.SummaryModeSummarizeWithCustomPrompt && customFocus != ""
+	if !present || targetID == "" || invalidFocus || command.SummaryMode != domainui.SummaryModeNoSummary {
+		return s.channel.Send(treeFailureFrame(domainui.TreeFailureInvalidArgument, "invalid tree navigation command"))
+	}
+	result, err := s.sessionControl.Navigate(ctx, targetID)
+	if err != nil {
+		switch {
+		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+			return s.channel.Send(canceledNavigationFrame())
+		case errors.Is(err, session.ErrBusy):
+			return s.channel.Send(treeFailureFrame(domainui.TreeFailureBusy, "another operation is active"))
+		case errors.Is(err, session.ErrEntryNotFound):
+			return s.channel.Send(treeFailureFrame(domainui.TreeFailureNotFound, "session tree entry was not found"))
+		case errors.Is(err, session.ErrPersistenceUnavailable):
+			return s.channel.Send(treeFailureFrame(domainui.TreeFailurePersistenceUnavailable, err.Error()))
+		default:
+			return s.channel.Send(treeFailureFrame(domainui.TreeFailureInternal, fmt.Sprintf("tree navigation failed: %v", err)))
+		}
+	}
+	frame, mapErr := navigationFrame(result)
+	if mapErr != nil {
+		return s.channel.Send(treeFailureFrame(domainui.TreeFailureInternal, mapErr.Error()))
+	}
+	return s.channel.Send(frame)
 }
 
 // applySelectionCommand commits one model or reasoning selection without changing run state.
@@ -357,7 +398,7 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		domainui.CommandRetryAuthentication, domainui.CommandQuit,
 		domainui.CommandCreateSession, domainui.CommandListSessions,
 		domainui.CommandResumeSession, domainui.CommandSetSessionName,
-		domainui.CommandGetSessionInfo:
+		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree:
 		return s.sendSelectionError()
 	default:
 		return s.sendSelectionError()

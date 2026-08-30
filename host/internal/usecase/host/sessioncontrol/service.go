@@ -5,6 +5,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -51,10 +52,10 @@ func (s *Service) Resume(ctx context.Context, id session.ID) (session.Replacemen
 }
 
 // Navigate commits one no-summary tree navigation while holding the operation gate.
-func (s *Service) Navigate(ctx context.Context, targetID string) (NavigationResult, error) {
+func (s *Service) Navigate(ctx context.Context, targetID string) (sessionnavigation.Result, error) {
 	release, acquired := s.gate.TryAcquire()
 	if !acquired {
-		return NavigationResult{}, session.ErrBusy
+		return sessionnavigation.Result{}, session.ErrBusy
 	}
 	// Navigation owns the gate until every preparation and commit terminal path returns.
 	defer release()
@@ -74,8 +75,11 @@ func (s *Service) List(ctx context.Context) ([]session.Summary, error) {
 // Info returns active session information.
 func (s *Service) Info() session.Info { return s.active.ActiveInfo() }
 
-// Entries returns immutable active-session records while runs continue.
+// Entries returns immutable active-branch records while runs continue.
 func (s *Service) Entries() []session.Entry { return s.active.ActiveEntries() }
+
+// Tree returns an independent active-session tree snapshot.
+func (s *Service) Tree() session.Tree { return s.active.Tree() }
 
 // Statistics returns active-session counts and complete token totals.
 func (s *Service) Statistics() session.Statistics { return s.active.ActiveStatistics() }

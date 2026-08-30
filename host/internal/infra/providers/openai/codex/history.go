@@ -228,7 +228,7 @@ func codexReasoningInput(
 	target model.ProviderContextSource,
 ) (responses.ResponseInputParam, error) {
 	providerContext, hasProviderContext := item.ProviderContext.Get()
-	if hasProviderContext && providerContextCompatible(providerContext.Source, target) &&
+	if hasProviderContext && providerContext.Source.CompatibleWith(target) &&
 		len(providerContext.Payload) != 0 {
 		reasoning, err := reasoningInput(providerContext.Payload)
 		if err != nil {
@@ -249,18 +249,6 @@ func codexAssistantMessage(item model.Content, index int) (responses.ResponseInp
 		return responses.ResponseInputItemUnionParam{}, fmt.Errorf("model content %d has no text", index)
 	}
 	return messageInput(responses.EasyInputMessageRoleAssistant, text), nil
-}
-
-func providerContextCompatible(source, target model.ProviderContextSource) bool {
-	if source.ProviderID != target.ProviderID || source.API != target.API {
-		return false
-	}
-	if source.Model == target.Model {
-		return true
-	}
-	sourceKey, sourceHasKey := source.CompatibilityKey.Get()
-	targetKey, targetHasKey := target.CompatibilityKey.Get()
-	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }
 
 // reasoningInput validates stateless replay data and maps its summaries.

@@ -17,7 +17,7 @@ func TestNormalizeUsageClampsEveryNegativeProviderBucket(t *testing.T) {
 	}
 
 	// Act by normalizing provider accounting.
-	normalized := NormalizeUsage(usage)
+	normalized := usage.Normalize()
 
 	// Assert every bucket and the derived total are nonnegative zero.
 	assert.Equal(t, Usage{}, normalized)

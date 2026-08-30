@@ -78,7 +78,7 @@ func TestConnectAndServe(t *testing.T) {
 			Availability:   new(uipb.Availability_AVAILABILITY_UNSPECIFIED),
 			Models:         nil,
 			ModelSelection: nil,
-		}.Build(),
+		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 	commandFrame, err := stream.Recv()
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestConnectAndServe(t *testing.T) {
 	require.NoError(t, stream.Send(uipb.OpenRequest_builder{
 		Information: uipb.Information_builder{
 			Text: new("received"),
-		}.Build(),
+		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 	commandFrame, err = stream.Recv()
 	require.NoError(t, err)

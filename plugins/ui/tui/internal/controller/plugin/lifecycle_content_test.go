@@ -269,7 +269,7 @@ func TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument(t *te
 		ModelSelectionChanged: nil,
 		SessionList:           nil,
 		SessionChanged:        nil,
-		SessionInformation:    nil,
+		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
@@ -360,7 +360,7 @@ func TestOpenRejectsInactiveModelContentTextAsInvalidArgument(t *testing.T) {
 				Authorization: nil, Information: nil, Error: nil, ModelSelectionChanged: nil,
 				SessionList:        nil,
 				SessionChanged:     nil,
-				SessionInformation: nil,
+				SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
 			}.Build()))
 			require.NoError(t, stream.CloseSend())
 			_, err = stream.Recv()

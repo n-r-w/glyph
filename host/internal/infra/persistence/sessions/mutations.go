@@ -5,12 +5,10 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
@@ -46,7 +44,7 @@ func decodeMutations(payload []byte) (replayState, error) {
 			return replayState{}, errors.New("completed session mutation is missing a newline")
 		}
 		recordNumber++
-		if err := applyMutation(&state, payload[:lineEnd]); err != nil {
+		if err := state.applyMutation(payload[:lineEnd]); err != nil {
 			return replayState{}, fmt.Errorf("decode session mutation record %d: %w", recordNumber, err)
 		}
 		payload = payload[lineEnd+1:]
@@ -55,7 +53,7 @@ func decodeMutations(payload []byte) (replayState, error) {
 }
 
 // applyMutation decodes and applies one aggregate mutation record.
-func applyMutation(state *replayState, data []byte) error {
+func (state *replayState) applyMutation(data []byte) error {
 	var record mutationRecord
 	if err := decodeRecord(data, &record); err != nil {
 		return err
@@ -66,23 +64,23 @@ func applyMutation(state *replayState, data []byte) error {
 	}
 	switch record.Type {
 	case mutationTypeEntry:
-		return applyEntryMutation(state, record.Entry)
+		return state.applyEntryMutation(record.Entry)
 	case mutationTypeNavigation:
-		return applyNavigationMutation(state, record.Navigation)
+		return state.applyNavigationMutation(record.Navigation)
 	case mutationTypeLabel:
 		if record.Label == nil || record.Label.TargetID == "" {
 			return errors.New("invalid label mutation")
 		}
 		return state.tree.SetLabel(record.Label.TargetID, record.Label.Label)
 	case recordTypeSessionInfo:
-		return applyInformationMutation(state, record.SessionInfo)
+		return state.applyInformationMutation(record.SessionInfo)
 	default:
 		return errors.New("unknown session mutation type")
 	}
 }
 
 // applyEntryMutation validates and appends one entry payload.
-func applyEntryMutation(state *replayState, raw *jsontext.Value) error {
+func (state *replayState) applyEntryMutation(raw *jsontext.Value) error {
 	if raw == nil {
 		return errors.New("entry mutation payload is missing")
 	}
@@ -94,7 +92,7 @@ func applyEntryMutation(state *replayState, raw *jsontext.Value) error {
 		return errors.New("invalid entry mutation payload")
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
-		boundaryErr := validateSummaryBoundary(state.tree, summary)
+		boundaryErr := state.tree.ValidateSummaryBoundary(summary)
 		if boundaryErr != nil {
 			return boundaryErr
 		}
@@ -103,7 +101,7 @@ func applyEntryMutation(state *replayState, raw *jsontext.Value) error {
 }
 
 // applyNavigationMutation validates a destination and its optional summary as one state change.
-func applyNavigationMutation(state *replayState, record *navigationRecord) error {
+func (state *replayState) applyNavigationMutation(record *navigationRecord) error {
 	if record == nil {
 		return errors.New("navigation mutation payload is missing")
 	}
@@ -121,7 +119,7 @@ func applyNavigationMutation(state *replayState, record *navigationRecord) error
 	if summaryEntry.BranchSummary.IsNone() || summaryEntry.ParentID != destination {
 		return errors.New("invalid navigation branch summary")
 	}
-	boundaryErr := validateSummaryBoundary(state.tree, summaryEntry.BranchSummary.OrEmpty())
+	boundaryErr := state.tree.ValidateSummaryBoundary(summaryEntry.BranchSummary.OrEmpty())
 	if boundaryErr != nil {
 		return boundaryErr
 	}
@@ -129,7 +127,7 @@ func applyNavigationMutation(state *replayState, record *navigationRecord) error
 }
 
 // applyInformationMutation validates and publishes the latest session metadata.
-func applyInformationMutation(state *replayState, record *sessionInfoRecord) error {
+func (state *replayState) applyInformationMutation(record *sessionInfoRecord) error {
 	if record == nil || record.Name == "" {
 		return errors.New("invalid session information mutation")
 	}
@@ -221,63 +219,4 @@ func countPresent(values ...bool) int {
 		}
 	}
 	return count
-}
-
-// validateSummaryBoundary checks connected local provenance while allowing unresolved copied provenance.
-func validateSummaryBoundary(tree session.Tree, summary session.BranchSummaryEntry) error {
-	entries := tree.Entries()
-	byID := make(map[string]session.Entry, len(entries))
-	for index := range entries {
-		byID[entries[index].ID] = entries[index]
-	}
-	first, firstExists := byID[summary.FirstEntryID]
-	_, lastExists := byID[summary.LastEntryID]
-	if !firstExists || !lastExists {
-		return nil
-	}
-	current := summary.LastEntryID
-	for {
-		if current == first.ID {
-			return nil
-		}
-		entry := byID[current]
-		parent, present := entry.ParentID.Get()
-		if !present {
-			return errors.New("branch summary boundary is disconnected")
-		}
-		current = parent
-	}
-}
-
-// validReasoningChoice accepts the complete closed provider-neutral choice set.
-func validReasoningChoice(choice model.ReasoningChoice) bool {
-	switch choice {
-	case model.ReasoningChoiceOff, model.ReasoningChoiceOn, model.ReasoningChoiceMinimal,
-		model.ReasoningChoiceLow, model.ReasoningChoiceMedium, model.ReasoningChoiceHigh,
-		model.ReasoningChoiceXHigh, model.ReasoningChoiceMax:
-		return true
-	default:
-		return false
-	}
-}
-
-// validTokenUsage rejects negative, overlapping, and inconsistent normalized usage.
-func validTokenUsage(usage session.TokenUsage) bool {
-	if usage.InputTokens < 0 || usage.OutputTokens < 0 || usage.CacheReadTokens < 0 ||
-		usage.CacheWriteTokens < 0 || usage.ReasoningTokens < 0 || usage.TotalTokens < 0 {
-		return false
-	}
-	return usage.ReasoningTokens <= usage.OutputTokens &&
-		usage.TotalTokens == usage.InputTokens+usage.OutputTokens+usage.CacheReadTokens+usage.CacheWriteTokens
-}
-
-// validEstimatedCost rejects non-finite, negative, and inconsistent persisted cost.
-func validEstimatedCost(cost session.EstimatedCost) bool {
-	values := []float64{cost.Input, cost.Output, cost.CacheRead, cost.CacheWrite, cost.Total}
-	for _, value := range values {
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
-			return false
-		}
-	}
-	return cost.Total == cost.Input+cost.Output+cost.CacheRead+cost.CacheWrite
 }

@@ -105,7 +105,8 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 				}.Build(),
 			}.Build(),
 		},
-	}.Build()}.Build()
+	}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+	}.Build()
 
 	// Act by mapping the restored session request.
 	event, err := mapRequest(request)

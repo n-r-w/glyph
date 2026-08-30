@@ -101,7 +101,7 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 					ListSessions:   nil,
 					ResumeSession:  nil,
 					SetSessionName: nil,
-					GetSessionInfo: nil,
+					GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
 				}.Build()
 				events := make(chan AgentEvent)
 				receiveBlocked := make(chan struct{})
@@ -121,7 +121,7 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 						Selection:         mo.None[model.Selection](),
 						Rejection:         mo.None[Rejection](),
 						SessionInfo:       mo.None[domainsession.Info](),
-						Sessions:          nil,
+						Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
 					}, operation, nil),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {

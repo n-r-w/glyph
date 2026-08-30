@@ -9,65 +9,39 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// CommandKind identifies one Programmatic Control operation.
-type CommandKind uint8
-
-// Command values enumerate supported operations.
-const (
-	CommandUnspecified CommandKind = iota
-	CommandUserRequest
-	CommandAbort
-	CommandGetRunState
-	CommandGetMessages
-	CommandGetModels
-	CommandSelectModel
-	CommandSelectReasoningChoice
-	CommandCreateSession
-	CommandListSessions
-	CommandResumeSession
-	CommandSetSessionName
-	CommandGetSessionInfo
-	CommandGetSessionEntries
-	CommandGetSessionStats
-)
-
-// Command is one correlated transport-independent controller operation.
-type Command struct {
-	// CorrelationID identifies the command and its result.
-	CorrelationID string
-	// Kind identifies the requested controller operation.
-	Kind CommandKind
-	// UserText contains submitted user text.
-	UserText mo.Option[string]
-	// ProviderID identifies a requested model provider.
-	ProviderID mo.Option[model.ProviderID]
-	// ModelID identifies a requested provider model.
-	ModelID mo.Option[model.ID]
-	// ReasoningChoice identifies a requested reasoning behavior.
-	ReasoningChoice mo.Option[model.ReasoningChoice]
-	// SessionID is present only for resume.
-	SessionID mo.Option[session.ID]
-	// SessionName is present only for naming and preserves an explicitly empty value for validation.
-	SessionName mo.Option[string]
-}
-
 // ResponseKind identifies one command result.
 type ResponseKind uint8
 
 // Response values enumerate command results.
 const (
+	// ResponseUnspecified identifies a missing result payload.
 	ResponseUnspecified ResponseKind = iota
+	// ResponseUserRequestAccepted confirms agent-request acceptance.
 	ResponseUserRequestAccepted
+	// ResponseAbortCompleted confirms active-run cancellation.
 	ResponseAbortCompleted
+	// ResponseRunState contains a run-state snapshot.
 	ResponseRunState
+	// ResponseMessages contains public history.
 	ResponseMessages
+	// ResponseRejected contains a closed command rejection.
 	ResponseRejected
+	// ResponseModels contains configured models and active selection.
 	ResponseModels
+	// ResponseModelSelection contains committed model selection.
 	ResponseModelSelection
+	// ResponseSessionInfo contains active-session information.
 	ResponseSessionInfo
+	// ResponseSessions contains stored-session summaries.
 	ResponseSessions
+	// ResponseSessionEntries contains active-transcript entries.
 	ResponseSessionEntries
+	// ResponseSessionStats contains active-session statistics.
 	ResponseSessionStats
+	// ResponseSessionTree contains a complete tree snapshot.
+	ResponseSessionTree
+	// ResponseSessionTreeNavigation contains committed or canceled navigation.
+	ResponseSessionTreeNavigation
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -75,17 +49,36 @@ type RejectionCode uint8
 
 // Rejection values enumerate closed rejection reasons.
 const (
+	// RejectionUnspecified identifies a missing rejection code.
 	RejectionUnspecified RejectionCode = iota
+	// RejectionInvalidArgument reports invalid command fields.
 	RejectionInvalidArgument
+	// RejectionBusy reports an occupied operation gate.
 	RejectionBusy
+	// RejectionNoActiveRun reports an abort without an active run.
 	RejectionNoActiveRun
+	// RejectionCorrelationInUse reports an active correlation identifier.
 	RejectionCorrelationInUse
+	// RejectionInternal reports an unclassified Host failure.
 	RejectionInternal
+	// RejectionNotFound reports a missing requested resource.
 	RejectionNotFound
+	// RejectionReasoningUnsupported reports unsupported reasoning selection.
 	RejectionReasoningUnsupported
+	// RejectionCredentialUnavailable reports unavailable provider credentials.
 	RejectionCredentialUnavailable
+	// RejectionSessionUnavailable reports an unreadable stored session.
 	RejectionSessionUnavailable
+	// RejectionPersistenceUnavailable reports unavailable session persistence.
 	RejectionPersistenceUnavailable
+	// RejectionModelUnavailable reports an unavailable summary model.
+	RejectionModelUnavailable
+	// RejectionModelFailed reports summary-model execution failure.
+	RejectionModelFailed
+	// RejectionExtensionInvalidResult reports invalid extension output.
+	RejectionExtensionInvalidResult
+	// RejectionExtensionUnavailable reports extension transport failure.
+	RejectionExtensionUnavailable
 )
 
 // Response is the single result of one correlated command.
@@ -110,6 +103,10 @@ type Response struct {
 	SessionEntries []SessionEntry
 	// SessionStatistics is present only for a statistics result.
 	SessionStatistics mo.Option[session.Statistics]
+	// SessionTree is present only for a complete tree query.
+	SessionTree mo.Option[SessionTree]
+	// TreeNavigation is present only for committed or canceled navigation.
+	TreeNavigation mo.Option[TreeNavigationResult]
 	// Rejection contains a command failure that keeps the session open.
 	Rejection mo.Option[Rejection]
 }
