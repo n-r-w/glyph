@@ -73,7 +73,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 3. Use `github.com/stretchr/testify` and `testify/suite`
 4. Use `t.Parallel()` if possible
 5. Each test MUST have a function comment describing scenario and descriptive `Arrange`, `Act`, and `Assert` comments, e.g.: `// Arrange test dependencies`.
-6. Separate integration tests with `//go:build integration`.
+6. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task itest`.
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
 1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
