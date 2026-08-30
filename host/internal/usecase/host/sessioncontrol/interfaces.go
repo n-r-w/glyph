@@ -4,6 +4,8 @@ package sessioncontrol
 import (
 	"context"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
@@ -29,7 +31,21 @@ type ActiveSessions interface {
 	ActiveInformation() session.InformationSnapshot
 }
 
-// OperationGate reserves active-session replacement against agent execution.
+// NavigationResult contains the committed leaf and optional user text selected for editing.
+type NavigationResult struct {
+	// ActiveLeafID identifies the committed destination or is absent for the implicit root.
+	ActiveLeafID mo.Option[string]
+	// NextInput contains exact selected user text when the navigation target is a user message.
+	NextInput mo.Option[string]
+}
+
+// Navigator performs one internal no-summary tree navigation.
+type Navigator interface {
+	// NavigateTree commits the destination selected by one target entry.
+	NavigateTree(context.Context, string) (NavigationResult, error)
+}
+
+// OperationGate reserves active-session mutation against agent execution.
 type OperationGate interface {
 	// TryAcquire reserves replacement without waiting and returns idempotent cleanup on success.
 	TryAcquire() (release func(), acquired bool)

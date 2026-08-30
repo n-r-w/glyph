@@ -19,6 +19,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 const formatVersion = 2
@@ -49,6 +50,7 @@ type Service struct {
 
 var (
 	_ sessioncontrol.ActiveSessions = (*Service)(nil)
+	_ sessiontree.ActiveSession     = (*Service)(nil)
 	_ agentrun.HistoryStore         = (*Service)(nil)
 )
 

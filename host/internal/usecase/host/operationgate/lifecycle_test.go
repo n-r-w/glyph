@@ -29,8 +29,9 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	// Arrange active-session control and run coordination over one operation gate.
 	controller := gomock.NewController(t)
 	active := sessioncontrol.NewMockActiveSessions(controller)
+	navigator := sessioncontrol.NewMockNavigator(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, gate)
+	control := sessioncontrol.New(active, navigator, gate)
 	idleInfo := session.Info{
 		ID: "idle", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
@@ -97,8 +98,9 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 	// Arrange programmatic session control with a shared operation gate.
 	controller := gomock.NewController(t)
 	active := sessioncontrol.NewMockActiveSessions(controller)
+	navigator := sessioncontrol.NewMockNavigator(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, gate)
+	control := sessioncontrol.New(active, navigator, gate)
 	service := programmatic.New(
 		nil, nil, func() agentrun.State { return agentrun.State{} },
 		func() []agent.HistoryEntry { return nil }, control, programmatic.NewDelivery(),
@@ -204,10 +206,11 @@ func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 		nil,
 		"/project",
 	)
+	navigator := sessioncontrol.NewMockNavigator(controller)
 	gate := operationgate.New()
 	service := programmatic.New(
 		nil, nil, func() agentrun.State { return agentrun.State{} }, func() []agent.HistoryEntry { return nil },
-		sessioncontrol.New(active, gate), programmatic.NewDelivery(),
+		sessioncontrol.New(active, navigator, gate), programmatic.NewDelivery(),
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
@@ -294,7 +297,8 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	}, Entries: nil}, nil)
 
 	// Act by creating a session after cancellation releases the reservation.
-	created, err := sessioncontrol.New(active, gate).Create(t.Context())
+	navigator := sessioncontrol.NewMockNavigator(controller)
+	created, err := sessioncontrol.New(active, navigator, gate).Create(t.Context())
 
 	// Assert the next replacement acquires the gate and succeeds.
 	require.NoError(t, err)

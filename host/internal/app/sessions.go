@@ -17,6 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // sessionComposition keeps one active-session service and one shared operation gate per Host process.
@@ -78,7 +79,7 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 	gate := operationgate.New()
 	return sessionComposition{
 		active:  active,
-		control: sessioncontrol.New(active, gate),
+		control: sessioncontrol.New(active, sessiontree.New(active), gate),
 		gate:    gate,
 		pricing: pricing,
 	}, nil

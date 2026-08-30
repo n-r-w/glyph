@@ -1,6 +1,7 @@
 package sessioncontrol
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -18,15 +19,79 @@ func TestCreateReturnsBusyAndPreservesActiveSession(t *testing.T) {
 	// Arrange session control with a gate that rejects acquisition and no active-session expectation.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
+	navigator := NewMockNavigator(controller)
 	gate := NewMockOperationGate(controller)
 	gate.EXPECT().TryAcquire().Return(nil, false)
-	service := New(active, gate)
+	service := New(active, navigator, gate)
 
 	// Act by requesting creation while the gate is owned.
 	_, err := service.Create(t.Context())
 
 	// Assert the busy error is returned without invoking active replacement.
 	require.ErrorIs(t, err, session.ErrBusy)
+}
+
+// TestNavigateReturnsBusyWithoutReadingNavigator verifies gate rejection prevents all navigation work.
+func TestNavigateReturnsBusyWithoutReadingNavigator(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a gate that rejects acquisition and a navigator with no expectations.
+	controller := gomock.NewController(t)
+	active := NewMockActiveSessions(controller)
+	navigator := NewMockNavigator(controller)
+	gate := NewMockOperationGate(controller)
+	gate.EXPECT().TryAcquire().Return(nil, false)
+	service := New(active, navigator, gate)
+
+	// Act by requesting navigation while another operation owns the gate.
+	_, err := service.Navigate(t.Context(), "target")
+
+	// Assert busy is returned before the navigator can read or mutate session state.
+	require.ErrorIs(t, err, session.ErrBusy)
+}
+
+// TestNavigateReleasesGateOnEveryNavigatorResult verifies successful and failed navigation both release ownership.
+func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		navigationErr error
+	}{
+		{name: "success", navigationErr: nil},
+		{name: "failure", navigationErr: errors.New("navigation failed")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange an acquired gate and a navigator that observes ownership during its call.
+			controller := gomock.NewController(t)
+			navigator := NewMockNavigator(controller)
+			gate := NewMockOperationGate(controller)
+			released := false
+			gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
+			active := NewMockActiveSessions(controller)
+			navigator.EXPECT().NavigateTree(gomock.Any(), "target").DoAndReturn(
+				func(_ any, _ string) (NavigationResult, error) {
+					require.False(t, released)
+					return NavigationResult{ActiveLeafID: mo.Some("destination"), NextInput: mo.None[string]()}, test.navigationErr
+				},
+			)
+			service := New(active, navigator, gate)
+
+			// Act through the facade.
+			_, err := service.Navigate(t.Context(), "target")
+
+			// Assert the terminal result is preserved and cleanup always releases the gate.
+			if test.navigationErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, test.navigationErr)
+			}
+			require.True(t, released)
+		})
+	}
 }
 
 // TestResumeHoldsGateThroughActiveReplacement verifies resume releases the gate only after active replacement returns.
@@ -36,10 +101,11 @@ func TestResumeHoldsGateThroughActiveReplacement(t *testing.T) {
 	// Arrange a release observer and an active-session replacement that checks gate ownership.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
+	navigator := NewMockNavigator(controller)
 	gate := NewMockOperationGate(controller)
 	released := false
 	gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
-	service := New(active, gate)
+	service := New(active, navigator, gate)
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).DoAndReturn(
 		func(_ any, _ session.ID) (session.Replacement, error) {
 			require.False(t, released)

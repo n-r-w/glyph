@@ -11,9 +11,10 @@ import (
 type persistenceOperation string
 
 const (
-	persistenceOperationHistory persistenceOperation = "append_history"
-	persistenceOperationName    persistenceOperation = "append_name"
-	persistenceOperationResume  persistenceOperation = "resume"
+	persistenceOperationHistory    persistenceOperation = "append_history"
+	persistenceOperationName       persistenceOperation = "append_name"
+	persistenceOperationNavigation persistenceOperation = "navigate"
+	persistenceOperationResume     persistenceOperation = "resume"
 )
 
 // logPersistenceFailure records the operation, active identity, and complete error chain.

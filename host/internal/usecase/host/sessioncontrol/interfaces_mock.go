@@ -157,6 +157,45 @@ func (mr *MockActiveSessionsMockRecorder) SetActiveName(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActiveName", reflect.TypeOf((*MockActiveSessions)(nil).SetActiveName), arg0, arg1)
 }
 
+// MockNavigator is a mock of Navigator interface.
+type MockNavigator struct {
+	ctrl     *gomock.Controller
+	recorder *MockNavigatorMockRecorder
+	isgomock struct{}
+}
+
+// MockNavigatorMockRecorder is the mock recorder for MockNavigator.
+type MockNavigatorMockRecorder struct {
+	mock *MockNavigator
+}
+
+// NewMockNavigator creates a new mock instance.
+func NewMockNavigator(ctrl *gomock.Controller) *MockNavigator {
+	mock := &MockNavigator{ctrl: ctrl}
+	mock.recorder = &MockNavigatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockNavigator) EXPECT() *MockNavigatorMockRecorder {
+	return m.recorder
+}
+
+// NavigateTree mocks base method.
+func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 string) (NavigationResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NavigateTree", arg0, arg1)
+	ret0, _ := ret[0].(NavigationResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NavigateTree indicates an expected call of NavigateTree.
+func (mr *MockNavigatorMockRecorder) NavigateTree(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NavigateTree", reflect.TypeOf((*MockNavigator)(nil).NavigateTree), arg0, arg1)
+}
+
 // MockOperationGate is a mock of OperationGate interface.
 type MockOperationGate struct {
 	ctrl     *gomock.Controller
