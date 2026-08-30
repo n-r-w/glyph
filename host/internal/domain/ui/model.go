@@ -402,6 +402,12 @@ const (
 	FrameSessionTreeNavigation
 	// FrameSessionTreeFailed carries a closed navigation failure.
 	FrameSessionTreeFailed
+	// FrameSessionForked carries a durable fork replacement and exact next input.
+	FrameSessionForked
+	// FrameSessionCloned carries a durable clone replacement.
+	FrameSessionCloned
+	// FrameEntryLabelSet carries the committed tree after a label mutation.
+	FrameEntryLabelSet
 )
 
 // Frame carries exactly one Host-to-UI payload.

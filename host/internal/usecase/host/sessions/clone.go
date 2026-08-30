@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -50,9 +51,7 @@ func (loaded LoadedSession) Clone() LoadedSession {
 
 // cloneEntries returns independent mutable payload ownership for every entry.
 func cloneEntries(entries []session.Entry) []session.Entry {
-	cloned := make([]session.Entry, len(entries))
-	for index := range entries {
-		cloned[index] = entries[index].Clone()
-	}
-	return cloned
+	return lo.Map(entries, func(entry session.Entry, _ int) session.Entry {
+		return entry.Clone()
+	})
 }

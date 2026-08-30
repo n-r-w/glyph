@@ -424,7 +424,7 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 func testSessionCommand(kind domainui.CommandKind, id, name mo.Option[string]) domainui.Command {
 	return domainui.Command{
 		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
-		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }
 

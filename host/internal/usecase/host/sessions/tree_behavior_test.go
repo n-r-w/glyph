@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -177,11 +178,9 @@ func treeBehaviorUserEntry(id string, parentID mo.Option[string], createdAt time
 	}
 }
 
-// treeBehaviorEntryIDs projects entry identifiers for concise assertions.
+// treeBehaviorEntryIDs projects entry identifiers for concise cross-file assertions.
 func treeBehaviorEntryIDs(entries []session.Entry) []string {
-	ids := make([]string, len(entries))
-	for index := range entries {
-		ids[index] = entries[index].ID
-	}
-	return ids
+	return lo.Map(entries, func(entry session.Entry, _ int) string {
+		return entry.ID
+	})
 }

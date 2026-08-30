@@ -42,6 +42,12 @@ const (
 	ResponseSessionTree
 	// ResponseSessionTreeNavigation contains committed or canceled navigation.
 	ResponseSessionTreeNavigation
+	// ResponseForkSession contains a replacement session and exact next input.
+	ResponseForkSession
+	// ResponseCloneSession contains a replacement active session.
+	ResponseCloneSession
+	// ResponseSetEntryLabel contains the committed labeled tree.
+	ResponseSetEntryLabel
 )
 
 // RejectionCode identifies why a correlated command was not executed.
@@ -107,8 +113,20 @@ type Response struct {
 	SessionTree mo.Option[SessionTree]
 	// TreeNavigation is present only for committed or canceled navigation.
 	TreeNavigation mo.Option[TreeNavigationResult]
+	// Replacement is present for fork and clone results.
+	Replacement mo.Option[SessionReplacement]
 	// Rejection contains a command failure that keeps the session open.
 	Rejection mo.Option[Rejection]
+}
+
+// SessionReplacement contains public active-session state after fork or clone.
+type SessionReplacement struct {
+	// Info contains replacement lifecycle information.
+	Info session.Info
+	// ActiveBranch contains the public replacement transcript.
+	ActiveBranch []SessionEntry
+	// NextInput contains exact editable user text only for a fork result.
+	NextInput mo.Option[string]
 }
 
 // SessionEntry contains stable metadata and one public terminal payload.

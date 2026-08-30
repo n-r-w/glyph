@@ -25,7 +25,7 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 		"information text": uiv1.OpenRequest_builder{
 			Initialization:        nil,
@@ -36,7 +36,7 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 		"error text": uiv1.OpenRequest_builder{
 			Initialization: nil,
@@ -50,7 +50,7 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 		"error retry authentication": uiv1.OpenRequest_builder{
 			Initialization: nil,
@@ -64,7 +64,7 @@ func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 	}
 
@@ -94,7 +94,7 @@ func TestMapRequestPreservesPresentFalseRetryAuthentication(t *testing.T) {
 		ModelSelectionChanged: nil,
 		SessionList:           nil,
 		SessionChanged:        nil,
-		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(""), event.Text)
@@ -115,7 +115,7 @@ func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 		"information": uiv1.OpenRequest_builder{
 			Initialization:        nil,
@@ -126,7 +126,7 @@ func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
 			ModelSelectionChanged: nil,
 			SessionList:           nil,
 			SessionChanged:        nil,
-			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build(),
 	} {
 		t.Run(name, func(t *testing.T) {

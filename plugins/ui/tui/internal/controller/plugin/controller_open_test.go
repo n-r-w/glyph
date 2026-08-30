@@ -54,7 +54,7 @@ func modelTextDeltaOpenRequest(
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 }
 
@@ -75,7 +75,7 @@ func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()))
 	require.NoError(t, stream.CloseSend())
 
@@ -201,7 +201,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()))
 	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
 		uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, 1, "hidden reasoning",
@@ -261,7 +261,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build())
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)

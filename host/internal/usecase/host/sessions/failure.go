@@ -11,10 +11,18 @@ import (
 type persistenceOperation string
 
 const (
-	persistenceOperationHistory    persistenceOperation = "append_history"
-	persistenceOperationName       persistenceOperation = "append_name"
+	// persistenceOperationHistory identifies a failed history append.
+	persistenceOperationHistory persistenceOperation = "append_history"
+	// persistenceOperationName identifies a failed session-name mutation.
+	persistenceOperationName persistenceOperation = "append_name"
+	// persistenceOperationNavigation identifies a failed tree navigation.
 	persistenceOperationNavigation persistenceOperation = "navigate"
-	persistenceOperationResume     persistenceOperation = "resume"
+	// persistenceOperationResume identifies a failed stored-session load.
+	persistenceOperationResume persistenceOperation = "resume"
+	// persistenceOperationReplacement identifies a failed fork or clone snapshot creation.
+	persistenceOperationReplacement persistenceOperation = "create_replacement"
+	// persistenceOperationLabel identifies a failed entry-label mutation.
+	persistenceOperationLabel persistenceOperation = "set_label"
 )
 
 // logPersistenceFailure records the operation, active identity, and complete error chain.

@@ -32,6 +32,12 @@ const (
 	CommandGetSessionTree
 	// CommandNavigateSessionTree requests tree navigation.
 	CommandNavigateSessionTree
+	// CommandForkSession requests active-session fork.
+	CommandForkSession
+	// CommandCloneSession requests active-branch clone.
+	CommandCloneSession
+	// CommandSetEntryLabel requests an entry-label mutation.
+	CommandSetEntryLabel
 )
 
 // Command carries exactly one UI-to-Host command.
@@ -56,4 +62,6 @@ type Command struct {
 	SummaryMode SummaryMode
 	// CustomFocus preserves custom-prompt presence for validation.
 	CustomFocus mo.Option[string]
+	// EntryLabel preserves label presence, including an explicitly empty clear value.
+	EntryLabel mo.Option[string]
 }

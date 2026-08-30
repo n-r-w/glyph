@@ -49,22 +49,12 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 
 	// Arrange unknown lifecycle and safe-error requests.
 	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	unknownLifecycle := uiv1.OpenRequest_builder{
-		Lifecycle:          &uiv1.LifecycleEvent{},
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
-	}.Build()
+	unknownLifecycle := uiv1.OpenRequest_builder{Lifecycle: &uiv1.LifecycleEvent{}}.Build()
+
 	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
-	safeError := uiv1.OpenRequest_builder{
-		Error: uiv1.Error_builder{
-			Text:                new("safe error"),
-			RetryAuthentication: new(false),
-		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
-	}.Build()
+	safeError := uiv1.OpenRequest_builder{Error: uiv1.Error_builder{
+		Text: new("safe error"), RetryAuthentication: new(false),
+	}.Build()}.Build()
 
 	// Act by mapping both requests.
 	_, unknownErr := mapRequest(unknownLifecycle)
@@ -260,7 +250,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			Lifecycle:          proto.ValueOrDefault(lifecycle),
 			SessionList:        nil,
 			SessionChanged:     nil,
-			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 		}.Build())
 		require.NoError(t, err)
 		state = projection.Apply(state, event)

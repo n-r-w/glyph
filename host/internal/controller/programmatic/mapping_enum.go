@@ -47,6 +47,12 @@ func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
 		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_TREE, nil
 	case CommandNavigateSessionTree:
 		return programmaticv1.CommandType_COMMAND_TYPE_NAVIGATE_SESSION_TREE, nil
+	case CommandForkSession:
+		return programmaticv1.CommandType_COMMAND_TYPE_FORK_SESSION, nil
+	case CommandCloneSession:
+		return programmaticv1.CommandType_COMMAND_TYPE_CLONE_SESSION, nil
+	case CommandSetEntryLabel:
+		return programmaticv1.CommandType_COMMAND_TYPE_SET_ENTRY_LABEL, nil
 	default:
 		return 0, fmt.Errorf("map command type: unknown value %d", kind)
 	}

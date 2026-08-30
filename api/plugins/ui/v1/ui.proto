@@ -40,6 +40,9 @@ message OpenRequest {
     SessionTreeResult session_tree = 10;
     SessionTreeNavigationResult session_tree_navigation = 11;
     SessionTreeFailed session_tree_failed = 12;
+    SessionForked session_forked = 13;
+    SessionCloned session_cloned = 14;
+    EntryLabelSet entry_label_set = 15;
   }
 }
 
@@ -135,6 +138,26 @@ message SessionChanged {
   SessionInfo info = 1;
   // The complete replacement transcript in stored order.
   repeated SessionEntry entries = 2;
+}
+
+// SessionForked contains the replacement session and exact editable input.
+message SessionForked {
+  // The replacement active session.
+  SessionChanged session = 1;
+  // The exact selected user text.
+  optional string next_input = 2;
+}
+
+// SessionCloned contains the replacement active session.
+message SessionCloned {
+  // The replacement active session.
+  SessionChanged session = 1;
+}
+
+// EntryLabelSet contains the committed active-session tree.
+message EntryLabelSet {
+  // The committed tree after the label mutation.
+  SessionTree tree = 1;
 }
 
 // SessionTreeResult contains the complete active-session tree.
@@ -693,6 +716,9 @@ message OpenResponse {
     GetSessionInfoCommand get_session_info = 11;
     GetSessionTreeCommand get_session_tree = 12;
     NavigateSessionTreeCommand navigate_session_tree = 13;
+    ForkSessionCommand fork_session = 14;
+    CloneSessionCommand clone_session = 15;
+    SetEntryLabelCommand set_entry_label = 16;
   }
 }
 
@@ -757,6 +783,23 @@ message NavigateSessionTreeCommand {
   optional SummaryMode summary_mode = 2;
   // The custom summary focus. It is valid only for custom-prompt mode.
   optional string custom_focus = 3;
+}
+
+// ForkSessionCommand creates a replacement session before one selected user message.
+message ForkSessionCommand {
+  // The selected user-message entry identifier.
+  optional string target_entry_id = 1;
+}
+
+// CloneSessionCommand creates a replacement session from the complete active branch.
+message CloneSessionCommand {}
+
+// SetEntryLabelCommand changes or clears one persisted entry label.
+message SetEntryLabelCommand {
+  // The target tree entry identifier.
+  optional string target_entry_id = 1;
+  // The new label. An empty value clears the label.
+  optional string label = 2;
 }
 
 // SummaryMode identifies branch-summary behavior for tree navigation.

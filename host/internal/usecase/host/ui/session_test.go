@@ -8,6 +8,7 @@ import (
 
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 		ModelID:         mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](),
 		SessionID:       mo.None[string](),
-		SessionName:     mo.Some("renamed"), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SessionName:     mo.Some("renamed"), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	})
 	// Assert the command is handled and the information frame is sent.
 	require.NoError(t, err)
@@ -65,7 +66,7 @@ func testUICommand(kind domainui.CommandKind, text mo.Option[string]) domainui.C
 	return domainui.Command{
 		Kind: kind, Text: text, ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }
 
@@ -113,30 +114,21 @@ func (s *SessionSuite) TestSessionInitializationDeliveryFailureSkipsActivation()
 
 // containsRetryableError reports whether one retryable error frame matches text.
 func containsRetryableError(frames []domainui.Frame, text string) bool {
-	for _, frame := range frames {
-		if frame.Kind == domainui.FrameError && frame.RetryAuthentication.MustGet() && frame.Text.MustGet() == text {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(frames, func(frame domainui.Frame) bool {
+		return frame.Kind == domainui.FrameError && frame.RetryAuthentication.MustGet() && frame.Text.MustGet() == text
+	})
 }
 
 // containsInformation reports whether one information frame contains text.
 func containsInformation(frames []domainui.Frame, text string) bool {
-	for _, frame := range frames {
-		if frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), text) {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(frames, func(frame domainui.Frame) bool {
+		return frame.Kind == domainui.FrameInformation && strings.Contains(frame.Text.MustGet(), text)
+	})
 }
 
 // containsAvailability reports whether one lifecycle frame carries availability.
 func containsAvailability(frames []domainui.Frame, availability domainui.Availability) bool {
-	for _, frame := range frames {
-		if frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == availability {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(frames, func(frame domainui.Frame) bool {
+		return frame.Kind == domainui.FrameLifecycle && frame.Lifecycle.MustGet().Availability.MustGet() == availability
+	})
 }

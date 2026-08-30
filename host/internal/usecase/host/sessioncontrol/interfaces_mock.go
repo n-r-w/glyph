@@ -98,6 +98,21 @@ func (mr *MockActiveSessionsMockRecorder) ActiveStatistics() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveStatistics", reflect.TypeOf((*MockActiveSessions)(nil).ActiveStatistics))
 }
 
+// CloneActive mocks base method.
+func (m *MockActiveSessions) CloneActive(arg0 context.Context) (session.Replacement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloneActive", arg0)
+	ret0, _ := ret[0].(session.Replacement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloneActive indicates an expected call of CloneActive.
+func (mr *MockActiveSessionsMockRecorder) CloneActive(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneActive", reflect.TypeOf((*MockActiveSessions)(nil).CloneActive), arg0)
+}
+
 // CreateActive mocks base method.
 func (m *MockActiveSessions) CreateActive(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()
@@ -111,6 +126,22 @@ func (m *MockActiveSessions) CreateActive(arg0 context.Context) (session.Replace
 func (mr *MockActiveSessionsMockRecorder) CreateActive(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateActive", reflect.TypeOf((*MockActiveSessions)(nil).CreateActive), arg0)
+}
+
+// ForkActive mocks base method.
+func (m *MockActiveSessions) ForkActive(arg0 context.Context, arg1 string) (session.Replacement, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForkActive", arg0, arg1)
+	ret0, _ := ret[0].(session.Replacement)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ForkActive indicates an expected call of ForkActive.
+func (mr *MockActiveSessionsMockRecorder) ForkActive(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForkActive", reflect.TypeOf((*MockActiveSessions)(nil).ForkActive), arg0, arg1)
 }
 
 // ListStored mocks base method.
@@ -156,6 +187,21 @@ func (m *MockActiveSessions) SetActiveName(arg0 context.Context, arg1 string) (s
 func (mr *MockActiveSessionsMockRecorder) SetActiveName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActiveName", reflect.TypeOf((*MockActiveSessions)(nil).SetActiveName), arg0, arg1)
+}
+
+// SetLabel mocks base method.
+func (m *MockActiveSessions) SetLabel(arg0 context.Context, arg1, arg2 string) (session.Tree, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLabel", arg0, arg1, arg2)
+	ret0, _ := ret[0].(session.Tree)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetLabel indicates an expected call of SetLabel.
+func (mr *MockActiveSessionsMockRecorder) SetLabel(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLabel", reflect.TypeOf((*MockActiveSessions)(nil).SetLabel), arg0, arg1, arg2)
 }
 
 // Tree mocks base method.

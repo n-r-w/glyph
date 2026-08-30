@@ -253,7 +253,7 @@ func programmaticSessionCommand(
 	return programmaticcontroller.Command{
 		CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: id, SessionName: name, TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }
 
@@ -279,7 +279,7 @@ func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	response, operation, err := service.Handle(t.Context(), programmaticcontroller.Command{
 		CorrelationID: "accepted", Kind: programmaticcontroller.CommandUserRequest, UserText: mo.Some("request"),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](), ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID: mo.None[session.ID](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SessionID: mo.None[session.ID](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	})
 	require.NoError(t, err)
 	require.Equal(t, programmaticcontroller.ResponseUserRequestAccepted, response.Kind)

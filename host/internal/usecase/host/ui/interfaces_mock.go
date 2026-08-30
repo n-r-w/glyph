@@ -374,6 +374,21 @@ func (m *MockSessionControl) EXPECT() *MockSessionControlMockRecorder {
 	return m.recorder
 }
 
+// Clone mocks base method.
+func (m *MockSessionControl) Clone(arg0 context.Context) (session.Replacement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone", arg0)
+	ret0, _ := ret[0].(session.Replacement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockSessionControlMockRecorder) Clone(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockSessionControl)(nil).Clone), arg0)
+}
+
 // Create mocks base method.
 func (m *MockSessionControl) Create(arg0 context.Context) (session.Replacement, error) {
 	m.ctrl.T.Helper()
@@ -387,6 +402,22 @@ func (m *MockSessionControl) Create(arg0 context.Context) (session.Replacement, 
 func (mr *MockSessionControlMockRecorder) Create(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionControl)(nil).Create), arg0)
+}
+
+// Fork mocks base method.
+func (m *MockSessionControl) Fork(arg0 context.Context, arg1 string) (session.Replacement, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Fork", arg0, arg1)
+	ret0, _ := ret[0].(session.Replacement)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Fork indicates an expected call of Fork.
+func (mr *MockSessionControlMockRecorder) Fork(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fork", reflect.TypeOf((*MockSessionControl)(nil).Fork), arg0, arg1)
 }
 
 // Information mocks base method.
@@ -446,6 +477,21 @@ func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (sess
 func (mr *MockSessionControlMockRecorder) Resume(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockSessionControl)(nil).Resume), arg0, arg1)
+}
+
+// SetLabel mocks base method.
+func (m *MockSessionControl) SetLabel(arg0 context.Context, arg1, arg2 string) (session.Tree, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLabel", arg0, arg1, arg2)
+	ret0, _ := ret[0].(session.Tree)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetLabel indicates an expected call of SetLabel.
+func (mr *MockSessionControlMockRecorder) SetLabel(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLabel", reflect.TypeOf((*MockSessionControl)(nil).SetLabel), arg0, arg1, arg2)
 }
 
 // SetName mocks base method.

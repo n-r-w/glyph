@@ -191,6 +191,6 @@ func uiTreeCommand(kind domainui.CommandKind) domainui.Command {
 		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
-		SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }

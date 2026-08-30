@@ -15,8 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
-	domainsession "github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -101,7 +99,7 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 					ListSessions:   nil,
 					ResumeSession:  nil,
 					SetSessionName: nil,
-					GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+					GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 				}.Build()
 				events := make(chan AgentEvent)
 				receiveBlocked := make(chan struct{})
@@ -110,19 +108,9 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 				operation.EXPECT().Start()
 				gomock.InOrder(
 					stream.EXPECT().Recv().Return(request, nil),
-					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(Response{
-						SessionEntries:    nil,
-						SessionStatistics: mo.None[domainsession.Statistics](),
-						CorrelationID:     "user",
-						Kind:              ResponseUserRequestAccepted,
-						State:             mo.None[RunStateResult](),
-						Messages:          nil,
-						Models:            mo.None[ModelsResult](),
-						Selection:         mo.None[model.Selection](),
-						Rejection:         mo.None[Rejection](),
-						SessionInfo:       mo.None[domainsession.Info](),
-						Sessions:          nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
-					}, operation, nil),
+					session.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(
+						emptyControllerResponse("user", ResponseUserRequestAccepted), operation, nil,
+					),
 					stream.EXPECT().Send(gomock.Any()).Return(nil),
 					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
 						close(receiveBlocked)

@@ -18,7 +18,7 @@ func testProgrammaticCommand(correlationID string, kind controller.CommandKind) 
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:       mo.None[session.ID](),
-		SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }
 
@@ -32,6 +32,6 @@ func testProgrammaticUserCommand(correlationID, text string) controller.Command 
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:       mo.None[session.ID](),
-		SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }

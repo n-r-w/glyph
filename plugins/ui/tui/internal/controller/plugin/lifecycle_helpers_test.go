@@ -107,10 +107,12 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+
+		// Act by mapping the authentication error request.
+		SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 
-	// Act by mapping the authentication error request.
 	event, err := mapRequest(request)
 
 	// Assert the event exposes retry availability and only the safe message.
@@ -172,7 +174,7 @@ func initializationRequest() *uiv1.OpenRequest {
 		}.Build(),
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 }
 

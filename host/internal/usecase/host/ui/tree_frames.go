@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -81,13 +82,15 @@ func emptyTreeFrame(kind domainui.FrameKind) domainui.Frame {
 func mapSessionTree(tree session.Tree) (domainui.SessionTree, error) {
 	entries := tree.Entries()
 	labels := tree.Labels()
-	mapped := make([]domainui.SessionTreeEntry, 0, len(entries))
-	for index := range entries {
-		entry, err := mapSessionTreeEntry(entries[index], labels[entries[index].ID])
-		if err != nil {
-			return domainui.SessionTree{}, fmt.Errorf("map session tree entry %d: %w", index, err)
+	mapped, err := lo.MapErr(entries, func(entry session.Entry, index int) (domainui.SessionTreeEntry, error) {
+		result, mapErr := mapSessionTreeEntry(entry, labels[entry.ID])
+		if mapErr != nil {
+			return domainui.SessionTreeEntry{}, fmt.Errorf("map session tree entry %d: %w", index, mapErr)
 		}
-		mapped = append(mapped, entry)
+		return result, nil
+	})
+	if err != nil {
+		return domainui.SessionTree{}, err
 	}
 	return domainui.SessionTree{Entries: mapped, ActiveLeafID: tree.ActiveLeafID()}, nil
 }
@@ -143,12 +146,10 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 
 // mapOperationIssues projects safe ordered navigation issues for UI delivery.
 func mapOperationIssues(issues []sessionnavigation.OperationIssue) []domainui.OperationIssue {
-	mapped := make([]domainui.OperationIssue, len(issues))
-	for index := range issues {
-		mapped[index] = domainui.OperationIssue{
-			Code: domainui.OperationIssueCode(issues[index].Code), ExtensionID: issues[index].ExtensionID,
-			HandlerID: issues[index].HandlerID, Message: issues[index].Message,
+	return lo.Map(issues, func(issue sessionnavigation.OperationIssue, _ int) domainui.OperationIssue {
+		return domainui.OperationIssue{
+			Code: domainui.OperationIssueCode(issue.Code), ExtensionID: issue.ExtensionID,
+			HandlerID: issue.HandlerID, Message: issue.Message,
 		}
-	}
-	return mapped
+	})
 }

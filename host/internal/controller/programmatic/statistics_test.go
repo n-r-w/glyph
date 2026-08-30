@@ -19,10 +19,12 @@ func TestMapOpenRequestAcceptsSessionStatisticsQuery(t *testing.T) {
 	// Arrange a correlated GetSessionStats request.
 	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
 	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: new("stats"), GetSessionStats: programmaticv1.GetSessionStats_builder{}.Build(), GetSessionTree: nil, NavigateSessionTree: nil,
+		CorrelationId: new("stats"), GetSessionStats: programmaticv1.GetSessionStats_builder{}.Build(), GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil,
+
+		// Act by mapping the public request.
+		CloneSession: nil, SetEntryLabel: nil,
 	}.Build()
 
-	// Act by mapping the public request.
 	command, err := mapOpenRequest(request)
 
 	// Assert the statistics command and correlation ID are preserved.
@@ -44,10 +46,12 @@ func TestMapResponsePreservesSessionStatisticsAvailability(t *testing.T) {
 		CorrelationID: "stats", Kind: ResponseSessionStats,
 		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
 		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
-		SessionEntries: nil, SessionStatistics: mo.Some(statistics), Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
+		SessionEntries: nil, SessionStatistics: mo.Some(statistics), Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement:
+
+		// Act by mapping the Host response to protobuf.
+		mo.None[SessionReplacement](),
 	}
 
-	// Act by mapping the Host response to protobuf.
 	wire, err := mapResponse(response)
 
 	// Assert counts remain present and the token message remains absent.
@@ -90,10 +94,12 @@ func TestMapResponsePreservesEstimatedCostAndOrderedBreakdown(t *testing.T) {
 		SessionStatistics: mo.Some(statistics),
 		Rejection:         mo.None[Rejection](),
 		SessionTree:       mo.None[SessionTree](),
-		TreeNavigation:    mo.None[TreeNavigationResult](),
+		TreeNavigation:    mo.None[TreeNavigationResult](), Replacement:
+
+		// Act by mapping the Host statistics response to protobuf.
+		mo.None[SessionReplacement](),
 	}
 
-	// Act by mapping the Host statistics response to protobuf.
 	wire, err := mapResponse(response)
 
 	// Assert aggregate and group buckets, unavailable presence, and order are exact.

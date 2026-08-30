@@ -48,7 +48,8 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 			return nil, err
 		}
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
-		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseRejected:
+		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
+		ResponseSetEntryLabel, ResponseRejected:
 		return nil, errors.New("map command response: handled response was not mapped")
 	case ResponseUnspecified:
 		return nil, errors.New("map command response: unspecified response kind")
@@ -59,6 +60,8 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 }
 
 // mapSessionOrRejectionResponse isolates lifecycle and rejection payload mapping from the core response dispatch.
+//
+//nolint:gocyclo // The switch maps every closed session response kind explicitly.
 func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, response Response) (bool, error) {
 	switch response.Kind {
 	case ResponseSessionInfo:
@@ -107,6 +110,23 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 			return true, errors.New("map tree navigation: result is absent")
 		}
 		return true, mapTreeNavigationCommandResponse(wire, navigation)
+	case ResponseForkSession:
+		return true, mapForkSessionCommandResponse(wire, response)
+	case ResponseCloneSession:
+		return true, mapCloneSessionCommandResponse(wire, response)
+	case ResponseSetEntryLabel:
+		tree, present := response.SessionTree.Get()
+		if !present {
+			return true, errors.New("map entry label: committed tree is absent")
+		}
+		mapped, err := mapSessionTree(tree)
+		if err != nil {
+			return true, err
+		}
+		result := new(programmaticv1.SetEntryLabelResult)
+		result.SetTree(mapped)
+		wire.SetSetEntryLabel(result)
+		return true, nil
 	case ResponseRejected:
 		return true, mapRejectionCommandResponse(wire, response.Rejection)
 	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
@@ -115,6 +135,45 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 	default:
 		return false, nil
 	}
+}
+
+// mapForkSessionCommandResponse maps one durable fork replacement and exact next input.
+func mapForkSessionCommandResponse(wire *programmaticv1.CommandResponse, response Response) error {
+	replacement, present := response.Replacement.Get()
+	if !present {
+		return errors.New("map fork session: replacement is absent")
+	}
+	nextInput, present := replacement.NextInput.Get()
+	if !present {
+		return errors.New("map fork session: next input is absent")
+	}
+	entries, err := mapSessionEntries(replacement.ActiveBranch)
+	if err != nil {
+		return fmt.Errorf("map fork session active branch: %w", err)
+	}
+	result := new(programmaticv1.ForkSessionResult)
+	result.SetInfo(mapSessionInfo(replacement.Info))
+	result.SetActiveBranch(entries)
+	result.SetNextInput(nextInput)
+	wire.SetForkSession(result)
+	return nil
+}
+
+// mapCloneSessionCommandResponse maps one durable active-branch clone replacement.
+func mapCloneSessionCommandResponse(wire *programmaticv1.CommandResponse, response Response) error {
+	replacement, present := response.Replacement.Get()
+	if !present {
+		return errors.New("map clone session: replacement is absent")
+	}
+	entries, err := mapSessionEntries(replacement.ActiveBranch)
+	if err != nil {
+		return fmt.Errorf("map clone session active branch: %w", err)
+	}
+	result := new(programmaticv1.CloneSessionResult)
+	result.SetInfo(mapSessionInfo(replacement.Info))
+	result.SetActiveBranch(entries)
+	wire.SetCloneSession(result)
+	return nil
 }
 
 // mapSessionInfo maps one active-session snapshot to its Programmatic representation.
@@ -157,17 +216,18 @@ func mapSessionStatistics(statistics session.Statistics) *programmaticv1.Session
 	if cost, present := statistics.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
 	}
-	breakdown := make([]*programmaticv1.ProviderModelCost, len(statistics.CostBreakdown))
-	for groupIndex := range statistics.CostBreakdown {
-		group := &statistics.CostBreakdown[groupIndex]
-		mapped := new(programmaticv1.ProviderModelCost)
-		mapped.SetProviderId(string(group.Provider))
-		mapped.SetModelId(string(group.Model))
-		if cost, present := group.EstimatedCost.Get(); present {
-			mapped.SetEstimatedCost(mapEstimatedCost(cost))
-		}
-		breakdown[groupIndex] = mapped
-	}
+	breakdown := lo.Map(
+		statistics.CostBreakdown,
+		func(group session.ProviderModelCost, _ int) *programmaticv1.ProviderModelCost {
+			mapped := new(programmaticv1.ProviderModelCost)
+			mapped.SetProviderId(string(group.Provider))
+			mapped.SetModelId(string(group.Model))
+			if cost, present := group.EstimatedCost.Get(); present {
+				mapped.SetEstimatedCost(mapEstimatedCost(cost))
+			}
+			return mapped
+		},
+	)
 	wire.SetCostBreakdown(breakdown)
 	return wire
 }

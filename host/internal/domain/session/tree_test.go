@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
@@ -42,11 +43,15 @@ func TestTreeActiveBranchAndNavigationPreparation(t *testing.T) {
 
 	// Assert root-first order, exact editable input, destination, common ancestor, and abandoned path.
 	require.NoError(t, err)
-	require.Equal(t, []string{"root", "model-a", "user-b", "model-b"}, entryIDs(branch))
+	require.Equal(t, []string{"root", "model-a", "user-b", "model-b"}, lo.Map(branch, func(entry Entry, _ int) string {
+		return entry.ID
+	}))
 	require.Equal(t, mo.Some("model-a"), preparation.DestinationID)
 	require.Equal(t, mo.Some("edit this exactly"), preparation.NextInput)
 	require.Equal(t, mo.Some("model-a"), preparation.CommonAncestorID)
-	require.Equal(t, []string{"user-b", "model-b"}, entryIDs(preparation.AbandonedPath))
+	require.Equal(t, []string{"user-b", "model-b"}, lo.Map(preparation.AbandonedPath, func(entry Entry, _ int) string {
+		return entry.ID
+	}))
 	require.Equal(t, map[string]string{"model-a": "checkpoint"}, tree.Labels())
 }
 
@@ -68,7 +73,9 @@ func TestTreeAddPreservesBranchesAndValidatesParent(t *testing.T) {
 
 	// Assert the invalid append is rejected and both valid branches remain.
 	require.Error(t, err)
-	require.Equal(t, []string{"root", "old", "new"}, entryIDs(tree.Entries()))
+	require.Equal(t, []string{"root", "old", "new"}, lo.Map(tree.Entries(), func(entry Entry, _ int) string {
+		return entry.ID
+	}))
 	require.Equal(t, mo.Some("new"), tree.ActiveLeafID())
 }
 
@@ -90,12 +97,4 @@ func treeModelEntry(id string, parentID mo.Option[string], createdAt time.Time) 
 		ToolResult: mo.None[ToolResult](), Extension: mo.None[ExtensionEnvelope](),
 		BranchSummary: mo.None[BranchSummaryEntry](),
 	}
-}
-
-func entryIDs(entries []Entry) []string {
-	ids := make([]string, len(entries))
-	for index := range entries {
-		ids[index] = entries[index].ID
-	}
-	return ids
 }

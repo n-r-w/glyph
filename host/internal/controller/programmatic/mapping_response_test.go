@@ -32,9 +32,12 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 		CorrelationID:     "information", Kind: ResponseSessionInfo,
 		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
 		Selection: mo.None[model.Selection](), SessionInfo: mo.Some(info), Sessions: nil,
-		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
+		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement:
+
+		// Assert optional presence and summary values survive protobuf mapping.
+		mo.None[SessionReplacement](),
 	})
-	// Assert optional presence and summary values survive protobuf mapping.
+
 	require.NoError(t, err)
 	wireInfo := mapped.GetCommandResponse().GetSessionInfo().GetInfo()
 	assert.Equal(t, "stored", wireInfo.GetId())
@@ -48,7 +51,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
 		Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](),
 		Sessions:  []session.Summary{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
-		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
+		Rejection: mo.None[Rejection](), SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	rows := mapped.GetCommandResponse().GetSessions().GetSessions()
@@ -171,6 +174,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"aborted": {
 			CorrelationID:     "aborted",
@@ -186,6 +190,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"state": {
 			CorrelationID: "state",
@@ -204,6 +209,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"messages": {
 			CorrelationID: "messages",
@@ -235,6 +241,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"rejected": {
 			CorrelationID: "rejected",
@@ -254,6 +261,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"models": {
 			CorrelationID: "models",
@@ -304,6 +312,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 		"model selection": {
 			CorrelationID: "selection",
@@ -323,6 +332,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Sessions:          nil,
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
+			Replacement:       mo.None[SessionReplacement](),
 		},
 	}
 
@@ -401,7 +411,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assert.Equal(t, "model", selection.GetModelId())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, selection.GetReasoningChoice())
 			case ResponseUnspecified, ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
-				ResponseSessionTree, ResponseSessionTreeNavigation:
+				ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
+				ResponseSetEntryLabel:
 				require.Fail(t, "unexpected response kind")
 			}
 		})
@@ -433,7 +444,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		Selection:   mo.None[model.Selection](),
 		Rejection:   mo.None[Rejection](),
 		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
+		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	modelResponse := mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel()
@@ -458,7 +469,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		Selection:   mo.None[model.Selection](),
 		Rejection:   mo.None[Rejection](),
 		SessionInfo: mo.None[session.Info](),
-		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](),
+		Sessions:    nil, SessionTree: mo.None[SessionTree](), TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
 	assert.False(t, mapped.GetCommandResponse().GetRunState().HasActiveCorrelationId())

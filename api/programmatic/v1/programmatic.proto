@@ -35,6 +35,9 @@ message OpenRequest {
     GetSessionStats get_session_stats = 15;
     GetSessionTree get_session_tree = 16;
     NavigateSessionTree navigate_session_tree = 17;
+    ForkSession fork_session = 18;
+    CloneSession clone_session = 19;
+    SetEntryLabel set_entry_label = 20;
   }
 }
 
@@ -110,6 +113,23 @@ message NavigateSessionTree {
   optional string custom_focus = 3;
 }
 
+// ForkSession creates a replacement session before one selected user message.
+message ForkSession {
+  // The selected user-message entry identifier.
+  optional string target_entry_id = 1;
+}
+
+// CloneSession creates a replacement session from the complete active branch.
+message CloneSession {}
+
+// SetEntryLabel changes or clears one persisted entry label.
+message SetEntryLabel {
+  // The target tree entry identifier.
+  optional string target_entry_id = 1;
+  // The new label. An empty value clears the label.
+  optional string label = 2;
+}
+
 // OpenResponse carries one correlated command response or agent event.
 message OpenResponse {
   // The correlation identifier associated with the response.
@@ -138,7 +158,34 @@ message CommandResponse {
     SessionStatsResult session_stats = 11;
     SessionTreeResult session_tree = 12;
     SessionTreeNavigationResult session_tree_navigation = 13;
+    ForkSessionResult fork_session = 14;
+    CloneSessionResult clone_session = 15;
+    SetEntryLabelResult set_entry_label = 16;
   }
+}
+
+// ForkSessionResult contains the replacement session and exact editable input.
+message ForkSessionResult {
+  // The replacement active-session information.
+  SessionInfo info = 1;
+  // The replacement active-branch transcript.
+  repeated SessionEntry active_branch = 2;
+  // The exact selected user text.
+  optional string next_input = 3;
+}
+
+// CloneSessionResult contains the replacement active session.
+message CloneSessionResult {
+  // The replacement active-session information.
+  SessionInfo info = 1;
+  // The replacement active-branch transcript.
+  repeated SessionEntry active_branch = 2;
+}
+
+// SetEntryLabelResult contains the committed active-session tree.
+message SetEntryLabelResult {
+  // The committed tree after the label mutation.
+  SessionTree tree = 1;
 }
 
 // UserRequestAccepted confirms that an agent run was accepted.
@@ -699,6 +746,12 @@ enum CommandType {
   COMMAND_TYPE_GET_SESSION_TREE = 15;
   // A session-tree navigation command.
   COMMAND_TYPE_NAVIGATE_SESSION_TREE = 16;
+  // A session-fork command.
+  COMMAND_TYPE_FORK_SESSION = 17;
+  // An active-branch clone command.
+  COMMAND_TYPE_CLONE_SESSION = 18;
+  // An entry-label mutation command.
+  COMMAND_TYPE_SET_ENTRY_LABEL = 19;
 }
 
 // RejectionCode identifies why a command was rejected.

@@ -20,7 +20,7 @@ func (command Command) Valid() bool {
 		return !command.invalidReasoningSelection()
 	case CommandCreateSession, CommandListSessions, CommandResumeSession, CommandSetSessionName,
 		CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats, CommandGetSessionTree,
-		CommandNavigateSessionTree, CommandUnspecified:
+		CommandNavigateSessionTree, CommandForkSession, CommandCloneSession, CommandSetEntryLabel, CommandUnspecified:
 		return false
 	default:
 		return false
@@ -39,6 +39,12 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 		return command.invalidSessionName(), true
 	case CommandNavigateSessionTree:
 		return command.invalidTreeNavigation(), true
+	case CommandForkSession:
+		return command.invalidForkSession(), true
+	case CommandCloneSession:
+		return command.UserText.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
+	case CommandSetEntryLabel:
+		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages,
 		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice:
 		return false, false
@@ -70,6 +76,22 @@ func (command Command) invalidTreeNavigation() bool {
 		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome()
 }
 
+// invalidForkSession reports a malformed fork command.
+func (command Command) invalidForkSession() bool {
+	targetID, present := command.TargetEntryID.Get()
+	return !present || targetID == "" || command.EntryLabel.IsSome() || command.UserText.IsSome() ||
+		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome() ||
+		command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
+}
+
+// invalidSetEntryLabel reports a malformed label mutation.
+func (command Command) invalidSetEntryLabel() bool {
+	targetID, targetPresent := command.TargetEntryID.Get()
+	return !targetPresent || targetID == "" || command.EntryLabel.IsNone() || command.UserText.IsSome() ||
+		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome() ||
+		command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
+}
+
 // invalidUserRequest reports a malformed user request payload.
 func (command Command) invalidUserRequest() bool {
 	userText, present := command.UserText.Get()
@@ -99,7 +121,8 @@ func (command Command) hasModelArguments() bool {
 
 // hasTreeArguments reports tree-navigation arguments.
 func (command Command) hasTreeArguments() bool {
-	return command.TargetEntryID.IsSome() || command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
+	return command.TargetEntryID.IsSome() || command.CustomFocus.IsSome() || command.EntryLabel.IsSome() ||
+		command.SummaryMode != SummaryModeNoSummary
 }
 
 // hasSessionArguments reports session arguments.

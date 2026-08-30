@@ -105,10 +105,12 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 				}.Build(),
 			}.Build(),
 		},
-	}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+	}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+
+		// Act by mapping the restored session request.
+		SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 
-	// Act by mapping the restored session request.
 	event, err := mapRequest(request)
 	// Assert the event preserves transcript order and public content.
 	require.NoError(t, err)

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
@@ -47,7 +48,9 @@ func TestReplayVersion2Tree(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mo.Some("summary"), loaded.Tree.ActiveLeafID())
 	require.Equal(t, map[string]string{"old": "kept branch"}, loaded.Tree.Labels())
-	require.Equal(t, []string{"root", "old", "new", "summary"}, entryIDsForReplay(loaded.Tree.Entries()))
+	require.Equal(t, []string{"root", "old", "new", "summary"}, lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
+		return entry.ID
+	}))
 	require.Equal(t, mo.Some(session.Information{Name: "branched session"}), loaded.Information)
 	summary := loaded.Tree.Entries()[3].BranchSummary.MustGet()
 	require.Equal(t, model.ReasoningChoiceLow, summary.ReasoningChoice)
@@ -100,12 +103,4 @@ func sessionPath(root, project string, header session.Header) string {
 func validRootRecord() string {
 	return `{"type":"session","version":2,"id":"stored","createdAt":"2026-08-29T01:00:00Z","cwd":%q}` + "\n" +
 		`{"type":"entry","entry":{"type":"user","id":"root","parentId":null,"createdAt":"2026-08-29T01:00:00Z","message":{"content":[]}}}` + "\n"
-}
-
-func entryIDsForReplay(entries []session.Entry) []string {
-	result := make([]string, len(entries))
-	for index := range entries {
-		result[index] = entries[index].ID
-	}
-	return result
 }

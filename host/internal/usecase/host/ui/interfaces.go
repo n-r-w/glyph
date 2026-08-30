@@ -65,6 +65,12 @@ type SessionControl interface {
 	Tree() session.Tree
 	// Navigate commits one tree navigation with optional built-in summarization.
 	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
+	// Fork creates and activates a replacement before one user message.
+	Fork(context.Context, string) (session.Replacement, string, error)
+	// Clone creates and activates a copy of the complete active branch.
+	Clone(context.Context) (session.Replacement, error)
+	// SetLabel persists one entry label and returns the committed tree.
+	SetLabel(context.Context, string, string) (session.Tree, error)
 }
 
 // Authenticator keeps credential interpretation and refresh inside the provider.

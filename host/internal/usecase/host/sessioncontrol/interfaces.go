@@ -16,6 +16,12 @@ type ActiveSessions interface {
 	CreateActive(context.Context) (session.Replacement, error)
 	// ResumeActive validates storage before atomically replacing active state.
 	ResumeActive(context.Context, session.ID) (session.Replacement, error)
+	// ForkActive persists and activates the path before one selected user message.
+	ForkActive(context.Context, string) (session.Replacement, string, error)
+	// CloneActive persists and activates a copy of the complete active branch.
+	CloneActive(context.Context) (session.Replacement, error)
+	// SetLabel persists one entry label and returns the committed tree.
+	SetLabel(context.Context, string, string) (session.Tree, error)
 	// SetActiveName persists a normalized name without replacing active state.
 	SetActiveName(context.Context, string) (session.Info, error)
 	// ListStored returns ordered persisted-session summaries.

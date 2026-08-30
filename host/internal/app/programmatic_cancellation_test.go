@@ -286,7 +286,7 @@ func (testSuite *ProgrammaticAppSuite) TestApplicationCancellationDoesNotDuplica
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: controllerprogrammatic.
-				SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, operation)

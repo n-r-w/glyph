@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -109,7 +110,9 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 	// Assert IDs, labels, leaf, and unresolved summary provenance survive.
 	require.NoError(t, err)
 	require.FileExists(t, result.StoragePath)
-	require.Equal(t, []string{"root", "summary"}, entryIDsForMutationTest(loaded.Tree.Entries()))
+	require.Equal(t, []string{"root", "summary"}, lo.Map(loaded.Tree.Entries(), func(entry session.Entry, _ int) string {
+		return entry.ID
+	}))
 	require.Equal(t, mo.Some("summary"), loaded.Tree.ActiveLeafID())
 	require.Equal(t, map[string]string{"root": "kept"}, loaded.Tree.Labels())
 	require.Equal(t, mo.Some(informationUpdatedAt), loaded.InformationUpdatedAt)
@@ -137,12 +140,3 @@ func (file realFile) ReadPayload(payload []byte) (int, error) { return file.Read
 
 // WritePayload writes bytes to the open test file.
 func (file realFile) WritePayload(payload []byte) (int, error) { return file.Write(payload) }
-
-// entryIDsForMutationTest projects entry identity for concise assertions.
-func entryIDsForMutationTest(entries []session.Entry) []string {
-	result := make([]string, len(entries))
-	for index := range entries {
-		result[index] = entries[index].ID
-	}
-	return result
-}

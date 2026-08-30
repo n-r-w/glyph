@@ -158,6 +158,6 @@ func treeControllerResponse(correlationID string, kind ResponseKind) Response {
 		Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](),
 		SessionInfo: mo.None[session.Info](), Sessions: nil, SessionEntries: nil,
 		SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
-		TreeNavigation: mo.None[TreeNavigationResult](), Rejection: mo.None[Rejection](),
+		TreeNavigation: mo.None[TreeNavigationResult](), Rejection: mo.None[Rejection](), Replacement: mo.None[SessionReplacement](),
 	}
 }

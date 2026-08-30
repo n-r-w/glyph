@@ -51,6 +51,31 @@ func (s *Service) Resume(ctx context.Context, id session.ID) (session.Replacemen
 	return s.active.ResumeActive(ctx, id)
 }
 
+// Fork persists and activates a replacement session while holding the operation gate.
+func (s *Service) Fork(ctx context.Context, targetID string) (session.Replacement, string, error) {
+	release, acquired := s.gate.TryAcquire()
+	if !acquired {
+		return session.Replacement{}, "", session.ErrBusy
+	}
+	defer release()
+	return s.active.ForkActive(ctx, targetID)
+}
+
+// Clone persists and activates an active-branch copy while holding the operation gate.
+func (s *Service) Clone(ctx context.Context) (session.Replacement, error) {
+	release, acquired := s.gate.TryAcquire()
+	if !acquired {
+		return session.Replacement{}, session.ErrBusy
+	}
+	defer release()
+	return s.active.CloneActive(ctx)
+}
+
+// SetLabel persists one entry label without replacing the active session.
+func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session.Tree, error) {
+	return s.active.SetLabel(ctx, targetID, label)
+}
+
 // Navigate commits one tree navigation while holding the operation gate.
 func (s *Service) Navigate(ctx context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
 	release, acquired := s.gate.TryAcquire()

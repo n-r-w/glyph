@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,12 +131,9 @@ func TestApplyRunResultFiltersOnlyCancellationLeaves(t *testing.T) {
 			assert.Equal(t, domainui.AvailabilityIdle, availability)
 			assert.Nil(t, cancel)
 			assert.Zero(t, kind)
-			var errorFrames []domainui.Frame
-			for _, frame := range frames {
-				if frame.Kind == domainui.FrameError {
-					errorFrames = append(errorFrames, frame)
-				}
-			}
+			errorFrames := lo.Filter(frames, func(frame domainui.Frame, _ int) bool {
+				return frame.Kind == domainui.FrameError
+			})
 			if test.expectedError == "" {
 				assert.Empty(t, errorFrames)
 			} else {
@@ -283,7 +281,7 @@ func TestSessionCommandDeliveryClosurePreservesOperationSource(t *testing.T) {
 				Kind: domainui.CommandSelectModel, Text: mo.None[string](),
 				ProviderID: mo.Some("provider"), ModelID: mo.Some("model"),
 				ReasoningChoice: mo.None[domainui.ReasoningChoice](), SessionID: mo.None[string](),
-				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SessionName: mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: domainui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 			},
 			failureKind: domainui.FrameError, sendErr: context.Canceled,
 			closure: receivedCommand{

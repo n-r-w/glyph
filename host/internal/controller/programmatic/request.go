@@ -35,6 +35,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		TargetEntryID:   mo.None[string](),
 		SummaryMode:     SummaryModeNoSummary,
 		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 	if mapSessionRequest(request, &command) {
 		return command, nil
@@ -83,7 +84,10 @@ func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (C
 		programmaticv1.OpenRequest_GetSessionEntries_case,
 		programmaticv1.OpenRequest_GetSessionStats_case,
 		programmaticv1.OpenRequest_GetSessionTree_case,
-		programmaticv1.OpenRequest_NavigateSessionTree_case:
+		programmaticv1.OpenRequest_NavigateSessionTree_case,
+		programmaticv1.OpenRequest_ForkSession_case,
+		programmaticv1.OpenRequest_CloneSession_case,
+		programmaticv1.OpenRequest_SetEntryLabel_case:
 		return Command{}, status.Error(codes.Internal, "session command was not mapped")
 	case programmaticv1.OpenRequest_Command_not_set_case:
 	}
@@ -91,6 +95,8 @@ func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (C
 }
 
 // mapSessionRequest preserves optional lifecycle arguments while mapping the protobuf oneof.
+//
+//nolint:gocyclo // The switch maps every closed session command kind explicitly.
 func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bool {
 	switch request.WhichCommand() {
 	case programmaticv1.OpenRequest_CreateSession_case:
@@ -126,6 +132,23 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		command.SummaryMode = mapRequestSummaryMode(navigate.GetSummaryMode())
 		if navigate.HasCustomFocus() {
 			command.CustomFocus = mo.Some(navigate.GetCustomFocus())
+		}
+	case programmaticv1.OpenRequest_ForkSession_case:
+		fork := request.GetForkSession()
+		command.Kind = CommandForkSession
+		if fork.HasTargetEntryId() {
+			command.TargetEntryID = mo.Some(fork.GetTargetEntryId())
+		}
+	case programmaticv1.OpenRequest_CloneSession_case:
+		command.Kind = CommandCloneSession
+	case programmaticv1.OpenRequest_SetEntryLabel_case:
+		label := request.GetSetEntryLabel()
+		command.Kind = CommandSetEntryLabel
+		if label.HasTargetEntryId() {
+			command.TargetEntryID = mo.Some(label.GetTargetEntryId())
+		}
+		if label.HasLabel() {
+			command.EntryLabel = mo.Some(label.GetLabel())
 		}
 	case programmaticv1.OpenRequest_Command_not_set_case,
 		programmaticv1.OpenRequest_UserRequest_case, programmaticv1.OpenRequest_Abort_case,

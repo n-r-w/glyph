@@ -80,6 +80,33 @@ func TestMapOpenRequestPreservesSessionCommands(t *testing.T) {
 				return command
 			}(),
 		},
+		{
+			name: "fork", set: func(request *programmaticv1.OpenRequest) {
+				request.SetForkSession(programmaticv1.ForkSession_builder{TargetEntryId: new("entry")}.Build())
+			},
+			expected: func() Command {
+				command := sessionCommand("fork", CommandForkSession)
+				command.TargetEntryID = mo.Some("entry")
+				return command
+			}(),
+		},
+		{
+			name: "clone", set: func(request *programmaticv1.OpenRequest) {
+				request.SetCloneSession(new(programmaticv1.CloneSession))
+			},
+			expected: sessionCommand("clone", CommandCloneSession),
+		},
+		{
+			name: "label", set: func(request *programmaticv1.OpenRequest) {
+				request.SetSetEntryLabel(programmaticv1.SetEntryLabel_builder{TargetEntryId: new("entry"), Label: new("")}.Build())
+			},
+			expected: func() Command {
+				command := sessionCommand("label", CommandSetEntryLabel)
+				command.TargetEntryID = mo.Some("entry")
+				command.EntryLabel = mo.Some("")
+				return command
+			}(),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -104,7 +131,7 @@ func sessionCommand(correlationID string, kind CommandKind) Command {
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID:       mo.None[domainsession.ID](), SessionName: mo.None[string](),
-		TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 	}
 }
 
@@ -122,6 +149,7 @@ func testCommand(correlationID string, kind CommandKind) Command {
 		TargetEntryID:   mo.None[string](),
 		SummaryMode:     SummaryModeNoSummary,
 		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 }
 
@@ -152,7 +180,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:          nil,
 				ResumeSession:         nil,
 				SetSessionName:        nil,
-				GetSessionInfo:        nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo:        nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: testCommand("missing", CommandUnspecified),
 		},
@@ -168,7 +196,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:   nil,
 				ResumeSession:  nil,
 				SetSessionName: nil,
-				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "user",
@@ -178,7 +206,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
 				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 			},
 		},
 		"invalid user request": {
@@ -193,7 +221,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:   nil,
 				ResumeSession:  nil,
 				SetSessionName: nil,
-				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "invalid",
@@ -203,7 +231,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
 				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 			},
 		},
 		"abort": {
@@ -216,7 +244,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:      nil,
 				ResumeSession:     nil,
 				SetSessionName:    nil,
-				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: testCommand("abort", CommandAbort),
 		},
@@ -230,7 +258,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:      nil,
 				ResumeSession:     nil,
 				SetSessionName:    nil,
-				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: testCommand("state", CommandGetRunState),
 		},
@@ -244,7 +272,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:      nil,
 				ResumeSession:     nil,
 				SetSessionName:    nil,
-				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: testCommand("messages", CommandGetMessages),
 		},
@@ -258,7 +286,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:      nil,
 				ResumeSession:     nil,
 				SetSessionName:    nil,
-				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: testCommand("models", CommandGetModels),
 		},
@@ -275,7 +303,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:   nil,
 				ResumeSession:  nil,
 				SetSessionName: nil,
-				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "select-model",
@@ -285,7 +313,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				UserText:        mo.None[string](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
 				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 			},
 		},
 		"select reasoning": {
@@ -300,7 +328,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ListSessions:   nil,
 				ResumeSession:  nil,
 				SetSessionName: nil,
-				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+				GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 			}.Build(),
 			want: Command{
 				CorrelationID:   "select-reasoning",
@@ -310,7 +338,7 @@ func TestMapOpenRequestPreservesEveryCommand(t *testing.T) {
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				SessionID:       mo.None[domainsession.ID](),
-				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+				SessionName:     mo.None[string](), TargetEntryID: mo.None[string](), SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
 			},
 		},
 	}
@@ -421,7 +449,7 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 			ListSessions:   nil,
 			ResumeSession:  nil,
 			SetSessionName: nil,
-			GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
+			GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 		}.Build()
 		got, err := mapOpenRequest(request)
 		require.NoError(t, err)
@@ -446,11 +474,13 @@ func testOpenRequest(correlationID string) *programmaticv1.OpenRequest {
 		ListSessions:          nil,
 		ResumeSession:         nil,
 		SetSessionName:        nil,
-		GetSessionInfo:        nil, GetSessionTree: nil, NavigateSessionTree: nil,
+		GetSessionInfo:        nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil,
+
+		// TestMapOpenRequestRejectsTerminalFrames verifies uncorrelated and malformed frame handling.
+		CloneSession: nil, SetEntryLabel: nil,
 	}.Build()
 }
 
-// TestMapOpenRequestRejectsTerminalFrames verifies uncorrelated and malformed frame handling.
 func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 	t.Parallel()
 
@@ -462,7 +492,7 @@ func TestMapOpenRequestRejectsTerminalFrames(t *testing.T) {
 		ListSessions:      nil,
 		ResumeSession:     nil,
 		SetSessionName:    nil,
-		GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil,
+		GetSessionInfo:    nil, GetSessionTree: nil, NavigateSessionTree: nil, ForkSession: nil, CloneSession: nil, SetEntryLabel: nil,
 	}.Build()
 	_, err := mapOpenRequest(request)
 	require.Error(t, err)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
@@ -61,27 +62,30 @@ func mapTreeNavigationCommandResponse(wire *programmaticv1.CommandResponse, navi
 
 // mapOperationIssues maps safe ordered navigation issues to Programmatic Control.
 func mapOperationIssues(issues []OperationIssue) []*programmaticv1.OperationIssue {
-	mapped := make([]*programmaticv1.OperationIssue, len(issues))
-	for index := range issues {
+	return lo.Map(issues, func(value OperationIssue, _ int) *programmaticv1.OperationIssue {
 		issue := new(programmaticv1.OperationIssue)
-		issue.SetCode(programmaticv1.OperationIssueCode(issues[index].Code))
-		issue.SetExtensionId(issues[index].ExtensionID)
-		issue.SetHandlerId(issues[index].HandlerID)
-		issue.SetMessage(issues[index].Message)
-		mapped[index] = issue
-	}
-	return mapped
+		issue.SetCode(programmaticv1.OperationIssueCode(value.Code))
+		issue.SetExtensionId(value.ExtensionID)
+		issue.SetHandlerId(value.HandlerID)
+		issue.SetMessage(value.Message)
+		return issue
+	})
 }
 
 // mapSessionTree maps every tree entry in persistence order.
 func mapSessionTree(tree SessionTree) (*programmaticv1.SessionTree, error) {
-	entries := make([]*programmaticv1.SessionTreeEntry, 0, len(tree.Entries))
-	for index := range tree.Entries {
-		entry, err := mapSessionTreeEntry(tree.Entries[index])
-		if err != nil {
-			return nil, fmt.Errorf("map session tree entry %d: %w", index, err)
-		}
-		entries = append(entries, entry)
+	entries, err := lo.MapErr(
+		tree.Entries,
+		func(entry SessionTreeEntry, index int) (*programmaticv1.SessionTreeEntry, error) {
+			mapped, mapErr := mapSessionTreeEntry(entry)
+			if mapErr != nil {
+				return nil, fmt.Errorf("map session tree entry %d: %w", index, mapErr)
+			}
+			return mapped, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 	wire := new(programmaticv1.SessionTree)
 	wire.SetEntries(entries)

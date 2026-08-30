@@ -75,7 +75,8 @@ func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
 		}.Build())
 		return request, nil
 	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed:
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed,
+		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameEntryLabelSet:
 		return nil, errors.New("map UI frame: session frame was not mapped")
 	default:
 		return nil, errors.New("map UI frame: payload is required")
@@ -92,36 +93,59 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		})
 		request.SetSessionList(uipb.SessionList_builder{Sessions: mapped}.Build())
 		return request, true, nil
-	case domainui.FrameSessionChanged, domainui.FrameSessionInformation:
+	case domainui.FrameSessionChanged, domainui.FrameSessionForked, domainui.FrameSessionCloned:
+		return mapReplacementSessionFrame(request, frame)
+	case domainui.FrameSessionInformation:
 		info, present := frame.SessionInfo.Get()
 		if !present {
 			return nil, true, errors.New("map UI frame: session information is required")
 		}
-		if frame.Kind == domainui.FrameSessionChanged {
-			entries, err := mapRestoredSessionEntries(frame.SessionEntries)
-			if err != nil {
-				return nil, true, err
-			}
-			request.SetSessionChanged(uipb.SessionChanged_builder{
-				Info: mapSessionInfo(info), Entries: entries,
-			}.Build())
-		} else {
-			statistics, statisticsPresent := frame.SessionStatistics.Get()
-			if !statisticsPresent {
-				return nil, true, errors.New("map UI frame: session statistics are required")
-			}
-			request.SetSessionInformation(uipb.SessionInformation_builder{
-				Info: mapSessionInfo(info), Statistics: mapSessionStatistics(statistics),
-			}.Build())
+		statistics, statisticsPresent := frame.SessionStatistics.Get()
+		if !statisticsPresent {
+			return nil, true, errors.New("map UI frame: session statistics are required")
 		}
+		request.SetSessionInformation(uipb.SessionInformation_builder{
+			Info: mapSessionInfo(info), Statistics: mapSessionStatistics(statistics),
+		}.Build())
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed:
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed,
+		domainui.FrameEntryLabelSet:
 		return nil, false, nil
 	default:
 		return nil, false, nil
 	}
+}
+
+// mapReplacementSessionFrame maps create, resume, fork, and clone replacement state.
+func mapReplacementSessionFrame(
+	request *uipb.OpenRequest,
+	frame domainui.Frame,
+) (*uipb.OpenRequest, bool, error) {
+	info, present := frame.SessionInfo.Get()
+	if !present {
+		return nil, true, errors.New("map UI frame: session information is required")
+	}
+	entries, err := mapRestoredSessionEntries(frame.SessionEntries)
+	if err != nil {
+		return nil, true, err
+	}
+	changed := uipb.SessionChanged_builder{Info: mapSessionInfo(info), Entries: entries}.Build()
+	if frame.Kind == domainui.FrameSessionForked {
+		nextInput, nextInputPresent := frame.Text.Get()
+		if !nextInputPresent {
+			return nil, true, errors.New("map UI fork frame: next input is required")
+		}
+		request.SetSessionForked(uipb.SessionForked_builder{Session: changed, NextInput: new(nextInput)}.Build())
+		return request, true, nil
+	}
+	if frame.Kind == domainui.FrameSessionCloned {
+		request.SetSessionCloned(uipb.SessionCloned_builder{Session: changed}.Build())
+		return request, true, nil
+	}
+	request.SetSessionChanged(changed)
+	return request, true, nil
 }
 
 func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.SessionEntry, error) {

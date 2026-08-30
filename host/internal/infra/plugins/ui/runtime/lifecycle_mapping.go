@@ -314,17 +314,15 @@ func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics
 	if cost, present := statistics.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
 	}
-	breakdown := make([]*uipb.ProviderModelCost, len(statistics.CostBreakdown))
-	for groupIndex := range statistics.CostBreakdown {
-		group := &statistics.CostBreakdown[groupIndex]
+	breakdown := lo.Map(statistics.CostBreakdown, func(group session.ProviderModelCost, _ int) *uipb.ProviderModelCost {
 		mapped := uipb.ProviderModelCost_builder{
 			ProviderId: new(string(group.Provider)), ModelId: new(string(group.Model)), EstimatedCost: nil,
 		}.Build()
 		if cost, present := group.EstimatedCost.Get(); present {
 			mapped.SetEstimatedCost(mapEstimatedCost(cost))
 		}
-		breakdown[groupIndex] = mapped
-	}
+		return mapped
+	})
 	wire.SetCostBreakdown(breakdown)
 	return wire
 }

@@ -46,6 +46,12 @@ const (
 	CommandGetSessionTree
 	// CommandNavigateSessionTree identifies tree navigation.
 	CommandNavigateSessionTree
+	// CommandForkSession identifies active-session fork.
+	CommandForkSession
+	// CommandCloneSession identifies active-branch clone.
+	CommandCloneSession
+	// CommandSetEntryLabel identifies an entry-label mutation.
+	CommandSetEntryLabel
 )
 
 // Command is one correlated transport-independent controller operation.
@@ -72,4 +78,6 @@ type Command struct {
 	SummaryMode SummaryMode
 	// CustomFocus preserves custom-prompt presence for validation.
 	CustomFocus mo.Option[string]
+	// EntryLabel preserves label presence, including an explicitly empty clear value.
+	EntryLabel mo.Option[string]
 }

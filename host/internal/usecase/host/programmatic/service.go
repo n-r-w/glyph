@@ -140,7 +140,8 @@ func (s *Service) handleImmediate(
 		return controller.Response{}, false, nil
 	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandResumeSession,
 		controller.CommandSetSessionName, controller.CommandGetSessionInfo, controller.CommandGetSessionEntries,
-		controller.CommandGetSessionStats, controller.CommandGetSessionTree, controller.CommandNavigateSessionTree:
+		controller.CommandGetSessionStats, controller.CommandGetSessionTree, controller.CommandNavigateSessionTree,
+		controller.CommandForkSession, controller.CommandCloneSession, controller.CommandSetEntryLabel:
 		return controller.Response{}, false, nil
 	default:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
@@ -168,6 +169,12 @@ func (s *Service) handleSessionImmediate(ctx context.Context, command controller
 		return s.sessionTree(command), true
 	case controller.CommandNavigateSessionTree:
 		return s.navigateSessionTree(ctx, command), true
+	case controller.CommandForkSession:
+		return s.forkSession(ctx, command), true
+	case controller.CommandCloneSession:
+		return s.cloneSession(ctx, command), true
+	case controller.CommandSetEntryLabel:
+		return s.setEntryLabel(ctx, command), true
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
@@ -319,6 +326,64 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 	return sessionInfoResponse(command.CorrelationID, info)
 }
 
+// forkSession returns a replacement only after its snapshot is durable.
+func (s *Service) forkSession(ctx context.Context, command controller.Command) controller.Response {
+	targetID, present := command.TargetEntryID.Get()
+	if !present || targetID == "" {
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required")
+	}
+	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	entries, mapErr := mapSessionEntries(replacement.Entries)
+	if mapErr != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", mapErr))
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseForkSession)
+	response.Replacement = mo.Some(controller.SessionReplacement{
+		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.Some(nextInput),
+	})
+	return response
+}
+
+// cloneSession returns a replacement only after its snapshot is durable.
+func (s *Service) cloneSession(ctx context.Context, command controller.Command) controller.Response {
+	replacement, err := s.sessionControl.Clone(ctx)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	entries, mapErr := mapSessionEntries(replacement.Entries)
+	if mapErr != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session entries are unavailable: %v", mapErr))
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseCloneSession)
+	response.Replacement = mo.Some(controller.SessionReplacement{
+		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.None[string](),
+	})
+	return response
+}
+
+// setEntryLabel returns the complete committed tree after one durable mutation.
+func (s *Service) setEntryLabel(ctx context.Context, command controller.Command) controller.Response {
+	targetID, targetPresent := command.TargetEntryID.Get()
+	label, labelPresent := command.EntryLabel.Get()
+	if !targetPresent || targetID == "" || !labelPresent {
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID and label are required")
+	}
+	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
+	if err != nil {
+		return s.sessionRejection(command, err)
+	}
+	mapped, err := mapSessionTree(tree)
+	if err != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", err))
+	}
+	response := emptyResponse(command.CorrelationID, controller.ResponseSetEntryLabel)
+	response.SessionTree = mo.Some(mapped)
+	return response
+}
+
 // navigateSessionTree commits requested navigation or returns one classified terminal result.
 func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) controller.Response {
 	targetID, present := command.TargetEntryID.Get()
@@ -384,6 +449,8 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionBusy, "another operation is active")
 	case errors.Is(err, session.ErrInvalidName):
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+	case errors.Is(err, session.ErrInvalidForkTarget):
+		return s.rejection(command, controller.RejectionInvalidArgument, err.Error())
 	case errors.Is(err, session.ErrEntryNotFound):
 		return s.rejection(command, controller.RejectionNotFound, "session tree entry was not found")
 	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
@@ -440,7 +507,7 @@ func sessionStatisticsResponse(correlationID string, statistics session.Statisti
 		SessionStatistics: mo.Some(statistics),
 		SessionTree:       mo.None[controller.SessionTree](),
 		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
-		Rejection:         mo.None[controller.Rejection](),
+		Rejection:         mo.None[controller.Rejection](), Replacement: mo.None[controller.SessionReplacement](),
 	}
 }
 
@@ -519,6 +586,7 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[controller.SessionTree](),
 		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
+		Replacement:       mo.None[controller.SessionReplacement](),
 		Rejection:         mo.None[controller.Rejection](),
 	}
 }

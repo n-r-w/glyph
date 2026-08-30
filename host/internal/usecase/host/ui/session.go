@@ -7,6 +7,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/samber/lo"
+	"github.com/samber/mo"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -246,7 +249,8 @@ func (s *Session) applyCommand(
 		return availability, activeCancel, activeKind, s.applySelectionCommand(ctx, command)
 	case domainui.CommandSubmit, domainui.CommandCreateSession, domainui.CommandListSessions,
 		domainui.CommandResumeSession, domainui.CommandSetSessionName,
-		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree:
+		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree,
+		domainui.CommandForkSession, domainui.CommandCloneSession, domainui.CommandSetEntryLabel:
 		return availability, activeCancel, activeKind, s.sendInformation("Session command was not handled.")
 	default:
 		return availability, activeCancel, activeKind, s.sendInformation("Unsupported UI command.")
@@ -332,12 +336,70 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		return true, s.channel.Send(frame)
 	case domainui.CommandNavigateSessionTree:
 		return true, s.navigateSessionTree(ctx, command)
+	case domainui.CommandForkSession:
+		return true, s.forkSession(ctx, command)
+	case domainui.CommandCloneSession:
+		return true, s.cloneSession(ctx)
+	case domainui.CommandSetEntryLabel:
+		return true, s.setEntryLabel(ctx, command)
 	case domainui.CommandSubmit, domainui.CommandStop, domainui.CommandRetryAuthentication,
 		domainui.CommandQuit, domainui.CommandSelectModel, domainui.CommandSelectReasoningChoice:
 		return false, nil
 	default:
 		return false, nil
 	}
+}
+
+// forkSession sends a replacement and exact next input only after durable creation.
+func (s *Session) forkSession(ctx context.Context, command domainui.Command) error {
+	targetID, present := command.TargetEntryID.Get()
+	if !present || targetID == "" {
+		return s.sendInformation("A target entry ID is required.")
+	}
+	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
+	if err != nil {
+		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Session fork is unavailable.")))
+	}
+	frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
+	if err != nil {
+		return err
+	}
+	frame.Kind = domainui.FrameSessionForked
+	frame.Text = mo.Some(nextInput)
+	return s.channel.Send(frame)
+}
+
+// cloneSession sends a replacement only after durable creation.
+func (s *Session) cloneSession(ctx context.Context) error {
+	replacement, err := s.sessionControl.Clone(ctx)
+	if err != nil {
+		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Session clone is unavailable.")))
+	}
+	frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
+	if err != nil {
+		return err
+	}
+	frame.Kind = domainui.FrameSessionCloned
+	return s.channel.Send(frame)
+}
+
+// setEntryLabel sends the complete tree only after the label mutation is durable.
+func (s *Session) setEntryLabel(ctx context.Context, command domainui.Command) error {
+	targetID, targetPresent := command.TargetEntryID.Get()
+	label, labelPresent := command.EntryLabel.Get()
+	if !targetPresent || targetID == "" || !labelPresent {
+		return s.sendInformation("A target entry ID and label are required.")
+	}
+	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
+	if err != nil {
+		return preserveUndeliveredSource(err, s.sendInformation(sessionFailureText(err, "Entry labeling is unavailable.")))
+	}
+	frame, err := sessionTreeFrame(tree)
+	if err != nil {
+		return err
+	}
+	frame.Kind = domainui.FrameEntryLabelSet
+	return s.channel.Send(frame)
 }
 
 // navigateSessionTree commits requested navigation or sends one closed terminal result.
@@ -417,7 +479,8 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		domainui.CommandRetryAuthentication, domainui.CommandQuit,
 		domainui.CommandCreateSession, domainui.CommandListSessions,
 		domainui.CommandResumeSession, domainui.CommandSetSessionName,
-		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree:
+		domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree, domainui.CommandNavigateSessionTree,
+		domainui.CommandForkSession, domainui.CommandCloneSession, domainui.CommandSetEntryLabel:
 		return s.sendSelectionError()
 	default:
 		return s.sendSelectionError()
@@ -534,12 +597,10 @@ func withoutClosureLeaves(err error, removeEOF bool) error {
 		return nil
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		filtered := make([]error, 0, len(joined.Unwrap()))
-		for _, nested := range joined.Unwrap() {
-			if remaining := withoutClosureLeaves(nested, removeEOF); remaining != nil {
-				filtered = append(filtered, remaining)
-			}
-		}
+		filtered := lo.FilterMap(joined.Unwrap(), func(nested error, _ int) (error, bool) {
+			remaining := withoutClosureLeaves(nested, removeEOF)
+			return remaining, remaining != nil
+		})
 		return errors.Join(filtered...)
 	}
 	if nested := errors.Unwrap(err); nested != nil {

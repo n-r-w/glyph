@@ -71,7 +71,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandStop,
@@ -83,7 +83,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandRetryAuthentication,
@@ -95,7 +95,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandQuit,
@@ -107,7 +107,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectModel,
@@ -119,7 +119,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 		{
 			Kind:            domainui.CommandSelectReasoningChoice,
@@ -131,7 +131,7 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 			SessionName:     mo.None[string](),
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
+			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
 		},
 	} {
 		command, receiveErr := transport.Receive()

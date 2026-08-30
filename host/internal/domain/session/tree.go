@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -125,6 +127,16 @@ func (tree Tree) ActiveBranch() []Entry {
 	return cloneTreeEntries(path)
 }
 
+// BranchTo returns the path through one entry or the implicit root when the ID is absent.
+func (tree Tree) BranchTo(id mo.Option[string]) ([]Entry, error) {
+	if value, present := id.Get(); present {
+		if _, exists := tree.index[value]; !exists {
+			return nil, ErrEntryNotFound
+		}
+	}
+	return cloneTreeEntries(tree.pathTo(id)), nil
+}
+
 // NavigationPreparation validates one target and derives navigation state.
 func (tree Tree) NavigationPreparation(targetID string) (NavigationPreparation, error) {
 	targetIndex, exists := tree.index[targetID]
@@ -230,19 +242,15 @@ func (tree Tree) pathTo(id mo.Option[string]) []Entry {
 		path = append(path, entry)
 		current = entry.ParentID
 	}
-	for left, right := 0, len(path)-1; left < right; left, right = left+1, right-1 {
-		path[left], path[right] = path[right], path[left]
-	}
+	slices.Reverse(path)
 	return path
 }
 
 // cloneTreeEntries prevents snapshots from sharing mutable entry payloads.
 func cloneTreeEntries(entries []Entry) []Entry {
-	result := make([]Entry, len(entries))
-	for index := range entries {
-		result[index] = entries[index].Clone()
-	}
-	return result
+	return lo.Map(entries, func(entry Entry, _ int) Entry {
+		return entry.Clone()
+	})
 }
 
 // Clone returns a deep copy of the entry.

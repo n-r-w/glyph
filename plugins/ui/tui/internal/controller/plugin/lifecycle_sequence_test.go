@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,16 +72,20 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 
 // semanticFrame describes the stable lifecycle fields shared by both fixtures.
 type semanticFrame struct {
-	Type               string `json:"type"`
-	ToolName           string `json:"tool_name"`
-	ToolStatus         string `json:"tool_status"`
-	Text               string `json:"text"`
-	ToolResultContents []struct {
-		Text string `json:"text"`
-	} `json:"tool_result_contents"`
-	ModelText    string `json:"model_text"`
-	Outcome      string `json:"outcome"`
-	Availability string `json:"availability"`
+	Type               string                      `json:"type"`
+	ToolName           string                      `json:"tool_name"`
+	ToolStatus         string                      `json:"tool_status"`
+	Text               string                      `json:"text"`
+	ToolResultContents []semanticToolResultContent `json:"tool_result_contents"`
+	ModelText          string                      `json:"model_text"`
+	Outcome            string                      `json:"outcome"`
+	Availability       string                      `json:"availability"`
+}
+
+// semanticToolResultContent describes one fixture tool-result content item.
+type semanticToolResultContent struct {
+	// Text contains one fixture text result.
+	Text string `json:"text"`
 }
 
 // lifecycleRequest builds a public protobuf frame for the real controller mapper.
@@ -149,13 +154,10 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	if frame.Type == "tool_result" {
 		lifecycle.SetToolCallId("call")
 		lifecycle.SetToolName(frame.ToolName)
-		contents := make([]*uiv1.ToolResultContent, 0, len(frame.ToolResultContents))
-		for _, content := range frame.ToolResultContents {
+		contents := lo.Map(frame.ToolResultContents, func(content semanticToolResultContent, _ int) *uiv1.ToolResultContent {
 			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
-			contents = append(contents, uiv1.ToolResultContent_builder{
-				Text: new(content.Text),
-			}.Build())
-		}
+			return uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build()
+		})
 		lifecycle.SetToolResultContents(contents)
 	}
 	if frame.Type == "tool_execution_end" {
@@ -177,11 +179,13 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		Lifecycle:          lifecycle,
 		SessionList:        nil,
 		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
+		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+
+		// repositoryRoot resolves shared testdata from the source file location.
+		SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 }
 
-// repositoryRoot resolves shared testdata from the source file location.
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

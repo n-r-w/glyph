@@ -37,7 +37,8 @@ func mapCommand(command *uipb.OpenResponse) (domainui.Command, error) {
 	case command.GetCreateSession() != nil, command.GetListSessions() != nil,
 		command.GetGetSessionInfo() != nil, command.GetResumeSession() != nil,
 		command.GetSetSessionName() != nil, command.GetGetSessionTree() != nil,
-		command.GetNavigateSessionTree() != nil:
+		command.GetNavigateSessionTree() != nil, command.GetForkSession() != nil,
+		command.GetCloneSession() != nil, command.GetSetEntryLabel() != nil:
 		return domainui.Command{}, errors.New("receive UI command: session command was not mapped")
 	default:
 		return domainui.Command{}, errors.New("receive UI command: payload is required")
@@ -64,6 +65,7 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
 			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
@@ -85,6 +87,7 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 			TargetEntryID:   mo.None[string](),
 			SummaryMode:     domainui.SummaryModeNoSummary,
 			CustomFocus:     mo.None[string](),
+			EntryLabel:      mo.None[string](),
 		}, true, nil
 	default:
 		return domainui.Command{}, false, nil
@@ -92,6 +95,8 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 }
 
 // mapSessionCommand validates lifecycle command arguments at the protobuf boundary.
+//
+//nolint:gocyclo // The switch maps every closed session command kind explicitly.
 func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, error) {
 	switch {
 	case command.GetCreateSession() != nil:
@@ -111,6 +116,25 @@ func mapSessionCommand(command *uipb.OpenResponse) (domainui.Command, bool, erro
 		mapped.SummaryMode = mapSummaryModeFromProto(navigate.GetSummaryMode())
 		if navigate.HasCustomFocus() {
 			mapped.CustomFocus = mo.Some(navigate.GetCustomFocus())
+		}
+		return mapped, true, nil
+	case command.GetForkSession() != nil:
+		fork := command.GetForkSession()
+		mapped := newCommand(domainui.CommandForkSession, mo.None[string]())
+		if fork.HasTargetEntryId() {
+			mapped.TargetEntryID = mo.Some(fork.GetTargetEntryId())
+		}
+		return mapped, true, nil
+	case command.GetCloneSession() != nil:
+		return newCommand(domainui.CommandCloneSession, mo.None[string]()), true, nil
+	case command.GetSetEntryLabel() != nil:
+		label := command.GetSetEntryLabel()
+		mapped := newCommand(domainui.CommandSetEntryLabel, mo.None[string]())
+		if label.HasTargetEntryId() {
+			mapped.TargetEntryID = mo.Some(label.GetTargetEntryId())
+		}
+		if label.HasLabel() {
+			mapped.EntryLabel = mo.Some(label.GetLabel())
 		}
 		return mapped, true, nil
 	case command.GetResumeSession() != nil:
@@ -147,6 +171,7 @@ func newCommand(kind domainui.CommandKind, text mo.Option[string]) domainui.Comm
 		TargetEntryID:   mo.None[string](),
 		SummaryMode:     domainui.SummaryModeNoSummary,
 		CustomFocus:     mo.None[string](),
+		EntryLabel:      mo.None[string](),
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -27,6 +28,19 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		result := new(uipb.SessionTreeResult)
 		result.SetTree(mapped)
 		request.SetSessionTree(result)
+		return request, true, nil
+	case domainui.FrameEntryLabelSet:
+		tree, present := frame.SessionTree.Get()
+		if !present {
+			return nil, true, errors.New("map UI entry label frame: tree is required")
+		}
+		mapped, err := mapSessionTree(tree)
+		if err != nil {
+			return nil, true, err
+		}
+		result := new(uipb.EntryLabelSet)
+		result.SetTree(mapped)
+		request.SetEntryLabelSet(result)
 		return request, true, nil
 	case domainui.FrameSessionTreeNavigation:
 		navigation, present := frame.TreeNavigation.Get()
@@ -55,7 +69,8 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
-		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation:
+		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
+		domainui.FrameSessionForked, domainui.FrameSessionCloned:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -101,27 +116,30 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionT
 
 // mapOperationIssues maps safe ordered navigation issues to the UI contract.
 func mapOperationIssues(issues []domainui.OperationIssue) []*uipb.OperationIssue {
-	mapped := make([]*uipb.OperationIssue, len(issues))
-	for index := range issues {
+	return lo.Map(issues, func(value domainui.OperationIssue, _ int) *uipb.OperationIssue {
 		issue := new(uipb.OperationIssue)
-		issue.SetCode(uipb.OperationIssueCode(issues[index].Code))
-		issue.SetExtensionId(issues[index].ExtensionID)
-		issue.SetHandlerId(issues[index].HandlerID)
-		issue.SetMessage(issues[index].Message)
-		mapped[index] = issue
-	}
-	return mapped
+		issue.SetCode(uipb.OperationIssueCode(value.Code))
+		issue.SetExtensionId(value.ExtensionID)
+		issue.SetHandlerId(value.HandlerID)
+		issue.SetMessage(value.Message)
+		return issue
+	})
 }
 
 // mapSessionTree maps every tree entry in persistence order.
 func mapSessionTree(tree domainui.SessionTree) (*uipb.SessionTree, error) {
-	entries := make([]*uipb.SessionTreeEntry, 0, len(tree.Entries))
-	for index := range tree.Entries {
-		entry, err := mapSessionTreeEntry(tree.Entries[index])
-		if err != nil {
-			return nil, fmt.Errorf("map UI tree entry %d: %w", index, err)
-		}
-		entries = append(entries, entry)
+	entries, err := lo.MapErr(
+		tree.Entries,
+		func(entry domainui.SessionTreeEntry, index int) (*uipb.SessionTreeEntry, error) {
+			mapped, mapErr := mapSessionTreeEntry(entry)
+			if mapErr != nil {
+				return nil, fmt.Errorf("map UI tree entry %d: %w", index, mapErr)
+			}
+			return mapped, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 	wire := new(uipb.SessionTree)
 	wire.SetEntries(entries)

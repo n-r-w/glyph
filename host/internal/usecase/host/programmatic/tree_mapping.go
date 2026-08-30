@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
@@ -16,13 +17,15 @@ import (
 func mapSessionTree(tree session.Tree) (controller.SessionTree, error) {
 	entries := tree.Entries()
 	labels := tree.Labels()
-	mapped := make([]controller.SessionTreeEntry, 0, len(entries))
-	for index := range entries {
-		entry, err := mapSessionTreeEntry(entries[index], labels[entries[index].ID])
-		if err != nil {
-			return controller.SessionTree{}, fmt.Errorf("map session tree entry %d: %w", index, err)
+	mapped, err := lo.MapErr(entries, func(entry session.Entry, index int) (controller.SessionTreeEntry, error) {
+		result, mapErr := mapSessionTreeEntry(entry, labels[entry.ID])
+		if mapErr != nil {
+			return controller.SessionTreeEntry{}, fmt.Errorf("map session tree entry %d: %w", index, mapErr)
 		}
-		mapped = append(mapped, entry)
+		return result, nil
+	})
+	if err != nil {
+		return controller.SessionTree{}, err
 	}
 	return controller.SessionTree{Entries: mapped, ActiveLeafID: tree.ActiveLeafID()}, nil
 }
@@ -96,12 +99,10 @@ func mapTreeNavigationCommitted(result sessionnavigation.Result) (controller.Tre
 
 // mapOperationIssues projects safe ordered navigation issues for Programmatic Control.
 func mapOperationIssues(issues []sessionnavigation.OperationIssue) []controller.OperationIssue {
-	mapped := make([]controller.OperationIssue, len(issues))
-	for index := range issues {
-		mapped[index] = controller.OperationIssue{
-			Code: controller.OperationIssueCode(issues[index].Code), ExtensionID: issues[index].ExtensionID,
-			HandlerID: issues[index].HandlerID, Message: issues[index].Message,
+	return lo.Map(issues, func(issue sessionnavigation.OperationIssue, _ int) controller.OperationIssue {
+		return controller.OperationIssue{
+			Code: controller.OperationIssueCode(issue.Code), ExtensionID: issue.ExtensionID,
+			HandlerID: issue.HandlerID, Message: issue.Message,
 		}
-	}
-	return mapped
+	})
 }

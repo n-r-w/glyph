@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -26,6 +27,8 @@ var (
 	ErrPersistenceUnavailable = errors.New("session persistence failed")
 	// ErrEntryNotFound reports an unknown session-tree entry target.
 	ErrEntryNotFound = errors.New("session tree entry not found")
+	// ErrInvalidForkTarget reports a fork target that is not a user message.
+	ErrInvalidForkTarget = errors.New("fork target must be a user message")
 )
 
 // Header is the first record in a persisted session.
@@ -197,12 +200,11 @@ type EstimatedCost struct {
 // Valid reports whether all cost buckets and their derived total satisfy session invariants.
 func (cost EstimatedCost) Valid() bool {
 	values := []float64{cost.Input, cost.Output, cost.CacheRead, cost.CacheWrite, cost.Total}
-	for _, value := range values {
-		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
-			return false
-		}
-	}
-	return cost.Total == cost.Input+cost.Output+cost.CacheRead+cost.CacheWrite
+	// validBuckets rejects invalid provider amounts before checking the derived total.
+	validBuckets := lo.EveryBy(values, func(value float64) bool {
+		return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0
+	})
+	return validBuckets && cost.Total == cost.Input+cost.Output+cost.CacheRead+cost.CacheWrite
 }
 
 // Add returns the component-wise sum of two estimated-cost values.
