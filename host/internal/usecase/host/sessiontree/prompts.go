@@ -38,10 +38,10 @@ type branchSummaryTaskData struct {
 	HasAdditionalFocus bool
 }
 
-// branchSummaryContextData contains persisted text for the embedded active-history template.
+// branchSummaryContextData contains encoded text for the embedded active-history template.
 type branchSummaryContextData struct {
-	// Summary contains persisted summary text inserted unchanged.
-	Summary string
+	// EscapedSummary contains persisted summary text encoded for XML text insertion.
+	EscapedSummary string
 }
 
 // renderBranchSummaryTask executes the embedded user task with serialized conversation and optional focus.
@@ -64,7 +64,10 @@ func renderBranchSummaryTask(conversation string, additionalFocus mo.Option[stri
 func RenderBranchSummaryContext(summary string) string {
 	var rendered strings.Builder
 	contextTemplate := template.Must(template.New(branchSummaryContextTemplateName).Parse(branchSummaryContextText))
-	if err := contextTemplate.Execute(&rendered, branchSummaryContextData{Summary: summary}); err != nil {
+	if err := contextTemplate.Execute(
+		&rendered,
+		branchSummaryContextData{EscapedSummary: escapeXMLText(summary)},
+	); err != nil {
 		panic(fmt.Sprintf("render embedded branch summary context: %v", err))
 	}
 	return rendered.String()
