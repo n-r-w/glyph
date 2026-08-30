@@ -21,7 +21,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-const constrainedToolSchema = `{"type":"object","properties":{"payload":{"type":"string","description":"Input text."}},"required":["payload"],"additionalProperties":false}`
+const constrainedToolSchema = `{"type":"object","properties":{"payload":{"type":"string",` +
+	`"description":"Input text."}},"required":["payload"],` +
+	`"additionalProperties":false}`
 
 // TestBuildToolsMapsConstrainedSampling verifies provider-owned strict and grammar request conversion.
 func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
@@ -40,20 +42,32 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 				InputSchemaJSON:     []byte(constrainedToolSchema),
 				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 			},
-			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
-			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`,
+			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
+			expected: `[{"type":"function","name":"sample","description":"Sample.",` +
+				`"parameters":{"additionalProperties":false,` +
+				`"properties":{"payload":{"description":"Input text.",` +
+				`"type":"string"}},"required":["payload"],"type":"object"},` +
+				`"strict":true}]`,
 			errorContains: "",
 		},
 		"strict prefer uses supported strict mode": {
-			descriptor:    constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
-			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
-			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":true}]`,
+			descriptor:   constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
+			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
+			expected: `[{"type":"function","name":"sample","description":"Sample.",` +
+				`"parameters":{"additionalProperties":false,` +
+				`"properties":{"payload":{"description":"Input text.",` +
+				`"type":"string"}},"required":["payload"],"type":"object"},` +
+				`"strict":true}]`,
 			errorContains: "",
 		},
 		"strict prefer preserves provider fallback": {
-			descriptor:    constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
-			capabilities:  toolCapabilities{strict: false, lark: true, regex: true},
-			expected:      `[{"type":"function","name":"sample","description":"Sample.","parameters":{"additionalProperties":false,"properties":{"payload":{"description":"Input text.","type":"string"}},"required":["payload"],"type":"object"},"strict":false}]`,
+			descriptor:   constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
+			capabilities: toolCapabilities{strict: false, lark: true, regex: true},
+			expected: `[{"type":"function","name":"sample","description":"Sample.",` +
+				`"parameters":{"additionalProperties":false,` +
+				`"properties":{"payload":{"description":"Input text.",` +
+				`"type":"string"}},"required":["payload"],"type":"object"},` +
+				`"strict":false}]`,
 			errorContains: "",
 		},
 		"strict require rejects unsupported mode": {
@@ -66,8 +80,10 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 				0,
 				tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")},
 			),
-			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
-			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"lark","definition":"start: /[a-z]+/"}}]`,
+			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
+			expected: `[{"type":"custom","name":"sample","description":"Sample.",` +
+				`"format":{"type":"grammar","syntax":"lark","definition":"start: ` +
+				`/[a-z]+/"}}]`,
 			errorContains: "",
 		},
 		"grammar uses regex when lark is empty": {
@@ -75,8 +91,10 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 				0,
 				tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()},
 			),
-			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
-			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
+			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
+			expected: `[{"type":"custom","name":"sample","description":"Sample.",` +
+				`"format":{"type":"grammar","syntax":"regex","definition":"[a-z]` +
+				`+"}}]`,
 			errorContains: "",
 		},
 		"grammar chooses a format supported by the model": {
@@ -84,8 +102,10 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 				0,
 				tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.Some("[a-z]+")},
 			),
-			capabilities:  toolCapabilities{strict: true, lark: false, regex: true},
-			expected:      `[{"type":"custom","name":"sample","description":"Sample.","format":{"type":"grammar","syntax":"regex","definition":"[a-z]+"}}]`,
+			capabilities: toolCapabilities{strict: true, lark: false, regex: true},
+			expected: `[{"type":"custom","name":"sample","description":"Sample.",` +
+				`"format":{"type":"grammar","syntax":"regex","definition":"[a-z]` +
+				`+"}}]`,
 			errorContains: "",
 		},
 		"grammar rejects when offered formats are unsupported": {
@@ -194,49 +214,70 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 			unconstrained: false,
 		},
 		"compatible nested and array item objects remain strict": {
-			schema:        `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"}},"required":["limit"],"additionalProperties":false},"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["options","ranges"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"options":{"type":"object",` +
+				`"properties":{"limit":{"type":"integer"}},"required":["limit"],` +
+				`"additionalProperties":false},"ranges":{"type":"array",` +
+				`"items":{"type":"object","properties":{"start":{"type":"integer"}` +
+				`},"required":["start"],"additionalProperties":false}}},` +
+				`"required":["options","ranges"],"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictPrefer,
 			expectStrict:  true,
 			errorContains: "",
 			unconstrained: false,
 		},
 		"preferred optional root falls back": {
-			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"path":{"type":"string"},` +
+				`"offset":{"type":"integer"}},"required":["path"],` +
+				`"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictPrefer,
 			expectStrict:  false,
 			errorContains: "",
 			unconstrained: false,
 		},
 		"unconstrained optional root falls back": {
-			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"path":{"type":"string"},` +
+				`"offset":{"type":"integer"}},"required":["path"],` +
+				`"additionalProperties":false}`,
 			expectStrict:  false,
 			unconstrained: true,
 			strictness:    0,
 			errorContains: "",
 		},
 		"duplicate required property falls back": {
-			schema:        `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}},"required":["a","a"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"a":{"type":"string"},` +
+				`"b":{"type":"string"}},"required":["a","a"],` +
+				`"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictPrefer,
 			expectStrict:  false,
 			errorContains: "",
 			unconstrained: false,
 		},
 		"required optional root rejects locally": {
-			schema:        `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer"}},"required":["path"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"path":{"type":"string"},` +
+				`"offset":{"type":"integer"}},"required":["path"],` +
+				`"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictRequire,
 			errorContains: "not compatible with Codex strict JSON Schema",
 			expectStrict:  false,
 			unconstrained: false,
 		},
 		"preferred nested optional object falls back": {
-			schema:        `{"type":"object","properties":{"options":{"type":"object","properties":{"limit":{"type":"integer"},"offset":{"type":"integer"}},"required":["limit"],"additionalProperties":false}},"required":["options"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"options":{"type":"object",` +
+				`"properties":{"limit":{"type":"integer"},` +
+				`"offset":{"type":"integer"}},"required":["limit"],` +
+				`"additionalProperties":false}},"required":["options"],` +
+				`"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictPrefer,
 			expectStrict:  false,
 			errorContains: "",
 			unconstrained: false,
 		},
 		"preferred array item optional object falls back": {
-			schema:        `{"type":"object","properties":{"ranges":{"type":"array","items":{"type":"object","properties":{"start":{"type":"integer"},"end":{"type":"integer"}},"required":["start"],"additionalProperties":false}}},"required":["ranges"],"additionalProperties":false}`,
+			schema: `{"type":"object","properties":{"ranges":{"type":"array",` +
+				`"items":{"type":"object","properties":{"start":{"type":"integer"}` +
+				`,"end":{"type":"integer"}},"required":["start"],` +
+				`"additionalProperties":false}}},"required":["ranges"],` +
+				`"additionalProperties":false}`,
 			strictness:    tool.JSONSchemaStrictPrefer,
 			expectStrict:  false,
 			errorContains: "",
@@ -331,9 +372,15 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		assert.Equal(t, "custom_tool_call_output", input[1].(map[string]any)["type"])
 		writeSSE(
 			writer,
-			`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
+			`{"type":"response.output_item.added","output_index":0,`+
+				`"item":{"id":"ctc-1","type":"custom_tool_call",`+
+				`"call_id":"call-1","name":"sample","input":"",`+
+				`"status":"in_progress"}}`,
 			`{"type":"response.custom_tool_call_input.delta","output_index":0,"item_id":"ctc-1","delta":"ab"}`,
-			`{"type":"response.output_item.done","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"abc","status":"completed"}}`,
+			`{"type":"response.output_item.done","output_index":0,`+
+				`"item":{"id":"ctc-1","type":"custom_tool_call",`+
+				`"call_id":"call-1","name":"sample","input":"abc",`+
+				`"status":"completed"}}`,
 			completedEvent(`[]`),
 		)
 	}))
@@ -341,26 +388,38 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Regex: mo.Some("[a-z]+"), Lark: mo.None[string]()})
 	history := []agent.HistoryEntry{
-		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{Content: []model.Content{{
-			Kind: model.ContentToolCall,
-			ToolCall: mo.Some(model.ToolCall{
-				ID: "call-old", Name: "sample", Arguments: map[string]any{"payload": "old"},
-			}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
-		}}, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-		}), User: mo.None[model.Message](),
+		{
+			Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
+				Content: []model.Content{{
+					Kind: model.ContentToolCall,
+					ToolCall: mo.Some(model.ToolCall{
+						ID: "call-old", Name: "sample", Arguments: map[string]any{"payload": "old"},
+					}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
+				}},
+				Outcome:       mo.Some(model.OutcomeToolUse),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
+			}), User: mo.None[model.Message](),
 			ToolResult: mo.None[agent.ToolResult](),
 		},
-		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
-			CallID: "call-old", ToolName: "sample", Contents: tool.TextContents("done"), IsError: false,
-		}), User: mo.None[model.Message](),
+		{
+			Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
+				CallID: "call-old", ToolName: "sample", Contents: tool.TextContents("done"), IsError: false,
+			}), User: mo.None[model.Message](),
 			Model: mo.None[model.Response](),
 		},
 	}
 	events := make([]run.StreamEvent, 0)
 
 	// Act by streaming the grammar tool request and collecting lifecycle events.
-	err := service.Stream(t.Context(), run.ModelRequest{ReasoningChoice: model.ReasoningChoiceOn,
-		Instructions: "test", Model: model.Descriptor{
+	err := service.Stream(t.Context(), run.ModelRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "test", Model: model.Descriptor{
 			Provider:      ProviderID,
 			Model:         "gpt-test",
 			Input:         nil,

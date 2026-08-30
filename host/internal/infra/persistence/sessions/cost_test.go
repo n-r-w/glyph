@@ -30,7 +30,8 @@ func TestModelRecordRoundTripsEstimatedCostPresence(t *testing.T) {
 	for name, estimatedCost := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			entry := session.Entry{ParentID: mo.None[string](), ID: "model-entry", CreatedAt: time.Unix(10, 0).UTC(),
+			entry := session.Entry{
+				ParentID: mo.None[string](), ID: "model-entry", CreatedAt: time.Unix(10, 0).UTC(),
 				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),

@@ -3,7 +3,6 @@ package app
 import (
 	"os"
 	"path/filepath"
-
 	"testing"
 
 	"github.com/samber/lo"

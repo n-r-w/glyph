@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"errors"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -16,7 +15,8 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable verifies snapshot preservation and local write blocking.
+// TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable verifies snapshot preservation and local write
+// blocking.
 func (s *ServiceSuite) TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable() {
 	// Arrange one successful name mutation followed by one failed mutation.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)

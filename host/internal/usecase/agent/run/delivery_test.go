@@ -3,7 +3,6 @@ package run
 import (
 	"context"
 	"errors"
-
 	"testing"
 
 	"github.com/samber/mo"

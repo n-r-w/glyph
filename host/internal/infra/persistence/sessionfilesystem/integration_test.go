@@ -20,7 +20,8 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestApplyCreatesVersionedSynchronizedSessionFile verifies the first session-information mutation creates one private JSONL file.
+// TestApplyCreatesVersionedSynchronizedSessionFile verifies the first session-information mutation creates one private
+// JSONL file.
 func TestApplyCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	t.Parallel()
 
@@ -131,7 +132,8 @@ func TestActiveSessionCreatesNoFileBeforeNaming(t *testing.T) {
 	require.False(t, active.ActiveInfo().StoragePath.IsPresent())
 }
 
-// TestRepositoryReopensListsKnownSessionAndRejectsUnknownID verifies reopening retains one known session and rejects an unknown ID.
+// TestRepositoryReopensListsKnownSessionAndRejectsUnknownID verifies reopening retains one known session and rejects an
+// unknown ID.
 func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	t.Parallel()
 
@@ -146,7 +148,8 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 		Header:      session.Header{Version: 2, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation: sessionInformationMutation(
-			session.Entry{ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
+			session.Entry{
+				ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
 				Information: mo.Some(session.Information{Name: "known session"}),
 				User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
 				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),

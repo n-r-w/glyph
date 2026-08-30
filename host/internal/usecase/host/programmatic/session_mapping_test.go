@@ -50,7 +50,8 @@ func invalidStoredModelResponse() model.Response {
 	}
 }
 
-// TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData verifies public restoration excludes private data.
+// TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData verifies public restoration excludes private
+// data.
 func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *testing.T) {
 	t.Parallel()
 
@@ -146,7 +147,8 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+		{
+			ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{

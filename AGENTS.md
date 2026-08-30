@@ -47,7 +47,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 ## Coding rules
 1. MUST run before completing changes in code:
     1) `task fmt`
-    2) `task fix_dry_run` -> analyze proposal -> `task fix`
+    2) `task fix_dry_run` -> analyze proposal -> `task fix` or manually fix issues
     3) `task lint`
     4) `task test`, `task itest`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.

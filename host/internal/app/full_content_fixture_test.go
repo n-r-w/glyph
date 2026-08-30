@@ -92,7 +92,8 @@ func appendFullContentFixtureWithUsage(
 			BranchSummary: mo.None[session.
 				BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
+		{
+			ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.Some(model.Response{
 				Content: []model.Content{
@@ -155,7 +156,8 @@ func appendFullContentFixtureWithUsage(
 			BranchSummary: mo.None[session.
 				BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
+		{
+			ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{

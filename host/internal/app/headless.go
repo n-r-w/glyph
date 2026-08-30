@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-
 	"fmt"
 	"io"
 	"log/slog"

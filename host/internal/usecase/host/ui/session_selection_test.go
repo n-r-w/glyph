@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-
 	"testing"
 
 	"github.com/samber/mo"

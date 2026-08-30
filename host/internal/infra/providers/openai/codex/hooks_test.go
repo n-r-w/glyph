@@ -268,7 +268,10 @@ func hookModelRequest(instructions string) run.ModelRequest {
 			Pricing:               mo.None[model.Pricing](),
 		},
 		History: []agent.HistoryEntry{
-			{Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
+			{
+				Kind:       agent.HistoryEntryUser,
+				User:       mo.Some(model.TextMessage("hello")),
+				Model:      mo.None[model.Response](),
 				ToolResult: mo.None[agent.ToolResult](),
 			},
 		},

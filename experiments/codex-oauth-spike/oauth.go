@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-
 	"time"
 
 	"golang.org/x/oauth2"

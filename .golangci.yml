@@ -158,6 +158,7 @@ severity:
 
 formatters:
   enable:
+    - gofumpt
     - goimports
     - golines
   settings:

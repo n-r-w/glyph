@@ -50,16 +50,27 @@ func (s *ServiceSuite) TestServiceLoadIsolatesCollisions() {
 	unaffected := NewMockExtensionRuntime(controller)
 	catalog.EXPECT().
 		Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).
-		Return(Discovery{Candidates: []Candidate{{ID: "first", Path: "/first"}, {ID: "second", Path: "/second"}, {ID: "other", Path: "/other"}}, Issues: nil}, nil)
+		Return(Discovery{
+			Candidates: []Candidate{
+				{ID: "first", Path: "/first"},
+				{ID: "second", Path: "/second"},
+				{ID: "other", Path: "/other"},
+			},
+			Issues: nil,
+		}, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "first", Path: "/first"}).Return(first, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "second", Path: "/second"}).Return(second, nil)
 	factory.EXPECT().Start(t.Context(), Candidate{ID: "other", Path: "/other"}).Return(unaffected, nil)
 	first.EXPECT().
 		Register(t.Context()).
-		Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("first-only")}, Handlers: nil}, nil)
+		Return(Registration{
+			Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("first-only")}, Handlers: nil,
+		}, nil)
 	second.EXPECT().
 		Register(t.Context()).
-		Return(Registration{Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("second-only")}, Handlers: nil}, nil)
+		Return(Registration{
+			Tools: []tool.Descriptor{testDescriptor("shared"), testDescriptor("second-only")}, Handlers: nil,
+		}, nil)
 	unaffected.EXPECT().
 		Register(t.Context()).
 		Return(Registration{Tools: []tool.Descriptor{testDescriptor("safe")}, Handlers: nil}, nil)
@@ -398,13 +409,11 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 				handler(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"}),
 				deliveryErr,
 			)
-			return tool.Result{
+			result := tool.Result{
 				Contents: tool.TextContents(""),
 				IsError:  false,
-			}, fmt.Errorf(
-				"deliver progress: %w",
-				deliveryErr,
-			)
+			}
+			return result, fmt.Errorf("deliver progress: %w", deliveryErr)
 		},
 	)
 

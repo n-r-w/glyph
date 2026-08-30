@@ -13,7 +13,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
-// TestSummaryNavigationModesForwardEquivalentInternalRequests verifies both Programmatic Control summary modes reach Host unchanged.
+// TestSummaryNavigationModesForwardEquivalentInternalRequests verifies both Programmatic Control summary modes reach
+// Host unchanged.
 func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 	t.Parallel()
 

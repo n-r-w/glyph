@@ -14,7 +14,8 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestCompleteConfiguredExecutesExactSelectionWithoutMutation verifies one alternate configured request preserves active state.
+// TestCompleteConfiguredExecutesExactSelectionWithoutMutation verifies one alternate configured request preserves
+// active state.
 func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
 	t.Parallel()
 
@@ -103,7 +104,8 @@ func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
 	assert.Equal(t, active, catalog.Selection())
 }
 
-// TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation verifies provider-owned credentials are checked before execution.
+// TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation verifies provider-owned credentials are checked
+// before execution.
 func TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation(t *testing.T) {
 	t.Parallel()
 
@@ -129,7 +131,8 @@ func TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation(t *te
 	assert.Equal(t, selection, catalog.Selection())
 }
 
-// TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation verifies exact provider, model, and reasoning validation.
+// TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation verifies exact provider, model, and reasoning
+// validation.
 func TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation(t *testing.T) {
 	t.Parallel()
 

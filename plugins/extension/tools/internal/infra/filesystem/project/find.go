@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-
 	"path/filepath"
 
 	"github.com/bmatcuk/doublestar/v4"

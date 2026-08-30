@@ -2,14 +2,11 @@ package main
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
-
 	"net/http"
-
 	"strings"
 
 	openai "github.com/openai/openai-go/v3"

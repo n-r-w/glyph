@@ -27,7 +27,8 @@ func (failure completionFailureError) Error() string { return failure.code }
 // SelectionCode exposes the configured-selection failure code.
 func (failure completionFailureError) SelectionCode() string { return failure.code }
 
-// TestNavigateSummaryFailuresNeverCommit verifies selection, credential, model, and cancellation failures preserve active state.
+// TestNavigateSummaryFailuresNeverCommit verifies selection, credential, model, and cancellation failures preserve
+// active state.
 func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 	t.Parallel()
 

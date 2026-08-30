@@ -229,7 +229,9 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 		writeSSE(
 			t,
 			writer,
-			`{"type":"response.failed","response":{"id":"resp-failed","status":"failed","error":{"code":"server_error","message":"provider capacity shard unavailable"},"output":[]}}`,
+			`{"type":"response.failed","response":{"id":"resp-failed",`+
+				`"status":"failed","error":{"code":"server_error",`+
+				`"message":"provider capacity shard unavailable"},"output":[]}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -286,22 +288,31 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 		{
 			name: "Chat Completions stream", api: APIChatCompletions,
 			events: []string{
-				`{"id":"chat-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"read","arguments":"}"}}]},"finish_reason":"tool_calls"}]}`,
+				`{"id":"chat-1","choices":[{"index":0,` +
+					`"delta":{"tool_calls":[{"index":0,"id":"call-1",` +
+					`"type":"function","function":{"name":"read","arguments":"}"}}]},` +
+					`"finish_reason":"tool_calls"}]}`,
 			},
 			want: "decode chat Completions tool-call arguments: jsontext: invalid character",
 		},
 		{
 			name: "Responses stream", api: APIResponses,
 			events: []string{
-				`{"type":"response.output_item.added","output_index":0,"item":{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
-				`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"item-1","name":"read","arguments":"}"}`,
+				`{"type":"response.output_item.added","output_index":0,` +
+					`"item":{"id":"item-1","type":"function_call","call_id":"call-1",` +
+					`"name":"read","arguments":"","status":"in_progress"}}`,
+				`{"type":"response.function_call_arguments.done","output_index":0,` +
+					`"item_id":"item-1","name":"read","arguments":"}"}`,
 			},
 			want: "decode Responses tool-call arguments: jsontext: invalid character",
 		},
 		{
 			name: "Responses completed output", api: APIResponses,
 			events: []string{
-				`{"type":"response.completed","response":{"id":"resp-1","model":"actual","status":"completed","output":[{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"}","status":"completed"}]}}`,
+				`{"type":"response.completed","response":{"id":"resp-1",` +
+					`"model":"actual","status":"completed","output":[{"id":"item-1",` +
+					`"type":"function_call","call_id":"call-1","name":"read",` +
+					`"arguments":"}","status":"completed"}]}}`,
 			},
 			want: "decode Responses tool-call arguments: jsontext: invalid character",
 		},
@@ -382,7 +393,8 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 	)
 }
 
-// TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime snapshot.
+// TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime
+// snapshot.
 func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection() {
 	t := s.T()
 
@@ -484,7 +496,8 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 	assert.Equal(t, run.StreamEventError, kinds[len(kinds)-1])
 }
 
-// TestCancellationAndHTTPFailureMapTerminalErrors verifies cancellation remains canonical and HTTP detail remains visible.
+// TestCancellationAndHTTPFailureMapTerminalErrors verifies cancellation remains canonical and HTTP detail remains
+// visible.
 func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	t := s.T()
 

@@ -17,7 +17,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
-// TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination verifies atomic branch-preserving navigation.
+// TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination verifies atomic branch-preserving
+// navigation.
 func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(t *testing.T) {
 	t.Parallel()
 

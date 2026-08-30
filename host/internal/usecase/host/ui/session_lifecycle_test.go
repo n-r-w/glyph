@@ -161,7 +161,8 @@ func TestSessionChangedReportsInvalidStoredModelProjection(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestSessionReplacementFrameUsesOneCommittedSnapshot verifies an overlapping replacement cannot mix session identity and entries.
+// TestSessionReplacementFrameUsesOneCommittedSnapshot verifies an overlapping replacement cannot mix session identity
+// and entries.
 func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -219,7 +220,8 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	require.Empty(t, frame.SessionEntries)
 }
 
-// TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData verifies restored UI frames exclude private data.
+// TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData verifies restored UI frames exclude private
+// data.
 func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *testing.T) {
 	t.Parallel()
 
@@ -313,7 +315,8 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 			BranchSummary: mo.None[session.
 				BranchSummaryEntry](),
 		},
-		{ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+		{
+			ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{
@@ -421,10 +424,15 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 				mo.None[string](),
 				mo.Some("secret session name"),
 			),
-			expectedText: "Session naming is unavailable: session persistence failed: /secret/path provider-context extension-json disk failed",
+			expectedText: "Session naming is unavailable: session persistence failed: " +
+				"/secret/path provider-context extension-json disk failed",
 			expectControl: func(control *MockSessionControl) {
 				control.EXPECT().SetName(gomock.Any(), "secret session name").Return(
-					session.Info{}, fmt.Errorf("%w: /secret/path provider-context extension-json disk failed", session.ErrPersistenceUnavailable),
+					session.Info{},
+					fmt.Errorf(
+						"%w: /secret/path provider-context extension-json disk failed",
+						session.ErrPersistenceUnavailable,
+					),
 				)
 			},
 		},
@@ -458,7 +466,8 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 	}
 }
 
-// TestSessionNameAndQueriesRemainAvailableDuringActiveRun verifies session queries include statistics without stopping a run.
+// TestSessionNameAndQueriesRemainAvailableDuringActiveRun verifies session queries include statistics without stopping
+// a run.
 func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	t.Parallel()
 

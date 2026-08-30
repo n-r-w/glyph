@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-
 	"slices"
 
 	searchtool "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/search"

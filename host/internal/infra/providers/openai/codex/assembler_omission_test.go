@@ -23,10 +23,14 @@ func TestDriverStreamRecoversFunctionCallFromTerminalOutput(t *testing.T) {
 	t.Parallel()
 
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+			`"name":"read","arguments":"","status":"in_progress"}}`,
 		`{"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"path\":\"partial"}`,
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"path\":\"file.txt\"}",` +
+				`"status":"completed"}]`,
 		),
 	}, nil)
 
@@ -44,7 +48,9 @@ func TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput(t *testi
 
 	events, err := streamOmittedToolEvents(t, []string{
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"path\":\"file.txt\"}",` +
+				`"status":"completed"}]`,
 		),
 	}, nil)
 
@@ -61,11 +67,15 @@ func TestDriverStreamAcceptsFunctionDoneWithoutIdentity(t *testing.T) {
 	t.Parallel()
 
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+			`"name":"read","arguments":"","status":"in_progress"}}`,
 		`{"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"path\":\"file.txt\"}"}`,
 		`{"type":"response.function_call_arguments.done","output_index":0,"arguments":"{\"path\":\"file.txt\"}"}`,
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"path\":\"file.txt\"}",` +
+				`"status":"completed"}]`,
 		),
 	}, nil)
 
@@ -82,10 +92,16 @@ func TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments(t *
 	t.Parallel()
 
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
-		`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"read","arguments":"{ \"path\": \"file.txt\", \"depth\": 1 }"}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+			`"name":"read","arguments":"","status":"in_progress"}}`,
+		`{"type":"response.function_call_arguments.done","output_index":0,` +
+			`"item_id":"fc-1","name":"read","arguments":"{ \"path\": ` +
+			`\"file.txt\", \"depth\": 1 }"}`,
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"depth\":1.0,\"path\":\"file.txt\"}","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"depth\":1.0,\"path\":\"file.txt\"}` +
+				`","status":"completed"}]`,
 		),
 	}, nil)
 
@@ -96,15 +112,22 @@ func TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments(t *
 	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
 
-// TestDriverStreamRejectsConflictingFinalizedFunctionArguments verifies terminal output cannot replace finalized values.
+// TestDriverStreamRejectsConflictingFinalizedFunctionArguments verifies terminal output cannot replace finalized
+// values.
 func TestDriverStreamRejectsConflictingFinalizedFunctionArguments(t *testing.T) {
 	t.Parallel()
 
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
-		`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"read","arguments":"{\"path\":\"approved.txt\"}"}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+			`"name":"read","arguments":"","status":"in_progress"}}`,
+		`{"type":"response.function_call_arguments.done","output_index":0,` +
+			`"item_id":"fc-1","name":"read",` +
+			`"arguments":"{\"path\":\"approved.txt\"}"}`,
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"replaced.txt\"}","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"path\":\"replaced.txt\"}",` +
+				`"status":"completed"}]`,
 		),
 	}, nil)
 
@@ -121,10 +144,14 @@ func TestDriverStreamRejectsConflictingFinalizedCustomInput(t *testing.T) {
 
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"ctc-1","type":"custom_tool_call",` +
+			`"call_id":"call-1","name":"sample","input":"",` +
+			`"status":"in_progress"}}`,
 		`{"type":"response.custom_tool_call_input.done","output_index":0,"item_id":"ctc-1","input":"approved"}`,
 		completedEvent(
-			`[{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"replaced","status":"completed"}]`,
+			`[{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1",` +
+				`"name":"sample","input":"replaced","status":"completed"}]`,
 		),
 	}, []tool.Descriptor{descriptor})
 
@@ -140,7 +167,9 @@ func TestDriverStreamRejectsConflictingFunctionDeltaIdentity(t *testing.T) {
 	t.Parallel()
 
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+			`"name":"read","arguments":"","status":"in_progress"}}`,
 		`{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc-other","delta":"{}"}`,
 	}, nil)
 
@@ -156,7 +185,8 @@ func TestDriverStreamRejectsInvalidTerminalFunctionArguments(t *testing.T) {
 
 	events, err := streamOmittedToolEvents(t, []string{
 		completedEvent(
-			`[{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":","status":"completed"}]`,
+			`[{"id":"fc-1","type":"function_call","call_id":"call-1",` +
+				`"name":"read","arguments":"{\"path\":","status":"completed"}]`,
 		),
 	}, nil)
 
@@ -171,7 +201,10 @@ func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
 		`{"type":"response.custom_tool_call_input.delta","output_index":0,"delta":"ab"}`,
-		`{"type":"response.output_item.done","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"abc","status":"completed"}}`,
+		`{"type":"response.output_item.done","output_index":0,` +
+			`"item":{"id":"ctc-1","type":"custom_tool_call",` +
+			`"call_id":"call-1","name":"sample","input":"abc",` +
+			`"status":"completed"}}`,
 		completedEvent(`[]`),
 	}, []tool.Descriptor{descriptor})
 
@@ -188,7 +221,10 @@ func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 
 	descriptor := constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.None[string](), Regex: mo.Some("[a-z]+")})
 	events, err := streamOmittedToolEvents(t, []string{
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"","status":"in_progress"}}`,
+		`{"type":"response.output_item.added","output_index":0,` +
+			`"item":{"id":"ctc-1","type":"custom_tool_call",` +
+			`"call_id":"call-1","name":"sample","input":"",` +
+			`"status":"in_progress"}}`,
 		`{"type":"response.custom_tool_call_input.delta","output_index":0,"delta":"ab"}`,
 		completedEvent(
 			`[{"id":"ctc-1","type":"custom_tool_call","call_id":"call-1","name":"sample","input":"abc","status":"completed"}]`,

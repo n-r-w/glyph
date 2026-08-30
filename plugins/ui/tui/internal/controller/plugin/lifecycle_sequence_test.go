@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"encoding/json/v2"
-
 	"os"
 	"path/filepath"
 	"runtime"

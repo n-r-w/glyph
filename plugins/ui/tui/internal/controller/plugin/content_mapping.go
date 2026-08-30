@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"bytes"
-
 	"errors"
 	"fmt"
 

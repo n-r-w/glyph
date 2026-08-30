@@ -10,12 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
 	"net/http"
 	"os"
-
 	"path/filepath"
-
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -213,7 +210,9 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 	t.Helper()
 	accessToken := semanticAccessToken(t, "account")
 	payload := fmt.Sprintf(
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	)
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(payload), 0o600))

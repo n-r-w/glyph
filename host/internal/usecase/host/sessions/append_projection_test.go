@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -20,7 +19,8 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies complete user and model entries become durable before publication.
+// TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies complete user and model entries become
+// durable before publication.
 func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot() {
 	// Arrange persistence expectations for complete user and model history entries.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
@@ -130,7 +130,8 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	s.Equal(2, listed[0].TotalMessages)
 }
 
-// TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication verifies terminal history is durable and independently owned.
+// TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication verifies terminal history is durable and
+// independently owned.
 func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshotPublication() {
 	// Arrange terminal model and tool-result entries with ordered persistence expectations.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
@@ -219,7 +220,8 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 	s.Equal("result", active.Snapshot()[1].ToolResult.MustGet().Contents[0].Text.MustGet())
 }
 
-// TestTerminalModelProjectionPreservesContentSliceStateAndOrder verifies nil, empty, and ordered content remain distinct.
+// TestTerminalModelProjectionPreservesContentSliceStateAndOrder verifies nil, empty, and ordered content remain
+// distinct.
 func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndOrder() {
 	// Arrange terminal responses for each supported content slice state.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
@@ -302,7 +304,8 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 	}
 }
 
-// TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged verifies failed durability prevents tool-result publication.
+// TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged verifies failed durability prevents tool-result
+// publication.
 func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistoryUnchanged() {
 	// Arrange an initialized session and a tool-result append that fails during sync.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)

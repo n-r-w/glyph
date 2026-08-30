@@ -27,10 +27,12 @@ func TestForkAndCloneHoldTheOperationGate(t *testing.T) {
 				return err
 			},
 			expect: func(active *MockActiveSessions, released *bool) {
-				active.EXPECT().ForkActive(gomock.Any(), "target").DoAndReturn(func(any, string) (session.Replacement, string, error) {
-					require.False(t, *released)
-					return session.Replacement{}, "input", nil
-				})
+				active.EXPECT().
+					ForkActive(gomock.Any(), "target").
+					DoAndReturn(func(any, string) (session.Replacement, string, error) {
+						require.False(t, *released)
+						return session.Replacement{}, "input", nil
+					})
 			},
 		},
 		{

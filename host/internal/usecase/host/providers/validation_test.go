@@ -12,7 +12,8 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestValidateConfiguredChecksSelectionAndCredentialsWithoutExecution verifies final handler selection validation has no model side effect.
+// TestValidateConfiguredChecksSelectionAndCredentialsWithoutExecution verifies final handler selection validation has
+// no model side effect.
 func TestValidateConfiguredChecksSelectionAndCredentialsWithoutExecution(t *testing.T) {
 	t.Parallel()
 
@@ -36,7 +37,8 @@ func TestValidateConfiguredChecksSelectionAndCredentialsWithoutExecution(t *test
 	assert.Equal(t, selection, catalog.Selection())
 }
 
-// TestValidateConfiguredClassifiesUnavailableState verifies missing models, reasoning, and credentials use existing codes.
+// TestValidateConfiguredClassifiesUnavailableState verifies missing models, reasoning, and credentials use existing
+// codes.
 func TestValidateConfiguredClassifiesUnavailableState(t *testing.T) {
 	t.Parallel()
 

@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"context"
-
 	"os"
 	"path/filepath"
 	"strings"

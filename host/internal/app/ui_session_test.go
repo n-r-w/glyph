@@ -4,19 +4,12 @@ package app
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
-
 	"fmt"
-
 	"net/http"
-
 	"os"
-
 	"path/filepath"
-
 	"sync/atomic"
-
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,14 +19,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 )
 
-// TestRunWithPathsUISessionLifecycleSurvivesRestart verifies Host UI restart restores full public and continuation content.
+// TestRunWithPathsUISessionLifecycleSurvivesRestart verifies Host UI restart restores full public and continuation
+// content.
 func TestRunWithPathsUISessionLifecycleSurvivesRestart(t *testing.T) {
 	// Arrange persistent paths, credentials, provider transport, UI helper, and extension tools.
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
 		nil,
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
 	requestCount := new(atomic.Int32)
@@ -119,7 +115,9 @@ func TestRunWithPathsUISessionRecoveryPaths(t *testing.T) {
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
 		nil,
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
 	uiDirectory := t.TempDir()

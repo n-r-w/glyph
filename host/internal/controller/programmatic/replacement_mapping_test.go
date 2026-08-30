@@ -27,7 +27,14 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 		assert   func(*testing.T, any)
 	}{
 		{
-			name: "fork", response: replacementMappingResponse(ResponseForkSession, mo.Some(SessionReplacement{Info: replacement.Info, ActiveBranch: nil, NextInput: mo.Some("exact input")}), mo.None[SessionTree]()),
+			name: "fork",
+			response: replacementMappingResponse(
+				ResponseForkSession,
+				mo.Some(SessionReplacement{
+					Info: replacement.Info, ActiveBranch: nil, NextInput: mo.Some("exact input"),
+				}),
+				mo.None[SessionTree](),
+			),
 			assert: func(t *testing.T, value any) {
 				wire := value.(*ResponseWire)
 				require.Equal(t, "exact input", wire.ForkInput)
@@ -35,14 +42,26 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 			},
 		},
 		{
-			name: "clone", response: replacementMappingResponse(ResponseCloneSession, mo.Some(SessionReplacement{Info: replacement.Info, ActiveBranch: nil, NextInput: mo.None[string]()}), mo.None[SessionTree]()),
+			name: "clone",
+			response: replacementMappingResponse(
+				ResponseCloneSession,
+				mo.Some(SessionReplacement{
+					Info: replacement.Info, ActiveBranch: nil, NextInput: mo.None[string](),
+				}),
+				mo.None[SessionTree](),
+			),
 			assert: func(t *testing.T, value any) {
 				wire := value.(*ResponseWire)
 				require.Equal(t, "replacement", wire.SessionID)
 			},
 		},
 		{
-			name: "label", response: replacementMappingResponse(ResponseSetEntryLabel, mo.None[SessionReplacement](), mo.Some(SessionTree{Entries: nil, ActiveLeafID: tree.ActiveLeafID()})),
+			name: "label",
+			response: replacementMappingResponse(
+				ResponseSetEntryLabel,
+				mo.None[SessionReplacement](),
+				mo.Some(SessionTree{Entries: nil, ActiveLeafID: tree.ActiveLeafID()}),
+			),
 			assert: func(t *testing.T, value any) {
 				wire := value.(*ResponseWire)
 				require.True(t, wire.HasLabelTree)

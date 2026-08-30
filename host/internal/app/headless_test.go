@@ -4,19 +4,14 @@ package app
 
 import (
 	"bytes"
-
 	"fmt"
 	"io"
-
 	"net/http"
 	"net/http/httptest"
 	"os"
-
 	"path/filepath"
-
 	"strings"
 	"sync/atomic"
-
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,7 +33,9 @@ func TestRunHeadlessUsesCompatibleDefaultWithoutAuthorization(t *testing.T) {
 		writer.Header().Set("Content-Type", "text/event-stream")
 		_, err := io.WriteString(
 			writer,
-			"data: {\"id\":\"chat-1\",\"model\":\"local-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compatible response\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+			"data: {\"id\":\"chat-1\",\"model\":\"local-model\","+
+				"\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compatible "+
+				"response\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
 		)
 		assert.NoError(t, err)
 	}))

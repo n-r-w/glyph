@@ -30,7 +30,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures verifies final callback failure retains provider cause once.
+// TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures verifies final callback failure retains provider cause
+// once.
 func TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures(t *testing.T) {
 	t.Parallel()
 
@@ -132,7 +133,8 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 	assert.NotContains(t, events, run.StreamEventError)
 }
 
-// TestDriverStreamPreservesTransportFailure verifies a transport cause reaches the returned error and terminal response.
+// TestDriverStreamPreservesTransportFailure verifies a transport cause reaches the returned error and terminal
+// response.
 func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 	t.Parallel()
 
@@ -345,12 +347,16 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 		expectsError    bool
 	}{
 		"length": {
-			event:           `{"type":"response.incomplete","response":{"id":"resp","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}}`,
+			event: `{"type":"response.incomplete","response":{"id":"resp",` +
+				`"status":"incomplete",` +
+				`"incomplete_details":{"reason":"max_output_tokens"},"output":[]}}`,
 			expectedOutcome: model.OutcomeLength,
 			expectsError:    false,
 		},
 		"failure": {
-			event:           `{"type":"response.failed","response":{"id":"resp","status":"failed","error":{"code":"server_error","message":"safe failure"},"output":[]}}`,
+			event: `{"type":"response.failed","response":{"id":"resp",` +
+				`"status":"failed","error":{"code":"server_error","message":"safe ` +
+				`failure"},"output":[]}}`,
 			expectedOutcome: model.OutcomeFailed,
 			expectsError:    true,
 		},

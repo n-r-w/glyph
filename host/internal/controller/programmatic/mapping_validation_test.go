@@ -476,7 +476,13 @@ func TestApprovedEnumValuesMapExactly(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, programmaticv1.ProgressChannel(index+1), mapped)
 	}
-	for index, value := range []ModelOutcome{ModelOutcomeStop, ModelOutcomeToolUse, ModelOutcomeLength, ModelOutcomeAborted, ModelOutcomeFailed} {
+	for index, value := range []ModelOutcome{
+		ModelOutcomeStop,
+		ModelOutcomeToolUse,
+		ModelOutcomeLength,
+		ModelOutcomeAborted,
+		ModelOutcomeFailed,
+	} {
 		mapped, err := mapModelOutcome(value)
 		require.NoError(t, err)
 		assert.Equal(t, programmaticv1.ModelOutcome(index+1), mapped)

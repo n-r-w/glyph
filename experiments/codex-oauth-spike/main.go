@@ -3,14 +3,11 @@ package main
 
 import (
 	"context"
-
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
-
 	"net/http"
 	"os"
-
 	"os/signal"
 	"path/filepath"
 	"strings"

@@ -2,9 +2,7 @@ package app
 
 import (
 	"fmt"
-
 	"maps"
-
 	"slices"
 
 	"github.com/samber/lo"

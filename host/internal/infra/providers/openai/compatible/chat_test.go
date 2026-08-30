@@ -4,7 +4,6 @@ package compatible
 
 import (
 	"encoding/json/v2"
-
 	"net/http"
 	"net/http/httptest"
 
@@ -35,9 +34,17 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":"think ","content":"hello "}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"refusal":"no"}}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"fi"}}]}}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le\"}"}}]},"finish_reason":"tool_calls"}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":99,"prompt_tokens_details":{"cached_tokens":3},"completion_tokens_details":{"reasoning_tokens":2}}}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,`+
+				`"delta":{"tool_calls":[{"index":0,"id":"call-new",`+
+				`"type":"function","function":{"name":"read",`+
+				`"arguments":"{\"path\":\"fi"}}]}}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,`+
+				`"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le\"}`+
+				`"}}]},"finish_reason":"tool_calls"}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[],`+
+				`"usage":{"prompt_tokens":12,"completion_tokens":7,`+
+				`"total_tokens":99,"prompt_tokens_details":{"cached_tokens":3},`+
+				`"completion_tokens_details":{"reasoning_tokens":2}}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -141,8 +148,15 @@ func (s *serviceSuite) TestOpenRouterRequestsIncludeAttributionHeaders() {
 		path     string
 		response string
 	}{
-		{name: "Chat Completions", api: APIChatCompletions, path: "/chat/completions", response: `{"choices":[{"delta":{},"finish_reason":"stop"}]}`},
-		{name: "Responses", api: APIResponses, path: "/responses", response: `{"type":"response.completed","response":{"id":"response","status":"completed","output":[]}}`},
+		{
+			name: "Chat Completions", api: APIChatCompletions, path: "/chat/completions",
+			response: `{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+		},
+		{
+			name: "Responses", api: APIResponses, path: "/responses",
+			response: `{"type":"response.completed","response":{"id":"response",` +
+				`"status":"completed","output":[]}}`,
+		},
 	} {
 		s.Run(testCase.name, func() {
 			// Arrange an OpenRouter-compatible endpoint that validates request attribution.
@@ -182,12 +196,30 @@ func (s *serviceSuite) TestChatReasoningMapsChoices() {
 		expectedReasoningEffort string
 		expectedReasoning       map[string]any
 	}{
-		{name: "OpenAI off", format: "openai-chat", choice: model.ReasoningChoiceOff, expectedReasoningEffort: "none", expectedReasoning: nil},
-		{name: "OpenAI effort", format: "openai-chat", choice: model.ReasoningChoiceLow, expectedReasoningEffort: "low", expectedReasoning: nil},
-		{name: "OpenAI on", format: "openai-chat", choice: model.ReasoningChoiceOn, expectedReasoningEffort: "", expectedReasoning: nil},
-		{name: "OpenRouter off", format: "openrouter", choice: model.ReasoningChoiceOff, expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "none"}},
-		{name: "OpenRouter effort", format: "openrouter", choice: model.ReasoningChoiceHigh, expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "high"}},
-		{name: "OpenRouter on", format: "openrouter", choice: model.ReasoningChoiceOn, expectedReasoningEffort: "", expectedReasoning: map[string]any{"enabled": true}},
+		{
+			name: "OpenAI off", format: "openai-chat", choice: model.ReasoningChoiceOff,
+			expectedReasoningEffort: "none", expectedReasoning: nil,
+		},
+		{
+			name: "OpenAI effort", format: "openai-chat", choice: model.ReasoningChoiceLow,
+			expectedReasoningEffort: "low", expectedReasoning: nil,
+		},
+		{
+			name: "OpenAI on", format: "openai-chat", choice: model.ReasoningChoiceOn,
+			expectedReasoningEffort: "", expectedReasoning: nil,
+		},
+		{
+			name: "OpenRouter off", format: "openrouter", choice: model.ReasoningChoiceOff,
+			expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "none"},
+		},
+		{
+			name: "OpenRouter effort", format: "openrouter", choice: model.ReasoningChoiceHigh,
+			expectedReasoningEffort: "", expectedReasoning: map[string]any{"effort": "high"},
+		},
+		{
+			name: "OpenRouter on", format: "openrouter", choice: model.ReasoningChoiceOn,
+			expectedReasoningEffort: "", expectedReasoning: map[string]any{"enabled": true},
+		},
 	} {
 		s.Run(testCase.name, func() {
 			t := s.T()
@@ -248,9 +280,24 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 			writeSSE(
 				t,
 				writer,
-				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"think ","reasoning_details":[{"type":"reasoning.text","text":"part ","id":null,"format":"","index":null,"signature":""}]}}]}`,
-				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning":"more","reasoning_details":[{"type":"reasoning.text","text":"two","id":"r1","format":"unknown","index":0,"signature":"sig"},{"type":"reasoning.summary","summary":"sum ","id":null,"format":"","index":null}]}}]}`,
-				`{"id":"chat-openrouter","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"mary","id":"s1","format":"unknown","index":1},{"type":"reasoning.encrypted","data":"cipher","id":"e1","format":"unknown","index":2,"vendor":{"x":1}}],"tool_calls":[{"index":0,"id":"call-new","type":"function","function":{"name":"read","arguments":"{\"path\":\"file\"}"}}]},"finish_reason":"tool_calls"}]}`,
+				`{"id":"chat-openrouter","choices":[{"index":0,`+
+					`"delta":{"reasoning":"think ",`+
+					`"reasoning_details":[{"type":"reasoning.text","text":"part ",`+
+					`"id":null,"format":"","index":null,"signature":""}]}}]}`,
+				`{"id":"chat-openrouter","choices":[{"index":0,`+
+					`"delta":{"reasoning":"more",`+
+					`"reasoning_details":[{"type":"reasoning.text","text":"two",`+
+					`"id":"r1","format":"unknown","index":0,"signature":"sig"},`+
+					`{"type":"reasoning.summary","summary":"sum ","id":null,`+
+					`"format":"","index":null}]}}]}`,
+				`{"id":"chat-openrouter","choices":[{"index":0,`+
+					`"delta":{"reasoning_details":[{"type":"reasoning.summary",`+
+					`"summary":"mary","id":"s1","format":"unknown","index":1},`+
+					`{"type":"reasoning.encrypted","data":"cipher","id":"e1",`+
+					`"format":"unknown","index":2,"vendor":{"x":1}}],`+
+					`"tool_calls":[{"index":0,"id":"call-new","type":"function",`+
+					`"function":{"name":"read","arguments":"{\"path\":\"file\"}"}}]},`+
+					`"finish_reason":"tool_calls"}]}`,
 			)
 			return
 		}

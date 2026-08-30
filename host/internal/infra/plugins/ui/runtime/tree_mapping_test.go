@@ -15,7 +15,8 @@ import (
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-// TestMapTreeFramePreservesPublicState verifies parent, label, active leaf, and opaque extension metadata reach the UI contract.
+// TestMapTreeFramePreservesPublicState verifies parent, label, active leaf, and opaque extension metadata reach the UI
+// contract.
 func TestMapTreeFramePreservesPublicState(t *testing.T) {
 	t.Parallel()
 

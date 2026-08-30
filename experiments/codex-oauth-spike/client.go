@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/json/v2"
-
 	"fmt"
-
 	"net/http"
 
 	"github.com/openai/openai-go/v3/option"

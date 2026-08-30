@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -19,7 +18,8 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestNextProviderRequestPreservesCompleteRestartedToolHistory verifies restart retains complete tool history and independently owned bytes.
+// TestNextProviderRequestPreservesCompleteRestartedToolHistory verifies restart retains complete tool history and
+// independently owned bytes.
 func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHistory() {
 	// Arrange a resumed history containing images, refusal, reasoning, tool calls, and tool results.
 	base := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)

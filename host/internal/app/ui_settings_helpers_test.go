@@ -2,11 +2,8 @@ package app
 
 import (
 	"os"
-
 	"path/filepath"
-
 	"strings"
-
 	"testing"
 
 	"github.com/samber/mo"
@@ -65,8 +62,14 @@ providers:
 func pricedRestartSelectionSettings() string {
 	return strings.Replace(
 		restartSelectionSettings(),
-		"      - id: selected-model\n        input: [text]\n        contextWindow: 131072\n        maxTokens: 16384\n        toolCapabilities: {}\n        pricing:\n          input: 0\n          output: 0\n          cacheRead: 0\n          cacheWrite: 0",
-		"      - id: selected-model\n        input: [text]\n        contextWindow: 131072\n        maxTokens: 16384\n        toolCapabilities: {}\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 3\n          cacheWrite: 4",
+		"      - id: selected-model\n        input: [text]\n        "+
+			"contextWindow: 131072\n        maxTokens: 16384\n        "+
+			"toolCapabilities: {}\n        pricing:\n          input: 0\n     "+
+			"     output: 0\n          cacheRead: 0\n          cacheWrite: 0",
+		"      - id: selected-model\n        input: [text]\n        "+
+			"contextWindow: 131072\n        maxTokens: 16384\n        "+
+			"toolCapabilities: {}\n        pricing:\n          input: 1\n     "+
+			"     output: 2\n          cacheRead: 3\n          cacheWrite: 4",
 		1,
 	)
 }

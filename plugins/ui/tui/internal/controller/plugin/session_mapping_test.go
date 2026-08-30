@@ -59,53 +59,58 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	toolName := "read"
 	toolResultText := "tool-result"
 	//nolint:exhaustruct_v5 // OpenRequest_builder sets only the active SessionChanged field.
-	request := uiv1.OpenRequest_builder{SessionChanged: uiv1.SessionChanged_builder{
-		Info: uiv1.SessionInfo_builder{
-			Id: &id, Name: nil, WorkingDirectory: &workingDirectory, StoragePath: nil,
-			CreatedTime: createdAt, UpdateTime: createdAt,
-		}.Build(),
-		Entries: []*uiv1.SessionEntry{
-			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active User field.
-			uiv1.SessionEntry_builder{
-				Id: &id, CreatedTime: createdAt, Model: nil,
-				User: uiv1.UserMessage_builder{Content: []*uiv1.UserContent{
-					uiv1.UserContent_builder{Text: &userText}.Build(),
-				}}.Build(),
+	request := uiv1.OpenRequest_builder{
+		SessionChanged: uiv1.SessionChanged_builder{
+			Info: uiv1.SessionInfo_builder{
+				Id: &id, Name: nil, WorkingDirectory: &workingDirectory, StoragePath: nil,
+				CreatedTime: createdAt, UpdateTime: createdAt,
 			}.Build(),
-			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active Model field.
-			uiv1.SessionEntry_builder{
-				Id: &id, CreatedTime: createdAt, User: nil,
-				Model: uiv1.ModelResponse_builder{
-					Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
-					ResponseId: nil, Usage: nil, Diagnostics: nil, ResponseModel: nil,
-					Content: []*uiv1.ModelResponseContent{
-						uiv1.ModelResponseContent_builder{
-							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: &modelText, ToolCall: nil,
-						}.Build(),
-						uiv1.ModelResponseContent_builder{
-							Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: nil,
-							ToolCall: uiv1.FinalToolCall_builder{
-								CallId: &callID, Name: &toolName, Position: new(int32(1)),
-								Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{
-									"path": structpb.NewStringValue("input.txt"),
-								}},
+			Entries: []*uiv1.SessionEntry{
+				//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active User field.
+				uiv1.SessionEntry_builder{
+					Id: &id, CreatedTime: createdAt, Model: nil,
+					User: uiv1.UserMessage_builder{Content: []*uiv1.UserContent{
+						uiv1.UserContent_builder{Text: &userText}.Build(),
+					}}.Build(),
+				}.Build(),
+				//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active Model field.
+				uiv1.SessionEntry_builder{
+					Id: &id, CreatedTime: createdAt, User: nil,
+					Model: uiv1.ModelResponse_builder{
+						Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+						ResponseId: nil, Usage: nil, Diagnostics: nil, ResponseModel: nil,
+						Content: []*uiv1.ModelResponseContent{
+							uiv1.ModelResponseContent_builder{
+								Kind: new(
+									uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
+								),
+								Text:     &modelText,
+								ToolCall: nil,
 							}.Build(),
-						}.Build(),
-					},
+							uiv1.ModelResponseContent_builder{
+								Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: nil,
+								ToolCall: uiv1.FinalToolCall_builder{
+									CallId: &callID, Name: &toolName, Position: new(int32(1)),
+									Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"path": structpb.NewStringValue("input.txt"),
+									}},
+								}.Build(),
+							}.Build(),
+						},
+					}.Build(),
 				}.Build(),
-			}.Build(),
-			//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active ToolResult field.
-			uiv1.SessionEntry_builder{
-				Id: &id, CreatedTime: createdAt, User: nil, Model: nil,
-				ToolResult: uiv1.ToolResult_builder{
-					CallId: &callID, ToolName: &toolName, IsError: new(false),
-					Contents: []*uiv1.ToolResultContent{
-						uiv1.ToolResultContent_builder{Text: &toolResultText}.Build(),
-					},
+				//nolint:exhaustruct_v5 // SessionEntry_builder sets only the active ToolResult field.
+				uiv1.SessionEntry_builder{
+					Id: &id, CreatedTime: createdAt, User: nil, Model: nil,
+					ToolResult: uiv1.ToolResult_builder{
+						CallId: &callID, ToolName: &toolName, IsError: new(false),
+						Contents: []*uiv1.ToolResultContent{
+							uiv1.ToolResultContent_builder{Text: &toolResultText}.Build(),
+						},
+					}.Build(),
 				}.Build(),
-			}.Build(),
-		},
-	}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+			},
+		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
 
 		// Act by mapping the restored session request.
 		SessionCloned: nil, EntryLabelSet: nil,

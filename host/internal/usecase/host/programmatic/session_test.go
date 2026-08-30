@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
 	"testing"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -21,7 +19,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// TestRunPreparationRejectionPreservesClassificationAndCause verifies preparation errors retain domain behavior and details.
+// TestRunPreparationRejectionPreservesClassificationAndCause verifies preparation errors retain domain behavior and
+// details.
 func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
 	t.Parallel()
 

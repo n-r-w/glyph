@@ -4,10 +4,8 @@ package compatible
 
 import (
 	"encoding/json/v2"
-
 	"net/http"
 	"net/http/httptest"
-
 	"testing"
 
 	"github.com/samber/lo"
@@ -114,24 +112,33 @@ func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 			},
 			{
 				Kind: agent.HistoryEntryModel,
-				Model: mo.Some(model.Response{Content: []model.Content{
-					{
-						Kind:            model.ContentText,
-						Text:            mo.Some("checking"),
-						Final:           true,
-						ProviderContext: mo.None[model.ProviderContext](),
-						ToolCall:        mo.None[model.ToolCall](),
+				Model: mo.Some(model.Response{
+					Content: []model.Content{
+						{
+							Kind:            model.ContentText,
+							Text:            mo.Some("checking"),
+							Final:           true,
+							ProviderContext: mo.None[model.ProviderContext](),
+							ToolCall:        mo.None[model.ToolCall](),
+						},
+						{
+							Kind:  model.ContentToolCall,
+							Final: true,
+							ToolCall: mo.Some(
+								model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old"}},
+							),
+							Text:            mo.None[string](),
+							ProviderContext: mo.None[model.ProviderContext](),
+						},
 					},
-					{
-						Kind:  model.ContentToolCall,
-						Final: true,
-						ToolCall: mo.Some(
-							model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old"}},
-						),
-						Text:            mo.None[string](),
-						ProviderContext: mo.None[model.ProviderContext](),
-					},
-				}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+					Outcome:       mo.None[model.Outcome](),
+					ErrorMessage:  mo.None[string](),
+					Provider:      mo.None[model.ProviderID](),
+					Model:         mo.None[model.ID](),
+					ResponseModel: mo.None[model.ID](),
+					ResponseID:    mo.None[string](),
+					Usage:         mo.None[model.Usage](),
+					Diagnostics:   nil,
 				}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 			},
 			{

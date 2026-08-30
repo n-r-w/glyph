@@ -13,7 +13,8 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// TestMapSessionTreeResponsePreservesPublicTreeState verifies the wire result contains parent, label, active leaf, and opaque extension metadata.
+// TestMapSessionTreeResponsePreservesPublicTreeState verifies the wire result contains parent, label, active leaf, and
+// opaque extension metadata.
 func TestMapSessionTreeResponsePreservesPublicTreeState(t *testing.T) {
 	t.Parallel()
 

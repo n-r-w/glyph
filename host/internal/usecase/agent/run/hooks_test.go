@@ -3,7 +3,6 @@ package run
 import (
 	"context"
 	"errors"
-
 	"testing"
 
 	"github.com/samber/mo"
@@ -146,11 +145,12 @@ func TestServiceRunStopsOnContextHookFailure(t *testing.T) {
 func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {
 	t.Parallel()
 
-	original := agent.ToolResult{Contents: []tool.ResultContent{{
-		Kind:  tool.ResultContentImage,
-		Text:  mo.None[string](),
-		Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
-	}}, CallID: "", ToolName: "", IsError: false,
+	original := agent.ToolResult{
+		Contents: []tool.ResultContent{{
+			Kind:  tool.ResultContentImage,
+			Text:  mo.None[string](),
+			Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
+		}}, CallID: "", ToolName: "", IsError: false,
 	}
 	cloned := original.Clone()
 	image, ok := cloned.Contents[0].Image.Get()

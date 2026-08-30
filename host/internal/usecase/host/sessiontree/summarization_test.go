@@ -16,7 +16,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
-// TestNavigateSummarizesOnlyAbandonedPath verifies built-in and custom modes use one snapshotted selection and exact branch boundary.
+// TestNavigateSummarizesOnlyAbandonedPath verifies built-in and custom modes use one snapshotted selection and exact
+// branch boundary.
 func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 	t.Parallel()
 

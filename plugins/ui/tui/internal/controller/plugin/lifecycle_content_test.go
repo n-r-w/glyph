@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"bytes"
-
 	"testing"
 
 	"go.uber.org/mock/gomock"

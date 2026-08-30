@@ -98,7 +98,9 @@ func writeSessionRecoveryFixture(t *testing.T, storagePath, workingDirectory str
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "wrong-cwd.jsonl"), []byte(wrongCWD), 0o600))
 	unsupported := header(1, fixture.unsupportedID, workingDirectory)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "unsupported.jsonl"), []byte(unsupported), 0o600))
-	user := `{"type":"entry","entry":{"type":"user","id":"preceding-entry","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"preceding tail text"}]}}}` + "\n"
+	user := `{"type":"entry","entry":{"type":"user","id":"preceding-entry",` +
+		`"parentId":null,"createdAt":"2026-08-27T10:00:01Z",` +
+		`"message":{"content":[{"kind":1,"text":"preceding tail text"}]}}}` + "\n"
 	interrupted := header(
 		2,
 		fixture.interruptedID,

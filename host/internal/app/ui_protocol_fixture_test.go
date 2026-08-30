@@ -4,18 +4,12 @@ package app
 
 import (
 	"context"
-
 	"encoding/json/v2"
-
 	"fmt"
-
 	"log/slog"
-
 	"os"
-
 	"strconv"
 	"strings"
-
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"

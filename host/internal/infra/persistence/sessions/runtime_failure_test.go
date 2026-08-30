@@ -14,7 +14,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// TestInterruptedTailRecoveryFailuresUsePersistenceClassification verifies each recovery durability failure reaches runtime mapping.
+// TestInterruptedTailRecoveryFailuresUsePersistenceClassification verifies each recovery durability failure reaches
+// runtime mapping.
 func TestInterruptedTailRecoveryFailuresUsePersistenceClassification(t *testing.T) {
 	t.Parallel()
 

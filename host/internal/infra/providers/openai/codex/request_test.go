@@ -4,10 +4,8 @@ package codex
 
 import (
 	"encoding/json/v2"
-
 	"net/http"
 	"net/http/httptest"
-
 	"testing"
 	"time"
 
@@ -106,11 +104,16 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 				writer,
 				`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"ans"}`,
 				`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"wer"}`,
-				completedEvent(`[
-				{"id":"r-new","type":"reasoning","encrypted_content":"enc-new","summary":[{"type":"summary_text","text":"summary"}]},
-				{"id":"m-new","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"answer","annotations":[],"logprobs":[]}]},
-				{"id":"fc-new","type":"function_call","call_id":"call-new","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}
-			]`),
+				completedEvent(
+					`[`+
+						`{"id":"r-new","type":"reasoning","encrypted_content":"enc-new",`+
+						`"summary":[{"type":"summary_text","text":"summary"}]},`+
+						`{"id":"m-new","type":"message","role":"assistant","status":"completed",`+
+						`"content":[{"type":"output_text","text":"answer","annotations":[],"logprobs":[]}]},`+
+						`{"id":"fc-new","type":"function_call","call_id":"call-new","name":"read",`+
+						`"arguments":"{\"path\":\"file.txt\"}","status":"completed"}`+
+						`]`,
+				),
 			)
 		}),
 	)
@@ -211,7 +214,9 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 				Name:                "read",
 				Description:         "Read a file.",
 				InputSchemaJSON: []byte(
-					`{"type":"object","properties":{"path":{"type":"string","description":"File path."}},"required":["path"],"additionalProperties":false}`,
+					`{"type":"object","properties":{"path":{"type":"string",` +
+						`"description":"File path."}},"required":["path"],` +
+						`"additionalProperties":false}`,
 				),
 			},
 		},
@@ -264,7 +269,8 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	)
 }
 
-// TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies terminal Codex usage is normalized into disjoint buckets.
+// TestDriverStreamSerializesImageAndMapsTerminalAccounting verifies terminal Codex usage is normalized into disjoint
+// buckets.
 func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	t.Parallel()
 
@@ -306,7 +312,12 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 			assert.Equal(t, "data:image/png;base64,AQID", content[1].(map[string]any)["image_url"])
 			writeSSE(
 				writer,
-				`{"type":"response.completed","response":{"id":"resp-rich","model":"gpt-actual","status":"completed","service_tier":"default","metadata":{"region":"test"},"usage":{"input_tokens":10,"output_tokens":2,"total_tokens":99,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`,
+				`{"type":"response.completed","response":{"id":"resp-rich",`+
+					`"model":"gpt-actual","status":"completed",`+
+					`"service_tier":"default","metadata":{"region":"test"},`+
+					`"usage":{"input_tokens":10,"output_tokens":2,"total_tokens":99,`+
+					`"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1}`+
+					`,"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}`,
 			)
 		}),
 	)

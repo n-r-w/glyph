@@ -499,7 +499,9 @@ func writeRuntimeInterruptedSession(ctx context.Context, active sessionInfoObser
 		runtimeInterruptedSessionID,
 		active.WorkingDirectory,
 	)
-	user := `{"type":"entry","entry":{"type":"user","id":"runtime-preceding","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":1,"text":"runtime preceding"}]}}}` + "\n"
+	user := `{"type":"entry","entry":{"type":"user","id":"runtime-preceding",` +
+		`"parentId":null,"createdAt":"2026-08-27T10:00:01Z",` +
+		`"message":{"content":[{"kind":1,"text":"runtime preceding"}]}}}` + "\n"
 	if err := os.WriteFile(path, []byte(header+user+`{"type":"entry","entry":{"type":"model"`), 0o600); err != nil {
 		return err
 	}

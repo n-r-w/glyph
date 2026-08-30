@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-
 	"fmt"
-
 	"strings"
 
 	"github.com/openai/openai-go/v3/responses"

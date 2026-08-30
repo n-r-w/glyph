@@ -4,17 +4,12 @@ package app
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-
 	"net/http"
-
 	"os"
-
 	"path/filepath"
-
 	"testing"
 
 	"google.golang.org/grpc"
@@ -254,7 +249,9 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			name:        "known zero",
 			state:       "known-zero",
 			namePresent: false,
-			usage:       `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			usage: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,` +
+				`"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}` +
+				`,"output_tokens_details":{"reasoning_tokens":0}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{
@@ -274,7 +271,9 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			name:        "available nonzero",
 			state:       "nonzero",
 			namePresent: false,
-			usage:       `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			usage: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,` +
+				`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1}` +
+				`,"output_tokens_details":{"reasoning_tokens":3}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{
@@ -308,7 +307,9 @@ func TestRunWithPathsUISessionUsageSurvivesRestart(t *testing.T) {
 			accessToken := semanticAccessToken(t, "account")
 			require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
 				nil,
-				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+					`"refresh_token":"refresh","account_id":"account",`+
+					`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 				accessToken,
 			), 0o600))
 			previousTransport := http.DefaultTransport

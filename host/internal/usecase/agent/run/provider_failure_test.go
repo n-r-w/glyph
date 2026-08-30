@@ -78,7 +78,8 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 	assert.True(t, history[1].Model.OrEmpty().Content[0].Final)
 }
 
-// TestServiceRunProviderFailureRejectsMalformedRetainedContent verifies invalid gaps do not enter history or terminal frames.
+// TestServiceRunProviderFailureRejectsMalformedRetainedContent verifies invalid gaps do not enter history or terminal
+// frames.
 func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) {
 	t.Parallel()
 
@@ -219,7 +220,8 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	assert.Equal(t, safeMessage, agentEnd.Agent.OrEmpty().ErrorMessage.OrEmpty())
 }
 
-// TestServiceRunProviderAndContentEndFailurePreservesBothCauses verifies combined stream failures reach Agent boundaries once.
+// TestServiceRunProviderAndContentEndFailurePreservesBothCauses verifies combined stream failures reach Agent
+// boundaries once.
 func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T) {
 	t.Parallel()
 
@@ -286,7 +288,8 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 	assert.NotContains(t, observed, EventTurnEnd)
 }
 
-// TestServiceRunProviderAndPersistenceFailurePreservesBothCauses verifies combined failures reach every terminal boundary.
+// TestServiceRunProviderAndPersistenceFailurePreservesBothCauses verifies combined failures reach every terminal
+// boundary.
 func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T) {
 	t.Parallel()
 

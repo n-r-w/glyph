@@ -8,9 +8,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-
 	"net/http"
-
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,7 +53,9 @@ func TestRunWithPathsUIRuntimePersistenceFailurePaths(t *testing.T) {
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
 		nil,
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
 	uiDirectory := t.TempDir()
@@ -111,7 +111,9 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	accessToken := semanticAccessToken(t, "account")
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, fmt.Appendf(
 		nil,
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	), 0o600))
 	uiDirectory := t.TempDir()
@@ -158,7 +160,8 @@ func TestRunWithPathsUIRuntimeRecoveryFailureUsesPersistenceText(t *testing.T) {
 	assert.NotEqual(t, observation.NamedSession.ID, observation.NewStartup.ID)
 }
 
-// TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl verifies a blocked session root prevents provider and RPC startup.
+// TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl verifies a blocked session root prevents provider
+// and RPC startup.
 //
 //nolint:paralleltest // The test replaces process-global http.DefaultTransport to prove providers do not start.
 func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing.T) {
@@ -184,7 +187,8 @@ func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing
 	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
-// TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization verifies a blocked project path prevents provider and UI startup.
+// TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization verifies a blocked project path prevents provider
+// and UI startup.
 func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testing.T) {
 	// Arrange a blocked canonical project session path, counting transport, UI executable, and trace path.
 	paths := testPaths(t, codexSettings(""))

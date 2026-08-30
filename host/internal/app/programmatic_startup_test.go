@@ -7,15 +7,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
-
 	"io"
-
 	"os"
-
 	"path/filepath"
-
 	"strings"
-
 	"testing"
 
 	"github.com/stretchr/testify/assert"

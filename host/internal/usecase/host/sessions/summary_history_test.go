@@ -13,7 +13,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
-// TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext verifies provider-neutral summary replay and extension exclusion.
+// TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext verifies provider-neutral summary replay and
+// extension exclusion.
 func TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext(t *testing.T) {
 	t.Parallel()
 

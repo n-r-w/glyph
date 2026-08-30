@@ -3,7 +3,6 @@ package sessions
 import (
 	"bytes"
 	"context"
-
 	"errors"
 	"fmt"
 	"io"

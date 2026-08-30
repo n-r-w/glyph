@@ -93,8 +93,11 @@ type Catalog struct {
 	active int
 }
 
-var _ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
-var _ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
+var (
+	_ hostprogrammatic.ModelCatalog     = (*Catalog)(nil)
+	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
+)
+
 var (
 	_ hostsessions.PricingCatalog = (*Catalog)(nil)
 	_ sessiontree.ModelCompleter  = (*Catalog)(nil)

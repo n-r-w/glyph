@@ -4,17 +4,12 @@ package app
 
 import (
 	"encoding/base64"
-
 	"encoding/json/v2"
 	"errors"
-
 	"io"
-
 	"net/http"
-
 	"strings"
 	"sync/atomic"
-
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -83,29 +78,28 @@ func (transport deterministicCodexTransport) RoundTrip(request *http.Request) (*
 	}
 }
 
-const toolResponseSSE = `data: {"type":"response.output_item.done","output_index":0,"item":{"id":"r-1","type":"reasoning","encrypted_content":"enc-restart","summary":[]}}
+const toolResponseSSE = `data: {"type":"response.output_item.done","output_index":0,` +
+	`"item":{"id":"r-1","type":"reasoning","encrypted_content":"enc-restart","summary":[]}}` + "\n\n" +
+	`data: {"type":"response.output_item.added","output_index":1,` +
+	`"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash",` +
+	`"arguments":"","status":"in_progress"}}` + "\n\n" +
+	`data: {"type":"response.function_call_arguments.done","output_index":1,` +
+	`"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}` + "\n\n" +
+	`data: {"type":"response.output_item.done","output_index":1,` +
+	`"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash",` +
+	`"arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}` + "\n\n" +
+	`data: {"type":"response.completed",` +
+	`"response":{"id":"resp-1","status":"completed","output":[]}}` + "\n\n" +
+	"data: [DONE]\n\n"
 
-data: {"type":"response.output_item.added","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"","status":"in_progress"}}
-
-data: {"type":"response.function_call_arguments.done","output_index":1,"item_id":"fc-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}"}
-
-data: {"type":"response.output_item.done","output_index":1,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"bash","arguments":"{\"command\":\"printf tool-ok\"}","status":"completed"}}
-
-data: {"type":"response.completed","response":{"id":"resp-1","status":"completed","output":[]}}
-
-data: [DONE]
-
-`
-
-const finalResponseSSE = `data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Request complete."}
-
-data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Request complete.","annotations":[],"logprobs":[]}]}}
-
-data: {"type":"response.completed","response":{"id":"resp-2","status":"completed","output":[]}}
-
-data: [DONE]
-
-`
+const finalResponseSSE = `data: {"type":"response.output_text.delta","output_index":0,` +
+	`"content_index":0,"delta":"Request complete."}` + "\n\n" +
+	`data: {"type":"response.output_item.done","output_index":0,` +
+	`"item":{"id":"msg-1","type":"message","role":"assistant","status":"completed",` +
+	`"content":[{"type":"output_text","text":"Request complete.","annotations":[],"logprobs":[]}]}}` + "\n\n" +
+	`data: {"type":"response.completed",` +
+	`"response":{"id":"resp-2","status":"completed","output":[]}}` + "\n\n" +
+	"data: [DONE]\n\n"
 
 // semanticAccessToken creates credentials accepted by the local deterministic provider path.
 func semanticAccessToken(t *testing.T, accountID string) string {

@@ -3,7 +3,6 @@ package runtime
 import (
 	"bytes"
 	"context"
-
 	"sync"
 	"sync/atomic"
 	"testing"

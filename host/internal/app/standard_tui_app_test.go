@@ -82,7 +82,9 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 			paths.CredentialsFile,
 			fmt.Appendf(
 				nil,
-				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+					`"refresh_token":"refresh","account_id":"account",`+
+					`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 				accessToken,
 			),
 			0o600,
@@ -618,9 +620,13 @@ func (transport standardTUIUsageTransport) RoundTrip(request *http.Request) (*ht
 	if requestNumber == 1 {
 		responseBody = toolResponseSSE
 	}
-	usage := `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`
+	usage := `{"input_tokens":0,"output_tokens":0,"total_tokens":0,` +
+		`"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}` +
+		`,"output_tokens_details":{"reasoning_tokens":0}}`
 	if requestNumber == 1 || requestNumber == 2 {
-		usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`
+		usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,` +
+			`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1}` +
+			`,"output_tokens_details":{"reasoning_tokens":3}}`
 	}
 	if requestNumber != 5 && requestNumber != 6 {
 		responseBody = strings.Replace(

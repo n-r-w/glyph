@@ -2,9 +2,7 @@ package programmatic
 
 import (
 	"context"
-
 	"io"
-
 	"sync/atomic"
 
 	"github.com/samber/mo"

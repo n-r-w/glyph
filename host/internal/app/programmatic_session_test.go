@@ -4,12 +4,9 @@ package app
 
 import (
 	"bytes"
-
 	"fmt"
-
 	"net/http"
 	"os"
-
 	"sync/atomic"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +23,9 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	credentials := fmt.Sprintf(
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	)
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
@@ -130,7 +129,10 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 
 	restarted := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 	defer restarted.closeOwner(t)
-	restartSend := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
+	restartSend := func(
+		correlationID string,
+		configure func(*programmaticv1.OpenRequest),
+	) *programmaticv1.CommandResponse {
 		request := new(programmaticv1.OpenRequest)
 		request.SetCorrelationId(correlationID)
 		configure(request)

@@ -4,21 +4,14 @@ package app
 
 import (
 	"bytes"
-
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-
 	"fmt"
-
 	"net/http"
-
 	"os"
-
 	"path/filepath"
-
 	"strings"
 	"sync/atomic"
-
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,7 +34,9 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 			paths.CredentialsFile,
 			fmt.Appendf(
 				nil,
-				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+					`"refresh_token":"refresh","account_id":"account",`+
+					`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 				accessToken,
 			),
 			0o600,

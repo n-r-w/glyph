@@ -24,7 +24,9 @@ import (
 const (
 	validHeader    = `{"type":"session","version":2,"id":"stored","createdAt":"2026-08-27T10:00:00Z","cwd":%q}` + "\n"
 	validEntry     = `{"type":"session_info","sessionInfo":{"createdAt":"2026-08-27T10:00:01Z","name":"Stored"}}` + "\n"
-	validTreeEntry = `{"type":"entry","entry":{"type":"user","id":"entry-1","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]}}}` + "\n"
+	validTreeEntry = `{"type":"entry","entry":{"type":"user","id":"entry-1",` +
+		`"parentId":null,"createdAt":"2026-08-27T10:00:01Z",` +
+		`"message":{"content":[]}}}` + "\n"
 )
 
 // TestLoadRejectsInvalidCompletedSessionRecords verifies strict validation rejects completed corruption.
@@ -79,7 +81,8 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 			return fmt.Sprintf(
 				validHeader,
 				cwd,
-			) + `{"type":"entry","entry":{"type":"user","id":"","parentId":null,"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]}}}` + "\n"
+			) + `{"type":"entry","entry":{"type":"user","id":"","parentId":null,` +
+				`"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]}}}` + "\n"
 		}},
 		{name: "malformed entry timestamp", content: func(cwd string) string {
 			return fmt.Sprintf(
@@ -97,13 +100,17 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 			return fmt.Sprintf(
 				validHeader,
 				cwd,
-			) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[],"extra":true}}}` + "\n"
+			) + `{"type":"entry","entry":{"type":"user","id":"entry-1",` +
+				`"createdAt":"2026-08-27T10:00:01Z","message":{"content":[],` +
+				`"extra":true}}}` + "\n"
 		}},
 		{name: "conflicting entry payload", content: func(cwd string) string {
 			return fmt.Sprintf(
 				validHeader,
 				cwd,
-			) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[]},"response":{}}}` + "\n"
+			) + `{"type":"entry","entry":{"type":"user","id":"entry-1",` +
+				`"createdAt":"2026-08-27T10:00:01Z","message":{"content":[]},` +
+				`"response":{}}}` + "\n"
 		}},
 		{name: "duplicate entry ID", content: func(cwd string) string {
 			return fmt.Sprintf(validHeader, cwd) + validTreeEntry + validTreeEntry
@@ -118,7 +125,9 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 			return fmt.Sprintf(
 				validHeader,
 				cwd,
-			) + `{"type":"entry","entry":{"type":"extension","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":}}` + "\n"
+			) + `{"type":"entry","entry":{"type":"extension","id":"entry-1",` +
+				`"createdAt":"2026-08-27T10:00:01Z","extensionId":"ext",` +
+				`"entryType":"item","data":}}` + "\n"
 		}},
 	}
 
@@ -269,7 +278,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 				return fmt.Sprintf(
 					validHeader,
 					cwd,
-				) + `{"type":"entry","entry":{"type":"user","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","message":{"content":[{"kind":2,"mediaType":"image/png","data":"%%%"}]}}}` + "\n"
+				) + `{"type":"entry","entry":{"type":"user","id":"entry-1",` +
+					`"createdAt":"2026-08-27T10:00:01Z",` +
+					`"message":{"content":[{"kind":2,"mediaType":"image/png",` +
+					`"data":"%%%"}]}}}` + "\n"
 			},
 			context: "decode session mutation record 1: user image data",
 			cause:   "illegal base64 data",
@@ -280,7 +292,10 @@ func TestLoadRetainsSessionParserCauses(t *testing.T) {
 				return fmt.Sprintf(
 					validHeader,
 					cwd,
-				) + `{"type":"entry","entry":{"type":"tool_result","id":"entry-1","createdAt":"2026-08-27T10:00:01Z","result":{"callId":"call-1","toolName":"read","contents":[{"kind":2,"mediaType":"image/png","data":"%%%"}],"isError":false}}}` + "\n"
+				) + `{"type":"entry","entry":{"type":"tool_result","id":"entry-1",` +
+					`"createdAt":"2026-08-27T10:00:01Z","result":{"callId":"call-1",` +
+					`"toolName":"read","contents":[{"kind":2,"mediaType":"image/png",` +
+					`"data":"%%%"}],"isError":false}}}` + "\n"
 			},
 			context: "decode session mutation record 1: tool result image data",
 			cause:   "illegal base64 data",
@@ -369,7 +384,8 @@ func TestLoadPrioritizesHeaderDecodeErrors(t *testing.T) {
 	}
 }
 
-// TestLoadClassifiesMalformedMatchedHeaderUnavailable verifies a valid ID is retained for strict-header failure mapping.
+// TestLoadClassifiesMalformedMatchedHeaderUnavailable verifies a valid ID is retained for strict-header failure
+// mapping.
 func TestLoadClassifiesMalformedMatchedHeaderUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -493,7 +509,9 @@ func TestExtensionDataAcceptsEveryJSONValue(t *testing.T) {
 	values := []string{"null", "true", "42", `"text"`, "[]", "{}"}
 	for index, value := range values {
 		entry := fmt.Sprintf(
-			`{"type":"entry","entry":{"type":"extension","id":"entry-%d","createdAt":"2026-08-27T10:00:01Z","extensionId":"ext","entryType":"item","data":%s}}`+"\n",
+			`{"type":"entry","entry":{"type":"extension","id":"entry-%d",`+
+				`"createdAt":"2026-08-27T10:00:01Z","extensionId":"ext",`+
+				`"entryType":"item","data":%s}}`+"\n",
 			index,
 			value,
 		)

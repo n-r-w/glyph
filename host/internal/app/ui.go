@@ -2,12 +2,10 @@ package app
 
 import (
 	"context"
-
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-
 	"path/filepath"
 
 	"github.com/n-r-w/glyph/host/internal/config/codingagent"

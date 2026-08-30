@@ -60,7 +60,8 @@ var _ programmaticv1.ProgrammaticControlServiceServer = (*Service)(nil)
 // New creates a Programmatic Control gRPC service.
 func New(applicationContext context.Context, session HostSession) *Service {
 	return &Service{
-		UnimplementedProgrammaticControlServiceServer: programmaticv1.UnimplementedProgrammaticControlServiceServer{},
+		UnimplementedProgrammaticControlServiceServer: programmaticv1.
+			UnimplementedProgrammaticControlServiceServer{},
 		applicationContext: applicationContext,
 		session:            session,
 		ownerClaimed:       atomic.Bool{},
@@ -78,7 +79,8 @@ func (s *Service) Completions() <-chan SessionCompletion {
 func (s *Service) Open(stream grpc.BidiStreamingServer[
 	programmaticv1.OpenRequest,
 	programmaticv1.OpenResponse,
-]) error {
+],
+) error {
 	return s.open(stream)
 }
 

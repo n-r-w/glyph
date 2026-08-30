@@ -413,7 +413,8 @@ func TestDecodeRefreshResponsePreservesJSONCause(t *testing.T) {
 	assert.Contains(t, err.Error(), "refresh response")
 }
 
-// TestCheckProviderAuthenticationPreservesCredentialParserCause verifies sign-in classification keeps stored JSON detail.
+// TestCheckProviderAuthenticationPreservesCredentialParserCause verifies sign-in classification keeps stored JSON
+// detail.
 func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T) {
 	t.Parallel()
 

@@ -124,7 +124,8 @@ func (s *SettingsSuite) TestLoadPreservesOptionalPricing() {
 	}{
 		"absent": {yaml: "", pricing: mo.None[model.Pricing]()},
 		"flat": {
-			yaml: "        pricing:\n          input: 1.25\n          output: 10\n          cacheRead: 0.125\n          cacheWrite: 1.25",
+			yaml: "        pricing:\n          input: 1.25\n          output: 10\n  " +
+				"        cacheRead: 0.125\n          cacheWrite: 1.25",
 			pricing: mo.Some(model.Pricing{
 				Input: 1.25, Output: 10, CacheRead: 0.125, CacheWrite: 1.25, Tiers: nil,
 			}),
@@ -136,7 +137,13 @@ func (s *SettingsSuite) TestLoadPreservesOptionalPricing() {
 			}),
 		},
 		"tiered": {
-			yaml: "        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.1\n          cacheWrite: 0.5\n          tiers:\n            - inputTokensAbove: 100\n              input: 3\n              output: 4\n              cacheRead: 0.3\n              cacheWrite: 0.7\n            - inputTokensAbove: 200\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+			yaml: "        pricing:\n          input: 1\n          output: 2\n      " +
+				"    cacheRead: 0.1\n          cacheWrite: 0.5\n          tiers:\n" +
+				"            - inputTokensAbove: 100\n              input: 3\n    " +
+				"          output: 4\n              cacheRead: 0.3\n              " +
+				"cacheWrite: 0.7\n            - inputTokensAbove: 200\n           " +
+				"   input: 5\n              output: 6\n              cacheRead: " +
+				"0.5\n              cacheWrite: 0.9",
 			pricing: mo.Some(model.Pricing{
 				Input: 1, Output: 2, CacheRead: 0.1, CacheWrite: 0.5,
 				Tiers: []model.PricingTier{

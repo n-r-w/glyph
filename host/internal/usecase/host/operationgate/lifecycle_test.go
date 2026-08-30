@@ -200,7 +200,8 @@ func TestProgrammaticSessionCommandsRespectGateBeforeStorage(t *testing.T) {
 	require.Equal(t, resumedInfo, response.SessionInfo.MustGet())
 }
 
-// TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease verifies programmatic busy resume skips repository until gate release.
+// TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease verifies programmatic busy resume skips repository until
+// gate release.
 func TestProgrammaticBusyResumeSkipsRepositoryUntilGateRelease(t *testing.T) {
 	t.Parallel()
 
@@ -274,7 +275,8 @@ func programmaticSessionCommand(
 	}
 }
 
-// TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce verifies cancellation frees the gate once without starting the run.
+// TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce verifies cancellation frees the gate once without starting
+// the run.
 func TestAcceptedDeliveryFailureReleasesPreparedRunExactlyOnce(t *testing.T) {
 	t.Parallel()
 

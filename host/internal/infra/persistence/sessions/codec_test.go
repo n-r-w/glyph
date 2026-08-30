@@ -2,11 +2,8 @@ package sessions
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
-
 	"fmt"
-
 	"testing"
 	"time"
 
@@ -22,7 +19,8 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestTerminalModelAndToolResultRecordsRoundTripContinuationData verifies terminal identity and continuation data persist.
+// TestTerminalModelAndToolResultRecordsRoundTripContinuationData verifies terminal identity and continuation data
+// persist.
 func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T) {
 	t.Parallel()
 
@@ -114,8 +112,18 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 		responseID mo.Option[string]
 		usage      mo.Option[model.Usage]
 	}{
-		{name: "aborted with present empty identity and zero usage", outcome: model.OutcomeAborted, responseID: mo.Some(""), usage: mo.Some(model.Usage{})},
-		{name: "failed with absent identity and usage", outcome: model.OutcomeFailed, responseID: mo.None[string](), usage: mo.None[model.Usage]()},
+		{
+			name:       "aborted with present empty identity and zero usage",
+			outcome:    model.OutcomeAborted,
+			responseID: mo.Some(""),
+			usage:      mo.Some(model.Usage{}),
+		},
+		{
+			name:       "failed with absent identity and usage",
+			outcome:    model.OutcomeFailed,
+			responseID: mo.None[string](),
+			usage:      mo.None[model.Usage](),
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

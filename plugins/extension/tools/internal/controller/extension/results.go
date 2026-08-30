@@ -3,7 +3,6 @@ package extension
 import (
 	"bytes"
 	"context"
-
 	"errors"
 	"fmt"
 

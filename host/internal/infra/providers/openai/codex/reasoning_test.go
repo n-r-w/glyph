@@ -4,10 +4,8 @@ package codex
 
 import (
 	"encoding/json/v2"
-
 	"net/http"
 	"net/http/httptest"
-
 	"sync/atomic"
 	"testing"
 	"time"
@@ -48,11 +46,18 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 		http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 			writeSSE(
 				writer,
-				`{"type":"response.output_item.added","output_index":0,"item":{"id":"r","type":"reasoning","encrypted_content":"","summary":[]}}`,
+				`{"type":"response.output_item.added","output_index":0,`+
+					`"item":{"id":"r","type":"reasoning","encrypted_content":"",`+
+					`"summary":[]}}`,
 				`{"type":"response.reasoning_summary_text.delta","output_index":0,"summary_index":0,"delta":"why"}`,
-				`{"type":"response.output_item.done","output_index":0,"item":{"id":"r","type":"reasoning","encrypted_content":"enc","summary":[{"type":"summary_text","text":"why"}]}}`,
+				`{"type":"response.output_item.done","output_index":0,`+
+					`"item":{"id":"r","type":"reasoning","encrypted_content":"enc",`+
+					`"summary":[{"type":"summary_text","text":"why"}]}}`,
 				`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"answer"}`,
-				`{"type":"response.output_item.done","output_index":1,"item":{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"answer","annotations":[],"logprobs":[]}]}}`,
+				`{"type":"response.output_item.done","output_index":1,`+
+					`"item":{"id":"m","type":"message","role":"assistant",`+
+					`"status":"completed","content":[{"type":"output_text",`+
+					`"text":"answer","annotations":[],"logprobs":[]}]}}`,
 				completedEvent(`[]`),
 			)
 		}),
@@ -130,7 +135,8 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 			writeSSE(
 				writer,
 				completedEvent(
-					`[{"id":"r-visible","type":"reasoning","encrypted_content":"","summary":[{"type":"summary_text","text":"visible summary"}]}]`,
+					`[{"id":"r-visible","type":"reasoning","encrypted_content":"",`+
+						`"summary":[{"type":"summary_text","text":"visible summary"}]}]`,
 				),
 			)
 		}),
@@ -215,8 +221,13 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 				writer,
 				`{"type":"response.refusal.delta","output_index":1,"content_index":0,"delta":"I can"}`,
 				`{"type":"response.refusal.delta","output_index":1,"content_index":0,"delta":"not help"}`,
-				`{"type":"response.output_item.done","output_index":0,"item":{"id":"r-refusal","type":"reasoning","encrypted_content":"enc-refusal","summary":[]}}`,
-				`{"type":"response.output_item.done","output_index":1,"item":{"id":"m-refusal","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"I cannot help"}]}}`,
+				`{"type":"response.output_item.done","output_index":0,`+
+					`"item":{"id":"r-refusal","type":"reasoning",`+
+					`"encrypted_content":"enc-refusal","summary":[]}}`,
+				`{"type":"response.output_item.done","output_index":1,`+
+					`"item":{"id":"m-refusal","type":"message","role":"assistant",`+
+					`"status":"completed","content":[{"type":"refusal","refusal":"I `+
+					`cannot help"}]}}`,
 				completedEvent(`[]`),
 			)
 		}),
@@ -377,7 +388,9 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 			writeSSE(
 				writer,
 				completedEvent(
-					`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`,
+					`[{"id":"m","type":"message","role":"assistant",`+
+						`"status":"completed","content":[{"type":"output_text",`+
+						`"text":"done","annotations":[],"logprobs":[]}]}]`,
 				),
 			)
 		}),

@@ -18,7 +18,8 @@ import (
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 )
 
-// TestReplacementAndLabelReplayRestoresExactCommittedState verifies fork, clone, and label durability across repository restart.
+// TestReplacementAndLabelReplayRestoresExactCommittedState verifies fork, clone, and label durability across repository
+// restart.
 func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 	t.Parallel()
 
@@ -38,8 +39,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.Equal(t, "exact target", nextInput)
 				return replacement.Info.ID
 			},
-			expectedIDs: []string{"root", "extension", "summary"}, expectedLeaf: mo.Some("summary"),
-			expectedLabels: map[string]string{"summary": "kept"}, sourceLabels: map[string]string{"summary": "kept", "target": "source"},
+			expectedIDs:    []string{"root", "extension", "summary"},
+			expectedLeaf:   mo.Some("summary"),
+			expectedLabels: map[string]string{"summary": "kept"},
+			sourceLabels:   map[string]string{"summary": "kept", "target": "source"},
 		},
 		{
 			name: "clone",
@@ -48,8 +51,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.NoError(t, err)
 				return replacement.Info.ID
 			},
-			expectedIDs: []string{"root", "extension", "summary", "target"}, expectedLeaf: mo.Some("target"),
-			expectedLabels: map[string]string{"summary": "kept", "target": "source"}, sourceLabels: map[string]string{"summary": "kept", "target": "source"},
+			expectedIDs:    []string{"root", "extension", "summary", "target"},
+			expectedLeaf:   mo.Some("target"),
+			expectedLabels: map[string]string{"summary": "kept", "target": "source"},
+			sourceLabels:   map[string]string{"summary": "kept", "target": "source"},
 		},
 		{
 			name: "label",
@@ -58,8 +63,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.NoError(t, err)
 				return "source"
 			},
-			expectedIDs: []string{"root", "extension", "summary", "target"}, expectedLeaf: mo.Some("target"),
-			expectedLabels: map[string]string{"summary": "kept", "target": "updated"}, sourceLabels: map[string]string{"summary": "kept", "target": "updated"},
+			expectedIDs:    []string{"root", "extension", "summary", "target"},
+			expectedLeaf:   mo.Some("target"),
+			expectedLabels: map[string]string{"summary": "kept", "target": "updated"},
+			sourceLabels:   map[string]string{"summary": "kept", "target": "updated"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

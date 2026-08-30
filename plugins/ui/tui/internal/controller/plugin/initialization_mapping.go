@@ -3,7 +3,6 @@ package plugin
 import (
 	"errors"
 	"fmt"
-
 	"slices"
 
 	"github.com/samber/lo"

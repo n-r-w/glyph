@@ -3,7 +3,6 @@ package programmatic
 import (
 	"context"
 	"errors"
-
 	"testing"
 	"testing/synctest"
 

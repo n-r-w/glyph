@@ -3,10 +3,8 @@ package settings
 import (
 	"errors"
 	"fmt"
-
 	"math"
 	"net/url"
-
 	"slices"
 	"strings"
 

@@ -5,7 +5,6 @@ package codex
 import (
 	"net/http"
 	"net/http/httptest"
-
 	"testing"
 	"time"
 
@@ -45,11 +44,20 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 		http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 			writeSSE(
 				writer,
-				`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
-				`{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc-1","delta":"{\"path\":\"file.txt\",\"query\":\"hel"}`,
+				`{"type":"response.output_item.added","output_index":0,`+
+					`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",`+
+					`"name":"read","arguments":"","status":"in_progress"}}`,
+				`{"type":"response.function_call_arguments.delta",`+
+					`"output_index":0,"item_id":"fc-1",`+
+					`"delta":"{\"path\":\"file.txt\",\"query\":\"hel"}`,
 				`{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc-1","delta":"lo\"}"}`,
-				`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"read","arguments":"{\"path\":\"file.txt\",\"query\":\"hello\"}"}`,
-				`{"type":"response.output_item.done","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file.txt\",\"query\":\"hello\"}","status":"completed"}}`,
+				`{"type":"response.function_call_arguments.done","output_index":0,`+
+					`"item_id":"fc-1","name":"read",`+
+					`"arguments":"{\"path\":\"file.txt\",\"query\":\"hello\"}"}`,
+				`{"type":"response.output_item.done","output_index":0,`+
+					`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",`+
+					`"name":"read","arguments":"{\"path\":\"file.txt\",`+
+					`\"query\":\"hello\"}","status":"completed"}}`,
 				completedEvent(`[]`),
 			)
 		}),
@@ -107,7 +115,10 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 			writeSSE(
 				writer,
 				`{"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"path\":\"file.txt\"}"}`,
-				`{"type":"response.output_item.done","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}}`,
+				`{"type":"response.output_item.done","output_index":0,`+
+					`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",`+
+					`"name":"read","arguments":"{\"path\":\"file.txt\"}",`+
+					`"status":"completed"}}`,
 				completedEvent(`[]`),
 			)
 		}),
@@ -144,7 +155,8 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	}, events[1].ToolCall.OrEmpty())
 }
 
-// TestDriverStreamRejectsInvalidFinalFunctionArguments verifies malformed final arguments terminate without a tool-call end.
+// TestDriverStreamRejectsInvalidFinalFunctionArguments verifies malformed final arguments terminate without a tool-call
+// end.
 func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	t.Parallel()
 
@@ -168,9 +180,12 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 			writeSSE(
 				writer,
-				`{"type":"response.output_item.added","output_index":0,"item":{"id":"fc-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
+				`{"type":"response.output_item.added","output_index":0,`+
+					`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",`+
+					`"name":"read","arguments":"","status":"in_progress"}}`,
 				`{"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc-1","delta":"{\"path\":"}`,
-				`{"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc-1","name":"read","arguments":"{\"path\":"}`,
+				`{"type":"response.function_call_arguments.done","output_index":0,`+
+					`"item_id":"fc-1","name":"read","arguments":"{\"path\":"}`,
 			)
 		}),
 	)
@@ -224,9 +239,17 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 				writer,
 				`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"final "}`,
 				`{"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"answer"}`,
-				`{"type":"response.output_item.done","output_index":0,"item":{"id":"r-final","type":"reasoning","encrypted_content":"enc-final","summary":[]}}`,
-				`{"type":"response.output_item.done","output_index":1,"item":{"id":"m-final","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"final answer","annotations":[],"logprobs":[]}]}}`,
-				`{"type":"response.output_item.done","output_index":2,"item":{"id":"fc-final","type":"function_call","call_id":"call-final","name":"read","arguments":"{\"path\":\"file.txt\"}","status":"completed"}}`,
+				`{"type":"response.output_item.done","output_index":0,`+
+					`"item":{"id":"r-final","type":"reasoning",`+
+					`"encrypted_content":"enc-final","summary":[]}}`,
+				`{"type":"response.output_item.done","output_index":1,`+
+					`"item":{"id":"m-final","type":"message","role":"assistant",`+
+					`"status":"completed","content":[{"type":"output_text",`+
+					`"text":"final answer","annotations":[],"logprobs":[]}]}}`,
+				`{"type":"response.output_item.done","output_index":2,`+
+					`"item":{"id":"fc-final","type":"function_call",`+
+					`"call_id":"call-final","name":"read",`+
+					`"arguments":"{\"path\":\"file.txt\"}","status":"completed"}}`,
 				completedEvent(
 					`[{"id":"r-final","type":"reasoning","encrypted_content":"enc-final","summary":[]}]`,
 				),

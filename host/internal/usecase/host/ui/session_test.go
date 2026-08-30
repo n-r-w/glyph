@@ -2,10 +2,8 @@ package ui
 
 import (
 	"context"
-
 	"io"
 	"strings"
-
 	"testing"
 
 	"github.com/samber/lo"

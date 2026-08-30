@@ -2,9 +2,7 @@ package sessions
 
 import (
 	"context"
-
 	"fmt"
-
 	"time"
 
 	"github.com/samber/mo"
@@ -90,7 +88,8 @@ func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() 
 	s.False(active.StoragePath.IsPresent())
 }
 
-// TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot verifies a whitespace-heavy name becomes durable before publication.
+// TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot verifies a whitespace-heavy name becomes durable before
+// publication.
 func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot() {
 	// Arrange an initialized session and an append expectation for the normalized name.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
@@ -185,7 +184,8 @@ func (s *ServiceSuite) TestSetNameUsesSuppliedTimestamps() {
 	s.Equal(secondUpdate, info.UpdatedAt)
 }
 
-// TestListOrdersUpdatesAndUsesUnnamedIDFallbackData verifies unnamed summaries are ordered without invented display data.
+// TestListOrdersUpdatesAndUsesUnnamedIDFallbackData verifies unnamed summaries are ordered without invented display
+// data.
 func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	// Arrange stored unnamed sessions with tied and distinct update times.
 	base := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
@@ -244,7 +244,8 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	}
 }
 
-// TestListCountsStoredToolResultsAsTerminalMessages verifies model and tool-result entries both contribute to the summary count.
+// TestListCountsStoredToolResultsAsTerminalMessages verifies model and tool-result entries both contribute to the
+// summary count.
 func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	// Arrange a stored session containing model and tool-result terminal entries.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
@@ -388,7 +389,8 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 	s.Equal(want, laterSnapshot[0].Extension.MustGet().Data)
 }
 
-// TestResumeSerializesWithCompletedTextAppend verifies resume cannot redirect an append that already owns the service lock.
+// TestResumeSerializesWithCompletedTextAppend verifies resume cannot redirect an append that already owns the service
+// lock.
 func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	// Arrange a blocked repository load and a concurrent completed text append.
 	createdAt := time.Date(2026, 8, 27, 2, 0, 0, 0, time.UTC)

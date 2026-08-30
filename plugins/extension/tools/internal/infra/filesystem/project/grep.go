@@ -2,7 +2,6 @@ package project
 
 import (
 	"bufio"
-
 	"context"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-
 	"strings"
 	"unicode/utf8"
 

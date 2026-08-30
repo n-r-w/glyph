@@ -40,7 +40,8 @@ func TestLogPersistenceFailurePreservesStructuredErrorContext(t *testing.T) {
 	assert.NotContains(t, logged, "extension")
 }
 
-// TestResumeNonPersistenceFailuresDoNotLog verifies normal lookup and validation failures do not enter persistence diagnostics.
+// TestResumeNonPersistenceFailuresDoNotLog verifies normal lookup and validation failures do not enter persistence
+// diagnostics.
 //
 //nolint:paralleltest // The test temporarily replaces process-global slog.Default().
 func TestResumeNonPersistenceFailuresDoNotLog(t *testing.T) {
@@ -68,7 +69,8 @@ func TestResumeNonPersistenceFailuresDoNotLog(t *testing.T) {
 	assert.Empty(t, output.String())
 }
 
-// TestResumePersistenceFailureLogsSafeOperation verifies failed recovery records safe operation and infrastructure cause only.
+// TestResumePersistenceFailureLogsSafeOperation verifies failed recovery records safe operation and infrastructure
+// cause only.
 //
 //nolint:paralleltest // The test temporarily replaces process-global slog.Default().
 func TestResumePersistenceFailureLogsSafeOperation(t *testing.T) {

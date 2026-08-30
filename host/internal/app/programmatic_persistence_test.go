@@ -206,7 +206,8 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	assert.Equal(t, named.GetId(), resumed.GetId())
 }
 
-// TestTerminalToolResultPersistenceFailureProcessPath verifies one completed tool invocation precedes result persistence failure.
+// TestTerminalToolResultPersistenceFailureProcessPath verifies one completed tool invocation precedes result
+// persistence failure.
 func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureProcessPath() {
 	t := testSuite.T()
 
@@ -260,7 +261,8 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 	assert.Contains(t, strings.ToLower(terminalText), "permission")
 }
 
-// TestResumeRecoveryPersistenceFailureProcessPath verifies Programmatic recovery failure preserves active state and permits retry.
+// TestResumeRecoveryPersistenceFailureProcessPath verifies Programmatic recovery failure preserves active state and
+// permits retry.
 func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProcessPath() {
 	t := testSuite.T()
 	if runtime.GOOS != "darwin" {
@@ -458,7 +460,8 @@ func receiveProgrammaticFailure(
 	}
 }
 
-// TestSessionRecoveryProcessPaths verifies Programmatic resume rejects completed corruption and repairs one interrupted tail.
+// TestSessionRecoveryProcessPaths verifies Programmatic resume rejects completed corruption and repairs one interrupted
+// tail.
 func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 	t := testSuite.T()
 
@@ -466,7 +469,9 @@ func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 	paths := testPaths(t, restartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	credentials := fmt.Sprintf(
-		`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+			`"refresh_token":"refresh","account_id":"account",`+
+			`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 		accessToken,
 	)
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))

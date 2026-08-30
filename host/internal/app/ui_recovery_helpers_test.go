@@ -4,13 +4,10 @@ package app
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-
 	"os"
-
 	"strings"
 
 	"github.com/samber/lo"
@@ -163,9 +160,11 @@ func runSessionRestartUI(
 		return err
 	}
 	active := observeSessionInfo(infoFrame.GetSessionInformation().GetInfo())
-	if active.ID != observation.NamedSession.ID || active.Name != observation.NamedSession.Name ||
+	if active.ID != observation.NamedSession.ID ||
+		active.Name != observation.NamedSession.Name ||
 		active.WorkingDirectory != observation.NamedSession.WorkingDirectory ||
-		active.StoragePath != observation.NamedSession.StoragePath || active.CreatedTime != observation.NamedSession.CreatedTime {
+		active.StoragePath != observation.NamedSession.StoragePath ||
+		active.CreatedTime != observation.NamedSession.CreatedTime {
 		return errors.New("active session identity changed after resumed continuation")
 	}
 	observation.NamedSession = active

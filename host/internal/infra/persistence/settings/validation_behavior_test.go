@@ -9,8 +9,11 @@ import (
 // TestLoadRejectsInvalidPricing verifies required finite rates and strictly increasing positive thresholds.
 func (s *SettingsSuite) TestLoadRejectsInvalidPricing() {
 	// Arrange complete flat and tiered mappings used to isolate each invalid field.
-	flat := "        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.1\n          cacheWrite: 0.5"
-	tiered := flat + "\n          tiers:\n            - inputTokensAbove: 100\n              input: 3\n              output: 4\n              cacheRead: 0.3\n              cacheWrite: 0.7"
+	flat := "        pricing:\n          input: 1\n          output: 2\n      " +
+		"    cacheRead: 0.1\n          cacheWrite: 0.5"
+	tiered := flat + "\n          tiers:\n            - inputTokensAbove: 100\n        " +
+		"      input: 3\n              output: 4\n              " +
+		"cacheRead: 0.3\n              cacheWrite: 0.7"
 	testCases := map[string]string{
 		"missing input":          strings.Replace(flat, "          input: 1\n", "", 1),
 		"missing output":         strings.Replace(flat, "          output: 2\n", "", 1),
@@ -36,13 +39,17 @@ func (s *SettingsSuite) TestLoadRejectsInvalidPricing() {
 		"negative tier rate":       strings.Replace(tiered, "input: 3", "input: -3", 1),
 		"zero threshold":           strings.Replace(tiered, "inputTokensAbove: 100", "inputTokensAbove: 0", 1),
 		"negative threshold":       strings.Replace(tiered, "inputTokensAbove: 100", "inputTokensAbove: -1", 1),
-		"duplicate thresholds":     tiered + "\n            - inputTokensAbove: 100\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+		"duplicate thresholds": tiered + "\n            - inputTokensAbove: 100\n              input: 5\n  " +
+			"            output: 6\n              cacheRead: 0.5\n            " +
+			"  cacheWrite: 0.9",
 		"unordered thresholds": strings.Replace(
 			tiered,
 			"inputTokensAbove: 100",
 			"inputTokensAbove: 200",
 			1,
-		) + "\n            - inputTokensAbove: 100\n              input: 5\n              output: 6\n              cacheRead: 0.5\n              cacheWrite: 0.9",
+		) + "\n            - inputTokensAbove: 100\n              input: 5\n  " +
+			"            output: 6\n              cacheRead: 0.5\n            " +
+			"  cacheWrite: 0.9",
 	}
 	for name, pricing := range testCases {
 		s.Run(name, func() {
@@ -72,12 +79,18 @@ func (s *SettingsSuite) TestLoadRejectsUnknownYAMLFields() {
 		"pricing": replace(
 			validSettings(""),
 			"id: compatible",
-			"id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          currency: USD",
+			"id: compatible\n        pricing:\n          input: 1\n          "+
+				"output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n   "+
+				"       currency: USD",
 		),
 		"pricing tier": replace(
 			validSettings(""),
 			"id: compatible",
-			"id: compatible\n        pricing:\n          input: 1\n          output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n          tiers:\n            - inputTokensAbove: 100\n              input: 2\n              output: 3\n              cacheRead: 1\n              cacheWrite: 2\n              currency: USD",
+			"id: compatible\n        pricing:\n          input: 1\n          "+
+				"output: 2\n          cacheRead: 0.5\n          cacheWrite: 1\n   "+
+				"       tiers:\n            - inputTokensAbove: 100\n             "+
+				" input: 2\n              output: 3\n              cacheRead: 1\n "+
+				"             cacheWrite: 2\n              currency: USD",
 		),
 		"reasoning": replace(
 			validSettings(""),
@@ -214,7 +227,9 @@ func (s *SettingsSuite) TestLoadRejectsInvalidModelExecutionCapabilities() {
 		"missing tool capabilities": {
 			content: replace(
 				validSettings(""),
-				"        toolCapabilities:\n          strictJSONSchema: false\n          grammar:\n            lark: false\n            regex: false\n",
+				"        toolCapabilities:\n          strictJSONSchema: false\n   "+
+					"       grammar:\n            lark: false\n            regex: "+
+					"false\n",
 				"",
 			),
 			want: `provider "openai-codex" model "codex": toolCapabilities is required`,
@@ -244,7 +259,9 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 		"unknown provider":         replace(validSettings(""), "type: openai-compatible", "type: other"),
 		"missing codex":            replace(validSettings(""), "openai-codex:", "other-codex:"),
 		"second codex": validSettings(
-			"  second-codex:\n    type: openai-codex\n    models:\n      - id: other\n        reasoning:\n          supported: false\n          choices: [off]\n          default: off",
+			"  second-codex:\n    type: openai-codex\n    models:\n      - " +
+				"id: other\n        reasoning:\n          supported: false\n      " +
+				"    choices: [off]\n          default: off",
 		),
 		"codex wrong identifier": replace(validSettings(""), "openai-codex:", "codex-provider:"),
 		"codex base URL": replace(
@@ -271,7 +288,9 @@ func (s *SettingsSuite) TestLoadRejectsInvalidSettings() {
 		"duplicate model": replace(
 			validSettings(""),
 			"      - id: compatible",
-			"      - id: compatible\n        reasoning:\n          supported: false\n          choices: [off]\n          default: off\n      - id: compatible",
+			"      - id: compatible\n        reasoning:\n          supported: "+
+				"false\n          choices: [off]\n          default: off\n      - "+
+				"id: compatible",
 		),
 		"unknown model API": replace(
 			validSettings(""),

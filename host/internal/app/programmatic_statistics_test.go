@@ -5,12 +5,9 @@ package app
 import (
 	"fmt"
 	"io"
-
 	"net/http"
 	"os"
-
 	"strings"
-
 	"testing"
 
 	"google.golang.org/grpc"
@@ -45,9 +42,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			},
 		},
 		{
-			name:      "known zero",
-			submit:    true,
-			usageJSON: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}}`,
+			name:   "known zero",
+			submit: true,
+			usageJSON: `{"input_tokens":0,"output_tokens":0,"total_tokens":0,` +
+				`"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}` +
+				`,"output_tokens_details":{"reasoning_tokens":0}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{
@@ -64,9 +63,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			},
 		},
 		{
-			name:      "available nonzero",
-			submit:    true,
-			usageJSON: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}}`,
+			name:   "available nonzero",
+			submit: true,
+			usageJSON: `{"input_tokens":10,"output_tokens":4,"total_tokens":99,` +
+				`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1}` +
+				`,"output_tokens_details":{"reasoning_tokens":3}}`,
 			expected: statisticsObservation{
 				UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 				Tokens: tokenUsageObservation{
@@ -99,7 +100,9 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			paths := testPaths(t, pricedCodexSettings())
 			accessToken := semanticAccessToken(t, "account")
 			credentials := fmt.Sprintf(
-				`{"version":1,"providers":{"openai-codex":{"access_token":%q,"refresh_token":"refresh","account_id":"account","expires_at":"2099-01-01T00:00:00Z"}}}`,
+				`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+
+					`"refresh_token":"refresh","account_id":"account",`+
+					`"expires_at":"2099-01-01T00:00:00Z"}}}`,
 				accessToken,
 			)
 			require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
@@ -232,7 +235,11 @@ func (transport usageCodexTransport) RoundTrip(*http.Request) (*http.Response, e
 		usageField = fmt.Sprintf(",\"usage\":%s", transport.usageJSON)
 	}
 	body := fmt.Sprintf(
-		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"usage-response\",\"model\":\"selected-model\",\"status\":\"completed\",\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\ndata: [DONE]\n\n",
+		"data: {\"type\":\"response.completed\","+
+			"\"response\":{\"id\":\"usage-response\","+
+			"\"model\":\"selected-model\",\"status\":\"completed\","+
+			"\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\n"+
+			"data: [DONE]\n\n",
 		usageField,
 	)
 	return &http.Response{

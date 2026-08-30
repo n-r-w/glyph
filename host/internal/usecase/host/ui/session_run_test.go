@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-
 	"sync"
 
 	"github.com/samber/mo"

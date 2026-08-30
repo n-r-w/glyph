@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-
 	"testing"
 	"time"
 
@@ -15,7 +14,8 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-// TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies rejected replacement keeps the draft until confirmation.
+// TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement verifies rejected replacement keeps the draft until
+// confirmation.
 func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T) {
 	t.Parallel()
 
@@ -89,7 +89,8 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	assert.Contains(t, view, "Updated: 1970-01-01T00:00:02Z")
 }
 
-// TestModelResumeSelectorEmitsSelectedSession verifies selector navigation emits the chosen ID without mutating the draft.
+// TestModelResumeSelectorEmitsSelectedSession verifies selector navigation emits the chosen ID without mutating the
+// draft.
 func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	t.Parallel()
 

@@ -4,7 +4,6 @@ package compatible
 
 import (
 	"encoding/json/v2"
-
 	"net/http"
 	"net/http/httptest"
 
@@ -24,7 +23,9 @@ func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
 		writeSSE(
 			t,
 			writer,
-			`{"type":"response.completed","response":{"id":"resp-reasoning","status":"completed","output":[{"id":"","type":"reasoning","summary":[{"type":"summary_text","text":"visible reason"}]}]}}`,
+			`{"type":"response.completed","response":{"id":"resp-reasoning",`+
+				`"status":"completed","output":[{"id":"","type":"reasoning",`+
+				`"summary":[{"type":"summary_text","text":"visible reason"}]}]}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -59,7 +60,14 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 			t,
 			writer,
 			`{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"answer"}`,
-			`{"type":"response.completed","response":{"id":"resp-1","model":"actual-model","status":"completed","output":[{"id":"m-1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"answer","annotations":[],"logprobs":[]}]}],"usage":{"input_tokens":5,"output_tokens":3,"total_tokens":8,"input_tokens_details":{"cached_tokens":1},"output_tokens_details":{"reasoning_tokens":2}}}}`,
+			`{"type":"response.completed","response":{"id":"resp-1",`+
+				`"model":"actual-model","status":"completed",`+
+				`"output":[{"id":"m-1","type":"message","role":"assistant",`+
+				`"status":"completed","content":[{"type":"output_text",`+
+				`"text":"answer","annotations":[],"logprobs":[]}]}],`+
+				`"usage":{"input_tokens":5,"output_tokens":3,"total_tokens":8,`+
+				`"input_tokens_details":{"cached_tokens":1},`+
+				`"output_tokens_details":{"reasoning_tokens":2}}}}`,
 		)
 	}))
 	t.Cleanup(server.Close)
@@ -238,11 +246,24 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 			t,
 			writer,
 			`{"type":"response.refusal.delta","output_index":0,"content_index":0,"delta":"blocked"}`,
-			`{"type":"response.output_item.added","output_index":8,"item":{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"","status":"in_progress"}}`,
+			`{"type":"response.output_item.added","output_index":8,`+
+				`"item":{"id":"item-1","type":"function_call","call_id":"call-1",`+
+				`"name":"read","arguments":"","status":"in_progress"}}`,
 			`{"type":"response.function_call_arguments.delta","output_index":8,"item_id":"item-1","delta":"{\"path\":\"fi"}`,
 			`{"type":"response.function_call_arguments.delta","output_index":8,"item_id":"item-1","delta":"le\"}"}`,
-			`{"type":"response.function_call_arguments.done","output_index":8,"item_id":"item-1","name":"read","arguments":"{\"path\":\"file\"}"}`,
-			`{"type":"response.completed","response":{"id":"resp-2","model":"actual","status":"completed","usage":{"input_tokens":2,"output_tokens":2,"total_tokens":99,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens_details":{"reasoning_tokens":3}},"output":[{"id":"m-1","type":"message","role":"assistant","status":"completed","content":[{"type":"refusal","refusal":"blocked"}]},{"id":"item-1","type":"function_call","call_id":"call-1","name":"read","arguments":"{\"path\":\"file\"}","status":"completed"}]}}`,
+			`{"type":"response.function_call_arguments.done","output_index":8,`+
+				`"item_id":"item-1","name":"read","arguments":"{\"path\":\"file\"}`+
+				`"}`,
+			`{"type":"response.completed","response":{"id":"resp-2",`+
+				`"model":"actual","status":"completed","usage":{"input_tokens":2,`+
+				`"output_tokens":2,"total_tokens":99,`+
+				`"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1}`+
+				`,"output_tokens_details":{"reasoning_tokens":3}},`+
+				`"output":[{"id":"m-1","type":"message","role":"assistant",`+
+				`"status":"completed","content":[{"type":"refusal",`+
+				`"refusal":"blocked"}]},{"id":"item-1","type":"function_call",`+
+				`"call_id":"call-1","name":"read","arguments":"{\"path\":\"file\"}`+
+				`","status":"completed"}]}}`,
 		)
 	}))
 	t.Cleanup(server.Close)

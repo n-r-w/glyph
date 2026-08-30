@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-
 	"testing"
 	"testing/synctest"
 

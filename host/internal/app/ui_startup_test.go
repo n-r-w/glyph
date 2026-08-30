@@ -4,14 +4,10 @@ package app
 
 import (
 	"bytes"
-
 	"os"
-
 	"path/filepath"
-
 	"strconv"
 	"strings"
-
 	"syscall"
 	"testing"
 

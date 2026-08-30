@@ -176,26 +176,35 @@ func TestRunnerClonesHistoryOptions(t *testing.T) {
 
 	original := hooks.Context{History: []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryModel,
-		Model: mo.Some(model.Response{Content: []model.Content{
-			{
-				Kind: model.ContentReasoning,
-				Text: mo.Some("reason"),
-				ProviderContext: mo.Some(
-					model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}},
-				),
-				Final:    false,
-				ToolCall: mo.None[model.ToolCall](),
+		Model: mo.Some(model.Response{
+			Content: []model.Content{
+				{
+					Kind: model.ContentReasoning,
+					Text: mo.Some("reason"),
+					ProviderContext: mo.Some(
+						model.ProviderContext{Payload: []byte{1, 2, 3}, Source: model.ProviderContextSource{}},
+					),
+					Final:    false,
+					ToolCall: mo.None[model.ToolCall](),
+				},
+				{
+					Kind: model.ContentToolCall,
+					ToolCall: mo.Some(
+						model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""},
+					),
+					Text:            mo.None[string](),
+					Final:           false,
+					ProviderContext: mo.None[model.ProviderContext](),
+				},
 			},
-			{
-				Kind: model.ContentToolCall,
-				ToolCall: mo.Some(
-					model.ToolCall{Arguments: map[string]any{"items": []any{"first"}}, ID: "", Name: ""},
-				),
-				Text:            mo.None[string](),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-			},
-		}, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
+			Outcome:       mo.None[model.Outcome](),
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[model.ProviderID](),
+			Model:         mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[model.Usage](),
+			Diagnostics:   nil,
 		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 	}, {
 		Kind: agent.HistoryEntryToolResult,

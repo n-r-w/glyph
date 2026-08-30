@@ -4,12 +4,9 @@ package codex
 
 import (
 	"encoding/json/v2"
-
 	"fmt"
-
 	"net/http"
 	"net/http/httptest"
-
 	"sync/atomic"
 	"testing"
 	"time"
@@ -81,7 +78,9 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 				writeSSE(
 					writer,
 					completedEvent(
-						`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`,
+						`[{"id":"m","type":"message","role":"assistant",`+
+							`"status":"completed","content":[{"type":"output_text",`+
+							`"text":"done","annotations":[],"logprobs":[]}]}]`,
 					),
 				)
 			default:
@@ -144,7 +143,9 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 			writeSSE(
 				writer,
 				completedEvent(
-					`[{"id":"m","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"done","annotations":[],"logprobs":[]}]}]`,
+					`[{"id":"m","type":"message","role":"assistant",`+
+						`"status":"completed","content":[{"type":"output_text",`+
+						`"text":"done","annotations":[],"logprobs":[]}]}]`,
 				),
 			)
 		}),

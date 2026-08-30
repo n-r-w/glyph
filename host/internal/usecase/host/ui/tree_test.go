@@ -42,7 +42,8 @@ func TestApplySessionTreeQuerySendsCompleteFrame(t *testing.T) {
 	require.True(t, handled)
 }
 
-// TestApplyCommittedNavigationSendsExactInput verifies committed navigation returns tree, transcript, and editable input.
+// TestApplyCommittedNavigationSendsExactInput verifies committed navigation returns tree, transcript, and editable
+// input.
 func TestApplyCommittedNavigationSendsExactInput(t *testing.T) {
 	t.Parallel()
 
@@ -128,7 +129,8 @@ func TestApplyCanceledNavigationSendsStateFreeResult(t *testing.T) {
 	require.True(t, handled)
 }
 
-// TestApplyNavigationFailuresSendsClosedCodes verifies invalid, missing, busy, and persistence failures use typed UI frames.
+// TestApplyNavigationFailuresSendsClosedCodes verifies invalid, missing, busy, and persistence failures use typed UI
+// frames.
 func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 	t.Parallel()
 

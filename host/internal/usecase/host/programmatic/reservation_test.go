@@ -253,80 +253,82 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 			Model:      mo.None[model.Response](),
 			ToolResult: mo.None[agent.ToolResult](),
 		},
-		{Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
-			Content: []model.Content{
-				{
-					Kind:            model.ContentText,
-					Text:            mo.Some("answer"),
-					Final:           true,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-				},
-				{
-					Kind:            model.ContentText,
-					Text:            mo.Some("partial"),
-					Final:           true,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-				},
-				{
-					Kind: model.ContentReasoning,
-					ProviderContext: mo.Some(
-						model.ProviderContext{
-							Source: model.ProviderContextSource{
-								ProviderID:       "provider",
-								API:              "",
-								Model:            "",
-								CompatibilityKey: mo.None[string](),
+		{
+			Kind: agent.HistoryEntryModel, Model: mo.Some(model.Response{
+				Content: []model.Content{
+					{
+						Kind:            model.ContentText,
+						Text:            mo.Some("answer"),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
+					{
+						Kind:            model.ContentText,
+						Text:            mo.Some("partial"),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
+					{
+						Kind: model.ContentReasoning,
+						ProviderContext: mo.Some(
+							model.ProviderContext{
+								Source: model.ProviderContextSource{
+									ProviderID:       "provider",
+									API:              "",
+									Model:            "",
+									CompatibilityKey: mo.None[string](),
+								},
+								Payload: []byte(`{"secret":true}`),
 							},
-							Payload: []byte(`{"secret":true}`),
-						},
-					),
-					Text:     mo.None[string](),
-					Final:    true,
-					ToolCall: mo.None[model.ToolCall](),
+						),
+						Text:     mo.None[string](),
+						Final:    true,
+						ToolCall: mo.None[model.ToolCall](),
+					},
+					{
+						Kind:            model.ContentReasoning,
+						Text:            mo.Some("reason"),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
+					{
+						Kind:            model.ContentRefusal,
+						Text:            mo.Some("refusal"),
+						Final:           true,
+						ProviderContext: mo.None[model.ProviderContext](),
+						ToolCall:        mo.None[model.ToolCall](),
+					},
 				},
-				{
-					Kind:            model.ContentReasoning,
-					Text:            mo.Some("reason"),
-					Final:           true,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-				},
-				{
-					Kind:            model.ContentRefusal,
-					Text:            mo.Some("refusal"),
-					Final:           true,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-				},
-			},
-			Outcome: mo.Some(
-				model.OutcomeStop,
-			),
-			Provider:      mo.Some(model.ProviderID("provider")),
-			Model:         mo.Some(model.ID("model")),
-			ResponseModel: mo.Some(responseModel),
-			ErrorMessage:  mo.None[string](),
-			ResponseID:    mo.Some("response-id"),
-			Usage: mo.Some(model.Usage{
-				InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
-				CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
-			}),
-			Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
-		}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
+				Outcome: mo.Some(
+					model.OutcomeStop,
+				),
+				Provider:      mo.Some(model.ProviderID("provider")),
+				Model:         mo.Some(model.ID("model")),
+				ResponseModel: mo.Some(responseModel),
+				ErrorMessage:  mo.None[string](),
+				ResponseID:    mo.Some("response-id"),
+				Usage: mo.Some(model.Usage{
+					InputTokens: 3, OutputTokens: 2, CachedInputTokens: 1,
+					CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
+				}),
+				Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
+			}), User: mo.None[model.Message](), ToolResult: mo.None[agent.ToolResult](),
 		},
-		{Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
-			CallID: "call", ToolName: "tool",
-			Contents: []tool.ResultContent{
-				{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()},
-				{
-					Kind:  tool.ResultContentImage,
-					Text:  mo.None[string](),
-					Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}),
-				},
-			}, IsError: false,
-		}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		{
+			Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
+				CallID: "call", ToolName: "tool",
+				Contents: []tool.ResultContent{
+					{Kind: tool.ResultContentText, Text: mo.Some("output"), Image: mo.None[tool.ResultImage]()},
+					{
+						Kind:  tool.ResultContentImage,
+						Text:  mo.None[string](),
+						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2}}),
+					},
+				}, IsError: false,
+			}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		},
 	}
 	response, returnedOperation, err = service.Handle(

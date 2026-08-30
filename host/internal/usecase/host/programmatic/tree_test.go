@@ -47,7 +47,8 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	)
 }
 
-// TestNoSummaryNavigationReturnsCommittedState verifies navigation returns committed tree, transcript, and exact next input.
+// TestNoSummaryNavigationReturnsCommittedState verifies navigation returns committed tree, transcript, and exact next
+// input.
 func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	t.Parallel()
 
@@ -122,7 +123,8 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	}}, result.Issues)
 }
 
-// TestNavigationFailuresUseClosedCodes verifies invalid, missing, busy, and persistence failures return stable rejections.
+// TestNavigationFailuresUseClosedCodes verifies invalid, missing, busy, and persistence failures return stable
+// rejections.
 func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 	t.Parallel()
 

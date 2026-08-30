@@ -25,7 +25,8 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 			parserDetail: "unmarshal JSON boolean",
 		},
 		"property type array": {
-			schemaJSON:   `{"type":"object","properties":{"path":{"type":["string"]}},"required":["path"],"additionalProperties":false}`,
+			schemaJSON: `{"type":"object","properties":{"path":{"type":["string"]}},` +
+				`"required":["path"],"additionalProperties":false}`,
 			parserDetail: "unmarshal JSON array into Go string",
 		},
 	}
@@ -50,7 +51,8 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 	}
 }
 
-// TestValidateCatalogRootTypeParserErrorRetainsContext verifies catalog errors expose tool, root rule, and parser contexts.
+// TestValidateCatalogRootTypeParserErrorRetainsContext verifies catalog errors expose tool, root rule, and parser
+// contexts.
 func TestValidateCatalogRootTypeParserErrorRetainsContext(t *testing.T) {
 	t.Parallel()
 
@@ -273,7 +275,8 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 		},
 		"grammar rejects union property including string": {
 			descriptor: constrainedProtoDescriptor(
-				`{"type":"object","properties":{"path":{"type":["string","null"]}},"required":["path"],"additionalProperties":false}`,
+				`{"type":"object","properties":{"path":{"type":["string","null"]}}`+
+					`,"required":["path"],"additionalProperties":false}`,
 				grammarProtoConstraint(),
 			),
 			errorContains: "exactly one required string property",
@@ -281,7 +284,10 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 		},
 		"grammar rejects multiple properties": {
 			descriptor: constrainedProtoDescriptor(
-				`{"type":"object","properties":{"path":{"type":"string","description":"Path."},"query":{"type":"string","description":"Query."}},"required":["path","query"],"additionalProperties":false}`,
+				`{"type":"object","properties":{"path":{"type":"string",`+
+					`"description":"Path."},"query":{"type":"string",`+
+					`"description":"Query."}},"required":["path","query"],`+
+					`"additionalProperties":false}`,
 				//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active Grammar field.
 				extensionpb.ConstrainedSampling_builder{
 					Grammar: extensionpb.GrammarConstrainedSampling_builder{

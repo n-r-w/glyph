@@ -23,7 +23,10 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 		assert  func(*testing.T, controller.Response)
 	}{
 		{
-			name: "fork", command: replacementCommand("fork", controller.CommandForkSession, mo.Some("target"), mo.None[string]()),
+			name: "fork",
+			command: replacementCommand(
+				"fork", controller.CommandForkSession, mo.Some("target"), mo.None[string](),
+			),
 			expect: func(control *MockSessionControl) {
 				control.EXPECT().Fork(gomock.Any(), "target").Return(replacementResult(), "exact input", nil)
 			},
@@ -34,7 +37,10 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			},
 		},
 		{
-			name: "clone", command: replacementCommand("clone", controller.CommandCloneSession, mo.None[string](), mo.None[string]()),
+			name: "clone",
+			command: replacementCommand(
+				"clone", controller.CommandCloneSession, mo.None[string](), mo.None[string](),
+			),
 			expect: func(control *MockSessionControl) {
 				control.EXPECT().Clone(gomock.Any()).Return(replacementResult(), nil)
 			},
@@ -45,7 +51,10 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			},
 		},
 		{
-			name: "label", command: replacementCommand("label", controller.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
+			name: "label",
+			command: replacementCommand(
+				"label", controller.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"),
+			),
 			expect: func(control *MockSessionControl) {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)

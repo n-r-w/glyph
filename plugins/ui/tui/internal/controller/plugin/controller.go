@@ -3,11 +3,9 @@ package plugin
 
 import (
 	"context"
-
 	"errors"
 	"fmt"
 	"io"
-
 	"sync"
 
 	"google.golang.org/grpc"

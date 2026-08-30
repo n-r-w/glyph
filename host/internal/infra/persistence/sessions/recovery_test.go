@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"bytes"
-
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-
 	"testing"
 
 	"github.com/samber/mo"

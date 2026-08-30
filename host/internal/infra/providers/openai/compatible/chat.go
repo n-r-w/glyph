@@ -2,7 +2,6 @@ package compatible
 
 import (
 	"context"
-
 	"encoding/json/v2"
 	"errors"
 	"fmt"
