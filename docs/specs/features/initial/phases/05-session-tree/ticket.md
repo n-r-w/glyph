@@ -83,6 +83,8 @@ Out of scope:
 - FRQ-03: The UI Plugin Contract and Programmatic Control contract shall expose typed tree commands and results without terminal-specific concepts.
 - FRQ-03.1: The standard TUI shall implement the tree, search, filters, branch folding, and labels according to [the standard interaction baseline](../../tui-defaults.md).
 - FRQ-03.2: PHS-05 shall preserve extension entries in their branches. PHS-07 shall add creation and client presentation of model-visible extension messages with the same resubmission behavior as user messages.
+- FRQ-03.3: Every active-branch transcript snapshot in a session replacement or committed navigation result shall include each `BranchSummaryEntry` on that branch. The standard TUI shall render each summary as a collapsed branch-summary item. Pressing `ctrl+o`, the default recorded by the `app.tools.expand` baseline row, shall show or hide the complete text of all branch-summary items.
+- FRQ-03.4: Model response diagnostics shall remain available in client contracts but shall not become standard TUI transcript items.
 
 ### Non-Functional Requirements
 
@@ -107,7 +109,7 @@ Out of scope:
 - ACC-06: Cancellation, an inconsistent no-summary result, model failure, an invalid final result, or persistence failure preserves the active leaf and writes no `BranchSummaryEntry`. A successful commit emits one `session_tree` event.
 - ACC-07: Forking copies only the path through the selected user message's parent and returns its text. Cloning copies only the complete active branch. Neither operation changes the source session.
 - ACC-08: The active leaf, labels, parent-child relations, retained extension entries, and each `BranchSummaryEntry` branch boundary, provider, model, reasoning choice, usage state, and estimated-cost state survive restart.
-- ACC-09: The standard TUI supports tree search, filters, branch folding, labels, and next-input editor placement. Programmatic Control exposes equivalent typed tree operations and the same client-neutral results.
+- ACC-09: The standard TUI supports tree search, filters, branch folding, labels, next-input editor placement, and collapsed `BranchSummaryEntry` items. Pressing `ctrl+o` shows and hides all complete branch-summary texts, including after session restoration. Programmatic Control exposes equivalent typed tree operations and the same client-neutral results.
 
 ## Overengineering and Overspecification Considerations
 

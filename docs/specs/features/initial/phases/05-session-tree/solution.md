@@ -165,7 +165,9 @@ The summary-mode enum has `NO_SUMMARY`, `SUMMARIZE`, and `SUMMARIZE_WITH_CUSTOM_
 
 `api/plugins/ui/v1/ui.proto` adds Host frames and UI commands for these operations. `api/programmatic/v1/programmatic.proto` adds correlated commands and command results with the same semantic fields. Neither contract contains editor, terminal, widget, keybinding, or rendering fields.
 
-Existing session-replacement frames carry only active-branch transcript entries. Full-tree data is returned by `GetSessionTree` and the committed navigation result. Extension payload bytes remain private in PHS-05. Clients receive only extension ID and entry type for opaque extension entries.
+Session-replacement frames and committed navigation results carry active-branch transcript entries. Their `SessionEntry` payload supports user messages, model responses, tool results, and branch summaries so a client can restore the complete visible branch without fetching the full tree. Full-tree data is returned by `GetSessionTree` and the committed navigation result. Extension payload bytes remain private in PHS-05. Clients receive only extension ID and entry type for opaque extension entries.
+
+Model response diagnostics remain part of the client response contract for inspection by clients. The standard TUI does not convert diagnostics into transcript items because diagnostics are not conversation content.
 
 ### Standard TUI
 
@@ -176,8 +178,9 @@ The standard TUI adds `/tree`, `/fork`, and `/clone` actions.
 - CMP-08: The selector implements search, branch folding, label editing, active-path indication, and the `default`, `no-tools`, `user-only`, `labeled-only`, and `all` filters from `docs/specs/features/initial/tui-defaults.md`.
 - CMP-09: Target confirmation opens a summary selector whose first and default choice is `No summary`. The custom-prompt choice opens a separate input state.
 - CMP-10: A committed navigation replaces the transcript with the returned active branch and places next-input text in the editor. It never emits a submit command for that text.
+- CMP-10.1: The standard TUI renders each active-branch summary as a collapsed branch-summary item. Pressing `ctrl+o`, the default recorded by the `app.tools.expand` baseline row, switches all branch-summary items between collapsed and expanded presentation.
 
-Filtering, search, folding, and selection remain client-local and do not mutate Host state. Label editing sends `SetEntryLabel` because labels are persistent session state.
+Filtering, search, folding, summary expansion, and selection remain client-local and do not mutate Host state. Label editing sends `SetEntryLabel` because labels are persistent session state.
 
 ### TDD and verification
 
@@ -191,7 +194,7 @@ Each behavioral change follows RED, GREEN, and REFACTOR. A RED test must compile
 - TSK-06: Add fork, clone, and label tests. Expected snapshots retain only the required path, preserve copied IDs and unresolved summary-boundary provenance, restart successfully, and leave the source session unchanged. Edge cases are the root user message, an empty session, an off-path summary boundary, and repository failure. Tests depend on the sessions repository contract.
 - TSK-07: Add real gRPC extension contract tests. Two test processes register ordered handlers and return composed actions. Expected outputs cover ready-result replacement and post-commit `session_tree`. Edge cases are transport failure, kind mismatch, and duplicate handler IDs.
 - TSK-08: Add UI and Programmatic Control contract tests. Equivalent commands must return the same active leaf, next-input text, active transcript, cancellation status, and classified failures.
-- TSK-09: Add TUI tests for search, filters, folding, labels, summary-choice default, custom-focus input, and editor placement without submission.
+- TSK-09: Add TUI tests for search, filters, folding, labels, summary-choice default, custom-focus input, editor placement without submission, restored branch-summary items, and collapsed and expanded summary presentation.
 - TSK-10: Add summarizer behavior tests that capture the configured-model request and active-history projection. The tests prove that both embedded Markdown files are used, the summary is inserted unchanged, and resumed history renders the same context message. The generation test checks behavior rather than mutable prompt wording. The projection test checks the exact approved context layout.
 
 Final verification runs `go fix -diff ./...`, reviews the proposed fixes, runs `go fix ./...`, then runs `task lint` and `task test`.
