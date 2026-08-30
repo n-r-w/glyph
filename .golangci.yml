@@ -135,7 +135,6 @@ linters:
           - gocritic
           - gosec
           - govet
-          - lll
           - revive
           - staticcheck
           - unparam
