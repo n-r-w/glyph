@@ -12,8 +12,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
 // Renderer writes headless model, tool, startup, and terminal output.
@@ -147,7 +147,7 @@ func (r *Renderer) DeliverSettled(_ context.Context, _ string) error {
 }
 
 // ReportIssue writes one isolated extension startup failure.
-func (r *Renderer) ReportIssue(_ context.Context, issue toolservice.Issue) error {
+func (r *Renderer) ReportIssue(_ context.Context, issue extensionservice.Issue) error {
 	identity := strings.Join(issue.PluginIDs, ",")
 	if identity == "" {
 		identity = "unknown"
@@ -159,7 +159,7 @@ func (r *Renderer) ReportIssue(_ context.Context, issue toolservice.Issue) error
 }
 
 // ReportSummary writes one informational headless startup summary.
-func (r *Renderer) ReportSummary(_ context.Context, report toolservice.LoadReport) error {
+func (r *Renderer) ReportSummary(_ context.Context, report extensionservice.LoadReport) error {
 	if err := writePrefixed(r.stderr, "[info] ", "headless"); err != nil {
 		return err
 	}

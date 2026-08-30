@@ -15,7 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // synchronizedBuffer captures logger output safely while package tests run in parallel.
@@ -44,25 +44,25 @@ func TestServiceStartUsesDefaultAndOverrideDirectories(t *testing.T) {
 
 	testCases := map[string]struct {
 		request  Request
-		expected toolservice.Directory
+		expected extensionservice.Directory
 	}{
 		"default": {
 			request:  Request{DataDirectory: "/home/user/.glyph", ExtensionDirectory: ""},
-			expected: toolservice.Directory{Path: filepath.Join("/home/user/.glyph", "plugins", "extension"), Explicit: false},
+			expected: extensionservice.Directory{Path: filepath.Join("/home/user/.glyph", "plugins", "extension"), Explicit: false},
 		},
 		"override": {
 			request:  Request{DataDirectory: "/home/user/.glyph", ExtensionDirectory: "/tmp/extensions"},
-			expected: toolservice.Directory{Path: "/tmp/extensions", Explicit: true},
+			expected: extensionservice.Directory{Path: "/tmp/extensions", Explicit: true},
 		},
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			reporter := NewMockReporter(gomock.NewController(t))
-			report := toolservice.LoadReport{Issues: nil, Extensions: nil}
+			report := extensionservice.LoadReport{Issues: nil, Extensions: nil}
 			reporter.EXPECT().ReportSummary(t.Context(), report).Return(nil)
 			service := New(
-				func(_ context.Context, directory toolservice.Directory) (toolservice.LoadReport, error) {
+				func(_ context.Context, directory extensionservice.Directory) (extensionservice.LoadReport, error) {
 					assert.Equal(t, testCase.expected, directory)
 					return report, nil
 				},
@@ -84,18 +84,19 @@ func TestServiceLoadLogsExtensionCatalog(t *testing.T) {
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
-	report := toolservice.LoadReport{
-		Issues: []toolservice.Issue{{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("start failed")}},
-		Extensions: []toolservice.LoadedExtension{{
+	report := extensionservice.LoadReport{
+		Issues: []extensionservice.Issue{{PluginIDs: []string{"broken"}, Path: "/plugins/broken", Err: errors.New("start failed")}},
+		Extensions: []extensionservice.LoadedExtension{{
 			ID: "glyph-tools", Path: "/plugins/glyph-tools",
 			Tools: []tool.Descriptor{
 				testStartupDescriptor("read"),
 				testStartupDescriptor("bash"),
 			},
+			Handlers: nil,
 		}},
 	}
-	service := New(func(_ context.Context, directory toolservice.Directory) (toolservice.LoadReport, error) {
-		assert.Equal(t, toolservice.Directory{Path: "/plugins", Explicit: true}, directory)
+	service := New(func(_ context.Context, directory extensionservice.Directory) (extensionservice.LoadReport, error) {
+		assert.Equal(t, extensionservice.Directory{Path: "/plugins", Explicit: true}, directory)
 		return report, nil
 	})
 
@@ -121,13 +122,13 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 	t.Parallel()
 
 	reporter := NewMockReporter(gomock.NewController(t))
-	firstIssue := toolservice.Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("start failed")}
-	secondIssue := toolservice.Issue{PluginIDs: nil, Path: "/unreadable", Err: errors.New("unreadable default")}
-	report := toolservice.LoadReport{
-		Issues: []toolservice.Issue{firstIssue, secondIssue},
-		Extensions: []toolservice.LoadedExtension{
-			{ID: "first", Path: "/override/first", Tools: []tool.Descriptor{testStartupDescriptor("read")}},
-			{ID: "second", Path: "/override/second", Tools: nil},
+	firstIssue := extensionservice.Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("start failed")}
+	secondIssue := extensionservice.Issue{PluginIDs: nil, Path: "/unreadable", Err: errors.New("unreadable default")}
+	report := extensionservice.LoadReport{
+		Issues: []extensionservice.Issue{firstIssue, secondIssue},
+		Extensions: []extensionservice.LoadedExtension{
+			{ID: "first", Path: "/override/first", Tools: []tool.Descriptor{testStartupDescriptor("read")}, Handlers: nil},
+			{ID: "second", Path: "/override/second", Tools: nil, Handlers: nil},
 		},
 	}
 	gomock.InOrder(
@@ -136,7 +137,9 @@ func TestServiceStartReportsFailuresBeforeOneSummary(t *testing.T) {
 		reporter.EXPECT().ReportSummary(t.Context(), report).Return(nil),
 	)
 	service := New(
-		func(context.Context, toolservice.Directory) (toolservice.LoadReport, error) { return report, nil },
+		func(context.Context, extensionservice.Directory) (extensionservice.LoadReport, error) {
+			return report, nil
+		},
 	)
 
 	loaded, err := service.Start(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""}, reporter)
@@ -161,8 +164,8 @@ func TestServiceStartPropagatesCatalogAndReporterFailures(t *testing.T) {
 		reporter := NewMockReporter(gomock.NewController(t))
 		loadErr := errors.New("explicit directory missing")
 		service := New(
-			func(context.Context, toolservice.Directory) (toolservice.LoadReport, error) {
-				return toolservice.LoadReport{}, loadErr
+			func(context.Context, extensionservice.Directory) (extensionservice.LoadReport, error) {
+				return extensionservice.LoadReport{}, loadErr
 			},
 		)
 
@@ -175,11 +178,13 @@ func TestServiceStartPropagatesCatalogAndReporterFailures(t *testing.T) {
 		t.Parallel()
 		reporter := NewMockReporter(gomock.NewController(t))
 		deliveryErr := errors.New("stderr failed")
-		issue := toolservice.Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}
-		report := toolservice.LoadReport{Issues: []toolservice.Issue{issue}, Extensions: nil}
+		issue := extensionservice.Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}
+		report := extensionservice.LoadReport{Issues: []extensionservice.Issue{issue}, Extensions: nil}
 		reporter.EXPECT().ReportIssue(t.Context(), issue).Return(deliveryErr)
 		service := New(
-			func(context.Context, toolservice.Directory) (toolservice.LoadReport, error) { return report, nil },
+			func(context.Context, extensionservice.Directory) (extensionservice.LoadReport, error) {
+				return report, nil
+			},
 		)
 
 		_, err := service.Start(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""}, reporter)

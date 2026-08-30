@@ -22,11 +22,11 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 	}{
 		"boolean property schema": {
 			schemaJSON:   `{"type":"object","properties":{"path":true},"required":["path"],"additionalProperties":false}`,
-			parserDetail: "cannot unmarshal JSON boolean",
+			parserDetail: "unmarshal JSON boolean",
 		},
 		"property type array": {
 			schemaJSON:   `{"type":"object","properties":{"path":{"type":["string"]}},"required":["path"],"additionalProperties":false}`,
-			parserDetail: "cannot unmarshal JSON array into Go string",
+			parserDetail: "unmarshal JSON array into Go string",
 		},
 	}
 
@@ -38,8 +38,8 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 			descriptor := constrainedProtoDescriptor(testCase.schemaJSON, grammarProtoConstraint())
 
 			// Act: validate the schema through the extension catalog boundary.
-			_, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{
-				Tools: []*extensionpb.ToolDescriptor{descriptor},
+			_, _, err := validateRegistration(extensionpb.RegisterResponse_builder{
+				Tools: []*extensionpb.ToolDescriptor{descriptor}, Handlers: nil,
 			}.Build())
 
 			// Assert: the startup error keeps tool, grammar rule, and JSON parser contexts.
@@ -58,14 +58,14 @@ func TestValidateCatalogRootTypeParserErrorRetainsContext(t *testing.T) {
 	descriptor := constrainedProtoDescriptor(`{"type":{}}`, nil)
 
 	// Act: validate the schema through the extension catalog boundary.
-	_, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{
-		Tools: []*extensionpb.ToolDescriptor{descriptor},
+	_, _, err := validateRegistration(extensionpb.RegisterResponse_builder{
+		Tools: []*extensionpb.ToolDescriptor{descriptor}, Handlers: nil,
 	}.Build())
 
 	// Assert: the startup error keeps tool, schema rule, and JSON parser contexts.
 	require.ErrorContains(t, err, `tool "sample" input schema`)
 	require.ErrorContains(t, err, "schema root type must be object")
-	require.ErrorContains(t, err, "cannot unmarshal JSON object into Go string")
+	require.ErrorContains(t, err, "unmarshal JSON object into Go string")
 }
 
 // TestValidateCatalogMissingTypesRemainSemanticErrors verifies absent types do not create synthetic parser failures.
@@ -94,12 +94,12 @@ func TestValidateCatalogMissingTypesRemainSemanticErrors(t *testing.T) {
 			t.Parallel()
 
 			// Arrange a complete schema whose applicable type field is absent.
-			response := extensionpb.ListToolsResponse_builder{
-				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor},
+			response := extensionpb.RegisterResponse_builder{
+				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}, Handlers: nil,
 			}.Build()
 
 			// Act: validate the schema through the extension catalog boundary.
-			_, _, err := validateCatalog(response)
+			_, _, err := validateRegistration(response)
 
 			// Assert: the error reports only the semantic rule for the absent type.
 			require.ErrorContains(t, err, testCase.semanticRule)
@@ -306,16 +306,16 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			tools, _, err := validateCatalog(extensionpb.ListToolsResponse_builder{
-				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor},
+			registration, _, err := validateRegistration(extensionpb.RegisterResponse_builder{
+				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}, Handlers: nil,
 			}.Build())
 			if testCase.errorContains != "" {
 				require.ErrorContains(t, err, testCase.errorContains)
 				return
 			}
 			require.NoError(t, err)
-			require.Len(t, tools, 1)
-			assert.Equal(t, testCase.expected, tools[0].ConstrainedSampling)
+			require.Len(t, registration.Tools, 1)
+			assert.Equal(t, testCase.expected, registration.Tools[0].ConstrainedSampling)
 		})
 	}
 }

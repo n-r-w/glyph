@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // TestServiceDiscoverNormalizesAndIsolatesInvalidIDs keeps unaffected executable candidates.
@@ -23,10 +23,10 @@ func TestServiceDiscoverNormalizesAndIsolatesInvalidIDs(t *testing.T) {
 	}
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "not-executable"), []byte("fixture"), 0o600))
 
-	discovery, err := New().Discover(t.Context(), toolservice.Directory{Path: directory, Explicit: true})
+	discovery, err := New().Discover(t.Context(), extensionservice.Directory{Path: directory, Explicit: true})
 
 	require.NoError(t, err)
-	assert.Equal(t, []toolservice.Candidate{{ID: "other-tool", Path: filepath.Join(directory, "Other__Tool")}}, discovery.Candidates)
+	assert.Equal(t, []extensionservice.Candidate{{ID: "other-tool", Path: filepath.Join(directory, "Other__Tool")}}, discovery.Candidates)
 	require.Len(t, discovery.Issues, 3)
 }
 
@@ -35,11 +35,11 @@ func TestServiceDiscoverDirectoryPolicy(t *testing.T) {
 	t.Parallel()
 
 	missing := filepath.Join(t.TempDir(), "missing")
-	defaultResult, err := New().Discover(t.Context(), toolservice.Directory{Path: missing, Explicit: false})
+	defaultResult, err := New().Discover(t.Context(), extensionservice.Directory{Path: missing, Explicit: false})
 	require.NoError(t, err)
 	assert.Empty(t, defaultResult.Candidates)
 	assert.Empty(t, defaultResult.Issues)
 
-	_, err = New().Discover(t.Context(), toolservice.Directory{Path: missing, Explicit: true})
+	_, err = New().Discover(t.Context(), extensionservice.Directory{Path: missing, Explicit: true})
 	require.Error(t, err)
 }

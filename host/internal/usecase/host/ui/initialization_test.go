@@ -12,20 +12,20 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary verifies startup delivery content.
 func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing.T) {
 	t.Parallel()
 
-	initialization := BuildInitialization("selected", toolservice.LoadReport{
-		Issues: []toolservice.Issue{{
+	initialization := BuildInitialization("selected", extensionservice.LoadReport{
+		Issues: []extensionservice.Issue{{
 			PluginIDs: []string{"broken"},
 			Path:      "/broken",
 			Err:       errors.New("failed"),
 		}},
-		Extensions: []toolservice.LoadedExtension{{
+		Extensions: []extensionservice.LoadedExtension{{
 			ID:   "tools",
 			Path: "/plugins/tools",
 			Tools: []tool.Descriptor{{
@@ -34,6 +34,7 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 				InputSchemaJSON:     []byte(`{}`),
 				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 			}},
+			Handlers: nil,
 		}},
 	}, []SelectionIssue{{
 		Candidate: domainui.Candidate{
@@ -99,7 +100,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	})
 
 	// Act by building the UI initialization snapshot.
-	initialization := BuildInitialization("selected", toolservice.LoadReport{}, nil, catalog)
+	initialization := BuildInitialization("selected", extensionservice.LoadReport{}, nil, catalog)
 
 	// Assert all catalog models and the active selection are mapped exactly.
 	require.Len(t, initialization.Models, 2)
@@ -128,7 +129,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 func TestBuildInitializationTreatsEmptyExtensionsAsNormalInformation(t *testing.T) {
 	t.Parallel()
 
-	initialization := BuildInitialization("selected", toolservice.LoadReport{
+	initialization := BuildInitialization("selected", extensionservice.LoadReport{
 		Issues:     nil,
 		Extensions: nil,
 	}, nil, testModelCatalog(t))

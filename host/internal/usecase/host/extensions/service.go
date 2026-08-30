@@ -1,5 +1,5 @@
-// Package tools loads extension runtimes and owns the global tool registry.
-package tools
+// Package extensions owns extension process registration, dispatch, and availability.
+package extensions
 
 import (
 	"cmp"
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -18,7 +19,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// Service owns extension availability and globally unique tools.
+// Service owns extension processes, globally unique tools, and ordered handlers.
 type Service struct {
 	// catalog discovers executable extension candidates.
 	catalog Catalog
@@ -33,6 +34,8 @@ type Service struct {
 	runtimes map[string]*runtimeState
 	// owners contains the owning extension for each tool name.
 	owners map[string]toolOwner
+	// handlers contains available handlers in activation and registration order.
+	handlers []RegisteredHandler
 	// monitoring reports whether runtime exit monitors are active.
 	monitoring bool
 	// closing reports whether service shutdown has started.
@@ -49,6 +52,8 @@ type runtimeState struct {
 	runtime ExtensionRuntime
 	// tools contains the complete extension tool catalog.
 	tools []tool.Descriptor
+	// handlers contains the complete ordered extension handler catalog.
+	handlers []HandlerDescriptor
 	// available reports whether the runtime accepts executions.
 	available bool
 	// activeExecutions counts in-flight tool calls.
@@ -65,7 +70,7 @@ type toolOwner struct {
 	state *runtimeState
 }
 
-// New creates a Host extension tool service.
+// New creates the Host extension service.
 func New(
 	catalog Catalog,
 	factory RuntimeFactory,
@@ -78,6 +83,7 @@ func New(
 		mutex:         sync.RWMutex{},
 		runtimes:      make(map[string]*runtimeState),
 		owners:        make(map[string]toolOwner),
+		handlers:      nil,
 		monitoring:    false,
 		closing:       false,
 	}
@@ -115,36 +121,24 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 	issues := slices.Clone(discovery.Issues)
 	states := make(map[string]*runtimeState, len(discovery.Candidates))
 	for _, candidate := range discovery.Candidates {
-		runtime, startErr := s.factory.Start(ctx, candidate)
+		state, startErr := s.startCandidate(ctx, candidate)
 		if startErr != nil {
-			issues = append(issues, Issue{PluginIDs: []string{candidate.ID}, Path: candidate.Path, Err: startErr})
+			issues = append(issues, Issue{
+				PluginIDs: []string{candidate.ID}, Path: candidate.Path, Err: startErr,
+			})
 			continue
 		}
-		descriptors, listErr := runtime.ListTools(ctx)
-		if listErr != nil {
-			runtime.Close()
-			issues = append(issues, Issue{PluginIDs: []string{candidate.ID}, Path: candidate.Path, Err: listErr})
-			continue
-		}
-		states[candidate.ID] = &runtimeState{
-			path: candidate.Path, runtime: runtime, tools: descriptors, available: true,
-			activeExecutions: 0, exitPending: false,
-		}
+		states[candidate.ID] = state
 	}
 
-	conflicts := findConflicts(states)
-	for name, ids := range conflicts {
-		issues = append(issues, Issue{PluginIDs: ids, Path: "", Err: fmt.Errorf("tool name %q conflicts", name)})
-		for _, id := range ids {
-			states[id].available = false
-		}
-	}
+	issues = append(issues, rejectToolConflicts(states)...)
 
 	extensions := make([]LoadedExtension, 0, len(states))
 	for id, state := range states {
 		if state.available {
 			extensions = append(extensions, LoadedExtension{
 				ID: id, Path: state.path, Tools: slices.Clone(state.tools),
+				Handlers: slices.Clone(state.handlers),
 			})
 		}
 	}
@@ -161,6 +155,19 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 			}
 		}
 	}
+	for _, candidate := range discovery.Candidates {
+		state, exists := states[candidate.ID]
+		if !exists || !state.available {
+			continue
+		}
+		for _, handler := range state.handlers {
+			s.handlers = append(s.handlers, RegisteredHandler{
+				ExtensionID: candidate.ID,
+				ID:          handler.ID,
+				Kind:        handler.Kind,
+			})
+		}
+	}
 	s.mutex.Unlock()
 	for _, state := range states {
 		if !state.available {
@@ -169,6 +176,88 @@ func (s *Service) Load(ctx context.Context, directory Directory) (LoadReport, er
 	}
 	sortIssues(issues)
 	return LoadReport{Issues: issues, Extensions: extensions}, nil
+}
+
+// startCandidate starts one process and accepts its complete validated registration.
+func (s *Service) startCandidate(ctx context.Context, candidate Candidate) (*runtimeState, error) {
+	runtime, err := s.factory.Start(ctx, candidate)
+	if err != nil {
+		return nil, err
+	}
+	registration, err := runtime.Register(ctx)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err = validateHandlerRegistration(registration.Handlers); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	return &runtimeState{
+		path: candidate.Path, runtime: runtime, tools: registration.Tools,
+		handlers: registration.Handlers, available: true,
+		activeExecutions: 0, exitPending: false,
+	}, nil
+}
+
+// Handlers returns available handlers of one kind in registration order.
+func (s *Service) Handlers(kind HandlerKind) []RegisteredHandler {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	result := make([]RegisteredHandler, 0, len(s.handlers))
+	for _, handler := range s.handlers {
+		if handler.Kind == kind {
+			result = append(result, handler)
+		}
+	}
+	return result
+}
+
+// Handle invokes one registered handler and validates its typed response.
+func (s *Service) Handle(
+	ctx context.Context,
+	handler RegisteredHandler,
+	request HandlerRequest,
+) (HandlerResponse, error) {
+	requestKind, validRequest := request.Kind()
+	if !validRequest || requestKind != handler.Kind {
+		return HandlerResponse{}, fmt.Errorf("handler %q request kind does not match registration", handler.ID)
+	}
+
+	s.mutex.Lock()
+	state, exists := s.runtimes[handler.ExtensionID]
+	registered := exists && state.available && slices.ContainsFunc(state.handlers, func(candidate HandlerDescriptor) bool {
+		return candidate.ID == handler.ID && candidate.Kind == handler.Kind
+	})
+	if registered {
+		state.activeExecutions++
+	}
+	s.mutex.Unlock()
+	if !registered {
+		return HandlerResponse{}, fmt.Errorf(
+			"%w: extension handler %q is unavailable",
+			ErrExtensionUnavailable,
+			handler.ID,
+		)
+	}
+
+	response, err := state.runtime.Handle(ctx, handler.ID, request)
+	responseKind, validResponse := response.Kind()
+	if err == nil && (!validResponse || responseKind != handler.Kind) {
+		response = HandlerResponse{}
+		err = fmt.Errorf("%w: extension handler %q returned an action for another kind", ErrExtensionUnavailable, handler.ID)
+	}
+	closeRuntime, failure, reportFailure := s.finishExecution(toolOwner{
+		pluginID: handler.ExtensionID,
+		state:    state,
+	}, err)
+	if closeRuntime {
+		state.runtime.Close()
+	}
+	if reportFailure {
+		s.report(ctx, failure)
+	}
+	return response, err
 }
 
 // Tools returns the currently available global catalog.
@@ -306,6 +395,9 @@ func (s *Service) disableLocked(state *runtimeState) bool {
 	for index := range state.tools {
 		delete(s.owners, state.tools[index].Name)
 	}
+	s.handlers = slices.DeleteFunc(s.handlers, func(handler RegisteredHandler) bool {
+		return s.runtimes[handler.ExtensionID] == state
+	})
 	return true
 }
 
@@ -318,6 +410,21 @@ func (s *Service) report(ctx context.Context, failure tool.RuntimeFailure) {
 			"error", err,
 		)
 	}
+}
+
+// rejectToolConflicts disables every extension in a tool conflict and returns isolated issues.
+func rejectToolConflicts(states map[string]*runtimeState) []Issue {
+	conflicts := findConflicts(states)
+	issues := make([]Issue, 0, len(conflicts))
+	for name, ids := range conflicts {
+		issues = append(issues, Issue{
+			PluginIDs: ids, Path: "", Err: fmt.Errorf("tool name %q conflicts", name),
+		})
+		for _, id := range ids {
+			states[id].available = false
+		}
+	}
+	return issues
 }
 
 // findConflicts returns every duplicated name and all extension owners.
@@ -337,6 +444,26 @@ func findConflicts(states map[string]*runtimeState) map[string][]string {
 		}
 	}
 	return conflicts
+}
+
+// validateHandlerRegistration rejects incomplete, unknown, and duplicate handler descriptors.
+func validateHandlerRegistration(handlers []HandlerDescriptor) error {
+	ids := make(map[string]struct{}, len(handlers))
+	for _, handler := range handlers {
+		if strings.TrimSpace(handler.ID) == "" {
+			return errors.New("handler ID is empty")
+		}
+		switch handler.Kind {
+		case HandlerKindSessionBeforeTreeRequest, HandlerKindSessionBeforeTreeResult, HandlerKindSessionTree:
+		default:
+			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
+		}
+		if _, exists := ids[handler.ID]; exists {
+			return fmt.Errorf("handler ID %q is duplicated", handler.ID)
+		}
+		ids[handler.ID] = struct{}{}
+	}
+	return nil
 }
 
 // sortIssues makes startup diagnostics deterministic.

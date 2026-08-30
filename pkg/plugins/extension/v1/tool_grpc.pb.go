@@ -19,18 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ExtensionService_ListTools_FullMethodName = "/glyph.plugins.extension.v1.ExtensionService/ListTools"
-	ExtensionService_Execute_FullMethodName   = "/glyph.plugins.extension.v1.ExtensionService/Execute"
+	ExtensionService_Register_FullMethodName = "/glyph.plugins.extension.v1.ExtensionService/Register"
+	ExtensionService_Handle_FullMethodName   = "/glyph.plugins.extension.v1.ExtensionService/Handle"
+	ExtensionService_Execute_FullMethodName  = "/glyph.plugins.extension.v1.ExtensionService/Execute"
 )
 
 // ExtensionServiceClient is the client API for ExtensionService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// ExtensionService exposes a fixed tool catalog and streamed tool execution.
+// ExtensionService exposes startup registration, unary handlers, and streamed tool execution.
 type ExtensionServiceClient interface {
-	// ListTools returns the complete tool catalog owned by the extension process.
-	ListTools(ctx context.Context, in *ListToolsRequest, opts ...grpc.CallOption) (*ListToolsResponse, error)
+	// Register returns the complete registration owned by the extension process.
+	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	// Handle invokes one registered session-tree handler.
+	Handle(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error)
 	// Execute emits progress followed by exactly one terminal result.
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecuteResponse], error)
 }
@@ -43,10 +46,20 @@ func NewExtensionServiceClient(cc grpc.ClientConnInterface) ExtensionServiceClie
 	return &extensionServiceClient{cc}
 }
 
-func (c *extensionServiceClient) ListTools(ctx context.Context, in *ListToolsRequest, opts ...grpc.CallOption) (*ListToolsResponse, error) {
+func (c *extensionServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListToolsResponse)
-	err := c.cc.Invoke(ctx, ExtensionService_ListTools_FullMethodName, in, out, cOpts...)
+	out := new(RegisterResponse)
+	err := c.cc.Invoke(ctx, ExtensionService_Register_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *extensionServiceClient) Handle(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HandleResponse)
+	err := c.cc.Invoke(ctx, ExtensionService_Handle_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +89,12 @@ type ExtensionService_ExecuteClient = grpc.ServerStreamingClient[ExecuteResponse
 // All implementations must embed UnimplementedExtensionServiceServer
 // for forward compatibility.
 //
-// ExtensionService exposes a fixed tool catalog and streamed tool execution.
+// ExtensionService exposes startup registration, unary handlers, and streamed tool execution.
 type ExtensionServiceServer interface {
-	// ListTools returns the complete tool catalog owned by the extension process.
-	ListTools(context.Context, *ListToolsRequest) (*ListToolsResponse, error)
+	// Register returns the complete registration owned by the extension process.
+	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	// Handle invokes one registered session-tree handler.
+	Handle(context.Context, *HandleRequest) (*HandleResponse, error)
 	// Execute emits progress followed by exactly one terminal result.
 	Execute(*ExecuteRequest, grpc.ServerStreamingServer[ExecuteResponse]) error
 	mustEmbedUnimplementedExtensionServiceServer()
@@ -92,8 +107,11 @@ type ExtensionServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedExtensionServiceServer struct{}
 
-func (UnimplementedExtensionServiceServer) ListTools(context.Context, *ListToolsRequest) (*ListToolsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListTools not implemented")
+func (UnimplementedExtensionServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Register not implemented")
+}
+func (UnimplementedExtensionServiceServer) Handle(context.Context, *HandleRequest) (*HandleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Handle not implemented")
 }
 func (UnimplementedExtensionServiceServer) Execute(*ExecuteRequest, grpc.ServerStreamingServer[ExecuteResponse]) error {
 	return status.Error(codes.Unimplemented, "method Execute not implemented")
@@ -119,20 +137,38 @@ func RegisterExtensionServiceServer(s grpc.ServiceRegistrar, srv ExtensionServic
 	s.RegisterService(&ExtensionService_ServiceDesc, srv)
 }
 
-func _ExtensionService_ListTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListToolsRequest)
+func _ExtensionService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ExtensionServiceServer).ListTools(ctx, in)
+		return srv.(ExtensionServiceServer).Register(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ExtensionService_ListTools_FullMethodName,
+		FullMethod: ExtensionService_Register_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ExtensionServiceServer).ListTools(ctx, req.(*ListToolsRequest))
+		return srv.(ExtensionServiceServer).Register(ctx, req.(*RegisterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExtensionService_Handle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExtensionServiceServer).Handle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExtensionService_Handle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExtensionServiceServer).Handle(ctx, req.(*HandleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -156,8 +192,12 @@ var ExtensionService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ExtensionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ListTools",
-			Handler:    _ExtensionService_ListTools_Handler,
+			MethodName: "Register",
+			Handler:    _ExtensionService_Register_Handler,
+		},
+		{
+			MethodName: "Handle",
+			Handler:    _ExtensionService_Handle_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

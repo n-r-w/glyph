@@ -23,8 +23,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
 // runHeadlessWithPaths preserves the accepted one-shot Host composition.
@@ -45,19 +45,19 @@ func runHeadlessWithPaths(
 	}
 
 	renderer := headless.NewRenderer(stdout, stderr)
-	tools := toolservice.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
+	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
 	defer func() {
-		tools.Close()
+		extensions.Close()
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
-	startupService := startup.New(tools.Load)
+	startupService := startup.New(extensions.Load)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, renderer)
 	if startupErr != nil {
 		return fmt.Errorf("start headless Host: %w", startupErr)
 	}
-	tools.Activate(ctx)
+	extensions.Activate(ctx)
 
 	hookRunner := hookrunner.New(nil, nil, nil)
 	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
@@ -68,7 +68,7 @@ func runHeadlessWithPaths(
 	sessionServices.models.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)

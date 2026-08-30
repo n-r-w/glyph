@@ -21,8 +21,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -64,7 +65,7 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	)
 	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o700))
 	startupContext, cancelStartup := context.WithCancel(t.Context())
-	runtime, err := NewFactory().Start(startupContext, toolservice.Candidate{
+	runtime, err := NewFactory().Start(startupContext, extensionservice.Candidate{
 		ID:   "test",
 		Path: scriptPath,
 	})
@@ -76,9 +77,9 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 		require.Fail(t, "extension process stopped before explicit Host shutdown")
 	case <-time.After(200 * time.Millisecond):
 	}
-	descriptors, err := runtime.ListTools(t.Context())
+	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
-	assert.Len(t, descriptors, 1)
+	assert.Len(t, registration.Tools, 1)
 
 	runtime.Close()
 	select {
@@ -118,14 +119,15 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	runtime, err := Start(t.Context(), command)
 	require.NoError(t, err)
 	t.Cleanup(runtime.Close)
-	tools, err := runtime.ListTools(t.Context())
+	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 
 	// Assert: expose the complete seven-tool standard catalog.
-	require.Len(t, tools, 7)
-	assert.Equal(t, "read", tools[0].Name)
-	assert.NotEmpty(t, tools[0].Description)
-	assert.NotEmpty(t, tools[0].InputSchemaJSON)
+	require.Len(t, registration.Tools, 7)
+	assert.Empty(t, registration.Handlers)
+	assert.Equal(t, "read", registration.Tools[0].Name)
+	assert.NotEmpty(t, registration.Tools[0].Description)
+	assert.NotEmpty(t, registration.Tools[0].InputSchemaJSON)
 
 	// Act: read a relative project file through the real finite execution stream.
 	result, err := runtime.Execute(
@@ -355,7 +357,7 @@ func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
 	runtime, err := Start(t.Context(), command)
 	require.NoError(t, err)
 	t.Cleanup(runtime.Close)
-	_, err = runtime.ListTools(t.Context())
+	_, err = runtime.Register(t.Context())
 	require.NoError(t, err)
 
 	unknown, err := runtime.Execute(t.Context(), "missing", []byte(`{}`), discardProgress)
@@ -381,7 +383,7 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 
 	// Arrange: start a helper process that reports readiness and then waits for stream cancellation.
 	runtime := startHelperRuntime(t, "wait")
-	_, err := runtime.ListTools(t.Context())
+	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
 	started := make(chan struct{})
@@ -421,7 +423,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			t.Parallel()
 			// Arrange: start a real helper process with one deliberately malformed stream behavior.
 			runtime := startHelperRuntime(t, mode)
-			_, err := runtime.ListTools(t.Context())
+			_, err := runtime.Register(t.Context())
 			require.NoError(t, err)
 
 			// Act: consume the malformed finite stream.
@@ -438,7 +440,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 				IsError:  false,
 			}, result)
 			require.Error(t, err)
-			require.ErrorIs(t, err, toolservice.ErrExtensionUnavailable)
+			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, "extension protocol violation")
 			requireRuntimeStopped(t, runtime)
 		})
@@ -463,12 +465,12 @@ func TestRuntimeRejectsInvalidCatalogs(t *testing.T) {
 			runtime := startHelperRuntime(t, mode)
 
 			// Act: request catalog validation and caching.
-			tools, err := runtime.ListTools(t.Context())
+			registration, err := runtime.Register(t.Context())
 
 			// Assert: reject the complete catalog and stop only its owning process.
-			assert.Nil(t, tools)
+			assert.Empty(t, registration)
 			require.Error(t, err)
-			require.ErrorContains(t, err, "validate extension catalog")
+			require.ErrorContains(t, err, "validate extension registration")
 			requireRuntimeStopped(t, runtime)
 		})
 	}
@@ -479,7 +481,7 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	t.Parallel()
 
 	runtime := startHelperRuntime(t, "progress")
-	_, err := runtime.ListTools(t.Context())
+	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 	deliveryErr := errors.New("event consumer failed")
 
@@ -487,7 +489,7 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 		return deliveryErr
 	})
 	require.ErrorIs(t, err, deliveryErr)
-	require.NotErrorIs(t, err, toolservice.ErrExtensionUnavailable)
+	require.NotErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
 	assertRuntimeRunning(t, runtime)
 
 	result, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
@@ -503,12 +505,12 @@ func TestRuntimeClassifiesTransportFailure(t *testing.T) {
 	t.Parallel()
 
 	runtime := startHelperRuntime(t, "transport-error")
-	_, err := runtime.ListTools(t.Context())
+	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 
 	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
 
-	require.ErrorIs(t, err, toolservice.ErrExtensionUnavailable)
+	require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
 	requireRuntimeStopped(t, runtime)
 }
 
@@ -518,7 +520,7 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 
 	// Arrange: start a helper process that emits one status fragment and one result.
 	runtime := startHelperRuntime(t, "progress")
-	_, err := runtime.ListTools(t.Context())
+	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 	progress := make([]tool.Progress, 0, 1)
 
@@ -545,19 +547,54 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 	}, result)
 }
 
-// ListTools returns a valid or deliberately invalid catalog selected by the helper mode.
-func (s *protocolService) ListTools(
+// TestRuntimeHandleInvokesUnarySessionTreeObserver verifies typed observer dispatch over real gRPC.
+func TestRuntimeHandleInvokesUnarySessionTreeObserver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a real helper extension with one registered observer.
+	runtime := startHelperRuntime(t, "handler")
+	registration, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, []extensionservice.HandlerDescriptor{{
+		ID: "observer", Kind: extensionservice.HandlerKindSessionTree,
+	}}, registration.Handlers)
+	invocation := extensionservice.SessionTreeInvocation{
+		SessionID: "session", TargetEntryID: "target", PrecedingActiveLeafID: mo.None[string](),
+		NavigationDestinationID: mo.None[string](), CommittedActiveLeafID: mo.None[string](),
+		CreatedSummary: mo.None[session.Entry](),
+	}
+	request := extensionservice.HandlerRequest{
+		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
+		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
+		SessionTree:              mo.Some(invocation),
+	}
+
+	// Act by invoking the registered unary handler.
+	response, err := runtime.Handle(t.Context(), "observer", request)
+
+	// Assert the typed observer acknowledgement.
+	require.NoError(t, err)
+	assert.Equal(t, extensionservice.HandlerResponse{
+		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestAction](),
+		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultAction](),
+		SessionTree:              mo.Some(extensionservice.SessionTreeAction{}),
+	}, response)
+}
+
+// Register returns a valid or deliberately invalid catalog selected by the helper mode.
+func (s *protocolService) Register(
 	_ context.Context,
-	_ *extensionpb.ListToolsRequest,
-) (*extensionpb.ListToolsResponse, error) {
+	_ *extensionpb.RegisterRequest,
+) (*extensionpb.RegisterResponse, error) {
 	descriptor := extensionpb.ToolDescriptor_builder{
 		Name:                new("read"),
 		Description:         new("Read a project file."),
 		InputSchemaJson:     []byte(validSchemaJSON),
 		ConstrainedSampling: nil,
 	}.Build()
-	response := extensionpb.ListToolsResponse_builder{
-		Tools: []*extensionpb.ToolDescriptor{descriptor},
+	response := extensionpb.RegisterResponse_builder{
+		Tools:    []*extensionpb.ToolDescriptor{descriptor},
+		Handlers: nil,
 	}.Build()
 
 	switch s.mode {
@@ -569,8 +606,31 @@ func (s *protocolService) ListTools(
 		descriptor.SetInputSchemaJson([]byte(`{"type":`))
 	case "duplicate-name":
 		response.SetTools(append(response.GetTools(), descriptor))
+	case "handler":
+		response.SetHandlers([]*extensionpb.HandlerDescriptor{
+			extensionpb.HandlerDescriptor_builder{
+				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+			}.Build(),
+		})
 	}
 	return response, nil
+}
+
+// Handle validates the helper observer request and returns its typed acknowledgement.
+func (s *protocolService) Handle(
+	_ context.Context,
+	request *extensionpb.HandleRequest,
+) (*extensionpb.HandleResponse, error) {
+	if s.mode != "handler" || request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+		return nil, status.Error(codes.InvalidArgument, "unexpected handler request")
+	}
+	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
+		return nil, status.Error(codes.InvalidArgument, "unexpected observer payload")
+	}
+	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
+	return extensionpb.HandleResponse_builder{
+		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+	}.Build(), nil
 }
 
 // Execute emits one behavior selected by the helper mode.

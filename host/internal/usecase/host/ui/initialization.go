@@ -11,13 +11,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // BuildInitialization creates the single startup frame from resolved Host availability.
 func BuildInitialization(
 	selectedUIID string,
-	report toolservice.LoadReport,
+	report extensionservice.LoadReport,
 	selectionIssues []SelectionIssue,
 	modelCatalog ModelCatalog,
 ) domainui.Initialization {

@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -36,7 +36,7 @@ type Runtime struct {
 	schemas map[string]*jsonschema.Schema
 }
 
-var _ toolservice.ExtensionRuntime = (*Runtime)(nil)
+var _ extensionservice.ExtensionRuntime = (*Runtime)(nil)
 
 // Start connects to one extension process command.
 func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
@@ -51,25 +51,25 @@ func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
 	}, nil
 }
 
-// ListTools validates and caches the complete extension tool catalog.
-func (r *Runtime) ListTools(ctx context.Context) ([]tool.Descriptor, error) {
-	response, err := r.client.Service().ListTools(ctx, &extensionpb.ListToolsRequest{})
+// Register validates and caches the complete extension registration.
+func (r *Runtime) Register(ctx context.Context) (extensionservice.Registration, error) {
+	response, err := r.client.Service().Register(ctx, &extensionpb.RegisterRequest{})
 	if err != nil {
 		r.Close()
-		return nil, fmt.Errorf("list extension tools: %w", err)
+		return extensionservice.Registration{}, fmt.Errorf("register extension: %w", err)
 	}
 
-	tools, schemas, err := validateCatalog(response)
+	registration, schemas, err := validateRegistration(response)
 	if err != nil {
 		r.Close()
-		return nil, fmt.Errorf("validate extension catalog: %w", err)
+		return extensionservice.Registration{}, fmt.Errorf("validate extension registration: %w", err)
 	}
 
-	// The validated catalog and compiled schemas remain fixed for this process lifetime.
+	// The validated registration and compiled schemas remain fixed for this process lifetime.
 	r.catalogMutex.Lock()
 	r.schemas = schemas
 	r.catalogMutex.Unlock()
-	return tools, nil
+	return registration, nil
 }
 
 // Execute validates arguments and consumes one finite extension execution stream.
@@ -190,7 +190,7 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 	r.Close()
 	return fmt.Errorf(
 		"%w: execute extension tool %q: %w",
-		toolservice.ErrExtensionUnavailable,
+		extensionservice.ErrExtensionUnavailable,
 		toolName,
 		err,
 	)
@@ -201,43 +201,43 @@ func (r *Runtime) protocolViolation(reason string) error {
 	r.Close()
 	return fmt.Errorf(
 		"%w: extension protocol violation: %s",
-		toolservice.ErrExtensionUnavailable,
+		extensionservice.ErrExtensionUnavailable,
 		reason,
 	)
 }
 
-// validateCatalog validates every descriptor before any tool becomes available.
-func validateCatalog(
-	response *extensionpb.ListToolsResponse,
-) ([]tool.Descriptor, map[string]*jsonschema.Schema, error) {
+// validateRegistration validates tool transport data and maps ordered handler descriptors.
+func validateRegistration(
+	response *extensionpb.RegisterResponse,
+) (extensionservice.Registration, map[string]*jsonschema.Schema, error) {
 	if response == nil {
-		return nil, nil, errors.New("catalog response is missing")
+		return extensionservice.Registration{}, nil, errors.New("registration response is missing")
 	}
 
 	tools := make([]tool.Descriptor, 0, len(response.GetTools()))
 	schemas := make(map[string]*jsonschema.Schema, len(response.GetTools()))
 	for index, descriptor := range response.GetTools() {
 		if descriptor == nil {
-			return nil, nil, fmt.Errorf("descriptor %d is missing", index)
+			return extensionservice.Registration{}, nil, fmt.Errorf("descriptor %d is missing", index)
 		}
 		name := descriptor.GetName()
 		if name == "" {
-			return nil, nil, fmt.Errorf("descriptor %d has an empty name", index)
+			return extensionservice.Registration{}, nil, fmt.Errorf("descriptor %d has an empty name", index)
 		}
 		if descriptor.GetDescription() == "" {
-			return nil, nil, fmt.Errorf("tool %q has an empty description", name)
+			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q has an empty description", name)
 		}
 		if _, duplicate := schemas[name]; duplicate {
-			return nil, nil, fmt.Errorf("tool name %q is duplicated", name)
+			return extensionservice.Registration{}, nil, fmt.Errorf("tool name %q is duplicated", name)
 		}
 
 		schema, err := compileToolSchema(descriptor.GetInputSchemaJson())
 		if err != nil {
-			return nil, nil, fmt.Errorf("tool %q input schema: %w", name, err)
+			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q input schema: %w", name, err)
 		}
 		constraint, err := mapConstrainedSampling(descriptor, descriptor.GetInputSchemaJson())
 		if err != nil {
-			return nil, nil, fmt.Errorf("tool %q constrained sampling: %w", name, err)
+			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q constrained sampling: %w", name, err)
 		}
 		tools = append(tools, tool.Descriptor{
 			Name: name, Description: descriptor.GetDescription(),
@@ -245,7 +245,35 @@ func validateCatalog(
 		})
 		schemas[name] = schema
 	}
-	return tools, schemas, nil
+
+	handlers := make([]extensionservice.HandlerDescriptor, 0, len(response.GetHandlers()))
+	for _, handler := range response.GetHandlers() {
+		if handler == nil {
+			handlers = append(handlers, extensionservice.HandlerDescriptor{})
+			continue
+		}
+		handlers = append(handlers, extensionservice.HandlerDescriptor{
+			ID:   handler.GetId(),
+			Kind: mapHandlerKind(handler.GetKind()),
+		})
+	}
+	return extensionservice.Registration{Tools: tools, Handlers: handlers}, schemas, nil
+}
+
+// mapHandlerKind maps known public kinds and leaves other values invalid for Host validation.
+func mapHandlerKind(kind extensionpb.HandlerKind) extensionservice.HandlerKind {
+	switch kind {
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST:
+		return extensionservice.HandlerKindSessionBeforeTreeRequest
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT:
+		return extensionservice.HandlerKindSessionBeforeTreeResult
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
+		return extensionservice.HandlerKindSessionTree
+	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED:
+		return 0
+	default:
+		return 0
+	}
 }
 
 // mapConstrainedSampling validates the public constraint and preserves its presence.

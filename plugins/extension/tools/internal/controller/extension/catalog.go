@@ -6,12 +6,12 @@ import (
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// ListTools returns the complete standard tool catalog.
-func (s *Service) ListTools(
+// Register returns the complete standard tool catalog without session-tree handlers.
+func (s *Service) Register(
 	_ context.Context,
-	_ *extensionv1.ListToolsRequest,
-) (*extensionv1.ListToolsResponse, error) {
-	return extensionv1.ListToolsResponse_builder{
+	_ *extensionv1.RegisterRequest,
+) (*extensionv1.RegisterResponse, error) {
+	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{
 			extensionv1.ToolDescriptor_builder{
 				Name:                new(readToolName),
@@ -56,6 +56,7 @@ func (s *Service) ListTools(
 				ConstrainedSampling: strictPreferSampling(),
 			}.Build(),
 		},
+		Handlers: nil,
 	}.Build(), nil
 }
 

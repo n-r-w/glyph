@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -69,7 +71,7 @@ func TestConnectAndServe(t *testing.T) {
 	t.Cleanup(client.Close)
 	assert.Equal(t, ProtocolVersion, client.NegotiatedVersion())
 
-	catalog, err := client.Service().ListTools(t.Context(), &extensionpb.ListToolsRequest{})
+	catalog, err := client.Service().Register(t.Context(), &extensionpb.RegisterRequest{})
 	require.NoError(t, err)
 	require.Len(t, catalog.GetTools(), 1)
 	assert.Equal(t, "contract", catalog.GetTools()[0].GetName())
@@ -78,6 +80,19 @@ func TestConnectAndServe(t *testing.T) {
 		extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE,
 		catalog.GetTools()[0].GetConstrainedSampling().GetJsonSchema().GetStrictness(),
 	)
+	require.Len(t, catalog.GetHandlers(), 1)
+	assert.Equal(t, "observer", catalog.GetHandlers()[0].GetId())
+	//nolint:exhaustruct_v5 // The request builder sets only the observer payload.
+	handlerResponse, err := client.Service().Handle(t.Context(), extensionpb.HandleRequest_builder{
+		HandlerId: new("observer"),
+		SessionTree: extensionpb.SessionTreeInvocation_builder{
+			SessionId: new("session"), TargetEntryId: new("target"),
+			PrecedingActiveLeafId: nil, NavigationDestinationId: nil,
+			CommittedActiveLeafId: nil, CreatedSummary: nil,
+		}.Build(),
+	}.Build())
+	require.NoError(t, err)
+	require.NotNil(t, handlerResponse.GetSessionTree())
 
 	stream, err := client.Service().Execute(t.Context(), extensionpb.ExecuteRequest_builder{
 		ToolName:      new("contract"),
@@ -106,12 +121,12 @@ func TestConnectAndServe(t *testing.T) {
 	}
 }
 
-// ListTools returns one descriptor to prove generated unary contract access.
-func (s *contractService) ListTools(
+// Register returns one descriptor to prove generated unary contract access.
+func (s *contractService) Register(
 	_ context.Context,
-	_ *extensionpb.ListToolsRequest,
-) (*extensionpb.ListToolsResponse, error) {
-	return extensionpb.ListToolsResponse_builder{
+	_ *extensionpb.RegisterRequest,
+) (*extensionpb.RegisterResponse, error) {
+	return extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
 			Name:            new("contract"),
 			Description:     new("Contract test tool."),
@@ -123,6 +138,25 @@ func (s *contractService) ListTools(
 				}.Build(),
 			}.Build(),
 		}.Build()},
+		Handlers: []*extensionpb.HandlerDescriptor{
+			extensionpb.HandlerDescriptor_builder{
+				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+			}.Build(),
+		},
+	}.Build(), nil
+}
+
+// Handle acknowledges one typed observer invocation.
+func (s *contractService) Handle(
+	_ context.Context,
+	request *extensionpb.HandleRequest,
+) (*extensionpb.HandleResponse, error) {
+	if request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+		return nil, status.Error(codes.InvalidArgument, "unexpected handler invocation")
+	}
+	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
+	return extensionpb.HandleResponse_builder{
+		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build(), nil
 }
 

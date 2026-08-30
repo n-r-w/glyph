@@ -33,8 +33,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -104,15 +104,15 @@ func runUIWithPaths(
 	}
 
 	delivery := hostui.NewDelivery(channel)
-	tools := toolservice.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
-	startupService := startup.New(tools.Load)
+	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
+	startupService := startup.New(extensions.Load)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	})
 	if err != nil {
 		selection.Runtime.Close()
 		recoveryErr := recovery.Restore()
-		tools.Close()
+		extensions.Close()
 		return errors.Join(fmt.Errorf("start UI Host extensions: %w", err), recoveryErr)
 	}
 
@@ -122,14 +122,14 @@ func runUIWithPaths(
 	if err != nil {
 		selection.Runtime.Close()
 		recoveryErr := recovery.Restore()
-		tools.Close()
+		extensions.Close()
 		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
 	}
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.models.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
@@ -140,7 +140,7 @@ func runUIWithPaths(
 		sessionServices.control,
 		func(activationContext context.Context) {
 			selectionWarningsDelivered = true
-			tools.Activate(activationContext)
+			extensions.Activate(activationContext)
 		},
 	)
 	controller := controllerui.New(session)
@@ -151,7 +151,7 @@ func runUIWithPaths(
 	// The selected process stops before terminal recovery; extensions stop after recovery.
 	selection.Runtime.Close()
 	recoveryErr := recovery.Restore()
-	tools.Close()
+	extensions.Close()
 	slog.InfoContext(context.WithoutCancel(ctx), "completed UI Glyph application")
 	return errors.Join(executionErr, recoveryErr)
 }

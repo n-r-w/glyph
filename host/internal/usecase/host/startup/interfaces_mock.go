@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	tools "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	tools "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	gomock "go.uber.org/mock/gomock"
 )
 

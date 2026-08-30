@@ -20,8 +20,8 @@ import (
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// TestServiceListTools verifies the complete standard-extension catalog.
-func TestServiceListTools(t *testing.T) {
+// TestServiceRegister verifies the complete standard-extension catalog.
+func TestServiceRegister(t *testing.T) {
 	t.Parallel()
 
 	// Arrange: serve the controller through the generated gRPC contract.
@@ -29,11 +29,12 @@ func TestServiceListTools(t *testing.T) {
 	client := newTestClient(t, readTool)
 
 	// Act: request the fixed startup catalog.
-	response, err := client.ListTools(t.Context(), &extensionv1.ListToolsRequest{})
+	response, err := client.Register(t.Context(), &extensionv1.RegisterRequest{})
 
 	// Assert: expose the complete standard tool catalog.
 	require.NoError(t, err)
 	require.Len(t, response.GetTools(), 7)
+	assert.Empty(t, response.GetHandlers())
 	descriptor := response.GetTools()[0]
 	assert.Equal(t, "read", descriptor.GetName())
 	assert.NotEmpty(t, descriptor.GetDescription())

@@ -16,7 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // rendererTextDeltaEvent creates one visible model text delta.
@@ -402,14 +402,14 @@ func TestRendererWritesStartupInformationAndFailures(t *testing.T) {
 
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
-	issue := toolservice.Issue{
+	issue := extensionservice.Issue{
 		PluginIDs: []string{"broken"},
 		Path:      "/plugins/broken",
 		Err:       errors.New("handshake failed"),
 	}
-	report := toolservice.LoadReport{
-		Issues: []toolservice.Issue{issue},
-		Extensions: []toolservice.LoadedExtension{
+	report := extensionservice.LoadReport{
+		Issues: []extensionservice.Issue{issue},
+		Extensions: []extensionservice.LoadedExtension{
 			{
 				Path: "",
 				ID:   "tools",
@@ -427,6 +427,7 @@ func TestRendererWritesStartupInformationAndFailures(t *testing.T) {
 						InputSchemaJSON:     []byte(`{}`),
 					},
 				},
+				Handlers: nil,
 			},
 		},
 	}
@@ -449,7 +450,7 @@ func TestRendererReportsEmptyExtensionCatalogAsInformation(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
 
-	require.NoError(t, renderer.ReportSummary(t.Context(), toolservice.LoadReport{}))
+	require.NoError(t, renderer.ReportSummary(t.Context(), extensionservice.LoadReport{}))
 
 	assert.Equal(t, "[info] headless\n[info] extensions: none\n", stderr.String())
 }

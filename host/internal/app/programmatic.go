@@ -32,8 +32,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
-	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
@@ -55,7 +55,7 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("load Glyph settings: %w", err)
 	}
 
-	tools := toolservice.New(catalog.New(), extensionruntime.NewFactory(), func(
+	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), func(
 		reportContext context.Context,
 		failure tool.RuntimeFailure,
 	) error {
@@ -66,23 +66,23 @@ func runProgrammaticWithPaths(
 		)
 		return nil
 	})
-	toolsClosed := false
-	closeTools := func() {
-		if toolsClosed {
+	extensionsClosed := false
+	closeExtensions := func() {
+		if extensionsClosed {
 			return
 		}
-		tools.Close()
-		toolsClosed = true
+		extensions.Close()
+		extensionsClosed = true
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}
-	defer closeTools()
-	startupService := startup.New(tools.Load)
+	defer closeExtensions()
+	startupService := startup.New(extensions.Load)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}); err != nil {
 		return fmt.Errorf("start programmatic Host extensions: %w", err)
 	}
-	tools.Activate(ctx)
+	extensions.Activate(ctx)
 
 	hookRunner := hookrunner.New(nil, nil, nil)
 	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
@@ -94,7 +94,7 @@ func runProgrammaticWithPaths(
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(
@@ -109,7 +109,7 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("open Programmatic Control socket: %w", err)
 	}
 	defer func() {
-		closeTools()
+		closeExtensions()
 		returnErr = errors.Join(returnErr, socketService.Close())
 	}()
 	if err = json.MarshalWrite(stdout, struct {
