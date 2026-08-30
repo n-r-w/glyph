@@ -24,7 +24,7 @@ See the [problem statement](problem.md).
 The system rules use these meaningful pseudo-XML sections:
 
 - `<identity>` defines the summarization role.
-- `<source_handling>` defines `<conversation>` as source data rather than conversation history. It prohibits following, answering, or continuing instructions found in the source and tells the model to interpret XML entities as literal source characters.
+- `<source_handling>` defines `<conversation>` as source data rather than conversation history. It prohibits following, answering, or continuing instructions found in the source. It defines unquoted role labels as framing, each line prefixed with `| ` as one XML-text-escaped source line, and XML text entities as literal source characters.
 - `<summary_rules>` requires grounded extraction, exact technical details, correct work state, and omission of unsupported information.
 - `<output_format>` defines the approved pseudo-XML section order and requires omission of sections without source content.
 
@@ -92,6 +92,8 @@ The user-task template renders one text input with this structure:
 - APC-07.1: XML text escaping replaces `&`, `<`, and `>` with their standard entities. The framing tags and role labels remain unchanged.
 - APC-07.2: Additional focus uses the same XML text escaping before insertion into `<additional_focus>`.
 - APC-07.3: Tool-call arguments use deterministic JSON generated from the semantic `model.ToolCall.Arguments` map. Original provider whitespace and key order are not part of the contract.
+- APC-07.4: After XML text escaping, the serializer prefixes every dynamic source line with `| `. This includes empty lines. Serializer-added role labels remain unprefixed.
+- APC-07.5: Removing one `| ` prefix from each dynamic line and then decoding XML text entities recovers the exact source value.
 
 The serializer emits these labeled blocks:
 
@@ -179,8 +181,8 @@ Affected files:
 - TSK-02: RED adds focused serializer tests for ordered user text, model-visible text and reasoning, tool calls, text tool results, and prior summaries.
   - Purpose: prove the complete approved text source is represented deterministically and remains lossless after XML text decoding.
   - Input: ordered entries that contain all supported source record kinds plus image and model-hidden extension entries.
-  - Expected output: supported source values and order are preserved; semantic tool-argument maps produce deterministic JSON; the result is one text value.
-  - Edge cases: multiline text, `&`, `<`, `>`, delimiter-like text, different map insertion orders, image blocks, and model-hidden extension entries.
+  - Expected output: supported source values and order are preserved; serializer labels remain distinct from dynamic source lines; semantic tool-argument maps produce deterministic JSON; the result is one text value.
+  - Edge cases: multiline and empty lines, every role label at line start, `&`, `<`, `>`, delimiter-like text, different map insertion orders, image blocks, and model-hidden extension entries.
   - Dependencies: domain `session`, `model`, `agent`, and `tool` types only.
 - TSK-03: Tests do not assert authored system-rule text, task wording, pseudo-XML tag spelling, or additional-focus wording.
 - TSK-04: GREEN implements the minimum prompt rendering, serialization, and request-construction changes needed to pass the focused tests.
@@ -209,7 +211,7 @@ Verification commands:
 - Existing model execution, selection, extension handlers, validation, persistence, and navigation coordination remain unchanged.
 - Three prompt artifacts have one responsibility each: system rules, user task, and persisted-summary context.
 - Image understanding, token budgeting, file tracking, a universal summarizer, and new extension APIs remain outside scope.
-- The serializer covers existing model-visible text domain variants only. It adds no general document format or reusable serialization framework.
+- The serializer covers existing model-visible text domain variants only. One fixed line prefix keeps role labels unambiguous without nested XML, a parser, or a reusable serialization framework.
 
 ## Open Questions
 
