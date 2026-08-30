@@ -59,6 +59,23 @@ func rendererMessageEndEvent() run.Event {
 	}
 }
 
+// rendererProgressEvent creates one tool progress event.
+func rendererProgressEvent(channel tool.ProgressChannel, content string) run.Event {
+	return run.Event{
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+		Type:       run.EventToolExecutionUpdate,
+		RunID:      "run",
+		Progress:   mo.Some(tool.Progress{Channel: channel, Content: content}),
+	}
+}
+
 // TestRendererReportsRuntimeFailure writes one classified identity-bearing failure to stderr.
 func TestRendererReportsRuntimeFailure(t *testing.T) {
 	t.Parallel()
@@ -235,54 +252,9 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 				Arguments: map[string]any{},
 			}),
 		},
-		{
-			Position:   mo.None[int](),
-			Content:    mo.None[model.Content](),
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventToolExecutionUpdate,
-			RunID:      "run",
-			Progress: mo.Some(tool.Progress{
-				Channel: tool.ProgressChannelStatus,
-				Content: "working",
-			}),
-		},
-		{
-			Position:   mo.None[int](),
-			Content:    mo.None[model.Content](),
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventToolExecutionUpdate,
-			RunID:      "run",
-			Progress: mo.Some(tool.Progress{
-				Channel: tool.ProgressChannelStdout,
-				Content: "output",
-			}),
-		},
-		{
-			Position:   mo.None[int](),
-			Content:    mo.None[model.Content](),
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventToolExecutionUpdate,
-			RunID:      "run",
-			Progress: mo.Some(tool.Progress{
-				Channel: tool.ProgressChannelStderr,
-				Content: "warning",
-			}),
-		},
+		rendererProgressEvent(tool.ProgressChannelStatus, "working"),
+		rendererProgressEvent(tool.ProgressChannelStdout, "output"),
+		rendererProgressEvent(tool.ProgressChannelStderr, "warning"),
 		{
 			Position: mo.None[int](),
 			Content:  mo.None[model.Content](),

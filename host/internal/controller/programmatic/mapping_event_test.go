@@ -10,6 +10,24 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// modelContentAgentEvent creates one event carrying model content.
+func modelContentAgentEvent(kind ModelContentKind, position int, text mo.Option[string]) AgentEvent {
+	return AgentEvent{
+		ModelContent:    mo.Some(ModelContent{Kind: kind, Position: position, Text: text}),
+		CorrelationID:   "",
+		Type:            0,
+		RunID:           "",
+		ToolCallPreview: mo.None[ToolCallPreview](),
+		FinalToolCall:   mo.None[FinalToolCall](),
+		ToolExecution:   mo.None[ToolExecution](),
+		ToolProgress:    mo.None[ToolProgress](),
+		ToolResult:      mo.None[ToolResult](),
+		ModelResponse:   mo.None[ModelResponse](),
+		Turn:            mo.None[TurnSummary](),
+		Agent:           mo.None[AgentSummary](),
+	}
+}
+
 // TestMapEventPreservesEveryEvent verifies every event enum and payload oneof.
 func TestMapEventPreservesEveryEvent(t *testing.T) {
 	t.Parallel()
@@ -37,68 +55,17 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 		{
 			typeValue: AgentEventModelContentStart,
 			payload:   "model_content",
-			event: AgentEvent{
-				ModelContent: mo.Some(ModelContent{
-					Kind:     ModelContentReasoning,
-					Position: 2,
-					Text:     mo.None[string](),
-				}),
-				CorrelationID:   "",
-				Type:            0,
-				RunID:           "",
-				ToolCallPreview: mo.None[ToolCallPreview](),
-				FinalToolCall:   mo.None[FinalToolCall](),
-				ToolExecution:   mo.None[ToolExecution](),
-				ToolProgress:    mo.None[ToolProgress](),
-				ToolResult:      mo.None[ToolResult](),
-				ModelResponse:   mo.None[ModelResponse](),
-				Turn:            mo.None[TurnSummary](),
-				Agent:           mo.None[AgentSummary](),
-			},
+			event:     modelContentAgentEvent(ModelContentReasoning, 2, mo.None[string]()),
 		},
 		{
 			typeValue: AgentEventModelTextDelta,
 			payload:   "model_content",
-			event: AgentEvent{
-				ModelContent: mo.Some(ModelContent{
-					Kind:     ModelContentText,
-					Position: 1,
-					Text:     mo.Some("delta"),
-				}),
-				CorrelationID:   "",
-				Type:            0,
-				RunID:           "",
-				ToolCallPreview: mo.None[ToolCallPreview](),
-				FinalToolCall:   mo.None[FinalToolCall](),
-				ToolExecution:   mo.None[ToolExecution](),
-				ToolProgress:    mo.None[ToolProgress](),
-				ToolResult:      mo.None[ToolResult](),
-				ModelResponse:   mo.None[ModelResponse](),
-				Turn:            mo.None[TurnSummary](),
-				Agent:           mo.None[AgentSummary](),
-			},
+			event:     modelContentAgentEvent(ModelContentText, 1, mo.Some("delta")),
 		},
 		{
 			typeValue: AgentEventModelContentEnd,
 			payload:   "model_content",
-			event: AgentEvent{
-				ModelContent: mo.Some(ModelContent{
-					Kind:     ModelContentRefusal,
-					Position: 3,
-					Text:     mo.None[string](),
-				}),
-				CorrelationID:   "",
-				Type:            0,
-				RunID:           "",
-				ToolCallPreview: mo.None[ToolCallPreview](),
-				FinalToolCall:   mo.None[FinalToolCall](),
-				ToolExecution:   mo.None[ToolExecution](),
-				ToolProgress:    mo.None[ToolProgress](),
-				ToolResult:      mo.None[ToolResult](),
-				ModelResponse:   mo.None[ModelResponse](),
-				Turn:            mo.None[TurnSummary](),
-				Agent:           mo.None[AgentSummary](),
-			},
+			event:     modelContentAgentEvent(ModelContentRefusal, 3, mo.None[string]()),
 		},
 		{
 			typeValue: AgentEventToolCallStart,

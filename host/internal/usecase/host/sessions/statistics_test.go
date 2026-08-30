@@ -46,12 +46,7 @@ func TestActiveStatisticsCountsTerminalEntriesAndCompleteUsage(t *testing.T) {
 		testStatisticsUserEntry(),
 		testStatisticsModelEntry(model.OutcomeFailed, mo.Some(usage), 2),
 		testStatisticsToolResultEntry(),
-		{ParentID: mo.None[string](), ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
-				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		},
+		testStatisticsExtensionEntry(),
 	}
 	service := serviceWithEntries(entries)
 
@@ -79,12 +74,7 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 		testStatisticsUserEntry(),
 		testStatisticsModelEntry(model.OutcomeFailed, mo.None[model.Usage](), 0),
 		testStatisticsToolResultEntry(),
-		{ParentID: mo.None[string](), ID: "extension", CreatedAt: time.Time{}, Information: mo.None[session.Information](),
-			User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(session.ExtensionEnvelope{
-				ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
-			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		},
+		testStatisticsExtensionEntry(),
 	}
 	loaded := LoadedSession{
 		Header: session.Header{
@@ -231,6 +221,24 @@ func serviceWithEntries(entries []session.Entry) *Service {
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
 	return service
+}
+
+// testStatisticsExtensionEntry creates one extension entry excluded from public statistics.
+func testStatisticsExtensionEntry() session.Entry {
+	return session.Entry{
+		ParentID:    mo.None[string](),
+		ID:          "extension",
+		CreatedAt:   time.Time{},
+		Information: mo.None[session.Information](),
+		User:        mo.None[session.UserMessage](),
+		Model:       mo.None[session.ModelResponse](),
+		ToolResult:  mo.None[session.ToolResult](),
+		Extension: mo.Some(session.ExtensionEnvelope{
+			ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
+		}),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
 }
 
 func testStatisticsUserEntry() session.Entry {

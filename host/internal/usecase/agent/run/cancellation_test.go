@@ -136,15 +136,9 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
 					if test.failure == "validation" {
-						require.NoError(t, handle(StreamEvent{
-							Kind: StreamEventContentStart, Position: mo.Some(1),
-							Content: mo.Some(model.Content{
-								Kind: model.ContentText, Text: mo.Some(""), Final: false,
-								ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
-							}),
-							Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
-							ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
-						}))
+						require.NoError(t, handle(testTextStreamEvent(
+							StreamEventContentStart, 1, model.ContentText, "", mo.None[string](),
+						)))
 						return context.Canceled
 					}
 					return emitStream(handle, model.Response{

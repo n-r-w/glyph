@@ -17,7 +17,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -35,9 +34,9 @@ func (s *ServiceSuite) TestDisconnectCancelsBlockedEventAndJoins() {
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-active", "first").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
 				close(started)
-				deliveryErr := delivery.DeliverAgent(context.WithoutCancel(ctx), run.Event{
-					Type: run.EventAgentStart, RunID: "run-active", Position: mo.None[int](), Content: mo.None[model.Content](), Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](), ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary](),
-				})
+				deliveryErr := delivery.DeliverAgent(
+					context.WithoutCancel(ctx), testEmptyRunEvent(run.EventAgentStart, "run-active"),
+				)
 				runContextErr = ctx.Err()
 				return agent.RunOutcomeAborted, errors.Join(context.Canceled, deliveryErr)
 			},

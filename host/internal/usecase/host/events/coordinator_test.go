@@ -18,6 +18,23 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+// emptyCoordinatorEvent creates one run event without a variant payload.
+func emptyCoordinatorEvent(kind run.EventType, runID string) run.Event {
+	return run.Event{
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+		Type:       kind,
+		RunID:      runID,
+	}
+}
+
 // TestCoordinatorOrdersTerminalEventsAndSettlement verifies the Host-owned terminal sequence.
 func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 	t.Parallel()
@@ -43,38 +60,14 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 			t,
 			dispatcher.Deliver(
 				ctx,
-				run.Event{
-					Position:   mo.None[int](),
-					Content:    mo.None[model.Content](),
-					Message:    mo.None[model.Response](),
-					Preview:    mo.None[model.ToolCallPreview](),
-					ToolCall:   mo.None[model.ToolCall](),
-					Progress:   mo.None[tool.Progress](),
-					ToolResult: mo.None[agent.ToolResult](),
-					Turn:       mo.None[run.TurnSummary](),
-					Agent:      mo.None[run.AgentSummary](),
-					Type:       run.EventAgentStart,
-					RunID:      request.RunID,
-				},
+				emptyCoordinatorEvent(run.EventAgentStart, request.RunID),
 			),
 		)
 		require.NoError(
 			t,
 			dispatcher.Deliver(
 				ctx,
-				run.Event{
-					Position:   mo.None[int](),
-					Content:    mo.None[model.Content](),
-					Message:    mo.None[model.Response](),
-					Preview:    mo.None[model.ToolCallPreview](),
-					ToolCall:   mo.None[model.ToolCall](),
-					Progress:   mo.None[tool.Progress](),
-					ToolResult: mo.None[agent.ToolResult](),
-					Turn:       mo.None[run.TurnSummary](),
-					Agent:      mo.None[run.AgentSummary](),
-					Type:       run.EventAgentEnd,
-					RunID:      request.RunID,
-				},
+				emptyCoordinatorEvent(run.EventAgentEnd, request.RunID),
 			),
 		)
 		return completedResult(), nil
@@ -195,19 +188,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 			t,
 			dispatcher.Deliver(
 				ctx,
-				run.Event{
-					Position:   mo.None[int](),
-					Content:    mo.None[model.Content](),
-					Message:    mo.None[model.Response](),
-					Preview:    mo.None[model.ToolCallPreview](),
-					ToolCall:   mo.None[model.ToolCall](),
-					Progress:   mo.None[tool.Progress](),
-					ToolResult: mo.None[agent.ToolResult](),
-					Turn:       mo.None[run.TurnSummary](),
-					Agent:      mo.None[run.AgentSummary](),
-					Type:       run.EventAgentEnd,
-					RunID:      request.RunID,
-				},
+				emptyCoordinatorEvent(run.EventAgentEnd, request.RunID),
 			),
 		)
 		return failedResult(), updateErr

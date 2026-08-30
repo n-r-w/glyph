@@ -56,8 +56,8 @@ func testAgentEvent(
 }
 
 // testEmptyRunEvent creates an agent event without a variant payload.
-func testEmptyRunEvent(kind run.EventType) run.Event {
-	return testRunEvent(
+func testEmptyRunEvent(kind run.EventType, runID string) run.Event {
+	event := testRunEvent(
 		kind,
 		mo.None[int](),
 		mo.None[model.Content](),
@@ -69,11 +69,13 @@ func testEmptyRunEvent(kind run.EventType) run.Event {
 		mo.None[run.TurnSummary](),
 		mo.None[run.AgentSummary](),
 	)
+	event.RunID = runID
+	return event
 }
 
 // testEmptyAgentEvent creates a delivery event without a variant payload.
-func testEmptyAgentEvent(kind controller.AgentEventType) controller.AgentEvent {
-	return testAgentEvent(
+func testEmptyAgentEvent(kind controller.AgentEventType, correlationID string, runID string) controller.AgentEvent {
+	event := testAgentEvent(
 		kind,
 		mo.None[controller.ModelContent](),
 		mo.None[controller.ToolCallPreview](),
@@ -85,6 +87,9 @@ func testEmptyAgentEvent(kind controller.AgentEventType) controller.AgentEvent {
 		mo.None[controller.TurnSummary](),
 		mo.None[controller.AgentSummary](),
 	)
+	event.CorrelationID = correlationID
+	event.RunID = runID
+	return event
 }
 
 // testModelContent creates one model-content fixture for delivery mapping.
@@ -198,18 +203,18 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	}{
 		{
 			name:     "agent start",
-			event:    testEmptyRunEvent(run.EventAgentStart),
-			expected: testEmptyAgentEvent(controller.AgentEventAgentStart),
+			event:    testEmptyRunEvent(run.EventAgentStart, "run"),
+			expected: testEmptyAgentEvent(controller.AgentEventAgentStart, "", ""),
 		},
 		{
 			name:     "turn start",
-			event:    testEmptyRunEvent(run.EventTurnStart),
-			expected: testEmptyAgentEvent(controller.AgentEventTurnStart),
+			event:    testEmptyRunEvent(run.EventTurnStart, "run"),
+			expected: testEmptyAgentEvent(controller.AgentEventTurnStart, "", ""),
 		},
 		{
 			name:     "message start",
-			event:    testEmptyRunEvent(run.EventMessageStart),
-			expected: testEmptyAgentEvent(controller.AgentEventMessageStart),
+			event:    testEmptyRunEvent(run.EventMessageStart, "run"),
+			expected: testEmptyAgentEvent(controller.AgentEventMessageStart, "", ""),
 		},
 		{
 			name:     "content start",

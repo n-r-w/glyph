@@ -21,6 +21,24 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// expectAuthorizationCallback completes the loopback callback presented by the driver.
+func expectAuthorizationCallback(t *testing.T, interaction *MockInteraction, options driverOptions) {
+	t.Helper()
+	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, authorizationURL string) error {
+			parsed, err := url.Parse(authorizationURL)
+			require.NoError(t, err)
+			callbackURL := parsed.Query().Get("redirect_uri") + "?code=code&state=" +
+				url.QueryEscape(parsed.Query().Get("state"))
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL, nil)
+			require.NoError(t, err)
+			response, err := options.httpClient.Do(request)
+			require.NoError(t, err)
+			return response.Body.Close()
+		},
+	)
+}
+
 // TestDriverSignInValidatesStateExchangesAndPersists verifies the complete browser PKCE success path.
 func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	t.Parallel()
@@ -166,18 +184,7 @@ func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 		var listenConfig net.ListenConfig
 		return listenConfig.Listen(t.Context(), network, "127.0.0.1:0")
 	}
-	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, authorizationURL string) error {
-			parsed, err := url.Parse(authorizationURL)
-			require.NoError(t, err)
-			callbackURL := parsed.Query().Get("redirect_uri") + "?code=code&state=" + url.QueryEscape(parsed.Query().Get("state"))
-			request, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL, nil)
-			require.NoError(t, err)
-			response, err := options.httpClient.Do(request)
-			require.NoError(t, err)
-			return response.Body.Close()
-		},
-	)
+	expectAuthorizationCallback(t, interaction, options)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	service := newDriver(
 		testConfig(), credentials, interaction, options,
@@ -210,18 +217,7 @@ func TestDriverSignInPreservesTokenExchangeFailure(t *testing.T) {
 		var listenConfig net.ListenConfig
 		return listenConfig.Listen(t.Context(), network, "127.0.0.1:0")
 	}
-	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, authorizationURL string) error {
-			parsed, err := url.Parse(authorizationURL)
-			require.NoError(t, err)
-			callbackURL := parsed.Query().Get("redirect_uri") + "?code=code&state=" + url.QueryEscape(parsed.Query().Get("state"))
-			request, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL, nil)
-			require.NoError(t, err)
-			response, err := options.httpClient.Do(request)
-			require.NoError(t, err)
-			return response.Body.Close()
-		},
-	)
+	expectAuthorizationCallback(t, interaction, options)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	service := newDriver(testConfig(), credentials, interaction, options)
 

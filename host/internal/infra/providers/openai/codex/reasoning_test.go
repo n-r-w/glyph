@@ -252,40 +252,12 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	}, streamEventKinds(events))
 	assert.Equal(
 		t,
-		run.StreamEvent{
-			Preview:  mo.None[model.ToolCallPreview](),
-			ToolCall: mo.None[model.ToolCall](),
-			Response: mo.None[model.Response](),
-			Kind:     run.StreamEventTextDelta,
-			Position: mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentRefusal,
-				Text:            mo.Some("I can"),
-			}),
-			Delta: mo.Some("I can"),
-		},
+		textDeltaStreamEvent(model.ContentRefusal, "I can"),
 		events[1],
 	)
 	assert.Equal(
 		t,
-		run.StreamEvent{
-			Preview:  mo.None[model.ToolCallPreview](),
-			ToolCall: mo.None[model.ToolCall](),
-			Response: mo.None[model.Response](),
-			Kind:     run.StreamEventTextDelta,
-			Position: mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentRefusal,
-				Text:            mo.Some("not help"),
-			}),
-			Delta: mo.Some("not help"),
-		},
+		textDeltaStreamEvent(model.ContentRefusal, "not help"),
 		events[2],
 	)
 	response := events[4].Response.OrEmpty()

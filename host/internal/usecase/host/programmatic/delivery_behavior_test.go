@@ -77,19 +77,7 @@ func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
 	require.True(t, delivery.reserve(active))
 
-	err := delivery.DeliverAgent(t.Context(), run.Event{
-		Type:       run.EventMessageEnd,
-		RunID:      "run",
-		Position:   mo.None[int](),
-		Content:    mo.None[model.Content](),
-		Message:    mo.None[model.Response](),
-		Preview:    mo.None[model.ToolCallPreview](),
-		ToolCall:   mo.None[model.ToolCall](),
-		Progress:   mo.None[tool.Progress](),
-		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
-	})
+	err := delivery.DeliverAgent(t.Context(), testEmptyRunEvent(run.EventMessageEnd, "run"))
 
 	require.ErrorContains(t, err, "requires model response")
 	delivery.finish(active, nil)

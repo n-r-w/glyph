@@ -93,7 +93,7 @@ linters:
     gocyclo:
       min-complexity: 15
     dupl:
-      threshold: 120
+      threshold: 115
     goconst:
       min-len: 2
       min-occurrences: 2

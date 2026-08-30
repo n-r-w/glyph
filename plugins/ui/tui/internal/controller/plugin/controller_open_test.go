@@ -22,6 +22,42 @@ import (
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
+// modelTextDeltaOpenRequest creates one model text-delta frame.
+func modelTextDeltaOpenRequest(
+	kind uiv1.ModelContentKind,
+	position int32,
+	text string,
+) *uiv1.OpenRequest {
+	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
+	return uiv1.OpenRequest_builder{
+		Lifecycle: uiv1.LifecycleEvent_builder{
+			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+			ModelContent: uiv1.ModelContent_builder{
+				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
+				Kind:     new(kind),
+				Position: new(position),
+				Text:     new(text),
+			}.Build(),
+			RunId:              new("run"),
+			Text:               nil,
+			ToolCallId:         nil,
+			ToolName:           nil,
+			ProgressChannel:    nil,
+			IsError:            nil,
+			Outcome:            nil,
+			ErrorMessage:       nil,
+			Availability:       nil,
+			ModelResponse:      nil,
+			ToolCallPreview:    nil,
+			FinalToolCall:      nil,
+			ToolResultContents: nil,
+		}.Build(),
+		SessionList:        nil,
+		SessionChanged:     nil,
+		SessionInformation: nil,
+	}.Build()
+}
+
 func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
 	t.Parallel()
 
@@ -167,63 +203,12 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		SessionChanged:     nil,
 		SessionInformation: nil,
 	}.Build()))
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Lifecycle: uiv1.LifecycleEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-			ModelContent: uiv1.ModelContent_builder{
-				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING),
-				Position: new(int32(1)),
-				Text:     new("hidden reasoning"),
-			}.Build(),
-			RunId:              new("run"),
-			Text:               nil,
-			ToolCallId:         nil,
-			ToolName:           nil,
-			ProgressChannel:    nil,
-			IsError:            nil,
-			Outcome:            nil,
-			ErrorMessage:       nil,
-			Availability:       nil,
-			ModelResponse:      nil,
-			ToolCallPreview:    nil,
-			FinalToolCall:      nil,
-			ToolResultContents: nil,
-		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil,
-	}.Build()))
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Lifecycle: uiv1.LifecycleEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-			ModelContent: uiv1.ModelContent_builder{
-				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-				Position: new(int32(2)),
-				Text:     new("delta"),
-			}.Build(),
-			RunId:           new("run"),
-			Text:            nil,
-			ToolCallId:      nil,
-			ToolName:        nil,
-			ProgressChannel: nil,
-			IsError:         nil,
-			Outcome:         nil,
-			ErrorMessage:    nil,
-			Availability:    nil,
-
-			ModelResponse:      nil,
-			ToolCallPreview:    nil,
-			FinalToolCall:      nil,
-			ToolResultContents: nil,
-		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil,
-	}.Build()))
+	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
+		uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, 1, "hidden reasoning",
+	)))
+	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
+		uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, 2, "delta",
+	)))
 	require.NoError(t, stream.CloseSend())
 
 	// Assert the server closes normally with EOF after delivering every frame.

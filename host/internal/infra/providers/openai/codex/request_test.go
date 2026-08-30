@@ -23,7 +23,7 @@ import (
 )
 
 // textDeltaStreamEvent creates one streamed text delta fixture.
-func textDeltaStreamEvent(text string) run.StreamEvent {
+func textDeltaStreamEvent(kind model.ContentKind, text string) run.StreamEvent {
 	return run.StreamEvent{
 		Preview:  mo.None[model.ToolCallPreview](),
 		ToolCall: mo.None[model.ToolCall](),
@@ -34,7 +34,7 @@ func textDeltaStreamEvent(text string) run.StreamEvent {
 			Final:           false,
 			ProviderContext: mo.None[model.ProviderContext](),
 			ToolCall:        mo.None[model.ToolCall](),
-			Kind:            model.ContentText,
+			Kind:            kind,
 			Text:            mo.Some(text),
 		}),
 		Delta: mo.Some(text),
@@ -223,8 +223,8 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	assert.Equal(
 		t,
 		[]run.StreamEvent{
-			textDeltaStreamEvent("ans"),
-			textDeltaStreamEvent("wer"),
+			textDeltaStreamEvent(model.ContentText, "ans"),
+			textDeltaStreamEvent(model.ContentText, "wer"),
 		},
 		updates,
 	)

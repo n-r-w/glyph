@@ -263,8 +263,8 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []run.StreamEvent{
-		textDeltaStreamEvent("final "),
-		textDeltaStreamEvent("answer"),
+		textDeltaStreamEvent(model.ContentText, "final "),
+		textDeltaStreamEvent(model.ContentText, "answer"),
 	}, updates)
 	assert.Equal(t, model.OutcomeToolUse, response.Outcome.OrEmpty())
 	require.Len(t, response.Content, 3)

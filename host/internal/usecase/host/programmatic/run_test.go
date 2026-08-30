@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -34,7 +33,7 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
 			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
 				close(started)
-				if err := delivery.DeliverAgent(ctx, run.Event{Type: run.EventAgentStart, RunID: "run-1", Position: mo.None[int](), Content: mo.None[model.Content](), Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](), ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary]()}); err != nil {
+				if err := delivery.DeliverAgent(ctx, testEmptyRunEvent(run.EventAgentStart, "run-1")); err != nil {
 					return agent.RunOutcomeFailed, err
 				}
 				close(delivered)
@@ -79,18 +78,22 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		default:
 		}
 
-		assert.Equal(t, controller.AgentEvent{
-			CorrelationID: "c1", Type: controller.AgentEventAgentStart, RunID: "run-1", ModelContent: mo.None[controller.ModelContent](), ToolCallPreview: mo.None[controller.ToolCallPreview](), FinalToolCall: mo.None[controller.FinalToolCall](), ToolExecution: mo.None[controller.ToolExecution](), ToolProgress: mo.None[controller.ToolProgress](), ToolResult: mo.None[controller.ToolResult](), ModelResponse: mo.None[controller.ModelResponse](), Turn: mo.None[controller.TurnSummary](), Agent: mo.None[controller.AgentSummary](),
-		}, <-operation.Events())
+		assert.Equal(
+			t,
+			testEmptyAgentEvent(controller.AgentEventAgentStart, "c1", "run-1"),
+			<-operation.Events(),
+		)
 		synctest.Wait()
 		select {
 		case <-delivered:
 		default:
 			assert.Fail(t, "event producer remained blocked after consumption")
 		}
-		assert.Equal(t, controller.AgentEvent{
-			CorrelationID: "c1", Type: controller.AgentEventAgentSettled, RunID: "run-1", ModelContent: mo.None[controller.ModelContent](), ToolCallPreview: mo.None[controller.ToolCallPreview](), FinalToolCall: mo.None[controller.FinalToolCall](), ToolExecution: mo.None[controller.ToolExecution](), ToolProgress: mo.None[controller.ToolProgress](), ToolResult: mo.None[controller.ToolResult](), ModelResponse: mo.None[controller.ModelResponse](), Turn: mo.None[controller.TurnSummary](), Agent: mo.None[controller.AgentSummary](),
-		}, <-operation.Events())
+		assert.Equal(
+			t,
+			testEmptyAgentEvent(controller.AgentEventAgentSettled, "c1", "run-1"),
+			<-operation.Events(),
+		)
 		synctest.Wait()
 		_, open := <-operation.Events()
 		assert.False(t, open)
