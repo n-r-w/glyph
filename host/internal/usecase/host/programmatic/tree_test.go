@@ -1,7 +1,6 @@
 package programmatic
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -55,7 +54,11 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	control := NewMockSessionControl(mockController)
 	tree := programmaticTree(t)
 	committed := sessionnavigation.Result{
-		Tree: tree, ActiveLeafID: mo.Some("root"), ActiveBranch: tree.ActiveBranch(), NextInput: mo.Some("exact input"),
+		Canceled: false, Tree: tree, ActiveLeafID: mo.Some("root"), ActiveBranch: tree.ActiveBranch(),
+		NextInput: mo.Some("exact input"), Issues: []sessionnavigation.OperationIssue{{
+			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
+			HandlerID: "handler", Message: "safe message",
+		}},
 	}
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(committed, nil)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -74,6 +77,10 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	mapped := result.Committed.MustGet()
 	require.Equal(t, committed.NextInput, mapped.NextInput)
 	require.Equal(t, mo.Some("extension"), mapped.Tree.ActiveLeafID)
+	require.Equal(t, []controller.OperationIssue{{
+		Code: controller.OperationIssueHandlerError, ExtensionID: "extension",
+		HandlerID: "handler", Message: "safe message",
+	}}, result.Issues)
 }
 
 // TestCanceledNavigationReturnsCanceledWithoutState verifies context cancellation has no committed state.
@@ -85,7 +92,13 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, context.Canceled)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
+		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
+		NextInput: mo.None[string](), Issues: []sessionnavigation.OperationIssue{{
+			Code: sessionnavigation.OperationIssueInvalidHandlerAction, ExtensionID: "extension",
+			HandlerID: "handler", Message: "safe message",
+		}},
+	}, nil)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 	command := treeCommand("canceled", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
@@ -99,6 +112,10 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	result := response.TreeNavigation.MustGet()
 	require.Equal(t, controller.TreeNavigationStatusCanceled, result.Status)
 	require.True(t, result.Committed.IsNone())
+	require.Equal(t, []controller.OperationIssue{{
+		Code: controller.OperationIssueInvalidHandlerAction, ExtensionID: "extension",
+		HandlerID: "handler", Message: "safe message",
+	}}, result.Issues)
 }
 
 // TestNavigationFailuresUseClosedCodes verifies invalid, missing, busy, and persistence failures return stable rejections.
@@ -118,6 +135,8 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: controller.RejectionModelUnavailable, summaryMode: controller.SummaryModeSummarize},
 		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: controller.RejectionCredentialUnavailable, summaryMode: controller.SummaryModeSummarize},
 		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: controller.RejectionModelFailed, summaryMode: controller.SummaryModeSummarize},
+		{name: "extension invalid result", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionInvalidResult, expected: controller.RejectionExtensionInvalidResult, summaryMode: controller.SummaryModeSummarize},
+		{name: "extension unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionUnavailable, expected: controller.RejectionExtensionUnavailable, summaryMode: controller.SummaryModeSummarize},
 		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: controller.RejectionPersistenceUnavailable, summaryMode: controller.SummaryModeNoSummary},
 	}
 	for _, test := range tests {

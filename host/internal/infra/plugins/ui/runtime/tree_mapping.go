@@ -95,7 +95,22 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionT
 	default:
 		return nil, fmt.Errorf("map UI tree navigation: unknown status %d", navigation.Status)
 	}
+	wire.SetIssues(mapOperationIssues(navigation.Issues))
 	return wire, nil
+}
+
+// mapOperationIssues maps safe ordered navigation issues to the UI contract.
+func mapOperationIssues(issues []domainui.OperationIssue) []*uipb.OperationIssue {
+	mapped := make([]*uipb.OperationIssue, len(issues))
+	for index := range issues {
+		issue := new(uipb.OperationIssue)
+		issue.SetCode(uipb.OperationIssueCode(issues[index].Code))
+		issue.SetExtensionId(issues[index].ExtensionID)
+		issue.SetHandlerId(issues[index].HandlerID)
+		issue.SetMessage(issues[index].Message)
+		mapped[index] = issue
+	}
+	return mapped
 }
 
 // mapSessionTree maps every tree entry in persistence order.
@@ -243,6 +258,10 @@ func mapTreeFailureCode(code domainui.TreeFailureCode) (uipb.SessionTreeFailureC
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_CREDENTIAL_UNAVAILABLE, nil
 	case domainui.TreeFailureModelFailed:
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_MODEL_FAILED, nil
+	case domainui.TreeFailureExtensionInvalidResult:
+		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_EXTENSION_INVALID_RESULT, nil
+	case domainui.TreeFailureExtensionUnavailable:
+		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_EXTENSION_UNAVAILABLE, nil
 	case domainui.TreeFailurePersistenceUnavailable:
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_PERSISTENCE_UNAVAILABLE, nil
 	case domainui.TreeFailureInternal:

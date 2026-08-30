@@ -36,10 +36,13 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelCompleter(controller)
+			handlers := NewMockHandlerRunner(controller)
 			tree := navigationTree(t, time.Unix(1, 0).UTC())
 			selection := model.Selection{Provider: "provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceHigh}
 			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().SessionID().Return("session")
 			models.EXPECT().Selection().Return(selection)
+			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 			models.EXPECT().CompleteConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ model.Selection, _ string, history []agent.HistoryEntry) (model.Response, error) {
 					require.Len(t, history, 2)
@@ -57,6 +60,8 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 				InputTokens: 5, OutputTokens: 5, CacheReadTokens: 3,
 				CacheWriteTokens: 2, ReasoningTokens: 2, TotalTokens: 15,
 			}
+			handlers.EXPECT().Handlers(HandlerKindResult).Return(nil)
+			models.EXPECT().ValidateConfigured(gomock.Any(), selection).Return(nil)
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 				BranchSummary: mo.Some(BranchSummaryDraft{
@@ -64,7 +69,8 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 					CommonAncestorID: mo.Some("root"), Selection: selection, Usage: mo.Some(expectedUsage),
 				}),
 			}).Return(tree, nil)
-			service := New(active, models)
+			handlers.EXPECT().Handlers(HandlerKindObserver).Return(nil)
+			service := New(active, models, handlers)
 
 			// Act by navigating to the earlier user message with summarization enabled.
 			_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
@@ -85,13 +91,16 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelCompleter(controller)
+	handlers := NewMockHandlerRunner(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
+	active.EXPECT().SessionID().Return("session")
 	models.EXPECT().Selection().Return(selection)
+	handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 	models.EXPECT().CompleteConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
 		summaryResponse("   ", mo.None[model.Usage]()), nil,
 	)
-	service := New(active, models)
+	service := New(active, models, handlers)
 
 	// Act with built-in summarization.
 	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{

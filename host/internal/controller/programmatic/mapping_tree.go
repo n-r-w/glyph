@@ -54,8 +54,23 @@ func mapTreeNavigationCommandResponse(wire *programmaticv1.CommandResponse, navi
 	default:
 		return fmt.Errorf("map tree navigation: unknown status %d", navigation.Status)
 	}
+	result.SetIssues(mapOperationIssues(navigation.Issues))
 	wire.SetSessionTreeNavigation(result)
 	return nil
+}
+
+// mapOperationIssues maps safe ordered navigation issues to Programmatic Control.
+func mapOperationIssues(issues []OperationIssue) []*programmaticv1.OperationIssue {
+	mapped := make([]*programmaticv1.OperationIssue, len(issues))
+	for index := range issues {
+		issue := new(programmaticv1.OperationIssue)
+		issue.SetCode(programmaticv1.OperationIssueCode(issues[index].Code))
+		issue.SetExtensionId(issues[index].ExtensionID)
+		issue.SetHandlerId(issues[index].HandlerID)
+		issue.SetMessage(issues[index].Message)
+		mapped[index] = issue
+	}
+	return mapped
 }
 
 // mapSessionTree maps every tree entry in persistence order.

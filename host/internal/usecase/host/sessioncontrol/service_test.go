@@ -79,8 +79,8 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 				func(_ context.Context, _ sessionnavigation.Request) (sessionnavigation.Result, error) {
 					require.False(t, released)
 					return sessionnavigation.Result{
-						Tree: session.Tree{}, ActiveLeafID: mo.Some("destination"),
-						ActiveBranch: nil, NextInput: mo.None[string](),
+						Canceled: false, Tree: session.Tree{}, ActiveLeafID: mo.Some("destination"),
+						ActiveBranch: nil, NextInput: mo.None[string](), Issues: nil,
 					}, test.navigationErr
 				},
 			)
@@ -114,7 +114,8 @@ func TestNavigateReturnsCommittedSnapshots(t *testing.T) {
 	branch := []session.Entry{}
 	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest()).Return(sessionnavigation.Result{
-		Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: branch, NextInput: mo.Some("exact input"),
+		Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: branch,
+		NextInput: mo.Some("exact input"), Issues: nil,
 	}, nil)
 	service := New(active, navigator, gate)
 

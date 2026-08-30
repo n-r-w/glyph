@@ -49,7 +49,10 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 					}
 					tree, err := session.NewTree(nil, mo.None[string](), nil)
 					require.NoError(t, err)
-					return sessionnavigation.Result{Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil, NextInput: mo.None[string]()}, nil
+					return sessionnavigation.Result{
+						Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
+						NextInput: mo.None[string](), Issues: nil,
+					}, nil
 				},
 			)
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {

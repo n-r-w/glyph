@@ -339,11 +339,20 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
 			response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
-				Status: controller.TreeNavigationStatusCanceled, Committed: mo.None[controller.TreeNavigationCommitted](),
+				Status:    controller.TreeNavigationStatusCanceled,
+				Committed: mo.None[controller.TreeNavigationCommitted](), Issues: nil,
 			})
 			return response
 		}
 		return s.sessionRejection(command, err)
+	}
+	if result.Canceled {
+		response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+		response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
+			Status:    controller.TreeNavigationStatusCanceled,
+			Committed: mo.None[controller.TreeNavigationCommitted](), Issues: mapOperationIssues(result.Issues),
+		})
+		return response
 	}
 	committed, mapErr := mapTreeNavigationCommitted(result)
 	if mapErr != nil {
@@ -352,6 +361,7 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
 	response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
 		Status: controller.TreeNavigationStatusCommitted, Committed: mo.Some(committed),
+		Issues: mapOperationIssues(result.Issues),
 	})
 	return response
 }
@@ -382,6 +392,10 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionCredentialUnavailable, err.Error())
 	case errors.Is(err, sessionnavigation.ErrModelFailed):
 		return s.rejection(command, controller.RejectionModelFailed, err.Error())
+	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
+		return s.rejection(command, controller.RejectionExtensionInvalidResult, err.Error())
+	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
+		return s.rejection(command, controller.RejectionExtensionUnavailable, err.Error())
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return s.rejection(command, controller.RejectionPersistenceUnavailable, err.Error())
 	case errors.Is(err, session.ErrUnavailable):

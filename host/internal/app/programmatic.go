@@ -46,10 +46,6 @@ func runProgrammaticWithPaths(
 	stdout io.Writer,
 ) (returnErr error) {
 	slog.InfoContext(ctx, "starting programmatic Glyph application")
-	sessionServices, err := newSessionComposition(ctx, paths)
-	if err != nil {
-		return fmt.Errorf("initialize Host sessions: %w", err)
-	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -66,6 +62,11 @@ func runProgrammaticWithPaths(
 		)
 		return nil
 	})
+	sessionServices, err := newSessionComposition(ctx, paths, extensions)
+	if err != nil {
+		extensions.Close()
+		return fmt.Errorf("initialize Host sessions: %w", err)
+	}
 	extensionsClosed := false
 	closeExtensions := func() {
 		if extensionsClosed {

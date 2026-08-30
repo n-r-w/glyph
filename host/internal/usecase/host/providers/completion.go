@@ -13,6 +13,12 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+// ValidateConfigured validates one configured selection without executing or changing active selection.
+func (c *Catalog) ValidateConfigured(ctx context.Context, selection model.Selection) error {
+	_, err := c.configuredEntry(ctx, selection)
+	return err
+}
+
 // CompleteConfigured executes one configured model without changing the active catalog selection.
 func (c *Catalog) CompleteConfigured(
 	ctx context.Context,
@@ -20,25 +26,15 @@ func (c *Catalog) CompleteConfigured(
 	instructions string,
 	history []agent.HistoryEntry,
 ) (model.Response, error) {
-	if err := ctx.Err(); err != nil {
-		return model.Response{}, err
-	}
-	entryIndex, found := c.entryIndex(selection.Provider, selection.Model)
-	if !found {
-		return model.Response{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
-	}
-	entry := c.entries[entryIndex]
-	if !slices.Contains(entry.Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
-		return model.Response{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
-	}
-	if err := validateCompletionCredentials(ctx, entry); err != nil {
+	entry, err := c.configuredEntry(ctx, selection)
+	if err != nil {
 		return model.Response{}, err
 	}
 	ownedHistory := make([]agent.HistoryEntry, len(history))
 	for index := range history {
-		clone, err := history[index].ValidatedClone()
-		if err != nil {
-			return model.Response{}, fmt.Errorf("validate configured completion history: %w", err)
+		clone, cloneErr := history[index].ValidatedClone()
+		if cloneErr != nil {
+			return model.Response{}, fmt.Errorf("validate configured completion history: %w", cloneErr)
 		}
 		ownedHistory[index] = clone
 	}
@@ -64,6 +60,25 @@ func (c *Catalog) CompleteConfigured(
 		return model.Response{}, errors.New("configured completion ended without a terminal response")
 	}
 	return response, nil
+}
+
+// configuredEntry resolves and validates one exact configured selection.
+func (c *Catalog) configuredEntry(ctx context.Context, selection model.Selection) (Entry, error) {
+	if err := ctx.Err(); err != nil {
+		return Entry{}, err
+	}
+	entryIndex, found := c.entryIndex(selection.Provider, selection.Model)
+	if !found {
+		return Entry{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
+	}
+	entry := c.entries[entryIndex]
+	if !slices.Contains(entry.Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
+		return Entry{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
+	}
+	if err := validateCompletionCredentials(ctx, entry); err != nil {
+		return Entry{}, err
+	}
+	return entry, nil
 }
 
 // validateCompletionCredentials checks the exact configured entry without changing active selection.

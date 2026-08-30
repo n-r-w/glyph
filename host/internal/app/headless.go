@@ -35,10 +35,6 @@ func runHeadlessWithPaths(
 	stdout, stderr io.Writer,
 ) error {
 	slog.InfoContext(ctx, "starting headless Glyph application")
-	sessionServices, err := newSessionComposition(ctx, paths)
-	if err != nil {
-		return fmt.Errorf("initialize Host sessions: %w", err)
-	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -46,6 +42,11 @@ func runHeadlessWithPaths(
 
 	renderer := headless.NewRenderer(stdout, stderr)
 	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
+	sessionServices, err := newSessionComposition(ctx, paths, extensions)
+	if err != nil {
+		extensions.Close()
+		return fmt.Errorf("initialize Host sessions: %w", err)
+	}
 	defer func() {
 		extensions.Close()
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")

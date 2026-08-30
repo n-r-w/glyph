@@ -17,6 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // Service owns extension processes, globally unique tools, and ordered handlers.
@@ -42,7 +43,10 @@ type Service struct {
 	closing bool
 }
 
-var _ run.ToolRuntime = (*Service)(nil)
+var (
+	_ run.ToolRuntime           = (*Service)(nil)
+	_ sessiontree.HandlerRunner = (*Service)(nil)
+)
 
 // runtimeState contains one process and its complete catalog.
 type runtimeState struct {
@@ -200,8 +204,8 @@ func (s *Service) startCandidate(ctx context.Context, candidate Candidate) (*run
 	}, nil
 }
 
-// Handlers returns available handlers of one kind in registration order.
-func (s *Service) Handlers(kind HandlerKind) []RegisteredHandler {
+// registeredHandlers returns available runtime handlers in registration order.
+func (s *Service) registeredHandlers(kind HandlerKind) []RegisteredHandler {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	result := make([]RegisteredHandler, 0, len(s.handlers))
@@ -213,8 +217,8 @@ func (s *Service) Handlers(kind HandlerKind) []RegisteredHandler {
 	return result
 }
 
-// Handle invokes one registered handler and validates its typed response.
-func (s *Service) Handle(
+// handle invokes one registered runtime handler and validates its typed response.
+func (s *Service) handle(
 	ctx context.Context,
 	handler RegisteredHandler,
 	request HandlerRequest,

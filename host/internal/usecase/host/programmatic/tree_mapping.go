@@ -93,3 +93,15 @@ func mapTreeNavigationCommitted(result sessionnavigation.Result) (controller.Tre
 		Tree: tree, ActiveBranch: activeBranch, NextInput: result.NextInput,
 	}, nil
 }
+
+// mapOperationIssues projects safe ordered navigation issues for Programmatic Control.
+func mapOperationIssues(issues []sessionnavigation.OperationIssue) []controller.OperationIssue {
+	mapped := make([]controller.OperationIssue, len(issues))
+	for index := range issues {
+		mapped[index] = controller.OperationIssue{
+			Code: controller.OperationIssueCode(issues[index].Code), ExtensionID: issues[index].ExtensionID,
+			HandlerID: issues[index].HandlerID, Message: issues[index].Message,
+		}
+	}
+	return mapped
+}

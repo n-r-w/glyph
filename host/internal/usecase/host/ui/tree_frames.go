@@ -26,6 +26,9 @@ func sessionTreeFrame(tree session.Tree) (domainui.Frame, error) {
 
 // navigationFrame projects committed navigation state.
 func navigationFrame(result sessionnavigation.Result) (domainui.Frame, error) {
+	if result.Canceled {
+		return canceledNavigationFrame(mapOperationIssues(result.Issues)), nil
+	}
 	tree, err := mapSessionTree(result.Tree)
 	if err != nil {
 		return domainui.Frame{}, err
@@ -40,15 +43,17 @@ func navigationFrame(result sessionnavigation.Result) (domainui.Frame, error) {
 		Committed: mo.Some(domainui.TreeNavigationCommitted{
 			Tree: tree, ActiveBranch: branch, NextInput: result.NextInput,
 		}),
+		Issues: mapOperationIssues(result.Issues),
 	})
 	return frame, nil
 }
 
 // canceledNavigationFrame reports cancellation without speculative state.
-func canceledNavigationFrame() domainui.Frame {
+func canceledNavigationFrame(issues []domainui.OperationIssue) domainui.Frame {
 	frame := emptyTreeFrame(domainui.FrameSessionTreeNavigation)
 	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
-		Status: domainui.TreeNavigationStatusCanceled, Committed: mo.None[domainui.TreeNavigationCommitted](),
+		Status:    domainui.TreeNavigationStatusCanceled,
+		Committed: mo.None[domainui.TreeNavigationCommitted](), Issues: issues,
 	})
 	return frame
 }
@@ -134,4 +139,16 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 		return domainui.SessionTreeEntry{}, fmt.Errorf("unknown tree entry payload %d", public.Kind)
 	}
 	return mapped, nil
+}
+
+// mapOperationIssues projects safe ordered navigation issues for UI delivery.
+func mapOperationIssues(issues []sessionnavigation.OperationIssue) []domainui.OperationIssue {
+	mapped := make([]domainui.OperationIssue, len(issues))
+	for index := range issues {
+		mapped[index] = domainui.OperationIssue{
+			Code: domainui.OperationIssueCode(issues[index].Code), ExtensionID: issues[index].ExtensionID,
+			HandlerID: issues[index].HandlerID, Message: issues[index].Message,
+		}
+	}
+	return mapped
 }

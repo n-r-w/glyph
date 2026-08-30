@@ -56,7 +56,11 @@ func TestApplyCommittedNavigationSendsExactInput(t *testing.T) {
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
 	committed := sessionnavigation.Result{
-		Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil, NextInput: mo.Some("exact input"),
+		Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
+		NextInput: mo.Some("exact input"), Issues: []sessionnavigation.OperationIssue{{
+			Code: sessionnavigation.OperationIssueObserverError, ExtensionID: "extension",
+			HandlerID: "observer", Message: "safe message",
+		}},
 	}
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(committed, nil)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
@@ -65,6 +69,10 @@ func TestApplyCommittedNavigationSendsExactInput(t *testing.T) {
 		require.Equal(t, domainui.TreeNavigationStatusCommitted, result.Status)
 		require.Equal(t, mo.Some("exact input"), result.Committed.MustGet().NextInput)
 		require.True(t, result.Committed.MustGet().Tree.ActiveLeafID.IsNone())
+		require.Equal(t, []domainui.OperationIssue{{
+			Code: domainui.OperationIssueObserverError, ExtensionID: "extension",
+			HandlerID: "observer", Message: "safe message",
+		}}, result.Issues)
 		return nil
 	})
 	service := NewSession(channel, runner, authenticator, catalog, control, func(context.Context) {})
@@ -90,12 +98,22 @@ func TestApplyCanceledNavigationSendsStateFreeResult(t *testing.T) {
 	authenticator := NewMockAuthenticator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, context.Canceled)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
+		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
+		NextInput: mo.None[string](), Issues: []sessionnavigation.OperationIssue{{
+			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
+			HandlerID: "handler", Message: "safe message",
+		}},
+	}, nil)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		require.Equal(t, domainui.FrameSessionTreeNavigation, frame.Kind)
 		result := frame.TreeNavigation.MustGet()
 		require.Equal(t, domainui.TreeNavigationStatusCanceled, result.Status)
 		require.True(t, result.Committed.IsNone())
+		require.Equal(t, []domainui.OperationIssue{{
+			Code: domainui.OperationIssueHandlerError, ExtensionID: "extension",
+			HandlerID: "handler", Message: "safe message",
+		}}, result.Issues)
 		return nil
 	})
 	service := NewSession(channel, runner, authenticator, catalog, control, func(context.Context) {})
@@ -127,6 +145,8 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: domainui.TreeFailureModelUnavailable, summaryMode: domainui.SummaryModeSummarize},
 		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: domainui.TreeFailureCredentialUnavailable, summaryMode: domainui.SummaryModeSummarize},
 		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: domainui.TreeFailureModelFailed, summaryMode: domainui.SummaryModeSummarize},
+		{name: "extension invalid result", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionInvalidResult, expected: domainui.TreeFailureExtensionInvalidResult, summaryMode: domainui.SummaryModeSummarize},
+		{name: "extension unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrExtensionUnavailable, expected: domainui.TreeFailureExtensionUnavailable, summaryMode: domainui.SummaryModeSummarize},
 		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: domainui.TreeFailurePersistenceUnavailable, summaryMode: domainui.SummaryModeNoSummary},
 	}
 	for _, test := range tests {

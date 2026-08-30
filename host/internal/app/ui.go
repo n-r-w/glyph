@@ -46,10 +46,6 @@ func runUIWithPaths(
 	captureTerminal func() (*terminal.Recovery, error),
 	stderr io.Writer,
 ) (returnErr error) {
-	sessionServices, err := newSessionComposition(ctx, paths)
-	if err != nil {
-		return fmt.Errorf("initialize Host sessions: %w", err)
-	}
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
 		return fmt.Errorf("load Glyph settings: %w", err)
@@ -105,6 +101,13 @@ func runUIWithPaths(
 
 	delivery := hostui.NewDelivery(channel)
 	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
+	sessionServices, err := newSessionComposition(ctx, paths, extensions)
+	if err != nil {
+		selection.Runtime.Close()
+		recoveryErr := recovery.Restore()
+		extensions.Close()
+		return errors.Join(fmt.Errorf("initialize Host sessions: %w", err), recoveryErr)
+	}
 	startupService := startup.New(extensions.Load)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
@@ -144,7 +147,12 @@ func runUIWithPaths(
 		},
 	)
 	controller := controllerui.New(session)
-	initialization := hostui.BuildInitialization(selection.ID, report, selection.Issues, providerCatalog)
+	initialization := hostui.BuildInitialization(
+		selection.ID,
+		mapUIExtensionLoadReport(report),
+		selection.Issues,
+		providerCatalog,
+	)
 	initialization.SessionInfo = sessionServices.active.ActiveInfo()
 	executionErr := controller.Execute(ctx, initialization)
 
@@ -154,6 +162,29 @@ func runUIWithPaths(
 	extensions.Close()
 	slog.InfoContext(context.WithoutCancel(ctx), "completed UI Glyph application")
 	return errors.Join(executionErr, recoveryErr)
+}
+
+// mapUIExtensionLoadReport maps extension startup state to the UI-owned initialization input.
+func mapUIExtensionLoadReport(report extensionservice.LoadReport) hostui.ExtensionLoadReport {
+	issues := make([]hostui.ExtensionLoadIssue, len(report.Issues))
+	for index := range report.Issues {
+		issues[index] = hostui.ExtensionLoadIssue{
+			PluginIDs: report.Issues[index].PluginIDs,
+			Path:      report.Issues[index].Path,
+			Err:       report.Issues[index].Err,
+		}
+	}
+	extensions := make([]hostui.LoadedExtension, len(report.Extensions))
+	for index := range report.Extensions {
+		tools := make([]string, len(report.Extensions[index].Tools))
+		for toolIndex := range report.Extensions[index].Tools {
+			tools[toolIndex] = report.Extensions[index].Tools[toolIndex].Name
+		}
+		extensions[index] = hostui.LoadedExtension{
+			ID: report.Extensions[index].ID, Path: report.Extensions[index].Path, Tools: tools,
+		}
+	}
+	return hostui.ExtensionLoadReport{Issues: issues, Extensions: extensions}
 }
 
 // writeSelectionWarnings reports excluded UI candidates before a selected UI owns presentation.

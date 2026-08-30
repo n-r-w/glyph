@@ -38,15 +38,20 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelCompleter(controller)
+			handlers := NewMockHandlerRunner(controller)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().SessionID().Return("session")
+			models.EXPECT().Selection().Return(model.Selection{})
+			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 			committed := tree
 			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: test.expectedLeaf,
 				BranchSummary: mo.None[BranchSummaryDraft](),
 			}).Return(committed, nil)
-			service := New(active, models)
+			handlers.EXPECT().Handlers(HandlerKindObserver).Return(nil)
+			service := New(active, models, handlers)
 
 			// Act by navigating to the selected tree entry.
 			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
@@ -57,10 +62,8 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
 			assert.Equal(t, sessionnavigation.Result{
-				Tree:         committed,
-				ActiveLeafID: test.expectedLeaf,
-				ActiveBranch: committed.ActiveBranch(),
-				NextInput:    test.expectedNextInput,
+				Canceled: false, Tree: committed, ActiveLeafID: test.expectedLeaf,
+				ActiveBranch: committed.ActiveBranch(), NextInput: test.expectedNextInput, Issues: nil,
 			}, result)
 		})
 	}
@@ -74,8 +77,9 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelCompleter(controller)
+	handlers := NewMockHandlerRunner(controller)
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
-	service := New(active, models)
+	service := New(active, models, handlers)
 
 	// Act by selecting an unknown entry.
 	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
@@ -95,9 +99,10 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelCompleter(controller)
+	handlers := NewMockHandlerRunner(controller)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	service := New(active, models)
+	service := New(active, models, handlers)
 
 	// Act after cancellation.
 	_, err := service.NavigateTree(ctx, sessionnavigation.Request{

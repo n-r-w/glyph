@@ -134,7 +134,7 @@ func (s *ServiceSuite) TestServicePreservesHandlerRegistrationOrder() {
 		{ExtensionID: "first", ID: "request-a", Kind: HandlerKindSessionBeforeTreeRequest},
 		{ExtensionID: "first", ID: "request-b", Kind: HandlerKindSessionBeforeTreeRequest},
 		{ExtensionID: "second", ID: "request-c", Kind: HandlerKindSessionBeforeTreeRequest},
-	}, service.Handlers(HandlerKindSessionBeforeTreeRequest))
+	}, service.registeredHandlers(HandlerKindSessionBeforeTreeRequest))
 	first.EXPECT().Close()
 	second.EXPECT().Close()
 	service.Close()
@@ -170,7 +170,7 @@ func (s *ServiceSuite) TestServiceRejectsInvalidHandlerRegistration() {
 			require.NoError(t, err)
 			require.Len(t, report.Issues, 1)
 			assert.Empty(t, report.Extensions)
-			assert.Empty(t, service.Handlers(HandlerKindSessionTree))
+			assert.Empty(t, service.registeredHandlers(HandlerKindSessionTree))
 		})
 	}
 }
@@ -209,7 +209,7 @@ func (s *ServiceSuite) TestServiceHandleDispatchesTypedPayload() {
 	}, nil)
 
 	// Act by dispatching the registered handler.
-	response, err := service.Handle(t.Context(), handler, request)
+	response, err := service.handle(t.Context(), handler, request)
 
 	// Assert the typed response is returned unchanged.
 	require.NoError(t, err)
@@ -253,12 +253,12 @@ func (s *ServiceSuite) TestServiceHandlePreservesRuntimeOnOrdinaryError() {
 	runtime.EXPECT().Handle(t.Context(), "observer", request).Return(HandlerResponse{}, handlerErr)
 
 	// Act by dispatching the failing handler.
-	response, err := service.Handle(t.Context(), handler, request)
+	response, err := service.handle(t.Context(), handler, request)
 
 	// Assert the error is returned without changing runtime availability.
 	assert.Empty(t, response)
 	require.ErrorIs(t, err, handlerErr)
-	assert.Equal(t, []RegisteredHandler{handler}, service.Handlers(HandlerKindSessionTree))
+	assert.Equal(t, []RegisteredHandler{handler}, service.registeredHandlers(HandlerKindSessionTree))
 	runtime.EXPECT().Close()
 	service.Close()
 }
@@ -305,12 +305,12 @@ func (s *ServiceSuite) TestServiceHandleDisablesKindMismatch() {
 	runtime.EXPECT().Close()
 
 	// Act by dispatching the protocol-violating handler.
-	response, err := service.Handle(t.Context(), handler, request)
+	response, err := service.handle(t.Context(), handler, request)
 
 	// Assert the protocol failure removes the runtime and reports its loss.
 	assert.Empty(t, response)
 	require.ErrorIs(t, err, ErrExtensionUnavailable)
-	assert.Empty(t, service.Handlers(HandlerKindSessionTree))
+	assert.Empty(t, service.registeredHandlers(HandlerKindSessionTree))
 	assert.Equal(t, []tool.RuntimeFailure{{
 		PluginID: "tree", Condition: tool.RuntimeUnavailableProcessExited,
 	}}, failures)

@@ -10,31 +10,21 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 )
 
 // TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary verifies startup delivery content.
 func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing.T) {
 	t.Parallel()
 
-	initialization := BuildInitialization("selected", extensionservice.LoadReport{
-		Issues: []extensionservice.Issue{{
+	initialization := BuildInitialization("selected", ExtensionLoadReport{
+		Issues: []ExtensionLoadIssue{{
 			PluginIDs: []string{"broken"},
 			Path:      "/broken",
 			Err:       errors.New("failed"),
 		}},
-		Extensions: []extensionservice.LoadedExtension{{
-			ID:   "tools",
-			Path: "/plugins/tools",
-			Tools: []tool.Descriptor{{
-				Name:                "read",
-				Description:         "read",
-				InputSchemaJSON:     []byte(`{}`),
-				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-			}},
-			Handlers: nil,
+		Extensions: []LoadedExtension{{
+			ID: "tools", Path: "/plugins/tools", Tools: []string{"read"},
 		}},
 	}, []SelectionIssue{{
 		Candidate: domainui.Candidate{
@@ -100,7 +90,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	})
 
 	// Act by building the UI initialization snapshot.
-	initialization := BuildInitialization("selected", extensionservice.LoadReport{}, nil, catalog)
+	initialization := BuildInitialization("selected", ExtensionLoadReport{Issues: nil, Extensions: nil}, nil, catalog)
 
 	// Assert all catalog models and the active selection are mapped exactly.
 	require.Len(t, initialization.Models, 2)
@@ -129,9 +119,8 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 func TestBuildInitializationTreatsEmptyExtensionsAsNormalInformation(t *testing.T) {
 	t.Parallel()
 
-	initialization := BuildInitialization("selected", extensionservice.LoadReport{
-		Issues:     nil,
-		Extensions: nil,
+	initialization := BuildInitialization("selected", ExtensionLoadReport{
+		Issues: nil, Extensions: nil,
 	}, nil, testModelCatalog(t))
 
 	require.Len(t, initialization.StartupContent, 1)

@@ -35,4 +35,8 @@ var (
 	ErrCredentialUnavailable = errors.New("summary model credential unavailable")
 	// ErrModelFailed reports a failed or invalid summary-model response.
 	ErrModelFailed = errors.New("summary model failed")
+	// ErrExtensionInvalidResult reports invalid final handler-produced state.
+	ErrExtensionInvalidResult = errors.New("extension produced invalid session tree state")
+	// ErrExtensionUnavailable reports a failed extension process or protocol call.
+	ErrExtensionUnavailable = errors.New("session tree extension unavailable")
 )

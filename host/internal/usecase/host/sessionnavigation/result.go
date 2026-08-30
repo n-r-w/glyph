@@ -7,8 +7,34 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// Result contains committed navigation state with an optional created branch summary in the tree.
+// OperationIssueCode identifies one safe nonterminal extension issue.
+type OperationIssueCode uint8
+
+const (
+	// OperationIssueHandlerError reports an ordinary request or result handler error.
+	OperationIssueHandlerError OperationIssueCode = iota + 1
+	// OperationIssueInvalidHandlerAction reports an invalid request or result action.
+	OperationIssueInvalidHandlerAction
+	// OperationIssueObserverError reports a failed post-commit observer.
+	OperationIssueObserverError
+)
+
+// OperationIssue reports one safe ordered handler or observer issue.
+type OperationIssue struct {
+	// Code identifies the issue class.
+	Code OperationIssueCode
+	// ExtensionID identifies the owning extension.
+	ExtensionID string
+	// HandlerID identifies the registered handler.
+	HandlerID string
+	// Message contains a safe Host-owned description.
+	Message string
+}
+
+// Result contains one committed navigation state or canceled outcome.
 type Result struct {
+	// Canceled reports that a handler stopped navigation before commit.
+	Canceled bool
 	// Tree is the complete committed active-session tree.
 	Tree session.Tree
 	// ActiveLeafID identifies the committed destination or is absent for the implicit root.
@@ -17,4 +43,6 @@ type Result struct {
 	ActiveBranch []session.Entry
 	// NextInput contains exact selected user text when the navigation target is a user message.
 	NextInput mo.Option[string]
+	// Issues contains safe nonterminal extension issues in occurrence order.
+	Issues []OperationIssue
 }

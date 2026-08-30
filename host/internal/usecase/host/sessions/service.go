@@ -212,6 +212,13 @@ func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
 	return result, nil
 }
 
+// SessionID returns the active session identifier for navigation handlers.
+func (s *Service) SessionID() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return string(s.active.Header.ID)
+}
+
 // ActiveInfo returns an independent active-session snapshot.
 func (s *Service) ActiveInfo() session.Info {
 	s.mutex.RLock()

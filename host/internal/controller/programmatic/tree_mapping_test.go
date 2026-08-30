@@ -60,6 +60,9 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 			Tree:         SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()},
 			ActiveBranch: nil, NextInput: mo.Some("exact input"),
 		}),
+		Issues: []OperationIssue{{
+			Code: OperationIssueHandlerError, ExtensionID: "extension", HandlerID: "handler", Message: "safe message",
+		}},
 	})
 
 	// Act by mapping the committed result.
@@ -72,6 +75,10 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 	require.True(t, result.HasTree())
 	require.True(t, result.HasNextInput())
 	require.Equal(t, "exact input", result.GetNextInput())
+	require.Equal(t, programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR, result.GetIssues()[0].GetCode())
+	require.Equal(t, "extension", result.GetIssues()[0].GetExtensionId())
+	require.Equal(t, "handler", result.GetIssues()[0].GetHandlerId())
+	require.Equal(t, "safe message", result.GetIssues()[0].GetMessage())
 }
 
 // TestMapCanceledNavigationOmitsSpeculativeState verifies cancellation has status only.
@@ -81,7 +88,7 @@ func TestMapCanceledNavigationOmitsSpeculativeState(t *testing.T) {
 	// Arrange one canceled navigation result without committed state.
 	response := treeControllerResponse("cancel", ResponseSessionTreeNavigation)
 	response.TreeNavigation = mo.Some(TreeNavigationResult{
-		Status: TreeNavigationStatusCanceled, Committed: mo.None[TreeNavigationCommitted](),
+		Status: TreeNavigationStatusCanceled, Committed: mo.None[TreeNavigationCommitted](), Issues: nil,
 	})
 
 	// Act by mapping the canceled result.
@@ -118,6 +125,7 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 		Committed: mo.Some(TreeNavigationCommitted{
 			Tree: tree, ActiveBranch: nil, NextInput: mo.Some(""),
 		}),
+		Issues: nil,
 	})
 
 	// Act by mapping explicit empty values and absent values through the public contract.

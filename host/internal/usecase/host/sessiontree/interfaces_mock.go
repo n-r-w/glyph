@@ -58,6 +58,20 @@ func (mr *MockActiveSessionMockRecorder) CommitNavigation(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitNavigation", reflect.TypeOf((*MockActiveSession)(nil).CommitNavigation), arg0, arg1)
 }
 
+// SessionID mocks base method.
+func (m *MockActiveSession) SessionID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SessionID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SessionID indicates an expected call of SessionID.
+func (mr *MockActiveSessionMockRecorder) SessionID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SessionID", reflect.TypeOf((*MockActiveSession)(nil).SessionID))
+}
+
 // Tree mocks base method.
 func (m *MockActiveSession) Tree() session.Tree {
 	m.ctrl.T.Helper()
@@ -70,6 +84,88 @@ func (m *MockActiveSession) Tree() session.Tree {
 func (mr *MockActiveSessionMockRecorder) Tree() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockActiveSession)(nil).Tree))
+}
+
+// MockHandlerRunner is a mock of HandlerRunner interface.
+type MockHandlerRunner struct {
+	ctrl     *gomock.Controller
+	recorder *MockHandlerRunnerMockRecorder
+	isgomock struct{}
+}
+
+// MockHandlerRunnerMockRecorder is the mock recorder for MockHandlerRunner.
+type MockHandlerRunnerMockRecorder struct {
+	mock *MockHandlerRunner
+}
+
+// NewMockHandlerRunner creates a new mock instance.
+func NewMockHandlerRunner(ctrl *gomock.Controller) *MockHandlerRunner {
+	mock := &MockHandlerRunner{ctrl: ctrl}
+	mock.recorder = &MockHandlerRunnerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHandlerRunner) EXPECT() *MockHandlerRunnerMockRecorder {
+	return m.recorder
+}
+
+// HandleRequest mocks base method.
+func (m *MockHandlerRunner) HandleRequest(arg0 context.Context, arg1 Handler, arg2 RequestHandlerInvocation) (RequestHandlerAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleRequest", arg0, arg1, arg2)
+	ret0, _ := ret[0].(RequestHandlerAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleRequest indicates an expected call of HandleRequest.
+func (mr *MockHandlerRunnerMockRecorder) HandleRequest(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleRequest", reflect.TypeOf((*MockHandlerRunner)(nil).HandleRequest), arg0, arg1, arg2)
+}
+
+// HandleResult mocks base method.
+func (m *MockHandlerRunner) HandleResult(arg0 context.Context, arg1 Handler, arg2 ResultHandlerInvocation) (ResultHandlerAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleResult", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ResultHandlerAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleResult indicates an expected call of HandleResult.
+func (mr *MockHandlerRunnerMockRecorder) HandleResult(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleResult", reflect.TypeOf((*MockHandlerRunner)(nil).HandleResult), arg0, arg1, arg2)
+}
+
+// Handlers mocks base method.
+func (m *MockHandlerRunner) Handlers(arg0 HandlerKind) []Handler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handlers", arg0)
+	ret0, _ := ret[0].([]Handler)
+	return ret0
+}
+
+// Handlers indicates an expected call of Handlers.
+func (mr *MockHandlerRunnerMockRecorder) Handlers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handlers", reflect.TypeOf((*MockHandlerRunner)(nil).Handlers), arg0)
+}
+
+// Observe mocks base method.
+func (m *MockHandlerRunner) Observe(arg0 context.Context, arg1 Handler, arg2 TreeObserverInvocation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Observe", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Observe indicates an expected call of Observe.
+func (mr *MockHandlerRunnerMockRecorder) Observe(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Observe", reflect.TypeOf((*MockHandlerRunner)(nil).Observe), arg0, arg1, arg2)
 }
 
 // MockModelCompleter is a mock of ModelCompleter interface.
@@ -123,4 +219,18 @@ func (m *MockModelCompleter) Selection() model.Selection {
 func (mr *MockModelCompleterMockRecorder) Selection() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCompleter)(nil).Selection))
+}
+
+// ValidateConfigured mocks base method.
+func (m *MockModelCompleter) ValidateConfigured(arg0 context.Context, arg1 model.Selection) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateConfigured", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateConfigured indicates an expected call of ValidateConfigured.
+func (mr *MockModelCompleterMockRecorder) ValidateConfigured(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConfigured", reflect.TypeOf((*MockModelCompleter)(nil).ValidateConfigured), arg0, arg1)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/infra/persistence/sessionfilesystem"
 	sessionstore "github.com/n-r-w/glyph/host/internal/infra/persistence/sessions"
 	"github.com/n-r-w/glyph/host/internal/infra/sessionruntime"
+	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
@@ -57,6 +58,14 @@ func (b *modelCatalogBinding) Selection() model.Selection {
 	return b.catalog.Selection()
 }
 
+// ValidateConfigured validates one configured selection without model execution.
+func (b *modelCatalogBinding) ValidateConfigured(ctx context.Context, selection model.Selection) error {
+	if b.catalog == nil {
+		panic("configured validation before application assembly")
+	}
+	return b.catalog.ValidateConfigured(ctx, selection)
+}
+
 // CompleteConfigured executes one configured model without active-selection mutation.
 func (b *modelCatalogBinding) CompleteConfigured(
 	ctx context.Context,
@@ -98,7 +107,11 @@ func (b *pricingCatalogBinding) Pricing(providerID model.ProviderID, modelID mod
 }
 
 // newSessionComposition prepares project storage before providers, clients, or agent runs start.
-func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessionComposition, error) {
+func newSessionComposition(
+	ctx context.Context,
+	paths persistence.Paths,
+	extensions *extensionservice.Service,
+) (sessionComposition, error) {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
 		return sessionComposition{}, fmt.Errorf("get working directory: %w", err)
@@ -121,7 +134,7 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 	gate := operationgate.New()
 	return sessionComposition{
 		active:  active,
-		control: sessioncontrol.New(active, sessiontree.New(active, models), gate),
+		control: sessioncontrol.New(active, sessiontree.New(active, models, extensions), gate),
 		gate:    gate,
 		pricing: pricing,
 		models:  models,

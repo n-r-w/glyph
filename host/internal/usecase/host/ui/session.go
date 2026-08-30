@@ -367,7 +367,7 @@ func (s *Session) navigateSessionTree(ctx context.Context, command domainui.Comm
 func navigationFailureFrame(err error) domainui.Frame {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return canceledNavigationFrame()
+		return canceledNavigationFrame(nil)
 	case errors.Is(err, session.ErrBusy):
 		return treeFailureFrame(domainui.TreeFailureBusy, "another operation is active")
 	case errors.Is(err, session.ErrEntryNotFound):
@@ -378,6 +378,10 @@ func navigationFailureFrame(err error) domainui.Frame {
 		return treeFailureFrame(domainui.TreeFailureCredentialUnavailable, err.Error())
 	case errors.Is(err, sessionnavigation.ErrModelFailed):
 		return treeFailureFrame(domainui.TreeFailureModelFailed, err.Error())
+	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
+		return treeFailureFrame(domainui.TreeFailureExtensionInvalidResult, err.Error())
+	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
+		return treeFailureFrame(domainui.TreeFailureExtensionUnavailable, err.Error())
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return treeFailureFrame(domainui.TreeFailurePersistenceUnavailable, err.Error())
 	default:

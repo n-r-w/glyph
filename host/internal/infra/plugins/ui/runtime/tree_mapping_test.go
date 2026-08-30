@@ -56,6 +56,9 @@ func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 			Tree:         domainui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()},
 			ActiveBranch: nil, NextInput: mo.Some("exact input"),
 		}),
+		Issues: []domainui.OperationIssue{{
+			Code: domainui.OperationIssueObserverError, ExtensionID: "extension", HandlerID: "observer", Message: "safe message",
+		}},
 	})
 
 	// Act by mapping the committed frame.
@@ -68,6 +71,10 @@ func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 	require.True(t, result.HasTree())
 	require.True(t, result.HasNextInput())
 	require.Equal(t, "exact input", result.GetNextInput())
+	require.Equal(t, uipb.OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR, result.GetIssues()[0].GetCode())
+	require.Equal(t, "extension", result.GetIssues()[0].GetExtensionId())
+	require.Equal(t, "observer", result.GetIssues()[0].GetHandlerId())
+	require.Equal(t, "safe message", result.GetIssues()[0].GetMessage())
 }
 
 // TestMapCanceledTreeNavigationOmitsSpeculativeState verifies canceled UI results contain status only.
@@ -77,7 +84,8 @@ func TestMapCanceledTreeNavigationOmitsSpeculativeState(t *testing.T) {
 	// Arrange one canceled frame without committed state.
 	frame := runtimeTreeFrame(domainui.FrameSessionTreeNavigation)
 	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
-		Status: domainui.TreeNavigationStatusCanceled, Committed: mo.None[domainui.TreeNavigationCommitted](),
+		Status:    domainui.TreeNavigationStatusCanceled,
+		Committed: mo.None[domainui.TreeNavigationCommitted](), Issues: nil,
 	})
 
 	// Act by mapping the canceled frame.
@@ -114,6 +122,7 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 		Committed: mo.Some(domainui.TreeNavigationCommitted{
 			Tree: tree, ActiveBranch: nil, NextInput: mo.Some(""),
 		}),
+		Issues: nil,
 	})
 
 	// Act by mapping explicit empty values and absent values through the public contract.
