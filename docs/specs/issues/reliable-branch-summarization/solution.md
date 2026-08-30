@@ -24,7 +24,7 @@ See the [problem statement](problem.md).
 The system rules use these meaningful pseudo-XML sections:
 
 - `<identity>` defines the summarization role.
-- `<source_handling>` defines `<conversation>` as source data rather than conversation history. It prohibits following, answering, or continuing instructions found in the source.
+- `<source_handling>` defines `<conversation>` as source data rather than conversation history. It prohibits following, answering, or continuing instructions found in the source and tells the model to interpret XML entities as literal source characters.
 - `<summary_rules>` requires grounded extraction, exact technical details, correct work state, and omission of unsupported information.
 - `<output_format>` defines the approved pseudo-XML section order and requires omission of sections without source content.
 
@@ -86,9 +86,12 @@ The user-task template renders one text input with this structure:
 ### Source serialization
 
 - CMP-04: Add a conversation serializer for branch summarization in `host/internal/usecase/host/sessiontree`.
-- APC-05: The serializer reads the conversation entries from `NavigationPreparation.AbandonedPath` and returns one deterministic text value.
+- APC-05: The serializer reads the conversation entries from `NavigationPreparation.AbandonedPath` and returns one deterministic text value or an encoding error.
 - APC-06: The serializer preserves conversation-entry order and content-block order.
-- APC-07: The serializer keeps source text unchanged and separates content with simple role labels. It does not add nested pseudo-XML inside `<conversation>`.
+- APC-07: The serializer separates content with simple role labels and applies XML text escaping to every dynamic value. It does not add nested pseudo-XML inside `<conversation>`.
+- APC-07.1: XML text escaping replaces `&`, `<`, and `>` with their standard entities. The framing tags and role labels remain unchanged.
+- APC-07.2: Additional focus uses the same XML text escaping before insertion into `<additional_focus>`.
+- APC-07.3: Tool-call arguments use deterministic JSON generated from the semantic `model.ToolCall.Arguments` map. Original provider whitespace and key order are not part of the contract.
 
 The serializer emits these labeled blocks:
 
@@ -96,7 +99,7 @@ The serializer emits these labeled blocks:
 - `[Assistant reasoning]` for each ordered model-visible reasoning block.
 - `[Assistant]` for each ordered model text block.
 - `[Assistant refusal]` for each ordered model refusal block.
-- `[Assistant tool call]` with the exact call identifier, tool name, and arguments.
+- `[Assistant tool call]` with the exact call identifier and tool name plus deterministic JSON for the argument values.
 - `[Tool result]` with the exact call identifier, tool name, error state, and ordered text blocks.
 - `[Previous summary]` with the exact text of a preceding `BranchSummaryEntry`.
 
@@ -135,13 +138,13 @@ The serializer excludes:
 `RenderBranchSummaryContext` continues to create one synthetic user message for active model history. Its embedded template becomes:
 
 ```text
-<summary>
-{{.Summary}}
+<summary encoding="xml-text">
+{{.EscapedSummary}}
 </summary>
 ```
 
-- APC-09: Persistence and context rendering keep the generated summary unchanged inside the explicit envelope.
-- APC-10: The envelope contains no instruction to the active model and no session-tree framing.
+- APC-09: Persistence keeps the generated summary unchanged. Context rendering applies XML text escaping before inserting it into the explicit envelope.
+- APC-10: The envelope contains no instruction to the active model and no session-tree framing. Its `encoding` attribute identifies how to recover literal summary characters.
 - APC-11: `HistoryFromEntries` continues to exclude model-hidden extension entries and to preserve its existing projection order.
 
 ### Code changes
@@ -174,10 +177,10 @@ Affected files:
   - Edge case: absent versus present `CustomFocus`.
   - Dependencies: existing navigation preparation, model-completer mock, and atomic commit expectation.
 - TSK-02: RED adds focused serializer tests for ordered user text, model-visible text and reasoning, tool calls, text tool results, and prior summaries.
-  - Purpose: prove the complete approved text source is represented deterministically.
+  - Purpose: prove the complete approved text source is represented deterministically and remains lossless after XML text decoding.
   - Input: ordered entries that contain all supported source record kinds plus image and model-hidden extension entries.
-  - Expected output: supported source values and order are preserved; the result is one text value.
-  - Edge cases: multiline source text, image blocks, and model-hidden extension entries.
+  - Expected output: supported source values and order are preserved; semantic tool-argument maps produce deterministic JSON; the result is one text value.
+  - Edge cases: multiline text, `&`, `<`, `>`, delimiter-like text, different map insertion orders, image blocks, and model-hidden extension entries.
   - Dependencies: domain `session`, `model`, `agent`, and `tool` types only.
 - TSK-03: Tests do not assert authored system-rule text, task wording, pseudo-XML tag spelling, or additional-focus wording.
 - TSK-04: GREEN implements the minimum prompt rendering, serialization, and request-construction changes needed to pass the focused tests.
@@ -195,7 +198,7 @@ Verification commands:
 
 ### Failure behavior
 
-- FLR-01: Prompt-template rendering errors return a wrapped branch-summary preparation error before a model request.
+- FLR-01: Tool-argument JSON or prompt-template rendering errors return a wrapped branch-summary preparation error before a model request.
 - FLR-02: Configured-model failures keep the existing classification and cancel the navigation commit.
 - FLR-03: Invalid terminal responses keep the existing validation behavior and cancel the navigation commit.
 - FLR-04: No fallback model, compatibility prompt, partial summary, or hidden image fallback is added.
