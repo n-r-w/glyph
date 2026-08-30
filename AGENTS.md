@@ -55,6 +55,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only active field.
 5. Use `mo.Option[T]` directly for required JSON fields, but use `*T` with `omitempty` when `Some` zero values must remain distinguishable from `None`.
 6. MUST NOT suppress ifaceguard warnings in production code. If they appear, it means dependency direction is incorrect.
+7. Define named constants for strings that represent stable UI text, commands, domain or protocol values, and formatting templates, even when used once. Keep incidental implementation text, including one-off error messages, inline.
 
 ## Code structure
 1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
