@@ -90,7 +90,4 @@ Client command processing remains responsive while potentially long operations e
 
 ## Open Questions
 
-- Which session commands can block on external or unbounded work and must use an asynchronous lifecycle?
-- Which existing client command cancels a long non-agent operation, or is a distinct cancellation command required?
-- Which acceptance and terminal result states must be represented in the UI and Programmatic Control contracts?
-- Can one client session own an agent run and a separate long session operation at the same time, or must the operation gate reject one before acceptance?
+None.
