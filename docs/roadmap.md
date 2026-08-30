@@ -62,12 +62,13 @@ Documents:
 
 ## PHS-05: Session tree
 
-Status: Planned
+Status: Completed
 
-Add branch-preserving session navigation and extensible branch summarization.
+Added branch-preserving session navigation, persistent fork and clone operations, entry labels, extensible branch summarization, and standard TUI tree interaction.
 
 Documents:
 - [Ticket](specs/features/initial/phases/05-session-tree/ticket.md)
+- [Technical Solution](specs/features/initial/phases/05-session-tree/solution.md)
 
 ## PHS-07: Extension context and lifecycle
 
