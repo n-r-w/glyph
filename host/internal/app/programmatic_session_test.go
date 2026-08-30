@@ -209,7 +209,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
 		request.SetGetMessages(new(programmaticv1.GetMessages))
 	}).GetMessages().GetEntries()
-	require.Len(t, messages, 7)
+	require.Len(t, messages, 8)
 	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
 	assert.Equal(t, "resp-1", messages[1].GetModel().GetResponseId())
 	require.Len(t, messages[1].GetModel().GetContent(), 2)
@@ -236,12 +236,15 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Equal(t, "full diagnostic", fullModel.GetDiagnostics()[0].GetMessage())
 	require.Len(t, messages[6].GetToolResult().GetContents(), 2)
 	assert.Equal(t, []byte{9, 8, 7, 6}, messages[6].GetToolResult().GetContents()[1].GetImage().GetData())
+	require.Len(t, messages[7].GetUser().GetContent(), 1)
+	assert.Contains(t, messages[7].GetUser().GetContent()[0].GetText(), "Full branch summary")
 	entries := restartSend("restart-entries", func(request *programmaticv1.OpenRequest) {
 		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
-	require.Len(t, entries, 7)
+	require.Len(t, entries, 8)
 	assert.NotEmpty(t, entries[0].GetId())
 	assert.True(t, entries[0].HasCreatedTime())
+	assert.Equal(t, "## Goal\n\nFull branch summary", entries[7].GetBranchSummary().GetSummary())
 
 	require.NoError(t, restarted.stream.Send(userRequest("continued-turn", "continue")))
 	accepted, err = restarted.stream.Recv()
@@ -262,6 +265,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Contains(t, string(body), "full-call")
 	assert.Contains(t, string(body), "full tool output")
 	assert.Contains(t, string(body), fullContentToolImageBase64)
+	assert.Contains(t, string(body), "Full branch summary")
 	assert.NotContains(t, string(body), "full-extension")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)

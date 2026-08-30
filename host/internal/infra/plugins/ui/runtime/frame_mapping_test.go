@@ -16,7 +16,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -171,6 +171,7 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 					MediaType: mo.Some("image/png"), Data: inputData,
 				}}}),
 				Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
+				BranchSummary: mo.None[domainui.BranchSummary](),
 			}})
 
 			// Assert validation, oneof selection, presence, bytes, and ownership.
@@ -214,6 +215,7 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 						Kind: tool.ResultContentImage, Text: mo.None[string](), Image: image,
 					}},
 				}),
+				BranchSummary: mo.None[domainui.BranchSummary](),
 			}})
 
 			// Assert absent images stay absent and present image bytes retain presence and ownership.
@@ -237,4 +239,43 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 			assert.Equal(t, test.expectData, content.GetImage().GetData())
 		})
 	}
+}
+
+// TestRestoredSessionBranchSummaryMapsCompletePayload verifies summary restoration through the UI wire contract.
+func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete branch-summary transcript entry.
+	summary := domainui.BranchSummary{
+		Summary: "branch context", FirstEntryID: "first", LastEntryID: "last",
+		Provider: model.ProviderID("provider"), Model: model.ID("model"),
+		ReasoningChoice: model.ReasoningChoiceMedium,
+		Usage: mo.Some(session.TokenUsage{
+			InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3,
+			CacheWriteTokens: 4, ReasoningTokens: 5, TotalTokens: 15,
+		}),
+		EstimatedCost: mo.Some(session.EstimatedCost{
+			Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
+		}),
+	}
+	entry := domainui.SessionEntry{
+		ID: "summary", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryBranchSummary,
+		User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+		ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.Some(summary),
+	}
+
+	// Act by mapping the restored entry to the generated UI contract.
+	mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{entry})
+
+	// Assert the oneof and complete summary payload survive mapping.
+	require.NoError(t, err)
+	require.Len(t, mapped, 1)
+	require.Equal(t, uipb.SessionEntry_BranchSummary_case, mapped[0].WhichEntry())
+	require.Equal(t, summary.Summary, mapped[0].GetBranchSummary().GetSummary())
+	require.Equal(t, summary.FirstEntryID, mapped[0].GetBranchSummary().GetFirstEntryId())
+	require.Equal(t, summary.LastEntryID, mapped[0].GetBranchSummary().GetLastEntryId())
+	require.Equal(t, string(summary.Provider), mapped[0].GetBranchSummary().GetProviderId())
+	require.Equal(t, string(summary.Model), mapped[0].GetBranchSummary().GetModelId())
+	require.NotNil(t, mapped[0].GetBranchSummary().GetUsage())
+	require.NotNil(t, mapped[0].GetBranchSummary().GetEstimatedCost())
 }

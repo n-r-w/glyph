@@ -51,6 +51,16 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 				return nil, fmt.Errorf("map session entry %d: %w", index, err)
 			}
 			wire.SetToolResult(mapped)
+		case HistoryEntryBranchSummary:
+			summary, present := entry.BranchSummary.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing branch summary payload", index)
+			}
+			mapped, err := mapBranchSummary(summary)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", index, err)
+			}
+			wire.SetBranchSummary(mapped)
 		case HistoryEntryUnspecified:
 			return nil, fmt.Errorf("map session entry %d: unsupported kind %d", index, entry.Kind)
 		default:
@@ -99,6 +109,8 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 			wire.SetToolResult(result)
 		case HistoryEntryUnspecified:
 			return nil, fmt.Errorf("map history entry %d: unspecified entry kind", index)
+		case HistoryEntryBranchSummary:
+			return nil, fmt.Errorf("map history entry %d: branch summary is not a direct history payload", index)
 		default:
 			return nil, fmt.Errorf("map history entry %d: unknown entry kind %d", index, entry.Kind)
 		}

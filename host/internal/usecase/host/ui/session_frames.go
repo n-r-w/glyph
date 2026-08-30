@@ -51,7 +51,7 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
 				User: mo.Some(user.Clone()), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.None[agent.ToolResult](),
+				ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[domainui.BranchSummary](),
 			})
 			continue
 		}
@@ -63,6 +63,7 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
 				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
+				BranchSummary: mo.None[domainui.BranchSummary](),
 			})
 			continue
 		}
@@ -70,7 +71,20 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryToolResult,
 				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.Some(result.Clone()),
+				ToolResult: mo.Some(result.Clone()), BranchSummary: mo.None[domainui.BranchSummary](),
+			})
+			continue
+		}
+		if summary, present := entry.BranchSummary.Get(); present {
+			mappedEntries = append(mappedEntries, domainui.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryBranchSummary,
+				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+				ToolResult: mo.None[agent.ToolResult](),
+				BranchSummary: mo.Some(domainui.BranchSummary{
+					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
+					Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
+					Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
+				}),
 			})
 		}
 	}

@@ -116,9 +116,9 @@ func runSessionRestartUI(
 		return errors.New("resumed session did not preserve every session information field and presence state")
 	}
 	entries := changedFrame.GetSessionChanged().GetEntries()
-	if len(entries) != 7 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
+	if len(entries) != 8 || entries[0].GetUser() == nil || entries[1].GetModel() == nil ||
 		entries[2].GetToolResult() == nil || entries[3].GetModel() == nil || entries[4].GetUser() == nil ||
-		entries[5].GetModel() == nil || entries[6].GetToolResult() == nil ||
+		entries[5].GetModel() == nil || entries[6].GetToolResult() == nil || entries[7].GetBranchSummary() == nil ||
 		len(entries[0].GetUser().GetContent()) != 1 || len(entries[1].GetModel().GetContent()) != 2 ||
 		entries[0].GetUser().GetContent()[0].GetText() != "restart text" ||
 		entries[1].GetModel().GetResponseId() != "resp-1" ||
@@ -137,7 +137,8 @@ func runSessionRestartUI(
 		entries[5].GetModel().GetDiagnostics()[0].GetCode() != "full_notice" ||
 		entries[5].GetModel().GetDiagnostics()[0].GetMessage() != "full diagnostic" ||
 		len(entries[6].GetToolResult().GetContents()) != 2 ||
-		!bytes.Equal(entries[6].GetToolResult().GetContents()[1].GetImage().GetData(), []byte{9, 8, 7, 6}) {
+		!bytes.Equal(entries[6].GetToolResult().GetContents()[1].GetImage().GetData(), []byte{9, 8, 7, 6}) ||
+		entries[7].GetBranchSummary().GetSummary() != "## Goal\n\nFull branch summary" {
 		return errors.New("resumed session did not restore ordered full content")
 	}
 	if err = assertUIStatistics(stream, 7, false, 0); err != nil {

@@ -225,7 +225,7 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *testing.T) {
 	t.Parallel()
 
-	// Arrange public user, model, and tool content plus a private extension entry.
+	// Arrange public user, model, tool, and summary content plus a private extension entry.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
 	response := model.Response{
@@ -274,6 +274,12 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 			Data:      mo.Some([]byte{4, 5, 6}),
 		},
 	}}
+	summary := session.BranchSummaryEntry{
+		Summary: "branch context", FirstEntryID: "user-entry", LastEntryID: "tool-entry",
+		Provider: model.ProviderID("provider"), Model: model.ID("model"),
+		ReasoningChoice: model.ReasoningChoiceMedium,
+		Usage:           mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](),
+	}
 	// Act by creating the confirmed replacement frame.
 	frame, err := sessionChangedFrame(testSessionInfo("stored"), []session.Entry{
 		{
@@ -316,7 +322,19 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 				BranchSummaryEntry](),
 		},
 		{
-			ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(3 * time.Second),
+			ParentID:      mo.None[string](),
+			ID:            "summary-entry",
+			CreatedAt:     createdAt.Add(3 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.Some(summary),
+		},
+		{
+			ParentID: mo.None[string](), ID: "extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{
@@ -329,7 +347,7 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 
 	// Assert public content remains ordered and private data is excluded.
 	require.NoError(t, err)
-	require.Len(t, frame.SessionEntries, 3)
+	require.Len(t, frame.SessionEntries, 4)
 	require.True(t, frame.SessionEntries[0].User.IsPresent())
 	require.Equal(t, user, frame.SessionEntries[0].User.MustGet())
 	publicResponse := frame.SessionEntries[1].Model.MustGet()
@@ -348,6 +366,8 @@ func TestSessionChangedFrameProjectsCompletePublicContentWithoutPrivateData(t *t
 	require.Equal(t, 2, publicResponse.Content[2].ToolCall.MustGet().Position)
 	require.Equal(t, domainui.SessionEntryToolResult, frame.SessionEntries[2].Kind)
 	require.Equal(t, result, frame.SessionEntries[2].ToolResult.MustGet())
+	require.Equal(t, domainui.SessionEntryBranchSummary, frame.SessionEntries[3].Kind)
+	require.Equal(t, summary.Summary, frame.SessionEntries[3].BranchSummary.MustGet().Summary)
 }
 
 // TestSessionLifecycleRejectionsPreserveInformationContext verifies Host UI exposes operation and error details.

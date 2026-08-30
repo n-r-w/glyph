@@ -267,6 +267,7 @@ message SessionEntry {
     UserMessage user = 3;
     ModelResponse model = 4;
     ToolResult tool_result = 5;
+    BranchSummary branch_summary = 6;
   }
 }
 

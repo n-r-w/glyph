@@ -79,6 +79,16 @@ const (
 	refusalLinePrefix = "[refusal]"
 	// reasoningLinePrefix identifies reasoning lines.
 	reasoningLinePrefix = "reasoning:"
+	// branchSummaryLinePrefix identifies abandoned-branch context.
+	branchSummaryLinePrefix = "[branch]"
+	// branchSummaryCollapsedText describes hidden branch-summary content.
+	branchSummaryCollapsedText = "Branch summary (ctrl+o to expand)"
+	// branchSummaryExpandedTitle labels visible branch-summary content.
+	branchSummaryExpandedTitle = "Branch Summary"
+	// branchSummaryCollapsedFormat renders a collapsed branch-summary item.
+	branchSummaryCollapsedFormat = "%s\n\n%s"
+	// branchSummaryExpandedFormat renders an expanded branch-summary item.
+	branchSummaryExpandedFormat = "%s\n\n%s\n\n%s"
 )
 
 const (
@@ -301,6 +311,15 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 			lines = appendNewestWrapped(lines, reasoningCollapsedText, model.width, capacity)
 			continue
 		}
+		if line.Kind == presentationdomain.LineBranchSummary {
+			lines = appendNewestWrapped(
+				lines,
+				renderBranchSummary(line, model.branchSummariesExpanded),
+				model.width,
+				capacity,
+			)
+			continue
+		}
 		lines = appendNewestWrapped(lines, renderLine(line), model.width, capacity)
 	}
 	for index := len(model.state.Startup) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
@@ -400,6 +419,8 @@ func linePrefix(kind presentationdomain.LineKind) string {
 		return refusalLinePrefix
 	case presentationdomain.LineReasoning:
 		return reasoningLinePrefix
+	case presentationdomain.LineBranchSummary:
+		return branchSummaryLinePrefix
 	case presentationdomain.LineToolStatus, presentationdomain.LineToolStdout,
 		presentationdomain.LineToolStderr, presentationdomain.LineToolDone,
 		presentationdomain.LineToolError:
@@ -424,10 +445,20 @@ func toolLinePrefix(kind presentationdomain.LineKind) string {
 		return toolErrorLinePrefix
 	case presentationdomain.LineUnspecified, presentationdomain.LineInformation,
 		presentationdomain.LineError, presentationdomain.LineWarning, presentationdomain.LineUser,
-		presentationdomain.LineModel, presentationdomain.LineRefusal, presentationdomain.LineReasoning:
+		presentationdomain.LineModel, presentationdomain.LineRefusal, presentationdomain.LineReasoning,
+		presentationdomain.LineBranchSummary:
 		return ""
 	}
 	return ""
+}
+
+// renderBranchSummary renders one local collapsed or expanded summary item.
+func renderBranchSummary(line presentationdomain.Line, expanded bool) string {
+	if !expanded {
+		return fmt.Sprintf(branchSummaryCollapsedFormat, branchSummaryLinePrefix, branchSummaryCollapsedText)
+	}
+	text, _ := line.Text.Get()
+	return fmt.Sprintf(branchSummaryExpandedFormat, branchSummaryLinePrefix, branchSummaryExpandedTitle, text)
 }
 
 // renderLine assigns one stable terminal prefix to each presentation line kind.

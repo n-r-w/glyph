@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -163,6 +164,7 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uipb.SessionTreeEntr
 		public := domainui.SessionEntry{
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryKind(entry.Kind),
 			User: entry.User, Model: entry.Model, ToolResult: entry.ToolResult,
+			BranchSummary: mo.None[domainui.BranchSummary](),
 		}
 		mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{public})
 		if err != nil {

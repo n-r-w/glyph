@@ -78,6 +78,13 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 				return nil, err
 			}
 			lines = append(lines, mapped)
+			continue
+		}
+		if summary := entry.GetBranchSummary(); summary != nil {
+			lines = append(lines, presentationdomain.Line{
+				Kind: presentationdomain.LineBranchSummary, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text: mo.Some(summary.GetSummary()), Contents: mo.None[[]presentationdomain.Content](),
+			})
 		}
 	}
 	return lines, nil
@@ -117,7 +124,7 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Con
 	return mapped, text.String(), nil
 }
 
-// mapRestoredModelResponse keeps stored model content and diagnostics in display order.
+// mapRestoredModelResponse keeps stored visible model content and terminal failures in display order.
 func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomain.Line, error) {
 	lines := make([]presentationdomain.Line, 0, len(response.GetContent()))
 	for _, content := range response.GetContent() {
@@ -145,13 +152,6 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomai
 		lines = append(lines, presentationdomain.Line{
 			Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
 			Text: mo.Some(content.GetText()), Contents: mo.None[[]presentationdomain.Content](),
-		})
-	}
-	for _, diagnostic := range response.GetDiagnostics() {
-		lines = append(lines, presentationdomain.Line{
-			Kind: presentationdomain.LineInformation, ToolName: mo.None[string](), Status: mo.None[string](),
-			Text:     mo.Some(diagnostic.GetCode() + ": " + diagnostic.GetMessage()),
-			Contents: mo.None[[]presentationdomain.Content](),
 		})
 	}
 	if outcome := response.GetOutcome(); outcome == "aborted" || outcome == "failed" {

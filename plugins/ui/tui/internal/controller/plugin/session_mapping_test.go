@@ -245,8 +245,8 @@ func TestSessionChangedAcceptsStoredToolResultContentStates(t *testing.T) {
 	}
 }
 
-// TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent verifies complete public restoration.
-func TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent(t *testing.T) {
+// TestRestoredTranscriptMapsDisplayableEntries verifies complete public restoration.
+func TestRestoredTranscriptMapsDisplayableEntries(t *testing.T) {
 	t.Parallel()
 
 	// Arrange user, model, and tool-result entries with every public content type.
@@ -280,6 +280,20 @@ func TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent(t *testin
 			}.Build(),
 		},
 	}.Build())
+	summary := "## Goal\n\nContinue from the selected branch."
+	branchSummaryEntry := new(uiv1.SessionEntry)
+	branchSummaryEntry.SetId("branch-summary-entry")
+	branchSummaryEntry.SetCreatedTime(createdAt)
+	branchSummaryEntry.SetBranchSummary(uiv1.BranchSummary_builder{
+		Summary:         &summary,
+		FirstEntryId:    new("first-entry"),
+		LastEntryId:     new("last-entry"),
+		ProviderId:      new("provider"),
+		ModelId:         new("model"),
+		ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM),
+		Usage:           nil,
+		EstimatedCost:   nil,
+	}.Build())
 	toolContent := new(uiv1.ToolResultContent)
 	toolContent.SetImage(uiv1.ToolResultImage_builder{MediaType: new("image/webp"), Data: []byte{4, 5, 6}}.Build())
 	toolEntry := new(uiv1.SessionEntry)
@@ -291,9 +305,9 @@ func TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent(t *testin
 	}.Build())
 
 	// Act by mapping the ordered restored transcript.
-	lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{userEntry, modelEntry, toolEntry})
+	lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{userEntry, modelEntry, branchSummaryEntry, toolEntry})
 
-	// Assert ordered line kinds, text, diagnostics, and image bytes.
+	// Assert ordered displayable line kinds, text, and image bytes.
 	require.NoError(t, err)
 	require.Len(t, lines, 5)
 	require.True(t, lines[0].Contents.IsPresent())
@@ -302,8 +316,8 @@ func TestRestoredTranscriptMapsImagesDiagnosticsAndVisibleModelContent(t *testin
 	require.Equal(t, mo.Some(reasoning), lines[1].Text)
 	require.Equal(t, presentationdomain.LineRefusal, lines[2].Kind)
 	require.Equal(t, mo.Some(refusal), lines[2].Text)
-	require.Equal(t, presentationdomain.LineInformation, lines[3].Kind)
-	require.Equal(t, mo.Some("notice: safe diagnostic"), lines[3].Text)
+	require.Equal(t, presentationdomain.LineBranchSummary, lines[3].Kind)
+	require.Equal(t, mo.Some(summary), lines[3].Text)
 	require.Equal(t, presentationdomain.LineToolDone, lines[4].Kind)
 	require.Equal(t, []byte{4, 5, 6}, lines[4].Contents.MustGet()[0].Data.MustGet())
 	require.Equal(t, mo.Some("[image image/webp, 3 bytes]"), lines[4].Text)

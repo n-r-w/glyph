@@ -46,15 +46,6 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 		})
 		return mapped, nil
 	}
-	if summary, present := entry.BranchSummary.Get(); present {
-		mapped.Kind = controller.SessionTreeEntryBranchSummary
-		mapped.BranchSummary = mo.Some(controller.BranchSummary{
-			Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-			Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
-			Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
-		})
-		return mapped, nil
-	}
 	projected, err := mapSessionEntries([]session.Entry{entry})
 	if err != nil {
 		return controller.SessionTreeEntry{}, err
@@ -67,6 +58,7 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 	mapped.Model = public.Model
 	mapped.EstimatedCost = public.EstimatedCost
 	mapped.ToolResult = public.ToolResult
+	mapped.BranchSummary = public.BranchSummary
 	switch public.Kind {
 	case controller.HistoryEntryUser:
 		mapped.Kind = controller.SessionTreeEntryUser
@@ -74,6 +66,8 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 		mapped.Kind = controller.SessionTreeEntryModel
 	case controller.HistoryEntryToolResult:
 		mapped.Kind = controller.SessionTreeEntryToolResult
+	case controller.HistoryEntryBranchSummary:
+		mapped.Kind = controller.SessionTreeEntryBranchSummary
 	case controller.HistoryEntryUnspecified:
 		return controller.SessionTreeEntry{}, errors.New("tree entry payload is unspecified")
 	default:

@@ -111,15 +111,6 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 		})
 		return mapped, nil
 	}
-	if summary, present := entry.BranchSummary.Get(); present {
-		mapped.Kind = domainui.SessionTreeEntryBranchSummary
-		mapped.BranchSummary = mo.Some(domainui.BranchSummary{
-			Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-			Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
-			Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
-		})
-		return mapped, nil
-	}
 	projected, err := mapSessionEntries([]session.Entry{entry})
 	if err != nil {
 		return domainui.SessionTreeEntry{}, err
@@ -131,6 +122,7 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 	mapped.User = public.User
 	mapped.Model = public.Model
 	mapped.ToolResult = public.ToolResult
+	mapped.BranchSummary = public.BranchSummary
 	switch public.Kind {
 	case domainui.SessionEntryUser:
 		mapped.Kind = domainui.SessionTreeEntryUser
@@ -138,6 +130,8 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 		mapped.Kind = domainui.SessionTreeEntryModel
 	case domainui.SessionEntryToolResult:
 		mapped.Kind = domainui.SessionTreeEntryToolResult
+	case domainui.SessionEntryBranchSummary:
+		mapped.Kind = domainui.SessionTreeEntryBranchSummary
 	default:
 		return domainui.SessionTreeEntry{}, fmt.Errorf("unknown tree entry payload %d", public.Kind)
 	}

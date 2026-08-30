@@ -145,6 +145,8 @@ type SessionEntry struct {
 	EstimatedCost mo.Option[session.EstimatedCost]
 	// ToolResult contains a terminal tool result.
 	ToolResult mo.Option[ToolResult]
+	// BranchSummary contains restored abandoned-branch context.
+	BranchSummary mo.Option[BranchSummary]
 }
 
 // ModelsResult contains configured models and the active selection.
@@ -192,6 +194,8 @@ const (
 	HistoryEntryUser
 	HistoryEntryModel
 	HistoryEntryToolResult
+	// HistoryEntryBranchSummary identifies restored abandoned-branch context.
+	HistoryEntryBranchSummary
 )
 
 // HistoryEntry is one ordered public conversation entry.

@@ -220,15 +220,14 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	if updated, command, handled := model.updateFocusedTreeKey(key); handled {
 		return updated, command
 	}
+	if updated, handled := model.updateTranscriptDisplayKey(key); handled {
+		return updated, nil
+	}
 	if isSelectionShortcut(key) {
 		availability, ok := model.state.Availability.Get()
 		if !ok || !availability.SelectionAllowed() {
 			return model, nil
 		}
-	}
-	if key.Mod == tea.ModCtrl && key.Code == 't' {
-		model.reasoningExpanded = !model.reasoningExpanded
-		return model, nil
 	}
 	if model.selectorOpen {
 		return model.updateSelector(key)
@@ -287,6 +286,23 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 	}
 
 	return model, nil
+}
+
+// updateTranscriptDisplayKey applies local transcript display shortcuts.
+func (model Model) updateTranscriptDisplayKey(key tea.Key) (Model, bool) {
+	if key.Mod != tea.ModCtrl {
+		return model, false
+	}
+	switch key.Code {
+	case 't':
+		model.reasoningExpanded = !model.reasoningExpanded
+		return model, true
+	case 'o':
+		model.branchSummariesExpanded = !model.branchSummariesExpanded
+		return model, true
+	default:
+		return model, false
+	}
 }
 
 // updateEnter interprets session commands before treating input as an agent request.

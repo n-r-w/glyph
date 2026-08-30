@@ -315,8 +315,10 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "user: full user[image image/png, 4 bytes]after image")
 	observer.WaitNext(t, "[refusal] full refusal")
 	observer.WaitNext(t, "[tool:status] bash (arguments) {\"command\":\"printf full-tool\"}")
-	observer.WaitNext(t, "[info] full_notice: full diagnostic")
 	observer.WaitNext(t, "[tool:done] bash full tool output[image image/png, 4 bytes]")
+	observer.WaitNext(t, "Branch summary (ctrl+o to expand)")
+	testsupporttui.Write(t, input, string([]byte{15}))
+	observer.WaitNext(t, "Full branch summary")
 	testsupporttui.Write(t, input, string([]byte{20}))
 	observer.WaitNext(t, "reasoning: full reasoning")
 	// /session renders every Host-confirmed lifecycle field after replacement.
@@ -330,8 +332,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	observer.WaitNext(t, "Updated:")
 	observer.WaitNext(t, "Messages: 2 user, 3 model, 2 tool results, 7 total")
 	observer.WaitNext(t, "Tool calls: 2")
-	observer.WaitNext(t, "Tokens: 21 input, 12 output, 6 cache read, 3 cache write, 42 total")
-	observer.WaitNext(t, "Reasoning tokens: 9, included in output")
+	observer.WaitNext(t, "Tokens: 28 input, 16 output, 8 cache read, 4 cache write, 56 total")
+	observer.WaitNext(t, "Reasoning tokens: 12, included in output")
 	observer.WaitNext(t, "Estimated cost: $0.000075")
 	observer.WaitNext(t, "openai-codex/selected-model: $0.000075")
 
@@ -460,8 +462,9 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	assert.Contains(t, observer.String(), "assistant: Request complete.")
 	assert.Contains(t, observer.String(), "user: full user[image image/png, 4 bytes]after image")
 	assert.Contains(t, observer.String(), "[refusal] full refusal")
-	assert.Contains(t, observer.String(), "[info] full_notice: full diagnostic")
 	assert.Contains(t, observer.String(), "[tool:done] bash full tool output[image image/png, 4 bytes]")
+	assert.Contains(t, observer.String(), "Branch summary (ctrl+o to expand)")
+	assert.Contains(t, observer.String(), "Full branch summary")
 	assert.Contains(t, observer.String(), "reasoning: full reasoning")
 	assert.Contains(
 		t,
@@ -545,6 +548,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	assert.Contains(t, string(body), "full-call")
 	assert.Contains(t, string(body), "full tool output")
 	assert.Contains(t, string(body), fullContentToolImageBase64)
+	assert.Contains(t, string(body), "Full branch summary")
 	assert.NotContains(t, string(body), "full-extension")
 	assert.Contains(t, string(body), "continue")
 	assert.Contains(t, string(body), `"model":"selected-model"`)

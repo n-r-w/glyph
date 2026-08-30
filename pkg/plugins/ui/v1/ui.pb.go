@@ -4602,6 +4602,15 @@ func (x *SessionEntry) GetToolResult() *ToolResult {
 	return nil
 }
 
+func (x *SessionEntry) GetBranchSummary() *BranchSummary {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary); ok {
+			return x.BranchSummary
+		}
+	}
+	return nil
+}
+
 func (x *SessionEntry) SetId(v string) {
 	x.xxx_hidden_Id = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
@@ -4633,6 +4642,14 @@ func (x *SessionEntry) SetToolResult(v *ToolResult) {
 		return
 	}
 	x.xxx_hidden_Entry = &sessionEntry_ToolResult{v}
+}
+
+func (x *SessionEntry) SetBranchSummary(v *BranchSummary) {
+	if v == nil {
+		x.xxx_hidden_Entry = nil
+		return
+	}
+	x.xxx_hidden_Entry = &sessionEntry_BranchSummary{v}
 }
 
 func (x *SessionEntry) HasId() bool {
@@ -4680,6 +4697,14 @@ func (x *SessionEntry) HasToolResult() bool {
 	return ok
 }
 
+func (x *SessionEntry) HasBranchSummary() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary)
+	return ok
+}
+
 func (x *SessionEntry) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
@@ -4711,10 +4736,17 @@ func (x *SessionEntry) ClearToolResult() {
 	}
 }
 
+func (x *SessionEntry) ClearBranchSummary() {
+	if _, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary); ok {
+		x.xxx_hidden_Entry = nil
+	}
+}
+
 const SessionEntry_Entry_not_set_case case_SessionEntry_Entry = 0
 const SessionEntry_User_case case_SessionEntry_Entry = 3
 const SessionEntry_Model_case case_SessionEntry_Entry = 4
 const SessionEntry_ToolResult_case case_SessionEntry_Entry = 5
+const SessionEntry_BranchSummary_case case_SessionEntry_Entry = 6
 
 func (x *SessionEntry) WhichEntry() case_SessionEntry_Entry {
 	if x == nil {
@@ -4727,6 +4759,8 @@ func (x *SessionEntry) WhichEntry() case_SessionEntry_Entry {
 		return SessionEntry_Model_case
 	case *sessionEntry_ToolResult:
 		return SessionEntry_ToolResult_case
+	case *sessionEntry_BranchSummary:
+		return SessionEntry_BranchSummary_case
 	default:
 		return SessionEntry_Entry_not_set_case
 	}
@@ -4742,9 +4776,10 @@ type SessionEntry_builder struct {
 	// The entry payload.
 
 	// Fields of oneof xxx_hidden_Entry:
-	User       *UserMessage
-	Model      *ModelResponse
-	ToolResult *ToolResult
+	User          *UserMessage
+	Model         *ModelResponse
+	ToolResult    *ToolResult
+	BranchSummary *BranchSummary
 	// -- end of xxx_hidden_Entry
 }
 
@@ -4765,6 +4800,9 @@ func (b0 SessionEntry_builder) Build() *SessionEntry {
 	}
 	if b.ToolResult != nil {
 		x.xxx_hidden_Entry = &sessionEntry_ToolResult{b.ToolResult}
+	}
+	if b.BranchSummary != nil {
+		x.xxx_hidden_Entry = &sessionEntry_BranchSummary{b.BranchSummary}
 	}
 	return m0
 }
@@ -4795,11 +4833,17 @@ type sessionEntry_ToolResult struct {
 	ToolResult *ToolResult `protobuf:"bytes,5,opt,name=tool_result,json=toolResult,proto3,oneof"`
 }
 
+type sessionEntry_BranchSummary struct {
+	BranchSummary *BranchSummary `protobuf:"bytes,6,opt,name=branch_summary,json=branchSummary,proto3,oneof"`
+}
+
 func (*sessionEntry_User) isSessionEntry_Entry() {}
 
 func (*sessionEntry_Model) isSessionEntry_Entry() {}
 
 func (*sessionEntry_ToolResult) isSessionEntry_Entry() {}
+
+func (*sessionEntry_BranchSummary) isSessionEntry_Entry() {}
 
 // ToolResult carries one restored terminal tool result.
 type ToolResult struct {
@@ -11206,14 +11250,15 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\r_extension_idB\r\n" +
 	"\v_handler_idB\n" +
 	"\n" +
-	"\b_message\"\xaa\x02\n" +
+	"\b_message\"\xf7\x02\n" +
 	"\fSessionEntry\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tH\x01R\x02id\x88\x01\x01\x12=\n" +
 	"\fcreated_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x126\n" +
 	"\x04user\x18\x03 \x01(\v2 .glyph.plugins.ui.v1.UserMessageH\x00R\x04user\x12:\n" +
 	"\x05model\x18\x04 \x01(\v2\".glyph.plugins.ui.v1.ModelResponseH\x00R\x05model\x12B\n" +
 	"\vtool_result\x18\x05 \x01(\v2\x1f.glyph.plugins.ui.v1.ToolResultH\x00R\n" +
-	"toolResultB\a\n" +
+	"toolResult\x12K\n" +
+	"\x0ebranch_summary\x18\x06 \x01(\v2\".glyph.plugins.ui.v1.BranchSummaryH\x00R\rbranchSummaryB\a\n" +
 	"\x05entryB\x05\n" +
 	"\x03_id\"\xd7\x01\n" +
 	"\n" +
@@ -11730,62 +11775,63 @@ var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	36,  // 53: glyph.plugins.ui.v1.SessionEntry.user:type_name -> glyph.plugins.ui.v1.UserMessage
 	53,  // 54: glyph.plugins.ui.v1.SessionEntry.model:type_name -> glyph.plugins.ui.v1.ModelResponse
 	35,  // 55: glyph.plugins.ui.v1.SessionEntry.tool_result:type_name -> glyph.plugins.ui.v1.ToolResult
-	47,  // 56: glyph.plugins.ui.v1.ToolResult.contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
-	37,  // 57: glyph.plugins.ui.v1.UserMessage.content:type_name -> glyph.plugins.ui.v1.UserContent
-	38,  // 58: glyph.plugins.ui.v1.UserContent.image:type_name -> glyph.plugins.ui.v1.UserImage
-	19,  // 59: glyph.plugins.ui.v1.SessionInformation.info:type_name -> glyph.plugins.ui.v1.SessionInfo
-	40,  // 60: glyph.plugins.ui.v1.SessionInformation.statistics:type_name -> glyph.plugins.ui.v1.SessionStatistics
-	43,  // 61: glyph.plugins.ui.v1.SessionStatistics.tokens:type_name -> glyph.plugins.ui.v1.TokenUsage
-	41,  // 62: glyph.plugins.ui.v1.SessionStatistics.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	42,  // 63: glyph.plugins.ui.v1.SessionStatistics.cost_breakdown:type_name -> glyph.plugins.ui.v1.ProviderModelCost
-	41,  // 64: glyph.plugins.ui.v1.ProviderModelCost.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	1,   // 65: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
-	5,   // 66: glyph.plugins.ui.v1.LifecycleEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
-	6,   // 67: glyph.plugins.ui.v1.LifecycleEvent.progress_channel:type_name -> glyph.plugins.ui.v1.ProgressChannel
-	2,   // 68: glyph.plugins.ui.v1.LifecycleEvent.availability:type_name -> glyph.plugins.ui.v1.Availability
-	52,  // 69: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
-	53,  // 70: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
-	49,  // 71: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
-	51,  // 72: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	47,  // 73: glyph.plugins.ui.v1.LifecycleEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
-	48,  // 74: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
-	50,  // 75: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
-	78,  // 76: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	79,  // 77: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	4,   // 78: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
-	3,   // 79: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	55,  // 80: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
-	56,  // 81: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
-	54,  // 82: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
-	3,   // 83: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	51,  // 84: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	61,  // 85: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	62,  // 86: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
-	63,  // 87: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	64,  // 88: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
-	65,  // 89: glyph.plugins.ui.v1.OpenResponse.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
-	66,  // 90: glyph.plugins.ui.v1.OpenResponse.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	67,  // 91: glyph.plugins.ui.v1.OpenResponse.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
-	68,  // 92: glyph.plugins.ui.v1.OpenResponse.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
-	69,  // 93: glyph.plugins.ui.v1.OpenResponse.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
-	70,  // 94: glyph.plugins.ui.v1.OpenResponse.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
-	71,  // 95: glyph.plugins.ui.v1.OpenResponse.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
-	72,  // 96: glyph.plugins.ui.v1.OpenResponse.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
-	73,  // 97: glyph.plugins.ui.v1.OpenResponse.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	74,  // 98: glyph.plugins.ui.v1.OpenResponse.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
-	75,  // 99: glyph.plugins.ui.v1.OpenResponse.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
-	76,  // 100: glyph.plugins.ui.v1.OpenResponse.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
-	0,   // 101: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	7,   // 102: glyph.plugins.ui.v1.NavigateSessionTreeCommand.summary_mode:type_name -> glyph.plugins.ui.v1.SummaryMode
-	11,  // 103: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
-	13,  // 104: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	12,  // 105: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
-	60,  // 106: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	105, // [105:107] is the sub-list for method output_type
-	103, // [103:105] is the sub-list for method input_type
-	103, // [103:103] is the sub-list for extension type_name
-	103, // [103:103] is the sub-list for extension extendee
-	0,   // [0:103] is the sub-list for field type_name
+	32,  // 56: glyph.plugins.ui.v1.SessionEntry.branch_summary:type_name -> glyph.plugins.ui.v1.BranchSummary
+	47,  // 57: glyph.plugins.ui.v1.ToolResult.contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
+	37,  // 58: glyph.plugins.ui.v1.UserMessage.content:type_name -> glyph.plugins.ui.v1.UserContent
+	38,  // 59: glyph.plugins.ui.v1.UserContent.image:type_name -> glyph.plugins.ui.v1.UserImage
+	19,  // 60: glyph.plugins.ui.v1.SessionInformation.info:type_name -> glyph.plugins.ui.v1.SessionInfo
+	40,  // 61: glyph.plugins.ui.v1.SessionInformation.statistics:type_name -> glyph.plugins.ui.v1.SessionStatistics
+	43,  // 62: glyph.plugins.ui.v1.SessionStatistics.tokens:type_name -> glyph.plugins.ui.v1.TokenUsage
+	41,  // 63: glyph.plugins.ui.v1.SessionStatistics.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	42,  // 64: glyph.plugins.ui.v1.SessionStatistics.cost_breakdown:type_name -> glyph.plugins.ui.v1.ProviderModelCost
+	41,  // 65: glyph.plugins.ui.v1.ProviderModelCost.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	1,   // 66: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
+	5,   // 67: glyph.plugins.ui.v1.LifecycleEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
+	6,   // 68: glyph.plugins.ui.v1.LifecycleEvent.progress_channel:type_name -> glyph.plugins.ui.v1.ProgressChannel
+	2,   // 69: glyph.plugins.ui.v1.LifecycleEvent.availability:type_name -> glyph.plugins.ui.v1.Availability
+	52,  // 70: glyph.plugins.ui.v1.LifecycleEvent.model_content:type_name -> glyph.plugins.ui.v1.ModelContent
+	53,  // 71: glyph.plugins.ui.v1.LifecycleEvent.model_response:type_name -> glyph.plugins.ui.v1.ModelResponse
+	49,  // 72: glyph.plugins.ui.v1.LifecycleEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
+	51,  // 73: glyph.plugins.ui.v1.LifecycleEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	47,  // 74: glyph.plugins.ui.v1.LifecycleEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
+	48,  // 75: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
+	50,  // 76: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
+	78,  // 77: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	79,  // 78: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	4,   // 79: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
+	3,   // 80: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	55,  // 81: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
+	56,  // 82: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
+	54,  // 83: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
+	3,   // 84: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	51,  // 85: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	61,  // 86: glyph.plugins.ui.v1.OpenResponse.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	62,  // 87: glyph.plugins.ui.v1.OpenResponse.stop:type_name -> glyph.plugins.ui.v1.StopCommand
+	63,  // 88: glyph.plugins.ui.v1.OpenResponse.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	64,  // 89: glyph.plugins.ui.v1.OpenResponse.quit:type_name -> glyph.plugins.ui.v1.QuitCommand
+	65,  // 90: glyph.plugins.ui.v1.OpenResponse.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
+	66,  // 91: glyph.plugins.ui.v1.OpenResponse.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	67,  // 92: glyph.plugins.ui.v1.OpenResponse.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
+	68,  // 93: glyph.plugins.ui.v1.OpenResponse.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
+	69,  // 94: glyph.plugins.ui.v1.OpenResponse.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
+	70,  // 95: glyph.plugins.ui.v1.OpenResponse.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
+	71,  // 96: glyph.plugins.ui.v1.OpenResponse.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
+	72,  // 97: glyph.plugins.ui.v1.OpenResponse.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
+	73,  // 98: glyph.plugins.ui.v1.OpenResponse.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	74,  // 99: glyph.plugins.ui.v1.OpenResponse.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
+	75,  // 100: glyph.plugins.ui.v1.OpenResponse.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
+	76,  // 101: glyph.plugins.ui.v1.OpenResponse.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
+	0,   // 102: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	7,   // 103: glyph.plugins.ui.v1.NavigateSessionTreeCommand.summary_mode:type_name -> glyph.plugins.ui.v1.SummaryMode
+	11,  // 104: glyph.plugins.ui.v1.UIService.GetCapabilities:input_type -> glyph.plugins.ui.v1.GetCapabilitiesRequest
+	13,  // 105: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	12,  // 106: glyph.plugins.ui.v1.UIService.GetCapabilities:output_type -> glyph.plugins.ui.v1.GetCapabilitiesResponse
+	60,  // 107: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	106, // [106:108] is the sub-list for method output_type
+	104, // [104:106] is the sub-list for method input_type
+	104, // [104:104] is the sub-list for extension type_name
+	104, // [104:104] is the sub-list for extension extendee
+	0,   // [0:104] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -11835,6 +11881,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*sessionEntry_User)(nil),
 		(*sessionEntry_Model)(nil),
 		(*sessionEntry_ToolResult)(nil),
+		(*sessionEntry_BranchSummary)(nil),
 	}
 	file_api_plugins_ui_v1_ui_proto_msgTypes[24].OneofWrappers = []any{}
 	file_api_plugins_ui_v1_ui_proto_msgTypes[26].OneofWrappers = []any{

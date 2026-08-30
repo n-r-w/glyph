@@ -8358,6 +8358,15 @@ func (x *SessionEntry) GetToolResult() *ToolResult {
 	return nil
 }
 
+func (x *SessionEntry) GetBranchSummary() *BranchSummary {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary); ok {
+			return x.BranchSummary
+		}
+	}
+	return nil
+}
+
 func (x *SessionEntry) GetEstimatedCost() *EstimatedCost {
 	if x != nil {
 		return x.xxx_hidden_EstimatedCost
@@ -8396,6 +8405,14 @@ func (x *SessionEntry) SetToolResult(v *ToolResult) {
 		return
 	}
 	x.xxx_hidden_Entry = &sessionEntry_ToolResult{v}
+}
+
+func (x *SessionEntry) SetBranchSummary(v *BranchSummary) {
+	if v == nil {
+		x.xxx_hidden_Entry = nil
+		return
+	}
+	x.xxx_hidden_Entry = &sessionEntry_BranchSummary{v}
 }
 
 func (x *SessionEntry) SetEstimatedCost(v *EstimatedCost) {
@@ -8447,6 +8464,14 @@ func (x *SessionEntry) HasToolResult() bool {
 	return ok
 }
 
+func (x *SessionEntry) HasBranchSummary() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary)
+	return ok
+}
+
 func (x *SessionEntry) HasEstimatedCost() bool {
 	if x == nil {
 		return false
@@ -8485,6 +8510,12 @@ func (x *SessionEntry) ClearToolResult() {
 	}
 }
 
+func (x *SessionEntry) ClearBranchSummary() {
+	if _, ok := x.xxx_hidden_Entry.(*sessionEntry_BranchSummary); ok {
+		x.xxx_hidden_Entry = nil
+	}
+}
+
 func (x *SessionEntry) ClearEstimatedCost() {
 	x.xxx_hidden_EstimatedCost = nil
 }
@@ -8493,6 +8524,7 @@ const SessionEntry_Entry_not_set_case case_SessionEntry_Entry = 0
 const SessionEntry_User_case case_SessionEntry_Entry = 3
 const SessionEntry_Model_case case_SessionEntry_Entry = 4
 const SessionEntry_ToolResult_case case_SessionEntry_Entry = 5
+const SessionEntry_BranchSummary_case case_SessionEntry_Entry = 7
 
 func (x *SessionEntry) WhichEntry() case_SessionEntry_Entry {
 	if x == nil {
@@ -8505,6 +8537,8 @@ func (x *SessionEntry) WhichEntry() case_SessionEntry_Entry {
 		return SessionEntry_Model_case
 	case *sessionEntry_ToolResult:
 		return SessionEntry_ToolResult_case
+	case *sessionEntry_BranchSummary:
+		return SessionEntry_BranchSummary_case
 	default:
 		return SessionEntry_Entry_not_set_case
 	}
@@ -8520,9 +8554,10 @@ type SessionEntry_builder struct {
 	// The entry payload.
 
 	// Fields of oneof xxx_hidden_Entry:
-	User       *UserMessage
-	Model      *ModelResponse
-	ToolResult *ToolResult
+	User          *UserMessage
+	Model         *ModelResponse
+	ToolResult    *ToolResult
+	BranchSummary *BranchSummary
 	// -- end of xxx_hidden_Entry
 	// Estimated cost is present only for a model entry with calculated cost.
 	EstimatedCost *EstimatedCost
@@ -8545,6 +8580,9 @@ func (b0 SessionEntry_builder) Build() *SessionEntry {
 	}
 	if b.ToolResult != nil {
 		x.xxx_hidden_Entry = &sessionEntry_ToolResult{b.ToolResult}
+	}
+	if b.BranchSummary != nil {
+		x.xxx_hidden_Entry = &sessionEntry_BranchSummary{b.BranchSummary}
 	}
 	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	return m0
@@ -8576,11 +8614,17 @@ type sessionEntry_ToolResult struct {
 	ToolResult *ToolResult `protobuf:"bytes,5,opt,name=tool_result,json=toolResult,proto3,oneof"`
 }
 
+type sessionEntry_BranchSummary struct {
+	BranchSummary *BranchSummary `protobuf:"bytes,7,opt,name=branch_summary,json=branchSummary,proto3,oneof"`
+}
+
 func (*sessionEntry_User) isSessionEntry_Entry() {}
 
 func (*sessionEntry_Model) isSessionEntry_Entry() {}
 
 func (*sessionEntry_ToolResult) isSessionEntry_Entry() {}
+
+func (*sessionEntry_BranchSummary) isSessionEntry_Entry() {}
 
 // HistoryEntry carries one public message history item.
 type HistoryEntry struct {
@@ -12619,14 +12663,15 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\n" +
 	"\b_message\"U\n" +
 	"\x14SessionEntriesResult\x12=\n" +
-	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\aentries\"\xfd\x02\n" +
+	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\aentries\"\xcc\x03\n" +
 	"\fSessionEntry\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tH\x01R\x02id\x88\x01\x01\x12=\n" +
 	"\fcreated_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x128\n" +
 	"\x04user\x18\x03 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
 	"\x05model\x18\x04 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05model\x12D\n" +
 	"\vtool_result\x18\x05 \x01(\v2!.glyph.programmatic.v1.ToolResultH\x00R\n" +
-	"toolResult\x12K\n" +
+	"toolResult\x12M\n" +
+	"\x0ebranch_summary\x18\a \x01(\v2$.glyph.programmatic.v1.BranchSummaryH\x00R\rbranchSummary\x12K\n" +
 	"\x0eestimated_cost\x18\x06 \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCostB\a\n" +
 	"\x05entryB\x05\n" +
 	"\x03_id\"\xd5\x01\n" +
@@ -13092,47 +13137,48 @@ var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
 	67,  // 84: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
 	80,  // 85: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
 	77,  // 86: glyph.programmatic.v1.SessionEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	53,  // 87: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	67,  // 88: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	80,  // 89: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 90: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	68,  // 91: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
-	69,  // 92: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
-	8,   // 93: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
-	71,  // 94: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
-	72,  // 95: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
-	74,  // 96: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	75,  // 97: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
-	76,  // 98: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
-	77,  // 99: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	80,  // 100: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
-	85,  // 101: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
-	86,  // 102: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	9,   // 103: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	73,  // 104: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	88,  // 105: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	89,  // 106: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	10,  // 107: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	78,  // 108: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	79,  // 109: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	11,  // 110: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	83,  // 111: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	84,  // 112: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	81,  // 113: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	82,  // 114: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	82,  // 115: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	82,  // 116: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	74,  // 117: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	80,  // 118: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 119: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	12,  // 120: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	13,  // 121: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
-	33,  // 122: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
-	122, // [122:123] is the sub-list for method output_type
-	121, // [121:122] is the sub-list for method input_type
-	121, // [121:121] is the sub-list for extension type_name
-	121, // [121:121] is the sub-list for extension extendee
-	0,   // [0:121] is the sub-list for field type_name
+	62,  // 87: glyph.programmatic.v1.SessionEntry.branch_summary:type_name -> glyph.programmatic.v1.BranchSummary
+	53,  // 88: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	67,  // 89: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	80,  // 90: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	77,  // 91: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	68,  // 92: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	69,  // 93: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
+	8,   // 94: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
+	71,  // 95: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
+	72,  // 96: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
+	74,  // 97: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	75,  // 98: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
+	76,  // 99: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
+	77,  // 100: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	80,  // 101: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
+	85,  // 102: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
+	86,  // 103: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
+	9,   // 104: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	73,  // 105: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	88,  // 106: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	89,  // 107: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	10,  // 108: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	78,  // 109: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	79,  // 110: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	11,  // 111: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	83,  // 112: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	84,  // 113: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	81,  // 114: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	82,  // 115: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	82,  // 116: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	82,  // 117: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	74,  // 118: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	80,  // 119: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	77,  // 120: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	12,  // 121: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	13,  // 122: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
+	33,  // 123: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
+	123, // [123:124] is the sub-list for method output_type
+	122, // [122:123] is the sub-list for method input_type
+	122, // [122:122] is the sub-list for extension type_name
+	122, // [122:122] is the sub-list for extension extendee
+	0,   // [0:122] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_programmatic_proto_init() }
@@ -13219,6 +13265,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*sessionEntry_User)(nil),
 		(*sessionEntry_Model)(nil),
 		(*sessionEntry_ToolResult)(nil),
+		(*sessionEntry_BranchSummary)(nil),
 	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[53].OneofWrappers = []any{
 		(*historyEntry_User)(nil),

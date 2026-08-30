@@ -456,6 +456,8 @@ type SessionEntry struct {
 	Model mo.Option[ModelResponse]
 	// ToolResult contains a restored terminal tool result.
 	ToolResult mo.Option[agent.ToolResult]
+	// BranchSummary carries restored abandoned-branch context.
+	BranchSummary mo.Option[BranchSummary]
 }
 
 // SessionEntryKind identifies restored transcript ownership.
@@ -468,4 +470,6 @@ const (
 	SessionEntryModel
 	// SessionEntryToolResult is one restored terminal tool result.
 	SessionEntryToolResult
+	// SessionEntryBranchSummary is one restored abandoned-branch summary.
+	SessionEntryBranchSummary
 )

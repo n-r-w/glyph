@@ -26,6 +26,7 @@ func TestMapSessionEntriesPreservesPersistedEstimatedCost(t *testing.T) {
 			ResponseID: mo.None[string](), Usage: mo.None[ModelUsage](), Diagnostics: nil, Content: nil,
 		}),
 		EstimatedCost: mo.Some(cost), ToolResult: mo.None[ToolResult](),
+		BranchSummary: mo.None[BranchSummary](),
 	}}
 
 	// Act by mapping the detailed entry to the public protobuf contract.

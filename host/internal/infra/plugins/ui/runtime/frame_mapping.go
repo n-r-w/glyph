@@ -158,38 +158,11 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 			if !present {
 				return nil, fmt.Errorf("map restored session entry %d: user payload is missing", index)
 			}
-			content, err := lo.MapErr(
-				user.Content,
-				func(item model.InputContent, contentIndex int) (*uipb.UserContent, error) {
-					wireContent := new(uipb.UserContent)
-					switch item.Kind {
-					case model.InputContentText:
-						text, hasText := item.Text.Get()
-						if !hasText || item.MediaType.IsSome() || item.Data.IsSome() {
-							return nil, fmt.Errorf("map restored user content %d: invalid text payload", contentIndex)
-						}
-						wireContent.SetText(text)
-					case model.InputContentImage:
-						mediaType, hasMediaType := item.MediaType.Get()
-						data, hasData := item.Data.Get()
-						if item.Text.IsSome() || !hasMediaType || !hasData {
-							return nil, fmt.Errorf("map restored user content %d: invalid image payload", contentIndex)
-						}
-						image := uipb.UserImage_builder{
-							MediaType: new(mediaType), Data: nil,
-						}.Build()
-						image.SetData(bytes.Clone(data))
-						wireContent.SetImage(image)
-					default:
-						return nil, fmt.Errorf("map restored user content %d: unknown kind %d", contentIndex, item.Kind)
-					}
-					return wireContent, nil
-				},
-			)
+			mapped, err := mapRestoredUserMessage(user)
 			if err != nil {
 				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
 			}
-			wire.SetUser(uipb.UserMessage_builder{Content: content}.Build())
+			wire.SetUser(mapped)
 		case domainui.SessionEntryModel:
 			response, _ := entry.Model.Get()
 			mapped, err := mapModelResponse(response)
@@ -203,9 +176,53 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 				CallId: new(result.CallID), ToolName: new(result.ToolName),
 				Contents: mapToolResultContents(result.Contents), IsError: new(result.IsError),
 			}.Build())
+		case domainui.SessionEntryBranchSummary:
+			summary, present := entry.BranchSummary.Get()
+			if !present {
+				return nil, fmt.Errorf("map restored session entry %d: branch summary is missing", index)
+			}
+			mapped, err := mapBranchSummary(summary)
+			if err != nil {
+				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
+			}
+			wire.SetBranchSummary(mapped)
 		}
 		return wire, nil
 	})
+}
+
+// mapRestoredUserMessage maps all content in one restored user message.
+func mapRestoredUserMessage(user model.Message) (*uipb.UserMessage, error) {
+	content, err := lo.MapErr(user.Content, mapRestoredUserContent)
+	if err != nil {
+		return nil, err
+	}
+	return uipb.UserMessage_builder{Content: content}.Build(), nil
+}
+
+// mapRestoredUserContent validates and maps one restored user content item.
+func mapRestoredUserContent(item model.InputContent, index int) (*uipb.UserContent, error) {
+	wire := new(uipb.UserContent)
+	switch item.Kind {
+	case model.InputContentText:
+		text, hasText := item.Text.Get()
+		if !hasText || item.MediaType.IsSome() || item.Data.IsSome() {
+			return nil, fmt.Errorf("map restored user content %d: invalid text payload", index)
+		}
+		wire.SetText(text)
+	case model.InputContentImage:
+		mediaType, hasMediaType := item.MediaType.Get()
+		data, hasData := item.Data.Get()
+		if item.Text.IsSome() || !hasMediaType || !hasData {
+			return nil, fmt.Errorf("map restored user content %d: invalid image payload", index)
+		}
+		image := uipb.UserImage_builder{MediaType: new(mediaType), Data: nil}.Build()
+		image.SetData(bytes.Clone(data))
+		wire.SetImage(image)
+	default:
+		return nil, fmt.Errorf("map restored user content %d: unknown kind %d", index, item.Kind)
+	}
+	return wire, nil
 }
 
 // mapInitializationFrame validates and maps the selected initialization payload.

@@ -59,6 +59,20 @@ func appendFullContentFixtureWithUsage(
 	call := model.ToolCall{
 		ID: "full-call", Name: "bash", Arguments: map[string]any{"command": "printf full-tool"},
 	}
+	// Summary accounting mirrors the provider response used to create the persisted summary.
+	summaryUsage := mo.None[session.TokenUsage]()
+	summaryEstimatedCost := mo.None[session.EstimatedCost]()
+	if modelUsage, present := usage.Get(); present {
+		summaryUsage = mo.Some(session.TokenUsage{
+			InputTokens: modelUsage.InputTokens, OutputTokens: modelUsage.OutputTokens,
+			CacheReadTokens: modelUsage.CachedInputTokens, CacheWriteTokens: modelUsage.CacheWriteTokens,
+			ReasoningTokens: modelUsage.ReasoningTokens, TotalTokens: modelUsage.TotalTokens,
+		})
+	}
+	if estimatedCost.IsSome() {
+		// Zero configured rates preserve explicit summary cost presence without changing the fixture total.
+		summaryEstimatedCost = mo.Some(session.EstimatedCost{})
+	}
 	entries := []session.Entry{
 		{
 			ParentID:    mo.None[string](),
@@ -157,7 +171,24 @@ func appendFullContentFixtureWithUsage(
 				BranchSummaryEntry](),
 		},
 		{
-			ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(4 * time.Second),
+			ParentID:      mo.None[string](),
+			ID:            "full-branch-summary-entry",
+			CreatedAt:     createdAt.Add(4 * time.Second),
+			Information:   mo.None[session.Information](),
+			User:          mo.None[session.UserMessage](),
+			Model:         mo.None[session.ModelResponse](),
+			ToolResult:    mo.None[session.ToolResult](),
+			Extension:     mo.None[session.ExtensionEnvelope](),
+			EstimatedCost: mo.None[session.EstimatedCost](),
+			BranchSummary: mo.Some(session.BranchSummaryEntry{
+				Summary: "## Goal\n\nFull branch summary", FirstEntryID: "full-user-entry",
+				LastEntryID: "full-tool-entry", Provider: model.ProviderID("openai-codex"),
+				Model: model.ID("selected-model"), ReasoningChoice: model.ReasoningChoiceHigh,
+				Usage: summaryUsage, EstimatedCost: summaryEstimatedCost,
+			}),
+		},
+		{
+			ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(5 * time.Second),
 			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 			Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 			Extension: mo.Some(session.ExtensionEnvelope{

@@ -369,6 +369,8 @@ const (
 	LineRefusal
 	// LineReasoning renders visible model reasoning.
 	LineReasoning
+	// LineBranchSummary renders one abandoned-branch summary.
+	LineBranchSummary
 	// LineToolStatus renders tool status text.
 	LineToolStatus
 	// LineToolStdout renders standard tool output.

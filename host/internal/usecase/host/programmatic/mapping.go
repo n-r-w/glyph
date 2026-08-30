@@ -70,6 +70,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
 				User: mo.Some(user.Clone()), Model: mo.None[controller.ModelResponse](),
 				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
+				BranchSummary: mo.None[controller.BranchSummary](),
 			})
 			continue
 		}
@@ -82,6 +83,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryModel,
 				User: mo.None[model.Message](), Model: mo.Some(mapped),
 				EstimatedCost: entry.EstimatedCost, ToolResult: mo.None[controller.ToolResult](),
+				BranchSummary: mo.None[controller.BranchSummary](),
 			})
 			continue
 		}
@@ -90,6 +92,20 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryToolResult,
 				User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
 				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.Some(mapToolResult(toolResult)),
+				BranchSummary: mo.None[controller.BranchSummary](),
+			})
+			continue
+		}
+		if summary, present := entry.BranchSummary.Get(); present {
+			result = append(result, controller.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryBranchSummary,
+				User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
+				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
+				BranchSummary: mo.Some(controller.BranchSummary{
+					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
+					Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
+					Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
+				}),
 			})
 		}
 	}

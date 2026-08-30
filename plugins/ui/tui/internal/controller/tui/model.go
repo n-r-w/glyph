@@ -59,6 +59,8 @@ type Model struct {
 	selectorRow int
 	// reasoningExpanded controls only local display and never changes Host selection.
 	reasoningExpanded bool
+	// branchSummariesExpanded controls local branch-summary presentation.
+	branchSummariesExpanded bool
 	// treePanel contains the current committed tree and local presentation state.
 	treePanel mo.Option[presentationdomain.TreePanel]
 	// treeRequest identifies a tree snapshot request that has not returned.
@@ -112,28 +114,29 @@ type emissionResultMsg struct {
 // NewModel creates the root model from the initialization event.
 func NewModel(initial presentationdomain.Event, apply Apply, emit Emit) Model {
 	return Model{
-		state:             apply(presentationdomain.State{}, initial),
-		input:             nil,
-		cursor:            0,
-		width:             0,
-		height:            0,
-		emitting:          false,
-		selectorOpen:      false,
-		selectorRow:       0,
-		reasoningExpanded: false,
-		treePanel:         mo.None[presentationdomain.TreePanel](),
-		treeRequest:       mo.None[presentationdomain.TreePurpose](),
-		treeMode:          treeInteractionClosed,
-		treeSummaryIndex:  0,
-		treeInput:         nil,
-		treeCursor:        0,
-		treeAwaiting:      presentationdomain.CommandUnspecified,
-		treeStatus:        "",
-		apply:             apply,
-		emit:              emit,
-		sessionSelector:   false,
-		resumePending:     false,
-		resumeStatus:      "",
+		state:                   apply(presentationdomain.State{}, initial),
+		input:                   nil,
+		cursor:                  0,
+		width:                   0,
+		height:                  0,
+		emitting:                false,
+		selectorOpen:            false,
+		selectorRow:             0,
+		reasoningExpanded:       false,
+		branchSummariesExpanded: false,
+		treePanel:               mo.None[presentationdomain.TreePanel](),
+		treeRequest:             mo.None[presentationdomain.TreePurpose](),
+		treeMode:                treeInteractionClosed,
+		treeSummaryIndex:        0,
+		treeInput:               nil,
+		treeCursor:              0,
+		treeAwaiting:            presentationdomain.CommandUnspecified,
+		treeStatus:              "",
+		apply:                   apply,
+		emit:                    emit,
+		sessionSelector:         false,
+		resumePending:           false,
+		resumeStatus:            "",
 	}
 }
 
