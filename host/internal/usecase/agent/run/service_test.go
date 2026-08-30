@@ -103,6 +103,21 @@ func emitText(handle StreamHandler, position int, text string) error {
 	})
 }
 
+// emptyModelResponse creates a response without content or provider metadata.
+func emptyModelResponse(outcome model.Outcome) model.Response {
+	return model.Response{
+		Content:       nil,
+		Outcome:       mo.Some(outcome),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
+	}
+}
+
 // emitStream emits terminal content ends followed by one terminal event.
 func emitStream(handle StreamHandler, response model.Response, streamErr error) error {
 	kind := StreamEventDone

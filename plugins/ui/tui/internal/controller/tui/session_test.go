@@ -34,26 +34,12 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	assert.Equal(t, presentationdomain.CommandCreateSession, commands[0].Kind)
 	assert.Equal(t, "/new", string(model.input))
 
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventSessionChanged,
-		Startup:              nil,
-		Extensions:           nil,
 		Availability:         mo.None[presentationdomain.Availability](),
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
+		ModelResponseContent: nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.Some(presentationdomain.SessionInfo{
 			ID:               "new-session",
@@ -65,9 +51,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			CreatedAt:        time.Unix(1, 0),
 			UpdatedAt:        time.Unix(1, 0),
 		}),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	// Assert the draft clears only after host confirmation.
 	assert.Empty(t, model.input)
 	assert.Zero(t, model.cursor)
@@ -76,26 +60,12 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 	model.cursor = len(model.input)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	assert.Equal(t, "/session", string(model.input))
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventSessionInformation,
-		Startup:              nil,
-		Extensions:           nil,
 		Availability:         mo.None[presentationdomain.Availability](),
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
+		ModelResponseContent: nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.Some(presentationdomain.SessionInfo{
 			ID:               "new-session",
@@ -107,9 +77,7 @@ func TestModelClearsSessionCommandOnlyAfterHostConfirmsReplacement(t *testing.T)
 			CreatedAt:        time.Unix(1, 0),
 			UpdatedAt:        time.Unix(2, 0),
 		}),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	assert.Empty(t, model.input)
 	assert.Zero(t, model.cursor)
 	view := model.View().Content

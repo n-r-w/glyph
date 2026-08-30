@@ -263,36 +263,8 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []run.StreamEvent{
-		{
-			Preview:  mo.None[model.ToolCallPreview](),
-			ToolCall: mo.None[model.ToolCall](),
-			Response: mo.None[model.Response](),
-			Kind:     run.StreamEventTextDelta,
-			Position: mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentText,
-				Text:            mo.Some("final "),
-			}),
-			Delta: mo.Some("final "),
-		},
-		{
-			Preview:  mo.None[model.ToolCallPreview](),
-			ToolCall: mo.None[model.ToolCall](),
-			Response: mo.None[model.Response](),
-			Kind:     run.StreamEventTextDelta,
-			Position: mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentText,
-				Text:            mo.Some("answer"),
-			}),
-			Delta: mo.Some("answer"),
-		},
+		textDeltaStreamEvent("final "),
+		textDeltaStreamEvent("answer"),
 	}, updates)
 	assert.Equal(t, model.OutcomeToolUse, response.Outcome.OrEmpty())
 	require.Len(t, response.Content, 3)

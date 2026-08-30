@@ -87,6 +87,53 @@ func testEmptyAgentEvent(kind controller.AgentEventType) controller.AgentEvent {
 	)
 }
 
+// testModelContent creates one model-content fixture for delivery mapping.
+func testModelContent(kind model.ContentKind, text string) model.Content {
+	return model.Content{
+		Final:           false,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.None[model.ToolCall](),
+		Kind:            kind,
+		Text:            mo.Some(text),
+	}
+}
+
+// testModelContentAgentEvent creates one mapped model-content event fixture.
+func testModelContentAgentEvent(
+	kind controller.AgentEventType,
+	contentKind controller.ModelContentKind,
+	position int,
+	text mo.Option[string],
+) controller.AgentEvent {
+	return testAgentEvent(
+		kind,
+		mo.Some(controller.ModelContent{Text: text, Kind: contentKind, Position: position}),
+		mo.None[controller.ToolCallPreview](),
+		mo.None[controller.FinalToolCall](),
+		mo.None[controller.ToolExecution](),
+		mo.None[controller.ToolProgress](),
+		mo.None[controller.ToolResult](),
+		mo.None[controller.ModelResponse](),
+		mo.None[controller.TurnSummary](),
+		mo.None[controller.AgentSummary](),
+	)
+}
+
+// testToolResultRunEvent creates one run event carrying a tool result.
+func testToolResultRunEvent(kind run.EventType, result agent.ToolResult) run.Event {
+	return testRunEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[model.Response](),
+		mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.Some(result),
+		mo.None[run.TurnSummary](), mo.None[run.AgentSummary]())
+}
+
+// testToolResultAgentEvent creates one mapped event carrying a tool result.
+func testToolResultAgentEvent(kind controller.AgentEventType, result agent.ToolResult) controller.AgentEvent {
+	return testAgentEvent(kind, mo.None[controller.ModelContent](), mo.None[controller.ToolCallPreview](),
+		mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](),
+		mo.Some(mapToolResult(result)), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](),
+		mo.None[controller.AgentSummary]())
+}
+
 // TestDeliveryMapsEveryAgentEvent verifies exhaustive transport-independent event mapping.
 func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	t.Parallel()
@@ -165,49 +212,19 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 			expected: testEmptyAgentEvent(controller.AgentEventMessageStart),
 		},
 		{
-			name: "content start",
-			event: testRunEvent(run.EventContentStart, mo.Some(2), mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentReasoning,
-				Text:            mo.Some(""),
-			}), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
-			expected: testAgentEvent(controller.AgentEventModelContentStart, mo.Some(controller.ModelContent{
-				Text:     mo.None[string](),
-				Kind:     controller.ModelContentReasoning,
-				Position: 2,
-			}), mo.None[controller.ToolCallPreview](), mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](), mo.None[controller.ToolResult](), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](), mo.None[controller.AgentSummary]()),
+			name:     "content start",
+			event:    testRunEvent(run.EventContentStart, mo.Some(2), mo.Some(testModelContent(model.ContentReasoning, "")), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
+			expected: testModelContentAgentEvent(controller.AgentEventModelContentStart, controller.ModelContentReasoning, 2, mo.None[string]()),
 		},
 		{
-			name: "text delta",
-			event: testRunEvent(run.EventTextDelta, mo.Some(3), mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentRefusal,
-				Text:            mo.Some("no"),
-			}), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
-			expected: testAgentEvent(controller.AgentEventModelTextDelta, mo.Some(controller.ModelContent{
-				Kind:     controller.ModelContentRefusal,
-				Position: 3,
-				Text:     mo.Some("no"),
-			}), mo.None[controller.ToolCallPreview](), mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](), mo.None[controller.ToolResult](), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](), mo.None[controller.AgentSummary]()),
+			name:     "text delta",
+			event:    testRunEvent(run.EventTextDelta, mo.Some(3), mo.Some(testModelContent(model.ContentRefusal, "no")), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
+			expected: testModelContentAgentEvent(controller.AgentEventModelTextDelta, controller.ModelContentRefusal, 3, mo.Some("no")),
 		},
 		{
-			name: "content end",
-			event: testRunEvent(run.EventContentEnd, mo.Some(4), mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentText,
-				Text:            mo.Some(""),
-			}), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
-			expected: testAgentEvent(controller.AgentEventModelContentEnd, mo.Some(controller.ModelContent{
-				Text:     mo.None[string](),
-				Kind:     controller.ModelContentText,
-				Position: 4,
-			}), mo.None[controller.ToolCallPreview](), mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](), mo.None[controller.ToolResult](), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](), mo.None[controller.AgentSummary]()),
+			name:     "content end",
+			event:    testRunEvent(run.EventContentEnd, mo.Some(4), mo.Some(testModelContent(model.ContentText, "")), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.None[agent.ToolResult](), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
+			expected: testModelContentAgentEvent(controller.AgentEventModelContentEnd, controller.ModelContentText, 4, mo.None[string]()),
 		},
 		{
 			name: "tool call start",
@@ -327,13 +344,13 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		},
 		{
 			name:     "tool execution end",
-			event:    testRunEvent(run.EventToolExecutionEnd, mo.None[int](), mo.None[model.Content](), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.Some(toolResult), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
-			expected: testAgentEvent(controller.AgentEventToolExecutionEnd, mo.None[controller.ModelContent](), mo.None[controller.ToolCallPreview](), mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](), mo.Some(mapToolResult(toolResult)), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](), mo.None[controller.AgentSummary]()),
+			event:    testToolResultRunEvent(run.EventToolExecutionEnd, toolResult),
+			expected: testToolResultAgentEvent(controller.AgentEventToolExecutionEnd, toolResult),
 		},
 		{
 			name:     "tool result",
-			event:    testRunEvent(run.EventToolResult, mo.None[int](), mo.None[model.Content](), mo.None[model.Response](), mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.Some(toolResult), mo.None[run.TurnSummary](), mo.None[run.AgentSummary]()),
-			expected: testAgentEvent(controller.AgentEventToolResult, mo.None[controller.ModelContent](), mo.None[controller.ToolCallPreview](), mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](), mo.Some(mapToolResult(toolResult)), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](), mo.None[controller.AgentSummary]()),
+			event:    testToolResultRunEvent(run.EventToolResult, toolResult),
+			expected: testToolResultAgentEvent(controller.AgentEventToolResult, toolResult),
 		},
 		{
 			name: "turn end",

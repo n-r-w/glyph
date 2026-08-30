@@ -33,31 +33,7 @@ func TestEventFailureEndsBlockedReceive(t *testing.T) {
 		wantSendCall bool
 	}{
 		"mapping": {
-			event: AgentEvent{
-				Type: AgentEventMessageEnd,
-				ModelResponse: mo.Some(ModelResponse{
-					Outcome:       mo.Some(ModelOutcomeUnspecified),
-					Text:          "",
-					ErrorMessage:  mo.None[string](),
-					Provider:      mo.None[string](),
-					Model:         mo.None[string](),
-					ResponseModel: mo.None[string](),
-					ResponseID:    mo.None[string](),
-					Usage:         mo.None[ModelUsage](),
-					Diagnostics:   nil,
-					Content:       nil,
-				}),
-				CorrelationID:   "",
-				RunID:           "",
-				ModelContent:    mo.None[ModelContent](),
-				ToolCallPreview: mo.None[ToolCallPreview](),
-				FinalToolCall:   mo.None[FinalToolCall](),
-				ToolExecution:   mo.None[ToolExecution](),
-				ToolProgress:    mo.None[ToolProgress](),
-				ToolResult:      mo.None[ToolResult](),
-				Turn:            mo.None[TurnSummary](),
-				Agent:           mo.None[AgentSummary](),
-			},
+			event:        invalidModelOutcomeEvent(),
 			wantCode:     codes.Internal,
 			wantCause:    SessionCompletionProtocolFailure,
 			sendErr:      nil,

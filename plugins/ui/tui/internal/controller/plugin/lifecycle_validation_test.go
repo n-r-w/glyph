@@ -14,6 +14,35 @@ import (
 	presentationusecase "github.com/n-r-w/glyph/plugins/ui/tui/internal/usecase/presentation"
 )
 
+// testTextEvent creates one complete presentation text event.
+func testTextEvent(kind presentationdomain.EventKind, text string) presentationdomain.Event {
+	return presentationdomain.Event{
+		RestoredTranscript:   nil,
+		Kind:                 kind,
+		Text:                 mo.Some(text),
+		Startup:              nil,
+		Extensions:           nil,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelResponseContent: nil,
+		ToolCallID:           mo.None[string](),
+		ToolName:             mo.None[string](),
+		Status:               mo.None[string](),
+		Stream:               mo.None[presentationdomain.OutputStream](),
+		Contents:             mo.None[[]presentationdomain.Content](),
+		ErrorText:            mo.None[string](),
+		ExitCode:             mo.None[int](),
+		Failure:              mo.None[bool](),
+		ToolCall:             mo.None[presentationdomain.ToolCallState](),
+		Models:               nil,
+		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
+		Sessions:             nil,
+		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+	}
+}
+
 // TestMapRequestRejectsUnknownLifecycleAndMapsSafeError verifies malformed frames and safe errors.
 func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	t.Parallel()
@@ -44,31 +73,7 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 	// Assert the unknown lifecycle fails while the safe error maps without private data.
 	require.Error(t, unknownErr)
 	require.NoError(t, err)
-	assert.Equal(t, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventError,
-		Text:                 mo.Some("safe error"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	}, event)
+	assert.Equal(t, testTextEvent(presentationdomain.EventError, "safe error"), event)
 }
 
 // TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.

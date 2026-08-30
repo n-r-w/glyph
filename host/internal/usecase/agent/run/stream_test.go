@@ -326,25 +326,7 @@ func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {
 		Position: mo.Some(0),
 		Preview:  mo.Some(preview),
 	}))
-	require.NoError(t, service.applyStreamEvent(StreamEvent{
-		Position: mo.None[int](),
-		Content:  mo.None[model.Content](),
-		Delta:    mo.None[string](),
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Kind:     StreamEventDone,
-		Response: mo.Some(model.Response{
-			Content:       nil,
-			ErrorMessage:  mo.None[string](),
-			Provider:      mo.None[model.ProviderID](),
-			Model:         mo.None[model.ID](),
-			ResponseModel: mo.None[model.ID](),
-			ResponseID:    mo.None[string](),
-			Usage:         mo.None[model.Usage](),
-			Diagnostics:   nil,
-			Outcome:       mo.Some(model.OutcomeLength),
-		}),
-	}))
+	require.NoError(t, service.applyStreamEvent(testTerminalEvent(StreamEventDone, model.OutcomeLength)))
 	require.Empty(t, service.State().ToolPreviews)
 }
 
@@ -546,6 +528,19 @@ func TestApplyStreamEventRejectsInactiveTerminalPosition(t *testing.T) {
 	assert.True(t, partial.Outcome.IsNone())
 }
 
+// testTerminalEvent creates a terminal stream event without response content.
+func testTerminalEvent(kind StreamEventKind, outcome model.Outcome) StreamEvent {
+	return StreamEvent{
+		Position: mo.None[int](),
+		Content:  mo.None[model.Content](),
+		Delta:    mo.None[string](),
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Kind:     kind,
+		Response: mo.Some(emptyModelResponse(outcome)),
+	}
+}
+
 // testTerminalContentResponse builds a response for content-only validation tests.
 func testTerminalContentResponse(content []model.Content) model.Response {
 	return model.Response{
@@ -559,25 +554,7 @@ func TestApplyStreamEventRejectsEventsAfterTerminal(t *testing.T) {
 	t.Parallel()
 
 	partial := model.Response{}
-	require.NoError(t, applyStreamEvent(&partial, StreamEvent{
-		Position: mo.None[int](),
-		Content:  mo.None[model.Content](),
-		Delta:    mo.None[string](),
-		Preview:  mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Kind:     StreamEventDone,
-		Response: mo.Some(model.Response{
-			Content:       nil,
-			ErrorMessage:  mo.None[string](),
-			Provider:      mo.None[model.ProviderID](),
-			Model:         mo.None[model.ID](),
-			ResponseModel: mo.None[model.ID](),
-			ResponseID:    mo.None[string](),
-			Usage:         mo.None[model.Usage](),
-			Diagnostics:   nil,
-			Outcome:       mo.Some(model.OutcomeStop),
-		}),
-	}))
+	require.NoError(t, applyStreamEvent(&partial, testTerminalEvent(StreamEventDone, model.OutcomeStop)))
 
 	err := applyStreamEvent(&partial, StreamEvent{
 		Position: mo.None[int](),

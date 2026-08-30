@@ -20,7 +20,7 @@ import (
 )
 
 // rendererTextDeltaEvent creates one visible model text delta.
-func rendererTextDeltaEvent(text string) run.Event {
+func rendererTextDeltaEvent(position int, kind model.ContentKind, text string) run.Event {
 	return run.Event{
 		Message:    mo.None[model.Response](),
 		Preview:    mo.None[model.ToolCallPreview](),
@@ -31,12 +31,12 @@ func rendererTextDeltaEvent(text string) run.Event {
 		Agent:      mo.None[run.AgentSummary](),
 		Type:       run.EventTextDelta,
 		RunID:      "run",
-		Position:   mo.Some(0),
+		Position:   mo.Some(position),
 		Content: mo.Some(model.Content{
 			Final:           false,
 			ProviderContext: mo.None[model.ProviderContext](),
 			ToolCall:        mo.None[model.ToolCall](),
-			Kind:            model.ContentText,
+			Kind:            kind,
 			Text:            mo.Some(text),
 		}),
 	}
@@ -88,44 +88,8 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	for _, event := range []run.Event{
-		{
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventTextDelta,
-			RunID:      "run",
-			Position:   mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentRefusal,
-				Text:            mo.Some("I can"),
-			}),
-		},
-		{
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventTextDelta,
-			RunID:      "run",
-			Position:   mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentRefusal,
-				Text:            mo.Some("not help"),
-			}),
-		},
+		rendererTextDeltaEvent(1, model.ContentRefusal, "I can"),
+		rendererTextDeltaEvent(1, model.ContentRefusal, "not help"),
 		{
 			Position:   mo.None[int](),
 			Content:    mo.None[model.Content](),
@@ -185,7 +149,7 @@ func TestRendererFinalizesVisibleTextWithOneTrailingNewline(t *testing.T) {
 			var stdout bytes.Buffer
 			renderer := NewRenderer(&stdout, &bytes.Buffer{})
 			for _, chunk := range testCase.chunks {
-				require.NoError(t, renderer.DeliverAgent(t.Context(), rendererTextDeltaEvent(chunk)))
+				require.NoError(t, renderer.DeliverAgent(t.Context(), rendererTextDeltaEvent(0, model.ContentText, chunk)))
 			}
 			require.NoError(t, renderer.DeliverAgent(t.Context(), rendererMessageEndEvent()))
 
@@ -252,44 +216,8 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
 	events := []run.Event{
-		{
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventTextDelta,
-			RunID:      "run",
-			Position:   mo.Some(0),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentReasoning,
-				Text:            mo.Some("hidden reasoning"),
-			}),
-		},
-		{
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventTextDelta,
-			RunID:      "run",
-			Position:   mo.Some(1),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentText,
-				Text:            mo.Some("hello"),
-			}),
-		},
+		rendererTextDeltaEvent(0, model.ContentReasoning, "hidden reasoning"),
+		rendererTextDeltaEvent(1, model.ContentText, "hello"),
 		{
 			Position:   mo.None[int](),
 			Content:    mo.None[model.Content](),

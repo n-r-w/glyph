@@ -32,31 +32,15 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		BaseCode:    0,
 		IsRepeat:    false,
 	}))
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventAvailability,
 		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
-		Startup:              nil,
-		Extensions:           nil,
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
+		ModelResponseContent: nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	model = executeCommand(t, model, tea.KeyPressMsg(tea.Key{
 		Code:        'r',
 		Mod:         tea.ModCtrl,

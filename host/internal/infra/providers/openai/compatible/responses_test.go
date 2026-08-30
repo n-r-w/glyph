@@ -78,48 +78,61 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 	assert.Equal(t, "high", body["reasoning"].(map[string]any)["effort"])
 }
 
-// TestResponsesReplaysContextAcrossModelsWithSharedCompatibilityKey verifies additive family compatibility.
-func (s *serviceSuite) TestResponsesReplaysContextAcrossModelsWithSharedCompatibilityKey() {
-	t := s.T()
-	request := richRequest("local", "target-model")
-	appendHistoryModelContent(&request, model.Content{
-		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
-		ProviderContext: mo.Some(model.ProviderContext{
-			Source: model.ProviderContextSource{
-				ProviderID: "local", API: "responses", Model: "source-model", CompatibilityKey: mo.Some("shared-family"),
-			},
-			Payload: []byte(`{"id":"r-shared","encrypted_content":"shared-cipher","summary":["summary"]}`),
-		}), ToolCall: mo.None[model.ToolCall](),
-	})
+// TestResponsesReplaysCompatibleContext verifies family and exact-model context compatibility.
+func (s *serviceSuite) TestResponsesReplaysCompatibleContext() {
+	for _, testCase := range []struct {
+		name         string
+		requestModel model.ID
+		sourceModel  model.ID
+		sourceKey    string
+		requestKey   string
+		payload      string
+		wantID       string
+		wantCipher   string
+	}{
+		{
+			name:         "shared model family",
+			requestModel: "target-model",
+			sourceModel:  "source-model",
+			sourceKey:    "shared-family",
+			requestKey:   "shared-family",
+			payload:      `{"id":"r-shared","encrypted_content":"shared-cipher","summary":["summary"]}`,
+			wantID:       "r-shared",
+			wantCipher:   "shared-cipher",
+		},
+		{
+			name:         "exact model after family change",
+			requestModel: "same-model",
+			sourceModel:  "same-model",
+			sourceKey:    "old-family",
+			requestKey:   "new-family",
+			payload:      `{"id":"r-exact","encrypted_content":"exact-cipher","summary":[]}`,
+			wantID:       "r-exact",
+			wantCipher:   "exact-cipher",
+		},
+	} {
+		s.Run(testCase.name, func() {
+			t := s.T()
+			request := richRequest("local", testCase.requestModel)
+			appendHistoryModelContent(&request, model.Content{
+				Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
+				ProviderContext: mo.Some(model.ProviderContext{
+					Source: model.ProviderContextSource{
+						ProviderID: "local", API: "responses", Model: testCase.sourceModel,
+						CompatibilityKey: mo.Some(testCase.sourceKey),
+					},
+					Payload: []byte(testCase.payload),
+				}), ToolCall: mo.None[model.ToolCall](),
+			})
 
-	body := runResponsesRequest(t, request, "shared-family")
-	encoded, err := json.Marshal(body["input"])
-	require.NoError(t, err)
-	assert.Contains(t, string(encoded), "r-shared")
-	assert.Contains(t, string(encoded), "shared-cipher")
-	assert.NotContains(t, string(encoded), "visible reasoning")
-}
-
-// TestResponsesReplaysExactModelAfterCompatibilityKeyChange verifies model identity takes precedence over key changes.
-func (s *serviceSuite) TestResponsesReplaysExactModelAfterCompatibilityKeyChange() {
-	t := s.T()
-	request := richRequest("local", "same-model")
-	appendHistoryModelContent(&request, model.Content{
-		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
-		ProviderContext: mo.Some(model.ProviderContext{
-			Source: model.ProviderContextSource{
-				ProviderID: "local", API: "responses", Model: "same-model", CompatibilityKey: mo.Some("old-family"),
-			},
-			Payload: []byte(`{"id":"r-exact","encrypted_content":"exact-cipher","summary":[]}`),
-		}), ToolCall: mo.None[model.ToolCall](),
-	})
-
-	body := runResponsesRequest(t, request, "new-family")
-	encoded, err := json.Marshal(body["input"])
-	require.NoError(t, err)
-	assert.Contains(t, string(encoded), "r-exact")
-	assert.Contains(t, string(encoded), "exact-cipher")
-	assert.NotContains(t, string(encoded), "visible reasoning")
+			body := runResponsesRequest(t, request, testCase.requestKey)
+			encoded, err := json.Marshal(body["input"])
+			require.NoError(t, err)
+			assert.Contains(t, string(encoded), testCase.wantID)
+			assert.Contains(t, string(encoded), testCase.wantCipher)
+			assert.NotContains(t, string(encoded), "visible reasoning")
+		})
+	}
 }
 
 // TestResponsesOmitsIncompatibleContextAndKeepsVisibleReasoning verifies safe text fallback without opaque values.

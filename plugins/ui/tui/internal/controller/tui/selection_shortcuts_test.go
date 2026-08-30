@@ -115,39 +115,23 @@ func TestModelSingleSelectionCyclesEmitNothing(t *testing.T) {
 			IsRepeat:    false,
 		},
 	} {
-		model := NewModel(presentationdomain.Event{
-			RestoredTranscript: nil,
-			Kind:               presentationdomain.EventInitialization,
-			Availability:       mo.Some(presentationdomain.AvailabilityIdle),
-			Models: []presentationdomain.ConfiguredModel{{
-				ProviderID: "openai-codex",
-				ModelID:    "gpt",
-				Reasoning:  testReasoning(presentationdomain.ReasoningChoiceHigh),
-			}},
+		model := NewModel(testEvent(testEventPayload{
+			Kind:                 presentationdomain.EventInitialization,
+			Availability:         mo.Some(presentationdomain.AvailabilityIdle),
+			Position:             mo.None[int](),
+			Text:                 mo.None[string](),
+			ModelResponseContent: nil,
 			ModelSelection: mo.Some(presentationdomain.ModelSelection{
 				ProviderID:      "openai-codex",
 				ModelID:         "gpt",
 				ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
 			}),
-			Startup:              nil,
-			Extensions:           nil,
-			Position:             mo.None[int](),
-			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-			ModelResponseContent: nil,
-			ToolCallID:           mo.None[string](),
-			ToolName:             mo.None[string](),
-			Status:               mo.None[string](),
-			Stream:               mo.None[presentationdomain.OutputStream](),
-			Text:                 mo.None[string](),
-			Contents:             mo.None[[]presentationdomain.Content](),
-			ErrorText:            mo.None[string](),
-			ExitCode:             mo.None[int](),
-			Failure:              mo.None[bool](),
-			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-			Sessions:             nil,
-			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-		}, service.Apply, func(presentationdomain.Command) error {
+			SessionInfo: mo.None[presentationdomain.SessionInfo](),
+		}, presentationdomain.ConfiguredModel{
+			ProviderID: "openai-codex",
+			ModelID:    "gpt",
+			Reasoning:  testReasoning(presentationdomain.ReasoningChoiceHigh),
+		}), service.Apply, func(presentationdomain.Command) error {
 			t.Fatal("redundant selection command emitted")
 			return nil
 		})
@@ -164,39 +148,23 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 
 	// Arrange a model whose only reasoning choice is fixed.
 	service := presentationusecase.New()
-	model := NewModel(presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventInitialization,
-		Availability:       mo.Some(presentationdomain.AvailabilityIdle),
-		Models: []presentationdomain.ConfiguredModel{{
-			ProviderID: "ollama",
-			ModelID:    "ornith",
-			Reasoning:  testReasoning(presentationdomain.ReasoningChoiceOn),
-		}},
+	model := NewModel(testEvent(testEventPayload{
+		Kind:                 presentationdomain.EventInitialization,
+		Availability:         mo.Some(presentationdomain.AvailabilityIdle),
+		Position:             mo.None[int](),
+		Text:                 mo.None[string](),
+		ModelResponseContent: nil,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "ollama",
 			ModelID:         "ornith",
 			ReasoningChoice: presentationdomain.ReasoningChoiceOn,
 		}),
-		Startup:              nil,
-		Extensions:           nil,
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	}, service.Apply, func(presentationdomain.Command) error {
+		SessionInfo: mo.None[presentationdomain.SessionInfo](),
+	}, presentationdomain.ConfiguredModel{
+		ProviderID: "ollama",
+		ModelID:    "ornith",
+		Reasoning:  testReasoning(presentationdomain.ReasoningChoiceOn),
+	}), service.Apply, func(presentationdomain.Command) error {
 		t.Fatal("fixed reasoning selection command emitted")
 		return nil
 	})
@@ -213,35 +181,19 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 	}))
 	model = next.(Model)
 	assert.Nil(t, command)
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelSelectionChanged,
+	model = updateModel(t, model, testEvent(testEventPayload{
+		Kind:                 presentationdomain.EventModelSelectionChanged,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		Text:                 mo.None[string](),
+		ModelResponseContent: nil,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "ollama",
 			ModelID:         "ornith",
 			ReasoningChoice: presentationdomain.ReasoningChoiceOn,
 		}),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+		SessionInfo: mo.None[presentationdomain.SessionInfo](),
+	}))
 	// Assert fixed reasoning stays hidden while display state remains intact.
 	assert.False(t, model.reasoningExpanded)
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
@@ -252,34 +204,18 @@ func TestModelFixedReasoningHidesSelectionAndKeepsDisplayState(t *testing.T) {
 		BaseCode:    0,
 		IsRepeat:    false,
 	}))
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelSelectionChanged,
+	model = updateModel(t, model, testEvent(testEventPayload{
+		Kind:                 presentationdomain.EventModelSelectionChanged,
+		Availability:         mo.None[presentationdomain.Availability](),
+		Position:             mo.None[int](),
+		Text:                 mo.None[string](),
+		ModelResponseContent: nil,
 		ModelSelection: mo.Some(presentationdomain.ModelSelection{
 			ProviderID:      "ollama",
 			ModelID:         "ornith",
 			ReasoningChoice: presentationdomain.ReasoningChoiceOn,
 		}),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+		SessionInfo: mo.None[presentationdomain.SessionInfo](),
+	}))
 	assert.True(t, model.reasoningExpanded)
 }

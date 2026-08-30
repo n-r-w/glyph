@@ -27,11 +27,15 @@ func TestUserMessageInputRejectsMissingSelectedPayload(t *testing.T) {
 	require.EqualError(t, err, "codex image media type and data are required")
 }
 
-// TestFunctionOutputContentsPreservesTextImageOrder verifies Codex typed output encoding.
-func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {
-	t.Parallel()
-
-	contents, err := functionOutputContents([]tool.ResultContent{
+// assertOutputContents verifies ordered encoding and selected-payload validation for one output format.
+func assertOutputContents[T any](
+	t *testing.T,
+	convert func([]tool.ResultContent) (T, error),
+	invalid tool.ResultContent,
+	wantErr string,
+) {
+	t.Helper()
+	contents, err := convert([]tool.ResultContent{
 		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
 		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}})},
 		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
@@ -46,33 +50,28 @@ func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {
 		{"type":"input_text","text":"last"}
 	]`, string(payload))
 
-	_, err = functionOutputContents([]tool.ResultContent{{
-		Kind: tool.ResultContentText, Text: mo.None[string](), Image: mo.None[tool.ResultImage](),
-	}})
-	require.EqualError(t, err, "tool result text 0 has no text")
+	_, err = convert([]tool.ResultContent{invalid})
+	require.EqualError(t, err, wantErr)
+}
+
+// TestFunctionOutputContentsPreservesTextImageOrder verifies Codex typed output encoding.
+func TestFunctionOutputContentsPreservesTextImageOrder(t *testing.T) {
+	t.Parallel()
+	assertOutputContents(
+		t,
+		functionOutputContents,
+		tool.ResultContent{Kind: tool.ResultContentText, Text: mo.None[string](), Image: mo.None[tool.ResultImage]()},
+		"tool result text 0 has no text",
+	)
 }
 
 // TestCustomOutputContentsPreservesTextImageOrder verifies constrained-tool output encoding.
 func TestCustomOutputContentsPreservesTextImageOrder(t *testing.T) {
 	t.Parallel()
-
-	contents, err := customOutputContents([]tool.ResultContent{
-		{Kind: tool.ResultContentText, Text: mo.Some("first"), Image: mo.None[tool.ResultImage]()},
-		{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{0, 1, 2}})},
-		{Kind: tool.ResultContentText, Text: mo.Some("last"), Image: mo.None[tool.ResultImage]()},
-	})
-	require.NoError(t, err)
-
-	payload, err := json.Marshal(contents)
-	require.NoError(t, err)
-	assert.JSONEq(t, `[
-		{"type":"input_text","text":"first"},
-		{"type":"input_image","image_url":"data:image/png;base64,AAEC"},
-		{"type":"input_text","text":"last"}
-	]`, string(payload))
-
-	_, err = customOutputContents([]tool.ResultContent{{
-		Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.None[tool.ResultImage](),
-	}})
-	require.EqualError(t, err, "tool result image 0 has no image")
+	assertOutputContents(
+		t,
+		customOutputContents,
+		tool.ResultContent{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.None[tool.ResultImage]()},
+		"tool result image 0 has no image",
+	)
 }

@@ -16,10 +16,8 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 
 	// Arrange a presentation service and a complete initialization state.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventInitialization,
-		Startup: []presentationdomain.Line{
+	state := service.Apply(presentationdomain.State{}, testInitializationEvent(
+		[]presentationdomain.Line{
 			{
 				Kind:     presentationdomain.LineInformation,
 				Text:     mo.Some("Glyph session initialized."),
@@ -35,33 +33,15 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 				Contents: mo.None[[]presentationdomain.Content](),
 			},
 		},
-		Availability: mo.Some(presentationdomain.AvailabilityIdle),
-		Extensions: []presentationdomain.Extension{
+		presentationdomain.AvailabilityIdle,
+		[]presentationdomain.Extension{
 			{
 				ID:    "tools",
 				Tools: []string{"read", "edit"},
 				Path:  "",
 			},
 		},
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	))
 
 	require.Len(t, state.Startup, 2)
 	assert.Equal(t, presentationdomain.Line{
@@ -75,81 +55,9 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 	assert.Equal(t, mo.Some(presentationdomain.AvailabilityIdle), state.Availability)
 
 	// Act by applying model, tool, error, authorization, and settlement lifecycle events.
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventModelDelta,
-		Position:             mo.Some(1),
-		ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
-		Text:                 mo.Some("Hel"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventModelDelta,
-		Position:             mo.Some(1),
-		ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
-		Text:                 mo.Some("lo"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventModelDelta,
-		Position:             mo.Some(0),
-		ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
-		Text:                 mo.Some("First"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	state = service.Apply(state, testModelDeltaEvent(1, presentationdomain.ModelContentText, "Hel"))
+	state = service.Apply(state, testModelDeltaEvent(1, presentationdomain.ModelContentText, "lo"))
+	state = service.Apply(state, testModelDeltaEvent(0, presentationdomain.ModelContentText, "First"))
 	assert.Equal(t, map[int]presentationdomain.ActiveModelContent{
 		0: {
 			Kind: mo.Some(presentationdomain.ModelContentText),
@@ -161,34 +69,10 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		},
 	}, state.ActiveModel)
 
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelEnd,
-		ModelResponseContent: []presentationdomain.ModelResponseContent{{
-			Kind: presentationdomain.ModelContentText,
-			Text: mo.Some("Hello"),
-		}},
-		Startup:           nil,
-		Extensions:        nil,
-		Availability:      mo.None[presentationdomain.Availability](),
-		Position:          mo.None[int](),
-		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:        mo.None[string](),
-		ToolName:          mo.None[string](),
-		Status:            mo.None[string](),
-		Stream:            mo.None[presentationdomain.OutputStream](),
-		Text:              mo.None[string](),
-		Contents:          mo.None[[]presentationdomain.Content](),
-		ErrorText:         mo.None[string](),
-		ExitCode:          mo.None[int](),
-		Failure:           mo.None[bool](),
-		ToolCall:          mo.None[presentationdomain.ToolCallState](),
-		Models:            nil,
-		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
+	state = service.Apply(state, testModelEndEvent(presentationdomain.ModelResponseContent{
+		Kind: presentationdomain.ModelContentText,
+		Text: mo.Some("Hello"),
+	}))
 	// Assert the projected state contains the ordered transcript and leaves host-owned selections unchanged.
 	assert.Equal(t, []presentationdomain.Line{{
 		Kind:     presentationdomain.LineModel,
@@ -249,81 +133,9 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
 	})
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventToolOutput,
-		Stream:               mo.Some(presentationdomain.OutputStdout),
-		Text:                 mo.Some("content"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventToolOutput,
-		Stream:               mo.Some(presentationdomain.OutputStderr),
-		Text:                 mo.Some("warning"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventToolEnded,
-		ToolName:             mo.Some("read"),
-		Status:               mo.Some("completed"),
-		Text:                 mo.None[string](),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.Some(false),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	state = service.Apply(state, testToolOutputEvent(presentationdomain.OutputStdout, "content"))
+	state = service.Apply(state, testToolOutputEvent(presentationdomain.OutputStderr, "warning"))
+	state = service.Apply(state, testToolEndedEvent("read", "completed", false))
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
 		Kind:                 presentationdomain.EventToolResult,

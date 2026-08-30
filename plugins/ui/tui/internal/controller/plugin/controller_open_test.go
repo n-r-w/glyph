@@ -128,31 +128,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 		<-runDone
 		return nil
 	})
-	program.EXPECT().Send(presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventInformation,
-		Text:                 mo.Some("information"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	program.EXPECT().Send(testTextEvent(presentationdomain.EventInformation, "information"))
 	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
 		contentKind, ok := event.ModelContentKind.Get()
 		require.True(t, ok)

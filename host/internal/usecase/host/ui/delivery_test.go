@@ -83,6 +83,29 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// testContentLifecycleEvent creates one text content lifecycle event.
+func testContentLifecycleEvent(kind run.EventType) run.Event {
+	return run.Event{
+		Content: mo.Some(model.Content{
+			Kind:            model.ContentText,
+			Text:            mo.None[string](),
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+		}),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[run.TurnSummary](),
+		Agent:      mo.None[run.AgentSummary](),
+		Type:       kind,
+		RunID:      "run",
+		Position:   mo.Some(2),
+	}
+}
+
 // TestDeliveryMapsTypedTextLifecycle verifies typed content identity, position, and text.
 func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	t.Parallel()
@@ -96,25 +119,7 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	service := NewDelivery(channel)
 
 	for _, event := range []run.Event{
-		{
-			Content: mo.Some(model.Content{
-				Kind:            model.ContentText,
-				Text:            mo.None[string](),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-			}),
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventContentStart,
-			RunID:      "run",
-			Position:   mo.Some(2),
-		},
+		testContentLifecycleEvent(run.EventContentStart),
 		{
 			Message:    mo.None[model.Response](),
 			Preview:    mo.None[model.ToolCallPreview](),
@@ -134,25 +139,7 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 				Text:            mo.Some("delta"),
 			}),
 		},
-		{
-			Content: mo.Some(model.Content{
-				Kind:            model.ContentText,
-				Text:            mo.None[string](),
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-			}),
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventContentEnd,
-			RunID:      "run",
-			Position:   mo.Some(2),
-		},
+		testContentLifecycleEvent(run.EventContentEnd),
 	} {
 		require.NoError(t, service.DeliverAgent(t.Context(), event))
 	}

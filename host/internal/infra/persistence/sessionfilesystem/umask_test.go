@@ -54,12 +54,7 @@ func runRestrictiveUmaskApply(t *testing.T) {
 	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Mutation: sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](),
-			ID:         "entry", CreatedAt: createdAt,
-			Information: mo.Some(session.Information{Name: "restricted"}),
-			Extension:   mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		}),
+		Mutation:    sessionInformationMutation(sessionInformationEntry("entry", createdAt, "restricted")),
 	})
 	require.NoError(t, err)
 	info, err := os.Stat(result.StoragePath)

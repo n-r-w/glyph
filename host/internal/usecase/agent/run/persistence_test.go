@@ -21,6 +21,38 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
+// expectToolResultPersistenceFailure configures history persistence through a failing tool result.
+func expectToolResultPersistenceFailure(
+	t *testing.T,
+	store *MockHistoryStore,
+	history *[]agent.HistoryEntry,
+	persistenceErr error,
+) {
+	t.Helper()
+	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(*history) }).AnyTimes()
+	gomock.InOrder(
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				*history = append(*history, cloneHistoryEntry(entry))
+				return nil
+			},
+		),
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				require.Equal(t, agent.HistoryEntryModel, entry.Kind)
+				*history = append(*history, cloneHistoryEntry(entry))
+				return nil
+			},
+		),
+		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, entry agent.HistoryEntry) error {
+				require.Equal(t, agent.HistoryEntryToolResult, entry.Kind)
+				return persistenceErr
+			},
+		),
+	)
+}
+
 // TestServiceRunStopsBeforeProviderWhenUserPersistenceFails verifies user persistence causes reach the terminal result.
 func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	t.Parallel()
@@ -83,28 +115,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 				Diagnostics: nil,
 			}
 			history := make([]agent.HistoryEntry, 0, 2)
-			store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
-			gomock.InOrder(
-				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(_ context.Context, entry agent.HistoryEntry) error {
-						history = append(history, cloneHistoryEntry(entry))
-						return nil
-					},
-				),
-				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(_ context.Context, entry agent.HistoryEntry) error {
-						require.Equal(t, agent.HistoryEntryModel, entry.Kind)
-						history = append(history, cloneHistoryEntry(entry))
-						return nil
-					},
-				),
-				store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(_ context.Context, entry agent.HistoryEntry) error {
-						require.Equal(t, agent.HistoryEntryToolResult, entry.Kind)
-						return persistenceErr
-					},
-				),
-			)
+			expectToolResultPersistenceFailure(t, store, &history, persistenceErr)
 			runtime.EXPECT().Current().Return(RuntimeSelection{
 				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 			})
@@ -180,28 +191,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 		Diagnostics: nil,
 	}
 	history := make([]agent.HistoryEntry, 0, 2)
-	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
-	gomock.InOrder(
-		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, entry agent.HistoryEntry) error {
-				history = append(history, cloneHistoryEntry(entry))
-				return nil
-			},
-		),
-		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, entry agent.HistoryEntry) error {
-				require.Equal(t, agent.HistoryEntryModel, entry.Kind)
-				history = append(history, cloneHistoryEntry(entry))
-				return nil
-			},
-		),
-		store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, entry agent.HistoryEntry) error {
-				require.Equal(t, agent.HistoryEntryToolResult, entry.Kind)
-				return persistErr
-			},
-		),
-	)
+	expectToolResultPersistenceFailure(t, store, &history, persistErr)
 	runtime.EXPECT().Current().Return(RuntimeSelection{
 		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 	})

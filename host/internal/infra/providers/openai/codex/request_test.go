@@ -22,6 +22,25 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+// textDeltaStreamEvent creates one streamed text delta fixture.
+func textDeltaStreamEvent(text string) run.StreamEvent {
+	return run.StreamEvent{
+		Preview:  mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](),
+		Response: mo.None[model.Response](),
+		Kind:     run.StreamEventTextDelta,
+		Position: mo.Some(1),
+		Content: mo.Some(model.Content{
+			Final:           false,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.None[model.ToolCall](),
+			Kind:            model.ContentText,
+			Text:            mo.Some(text),
+		}),
+		Delta: mo.Some(text),
+	}
+}
+
 // TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput verifies the complete Responses translation.
 func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	t.Parallel()
@@ -204,36 +223,8 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	assert.Equal(
 		t,
 		[]run.StreamEvent{
-			{
-				Preview:  mo.None[model.ToolCallPreview](),
-				ToolCall: mo.None[model.ToolCall](),
-				Response: mo.None[model.Response](),
-				Kind:     run.StreamEventTextDelta,
-				Position: mo.Some(1),
-				Content: mo.Some(model.Content{
-					Final:           false,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-					Kind:            model.ContentText,
-					Text:            mo.Some("ans"),
-				}),
-				Delta: mo.Some("ans"),
-			},
-			{
-				Preview:  mo.None[model.ToolCallPreview](),
-				ToolCall: mo.None[model.ToolCall](),
-				Response: mo.None[model.Response](),
-				Kind:     run.StreamEventTextDelta,
-				Position: mo.Some(1),
-				Content: mo.Some(model.Content{
-					Final:           false,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-					Kind:            model.ContentText,
-					Text:            mo.Some("wer"),
-				}),
-				Delta: mo.Some("wer"),
-			},
+			textDeltaStreamEvent("ans"),
+			textDeltaStreamEvent("wer"),
 		},
 		updates,
 	)

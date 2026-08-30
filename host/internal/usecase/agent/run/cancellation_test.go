@@ -48,11 +48,7 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
-					return emitStream(handle, model.Response{
-						Content: nil, Outcome: mo.Some(model.OutcomeAborted), ErrorMessage: mo.None[string](),
-						Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-						ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-					}, providerErr)
+					return emitStream(handle, emptyModelResponse(model.OutcomeAborted), providerErr)
 				},
 			)
 			var messageEnd model.Response

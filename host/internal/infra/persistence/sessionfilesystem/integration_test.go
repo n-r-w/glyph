@@ -34,7 +34,7 @@ func TestApplyCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
-		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: updatedAt, Information: mo.Some(session.Information{Name: "release notes"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
+		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", updatedAt, "release notes")),
 	})
 	require.NoError(t, err)
 	expectedStoragePath := filepath.Join(
@@ -83,7 +83,7 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	_, err = canonicalRepository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "shared-id", CreatedAt: createdAt, WorkingDirectory: canonicalProject},
 		StoragePath: "",
-		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt, Information: mo.Some(session.Information{Name: "shared project"}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
+		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", createdAt, "shared project")),
 	})
 	require.NoError(t, err)
 	symlinkRepository := sessionstore.New(root, canonicalLink, sessionfilesystem.New())
@@ -182,7 +182,7 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header:      session.Header{Version: 2, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
-		Mutation:    sessionInformationMutation(session.Entry{ParentID: mo.None[string](), User: mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](), ID: "entry-id", CreatedAt: createdAt.Add(time.Second), Information: mo.Some(session.Information{Name: largeName}), Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry]()}),
+		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", createdAt.Add(time.Second), largeName)),
 	})
 	require.NoError(t, err)
 	reopened := sessionstore.New(root, project, sessionfilesystem.New())
@@ -225,6 +225,22 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 }
 
 // sessionInformationMutation maps one metadata fixture to the persistence mutation contract.
+// sessionInformationEntry creates one complete session-information entry fixture.
+func sessionInformationEntry(id string, createdAt time.Time, name string) session.Entry {
+	return session.Entry{
+		ParentID:      mo.None[string](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		ToolResult:    mo.None[session.ToolResult](),
+		ID:            id,
+		CreatedAt:     createdAt,
+		Information:   mo.Some(session.Information{Name: name}),
+		Extension:     mo.None[session.ExtensionEnvelope](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+}
+
 func sessionInformationMutation(entry session.Entry) hostsessions.Mutation {
 	information := entry.Information.MustGet()
 	return hostsessions.Mutation{

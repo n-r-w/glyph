@@ -12,6 +12,35 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// invalidModelOutcomeEvent creates a message-end event with an unspecified outcome.
+func invalidModelOutcomeEvent() AgentEvent {
+	return AgentEvent{
+		Type: AgentEventMessageEnd,
+		ModelResponse: mo.Some(ModelResponse{
+			Outcome:       mo.Some(ModelOutcomeUnspecified),
+			Text:          "",
+			ErrorMessage:  mo.None[string](),
+			Provider:      mo.None[string](),
+			Model:         mo.None[string](),
+			ResponseModel: mo.None[string](),
+			ResponseID:    mo.None[string](),
+			Usage:         mo.None[ModelUsage](),
+			Diagnostics:   nil,
+			Content:       nil,
+		}),
+		CorrelationID:   "",
+		RunID:           "",
+		ModelContent:    mo.None[ModelContent](),
+		ToolCallPreview: mo.None[ToolCallPreview](),
+		FinalToolCall:   mo.None[FinalToolCall](),
+		ToolExecution:   mo.None[ToolExecution](),
+		ToolProgress:    mo.None[ToolProgress](),
+		ToolResult:      mo.None[ToolResult](),
+		Turn:            mo.None[TurnSummary](),
+		Agent:           mo.None[AgentSummary](),
+	}
+}
+
 // TestMapConfiguredModelsRejectsUnknownInputModality proves unknown domain modalities do not reach protobuf.
 func TestMapConfiguredModelsRejectsUnknownInputModality(t *testing.T) {
 	t.Parallel()
@@ -223,31 +252,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			return err
 		},
 		"model outcome": func() error {
-			_, err := mapEvent(AgentEvent{
-				Type: AgentEventMessageEnd,
-				ModelResponse: mo.Some(ModelResponse{
-					Outcome:       mo.Some(ModelOutcomeUnspecified),
-					Text:          "",
-					ErrorMessage:  mo.None[string](),
-					Provider:      mo.None[string](),
-					Model:         mo.None[string](),
-					ResponseModel: mo.None[string](),
-					ResponseID:    mo.None[string](),
-					Usage:         mo.None[ModelUsage](),
-					Diagnostics:   nil,
-					Content:       nil,
-				}),
-				CorrelationID:   "",
-				RunID:           "",
-				ModelContent:    mo.None[ModelContent](),
-				ToolCallPreview: mo.None[ToolCallPreview](),
-				FinalToolCall:   mo.None[FinalToolCall](),
-				ToolExecution:   mo.None[ToolExecution](),
-				ToolProgress:    mo.None[ToolProgress](),
-				ToolResult:      mo.None[ToolResult](),
-				Turn:            mo.None[TurnSummary](),
-				Agent:           mo.None[AgentSummary](),
-			})
+			_, err := mapEvent(invalidModelOutcomeEvent())
 			return err
 		},
 		"model content": func() error {

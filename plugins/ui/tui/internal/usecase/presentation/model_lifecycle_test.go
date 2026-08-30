@@ -18,35 +18,10 @@ func TestServiceModelEndFinalizesCompleteMessageAcrossStreamPositions(t *testing
 	state := service.Apply(presentationdomain.State{}, testPresentationEvent(presentationdomain.EventModelDelta, mo.None[string](), mo.Some(0)))
 	// Act by applying later deltas and the terminal model response.
 	state = service.Apply(state, testPresentationEvent(presentationdomain.EventModelDelta, mo.Some("complete answer"), mo.Some(1)))
-	state = service.Apply(state, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelEnd,
-		Position:           mo.None[int](),
-		ModelResponseContent: []presentationdomain.ModelResponseContent{{
-			Kind: presentationdomain.ModelContentText,
-			Text: mo.Some("complete answer"),
-		}},
-		Startup:          nil,
-		Extensions:       nil,
-		Availability:     mo.None[presentationdomain.Availability](),
-		ModelContentKind: mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:       mo.None[string](),
-		ToolName:         mo.None[string](),
-		Status:           mo.None[string](),
-		Stream:           mo.None[presentationdomain.OutputStream](),
-		Text:             mo.None[string](),
-		Contents:         mo.None[[]presentationdomain.Content](),
-		ErrorText:        mo.None[string](),
-		ExitCode:         mo.None[int](),
-		Failure:          mo.None[bool](),
-
-		ToolCall:          mo.None[presentationdomain.ToolCallState](),
-		Models:            nil,
-		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
+	state = service.Apply(state, testModelEndEvent(presentationdomain.ModelResponseContent{
+		Kind: presentationdomain.ModelContentText,
+		Text: mo.Some("complete answer"),
+	}))
 
 	// Assert the finalized transcript contains one complete ordered model message.
 	assert.Equal(t, []presentationdomain.Line{{
@@ -65,31 +40,7 @@ func TestServicePreservesFinalizedRefusalBlocks(t *testing.T) {
 
 	// Arrange a streamed refusal followed by terminal response content.
 	service := New()
-	state := service.Apply(presentationdomain.State{}, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventModelDelta,
-		Position:             mo.Some(0),
-		ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
-		Text:                 mo.Some("draft"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	state := service.Apply(presentationdomain.State{}, testModelDeltaEvent(0, presentationdomain.ModelContentText, "draft"))
 	// Act by applying the model-end event.
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript: nil,

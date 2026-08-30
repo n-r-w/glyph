@@ -98,34 +98,18 @@ func TestModelWrapsCompletedUnicodeContent(t *testing.T) {
 
 	// Arrange completed mixed Unicode content in a narrow terminal.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelEnd,
+	model = updateModel(t, model, testEvent(testEventPayload{
+		Kind:         presentationdomain.EventModelEnd,
+		Availability: mo.None[presentationdomain.Availability](),
+		Position:     mo.None[int](),
+		Text:         mo.None[string](),
 		ModelResponseContent: []presentationdomain.ModelResponseContent{{
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("readable words wrap cleanly\n你好 世界"),
 		}},
-		Startup:           nil,
-		Extensions:        nil,
-		Availability:      mo.None[presentationdomain.Availability](),
-		Position:          mo.None[int](),
-		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:        mo.None[string](),
-		ToolName:          mo.None[string](),
-		Status:            mo.None[string](),
-		Stream:            mo.None[presentationdomain.OutputStream](),
-		Text:              mo.None[string](),
-		Contents:          mo.None[[]presentationdomain.Content](),
-		ErrorText:         mo.None[string](),
-		ExitCode:          mo.None[int](),
-		Failure:           mo.None[bool](),
-		ToolCall:          mo.None[presentationdomain.ToolCallState](),
-		Models:            nil,
-		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
+		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+	}))
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
 		Height: 0,
@@ -146,31 +130,15 @@ func TestModelWrapsActiveContent(t *testing.T) {
 
 	// Arrange active model content with a long unbroken word.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventModelDelta,
+		Availability:         mo.None[presentationdomain.Availability](),
 		Position:             mo.Some(1),
 		Text:                 mo.Some("active words and supercalifragilistic"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
 		Height: 0,
@@ -191,31 +159,15 @@ func TestModelClipsAfterWrapping(t *testing.T) {
 
 	// Arrange wrapped active content and two terminal heights.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventModelDelta,
+		Availability:         mo.None[presentationdomain.Availability](),
 		Position:             mo.Some(1),
 		Text:                 mo.Some("active words and supercalifragilistic"),
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
 		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	// Act by resizing after content wrapping.
 	model = updateModel(t, model, tea.WindowSizeMsg{
 		Width:  16,
@@ -289,84 +241,36 @@ func TestModelRetainsTranscriptWhenReturningToIdleForSecondTurn(t *testing.T) {
 	// Arrange a completed first response followed by an idle second draft.
 	model := newTestModel(t, presentationdomain.AvailabilityRunning, nil)
 	// Act by settling the first turn and entering the second request.
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript: nil,
-		Kind:               presentationdomain.EventModelEnd,
+	model = updateModel(t, model, testEvent(testEventPayload{
+		Kind:         presentationdomain.EventModelEnd,
+		Availability: mo.None[presentationdomain.Availability](),
+		Position:     mo.None[int](),
+		Text:         mo.None[string](),
 		ModelResponseContent: []presentationdomain.ModelResponseContent{{
 			Kind: presentationdomain.ModelContentText,
 			Text: mo.Some("first response"),
 		}},
-		Startup:           nil,
-		Extensions:        nil,
-		Availability:      mo.None[presentationdomain.Availability](),
-		Position:          mo.None[int](),
-		ModelContentKind:  mo.None[presentationdomain.ModelContentKind](),
-		ToolCallID:        mo.None[string](),
-		ToolName:          mo.None[string](),
-		Status:            mo.None[string](),
-		Stream:            mo.None[presentationdomain.OutputStream](),
-		Text:              mo.None[string](),
-		Contents:          mo.None[[]presentationdomain.Content](),
-		ErrorText:         mo.None[string](),
-		ExitCode:          mo.None[int](),
-		Failure:           mo.None[bool](),
-		ToolCall:          mo.None[presentationdomain.ToolCallState](),
-		Models:            nil,
-		ModelSelection:    mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
-		Sessions:          nil,
-		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
-	})
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+		ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo:    mo.None[presentationdomain.SessionInfo](),
+	}))
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventAgentSettled,
-		Text:                 mo.Some("completed"),
-		Startup:              nil,
-		Extensions:           nil,
 		Availability:         mo.None[presentationdomain.Availability](),
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		Text:                 mo.Some("completed"),
 		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
-	model = updateModel(t, model, presentationdomain.Event{
-		RestoredTranscript:   nil,
+	}))
+	model = updateModel(t, model, testEvent(testEventPayload{
 		Kind:                 presentationdomain.EventAvailability,
 		Availability:         mo.Some(presentationdomain.AvailabilityIdle),
-		Startup:              nil,
-		Extensions:           nil,
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
 		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
+		ModelResponseContent: nil,
 		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-	})
+	}))
 	model = updateModel(t, model, tea.KeyPressMsg(tea.Key{
 		Text:        "second request",
 		Mod:         0,
