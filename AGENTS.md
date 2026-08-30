@@ -2,7 +2,7 @@
 
 1. NO BACKWARDS COMPATIBILITY AT ALL (code, proto, etc.). This is new project
 2. NO OVERENGINEERING: REMEMBER, we're not building a "spaceship", just a local developer tool. ALWAYS CRITICALLY EVALUATE need to address edge cases based on their REALISM.
-3. NO PARANOID SAFETY: don't hide errors from user, etc. User is the ONLY owner of this tool.
+3. NO PARANOID SAFETY: don't hide errors from user, etc. User is ONLY owner of this tool.
 
 ## Goal
 
@@ -51,8 +51,9 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
     3) `task test`, `task itest`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
-4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only the active field.
+4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only active field.
 5. Use `mo.Option[T]` directly for required JSON fields, but use `*T` with `omitempty` when `Some` zero values must remain distinguishable from `None`.
+6. MUST NOT suppress ifaceguard warnings. If they appear, it means dependency direction is incorrect.
 
 ## Code structure
 1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
