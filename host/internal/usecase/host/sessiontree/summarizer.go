@@ -8,6 +8,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
@@ -36,15 +37,26 @@ func (s *Service) summarize(
 	preparation session.NavigationPreparation,
 	customFocus mo.Option[string],
 ) (BranchSummaryDraft, error) {
-	instructions, err := renderBranchSummaryPrompt(customFocus)
+	// conversation contains only approved source values in the summary-specific representation.
+	conversation, err := serializeBranchSummaryConversation(preparation.AbandonedPath)
 	if err != nil {
-		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary instructions: %w", err)
+		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary conversation: %w", err)
 	}
+	// task contains one bounded source conversation and optional escaped caller focus.
+	task, err := renderBranchSummaryTask(conversation, customFocus)
+	if err != nil {
+		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary task: %w", err)
+	}
+	// history keeps source records out of model roles by sending one serialized user input.
+	history := []agent.HistoryEntry{{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(task)),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	}}
 	response, err := s.models.CompleteConfigured(
 		ctx,
 		selection,
-		instructions,
-		HistoryFromEntries(preparation.AbandonedPath),
+		branchSummarySystemText,
+		history,
 	)
 	if err != nil {
 		return BranchSummaryDraft{}, classifyCompletionError(ctx, err)

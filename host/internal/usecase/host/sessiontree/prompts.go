@@ -9,19 +9,33 @@ import (
 	"github.com/samber/mo"
 )
 
+const (
+	// branchSummaryTaskTemplateName identifies the embedded summary task template.
+	branchSummaryTaskTemplateName = "branch_summary_task"
+	// branchSummaryContextTemplateName identifies the embedded active-history template.
+	branchSummaryContextTemplateName = "branch_summary_context"
+)
+
 var (
-	// branchSummaryPromptText contains the embedded generation instructions.
-	//go:embed prompts/branch_summary.md
-	branchSummaryPromptText string
+	// branchSummarySystemText contains the embedded static generation rules.
+	//go:embed prompts/branch_summary_system.md
+	branchSummarySystemText string
+	// branchSummaryTaskText contains the embedded user-task layout.
+	//go:embed prompts/branch_summary_task.md
+	branchSummaryTaskText string
 	// branchSummaryContextText contains the embedded active-history layout.
 	//go:embed prompts/branch_summary_context.md
 	branchSummaryContextText string
 )
 
-// branchSummaryPromptData contains optional focus for the embedded generation prompt.
-type branchSummaryPromptData struct {
-	// CustomFocus contains caller focus only in custom-prompt mode.
-	CustomFocus string
+// branchSummaryTaskData contains dynamic values for the embedded user task.
+type branchSummaryTaskData struct {
+	// Conversation contains the serialized source conversation.
+	Conversation string
+	// AdditionalFocus contains escaped caller focus only in custom-prompt mode.
+	AdditionalFocus string
+	// HasAdditionalFocus controls whether the complete optional focus block is present.
+	HasAdditionalFocus bool
 }
 
 // branchSummaryContextData contains persisted text for the embedded active-history template.
@@ -30,15 +44,18 @@ type branchSummaryContextData struct {
 	Summary string
 }
 
-// renderBranchSummaryPrompt executes the embedded generation instructions with optional focus.
-func renderBranchSummaryPrompt(customFocus mo.Option[string]) (string, error) {
+// renderBranchSummaryTask executes the embedded user task with serialized conversation and optional focus.
+func renderBranchSummaryTask(conversation string, additionalFocus mo.Option[string]) (string, error) {
+	focus, hasAdditionalFocus := additionalFocus.Get()
 	var rendered strings.Builder
-	prompt := template.Must(template.New("branch_summary").Parse(branchSummaryPromptText))
-	if err := prompt.Execute(
+	taskTemplate := template.Must(template.New(branchSummaryTaskTemplateName).Parse(branchSummaryTaskText))
+	if err := taskTemplate.Execute(
 		&rendered,
-		branchSummaryPromptData{CustomFocus: customFocus.OrEmpty()},
+		branchSummaryTaskData{
+			Conversation: conversation, AdditionalFocus: escapeXMLText(focus), HasAdditionalFocus: hasAdditionalFocus,
+		},
 	); err != nil {
-		return "", fmt.Errorf("render branch summary prompt: %w", err)
+		return "", fmt.Errorf("render branch summary task: %w", err)
 	}
 	return rendered.String(), nil
 }
@@ -46,7 +63,7 @@ func renderBranchSummaryPrompt(customFocus mo.Option[string]) (string, error) {
 // RenderBranchSummaryContext renders one persisted summary as provider-neutral user context.
 func RenderBranchSummaryContext(summary string) string {
 	var rendered strings.Builder
-	contextTemplate := template.Must(template.New("branch_summary_context").Parse(branchSummaryContextText))
+	contextTemplate := template.Must(template.New(branchSummaryContextTemplateName).Parse(branchSummaryContextText))
 	if err := contextTemplate.Execute(&rendered, branchSummaryContextData{Summary: summary}); err != nil {
 		panic(fmt.Sprintf("render embedded branch summary context: %v", err))
 	}
