@@ -58,7 +58,7 @@ func TestApplyCommittedNavigationSendsExactInput(t *testing.T) {
 	committed := sessionnavigation.Result{
 		Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil, NextInput: mo.Some("exact input"),
 	}
-	control.EXPECT().Navigate(gomock.Any(), "target").Return(committed, nil)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(committed, nil)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		require.Equal(t, domainui.FrameSessionTreeNavigation, frame.Kind)
 		result := frame.TreeNavigation.MustGet()
@@ -90,7 +90,7 @@ func TestApplyCanceledNavigationSendsStateFreeResult(t *testing.T) {
 	authenticator := NewMockAuthenticator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	control.EXPECT().Navigate(gomock.Any(), "target").Return(sessionnavigation.Result{}, context.Canceled)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, context.Canceled)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		require.Equal(t, domainui.FrameSessionTreeNavigation, frame.Kind)
 		result := frame.TreeNavigation.MustGet()
@@ -119,11 +119,15 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 		target        mo.Option[string]
 		navigationErr error
 		expected      domainui.TreeFailureCode
+		summaryMode   domainui.SummaryMode
 	}{
-		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: domainui.TreeFailureInvalidArgument},
-		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: domainui.TreeFailureNotFound},
-		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: domainui.TreeFailureBusy},
-		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: domainui.TreeFailurePersistenceUnavailable},
+		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: domainui.TreeFailureInvalidArgument, summaryMode: domainui.SummaryModeNoSummary},
+		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: domainui.TreeFailureNotFound, summaryMode: domainui.SummaryModeNoSummary},
+		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: domainui.TreeFailureBusy, summaryMode: domainui.SummaryModeNoSummary},
+		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: domainui.TreeFailureModelUnavailable, summaryMode: domainui.SummaryModeSummarize},
+		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: domainui.TreeFailureCredentialUnavailable, summaryMode: domainui.SummaryModeSummarize},
+		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: domainui.TreeFailureModelFailed, summaryMode: domainui.SummaryModeSummarize},
+		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: domainui.TreeFailurePersistenceUnavailable, summaryMode: domainui.SummaryModeNoSummary},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -136,8 +140,8 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 			authenticator := NewMockAuthenticator(mockController)
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
-			if target, present := test.target.Get(); present {
-				control.EXPECT().Navigate(gomock.Any(), target).Return(sessionnavigation.Result{}, test.navigationErr)
+			if _, present := test.target.Get(); present {
+				control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, test.navigationErr)
 			}
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				require.Equal(t, domainui.FrameSessionTreeFailed, frame.Kind)
@@ -149,6 +153,7 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 			service := NewSession(channel, runner, authenticator, catalog, control, func(context.Context) {})
 			command := uiTreeCommand(domainui.CommandNavigateSessionTree)
 			command.TargetEntryID = test.target
+			command.SummaryMode = test.summaryMode
 
 			// Act by applying the failing navigation.
 			handled, err := service.applySessionCommand(t.Context(), command)

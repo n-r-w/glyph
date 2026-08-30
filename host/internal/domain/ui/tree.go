@@ -64,6 +64,12 @@ const (
 	TreeFailureNotFound
 	// TreeFailureBusy reports an occupied operation gate.
 	TreeFailureBusy
+	// TreeFailureModelUnavailable reports an unavailable configured summary model.
+	TreeFailureModelUnavailable
+	// TreeFailureCredentialUnavailable reports unavailable summary-model credentials.
+	TreeFailureCredentialUnavailable
+	// TreeFailureModelFailed reports failed summary-model execution or output validation.
+	TreeFailureModelFailed
 	// TreeFailurePersistenceUnavailable reports unavailable persistence.
 	TreeFailurePersistenceUnavailable
 	// TreeFailureInternal reports an unclassified Host failure.

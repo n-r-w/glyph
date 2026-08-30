@@ -37,15 +37,22 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			// Arrange one immutable tree snapshot and a commit that publishes the prepared destination.
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
+			models := NewMockModelCompleter(controller)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
 			committed := tree
 			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
-			active.EXPECT().CommitNavigation(gomock.Any(), mo.Some("active"), test.expectedLeaf).Return(committed, nil)
-			service := New(active)
+			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
+				ExpectedActiveLeafID: mo.Some("active"), DestinationID: test.expectedLeaf,
+				BranchSummary: mo.None[BranchSummaryDraft](),
+			}).Return(committed, nil)
+			service := New(active, models)
 
 			// Act by navigating to the selected tree entry.
-			result, err := service.NavigateTree(t.Context(), test.targetID)
+			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+				TargetEntryID: test.targetID, SummaryMode: sessionnavigation.SummaryModeNoSummary,
+				CustomFocus: mo.None[string](),
+			})
 
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
@@ -66,11 +73,15 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	// Arrange a tree snapshot with no matching target and no commit expectation.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
+	models := NewMockModelCompleter(controller)
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
-	service := New(active)
+	service := New(active, models)
 
 	// Act by selecting an unknown entry.
-	_, err := service.NavigateTree(t.Context(), "unknown")
+	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+		TargetEntryID: "unknown", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+		CustomFocus: mo.None[string](),
+	})
 
 	// Assert preparation fails with the stable target classification before commit.
 	require.ErrorIs(t, err, session.ErrEntryNotFound)
@@ -83,12 +94,16 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	// Arrange an already canceled request and an active session with no expectations.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
+	models := NewMockModelCompleter(controller)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	service := New(active)
+	service := New(active, models)
 
 	// Act after cancellation.
-	_, err := service.NavigateTree(ctx, "root")
+	_, err := service.NavigateTree(ctx, sessionnavigation.Request{
+		TargetEntryID: "root", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+		CustomFocus: mo.None[string](),
+	})
 
 	// Assert cancellation is returned without reading or committing session state.
 	require.ErrorIs(t, err, context.Canceled)

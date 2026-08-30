@@ -14,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination verifies atomic branch-preserving navigation.
@@ -25,9 +26,10 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	repository := NewMockRepository(controller)
 	ids := NewMockIDGenerator(controller)
 	clock := NewMockClock(controller)
+	pricing := NewMockPricingCatalog(controller)
 	createdAt := time.Unix(1, 0).UTC()
 	tree := commitNavigationTree(t, createdAt)
-	service := New(repository, ids, clock, nil, "/project")
+	service := New(repository, ids, clock, pricing, "/project")
 	service.active = commitNavigationLoadedSession(tree, createdAt)
 	call := 0
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -50,7 +52,7 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	clock.EXPECT().Now().Return(createdAt.Add(3 * time.Second))
 
 	// Act by navigating and then appending the next user entry.
-	committed, err := service.CommitNavigation(t.Context(), mo.Some("abandoned"), mo.Some("destination"))
+	committed, err := service.CommitNavigation(t.Context(), navigationCommit("abandoned", "destination"))
 	require.NoError(t, err)
 	require.Equal(t, mo.Some("destination"), committed.ActiveLeafID())
 	err = service.Append(t.Context(), agent.HistoryEntry{
@@ -71,12 +73,15 @@ func TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence(t *testing.T
 
 	// Arrange an active tree whose current leaf differs from the expected snapshot.
 	controller := gomock.NewController(t)
-	service := New(NewMockRepository(controller), nil, nil, nil, "/project")
+	service := New(
+		NewMockRepository(controller), NewMockIDGenerator(controller), NewMockClock(controller),
+		NewMockPricingCatalog(controller), "/project",
+	)
 	createdAt := time.Unix(1, 0).UTC()
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
 
 	// Act with a stale expected active leaf.
-	_, err := service.CommitNavigation(t.Context(), mo.Some("destination"), mo.Some("root"))
+	_, err := service.CommitNavigation(t.Context(), navigationCommit("destination", "root"))
 
 	// Assert no repository call occurs and the preceding active leaf remains published.
 	require.Error(t, err)
@@ -89,14 +94,17 @@ func TestCommitNavigationCancellationWritesNothing(t *testing.T) {
 
 	// Arrange an active tree and an already canceled context with no repository expectation.
 	controller := gomock.NewController(t)
-	service := New(NewMockRepository(controller), nil, nil, nil, "/project")
+	service := New(
+		NewMockRepository(controller), NewMockIDGenerator(controller), NewMockClock(controller),
+		NewMockPricingCatalog(controller), "/project",
+	)
 	createdAt := time.Unix(1, 0).UTC()
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act after cancellation.
-	_, err := service.CommitNavigation(ctx, mo.Some("abandoned"), mo.Some("destination"))
+	_, err := service.CommitNavigation(ctx, navigationCommit("abandoned", "destination"))
 
 	// Assert cancellation is returned and the active leaf is unchanged.
 	require.ErrorIs(t, err, context.Canceled)
@@ -110,18 +118,29 @@ func TestCommitNavigationPersistenceFailurePreservesPublishedTree(t *testing.T) 
 	// Arrange a valid navigation whose single persistence mutation fails.
 	controller := gomock.NewController(t)
 	repository := NewMockRepository(controller)
+	ids := NewMockIDGenerator(controller)
+	clock := NewMockClock(controller)
+	pricing := NewMockPricingCatalog(controller)
 	createdAt := time.Unix(1, 0).UTC()
-	service := New(repository, nil, nil, nil, "/project")
+	service := New(repository, ids, clock, pricing, "/project")
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("sync failed"))
 
 	// Act by committing navigation.
-	_, err := service.CommitNavigation(t.Context(), mo.Some("abandoned"), mo.Some("destination"))
+	_, err := service.CommitNavigation(t.Context(), navigationCommit("abandoned", "destination"))
 
 	// Assert persistence failure preserves the preceding active leaf and all entries.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
 	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
 	assert.Equal(t, []string{"root", "destination", "abandoned"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+}
+
+// navigationCommit creates one no-summary optimistic commit command.
+func navigationCommit(expected, destination string) sessiontree.CommitCommand {
+	return sessiontree.CommitCommand{
+		ExpectedActiveLeafID: mo.Some(expected), DestinationID: mo.Some(destination),
+		BranchSummary: mo.None[sessiontree.BranchSummaryDraft](),
+	}
 }
 
 // commitNavigationTree creates one active branch with an earlier navigation destination.

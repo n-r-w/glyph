@@ -237,6 +237,12 @@ func mapTreeFailureCode(code domainui.TreeFailureCode) (uipb.SessionTreeFailureC
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_NOT_FOUND, nil
 	case domainui.TreeFailureBusy:
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_BUSY, nil
+	case domainui.TreeFailureModelUnavailable:
+		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_MODEL_UNAVAILABLE, nil
+	case domainui.TreeFailureCredentialUnavailable:
+		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_CREDENTIAL_UNAVAILABLE, nil
+	case domainui.TreeFailureModelFailed:
+		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_MODEL_FAILED, nil
 	case domainui.TreeFailurePersistenceUnavailable:
 		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_PERSISTENCE_UNAVAILABLE, nil
 	case domainui.TreeFailureInternal:

@@ -134,7 +134,7 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 		return session.Replacement{}, errors.New("session working directory does not match")
 	}
 	loaded = loaded.Clone()
-	history := historyFromEntries(loaded.Tree.ActiveBranch())
+	history := sessiontree.HistoryFromEntries(loaded.Tree.ActiveBranch())
 	s.active = loaded
 	s.history = history
 	// Successful validation and replacement are the only resume path that restores mutation access.
@@ -349,6 +349,23 @@ func (s *Service) estimatedCost(response model.Response) mo.Option[session.Estim
 	if !usagePresent || !providerPresent || !modelPresent {
 		return mo.None[session.EstimatedCost]()
 	}
+	return s.estimatedUsageCost(providerID, modelID, mo.Some(session.TokenUsage{
+		InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens,
+		CacheReadTokens: usage.CachedInputTokens, CacheWriteTokens: usage.CacheWriteTokens,
+		ReasoningTokens: usage.ReasoningTokens, TotalTokens: usage.TotalTokens,
+	}))
+}
+
+// estimatedUsageCost calculates cost only when normalized usage and configured pricing are available.
+func (s *Service) estimatedUsageCost(
+	providerID model.ProviderID,
+	modelID model.ID,
+	usageOption mo.Option[session.TokenUsage],
+) mo.Option[session.EstimatedCost] {
+	usage, usagePresent := usageOption.Get()
+	if !usagePresent {
+		return mo.None[session.EstimatedCost]()
+	}
 	pricing, pricingPresent := s.pricing.Pricing(providerID, modelID).Get()
 	if !pricingPresent {
 		return mo.None[session.EstimatedCost]()
@@ -357,7 +374,7 @@ func (s *Service) estimatedCost(response model.Response) mo.Option[session.Estim
 		InputTokensAbove: 0,
 		Input:            pricing.Input, Output: pricing.Output, CacheRead: pricing.CacheRead, CacheWrite: pricing.CacheWrite,
 	}
-	requestInput := usage.InputTokens + usage.CachedInputTokens + usage.CacheWriteTokens
+	requestInput := usage.InputTokens + usage.CacheReadTokens + usage.CacheWriteTokens
 	for tierIndex := range pricing.Tiers {
 		if requestInput > pricing.Tiers[tierIndex].InputTokensAbove {
 			rates = pricing.Tiers[tierIndex]
@@ -367,7 +384,7 @@ func (s *Service) estimatedCost(response model.Response) mo.Option[session.Estim
 	cost := session.EstimatedCost{
 		Input:      float64(usage.InputTokens) * rates.Input / tokensPerMillion,
 		Output:     float64(usage.OutputTokens) * rates.Output / tokensPerMillion,
-		CacheRead:  float64(usage.CachedInputTokens) * rates.CacheRead / tokensPerMillion,
+		CacheRead:  float64(usage.CacheReadTokens) * rates.CacheRead / tokensPerMillion,
 		CacheWrite: float64(usage.CacheWriteTokens) * rates.CacheWrite / tokensPerMillion,
 		Total:      0,
 	}

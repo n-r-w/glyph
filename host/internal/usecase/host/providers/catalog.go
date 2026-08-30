@@ -14,6 +14,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -94,7 +95,10 @@ type Catalog struct {
 
 var _ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
 var _ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
-var _ hostsessions.PricingCatalog = (*Catalog)(nil)
+var (
+	_ hostsessions.PricingCatalog = (*Catalog)(nil)
+	_ sessiontree.ModelCompleter  = (*Catalog)(nil)
+)
 
 var (
 	_ agentrun.ModelRuntime = (*Catalog)(nil)

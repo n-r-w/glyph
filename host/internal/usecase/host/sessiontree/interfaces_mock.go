@@ -13,8 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
-	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,18 +44,18 @@ func (m *MockActiveSession) EXPECT() *MockActiveSessionMockRecorder {
 }
 
 // CommitNavigation mocks base method.
-func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1, arg2 mo.Option[string]) (session.Tree, error) {
+func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1 CommitCommand) (session.Tree, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitNavigation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CommitNavigation", arg0, arg1)
 	ret0, _ := ret[0].(session.Tree)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CommitNavigation indicates an expected call of CommitNavigation.
-func (mr *MockActiveSessionMockRecorder) CommitNavigation(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockActiveSessionMockRecorder) CommitNavigation(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitNavigation", reflect.TypeOf((*MockActiveSession)(nil).CommitNavigation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitNavigation", reflect.TypeOf((*MockActiveSession)(nil).CommitNavigation), arg0, arg1)
 }
 
 // Tree mocks base method.
@@ -69,4 +70,57 @@ func (m *MockActiveSession) Tree() session.Tree {
 func (mr *MockActiveSessionMockRecorder) Tree() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockActiveSession)(nil).Tree))
+}
+
+// MockModelCompleter is a mock of ModelCompleter interface.
+type MockModelCompleter struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelCompleterMockRecorder
+	isgomock struct{}
+}
+
+// MockModelCompleterMockRecorder is the mock recorder for MockModelCompleter.
+type MockModelCompleterMockRecorder struct {
+	mock *MockModelCompleter
+}
+
+// NewMockModelCompleter creates a new mock instance.
+func NewMockModelCompleter(ctrl *gomock.Controller) *MockModelCompleter {
+	mock := &MockModelCompleter{ctrl: ctrl}
+	mock.recorder = &MockModelCompleterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelCompleter) EXPECT() *MockModelCompleterMockRecorder {
+	return m.recorder
+}
+
+// CompleteConfigured mocks base method.
+func (m *MockModelCompleter) CompleteConfigured(arg0 context.Context, arg1 model.Selection, arg2 string, arg3 []agent.HistoryEntry) (model.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompleteConfigured", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(model.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompleteConfigured indicates an expected call of CompleteConfigured.
+func (mr *MockModelCompleterMockRecorder) CompleteConfigured(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteConfigured", reflect.TypeOf((*MockModelCompleter)(nil).CompleteConfigured), arg0, arg1, arg2, arg3)
+}
+
+// Selection mocks base method.
+func (m *MockModelCompleter) Selection() model.Selection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Selection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// Selection indicates an expected call of Selection.
+func (mr *MockModelCompleterMockRecorder) Selection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCompleter)(nil).Selection))
 }

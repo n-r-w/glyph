@@ -126,6 +126,7 @@ func runUIWithPaths(
 		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
 	}
 	sessionServices.pricing.Bind(providerCatalog)
+	sessionServices.models.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,

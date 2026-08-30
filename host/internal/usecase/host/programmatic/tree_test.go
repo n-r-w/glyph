@@ -57,7 +57,7 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	committed := sessionnavigation.Result{
 		Tree: tree, ActiveLeafID: mo.Some("root"), ActiveBranch: tree.ActiveBranch(), NextInput: mo.Some("exact input"),
 	}
-	control.EXPECT().Navigate(gomock.Any(), "user").Return(committed, nil)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(committed, nil)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
@@ -85,7 +85,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	control.EXPECT().Navigate(gomock.Any(), "user").Return(sessionnavigation.Result{}, context.Canceled)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, context.Canceled)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 	command := treeCommand("canceled", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
@@ -110,11 +110,15 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 		target        mo.Option[string]
 		navigationErr error
 		expected      controller.RejectionCode
+		summaryMode   controller.SummaryMode
 	}{
-		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: controller.RejectionInvalidArgument},
-		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: controller.RejectionNotFound},
-		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: controller.RejectionBusy},
-		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: controller.RejectionPersistenceUnavailable},
+		{name: "invalid", target: mo.None[string](), navigationErr: nil, expected: controller.RejectionInvalidArgument, summaryMode: controller.SummaryModeNoSummary},
+		{name: "missing", target: mo.Some("target"), navigationErr: session.ErrEntryNotFound, expected: controller.RejectionNotFound, summaryMode: controller.SummaryModeNoSummary},
+		{name: "busy", target: mo.Some("target"), navigationErr: session.ErrBusy, expected: controller.RejectionBusy, summaryMode: controller.SummaryModeNoSummary},
+		{name: "model unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelUnavailable, expected: controller.RejectionModelUnavailable, summaryMode: controller.SummaryModeSummarize},
+		{name: "credential unavailable", target: mo.Some("target"), navigationErr: sessionnavigation.ErrCredentialUnavailable, expected: controller.RejectionCredentialUnavailable, summaryMode: controller.SummaryModeSummarize},
+		{name: "model failed", target: mo.Some("target"), navigationErr: sessionnavigation.ErrModelFailed, expected: controller.RejectionModelFailed, summaryMode: controller.SummaryModeSummarize},
+		{name: "persistence", target: mo.Some("target"), navigationErr: session.ErrPersistenceUnavailable, expected: controller.RejectionPersistenceUnavailable, summaryMode: controller.SummaryModeNoSummary},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -125,12 +129,13 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
-			if target, present := test.target.Get(); present {
-				control.EXPECT().Navigate(gomock.Any(), target).Return(sessionnavigation.Result{}, test.navigationErr)
+			if _, present := test.target.Get(); present {
+				control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, test.navigationErr)
 			}
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = test.target
+			command.SummaryMode = test.summaryMode
 
 			// Act by requesting the failing navigation.
 			response, operation, err := service.Handle(t.Context(), command)

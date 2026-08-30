@@ -13,7 +13,7 @@ import (
 type Service struct {
 	// active performs storage work and commits the replacement snapshot.
 	active ActiveSessions
-	// navigator commits internal no-summary tree navigation.
+	// navigator commits internal tree navigation and optional built-in summaries.
 	navigator Navigator
 	// gate is shared with agent execution and is held through active mutation.
 	gate OperationGate
@@ -51,15 +51,15 @@ func (s *Service) Resume(ctx context.Context, id session.ID) (session.Replacemen
 	return s.active.ResumeActive(ctx, id)
 }
 
-// Navigate commits one no-summary tree navigation while holding the operation gate.
-func (s *Service) Navigate(ctx context.Context, targetID string) (sessionnavigation.Result, error) {
+// Navigate commits one tree navigation while holding the operation gate.
+func (s *Service) Navigate(ctx context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
 	release, acquired := s.gate.TryAcquire()
 	if !acquired {
 		return sessionnavigation.Result{}, session.ErrBusy
 	}
 	// Navigation owns the gate until every preparation and commit terminal path returns.
 	defer release()
-	return s.navigator.NavigateTree(ctx, targetID)
+	return s.navigator.NavigateTree(ctx, request)
 }
 
 // SetName updates the active session without replacing it.

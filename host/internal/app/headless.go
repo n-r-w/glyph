@@ -65,6 +65,7 @@ func runHeadlessWithPaths(
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	sessionServices.pricing.Bind(providerCatalog)
+	sessionServices.models.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, tools, dispatcher, sessionServices.active,

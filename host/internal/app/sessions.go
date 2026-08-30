@@ -8,6 +8,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence/sessionfilesystem"
@@ -30,6 +31,43 @@ type sessionComposition struct {
 	gate *operationgate.Service
 	// pricing binds the provider catalog after storage initialization and before client execution.
 	pricing *pricingCatalogBinding
+	// models binds configured-model execution after provider construction.
+	models *modelCatalogBinding
+}
+
+// modelCatalogBinding preserves storage-first startup while binding configured-model execution once.
+type modelCatalogBinding struct {
+	// catalog is the provider catalog bound after storage initialization.
+	catalog *providers.Catalog
+}
+
+// Bind completes model execution assembly before client commands start.
+func (b *modelCatalogBinding) Bind(catalog *providers.Catalog) {
+	if b.catalog != nil || catalog == nil {
+		panic("model catalog binding must be completed exactly once")
+	}
+	b.catalog = catalog
+}
+
+// Selection returns the active configured model snapshot.
+func (b *modelCatalogBinding) Selection() model.Selection {
+	if b.catalog == nil {
+		panic("model catalog selection before application assembly")
+	}
+	return b.catalog.Selection()
+}
+
+// CompleteConfigured executes one configured model without active-selection mutation.
+func (b *modelCatalogBinding) CompleteConfigured(
+	ctx context.Context,
+	selection model.Selection,
+	instructions string,
+	history []agent.HistoryEntry,
+) (model.Response, error) {
+	if b.catalog == nil {
+		panic("configured completion before application assembly")
+	}
+	return b.catalog.CompleteConfigured(ctx, selection, instructions, history)
 }
 
 // pricingCatalogBinding preserves storage-first startup while binding the UI-dependent provider catalog once.
@@ -38,7 +76,10 @@ type pricingCatalogBinding struct {
 	catalog *providers.Catalog
 }
 
-var _ hostsessions.PricingCatalog = (*pricingCatalogBinding)(nil)
+var (
+	_ sessiontree.ModelCompleter  = (*modelCatalogBinding)(nil)
+	_ hostsessions.PricingCatalog = (*pricingCatalogBinding)(nil)
+)
 
 // Bind completes application assembly before Agent Core or any client can append a model response.
 func (b *pricingCatalogBinding) Bind(catalog *providers.Catalog) {
@@ -70,6 +111,7 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 		filepath.Join(paths.Directory, "sessions"), canonical, sessionfilesystem.New(),
 	)
 	pricing := &pricingCatalogBinding{catalog: nil}
+	models := &modelCatalogBinding{catalog: nil}
 	active := hostsessions.New(
 		repository, sessionruntime.CryptoIDGenerator{}, sessionruntime.SystemClock{}, pricing, canonical,
 	)
@@ -79,8 +121,9 @@ func newSessionComposition(ctx context.Context, paths persistence.Paths) (sessio
 	gate := operationgate.New()
 	return sessionComposition{
 		active:  active,
-		control: sessioncontrol.New(active, sessiontree.New(active), gate),
+		control: sessioncontrol.New(active, sessiontree.New(active, models), gate),
 		gate:    gate,
 		pricing: pricing,
+		models:  models,
 	}, nil
 }

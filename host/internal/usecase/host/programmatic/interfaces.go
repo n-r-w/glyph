@@ -36,8 +36,8 @@ type SessionControl interface {
 	Statistics() session.Statistics
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
-	// Navigate commits one no-summary tree navigation.
-	Navigate(context.Context, string) (sessionnavigation.Result, error)
+	// Navigate commits one tree navigation with optional built-in summarization.
+	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
 }
 
 // SelectionCode identifies a model catalog selection failure.

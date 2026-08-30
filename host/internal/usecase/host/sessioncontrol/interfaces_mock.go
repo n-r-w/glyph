@@ -197,7 +197,7 @@ func (m *MockNavigator) EXPECT() *MockNavigatorMockRecorder {
 }
 
 // NavigateTree mocks base method.
-func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 string) (sessionnavigation.Result, error) {
+func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 sessionnavigation.Request) (sessionnavigation.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NavigateTree", arg0, arg1)
 	ret0, _ := ret[0].(sessionnavigation.Result)

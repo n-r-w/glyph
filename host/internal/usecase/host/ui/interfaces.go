@@ -63,8 +63,8 @@ type SessionControl interface {
 	Information() session.InformationSnapshot
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
-	// Navigate commits one no-summary tree navigation.
-	Navigate(context.Context, string) (sessionnavigation.Result, error)
+	// Navigate commits one tree navigation with optional built-in summarization.
+	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
 }
 
 // Authenticator keeps credential interpretation and refresh inside the provider.

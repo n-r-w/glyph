@@ -32,10 +32,10 @@ type ActiveSessions interface {
 	ActiveInformation() session.InformationSnapshot
 }
 
-// Navigator performs one internal no-summary tree navigation.
+// Navigator performs one internal tree navigation with optional built-in summarization.
 type Navigator interface {
-	// NavigateTree commits the destination selected by one target entry.
-	NavigateTree(context.Context, string) (sessionnavigation.Result, error)
+	// NavigateTree commits the destination and optional branch summary for one request.
+	NavigateTree(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
 }
 
 // OperationGate reserves active-session mutation against agent execution.

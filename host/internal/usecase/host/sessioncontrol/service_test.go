@@ -1,6 +1,7 @@
 package sessioncontrol
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestNavigateReturnsBusyWithoutReadingNavigator(t *testing.T) {
 	service := New(active, navigator, gate)
 
 	// Act by requesting navigation while another operation owns the gate.
-	_, err := service.Navigate(t.Context(), "target")
+	_, err := service.Navigate(t.Context(), testNavigationRequest())
 
 	// Assert busy is returned before the navigator can read or mutate session state.
 	require.ErrorIs(t, err, session.ErrBusy)
@@ -74,8 +75,8 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 			released := false
 			gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
 			active := NewMockActiveSessions(controller)
-			navigator.EXPECT().NavigateTree(gomock.Any(), "target").DoAndReturn(
-				func(_ any, _ string) (sessionnavigation.Result, error) {
+			navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest()).DoAndReturn(
+				func(_ context.Context, _ sessionnavigation.Request) (sessionnavigation.Result, error) {
 					require.False(t, released)
 					return sessionnavigation.Result{
 						Tree: session.Tree{}, ActiveLeafID: mo.Some("destination"),
@@ -86,7 +87,7 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 			service := New(active, navigator, gate)
 
 			// Act through the facade.
-			_, err := service.Navigate(t.Context(), "target")
+			_, err := service.Navigate(t.Context(), testNavigationRequest())
 
 			// Assert the terminal result is preserved and cleanup always releases the gate.
 			if test.navigationErr == nil {
@@ -112,19 +113,27 @@ func TestNavigateReturnsCommittedSnapshots(t *testing.T) {
 	require.NoError(t, err)
 	branch := []session.Entry{}
 	gate.EXPECT().TryAcquire().Return(func() {}, true)
-	navigator.EXPECT().NavigateTree(gomock.Any(), "target").Return(sessionnavigation.Result{
+	navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest()).Return(sessionnavigation.Result{
 		Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: branch, NextInput: mo.Some("exact input"),
 	}, nil)
 	service := New(active, navigator, gate)
 
 	// Act through the client-facing facade.
-	result, err := service.Navigate(t.Context(), "target")
+	result, err := service.Navigate(t.Context(), testNavigationRequest())
 
 	// Assert committed snapshots and exact next input are returned together.
 	require.NoError(t, err)
 	assert.Equal(t, tree, result.Tree)
 	assert.Equal(t, branch, result.ActiveBranch)
 	assert.Equal(t, mo.Some("exact input"), result.NextInput)
+}
+
+// testNavigationRequest creates the no-summary request used by session-control tests.
+func testNavigationRequest() sessionnavigation.Request {
+	return sessionnavigation.Request{
+		TargetEntryID: "target", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+		CustomFocus: mo.None[string](),
+	}
 }
 
 // TestResumeHoldsGateThroughActiveReplacement verifies resume releases the gate only after active replacement returns.

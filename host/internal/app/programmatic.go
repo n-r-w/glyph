@@ -90,6 +90,7 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	sessionServices.pricing.Bind(providerCatalog)
+	sessionServices.models.Bind(providerCatalog)
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(

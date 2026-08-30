@@ -7,7 +7,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// Result contains committed no-summary navigation state.
+// Result contains committed navigation state with an optional created branch summary in the tree.
 type Result struct {
 	// Tree is the complete committed active-session tree.
 	Tree session.Tree

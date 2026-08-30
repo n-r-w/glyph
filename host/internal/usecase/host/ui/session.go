@@ -11,6 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // operationKind identifies the single active asynchronous Host operation.
@@ -339,35 +340,49 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 	}
 }
 
-// navigateSessionTree commits no-summary navigation or sends one closed terminal result.
+// navigateSessionTree commits requested navigation or sends one closed terminal result.
 func (s *Session) navigateSessionTree(ctx context.Context, command domainui.Command) error {
 	targetID, present := command.TargetEntryID.Get()
-	customFocus := command.CustomFocus.OrEmpty()
-	invalidFocus := command.SummaryMode == domainui.SummaryModeSummarizeWithCustomPrompt && customFocus == "" ||
-		command.SummaryMode != domainui.SummaryModeSummarizeWithCustomPrompt && customFocus != ""
-	if !present || targetID == "" || invalidFocus || command.SummaryMode != domainui.SummaryModeNoSummary {
+	mode, validMode := summaryModeFromUI(command.SummaryMode)
+	customFocus := strings.TrimSpace(command.CustomFocus.OrEmpty())
+	invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && customFocus == "" ||
+		mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && customFocus != ""
+	if !present || targetID == "" || invalidFocus || !validMode {
 		return s.channel.Send(treeFailureFrame(domainui.TreeFailureInvalidArgument, "invalid tree navigation command"))
 	}
-	result, err := s.sessionControl.Navigate(ctx, targetID)
+	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
+		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
+	})
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-			return s.channel.Send(canceledNavigationFrame())
-		case errors.Is(err, session.ErrBusy):
-			return s.channel.Send(treeFailureFrame(domainui.TreeFailureBusy, "another operation is active"))
-		case errors.Is(err, session.ErrEntryNotFound):
-			return s.channel.Send(treeFailureFrame(domainui.TreeFailureNotFound, "session tree entry was not found"))
-		case errors.Is(err, session.ErrPersistenceUnavailable):
-			return s.channel.Send(treeFailureFrame(domainui.TreeFailurePersistenceUnavailable, err.Error()))
-		default:
-			return s.channel.Send(treeFailureFrame(domainui.TreeFailureInternal, fmt.Sprintf("tree navigation failed: %v", err)))
-		}
+		return s.channel.Send(navigationFailureFrame(err))
 	}
 	frame, mapErr := navigationFrame(result)
 	if mapErr != nil {
 		return s.channel.Send(treeFailureFrame(domainui.TreeFailureInternal, mapErr.Error()))
 	}
 	return s.channel.Send(frame)
+}
+
+// navigationFailureFrame maps one navigation error to the closed UI result contract.
+func navigationFailureFrame(err error) domainui.Frame {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return canceledNavigationFrame()
+	case errors.Is(err, session.ErrBusy):
+		return treeFailureFrame(domainui.TreeFailureBusy, "another operation is active")
+	case errors.Is(err, session.ErrEntryNotFound):
+		return treeFailureFrame(domainui.TreeFailureNotFound, "session tree entry was not found")
+	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
+		return treeFailureFrame(domainui.TreeFailureModelUnavailable, err.Error())
+	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
+		return treeFailureFrame(domainui.TreeFailureCredentialUnavailable, err.Error())
+	case errors.Is(err, sessionnavigation.ErrModelFailed):
+		return treeFailureFrame(domainui.TreeFailureModelFailed, err.Error())
+	case errors.Is(err, session.ErrPersistenceUnavailable):
+		return treeFailureFrame(domainui.TreeFailurePersistenceUnavailable, err.Error())
+	default:
+		return treeFailureFrame(domainui.TreeFailureInternal, fmt.Sprintf("tree navigation failed: %v", err))
+	}
 }
 
 // applySelectionCommand commits one model or reasoning selection without changing run state.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -14,6 +15,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // ErrCorrelationRequired reports a command that cannot receive a correlated response.
@@ -317,16 +319,22 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 	return sessionInfoResponse(command.CorrelationID, info)
 }
 
-// navigateSessionTree commits no-summary navigation or returns one classified terminal result.
+// navigateSessionTree commits requested navigation or returns one classified terminal result.
 func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) controller.Response {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required")
 	}
-	if command.SummaryMode != controller.SummaryModeNoSummary {
-		return s.rejection(command, controller.RejectionInvalidArgument, "summary mode is not available")
+	mode, validMode := summaryModeFromProgrammatic(command.SummaryMode)
+	focus := strings.TrimSpace(command.CustomFocus.OrEmpty())
+	invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
+		mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus != ""
+	if !validMode || invalidFocus {
+		return s.rejection(command, controller.RejectionInvalidArgument, "invalid summary mode or custom focus")
 	}
-	result, err := s.sessionControl.Navigate(ctx, targetID)
+	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
+		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
+	})
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
@@ -368,6 +376,12 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
 	case errors.Is(err, session.ErrEntryNotFound):
 		return s.rejection(command, controller.RejectionNotFound, "session tree entry was not found")
+	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
+		return s.rejection(command, controller.RejectionModelUnavailable, err.Error())
+	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
+		return s.rejection(command, controller.RejectionCredentialUnavailable, err.Error())
+	case errors.Is(err, sessionnavigation.ErrModelFailed):
+		return s.rejection(command, controller.RejectionModelFailed, err.Error())
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return s.rejection(command, controller.RejectionPersistenceUnavailable, err.Error())
 	case errors.Is(err, session.ErrUnavailable):

@@ -169,7 +169,7 @@ func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
 }
 
 // Navigate mocks base method.
-func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 string) (sessionnavigation.Result, error) {
+func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 sessionnavigation.Request) (sessionnavigation.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Navigate", arg0, arg1)
 	ret0, _ := ret[0].(sessionnavigation.Result)
