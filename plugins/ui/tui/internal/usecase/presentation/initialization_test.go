@@ -107,6 +107,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -132,6 +133,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	state = service.Apply(state, testToolOutputEvent(presentationdomain.OutputStdout, "content"))
 	state = service.Apply(state, testToolOutputEvent(presentationdomain.OutputStderr, "warning"))
@@ -164,6 +166,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 	state = service.Apply(state, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -193,6 +196,7 @@ func TestServiceAppliesInitializationAndLifecycleWithoutOwningHostState(t *testi
 		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 
 	assert.Equal(t, []presentationdomain.Line{

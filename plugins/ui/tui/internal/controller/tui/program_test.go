@@ -64,6 +64,7 @@ func TestFactoryEmitsSubmittedTerminalInput(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		}, command)
 	case <-t.Context().Done():
 		t.Fatal("Bubble Tea did not emit submitted input")

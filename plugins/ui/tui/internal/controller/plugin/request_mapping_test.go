@@ -193,6 +193,7 @@ func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 
 	require.Error(t, err)
@@ -206,6 +207,7 @@ func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 	require.NoError(t, err)
 	assert.True(t, response.GetSubmit().HasText())

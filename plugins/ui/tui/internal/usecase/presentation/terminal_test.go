@@ -46,6 +46,7 @@ func TestServiceAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 
 	// Assert the tool is finalized once with status and result content.
@@ -176,6 +177,7 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 				SessionInfo](),
 			Sessions:          nil,
 			SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 		},
 		{
 			RestoredTranscript:   nil,
@@ -202,6 +204,7 @@ func TestServiceRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 				SessionInfo](),
 			Sessions:          nil,
 			SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 		},
 	} {
 		state = service.Apply(state, event)

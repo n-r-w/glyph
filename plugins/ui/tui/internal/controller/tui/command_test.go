@@ -76,6 +76,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandRetryAuthentication,
@@ -85,6 +86,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:       presentationdomain.CommandQuit,
@@ -95,6 +97,7 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 	}, commands)
 }

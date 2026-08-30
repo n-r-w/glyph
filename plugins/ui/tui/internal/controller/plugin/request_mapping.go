@@ -20,6 +20,9 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 	if lifecycle := request.GetLifecycle(); lifecycle != nil {
 		return mapLifecycle(lifecycle)
 	}
+	if event, handled, err := mapTreeRequest(request); handled {
+		return event, err
+	}
 	if event, handled, err := mapSessionRequest(request); handled {
 		return event, err
 	}
@@ -61,6 +64,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 		}, nil
 	}
 	if changed := request.GetModelSelectionChanged(); changed != nil {
@@ -92,6 +96,7 @@ func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 		}, nil
 	}
 	return presentationdomain.Event{}, errors.New("frame content is missing")
@@ -140,6 +145,7 @@ func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, 
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, true, nil
 }
 

@@ -165,6 +165,7 @@ func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing
 				Failure:              mo.None[bool](),
 				ToolCall:             mo.None[presentationdomain.ToolCallState](),
 				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 			}, initial)
 			return program
 		},
@@ -301,6 +302,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
@@ -314,6 +316,7 @@ func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
 		ModelID:         mo.None[string](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())

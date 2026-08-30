@@ -60,6 +60,7 @@ func newSelectionTestModel(t *testing.T, availability presentationdomain.Availab
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, service.Apply, emit)
 	model.state.Transcript = []presentationdomain.Line{{
 		Kind:     presentationdomain.LineModel,
@@ -133,6 +134,7 @@ func newTestModel(t testing.TB, availability presentationdomain.Availability, em
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, service.Apply, emit)
 }
 

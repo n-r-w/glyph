@@ -177,6 +177,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 			},
 		},
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 	assert.True(t, model.selectorOpen)
 	assert.True(t, model.sessionSelector)
@@ -226,6 +227,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 	assert.True(t, model.selectorOpen)
 	assert.True(t, model.sessionSelector)
@@ -265,6 +267,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.Some(model.state.Sessions[1].Info), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 	assert.False(t, model.selectorOpen)
 	assert.False(t, model.sessionSelector)

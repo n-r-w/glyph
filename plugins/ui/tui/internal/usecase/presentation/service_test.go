@@ -22,6 +22,7 @@ func testPresentationEvent(
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -42,6 +43,7 @@ func testModelDeltaEvent(
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -58,6 +60,7 @@ func testModelEndEvent(contents ...presentationdomain.ModelResponseContent) pres
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -74,6 +77,7 @@ func testToolOutputEvent(stream presentationdomain.OutputStream, text string) pr
 		ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo:    mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -94,6 +98,7 @@ func testInitializationEvent(
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -110,6 +115,7 @@ func testToolEndedEvent(toolName, status string, failure bool) presentationdomai
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -126,6 +132,7 @@ func testFailureEvent(kind presentationdomain.EventKind, errorText string) prese
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -145,6 +152,7 @@ func testAvailabilityEvent(
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
 		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 
@@ -163,6 +171,7 @@ func testSessionEvent(
 		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
 		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](), SessionInfo: info, Sessions: nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	}
 }
 

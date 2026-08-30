@@ -45,6 +45,7 @@ func sessionEvent(
 		SessionInfo:          info,
 		Sessions:             sessions,
 		SessionStatistics:    statistics,
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}
 }
 

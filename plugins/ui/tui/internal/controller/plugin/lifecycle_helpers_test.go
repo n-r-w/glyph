@@ -146,6 +146,7 @@ func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, event)
 }
 

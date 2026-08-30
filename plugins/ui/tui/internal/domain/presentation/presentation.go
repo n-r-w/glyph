@@ -129,6 +129,18 @@ const (
 	EventSessionChanged
 	// EventSessionInformation carries active-session information.
 	EventSessionInformation
+	// EventSessionTree delivers a complete active-session tree snapshot.
+	EventSessionTree
+	// EventSessionTreeNavigation reports committed or canceled tree navigation.
+	EventSessionTreeNavigation
+	// EventSessionTreeFailed reports a rejected tree operation.
+	EventSessionTreeFailed
+	// EventSessionForked confirms a durable replacement-session fork.
+	EventSessionForked
+	// EventSessionCloned confirms a durable replacement-session clone.
+	EventSessionCloned
+	// EventEntryLabelSet confirms one durable label mutation.
+	EventEntryLabelSet
 )
 
 // ModelContentKind identifies one visible model content block.
@@ -333,6 +345,8 @@ type Event struct {
 	Sessions []SessionSummary
 	// SessionStatistics is present only on a session-information event.
 	SessionStatistics mo.Option[SessionStatistics]
+	// TreeEvent contains session-tree interaction data when present.
+	TreeEvent mo.Option[TreeEvent]
 }
 
 // LineKind controls the plain prefix used to render one transcript line.
@@ -463,6 +477,16 @@ const (
 	CommandSetSessionName
 	// CommandGetSessionInfo requests active-session information.
 	CommandGetSessionInfo
+	// CommandGetSessionTree requests the complete active-session tree.
+	CommandGetSessionTree
+	// CommandNavigateSessionTree requests navigation to one selected entry.
+	CommandNavigateSessionTree
+	// CommandForkSession requests a replacement session before one user message.
+	CommandForkSession
+	// CommandCloneSession requests a replacement session from the active branch.
+	CommandCloneSession
+	// CommandSetEntryLabel requests one persistent entry-label mutation.
+	CommandSetEntryLabel
 )
 
 // Command is one user request emitted through the UI stream.
@@ -481,4 +505,6 @@ type Command struct {
 	SessionID mo.Option[string]
 	// SessionName preserves an explicitly empty value for Host validation.
 	SessionName mo.Option[string]
+	// TreeCommand contains session-tree command data when present.
+	TreeCommand mo.Option[TreeCommand]
 }

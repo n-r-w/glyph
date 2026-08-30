@@ -101,6 +101,7 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 
 	value["nested"].([]any)[0].([]byte)[0] = 9
@@ -137,6 +138,7 @@ func TestServicePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	// Assert absence is preserved and nested JSON is independently owned.
 	assert.Equal(t, mo.Some(presentationdomain.ModelContentText), state.ActiveModel[0].Kind)

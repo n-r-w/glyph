@@ -10,16 +10,131 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 const (
+	// tuiTitle is the standard TUI heading.
+	tuiTitle = "Glyph"
+	// statusLabel prefixes the current Host status.
+	statusLabel = "Status: "
+	// statusSeparator separates status fields.
+	statusSeparator = " | "
+	// requestLabel prefixes the main editor.
+	requestLabel = "Request: "
+	// terminalSizeFormat renders terminal dimensions.
+	terminalSizeFormat = "Terminal: %dx%d"
+)
+
+const (
+	// selectionKeysText lists model-selection keys.
+	selectionKeysText = "Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model"
+	// reasoningSelectionKeyText lists the conditional reasoning-selection key.
+	reasoningSelectionKeyText = " | Shift+Tab reasoning"
+	// commonKeysText lists keys that are always available in the editor.
+	commonKeysText = " | Ctrl+T reasoning display | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit"
+)
+
+const (
+	// modelsSelectorTitle labels configured model selection.
+	modelsSelectorTitle = "Models:"
+	// sessionsSelectorTitle labels stored session selection.
+	sessionsSelectorTitle = "Sessions:"
+	// sessionRowFormat renders one stored session row.
+	sessionRowFormat = "%s | %s | %d messages"
+	// sessionStatusLabel prefixes a rejected resume status.
+	sessionStatusLabel = "Session status: "
+	// selectorHelpText lists shared selector controls.
+	selectorHelpText = "Selector: Up/Down navigate | Enter confirm | Escape cancel"
+)
+
+const (
+	// authorizationLabel prefixes a pending authorization URL.
+	authorizationLabel = "Authorization: "
+	// reasoningCollapsedText represents hidden reasoning content.
+	reasoningCollapsedText = "Reasoning: [collapsed]"
+	// toolCallFinalText identifies a finalized tool call.
+	toolCallFinalText = "final"
+	// toolCallProvisionalText identifies a streaming tool call.
+	toolCallProvisionalText = "provisional"
+	// toolCallPrefix identifies a tool call line.
+	toolCallPrefix = "[tool:call] "
+)
+
+const (
+	// informationLinePrefix identifies information lines.
+	informationLinePrefix = "[info]"
+	// errorLinePrefix identifies error lines.
+	errorLinePrefix = "[error]"
+	// warningLinePrefix identifies warning lines.
+	warningLinePrefix = "[warning]"
+	// userLinePrefix identifies user lines.
+	userLinePrefix = "user:"
+	// modelLinePrefix identifies model lines.
+	modelLinePrefix = "assistant:"
+	// refusalLinePrefix identifies refusal lines.
+	refusalLinePrefix = "[refusal]"
+	// reasoningLinePrefix identifies reasoning lines.
+	reasoningLinePrefix = "reasoning:"
+)
+
+const (
+	// toolStatusLinePrefix identifies tool status lines.
+	toolStatusLinePrefix = "[tool:status]"
+	// toolStdoutLinePrefix identifies tool standard output lines.
+	toolStdoutLinePrefix = "[tool:stdout]"
+	// toolStderrLinePrefix identifies tool error output lines.
+	toolStderrLinePrefix = "[tool:stderr]"
+	// toolDoneLinePrefix identifies successful tool completion lines.
+	toolDoneLinePrefix = "[tool:done]"
+	// toolErrorLinePrefix identifies failed tool completion lines.
+	toolErrorLinePrefix = "[tool:error]"
+)
+
+const (
+	// modelUnavailableText identifies an unavailable model selection.
+	modelUnavailableText = "model unavailable"
+	// modelSelectionFormat renders one confirmed model selection.
+	modelSelectionFormat = "%s / %s / %s"
+)
+
+const (
 	// unspecifiedReasoningText identifies an unavailable reasoning choice.
 	unspecifiedReasoningText = "unspecified"
+	// reasoningOffText identifies disabled reasoning.
+	reasoningOffText = "off"
+	// reasoningOnText identifies provider-default reasoning.
+	reasoningOnText = "on"
+	// reasoningMinimalText identifies minimal reasoning.
+	reasoningMinimalText = "minimal"
+	// reasoningLowText identifies low reasoning.
+	reasoningLowText = "low"
+	// reasoningMediumText identifies medium reasoning.
+	reasoningMediumText = "medium"
+	// reasoningHighText identifies high reasoning.
+	reasoningHighText = "high"
+	// reasoningXHighText identifies extra-high reasoning.
+	reasoningXHighText = "xhigh"
+	// reasoningMaxText identifies maximum reasoning.
+	reasoningMaxText = "max"
+)
+
+const (
 	// unavailableStatusText identifies unavailable Host state.
 	unavailableStatusText = "Unavailable"
+	// checkingStatusText identifies authentication-state checking.
+	checkingStatusText = "Checking"
+	// authenticatingStatusText identifies active authentication.
+	authenticatingStatusText = "Authenticating"
+	// authenticationFailedStatusText identifies failed authentication.
+	authenticationFailedStatusText = "Authentication failed"
+	// idleStatusText identifies an idle Host.
+	idleStatusText = "Idle"
+	// runningStatusText identifies a running agent.
+	runningStatusText = "Running"
 )
 
 // View renders the current presentation as plain terminal text.
@@ -27,22 +142,26 @@ func (model Model) View() tea.View {
 	selector := model.visibleSelectorLines()
 	body := model.visibleBodyLines(len(selector))
 	lines := make([]string, 0, fixedViewLineCount+len(body)+len(selector))
-	lines = append(
-		lines,
-		"Glyph",
-		"Status: "+availabilityText(model.state.Availability)+" | "+selectionText(model.state.ModelSelection),
+	status := statusLabel + availabilityText(
+		model.state.Availability,
+	) + statusSeparator + selectionText(
+		model.state.ModelSelection,
 	)
+	if model.treeStatus != "" {
+		status += statusSeparator + model.treeStatus
+	}
+	lines = append(lines, tuiTitle, status)
 	lines = append(lines, body...)
 	lines = append(lines, selector...)
-	selectionKeys := "Keys: Enter submit | Ctrl+L models | Ctrl+P next model | Shift+Ctrl+P previous model"
+	selectionKeys := selectionKeysText
 	if model.reasoningSelectionVisible() {
-		selectionKeys += " | Shift+Tab reasoning"
+		selectionKeys += reasoningSelectionKeyText
 	}
 	lines = append(
 		lines,
-		"Request: "+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
-		fmt.Sprintf("Terminal: %dx%d", model.width, model.height),
-		selectionKeys+" | Ctrl+T reasoning display | Ctrl+C stop | Ctrl+R retry authentication | Ctrl+Q quit",
+		requestLabel+string(model.input[:model.cursor])+"|"+string(model.input[model.cursor:]),
+		fmt.Sprintf(terminalSizeFormat, model.width, model.height),
+		selectionKeys+commonKeysText,
 	)
 
 	view := tea.NewView(strings.Join(lines, "\n"))
@@ -62,10 +181,13 @@ func (model Model) reasoningSelectionVisible() bool {
 
 // visibleSelectorLines renders a bounded window around the highlighted model.
 func (model Model) visibleSelectorLines() []string {
+	if model.treeMode != treeInteractionClosed {
+		return model.treeSelectorLines()
+	}
 	rowCount := len(model.state.Models)
-	title := "Models:"
+	title := modelsSelectorTitle
 	if model.sessionSelector {
-		title = "Sessions:"
+		title = sessionsSelectorTitle
 		rowCount = len(model.state.Sessions)
 	}
 	if !model.selectorOpen || rowCount == 0 {
@@ -84,9 +206,9 @@ func (model Model) visibleSelectorLines() []string {
 	lines := make([]string, 0, selectorFixedLineCount+statusLineCount+capacity)
 	lines = append(lines, title)
 	for index := start; index < start+capacity; index++ {
-		prefix := "  "
+		prefix := inactiveSelectorPrefix
 		if index == model.selectorRow {
-			prefix = "> "
+			prefix = activeSelectorPrefix
 		}
 		if model.sessionSelector {
 			summary := model.state.Sessions[index]
@@ -97,7 +219,7 @@ func (model Model) visibleSelectorLines() []string {
 				label = summary.FirstUserText
 			}
 			row := fmt.Sprintf(
-				"%s | %s | %d messages", label, summary.Info.UpdatedAt.Format(time.RFC3339), summary.TotalMessages,
+				sessionRowFormat, label, summary.Info.UpdatedAt.Format(time.RFC3339), summary.TotalMessages,
 			)
 			lines = append(lines, prefix+ellipsize(row, max(1, model.width-len(prefix))))
 			continue
@@ -106,9 +228,9 @@ func (model Model) visibleSelectorLines() []string {
 		lines = append(lines, prefix+configured.ProviderID+" / "+configured.ModelID)
 	}
 	if statusLineCount > 0 {
-		lines = append(lines, ellipsize("Session status: "+model.resumeStatus, max(1, model.width)))
+		lines = append(lines, ellipsize(sessionStatusLabel+model.resumeStatus, max(1, model.width)))
 	}
-	return append(lines, "Selector: Up/Down navigate | Enter confirm | Escape cancel")
+	return append(lines, selectorHelpText)
 }
 
 // ellipsize keeps selector rows single-line and rune-safe within the available terminal width.
@@ -145,14 +267,11 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	// appendNewestWrapped stores visual lines in reverse order to avoid repeated prepends.
 	lines := make([]string, 0, estimatedLines)
 	if authorizationURL, ok := model.state.AuthorizationURL.Get(); ok {
-		lines = appendNewestWrapped(lines, "Authorization: "+authorizationURL, model.width, capacity)
+		lines = appendNewestWrapped(lines, authorizationLabel+authorizationURL, model.width, capacity)
 	}
 
 	if hasBodyCapacity(lines, capacity) {
-		calls := make([]presentationdomain.ToolCallState, 0, len(model.state.ActiveToolCalls))
-		for _, call := range model.state.ActiveToolCalls {
-			calls = append(calls, call)
-		}
+		calls := lo.Values(model.state.ActiveToolCalls)
 		slices.SortFunc(calls, func(left, right presentationdomain.ToolCallState) int {
 			return cmp.Compare(left.Position, right.Position)
 		})
@@ -162,10 +281,7 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	}
 
 	if hasBodyCapacity(lines, capacity) {
-		positions := make([]int, 0, len(model.state.ActiveModel))
-		for position := range model.state.ActiveModel {
-			positions = append(positions, position)
-		}
+		positions := lo.Keys(model.state.ActiveModel)
 		slices.Sort(positions)
 		for index := len(positions) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
 			content := model.state.ActiveModel[positions[index]]
@@ -182,7 +298,7 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	for index := len(model.state.Transcript) - 1; index >= 0 && hasBodyCapacity(lines, capacity); index-- {
 		line := model.state.Transcript[index]
 		if line.Kind == presentationdomain.LineReasoning && !model.reasoningExpanded {
-			lines = appendNewestWrapped(lines, "Reasoning: [collapsed]", model.width, capacity)
+			lines = appendNewestWrapped(lines, reasoningCollapsedText, model.width, capacity)
 			continue
 		}
 		lines = appendNewestWrapped(lines, renderLine(line), model.width, capacity)
@@ -222,7 +338,7 @@ func renderActiveModelLine(content presentationdomain.ActiveModelContent, reason
 	case presentationdomain.ModelContentText, presentationdomain.ModelContentUnspecified:
 	}
 	if kind == presentationdomain.LineReasoning && !reasoningExpanded {
-		return "Reasoning: [collapsed]"
+		return reasoningCollapsedText
 	}
 	return renderLine(presentationdomain.Line{
 		Kind:     kind,
@@ -243,9 +359,9 @@ func wrappedBodyLines(line string, width int) []string {
 }
 
 func renderToolCall(call presentationdomain.ToolCallState) string {
-	status := "final"
+	status := toolCallFinalText
 	if call.Provisional {
-		status = "provisional"
+		status = toolCallProvisionalText
 	}
 	parts := make([]string, 0, len(call.Fields)+1)
 	for _, field := range call.Fields {
@@ -260,7 +376,7 @@ func renderToolCall(call presentationdomain.ToolCallState) string {
 		arguments, _ := json.Marshal(call.Arguments)
 		parts = []string{string(arguments)}
 	}
-	line := "[tool:call] " + call.Name + " (" + status + ")"
+	line := toolCallPrefix + call.Name + " (" + status + ")"
 	if len(parts) > 0 {
 		line += " " + strings.Join(parts, " ")
 	}
@@ -271,19 +387,19 @@ func renderToolCall(call presentationdomain.ToolCallState) string {
 func linePrefix(kind presentationdomain.LineKind) string {
 	switch kind {
 	case presentationdomain.LineInformation, presentationdomain.LineUnspecified:
-		return "[info]"
+		return informationLinePrefix
 	case presentationdomain.LineError:
-		return "[error]"
+		return errorLinePrefix
 	case presentationdomain.LineWarning:
-		return "[warning]"
+		return warningLinePrefix
 	case presentationdomain.LineUser:
-		return "user:"
+		return userLinePrefix
 	case presentationdomain.LineModel:
-		return "assistant:"
+		return modelLinePrefix
 	case presentationdomain.LineRefusal:
-		return "[refusal]"
+		return refusalLinePrefix
 	case presentationdomain.LineReasoning:
-		return "reasoning:"
+		return reasoningLinePrefix
 	case presentationdomain.LineToolStatus, presentationdomain.LineToolStdout,
 		presentationdomain.LineToolStderr, presentationdomain.LineToolDone,
 		presentationdomain.LineToolError:
@@ -297,15 +413,15 @@ func linePrefix(kind presentationdomain.LineKind) string {
 func toolLinePrefix(kind presentationdomain.LineKind) string {
 	switch kind {
 	case presentationdomain.LineToolStatus:
-		return "[tool:status]"
+		return toolStatusLinePrefix
 	case presentationdomain.LineToolStdout:
-		return "[tool:stdout]"
+		return toolStdoutLinePrefix
 	case presentationdomain.LineToolStderr:
-		return "[tool:stderr]"
+		return toolStderrLinePrefix
 	case presentationdomain.LineToolDone:
-		return "[tool:done]"
+		return toolDoneLinePrefix
 	case presentationdomain.LineToolError:
-		return "[tool:error]"
+		return toolErrorLinePrefix
 	case presentationdomain.LineUnspecified, presentationdomain.LineInformation,
 		presentationdomain.LineError, presentationdomain.LineWarning, presentationdomain.LineUser,
 		presentationdomain.LineModel, presentationdomain.LineRefusal, presentationdomain.LineReasoning:
@@ -336,10 +452,10 @@ func renderLine(line presentationdomain.Line) string {
 func selectionText(selectionOption mo.Option[presentationdomain.ModelSelection]) string {
 	selection, ok := selectionOption.Get()
 	if !ok || selection.ProviderID == "" || selection.ModelID == "" {
-		return "model unavailable"
+		return modelUnavailableText
 	}
 	return fmt.Sprintf(
-		"%s / %s / %s",
+		modelSelectionFormat,
 		selection.ProviderID,
 		selection.ModelID,
 		reasoningText(selection.ReasoningChoice),
@@ -350,21 +466,21 @@ func selectionText(selectionOption mo.Option[presentationdomain.ModelSelection])
 func reasoningText(level presentationdomain.ReasoningChoice) string {
 	switch level {
 	case presentationdomain.ReasoningChoiceOff:
-		return "off"
+		return reasoningOffText
 	case presentationdomain.ReasoningChoiceOn:
-		return "on"
+		return reasoningOnText
 	case presentationdomain.ReasoningChoiceMinimal:
-		return "minimal"
+		return reasoningMinimalText
 	case presentationdomain.ReasoningChoiceLow:
-		return "low"
+		return reasoningLowText
 	case presentationdomain.ReasoningChoiceMedium:
-		return "medium"
+		return reasoningMediumText
 	case presentationdomain.ReasoningChoiceHigh:
-		return "high"
+		return reasoningHighText
 	case presentationdomain.ReasoningChoiceXHigh:
-		return "xhigh"
+		return reasoningXHighText
 	case presentationdomain.ReasoningChoiceMax:
-		return "max"
+		return reasoningMaxText
 	case presentationdomain.ReasoningChoiceUnspecified:
 		return unspecifiedReasoningText
 	default:
@@ -380,15 +496,15 @@ func availabilityText(availabilityOption mo.Option[presentationdomain.Availabili
 	}
 	switch availability {
 	case presentationdomain.AvailabilityChecking:
-		return "Checking"
+		return checkingStatusText
 	case presentationdomain.AvailabilityAuthenticating:
-		return "Authenticating"
+		return authenticatingStatusText
 	case presentationdomain.AvailabilityAuthenticationFailed:
-		return "Authentication failed"
+		return authenticationFailedStatusText
 	case presentationdomain.AvailabilityIdle:
-		return "Idle"
+		return idleStatusText
 	case presentationdomain.AvailabilityRunning:
-		return "Running"
+		return runningStatusText
 	case presentationdomain.AvailabilityUnspecified:
 		return unavailableStatusText
 	default:

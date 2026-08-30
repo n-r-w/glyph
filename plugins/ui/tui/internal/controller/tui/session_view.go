@@ -7,13 +7,56 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-// absentSessionValue marks optional session metadata that has no value.
-const absentSessionValue = "<absent>"
+const (
+	// absentSessionValue marks optional session metadata that has no value.
+	absentSessionValue = "<absent>"
+	// sessionLineSeparator separates session information lines.
+	sessionLineSeparator = "\n"
+	// sessionIDLabel prefixes the session identifier.
+	sessionIDLabel = "Session ID: "
+	// sessionNameLabel prefixes the optional session name.
+	sessionNameLabel = "Name: "
+	// sessionWorkingDirectoryLabel prefixes the working directory.
+	sessionWorkingDirectoryLabel = "Working directory: "
+	// sessionStoragePathLabel prefixes the optional storage path.
+	sessionStoragePathLabel = "Storage path: "
+	// sessionCreatedLabel prefixes the creation time.
+	sessionCreatedLabel = "Created: "
+	// sessionUpdatedLabel prefixes the last update time.
+	sessionUpdatedLabel = "Updated: "
+)
+
+const (
+	// sessionMessagesFormat renders stored message counts.
+	sessionMessagesFormat = "Messages: %d user, %d model, %d tool results, %d total"
+	// sessionToolCallsFormat renders the tool-call count.
+	sessionToolCallsFormat = "Tool calls: %d"
+	// sessionUsageUnavailableText reports absent complete token accounting.
+	sessionUsageUnavailableText = "Tokens: unavailable"
+	// sessionUsageFormat renders complete token accounting.
+	sessionUsageFormat = "Tokens: %d input, %d output, %d cache read, %d cache write, %d total"
+	// sessionReasoningUsageFormat renders the reasoning subset.
+	sessionReasoningUsageFormat = "Reasoning tokens: %d, included in output"
+)
+
+const (
+	// sessionEstimatedCostFormat renders complete aggregate cost.
+	sessionEstimatedCostFormat = "Estimated cost: $%.6f"
+	// sessionEstimatedCostUnavailableText reports absent aggregate cost.
+	sessionEstimatedCostUnavailableText = "Estimated cost: unavailable"
+	// sessionCostBreakdownFormat renders one provider-model cost.
+	sessionCostBreakdownFormat = "%s: $%.6f"
+	// sessionCostUnavailableSuffix reports absent provider-model cost.
+	sessionCostUnavailableSuffix = ": unavailable"
+	// sessionProviderModelSeparator separates provider and model identifiers.
+	sessionProviderModelSeparator = "/"
+)
 
 // emitCommand serializes one UI command without blocking the update loop.
 func (model Model) emitCommand(command presentationdomain.Command) (tea.Model, tea.Cmd) {
@@ -40,6 +83,7 @@ func (model Model) emitSessionCommand(kind presentationdomain.CommandKind, id, n
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.EmptyableToOption(id),
 		SessionName:     mo.EmptyableToOption(name),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	}
 	if kind == presentationdomain.CommandSetSessionName {
 		command.SessionName = mo.Some(name)
@@ -56,18 +100,18 @@ func formatSessionInformation(
 	lines := []string{formatSessionInfo(info)}
 	values, present := statistics.Get()
 	if !present {
-		return strings.Join(lines, "\n")
+		return strings.Join(lines, sessionLineSeparator)
 	}
 	lines = append(lines,
 		fmt.Sprintf(
-			"Messages: %d user, %d model, %d tool results, %d total",
+			sessionMessagesFormat,
 			values.UserMessages, values.ModelResponses, values.ToolResults, values.TotalMessages,
 		),
-		fmt.Sprintf("Tool calls: %d", values.ToolCalls),
+		fmt.Sprintf(sessionToolCallsFormat, values.ToolCalls),
 	)
 	lines = appendSessionTokenLines(lines, values.TokenUsage)
 	lines = appendSessionCostLines(lines, values)
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, sessionLineSeparator)
 }
 
 // appendSessionTokenLines renders token availability without affecting count lines.
@@ -77,15 +121,15 @@ func appendSessionTokenLines(
 ) []string {
 	tokens, available := usage.Get()
 	if !available {
-		return append(lines, "Tokens: unavailable")
+		return append(lines, sessionUsageUnavailableText)
 	}
 	return append(lines,
 		fmt.Sprintf(
-			"Tokens: %d input, %d output, %d cache read, %d cache write, %d total",
+			sessionUsageFormat,
 			tokens.InputTokens, tokens.OutputTokens, tokens.CacheReadTokens,
 			tokens.CacheWriteTokens, tokens.TotalTokens,
 		),
-		fmt.Sprintf("Reasoning tokens: %d, included in output", tokens.ReasoningTokens),
+		fmt.Sprintf(sessionReasoningUsageFormat, tokens.ReasoningTokens),
 	)
 }
 
@@ -95,20 +139,18 @@ func appendSessionCostLines(
 	statistics presentationdomain.SessionStatistics,
 ) []string {
 	if cost, available := statistics.EstimatedCost.Get(); available {
-		lines = append(lines, fmt.Sprintf("Estimated cost: $%.6f", cost.Total))
+		lines = append(lines, fmt.Sprintf(sessionEstimatedCostFormat, cost.Total))
 	} else {
-		lines = append(lines, "Estimated cost: unavailable")
+		lines = append(lines, sessionEstimatedCostUnavailableText)
 	}
-	for groupIndex := range statistics.CostBreakdown {
-		group := &statistics.CostBreakdown[groupIndex]
-		label := group.ProviderID + "/" + group.ModelID
+	costLines := lo.Map(statistics.CostBreakdown, func(group presentationdomain.ProviderModelCost, _ int) string {
+		label := group.ProviderID + sessionProviderModelSeparator + group.ModelID
 		if cost, available := group.EstimatedCost.Get(); available {
-			lines = append(lines, fmt.Sprintf("%s: $%.6f", label, cost.Total))
-		} else {
-			lines = append(lines, label+": unavailable")
+			return fmt.Sprintf(sessionCostBreakdownFormat, label, cost.Total)
 		}
-	}
-	return lines
+		return label + sessionCostUnavailableSuffix
+	})
+	return append(lines, costLines...)
 }
 
 // formatSessionInfo renders lifecycle-only session metadata as safe presentation text.
@@ -122,13 +164,13 @@ func formatSessionInfo(info presentationdomain.SessionInfo) string {
 		storagePath = info.StoragePath
 	}
 	return strings.Join([]string{
-		"Session ID: " + info.ID,
-		"Name: " + name,
-		"Working directory: " + info.WorkingDirectory,
-		"Storage path: " + storagePath,
-		"Created: " + info.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"Updated: " + info.UpdatedAt.UTC().Format(time.RFC3339Nano),
-	}, "\n")
+		sessionIDLabel + info.ID,
+		sessionNameLabel + name,
+		sessionWorkingDirectoryLabel + info.WorkingDirectory,
+		sessionStoragePathLabel + storagePath,
+		sessionCreatedLabel + info.CreatedAt.UTC().Format(time.RFC3339Nano),
+		sessionUpdatedLabel + info.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}, sessionLineSeparator)
 }
 
 // sessionInformationEvent adapts formatted session metadata to a non-session-changing information event.
@@ -157,5 +199,6 @@ func sessionInformationEvent(text string) presentationdomain.Event {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}
 }

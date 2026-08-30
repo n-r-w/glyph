@@ -93,6 +93,7 @@ func modelSelectionCommand(selected presentationdomain.ConfiguredModel) presenta
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	}
 }
 
@@ -105,16 +106,13 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 	if len(configured.Reasoning.Choices) <= 1 {
 		return model, nil
 	}
-	index := 0
 	selection, ok := model.state.ModelSelection.Get()
 	if !ok {
 		return model, nil
 	}
-	for current, level := range configured.Reasoning.Choices {
-		if level == selection.ReasoningChoice {
-			index = (current + 1) % len(configured.Reasoning.Choices)
-			break
-		}
+	index := 0
+	if current := slices.Index(configured.Reasoning.Choices, selection.ReasoningChoice); current >= 0 {
+		index = (current + 1) % len(configured.Reasoning.Choices)
 	}
 	return model.emitCommand(presentationdomain.Command{
 		Kind:            presentationdomain.CommandSelectReasoningChoice,
@@ -124,6 +122,7 @@ func (model Model) cycleReasoning() (tea.Model, tea.Cmd) {
 		ReasoningChoice: mo.Some(configured.Reasoning.Choices[index]),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 }
 

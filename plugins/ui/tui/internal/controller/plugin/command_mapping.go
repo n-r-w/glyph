@@ -10,6 +10,9 @@ import (
 
 // mapCommand validates and projects one presentation command onto the public stream.
 func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
+	if response, handled, err := mapTreeCommand(command); handled {
+		return response, err
+	}
 	if response, handled, err := mapSessionCommand(command); handled {
 		return response, err
 	}
@@ -41,42 +44,49 @@ func mapCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) 
 			Quit: &uiv1.QuitCommand{},
 		}.Build(), nil
 	case presentationdomain.CommandSelectModel:
-		providerID, providerOK := command.ProviderID.Get()
-		modelID, modelOK := command.ModelID.Get()
-		if !providerOK || !modelOK {
-			return nil, errors.New("UI model selection is missing")
-		}
-		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectModel field.
-		return uiv1.OpenResponse_builder{
-			SelectModel: uiv1.SelectModelCommand_builder{
-				ProviderId: new(providerID),
-				ModelId:    new(modelID),
-			}.Build(),
-		}.Build(), nil
+		return mapModelSelectionCommand(command)
 	case presentationdomain.CommandSelectReasoningChoice:
-		reasoningChoice, ok := command.ReasoningChoice.Get()
-		if !ok {
-			return nil, errors.New("UI reasoning choice is missing")
-		}
-		level := mapReasoningChoiceToProto(reasoningChoice)
-		if level == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
-			return nil, errors.New("UI reasoning choice is unspecified")
-		}
-		//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectReasoningChoice field.
-		return uiv1.OpenResponse_builder{
-			SelectReasoningChoice: uiv1.SelectReasoningChoiceCommand_builder{
-				Choice: new(level),
-			}.Build(),
-		}.Build(), nil
+		return mapReasoningSelectionCommand(command)
 	case presentationdomain.CommandCreateSession, presentationdomain.CommandListSessions,
 		presentationdomain.CommandResumeSession, presentationdomain.CommandSetSessionName,
-		presentationdomain.CommandGetSessionInfo:
-		return nil, errors.New("UI session command was not mapped")
+		presentationdomain.CommandGetSessionInfo, presentationdomain.CommandGetSessionTree,
+		presentationdomain.CommandNavigateSessionTree, presentationdomain.CommandForkSession,
+		presentationdomain.CommandCloneSession, presentationdomain.CommandSetEntryLabel:
+		return nil, errors.New("UI command was not mapped")
 	case presentationdomain.CommandUnspecified:
 		return nil, errors.New("UI command is unspecified")
 	default:
 		return nil, fmt.Errorf("unknown UI command %d", command.Kind)
 	}
+}
+
+// mapModelSelectionCommand maps one complete model selection.
+func mapModelSelectionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
+	providerID, providerOK := command.ProviderID.Get()
+	modelID, modelOK := command.ModelID.Get()
+	if !providerOK || !modelOK {
+		return nil, errors.New("UI model selection is missing")
+	}
+	//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectModel field.
+	return uiv1.OpenResponse_builder{
+		SelectModel: uiv1.SelectModelCommand_builder{ProviderId: new(providerID), ModelId: new(modelID)}.Build(),
+	}.Build(), nil
+}
+
+// mapReasoningSelectionCommand maps one complete reasoning selection.
+func mapReasoningSelectionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, error) {
+	reasoningChoice, present := command.ReasoningChoice.Get()
+	if !present {
+		return nil, errors.New("UI reasoning choice is missing")
+	}
+	level := mapReasoningChoiceToProto(reasoningChoice)
+	if level == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
+		return nil, errors.New("UI reasoning choice is unspecified")
+	}
+	//nolint:exhaustruct_v5 // uiv1.OpenResponse_builder sets only the active SelectReasoningChoice field.
+	return uiv1.OpenResponse_builder{
+		SelectReasoningChoice: uiv1.SelectReasoningChoiceCommand_builder{Choice: new(level)}.Build(),
+	}.Build(), nil
 }
 
 // mapSessionCommand preserves lifecycle argument presence in the protobuf oneof.
@@ -114,7 +124,10 @@ func mapSessionCommand(command presentationdomain.Command) (*uiv1.OpenResponse, 
 	case presentationdomain.CommandUnspecified, presentationdomain.CommandSubmit,
 		presentationdomain.CommandStop, presentationdomain.CommandRetryAuthentication,
 		presentationdomain.CommandQuit, presentationdomain.CommandSelectModel,
-		presentationdomain.CommandSelectReasoningChoice:
+		presentationdomain.CommandSelectReasoningChoice,
+		presentationdomain.CommandGetSessionTree, presentationdomain.CommandNavigateSessionTree,
+		presentationdomain.CommandForkSession, presentationdomain.CommandCloneSession,
+		presentationdomain.CommandSetEntryLabel:
 		return nil, false, nil
 	default:
 		return nil, false, nil

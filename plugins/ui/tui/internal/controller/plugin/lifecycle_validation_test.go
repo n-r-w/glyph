@@ -40,6 +40,7 @@ func testTextEvent(kind presentationdomain.EventKind, text string) presentationd
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}
 }
 

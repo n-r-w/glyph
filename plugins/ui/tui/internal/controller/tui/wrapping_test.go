@@ -214,6 +214,7 @@ func TestModelKeepsEditorVisibleAndShowsLatestTranscriptWithinTerminalHeight(t *
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 		})
 	}
 	model = updateModel(t, model, tea.WindowSizeMsg{

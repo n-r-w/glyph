@@ -52,6 +52,7 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 
 	// Assert initialization establishes the configured models and selection.
@@ -94,6 +95,7 @@ func TestServiceUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 
 	// Assert host confirmation updates the selected reasoning choice.
@@ -142,6 +144,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
 	// Act by applying final-call and execution-start events.
@@ -176,6 +179,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	// Assert the final call replaces provisional fields before execution starts.
 	require.False(t, state.ActiveToolCalls["call-1"].Provisional)
@@ -203,6 +207,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	require.Contains(t, state.ActiveToolCalls, "call-1")
 	state = service.Apply(state, presentationdomain.Event{
@@ -229,6 +234,7 @@ func TestServiceReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	require.Len(t, state.Transcript, 2)
 	require.Equal(t, mo.Some("{\"path\":\"file.txt\"}"), state.Transcript[0].Text)

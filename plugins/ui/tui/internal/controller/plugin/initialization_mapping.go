@@ -68,6 +68,7 @@ func mapInitialization(initialization *uiv1.Initialization) (presentationdomain.
 		SessionInfo:          mo.Some(sessionInfo),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}
 	return event, nil
 }

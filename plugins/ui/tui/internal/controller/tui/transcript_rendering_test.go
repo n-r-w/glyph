@@ -62,6 +62,7 @@ func TestModelRendersWarningAndExtensionIdentityPath(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 
 	// Act by rendering the initialized model.
@@ -108,6 +109,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, service.Apply, func(presentationdomain.Command) error { return nil })
 	// Act by applying lifecycle updates and resizing the terminal.
 	model = updateModel(t, model, testEvent(testEventPayload{
@@ -193,6 +195,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript:   nil,
@@ -218,6 +221,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	model = updateModel(t, model, presentationdomain.Event{
 		RestoredTranscript: nil,
@@ -246,6 +250,7 @@ func TestModelEndDoesNotRenderDuplicateTextFromDifferentStreamPosition(t *testin
 		SessionInfo:       mo.None[presentationdomain.SessionInfo](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
 	})
 
 	// Assert the model clears active fragments and renders the completed text once.
@@ -307,6 +312,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 
 	view := model.View().Content

@@ -15,10 +15,7 @@ type Factory struct {
 	apply Apply
 }
 
-var (
-	_ plugincontroller.ProgramFactory = (*Factory)(nil)
-	_ plugincontroller.Program        = (*program)(nil)
-)
+var _ plugincontroller.ProgramFactory = (*Factory)(nil)
 
 // NewFactory creates a Bubble Tea program factory.
 func NewFactory(apply Apply) *Factory {
@@ -50,6 +47,8 @@ type program struct {
 	// tea owns the Bubble Tea event loop.
 	tea *tea.Program
 }
+
+var _ plugincontroller.Program = (*program)(nil)
 
 // Send delivers one ordered Host event to the running Bubble Tea program.
 func (program *program) Send(event presentationdomain.Event) {

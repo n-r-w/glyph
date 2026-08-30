@@ -50,7 +50,9 @@ func (state *State) applyLifecycleEvent(event Event) bool {
 	case EventUserSubmitted, EventModelDelta, EventModelEnd, EventToolCallPreview, EventToolCallFinal,
 		EventToolStarted, EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult,
 		EventAuthorization, EventInformation, EventError,
-		EventSessionList, EventSessionChanged, EventSessionInformation:
+		EventSessionList, EventSessionChanged, EventSessionInformation,
+		EventSessionTree, EventSessionTreeNavigation, EventSessionTreeFailed,
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
 		return false
 	}
 	return true
@@ -76,7 +78,9 @@ func (state *State) applyTextEvent(event Event) bool {
 	case EventUnspecified, EventInitialization, EventAvailability, EventTurnStarted,
 		EventModelDelta, EventModelEnd, EventToolCallPreview, EventToolCallFinal,
 		EventToolStarted, EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult, EventTurnEnded,
-		EventAgentSettled, EventModelSelectionChanged, EventSessionList, EventSessionChanged, EventSessionInformation:
+		EventAgentSettled, EventModelSelectionChanged, EventSessionList, EventSessionChanged, EventSessionInformation,
+		EventSessionTree, EventSessionTreeNavigation, EventSessionTreeFailed,
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
 		return false
 	}
 	return true
@@ -96,7 +100,9 @@ func (state *State) applyModelEvent(event Event) bool {
 	case EventUnspecified, EventInitialization, EventUserSubmitted, EventAvailability, EventTurnStarted,
 		EventToolStarted, EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult, EventTurnEnded,
 		EventAgentSettled, EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
-		EventSessionList, EventSessionChanged, EventSessionInformation:
+		EventSessionList, EventSessionChanged, EventSessionInformation,
+		EventSessionTree, EventSessionTreeNavigation, EventSessionTreeFailed,
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
 		return false
 	}
 	return true
@@ -118,7 +124,9 @@ func (state *State) applyToolEvent(event Event) bool {
 	case EventUnspecified, EventInitialization, EventUserSubmitted, EventAvailability, EventTurnStarted,
 		EventModelDelta, EventModelEnd, EventToolCallPreview, EventToolCallFinal, EventTurnEnded,
 		EventAgentSettled, EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
-		EventSessionList, EventSessionChanged, EventSessionInformation:
+		EventSessionList, EventSessionChanged, EventSessionInformation,
+		EventSessionTree, EventSessionTreeNavigation, EventSessionTreeFailed,
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
 		return false
 	}
 	return true
@@ -175,7 +183,9 @@ func (state *State) applySessionEvent(event Event) bool {
 	case EventUnspecified, EventInitialization, EventUserSubmitted, EventAvailability, EventTurnStarted,
 		EventModelDelta, EventModelEnd, EventToolCallPreview, EventToolCallFinal, EventToolStarted,
 		EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult, EventTurnEnded, EventAgentSettled,
-		EventAuthorization, EventInformation, EventError, EventModelSelectionChanged:
+		EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
+		EventSessionTree, EventSessionTreeNavigation, EventSessionTreeFailed,
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
 		return false
 	default:
 		return false

@@ -56,5 +56,6 @@ func testEvent(
 		SessionInfo:          payload.SessionInfo,
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}
 }

@@ -67,6 +67,7 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	}}, commands)
 	assert.Equal(t, "draft", string(model.input))
 	assert.Equal(t, originalTranscript, model.state.Transcript)
@@ -135,6 +136,7 @@ func TestModelSelectorFitsTerminalAndKeepsEveryRowReachable(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	}, service.Apply, nil)
 	model.height = 10
 	model.input = []rune("draft")
@@ -289,6 +291,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandSelectModel,
@@ -298,6 +301,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandSelectReasoningChoice,
@@ -307,6 +311,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 			ModelID:         mo.None[string](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 	}, commands)
 	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
@@ -339,6 +344,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / low")
 	model = updateModel(t, model, presentationdomain.Event{
@@ -369,6 +375,7 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 		Sessions:             nil,
 		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 	})
 	assert.Contains(t, model.View().Content, "openai-codex / gpt / high")
 }

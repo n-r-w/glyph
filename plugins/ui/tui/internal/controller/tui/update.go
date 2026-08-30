@@ -10,6 +10,41 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+const (
+	// slashCommandPrefix starts every slash command.
+	slashCommandPrefix = "/"
+	// slashCommandArgumentSeparator separates a command from its argument.
+	slashCommandArgumentSeparator = " "
+	// slashCommandValuePlaceholder describes one required command value.
+	slashCommandValuePlaceholder = "<value>"
+	// slashCommandNameUsage describes the name command argument.
+	slashCommandNameUsage = "Usage: " + slashCommandName + slashCommandArgumentSeparator + slashCommandValuePlaceholder
+)
+
+const (
+	// commandSendFailurePrefix prefixes a UI stream send failure.
+	commandSendFailurePrefix = "Could not send command: "
+)
+
+const (
+	// slashCommandModel opens configured model selection.
+	slashCommandModel = "/model"
+	// slashCommandNew creates a new session.
+	slashCommandNew = "/new"
+	// slashCommandResume opens stored session selection.
+	slashCommandResume = "/resume"
+	// slashCommandSession shows active session information.
+	slashCommandSession = "/session"
+	// slashCommandTree opens active session tree navigation.
+	slashCommandTree = "/tree"
+	// slashCommandFork opens user-message fork selection.
+	slashCommandFork = "/fork"
+	// slashCommandClone clones the active branch.
+	slashCommandClone = "/clone"
+	// slashCommandName reads or changes the active session name.
+	slashCommandName = "/name"
+)
+
 // Update applies one Bubble Tea message.
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
@@ -34,6 +69,9 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 		event.Kind == presentationdomain.EventInformation
 	if !preserveRejectedResume {
 		model.state = model.apply(model.state, event)
+	}
+	if treeEvent, present := event.TreeEvent.Get(); present {
+		model = model.applyTreeEvent(event.Kind, treeEvent)
 	}
 	switch event.Kind {
 	case presentationdomain.EventSessionList:
@@ -75,7 +113,10 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 		presentationdomain.EventToolEnded, presentationdomain.EventToolResult,
 		presentationdomain.EventTurnEnded, presentationdomain.EventAgentSettled,
 		presentationdomain.EventAuthorization, presentationdomain.EventError,
-		presentationdomain.EventModelSelectionChanged:
+		presentationdomain.EventModelSelectionChanged,
+		presentationdomain.EventSessionTree, presentationdomain.EventSessionTreeNavigation,
+		presentationdomain.EventSessionTreeFailed, presentationdomain.EventSessionForked,
+		presentationdomain.EventSessionCloned, presentationdomain.EventEntryLabelSet:
 	}
 	return model
 }
@@ -84,6 +125,12 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, tea.Cmd) {
 	model.emitting = false
 	if message.err != nil {
+		if message.command.TreeCommand.IsSome() {
+			model.treeAwaiting = presentationdomain.CommandUnspecified
+			model.treeRequest = mo.None[presentationdomain.TreePurpose]()
+			model.treeStatus = commandSendFailurePrefix + message.err.Error()
+			return model, nil
+		}
 		model.state = model.apply(model.state, presentationdomain.Event{
 			RestoredTranscript:   nil,
 			Kind:                 presentationdomain.EventError,
@@ -97,7 +144,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			ToolName:             mo.None[string](),
 			Status:               mo.None[string](),
 			Stream:               mo.None[presentationdomain.OutputStream](),
-			Text:                 mo.Some("Could not send command: " + message.err.Error()),
+			Text:                 mo.Some(commandSendFailurePrefix + message.err.Error()),
 			Contents:             mo.None[[]presentationdomain.Content](),
 			ErrorText:            mo.None[string](),
 			ExitCode:             mo.None[int](),
@@ -108,6 +155,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 		})
 		return model, nil
 	}
@@ -141,6 +189,7 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
 			Sessions:             nil,
 			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
+			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
 		})
 		model.input = nil
 		model.cursor = 0
@@ -155,7 +204,12 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 		presentationdomain.CommandListSessions,
 		presentationdomain.CommandResumeSession,
 		presentationdomain.CommandSetSessionName,
-		presentationdomain.CommandGetSessionInfo:
+		presentationdomain.CommandGetSessionInfo,
+		presentationdomain.CommandGetSessionTree,
+		presentationdomain.CommandNavigateSessionTree,
+		presentationdomain.CommandForkSession,
+		presentationdomain.CommandCloneSession,
+		presentationdomain.CommandSetEntryLabel:
 	}
 
 	return model, nil
@@ -163,6 +217,9 @@ func (model Model) applyEmissionResult(message emissionResultMsg) (tea.Model, te
 
 //nolint:gocyclo // The explicit flat switch mirrors the supported editor and command keys.
 func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
+	if updated, command, handled := model.updateFocusedTreeKey(key); handled {
+		return updated, command
+	}
 	if isSelectionShortcut(key) {
 		availability, ok := model.state.Availability.Get()
 		if !ok || !availability.SelectionAllowed() {
@@ -195,7 +252,7 @@ func (model Model) updateKey(key tea.Key) (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 	if availability == presentationdomain.AvailabilityRunning && len(model.input) == 0 &&
-		key.Code != tea.KeyEnter && key.Text != "/" {
+		key.Code != tea.KeyEnter && key.Text != slashCommandPrefix {
 		return model, nil
 	}
 
@@ -238,22 +295,25 @@ func (model Model) updateEnter(availability presentationdomain.Availability) (te
 	if text == "" {
 		return model, nil
 	}
+	if updated, command, handled := model.updateTreeSlashCommand(text, availability); handled {
+		return updated, command
+	}
 	switch text {
-	case "/model":
+	case slashCommandModel:
 		if availability != presentationdomain.AvailabilityIdle {
 			return model, nil
 		}
 		model.input = nil
 		model.cursor = 0
 		return model.openSelector()
-	case "/new":
+	case slashCommandNew:
 		return model.emitSessionCommand(presentationdomain.CommandCreateSession, "", "")
-	case "/resume":
+	case slashCommandResume:
 		return model.emitSessionCommand(presentationdomain.CommandListSessions, "", "")
-	case "/session":
+	case slashCommandSession:
 		return model.emitSessionCommand(presentationdomain.CommandGetSessionInfo, "", "")
-	case "/name":
-		message := "Usage: /name <value>"
+	case slashCommandName:
+		message := slashCommandNameUsage
 		if info, present := model.state.SessionInfo.Get(); present && info.NamePresent {
 			message = info.Name
 		}
@@ -262,7 +322,7 @@ func (model Model) updateEnter(availability presentationdomain.Availability) (te
 		model.cursor = 0
 		return model, nil
 	}
-	if after, ok := strings.CutPrefix(text, "/name "); ok {
+	if after, ok := strings.CutPrefix(text, slashCommandName+slashCommandArgumentSeparator); ok {
 		name := after
 		return model.emitSessionCommand(presentationdomain.CommandSetSessionName, "", name)
 	}
@@ -277,6 +337,7 @@ func (model Model) updateEnter(availability presentationdomain.Availability) (te
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	})
 }
 
@@ -297,6 +358,7 @@ func emptyCommand(kind presentationdomain.CommandKind) presentationdomain.Comman
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 		SessionID:       mo.None[string](),
 		SessionName:     mo.None[string](),
+		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 	}
 }
 

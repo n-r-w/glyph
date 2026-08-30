@@ -60,6 +60,7 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandStop,
@@ -69,6 +70,7 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandRetryAuthentication,
@@ -78,6 +80,7 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind:            presentationdomain.CommandQuit,
@@ -87,36 +90,42 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](),
 			SessionName:     mo.None[string](),
+			TreeCommand:     mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind: presentationdomain.CommandCreateSession, Text: mo.None[string](),
 			ProviderID: mo.None[string](), ModelID: mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](), SessionName: mo.None[string](),
+			TreeCommand: mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind: presentationdomain.CommandListSessions, Text: mo.None[string](),
 			ProviderID: mo.None[string](), ModelID: mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](), SessionName: mo.None[string](),
+			TreeCommand: mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind: presentationdomain.CommandResumeSession, Text: mo.None[string](),
 			ProviderID: mo.None[string](), ModelID: mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.Some("stored"), SessionName: mo.None[string](),
+			TreeCommand: mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind: presentationdomain.CommandSetSessionName, Text: mo.None[string](),
 			ProviderID: mo.None[string](), ModelID: mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](), SessionName: mo.Some("named"),
+			TreeCommand: mo.None[presentationdomain.TreeCommand](),
 		},
 		{
 			Kind: presentationdomain.CommandGetSessionInfo, Text: mo.None[string](),
 			ProviderID: mo.None[string](), ModelID: mo.None[string](),
 			ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
 			SessionID:       mo.None[string](), SessionName: mo.None[string](),
+			TreeCommand: mo.None[presentationdomain.TreeCommand](),
 		},
 	}
 	for _, command := range commands {
@@ -146,7 +155,12 @@ func TestOpenMapsCommandsThroughOneStreamSender(t *testing.T) {
 			assert.NotNil(t, response.GetGetSessionInfo())
 		case presentationdomain.CommandUnspecified,
 			presentationdomain.CommandSelectModel,
-			presentationdomain.CommandSelectReasoningChoice:
+			presentationdomain.CommandSelectReasoningChoice,
+			presentationdomain.CommandGetSessionTree,
+			presentationdomain.CommandNavigateSessionTree,
+			presentationdomain.CommandForkSession,
+			presentationdomain.CommandCloneSession,
+			presentationdomain.CommandSetEntryLabel:
 			t.Fatal("unexpected command")
 		}
 	}

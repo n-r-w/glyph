@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/samber/mo"
+
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
@@ -14,6 +16,22 @@ type Apply func(presentationdomain.State, presentationdomain.Event) presentation
 
 // Emit sends one accepted user command to the Host stream.
 type Emit func(presentationdomain.Command) error
+
+// treeInteractionMode identifies the focused tree interaction state.
+type treeInteractionMode int
+
+const (
+	// treeInteractionClosed leaves focus in the main editor.
+	treeInteractionClosed treeInteractionMode = iota
+	// treeInteractionSelect focuses the tree rows and local search.
+	treeInteractionSelect
+	// treeInteractionSummary focuses the navigation summary choices.
+	treeInteractionSummary
+	// treeInteractionCustomFocus edits a required custom summary focus.
+	treeInteractionCustomFocus
+	// treeInteractionLabel edits the selected entry label.
+	treeInteractionLabel
+)
 
 // Model is the single root Bubble Tea presentation and input model.
 type Model struct {
@@ -41,6 +59,22 @@ type Model struct {
 	selectorRow int
 	// reasoningExpanded controls only local display and never changes Host selection.
 	reasoningExpanded bool
+	// treePanel contains the current committed tree and local presentation state.
+	treePanel mo.Option[presentationdomain.TreePanel]
+	// treeRequest identifies a tree snapshot request that has not returned.
+	treeRequest mo.Option[presentationdomain.TreePurpose]
+	// treeMode identifies the focused tree interaction.
+	treeMode treeInteractionMode
+	// treeSummaryIndex identifies the selected summary choice.
+	treeSummaryIndex int
+	// treeInput contains local search, label, or custom-focus text.
+	treeInput []rune
+	// treeCursor identifies the insertion point in treeInput.
+	treeCursor int
+	// treeAwaiting identifies a command sent but not yet resolved by a Host frame.
+	treeAwaiting presentationdomain.CommandKind
+	// treeStatus contains the latest safe tree operation result.
+	treeStatus string
 	// apply projects one Host event into presentation state.
 	apply Apply
 	// emit sends one accepted user command to the Host.
@@ -50,10 +84,21 @@ type Model struct {
 var _ tea.Model = (*Model)(nil)
 
 const (
-	fixedViewLineCount     = 5
+	// inactiveSelectorPrefix marks an unselected selector row.
+	inactiveSelectorPrefix = "  "
+	// activeSelectorPrefix marks the selected selector row.
+	activeSelectorPrefix = "> "
+)
+
+const (
+	// fixedViewLineCount is the non-selector viewport height.
+	fixedViewLineCount = 5
+	// selectorFixedLineCount is the selector heading and help height.
 	selectorFixedLineCount = 2
+	// maxVisibleSelectorRows limits selector body height.
 	maxVisibleSelectorRows = 5
-	selectorCenterDivisor  = 2
+	// selectorCenterDivisor centers the selected row.
+	selectorCenterDivisor = 2
 )
 
 // emissionResultMsg returns command-delivery success or failure to the update loop.
@@ -76,6 +121,14 @@ func NewModel(initial presentationdomain.Event, apply Apply, emit Emit) Model {
 		selectorOpen:      false,
 		selectorRow:       0,
 		reasoningExpanded: false,
+		treePanel:         mo.None[presentationdomain.TreePanel](),
+		treeRequest:       mo.None[presentationdomain.TreePurpose](),
+		treeMode:          treeInteractionClosed,
+		treeSummaryIndex:  0,
+		treeInput:         nil,
+		treeCursor:        0,
+		treeAwaiting:      presentationdomain.CommandUnspecified,
+		treeStatus:        "",
 		apply:             apply,
 		emit:              emit,
 		sessionSelector:   false,
