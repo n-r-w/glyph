@@ -51,6 +51,13 @@
 - `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
+- `client command`: A command sent by a Glyph client to request Host behavior.
+- `client session`: One active connection between a Glyph client and a Glyph host.
+- `client operation`: Execution of work requested by a client command.
+- `bounded inline work`: Client-operation work that completes in the command-processing path without waiting for storage, an extension, a process, a network, or a language model.
+- `potentially long operation`: A client operation that can wait for storage, an extension, a process, a network, or a language model.
+- `operation lifecycle`: The observable progression of a potentially long operation through acceptance, execution, and a terminal result.
+- `operation gate`: The Host mechanism that serializes agent runs and session mutations.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
 - `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.
 - `Programmatic Control transport`: The bidirectional gRPC stream over a Unix socket that exposes the programmatic control contract from the current `glyph` application's headless composition.
