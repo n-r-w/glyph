@@ -8,6 +8,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
+const (
+	// branchSummaryContextOpening starts persisted summary data in active provider history.
+	branchSummaryContextOpening = "<summary encoding=\"xml-text\">\n"
+	// branchSummaryContextClosing ends persisted summary data in active provider history.
+	branchSummaryContextClosing = "\n</summary>"
+)
+
 // HistoryFromEntries projects model-visible session entries into provider-neutral history.
 func HistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
 	history := make([]agent.HistoryEntry, 0, len(entries))
@@ -34,10 +41,15 @@ func HistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
 		if summary, present := entry.BranchSummary.Get(); present {
 			history = append(history, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryUser,
-				User:  mo.Some(model.TextMessage(RenderBranchSummaryContext(summary.Summary))),
+				User:  mo.Some(model.TextMessage(renderBranchSummaryContext(summary.Summary))),
 				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			})
 		}
 	}
 	return history
+}
+
+// renderBranchSummaryContext encodes persisted summary data for one provider user-role history message.
+func renderBranchSummaryContext(summary string) string {
+	return branchSummaryContextOpening + escapeXMLText(summary) + branchSummaryContextClosing
 }

@@ -42,14 +42,11 @@ func (s *Service) summarize(
 	if err != nil {
 		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary conversation: %w", err)
 	}
-	// task contains one bounded source conversation and optional escaped caller focus.
-	task, err := renderBranchSummaryTask(conversation, customFocus)
-	if err != nil {
-		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary task: %w", err)
-	}
-	// history keeps source records out of model roles by sending one serialized user input.
+	// userInput contains one bounded source conversation, optional escaped focus, and the embedded task.
+	userInput := renderBranchSummaryUserInput(conversation, customFocus)
+	// history sends exactly one provider user-role message and keeps source records out of provider roles.
 	history := []agent.HistoryEntry{{
-		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(task)),
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(userInput)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}}
 	response, err := s.models.CompleteConfigured(

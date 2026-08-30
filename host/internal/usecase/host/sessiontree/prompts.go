@@ -2,73 +2,51 @@ package sessiontree
 
 import (
 	_ "embed"
-	"fmt"
 	"strings"
-	"text/template"
 
 	"github.com/samber/mo"
 )
 
 const (
-	// branchSummaryTaskTemplateName identifies the embedded summary task template.
-	branchSummaryTaskTemplateName = "branch_summary_task"
-	// branchSummaryContextTemplateName identifies the embedded active-history template.
-	branchSummaryContextTemplateName = "branch_summary_context"
+	// branchSummaryConversationOpening starts source data in the provider user-role message.
+	branchSummaryConversationOpening = "<conversation>\n"
+	// branchSummaryConversationClosing ends source data in the provider user-role message.
+	branchSummaryConversationClosing = "\n</conversation>\n"
+	// branchSummaryFocusOpening starts optional caller focus in the provider user-role message.
+	branchSummaryFocusOpening = "\n<additional_focus>\n"
+	// branchSummaryFocusClosing ends optional caller focus in the provider user-role message.
+	branchSummaryFocusClosing = "\n</additional_focus>\n"
+	// branchSummaryTaskOpening starts task text in the provider user-role message.
+	branchSummaryTaskOpening = "\n<task>\n"
+	// branchSummaryTaskClosing ends task text in the provider user-role message.
+	branchSummaryTaskClosing = "</task>"
 )
 
 var (
-	// branchSummarySystemText contains the embedded static generation rules.
+	// branchSummarySystemText contains the provider system-role rules.
 	//go:embed prompts/branch_summary_system.md
 	branchSummarySystemText string
-	// branchSummaryTaskText contains the embedded user-task layout.
+	// branchSummaryTaskText contains task text inserted into the provider user-role message.
 	//go:embed prompts/branch_summary_task.md
 	branchSummaryTaskText string
-	// branchSummaryContextText contains the embedded active-history layout.
-	//go:embed prompts/branch_summary_context.md
-	branchSummaryContextText string
 )
 
-// branchSummaryTaskData contains dynamic values for the embedded user task.
-type branchSummaryTaskData struct {
-	// Conversation contains the serialized source conversation.
-	Conversation string
-	// AdditionalFocus contains escaped caller focus only in custom-prompt mode.
-	AdditionalFocus string
-	// HasAdditionalFocus controls whether the complete optional focus block is present.
-	HasAdditionalFocus bool
-}
-
-// branchSummaryContextData contains encoded text for the embedded active-history template.
-type branchSummaryContextData struct {
-	// EscapedSummary contains persisted summary text encoded for XML text insertion.
-	EscapedSummary string
-}
-
-// renderBranchSummaryTask executes the embedded user task with serialized conversation and optional focus.
-func renderBranchSummaryTask(conversation string, additionalFocus mo.Option[string]) (string, error) {
-	focus, hasAdditionalFocus := additionalFocus.Get()
-	var rendered strings.Builder
-	taskTemplate := template.Must(template.New(branchSummaryTaskTemplateName).Parse(branchSummaryTaskText))
-	if err := taskTemplate.Execute(
-		&rendered,
-		branchSummaryTaskData{
-			Conversation: conversation, AdditionalFocus: escapeXMLText(focus), HasAdditionalFocus: hasAdditionalFocus,
-		},
-	); err != nil {
-		return "", fmt.Errorf("render branch summary task: %w", err)
+// renderBranchSummaryUserInput builds one provider user-role message from source data, optional focus, and task text.
+func renderBranchSummaryUserInput(conversation string, additionalFocus mo.Option[string]) string {
+	var input strings.Builder
+	input.WriteString(branchSummaryConversationOpening)
+	input.WriteString(conversation)
+	input.WriteString(branchSummaryConversationClosing)
+	if focus, present := additionalFocus.Get(); present {
+		input.WriteString(branchSummaryFocusOpening)
+		input.WriteString(escapeXMLText(focus))
+		input.WriteString(branchSummaryFocusClosing)
 	}
-	return rendered.String(), nil
-}
-
-// RenderBranchSummaryContext renders one persisted summary as provider-neutral user context.
-func RenderBranchSummaryContext(summary string) string {
-	var rendered strings.Builder
-	contextTemplate := template.Must(template.New(branchSummaryContextTemplateName).Parse(branchSummaryContextText))
-	if err := contextTemplate.Execute(
-		&rendered,
-		branchSummaryContextData{EscapedSummary: escapeXMLText(summary)},
-	); err != nil {
-		panic(fmt.Sprintf("render embedded branch summary context: %v", err))
+	input.WriteString(branchSummaryTaskOpening)
+	input.WriteString(branchSummaryTaskText)
+	if !strings.HasSuffix(branchSummaryTaskText, "\n") {
+		input.WriteByte('\n')
 	}
-	return rendered.String()
+	input.WriteString(branchSummaryTaskClosing)
+	return input.String()
 }
