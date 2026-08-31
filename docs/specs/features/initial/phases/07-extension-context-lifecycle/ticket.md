@@ -23,7 +23,7 @@ Give extension processes session-bound access, configured-model requests, active
 ### SCN-01: Primary completion scenario
 
 - Actor: extension author.
-- Pre-condition: DEP-01 and DEP-02 are met.
+- Pre-condition: DEP-01, DEP-02, and DEP-03 are met.
 - Trigger: the extension handles a lifecycle event in an active session.
 - Required behavior: the handler receives a session-bound context, can make a configured-model request without changing the active conversation model, and can persist an entry on the active branch.
 - Example input and expected output: Input: deliver `agent_start` to an extension in session `s1`, let it query one configured model, and append the result as a model-hidden entry. Expected output: the entry is stored on the active branch of `s1`, the active conversation model remains unchanged, and a context from a replaced session is rejected.
@@ -31,7 +31,7 @@ Give extension processes session-bound access, configured-model requests, active
 ### SCN-02: Extension-controlled active selection
 
 - Actor: extension author.
-- Pre-condition: DEP-01 and DEP-02 are met and two selection handlers are active.
+- Pre-condition: DEP-01, DEP-02, and DEP-03 are met and two selection handlers are active.
 - Trigger: a Glyph client or extension requests another active model or reasoning choice.
 - Required behavior: handlers compose one target selection in registration order, Host validates the complete provider, model, reasoning, and authentication state, commits it atomically, and emits an event after commit.
 - Example input and expected output: Input: request model `m2`, let handler A select reasoning `low`, and let handler B preserve A's current selection. Expected output: both handlers receive the same immutable original selection, B receives A's current selection, and the next model request uses `m2` with `low` after one committed selection event.
@@ -50,6 +50,7 @@ Out of scope:
 
 - DEP-01: [PHS-05](../05-session-tree/ticket.md) must meet all acceptance criteria.
 - DEP-02: [PHS-04.1](../04.1-model-execution-capabilities/ticket.md) must meet all acceptance criteria.
+- DEP-03: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/solution.md) must be implemented and pass its defined verification before this phase changes the Extension Contract.
 
 ## Requirements
 

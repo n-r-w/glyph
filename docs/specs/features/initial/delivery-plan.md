@@ -30,8 +30,13 @@
 - Dependencies: PHS-04, PHS-04.1
 - Ticket: [Ticket](phases/05-session-tree/ticket.md)
 
+### Cross-cutting issue. Blocking contract operation processing
+- Dependencies: PHS-05
+- PRD: [PRD](../../issues/blocking-contract-operation-processing/prd.md)
+- Technical Solution: [Technical Solution](../../issues/blocking-contract-operation-processing/solution.md)
+
 ### PHS-07. Extension context and lifecycle
-- Dependencies: PHS-05, PHS-04.1
+- Dependencies: PHS-05, PHS-04.1, Blocking contract operation processing
 - Ticket: [Ticket](phases/07-extension-context-lifecycle/ticket.md)
 
 ### PHS-06. Context compaction and retry control
@@ -67,7 +72,7 @@
 - Ticket: [Ticket](phases/12.2-standard-tui-viewport-navigation/ticket.md)
 
 ### PHS-12.3. Standard TUI editor and terminal interaction
-- Dependencies: PHS-12.2
+- Dependencies: PHS-12.2, Blocking contract operation processing
 - Ticket: [Ticket](phases/12.3-standard-tui-editor-terminal-interaction/ticket.md)
 
 ### PHS-13. Standard TUI presentation extensions

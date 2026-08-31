@@ -8,6 +8,8 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 Status: Planned
 
+Execution position: After PHS-05 and before PHS-07.
+
 Define one asynchronous operation lifecycle for the UI Plugin Contract, Extension Contract, and Programmatic Control, and remove the obsolete UI startup-capability and Host terminal-recovery paths.
 
 Documents:
