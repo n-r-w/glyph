@@ -53,8 +53,13 @@
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
 - `client command`: A command sent by a Glyph client to request Host behavior.
 - `client session`: One active connection between a Glyph client and a Glyph host.
-- `client operation`: Execution of work requested by an accepted client command.
-- `operation lifecycle`: The observable progression of a client operation through accepted, running, and exactly one completed, canceled, or failed state.
+- `contract operation`: Work requested across the UI Plugin Contract, Extension Contract, or Programmatic Control in either direction.
+- `client operation`: A contract operation requested by a Glyph client.
+- `operation initiator`: The contract endpoint that sends a work request and assigns its `operation_id`.
+- `operation receiver`: The contract endpoint that receives a work request and accepts or rejects it.
+- `operation owner`: The operation receiver after acceptance, responsible for execution, lifecycle reporting, cancellation, and waiting for all operation work to stop.
+- `operation lifecycle`: The observable progression of a contract operation through accepted, running, zero or more operation progress events, and exactly one completed, canceled, or failed state.
+- `operation progress`: Operation-specific intermediate information emitted only after running and before the terminal state. Operation progress does not change the operation lifecycle state.
 - `operation gate`: The Host mechanism that serializes agent runs and session mutations.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
 - `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.

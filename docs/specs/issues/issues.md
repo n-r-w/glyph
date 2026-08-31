@@ -1,5 +1,5 @@
 # Issues
 
-- [ ] Blocking client command processing: `docs/specs/issues/blocking-client-command-processing`
+- [ ] Blocking contract operation processing: `docs/specs/issues/blocking-contract-operation-processing`
 - [X] Reliable branch summarization: `docs/specs/issues/reliable-branch-summarization`
 - [X] Unclear model operation naming: `docs/specs/issues/unclear-model-operation-naming`

@@ -27,31 +27,10 @@ tasks:
       - go test -race ./...
 
   itest:
-    desc: "Run integration tests"
+    desc: "Run unit and integration tests"
     cmds:
       # Integration tests start real plugin, terminal, and shell subprocesses. Run packages and tests serially.
-      - >-
-        go test -race -tags=integration -p 1 -parallel 1
-        ./host/internal/app
-        ./host/internal/infra/logging
-        ./host/internal/infra/persistence
-        ./host/internal/infra/persistence/credentials
-        ./host/internal/infra/persistence/sessionfilesystem
-        ./host/internal/infra/persistence/sessions
-        ./host/internal/infra/persistence/settings
-        ./host/internal/infra/plugins/extension/catalog
-        ./host/internal/infra/plugins/extension/runtime
-        ./host/internal/infra/plugins/ui/catalog
-        ./host/internal/infra/programmatic/socket
-        ./host/internal/infra/providers/openai/codex
-        ./host/internal/infra/providers/openai/compatible
-        ./internal/testsupport/tui
-        ./plugins/extension/tools/internal/controller/extension
-        ./plugins/extension/tools/internal/infra/filesystem/project
-        ./plugins/extension/tools/internal/infra/process/bash
-        ./plugins/ui/tui/internal/app
-        ./sdk/plugins/extension/v1
-        ./sdk/plugins/ui/v1
+      - go test -race -tags=integration -p 1 -parallel 1 ./...
 
   fix:
     desc: "Run go fix the codebase"
