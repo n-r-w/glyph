@@ -1,0 +1,53 @@
+edition = "2023";
+
+package glyph.operation.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/operation/v1;operationv1";
+
+// Accepted reports that a request created an operation.
+message Accepted {}
+
+// Running reports that accepted operation work started.
+message Running {}
+
+// Rejected reports that a request did not create an operation.
+message Rejected {
+  // The machine-readable rejection code.
+  string code = 1;
+}
+
+// Canceled reports that an operation stopped because it was canceled.
+message Canceled {}
+
+// Failed reports that an operation failed.
+message Failed {
+  // The machine-readable failure code.
+  string code = 1;
+}
+
+// CancelOperation requests cancellation of an active operation.
+message CancelOperation {
+  // The identifier of the operation to cancel.
+  string target_operation_id = 1;
+}
+
+// TerminalState identifies an operation terminal state.
+enum TerminalState {
+  // TERMINAL_STATE_UNSPECIFIED is not a valid terminal state.
+  TERMINAL_STATE_UNSPECIFIED = 0;
+  // TERMINAL_STATE_COMPLETED reports successful completion.
+  TERMINAL_STATE_COMPLETED = 1;
+  // TERMINAL_STATE_CANCELED reports cancellation.
+  TERMINAL_STATE_CANCELED = 2;
+  // TERMINAL_STATE_FAILED reports failure.
+  TERMINAL_STATE_FAILED = 3;
+}
+
+// CancelCompleted reports the target operation terminal state.
+message CancelCompleted {
+  // The target operation terminal state.
+  TerminalState target_state = 1;
+}
+
+// CloseConnection requests orderly connection closure.
+message CloseConnection {}
