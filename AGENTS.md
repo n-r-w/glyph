@@ -60,6 +60,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 ## Protobuf rules
 1. Proto `edition 2023`
 2. Use `int64` for all protobuf numeric fields representing indices, positions, sizes, counters, or calculations. `int32` is forbidden for such fields; remove int32 range checks, related errors, and narrowing conversions. Protobuf enums are exempt and must remain enums.
+3. NO BACKWARDS COMPATIBILITY: no reserved fields, etc.
 
 ## Code structure
 1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
