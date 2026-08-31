@@ -31,7 +31,6 @@ Provide the standard editor, completion, clipboard, selector, queued-input, and 
 
 In scope:
 - ISP-01: Editor, completion, queued-input, selector, keybinding, hotkey, lifecycle, and error requirements FRQ-21 through FRQ-42 in [`standard-tui.md`](../../standard-tui.md).
-- ISP-02: Removal of the public `controls_terminal` capability and its complete Host, SDK, and standard TUI mapping path.
 
 Out of scope:
 - OSP-01: Agent queue business rules, provider and session selectors' domain rules, extension-replaced editors, extension autocomplete, extension shortcuts, and future UI plugins.
@@ -40,6 +39,7 @@ Out of scope:
 ## Dependencies and Preconditions
 
 - DEP-01: [PHS-12.2](../12.2-standard-tui-viewport-navigation/ticket.md) must meet all acceptance criteria.
+- DEP-02: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/prd.md) must meet all requirements because it owns UI startup-capability and Host terminal-recovery removal.
 
 ## Requirements
 
@@ -63,8 +63,7 @@ Out of scope:
 - FRQ-12: Apply configurable keys from [`tui-defaults.md`](../../tui-defaults.md) and expose active command and key help.
 - FRQ-13: Recompute editor wrapping, selector geometry, and focused-region placement after terminal resize.
 - FRQ-14: Restore application input modes, viewport, editor, and focus after suspension and resume.
-- FRQ-15: Before normal exit, the standard TUI shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes that it enabled. Host shall provide no fallback terminal cleanup after unexpected TUI termination.
-- FRQ-16: Remove `controls_terminal` from `api/plugins/ui/v1/ui.proto` and regenerate the public Go contract. Because it is the only startup capability, also remove the `GetCapabilities` RPC and messages, SDK capability retrieval and caching, `ui.Capabilities`, runtime capability mapping, selection capability state and logging, standard TUI capability responses, and their obsolete test setup. Add no replacement capability or compatibility path.
+- FRQ-15: Before normal exit, the standard TUI shall disable alternate screen, mouse reporting, bracketed paste, focus reporting, and application keyboard modes that it enabled.
 
 ### Non-Functional Requirements
 
@@ -77,8 +76,7 @@ Out of scope:
 
 - DLV-01: Multiline editor, history, completion, attachments, clipboard, external-editor, and queued-input presentation.
 - DLV-02: Reusable selector and dialog interaction behavior.
-- DLV-03: Configurable action dispatch, hotkey help, suspension, resume, resize, and TUI-owned terminal cleanup. Existing Host terminal snapshot and recovery behavior is removed.
-- DLV-04: UI Plugin Contract, SDK, Host selection, and standard TUI cleanup with no `controls_terminal`, `GetCapabilities`, or internal terminal-capability mapping.
+- DLV-03: Configurable action dispatch, hotkey help, suspension, resume, resize, and TUI-owned terminal cleanup.
 
 ### Acceptance Criteria
 
@@ -89,14 +87,11 @@ Out of scope:
 - ACC-05: Every built-in selector passes movement, paging, filtering, confirmation, cancellation, and focus-restoration tests.
 - ACC-06: User key configuration replaces defaults and hotkey help shows the effective bindings.
 - ACC-07: Suspension, resume, and normal TUI exit leave all TUI-owned terminal modes in the required state.
-- ACC-07.1: Host contains no terminal-state inspection, snapshot, reset, restoration, or automatic TUI restart behavior after this ticket.
-- ACC-07.2: Generated UI Plugin Contract code exposes no `controls_terminal` field or `GetCapabilities` RPC. UI runtime and selection contain no capability state, and starting a compatible UI requires only successful plugin protocol startup.
-- ACC-07.3: Explicit, configured, and sole-candidate UI selection retain their current success and failure behavior without a capability request.
 - ACC-08: Terminal sizes down to one row and one column do not panic.
 
 ## Overengineering and Overspecification Considerations
 
-This ticket extracts user-visible terminal behavior and leaves Agent Core queue semantics, Host command discovery, session operations, and provider selection in their owning use cases. The standard TUI owns terminal lifecycle without Host recovery or restart behavior. Removing the only startup capability also removes its RPC and mapping instead of retaining an empty public abstraction. The ticket does not copy Pi editor classes, settings files, or action dispatch architecture.
+This ticket extracts user-visible terminal behavior and leaves Agent Core queue semantics, Host command discovery, session operations, and provider selection in their owning use cases. The standard TUI owns terminal lifecycle without Host recovery or restart behavior. The ticket does not copy Pi editor classes, settings files, or action dispatch architecture.
 
 ## Constraints and Risks
 
@@ -124,6 +119,5 @@ No editor widget, clipboard library, fuzzy matcher, external-editor command reso
 - REF-03: [`Model.Update`](../../../../../../plugins/ui/tui/internal/controller/tui/model.go) - implemented fixed key and single-line editor path.
 - REF-04: [Pi key bindings](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/keybindings.md) - behavioral source for editor, selector, clipboard, application, and queue actions.
 - REF-05: [Pi usage](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/usage.md) - behavioral source for completion, attachments, external editor, and queued messages.
-- REF-06: [`ui.proto`](../../../../../../api/plugins/ui/v1/ui.proto) - current public `controls_terminal` and `GetCapabilities` contract to remove.
-- REF-07: [`ui.Capabilities`](../../../../../../host/internal/domain/ui/model.go) - current internal capability model to remove with its runtime and selection mappings.
-- REF-08: [target architecture](../../architecture.md) - TUI terminal ownership and UI Plugin Contract boundary.
+- REF-06: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/solution.md) - owning UI startup-capability and Host terminal-recovery removal.
+- REF-07: [target architecture](../../architecture.md) - TUI terminal ownership and UI Plugin Contract boundary.

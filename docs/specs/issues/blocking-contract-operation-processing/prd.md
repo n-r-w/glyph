@@ -24,6 +24,7 @@ Give every work request across the three public contracts one asynchronous, corr
 In scope:
 
 - Work requests through the UI Plugin Contract, Extension Contract, and Programmatic Control in either direction.
+- Removal of the UI Plugin Contract startup capability and Host terminal recovery path.
 - Operation identity, rejection, acceptance, running state, operation progress, cancellation, terminal states, ownership, and waiting for operation work to stop.
 - Operation receipt and lifecycle delivery while other operations remain active.
 
@@ -69,6 +70,8 @@ Out of scope:
   Justification: Transport differences must not change operation semantics.
 - UI SDK and Extension SDK shall own their generated gRPC service, operation lifecycle, writer serialization, cancellation, and closure waiting. An external Go project shall implement only public contract-specific preparation and execution interfaces and shall receive no type from a Glyph internal package through an SDK API.
   Justification: External plugin developers must not reimplement transport concurrency or depend on Glyph implementation packages.
+- UI Plugin Contract shall expose no `controls_terminal` field or `GetCapabilities` operation. Successful plugin protocol startup shall establish UI compatibility. Host shall not inspect, capture, reset, or restore terminal state; each UI plugin shall own the presentation resources it opens.
+  Justification: The operation-stream replacement must implement the target UI ownership boundary without creating a temporary startup operation.
 - For each direction that exposes work requests in the UI Plugin Contract, Extension Contract, or Programmatic Control, an integration test shall keep one accepted operation in `running`, send another request on the same connection, and observe `rejected` or `accepted` for the second request before releasing the first operation. Tests shall also verify targeted cancellation and closure with an active operation.
   Justification: This observation detects a blocked request-receipt path that function-level operation tests cannot detect.
 

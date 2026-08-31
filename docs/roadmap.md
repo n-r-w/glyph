@@ -8,7 +8,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 Status: Planned
 
-Define one asynchronous operation lifecycle for the UI Plugin Contract, Extension Contract, and Programmatic Control.
+Define one asynchronous operation lifecycle for the UI Plugin Contract, Extension Contract, and Programmatic Control, and remove the obsolete UI startup-capability and Host terminal-recovery paths.
 
 Documents:
 - [Problem Statement](specs/issues/blocking-contract-operation-processing/problem.md)
@@ -171,7 +171,7 @@ Documents:
 
 Status: Planned
 
-Add the complete editor and TUI-owned terminal lifecycle while removing Host terminal recovery and the obsolete UI startup-capability path.
+Add the complete editor and TUI-owned terminal lifecycle.
 
 Documents:
 - [Ticket](specs/features/initial/phases/12.3-standard-tui-editor-terminal-interaction/ticket.md)

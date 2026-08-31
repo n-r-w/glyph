@@ -60,6 +60,7 @@
 - `operation owner`: The operation receiver after acceptance, responsible for execution, lifecycle reporting, cancellation, and waiting for all operation work to stop.
 - `operation lifecycle`: The observable progression of a contract operation through accepted, running, zero or more operation progress events, and exactly one completed, canceled, or failed state.
 - `operation progress`: Operation-specific intermediate information emitted only after running and before the terminal state. Operation progress does not change the operation lifecycle state.
+- `connection event`: Typed information about contract connection or runtime state that was not requested by the peer. A connection event has no `operation_id` and creates no contract operation.
 - `operation gate`: The Host mechanism that serializes agent runs and session mutations.
 - `programmatic controller`: A Glyph client that controls a headless agent without presenting a UI.
 - `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.
