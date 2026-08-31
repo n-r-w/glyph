@@ -1,3 +1,5 @@
+//go:build !integration
+
 package runtime
 
 import (
@@ -6,7 +8,7 @@ import (
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-//go:generate go tool mockgen -destination=stream_mock_test.go -package=runtime github.com/n-r-w/glyph/pkg/plugins/ui/v1 UIService_OpenClient
+//go:generate go tool mockgen -build_constraint=!integration -destination=stream_mock_test.go -package=runtime github.com/n-r-w/glyph/pkg/plugins/ui/v1 UIService_OpenClient
 
 // runtimeContractService records Host frames and returns every supported UI command.
 type runtimeContractService struct {

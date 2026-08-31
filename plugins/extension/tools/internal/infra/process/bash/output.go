@@ -1,6 +1,6 @@
 package bash
 
-//go:generate go tool mockgen -source=output.go -destination=output_mock_test.go -package=bash
+//go:generate go tool mockgen -build_constraint=integration -source=output.go -destination=output_mock_test.go -package=bash
 
 import (
 	"bytes"

@@ -1,3 +1,5 @@
+//go:build !integration
+
 package app
 
 import (
@@ -16,6 +18,18 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 )
+
+// testSettingsReasoning builds a reasoning fixture from the supported choices.
+func testSettingsReasoning(choices ...settingstore.ReasoningChoice) settingstore.Reasoning {
+	supported := len(choices) != 1 || choices[0] != settingstore.ReasoningChoiceOff
+	return settingstore.Reasoning{
+		Supported:        supported,
+		Choices:          choices,
+		Default:          choices[len(choices)-1],
+		Format:           "",
+		CompatibilityKey: mo.None[string](),
+	}
+}
 
 // TestNewProviderCatalogBuildsEveryConfiguredProvider verifies deterministic composition and defaults.
 func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {

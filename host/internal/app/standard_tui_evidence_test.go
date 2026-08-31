@@ -1,7 +1,8 @@
+//go:build !integration
+
 package app
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -40,44 +41,4 @@ func TestStandardTUIEvidenceRejectsClearedBusyStateAndWrongRestartCount(t *testi
 	wrongCount := strings.Replace(complete, "7 messages", "0 messages", 1)
 	err = validateRestartRow(wrongCount)
 	require.EqualError(t, err, "restart selector did not show restart session with 7 messages")
-}
-
-// validateBusyPreservation verifies that a rejected resume leaves all active UI state visible.
-func validateBusyPreservation(output, activeID string) error {
-	if !strings.Contains(output, "Session status: Session replacement is unavailable: another operation is active") {
-		return errors.New("busy redraw did not occur after the rejection")
-	}
-	required := []struct {
-		text    string
-		message string
-	}{
-		{text: "user: blocked request", message: "busy screen did not preserve the active user text"},
-		{text: "Session ID: " + activeID, message: "busy screen did not preserve the active session ID"},
-		{text: "Name: <absent>", message: "busy screen did not preserve the active session name state"},
-		{text: "/resume|", message: "busy screen did not preserve the /resume editor draft"},
-		{text: "Sessions:", message: "busy screen did not preserve the session selector"},
-		{text: "Selector: Up/Down navigate", message: "busy screen did not preserve the open selector"},
-	}
-	for _, item := range required {
-		if !strings.Contains(output, item.text) {
-			return errors.New(item.message)
-		}
-	}
-	if err := validateRestartRow(output); err != nil {
-		return errors.New("busy screen did not preserve the restart session row")
-	}
-	if !strings.Contains(output, "> restart session") {
-		return errors.New("busy screen did not preserve the exact selected restart session row")
-	}
-	return nil
-}
-
-// validateRestartRow verifies that the selector preserves the expected resumed-session history count.
-func validateRestartRow(output string) error {
-	for line := range strings.SplitSeq(output, "\n") {
-		if strings.Contains(line, "restart session") && strings.Contains(line, "7 messages") {
-			return nil
-		}
-	}
-	return errors.New("restart selector did not show restart session with 7 messages")
 }

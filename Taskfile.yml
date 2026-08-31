@@ -27,7 +27,7 @@ tasks:
       - go test -race ./...
 
   itest:
-    desc: "Run unit and integration tests"
+    desc: "Run integration tests"
     cmds:
       # Integration tests start real plugin, terminal, and shell subprocesses. Run packages and tests serially.
       - go test -race -tags=integration -p 1 -parallel 1 ./...
