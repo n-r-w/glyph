@@ -43,7 +43,6 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 5. `github.com/cenkalti/backoff/v7` for retry strategies
 6. `github.com/samber/lo` for slices/maps/strings/channels/functions (if no standard library functions available)
 7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
-8. Proto `edition 2023`
 
 ## Coding rules
 1. MUST run before completing changes in code:
@@ -57,6 +56,10 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 5. Use `mo.Option[T]` directly for required JSON fields, but use `*T` with `omitempty` when `Some` zero values must remain distinguishable from `None`.
 6. MUST NOT suppress ifaceguard warnings in production code. If they appear, it means dependency direction is incorrect.
 7. Define named constants for strings that represent stable UI text, commands, domain or protocol values, and formatting templates, even when used once. Keep incidental implementation text, including one-off error messages, inline.
+
+## Protobuf rules
+1. Proto `edition 2023`
+2. Use `int64` for all protobuf numeric fields representing indices, positions, sizes, counters, or calculations. `int32` is forbidden for such fields; remove int32 range checks, related errors, and narrowing conversions. Protobuf enums are exempt and must remain enums.
 
 ## Code structure
 1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
