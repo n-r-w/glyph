@@ -43,6 +43,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 5. `github.com/cenkalti/backoff/v7` for retry strategies
 6. `github.com/samber/lo` for slices/maps/strings/channels/functions (if no standard library functions available)
 7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
+8. Proto `edition 2023`
 
 ## Coding rules
 1. MUST run before completing changes in code:
