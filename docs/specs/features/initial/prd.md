@@ -130,6 +130,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The Glyph host shall own extension installation and runtime lifecycle.
 - A compatible extension shall be installable, and the user shall be able to enable, disable, and update it without rebuilding Glyph.
+- A Go developer shall be able to implement a compatible extension in a separate Go project by using only the public Extension Contract and Extension SDK packages. The project shall not import Glyph internal packages or require Glyph to be rebuilt.
 - Installed extensions shall be trusted and shall run with the operating-system permissions of Glyph.
 - Extension process contracts and provider-scoped operations shall organize API ownership and prevent accidental conflicts; they shall not claim to isolate credentials or user-readable files from a trusted extension.
 - An extension shall load without the standard TUI. Its non-terminal capabilities shall remain active, while terminal capabilities shall be unavailable.
@@ -149,6 +150,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 
 - The Glyph host shall maintain a UI catalog separate from the extension catalog.
 - The UI catalog shall contain locally available UI plugin executables discovered before Glyph selects a UI plugin.
+- A Go developer shall be able to implement a locally managed UI plugin in a separate Go project by using only the public UI Plugin Contract and UI SDK packages. The project shall not import Glyph internal packages or require Glyph to be rebuilt.
 - The standard TUI shall be distributed as a UI plugin and shall be present in the UI catalog by default.
 - Glyph startup shall either enable headless mode or select one UI plugin.
 - Headless mode shall not start a UI plugin. Supplying a UI selection together with headless mode shall fail startup explicitly.

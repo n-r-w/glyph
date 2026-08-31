@@ -2,6 +2,19 @@
 
 Glyph is a local, extensible coding agent with a thin provider-neutral Agent Core and Host-managed plugins. The [PRD](specs/features/initial/prd.md) defines product behavior, the [target architecture](specs/features/initial/architecture.md) defines ownership boundaries, and the [delivery plan](specs/features/initial/delivery-plan.md) defines the complete phase order and dependencies.
 
+## Cross-cutting issues
+
+### Blocking contract operation processing
+
+Status: Planned
+
+Define one asynchronous operation lifecycle for the UI Plugin Contract, Extension Contract, and Programmatic Control.
+
+Documents:
+- [Problem Statement](specs/issues/blocking-contract-operation-processing/problem.md)
+- [PRD](specs/issues/blocking-contract-operation-processing/prd.md)
+- [Technical Solution](specs/issues/blocking-contract-operation-processing/solution.md)
+
 ## PHS-00: Prototype baseline
 
 Status: Completed

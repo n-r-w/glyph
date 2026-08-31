@@ -37,14 +37,14 @@ Out of scope:
 
 ## Requirements
 
-- The operation initiator shall assign every work request a nonempty `operation_id`. The initiator shall not reuse that `operation_id` on the same contract connection until the request is rejected or its operation reaches a terminal state.
+- The operation initiator shall assign every work request a nonempty `operation_id`. The initiator shall not send another request with an `operation_id` owned by a nonterminal operation on the same contract connection. A rejected request shall not reserve its `operation_id` or affect an accepted operation that already owns the same value.
   Justification: Responses and events from several requests can interleave and require stable correlation.
 - Before acceptance, the operation receiver shall perform only these checks: nonempty `operation_id`, no nonterminal operation with the same `operation_id` on the connection, known operation kind, payload compliance with that operation kind's contract, and immediate admission under that operation kind's in-memory state rules.
   Justification: The implementer needs a closed boundary between request receipt and operation work.
 - A pre-acceptance check shall not access storage, invoke another contract operation, start a process, use a network, or request a language model. Every such action belongs to accepted operation work.
   Justification: External or unbounded checking would reproduce blocking in the request-receipt path.
-- When a pre-acceptance check fails, the receiver shall send one `rejected` response with the request's `operation_id` and shall emit no lifecycle event for that request. When immediate admission is unavailable, the receiver shall reject the request rather than queue it.
-  Justification: A rejected request does not create an operation, and the lifecycle has no queued state.
+- When a pre-acceptance check fails, the receiver shall send one `rejected` response with the request's `operation_id`, emit no lifecycle event for that request, and keep the contract stream open. An empty `operation_id`, unknown operation kind, or invalid payload shall use code `INVALID_ARGUMENT`; an `operation_id` owned by a nonterminal operation shall use `OPERATION_ID_IN_USE`. When immediate admission is unavailable, the receiver shall reject the request rather than queue it and shall use the code defined by that operation kind.
+  Justification: A rejected request does not create an operation, and an input error must not terminate unrelated operations on the connection.
 - When all pre-acceptance checks pass, the receiver shall reserve immediate execution, become the operation owner, and send exactly one `accepted` event before operation work starts. The owner shall then start the work outside the request-receipt path and send exactly one `running` event when the work starts.
   Justification: `accepted` means the receiver owns an operation that will start without waiting for later admission.
 - For each `operation_id`, the receiver shall preserve this event order: `accepted`, `running`, zero or more operation progress events, and exactly one `completed`, `canceled`, or `failed` terminal event. Events for different operations may interleave. No event for an operation shall follow its terminal event.
@@ -67,6 +67,8 @@ Out of scope:
   Justification: Asynchronous receipt must not introduce conflicting work or replace operation-specific rules.
 - UI Plugin Contract, Extension Contract, and Programmatic Control may use different transport messages, but each work request shall expose the identity, rejection, lifecycle order, terminal meanings, cancellation, and ownership behavior defined by this document.
   Justification: Transport differences must not change operation semantics.
+- UI SDK and Extension SDK shall own their generated gRPC service, operation lifecycle, writer serialization, cancellation, and closure waiting. An external Go project shall implement only public contract-specific preparation and execution interfaces and shall receive no type from a Glyph internal package through an SDK API.
+  Justification: External plugin developers must not reimplement transport concurrency or depend on Glyph implementation packages.
 - For each direction that exposes work requests in the UI Plugin Contract, Extension Contract, or Programmatic Control, an integration test shall keep one accepted operation in `running`, send another request on the same connection, and observe `rejected` or `accepted` for the second request before releasing the first operation. Tests shall also verify targeted cancellation and closure with an active operation.
   Justification: This observation detects a blocked request-receipt path that function-level operation tests cannot detect.
 
