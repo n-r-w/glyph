@@ -168,69 +168,69 @@ func (mr *MockHandlerRunnerMockRecorder) Observe(arg0, arg1, arg2 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Observe", reflect.TypeOf((*MockHandlerRunner)(nil).Observe), arg0, arg1, arg2)
 }
 
-// MockModelCompleter is a mock of ModelCompleter interface.
-type MockModelCompleter struct {
+// MockModelRequester is a mock of ModelRequester interface.
+type MockModelRequester struct {
 	ctrl     *gomock.Controller
-	recorder *MockModelCompleterMockRecorder
+	recorder *MockModelRequesterMockRecorder
 	isgomock struct{}
 }
 
-// MockModelCompleterMockRecorder is the mock recorder for MockModelCompleter.
-type MockModelCompleterMockRecorder struct {
-	mock *MockModelCompleter
+// MockModelRequesterMockRecorder is the mock recorder for MockModelRequester.
+type MockModelRequesterMockRecorder struct {
+	mock *MockModelRequester
 }
 
-// NewMockModelCompleter creates a new mock instance.
-func NewMockModelCompleter(ctrl *gomock.Controller) *MockModelCompleter {
-	mock := &MockModelCompleter{ctrl: ctrl}
-	mock.recorder = &MockModelCompleterMockRecorder{mock}
+// NewMockModelRequester creates a new mock instance.
+func NewMockModelRequester(ctrl *gomock.Controller) *MockModelRequester {
+	mock := &MockModelRequester{ctrl: ctrl}
+	mock.recorder = &MockModelRequesterMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockModelCompleter) EXPECT() *MockModelCompleterMockRecorder {
+func (m *MockModelRequester) EXPECT() *MockModelRequesterMockRecorder {
 	return m.recorder
 }
 
-// CompleteConfigured mocks base method.
-func (m *MockModelCompleter) CompleteConfigured(arg0 context.Context, arg1 model.Selection, arg2 string, arg3 []agent.HistoryEntry) (model.Response, error) {
+// ActiveSelection mocks base method.
+func (m *MockModelRequester) ActiveSelection() model.Selection {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompleteConfigured", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ActiveSelection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// ActiveSelection indicates an expected call of ActiveSelection.
+func (mr *MockModelRequesterMockRecorder) ActiveSelection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockModelRequester)(nil).ActiveSelection))
+}
+
+// CheckAvailability mocks base method.
+func (m *MockModelRequester) CheckAvailability(ctx context.Context, selection model.Selection) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAvailability", ctx, selection)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckAvailability indicates an expected call of CheckAvailability.
+func (mr *MockModelRequesterMockRecorder) CheckAvailability(ctx, selection any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAvailability", reflect.TypeOf((*MockModelRequester)(nil).CheckAvailability), ctx, selection)
+}
+
+// Request mocks base method.
+func (m *MockModelRequester) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Request", ctx, selection, instructions, history)
 	ret0, _ := ret[0].(model.Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CompleteConfigured indicates an expected call of CompleteConfigured.
-func (mr *MockModelCompleterMockRecorder) CompleteConfigured(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// Request indicates an expected call of Request.
+func (mr *MockModelRequesterMockRecorder) Request(ctx, selection, instructions, history any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteConfigured", reflect.TypeOf((*MockModelCompleter)(nil).CompleteConfigured), arg0, arg1, arg2, arg3)
-}
-
-// Selection mocks base method.
-func (m *MockModelCompleter) Selection() model.Selection {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Selection")
-	ret0, _ := ret[0].(model.Selection)
-	return ret0
-}
-
-// Selection indicates an expected call of Selection.
-func (mr *MockModelCompleterMockRecorder) Selection() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCompleter)(nil).Selection))
-}
-
-// ValidateConfigured mocks base method.
-func (m *MockModelCompleter) ValidateConfigured(arg0 context.Context, arg1 model.Selection) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateConfigured", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateConfigured indicates an expected call of ValidateConfigured.
-func (mr *MockModelCompleterMockRecorder) ValidateConfigured(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConfigured", reflect.TypeOf((*MockModelCompleter)(nil).ValidateConfigured), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelRequester)(nil).Request), ctx, selection, instructions, history)
 }

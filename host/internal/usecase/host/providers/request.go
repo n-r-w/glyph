@@ -13,20 +13,20 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// ValidateConfigured validates one configured selection without executing or changing active selection.
-func (c *Catalog) ValidateConfigured(ctx context.Context, selection model.Selection) error {
-	_, err := c.configuredEntry(ctx, selection)
+// CheckAvailability resolves one exact selection and its credentials without changing active selection.
+func (c *Catalog) CheckAvailability(ctx context.Context, selection model.Selection) error {
+	_, err := c.resolveRequestEntry(ctx, selection)
 	return err
 }
 
-// CompleteConfigured executes one configured model without changing the active catalog selection.
-func (c *Catalog) CompleteConfigured(
+// Request executes one model request and returns its terminal response without changing active selection.
+func (c *Catalog) Request(
 	ctx context.Context,
 	selection model.Selection,
 	instructions string,
 	history []agent.HistoryEntry,
 ) (model.Response, error) {
-	entry, err := c.configuredEntry(ctx, selection)
+	entry, err := c.resolveRequestEntry(ctx, selection)
 	if err != nil {
 		return model.Response{}, err
 	}
@@ -34,7 +34,7 @@ func (c *Catalog) CompleteConfigured(
 	for index := range history {
 		clone, cloneErr := history[index].ValidatedClone()
 		if cloneErr != nil {
-			return model.Response{}, fmt.Errorf("validate configured completion history: %w", cloneErr)
+			return model.Response{}, fmt.Errorf("validate model request history: %w", cloneErr)
 		}
 		ownedHistory[index] = clone
 	}
@@ -46,24 +46,24 @@ func (c *Catalog) CompleteConfigured(
 		if event.Kind == agentrun.StreamEventDone || event.Kind == agentrun.StreamEventError {
 			response, present := event.Response.Get()
 			if !present {
-				return errors.New("configured completion terminal event has no response")
+				return errors.New("model request terminal event has no response")
 			}
 			terminal = mo.Some(response.Clone())
 		}
 		return nil
 	})
 	if streamErr != nil {
-		return model.Response{}, fmt.Errorf("execute configured model: %w", streamErr)
+		return model.Response{}, fmt.Errorf("execute model request: %w", streamErr)
 	}
 	response, present := terminal.Get()
 	if !present {
-		return model.Response{}, errors.New("configured completion ended without a terminal response")
+		return model.Response{}, errors.New("model request ended without a terminal response")
 	}
 	return response, nil
 }
 
-// configuredEntry resolves and validates one exact configured selection.
-func (c *Catalog) configuredEntry(ctx context.Context, selection model.Selection) (Entry, error) {
+// resolveRequestEntry resolves one exact selection and checks its request credentials.
+func (c *Catalog) resolveRequestEntry(ctx context.Context, selection model.Selection) (Entry, error) {
 	if err := ctx.Err(); err != nil {
 		return Entry{}, err
 	}
@@ -75,21 +75,21 @@ func (c *Catalog) configuredEntry(ctx context.Context, selection model.Selection
 	if !slices.Contains(entry.Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
 		return Entry{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
 	}
-	if err := validateCompletionCredentials(ctx, entry); err != nil {
+	if err := checkRequestCredentials(ctx, entry); err != nil {
 		return Entry{}, err
 	}
 	return entry, nil
 }
 
-// validateCompletionCredentials checks the exact configured entry without changing active selection.
-func validateCompletionCredentials(ctx context.Context, entry Entry) error {
-	if entry.SelectionCredentialValidator != nil {
-		if err := entry.SelectionCredentialValidator.ValidateSelectionCredentials(ctx); err != nil {
+// checkRequestCredentials checks credentials for one resolved request entry.
+func checkRequestCredentials(ctx context.Context, entry Entry) error {
+	if entry.CredentialChecker != nil {
+		if err := entry.CredentialChecker.CheckCredentials(ctx); err != nil {
 			return &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
 		}
 	}
 	if entry.Authentication != nil {
-		if err := entry.Authentication.CheckProviderAuthentication(ctx); err != nil {
+		if err := entry.Authentication.CheckCredentials(ctx); err != nil {
 			return &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
 		}
 	}

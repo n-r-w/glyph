@@ -21,14 +21,14 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	// Arrange an abandoned extension entry with opaque payload bytes and one request handler.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
-	models := NewMockModelCompleter(controller)
+	models := NewMockModelRequester(controller)
 	handlers := NewMockHandlerRunner(controller)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inspect"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().Selection().Return(selection)
+	models.EXPECT().ActiveSelection().Return(selection)
 	handlers.EXPECT().Handlers(HandlerKindRequest).Return([]Handler{handler})
 	handlers.EXPECT().HandleRequest(gomock.Any(), handler, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ Handler, invocation RequestHandlerInvocation) (RequestHandlerAction, error) {

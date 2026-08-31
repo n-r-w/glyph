@@ -134,7 +134,7 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	)
 	service := newDriver(testConfig(), credentials, interaction, options)
 
-	err := service.SignInProvider(t.Context())
+	err := service.SignIn(t.Context())
 
 	require.NoError(t, err)
 	assert.Equal(t, "approved-code", exchangedCode.Load())
@@ -167,7 +167,7 @@ func TestDriverSignInCancellationClosesCallbackServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	err := service.SignInProvider(ctx)
+	err := service.SignIn(ctx)
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotNil(t, callbackListener)
@@ -201,7 +201,7 @@ func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 		testConfig(), credentials, interaction, options,
 	)
 
-	err := service.SignInProvider(t.Context())
+	err := service.SignIn(t.Context())
 
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "missing-refresh")
@@ -233,7 +233,7 @@ func TestDriverSignInPreservesTokenExchangeFailure(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, options)
 
 	// Act by completing the callback and exchanging its code.
-	err := service.SignInProvider(t.Context())
+	err := service.SignIn(t.Context())
 
 	// Assert endpoint context and provider error detail remain visible.
 	require.Error(t, err)
@@ -413,9 +413,9 @@ func TestDecodeRefreshResponsePreservesJSONCause(t *testing.T) {
 	assert.Contains(t, err.Error(), "refresh response")
 }
 
-// TestCheckProviderAuthenticationPreservesCredentialParserCause verifies sign-in classification keeps stored JSON
+// TestCheckCredentialsPreservesCredentialParserCause verifies sign-in classification keeps stored JSON
 // detail.
-func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T) {
+func TestCheckCredentialsPreservesCredentialParserCause(t *testing.T) {
 	t.Parallel()
 
 	// Arrange malformed stored credentials.
@@ -423,8 +423,8 @@ func TestCheckProviderAuthenticationPreservesCredentialParserCause(t *testing.T)
 	credentials.EXPECT().Load().Return([]byte(`{"access_token":`), true, nil)
 	service := New(testConfig(), credentials, NewMockInteraction(gomock.NewController(t)))
 
-	// Act by checking provider authentication.
-	err := service.CheckProviderAuthentication(t.Context())
+	// Act by checking provider credentials.
+	err := service.CheckCredentials(t.Context())
 
 	// Assert sign-in classification and parser detail are both retained.
 	require.Error(t, err)

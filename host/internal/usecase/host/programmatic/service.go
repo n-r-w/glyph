@@ -228,7 +228,7 @@ func (s *Service) models(correlationID string) controller.Response {
 	response := emptyResponse(correlationID, controller.ResponseModels)
 	response.Models = mo.Some(controller.ModelsResult{
 		Models:          s.modelCatalog.Models(),
-		ActiveSelection: mo.Some(s.modelCatalog.Selection()),
+		ActiveSelection: mo.Some(s.modelCatalog.ActiveSelection()),
 	})
 	return response
 }

@@ -39,7 +39,7 @@ const (
 // Stream emits one provider response as provider-neutral semantic events.
 func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
 	var handlerErr error
-	response, streamErr := s.generateResponse(ctx, request, func(event run.StreamEvent) error {
+	response, streamErr := s.executeRequest(ctx, request, func(event run.StreamEvent) error {
 		if err := handle(event); err != nil {
 			handlerErr = err
 			return err
@@ -88,8 +88,8 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	return streamErr
 }
 
-// generateResponse decodes one Codex stream and returns its terminal response.
-func (s *Driver) generateResponse(
+// executeRequest decodes one Codex stream and returns its terminal response.
+func (s *Driver) executeRequest(
 	ctx context.Context,
 	request run.ModelRequest,
 	handle run.StreamHandler,

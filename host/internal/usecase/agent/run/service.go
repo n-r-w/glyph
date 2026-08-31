@@ -194,11 +194,11 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	var deliveryErr error
 	var response model.Response
 	tools := s.tools.Tools()
-	selection := s.runtime.Current()
-	providerErr := selection.Provider.Stream(ctx, ModelRequest{
+	snapshot := s.runtime.Snapshot()
+	providerErr := snapshot.Provider.Stream(ctx, ModelRequest{
 		Instructions:    s.instructions,
-		Model:           selection.Model,
-		ReasoningChoice: selection.ReasoningChoice,
+		Model:           snapshot.Model,
+		ReasoningChoice: snapshot.ReasoningChoice,
 		History:         projectedContext.History,
 		Tools:           tools,
 	}, func(streamEvent StreamEvent) error {

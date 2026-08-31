@@ -178,8 +178,8 @@ func mapRequestSummaryMode(mode programmaticv1.SummaryMode) SummaryMode {
 	}
 }
 
-func mapRequestReasoningChoice(level programmaticv1.ReasoningChoice) model.ReasoningChoice {
-	switch level {
+func mapRequestReasoningChoice(choice programmaticv1.ReasoningChoice) model.ReasoningChoice {
+	switch choice {
 	case programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF:
 		return model.ReasoningChoiceOff
 	case programmaticv1.ReasoningChoice_REASONING_CHOICE_ON:

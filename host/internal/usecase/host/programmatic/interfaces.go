@@ -52,7 +52,7 @@ type SelectionCode string
 const (
 	// SelectionNotFound reports an unknown provider and model pair.
 	SelectionNotFound SelectionCode = "not_found"
-	// SelectionReasoningUnsupported reports an unsupported reasoning level.
+	// SelectionReasoningUnsupported reports an unsupported reasoning choice.
 	SelectionReasoningUnsupported SelectionCode = "reasoning_unsupported"
 	// SelectionCredentialUnavailable reports unavailable selection credentials.
 	SelectionCredentialUnavailable SelectionCode = "credential_unavailable" //nolint:gosec // This is an error code.
@@ -67,7 +67,7 @@ type SelectionFailure interface {
 // ModelCatalog provides configured models and runtime selection operations.
 type ModelCatalog interface {
 	Models() []model.Descriptor
-	Selection() model.Selection
+	ActiveSelection() model.Selection
 	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
-	SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error)
+	SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error)
 }

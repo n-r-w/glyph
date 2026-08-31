@@ -15,17 +15,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
-// completionFailureError exposes one configured-completion classification in tests.
-type completionFailureError struct {
+// modelRequestFailureError exposes one model request failure classification in tests.
+type modelRequestFailureError struct {
 	// code is the stable configured-selection failure code.
 	code string
 }
 
 // Error implements error.
-func (failure completionFailureError) Error() string { return failure.code }
+func (failure modelRequestFailureError) Error() string { return failure.code }
 
 // SelectionCode exposes the configured-selection failure code.
-func (failure completionFailureError) SelectionCode() string { return failure.code }
+func (failure modelRequestFailureError) SelectionCode() string { return failure.code }
 
 // TestNavigateSummaryFailuresNeverCommit verifies selection, credential, model, and cancellation failures preserve
 // active state.
@@ -40,19 +40,19 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 	}{
 		{
 			name:     "model unavailable",
-			failure:  completionFailureError{code: selectionCodeNotFound},
+			failure:  modelRequestFailureError{code: selectionCodeNotFound},
 			cancel:   false,
 			expected: sessionnavigation.ErrModelUnavailable,
 		},
 		{
 			name:     "reasoning unavailable",
-			failure:  completionFailureError{code: selectionCodeReasoningUnsupported},
+			failure:  modelRequestFailureError{code: selectionCodeReasoningUnsupported},
 			cancel:   false,
 			expected: sessionnavigation.ErrModelUnavailable,
 		},
 		{
 			name:     "credential unavailable",
-			failure:  completionFailureError{code: selectionCodeCredentialUnavailable},
+			failure:  modelRequestFailureError{code: selectionCodeCredentialUnavailable},
 			cancel:   false,
 			expected: sessionnavigation.ErrCredentialUnavailable,
 		},
@@ -68,10 +68,10 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange one abandoned path and a configured completion that fails before commit.
+			// Arrange one abandoned path and a model request that fails before commit.
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
-			models := NewMockModelCompleter(controller)
+			models := NewMockModelRequester(controller)
 			handlers := NewMockHandlerRunner(controller)
 			selection := model.Selection{
 				Provider:        "provider",
@@ -80,11 +80,11 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			}
 			active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().Selection().Return(selection)
+			models.EXPECT().ActiveSelection().Return(selection)
 			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
-			models.EXPECT().CompleteConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
+			models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ model.Selection, _ string, _ []agent.HistoryEntry) (model.Response, error) {
 					if test.cancel {
 						cancel()

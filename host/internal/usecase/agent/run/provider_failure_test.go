@@ -311,7 +311,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 		},
 	)
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistenceErr)
-	runtime.EXPECT().Current().Return(RuntimeSelection{
+	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 	})
 	tools.EXPECT().Tools().Return(nil)

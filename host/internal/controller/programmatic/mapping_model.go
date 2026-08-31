@@ -64,19 +64,19 @@ func mapInputModality(modality model.InputModality) (programmaticv1.InputModalit
 }
 
 func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {
-	level, err := mapReasoningChoice(selection.ReasoningChoice)
+	choice, err := mapReasoningChoice(selection.ReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
 	mapped := new(programmaticv1.ModelSelection)
 	mapped.SetProviderId(string(selection.Provider))
 	mapped.SetModelId(string(selection.Model))
-	mapped.SetReasoningChoice(level)
+	mapped.SetReasoningChoice(choice)
 	return mapped, nil
 }
 
-func mapReasoningChoice(level model.ReasoningChoice) (programmaticv1.ReasoningChoice, error) {
-	switch level {
+func mapReasoningChoice(choice model.ReasoningChoice) (programmaticv1.ReasoningChoice, error) {
+	switch choice {
 	case model.ReasoningChoiceOff:
 		return programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF, nil
 	case model.ReasoningChoiceOn:
@@ -94,6 +94,6 @@ func mapReasoningChoice(level model.ReasoningChoice) (programmaticv1.ReasoningCh
 	case model.ReasoningChoiceMax:
 		return programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, nil
 	default:
-		return 0, fmt.Errorf("map reasoning choice: unknown value %q", level)
+		return 0, fmt.Errorf("map reasoning choice: unknown value %q", choice)
 	}
 }

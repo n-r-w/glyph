@@ -109,7 +109,7 @@ func BuildInitialization(
 		Extensions:     extensions,
 		Availability:   domainui.AvailabilityCheckingAuthentication,
 		Models:         models,
-		ModelSelection: mo.Some(selectionToUI(modelCatalog.Selection())),
+		ModelSelection: mo.Some(selectionToUI(modelCatalog.ActiveSelection())),
 		SessionInfo:    session.Info{},
 	}
 }

@@ -149,7 +149,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 	runtime := agentrun.NewMockModelRuntime(controller)
 	tools := agentrun.NewMockToolRuntime(controller)
 	events := agentrun.NewMockEventSink(controller)
-	runtime.EXPECT().Current().Return(agentrun.RuntimeSelection{
+	runtime.EXPECT().Snapshot().Return(agentrun.RequestSnapshot{
 		Model: model.Descriptor{
 			Provider:              "provider",
 			Model:                 "model",

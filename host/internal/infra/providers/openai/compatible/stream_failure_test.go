@@ -434,13 +434,13 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 				Default:   model.ReasoningChoiceHigh,
 			}, ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 		},
-		Provider: driver, SelectionCredentialValidator: nil, Authentication: nil,
+		Provider: driver, CredentialChecker: nil, Authentication: nil,
 	}}, selection)
 	require.NoError(t, err)
-	runtime := catalog.Current()
-	request := richRequest(runtime.Model.Provider, runtime.Model.Model)
-	request.Model = runtime.Model
-	request.ReasoningChoice = runtime.ReasoningChoice
+	snapshot := catalog.Snapshot()
+	request := richRequest(snapshot.Model.Provider, snapshot.Model.Model)
+	request.Model = snapshot.Model
+	request.ReasoningChoice = snapshot.ReasoningChoice
 	appendHistoryModelContent(&request, model.Content{
 		Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
 		ProviderContext: mo.Some(model.ProviderContext{
@@ -453,7 +453,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	var events []run.StreamEvent
 
 	// Act by streaming the request with rejected opaque context.
-	err = runtime.Provider.Stream(t.Context(), request, func(event run.StreamEvent) error {
+	err = snapshot.Provider.Stream(t.Context(), request, func(event run.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -463,7 +463,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	assert.Equal(t, int64(1), calls.Load())
 	require.NotEmpty(t, events)
 	assert.Equal(t, run.StreamEventError, events[len(events)-1].Kind)
-	assert.Equal(t, selection, catalog.Selection())
+	assert.Equal(t, selection, catalog.ActiveSelection())
 }
 
 func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {

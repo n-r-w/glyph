@@ -74,6 +74,7 @@ type Driver struct {
 
 var (
 	_ run.ModelProvider                = (*Driver)(nil)
+	_ providers.CredentialChecker      = (*Driver)(nil)
 	_ providers.ProviderAuthentication = (*Driver)(nil)
 )
 
@@ -96,8 +97,8 @@ func newDriver(config Config, credentials Credentials, interaction Interaction, 
 	}
 }
 
-// CheckProviderAuthentication validates or refreshes persisted credentials without starting OAuth.
-func (s *Driver) CheckProviderAuthentication(ctx context.Context) error {
+// CheckCredentials validates or refreshes persisted credentials without starting OAuth.
+func (s *Driver) CheckCredentials(ctx context.Context) error {
 	_, err := s.resolveCredentials(ctx)
 	if err == nil {
 		return nil
@@ -111,8 +112,8 @@ func (s *Driver) CheckProviderAuthentication(ctx context.Context) error {
 	return fmt.Errorf("%w: %w", ErrSignInRequired, err)
 }
 
-// IsProviderSignInRequired reports the provider-owned authentication classification.
-func (*Driver) IsProviderSignInRequired(err error) bool {
+// IsSignInRequired reports the provider-owned authentication classification.
+func (*Driver) IsSignInRequired(err error) bool {
 	return errors.Is(err, ErrSignInRequired)
 }
 

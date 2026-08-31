@@ -52,12 +52,12 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			// Arrange one immutable tree snapshot and a commit that publishes the prepared destination.
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
-			models := NewMockModelCompleter(controller)
+			models := NewMockModelRequester(controller)
 			handlers := NewMockHandlerRunner(controller)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().Selection().Return(model.Selection{})
+			models.EXPECT().ActiveSelection().Return(model.Selection{})
 			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 			committed := tree
 			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
@@ -91,7 +91,7 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	// Arrange a tree snapshot with no matching target and no commit expectation.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
-	models := NewMockModelCompleter(controller)
+	models := NewMockModelRequester(controller)
 	handlers := NewMockHandlerRunner(controller)
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 	service := New(active, models, handlers)
@@ -113,7 +113,7 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	// Arrange an already canceled request and an active session with no expectations.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
-	models := NewMockModelCompleter(controller)
+	models := NewMockModelRequester(controller)
 	handlers := NewMockHandlerRunner(controller)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

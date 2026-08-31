@@ -102,7 +102,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 				Provider: "secondary-provider", Model: "secondary-model", ReasoningChoice: model.ReasoningChoiceHigh,
 			}
 			catalog.EXPECT().Models().Return(nil).Times(2)
-			catalog.EXPECT().Selection().Return(selection).Times(2)
+			catalog.EXPECT().ActiveSelection().Return(selection).Times(2)
 			info := session.Info{
 				ID: "session-id", Name: mo.Some("session"), WorkingDirectory: "/project",
 				StoragePath: mo.Some("/sessions/session.jsonl"), CreatedAt: time.Time{}, UpdatedAt: time.Time{},

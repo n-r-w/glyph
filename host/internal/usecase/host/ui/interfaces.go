@@ -44,9 +44,9 @@ type AgentRunner interface {
 // ModelCatalog supplies configured models and commits runtime selection.
 type ModelCatalog interface {
 	Models() []model.Descriptor
-	Selection() model.Selection
+	ActiveSelection() model.Selection
 	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
-	SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error)
+	SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error)
 }
 
 // SessionControl provides UI session lifecycle operations.

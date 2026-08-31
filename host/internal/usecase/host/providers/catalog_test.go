@@ -23,10 +23,10 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	providerA := agentrun.NewMockModelProvider(gomock.NewController(t))
 	entries := []Entry{
 		{
-			Descriptor:                   descriptor("z-provider", "z-first", model.ReasoningChoiceOff),
-			Provider:                     providerA,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Descriptor:        descriptor("z-provider", "z-first", model.ReasoningChoiceOff),
+			Provider:          providerA,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
 			Descriptor: descriptor(
@@ -35,15 +35,15 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 				model.ReasoningChoiceLow,
 				model.ReasoningChoiceHigh,
 			),
-			Provider:                     providerA,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Provider:          providerA,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
-			Descriptor:                   descriptor("a-provider", "a-second", model.ReasoningChoiceOff),
-			Provider:                     providerA,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Descriptor:        descriptor("a-provider", "a-second", model.ReasoningChoiceOff),
+			Provider:          providerA,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 	}
 	selection := model.Selection{
@@ -59,27 +59,27 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	assert.Equal(t, []model.ID{"a-first", "a-second", "z-first"}, []model.ID{
 		models[0].Model, models[1].Model, models[2].Model,
 	})
-	assert.Equal(t, selection, catalog.Selection())
-	current := catalog.Current()
-	require.Equal(t, models[0], current.Model)
-	assert.Equal(t, model.ReasoningChoiceHigh, current.ReasoningChoice)
-	assert.Equal(t, providerA, current.Provider)
+	assert.Equal(t, selection, catalog.ActiveSelection())
+	snapshot := catalog.Snapshot()
+	require.Equal(t, models[0], snapshot.Model)
+	assert.Equal(t, model.ReasoningChoiceHigh, snapshot.ReasoningChoice)
+	assert.Equal(t, providerA, snapshot.Provider)
 
 	models[0].Model = "changed"
 	models[0].Input[0] = model.InputModalityImage
-	current.Model.Input[0] = model.InputModalityImage
-	current.Model.ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
+	snapshot.Model.Input[0] = model.InputModalityImage
+	snapshot.Model.ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
 	models[0].ReasoningCapabilities.Choices[0] = model.ReasoningChoiceMax
 	fresh := catalog.Models()
 	assert.Equal(t, model.ID("a-first"), fresh[0].Model)
 	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, fresh[0].Input)
-	assert.Equal(t, model.InputModalityText, catalog.Current().Model.Input[0])
+	assert.Equal(t, model.InputModalityText, catalog.Snapshot().Model.Input[0])
 	assert.Equal(
 		t,
 		[]model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
 		fresh[0].ReasoningCapabilities.Choices,
 	)
-	assert.Equal(t, model.ReasoningChoiceLow, catalog.Current().Model.ReasoningCapabilities.Choices[0])
+	assert.Equal(t, model.ReasoningChoiceLow, catalog.Snapshot().Model.ReasoningCapabilities.Choices[0])
 }
 
 // TestCatalogSelectModelAppliesReasoningFallback verifies model changes preserve or lower reasoning deterministically.
@@ -163,16 +163,16 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 			provider := agentrun.NewMockModelProvider(gomock.NewController(t))
 			catalog, err := New([]Entry{
 				{
-					Descriptor:                   descriptor("provider", "active", test.active),
-					Provider:                     provider,
-					SelectionCredentialValidator: nil,
-					Authentication:               nil,
+					Descriptor:        descriptor("provider", "active", test.active),
+					Provider:          provider,
+					CredentialChecker: nil,
+					Authentication:    nil,
 				},
 				{
-					Descriptor:                   descriptor("provider", "target", test.supported...),
-					Provider:                     provider,
-					SelectionCredentialValidator: nil,
-					Authentication:               nil,
+					Descriptor:        descriptor("provider", "target", test.supported...),
+					Provider:          provider,
+					CredentialChecker: nil,
+					Authentication:    nil,
 				},
 			}, model.Selection{
 				Provider:        "provider",
@@ -189,7 +189,7 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 				Model:           "target",
 				ReasoningChoice: test.expected,
 			}, selected)
-			assert.Equal(t, selected, catalog.Selection())
+			assert.Equal(t, selected, catalog.ActiveSelection())
 		})
 	}
 }
@@ -209,9 +209,9 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 			Descriptor: descriptor(
 				"provider", "active", model.ReasoningChoiceLow, model.ReasoningChoiceHigh,
 			),
-			Provider:                     provider,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Provider:          provider,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 	}, active)
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeNotFound, selectionErr.Code)
-	assert.Equal(t, active, catalog.Selection())
+	assert.Equal(t, active, catalog.ActiveSelection())
 
 	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceHigh)
 	require.NoError(t, err)
@@ -230,12 +230,12 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 		ReasoningChoice: model.ReasoningChoiceHigh,
 	}
 	assert.Equal(t, active, selected)
-	assert.Equal(t, active, catalog.Selection())
+	assert.Equal(t, active, catalog.ActiveSelection())
 
 	_, err = catalog.SelectReasoningChoice(model.ReasoningChoiceMax)
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeReasoningUnsupported, selectionErr.Code)
-	assert.Equal(t, active, catalog.Selection())
+	assert.Equal(t, active, catalog.ActiveSelection())
 }
 
 // TestCatalogRejectsInvalidExecutionCapabilities checks source-independent descriptor validation.
@@ -275,10 +275,10 @@ func TestCatalogRejectsInvalidExecutionCapabilities(t *testing.T) {
 
 			// Act by constructing the source-independent catalog.
 			_, err := New([]Entry{{
-				Descriptor:                   configured,
-				Provider:                     provider,
-				SelectionCredentialValidator: nil,
-				Authentication:               nil,
+				Descriptor:        configured,
+				Provider:          provider,
+				CredentialChecker: nil,
+				Authentication:    nil,
 			}}, model.Selection{
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
 			})
@@ -300,10 +300,10 @@ func TestCatalogRejectsEntryWithoutProvider(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoiceOff,
 	}
 	_, err := New([]Entry{{
-		Descriptor:                   descriptor("provider", "model", model.ReasoningChoiceOff),
-		Provider:                     nil,
-		SelectionCredentialValidator: nil,
-		Authentication:               nil,
+		Descriptor:        descriptor("provider", "model", model.ReasoningChoiceOff),
+		Provider:          nil,
+		CredentialChecker: nil,
+		Authentication:    nil,
 	}}, selection)
 
 	var selectionErr *SelectionError
@@ -317,10 +317,10 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	provider := agentrun.NewMockModelProvider(controller)
-	validator := NewMockSelectionCredentialValidator(controller)
+	validator := NewMockCredentialChecker(controller)
 	started := make(chan struct{})
 	release := make(chan struct{})
-	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).DoAndReturn(func(context.Context) error {
+	validator.EXPECT().CheckCredentials(gomock.Any()).DoAndReturn(func(context.Context) error {
 		close(started)
 		<-release
 		return nil
@@ -333,9 +333,9 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 				model.ReasoningChoiceLow,
 				model.ReasoningChoiceHigh,
 			),
-			Provider:                     provider,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Provider:          provider,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
 			Descriptor: descriptor(
@@ -344,9 +344,9 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 				model.ReasoningChoiceOff,
 				model.ReasoningChoiceLow,
 			),
-			Provider:                     provider,
-			SelectionCredentialValidator: validator,
-			Authentication:               nil,
+			Provider:          provider,
+			CredentialChecker: validator,
+			Authentication:    nil,
 		},
 	}, model.Selection{
 		Provider:        "provider",
@@ -368,13 +368,13 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 		t.Fatal("credential validation did not start")
 	}
 
-	current := make(chan agentrun.RuntimeSelection, 1)
-	go func() { current <- catalog.Current() }()
+	snapshots := make(chan agentrun.RequestSnapshot, 1)
+	go func() { snapshots <- catalog.Snapshot() }()
 	select {
-	case snapshot := <-current:
+	case snapshot := <-snapshots:
 		assert.Equal(t, model.ID("active"), snapshot.Model.Model)
 	case <-time.After(time.Second):
-		t.Fatal("Current blocked during credential resolution")
+		t.Fatal("Snapshot blocked during credential resolution")
 	}
 	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceLow)
 	require.NoError(t, err)
@@ -388,7 +388,7 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 		Model:           "target",
 		ReasoningChoice: model.ReasoningChoiceLow,
 	}, selected)
-	assert.Equal(t, selected, catalog.Selection())
+	assert.Equal(t, selected, catalog.ActiveSelection())
 }
 
 // TestCatalogCredentialFailureIsSafeAndPreservesSelection verifies atomic preflight failure.
@@ -397,9 +397,9 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	provider := agentrun.NewMockModelProvider(controller)
-	validator := NewMockSelectionCredentialValidator(controller)
+	validator := NewMockCredentialChecker(controller)
 	safeCause := errors.New(`resolve environment API key "PROVIDER_API_KEY": unavailable`)
-	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).Return(safeCause)
+	validator.EXPECT().CheckCredentials(gomock.Any()).Return(safeCause)
 	active := model.Selection{
 		Provider:        "provider",
 		Model:           "active",
@@ -407,16 +407,16 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 	}
 	catalog, err := New([]Entry{
 		{
-			Descriptor:                   descriptor("provider", "active", model.ReasoningChoiceHigh),
-			Provider:                     provider,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Descriptor:        descriptor("provider", "active", model.ReasoningChoiceHigh),
+			Provider:          provider,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
-			Descriptor:                   descriptor("provider", "target", model.ReasoningChoiceOff),
-			Provider:                     provider,
-			SelectionCredentialValidator: validator,
-			Authentication:               nil,
+			Descriptor:        descriptor("provider", "target", model.ReasoningChoiceOff),
+			Provider:          provider,
+			CredentialChecker: validator,
+			Authentication:    nil,
 		},
 	}, active)
 	require.NoError(t, err)
@@ -430,7 +430,7 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 	require.ErrorContains(t, err, "PROVIDER_API_KEY")
 	require.ErrorContains(t, err, "unavailable")
 	assert.NotContains(t, err.Error(), "resolved-key-material")
-	assert.Equal(t, active, catalog.Selection())
+	assert.Equal(t, active, catalog.ActiveSelection())
 }
 
 // TestCatalogAuthenticationDelegatesOnlyToActiveProvider verifies provider-owned UI authentication.
@@ -442,16 +442,16 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	authentication := NewMockProviderAuthentication(controller)
 	catalog, err := New([]Entry{
 		{
-			Descriptor:                   descriptor("compatible", "model", model.ReasoningChoiceOff),
-			Provider:                     provider,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Descriptor:        descriptor("compatible", "model", model.ReasoningChoiceOff),
+			Provider:          provider,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
-			Descriptor:                   descriptor("openai-codex", "model", model.ReasoningChoiceOff),
-			Provider:                     provider,
-			Authentication:               authentication,
-			SelectionCredentialValidator: nil,
+			Descriptor:        descriptor("openai-codex", "model", model.ReasoningChoiceOff),
+			Provider:          provider,
+			Authentication:    authentication,
+			CredentialChecker: nil,
 		},
 	}, model.Selection{
 		Provider:        "compatible",
@@ -467,9 +467,9 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	_, err = catalog.SelectModel(t.Context(), "openai-codex", "model")
 	require.NoError(t, err)
 	signInRequired := errors.New("sign in required")
-	authentication.EXPECT().CheckProviderAuthentication(gomock.Any()).Return(signInRequired)
-	authentication.EXPECT().SignInProvider(gomock.Any()).Return(nil)
-	authentication.EXPECT().IsProviderSignInRequired(signInRequired).Return(true)
+	authentication.EXPECT().CheckCredentials(gomock.Any()).Return(signInRequired)
+	authentication.EXPECT().SignIn(gomock.Any()).Return(nil)
+	authentication.EXPECT().IsSignInRequired(signInRequired).Return(true)
 	require.ErrorIs(t, catalog.CheckAuthentication(t.Context()), signInRequired)
 	require.NoError(t, catalog.SignIn(t.Context()))
 	assert.True(t, catalog.IsSignInRequired(signInRequired))
@@ -502,7 +502,7 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 					StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
 				},
 			},
-			Provider: provider, SelectionCredentialValidator: nil, Authentication: nil,
+			Provider: provider, CredentialChecker: nil, Authentication: nil,
 		},
 		{
 			Descriptor: model.Descriptor{
@@ -517,7 +517,7 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 					StrictJSONSchema: false, Grammar: model.GrammarCapabilities{Lark: false, Regex: false},
 				},
 			},
-			Provider: provider, SelectionCredentialValidator: nil, Authentication: nil,
+			Provider: provider, CredentialChecker: nil, Authentication: nil,
 		},
 	}, model.Selection{Provider: "provider-a", Model: "shared", ReasoningChoice: model.ReasoningChoiceOff})
 	require.NoError(t, err)
@@ -535,7 +535,7 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 	assert.True(t, unknownModel.IsAbsent())
 }
 
-func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.ReasoningChoice) model.Descriptor {
+func descriptor(provider model.ProviderID, modelID model.ID, choices ...model.ReasoningChoice) model.Descriptor {
 	return model.Descriptor{
 		Provider:      provider,
 		Model:         modelID,
@@ -543,9 +543,9 @@ func descriptor(provider model.ProviderID, modelID model.ID, levels ...model.Rea
 		ContextWindow: 131072,
 		MaxTokens:     16384,
 		ReasoningCapabilities: model.ReasoningCapabilities{
-			Supported: levels[0] != model.ReasoningChoiceOff || len(levels) > 1,
-			Choices:   slices.Clone(levels),
-			Default:   levels[0],
+			Supported: choices[0] != model.ReasoningChoiceOff || len(choices) > 1,
+			Choices:   slices.Clone(choices),
+			Default:   choices[0],
 		},
 		ToolCapabilities: model.ToolCapabilities{
 			StrictJSONSchema: false,

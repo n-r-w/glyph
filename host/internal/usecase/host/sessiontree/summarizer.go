@@ -30,7 +30,7 @@ type selectionFailure interface {
 	SelectionCode() string
 }
 
-// summarize executes one configured model request for the exact abandoned path.
+// summarize executes one model request with the exact selection for the abandoned path.
 func (s *Service) summarize(
 	ctx context.Context,
 	selection model.Selection,
@@ -49,14 +49,14 @@ func (s *Service) summarize(
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(userInput)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}}
-	response, err := s.models.CompleteConfigured(
+	response, err := s.modelRequester.Request(
 		ctx,
 		selection,
 		branchSummarySystemText,
 		history,
 	)
 	if err != nil {
-		return BranchSummaryDraft{}, classifyCompletionError(ctx, err)
+		return BranchSummaryDraft{}, classifyModelRequestError(ctx, err)
 	}
 	summary, usage, err := validateSummaryResponse(response)
 	if err != nil {
@@ -69,8 +69,8 @@ func (s *Service) summarize(
 	}, nil
 }
 
-// classifyCompletionError maps configured-selection failures and preserves context cancellation.
-func classifyCompletionError(ctx context.Context, err error) error {
+// classifyModelRequestError maps model request failures and preserves context cancellation.
+func classifyModelRequestError(ctx context.Context, err error) error {
 	if contextErr := ctx.Err(); contextErr != nil {
 		return contextErr
 	}

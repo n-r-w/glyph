@@ -67,13 +67,13 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	active := sessiontree.NewMockActiveSession(controller)
-	models := sessiontree.NewMockModelCompleter(controller)
+	models := sessiontree.NewMockModelRequester(controller)
 	tree := grpcNavigationTree(t)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().Selection().Return(selection)
-	models.EXPECT().ValidateConfigured(gomock.Any(), selection).Return(nil)
+	models.EXPECT().ActiveSelection().Return(selection)
+	models.EXPECT().CheckAvailability(gomock.Any(), selection).Return(nil)
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	require.NoError(t, committed.Add(grpcSummaryEntry(selection)))

@@ -131,7 +131,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 					return nil
 				},
 			).AnyTimes()
-			runtime.EXPECT().Current().Return(RuntimeSelection{
+			runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 			})
 			tools.EXPECT().Tools().Return(nil)

@@ -315,13 +315,13 @@ func selectModelRequest(correlationID, providerID, modelID string) *programmatic
 // selectReasoningRequest builds a generated reasoning-selection frame.
 func selectReasoningRequest(
 	correlationID string,
-	level programmaticv1.ReasoningChoice,
+	choice programmaticv1.ReasoningChoice,
 ) *programmaticv1.OpenRequest {
 	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 	return programmaticv1.OpenRequest_builder{
 		CorrelationId: new(correlationID),
 		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
-			Choice: level.Enum(),
+			Choice: choice.Enum(),
 		}.Build(),
 		CreateSession:  nil,
 		ListSessions:   nil,

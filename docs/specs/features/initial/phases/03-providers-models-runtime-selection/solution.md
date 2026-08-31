@@ -111,9 +111,9 @@ providers:
 
 ### Agent Core boundary
 
-- APC-20: `ModelRuntime.Current` returns one immutable runtime selection with `model.Descriptor`, active `ReasoningChoice`, and the `ModelProvider` for that request.
+- APC-20: `ModelRuntime.Snapshot` returns one immutable `RequestSnapshot` with `model.Descriptor`, active `ReasoningChoice`, and the `ModelProvider` for that request.
 - APC-21: `ModelRequest` carries the selected descriptor, active reasoning choice, conversation history, instructions, and tools.
-- APC-22: Agent Core reads `ModelRuntime.Current` immediately before every `ModelProvider.Stream` call.
+- APC-22: Agent Core reads `ModelRuntime.Snapshot` immediately before every `ModelProvider.Stream` call.
 - APC-23: Agent Core stores visible reasoning and opaque provider context as model-domain content without interpreting provider context or choosing wire fields.
 - CNS-02: Agent Core does not list models, resolve credentials, parse settings, select an OpenAI API, or import Host, protobuf, gRPC, provider SDK, persistence, or TUI packages.
 - CNS-03: Selection changes cannot mutate an in-progress stream handler or partial response.

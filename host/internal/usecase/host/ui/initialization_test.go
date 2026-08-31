@@ -83,7 +83,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 		},
 		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}})
-	catalog.EXPECT().Selection().Return(model.Selection{
+	catalog.EXPECT().ActiveSelection().Return(model.Selection{
 		Provider:        "openai-codex",
 		Model:           "gpt",
 		ReasoningChoice: model.ReasoningChoiceHigh,
@@ -144,7 +144,7 @@ func testModelCatalog(t *testing.T) ModelCatalog {
 		},
 		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}})
-	catalog.EXPECT().Selection().Return(model.Selection{
+	catalog.EXPECT().ActiveSelection().Return(model.Selection{
 		Provider:        "openai-codex",
 		Model:           "gpt",
 		ReasoningChoice: model.ReasoningChoiceHigh,

@@ -9,8 +9,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// TestDriverCheckAuthenticationUsesProviderOwnedClassification verifies Host preflight ownership.
-func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) {
+// TestDriverCheckCredentialsUsesProviderOwnedClassification verifies Host credential-check ownership.
+func TestDriverCheckCredentialsUsesProviderOwnedClassification(t *testing.T) {
 	t.Parallel()
 
 	t.Run("usable credentials", func(t *testing.T) {
@@ -32,7 +32,7 @@ func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) 
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
-		err := service.CheckProviderAuthentication(t.Context())
+		err := service.CheckCredentials(t.Context())
 
 		require.NoError(t, err)
 	})
@@ -44,10 +44,10 @@ func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) 
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
-		err := service.CheckProviderAuthentication(t.Context())
+		err := service.CheckCredentials(t.Context())
 
 		require.ErrorIs(t, err, ErrSignInRequired)
-		assert.True(t, service.IsProviderSignInRequired(err))
+		assert.True(t, service.IsSignInRequired(err))
 	})
 
 	t.Run("malformed credentials", func(t *testing.T) {
@@ -57,9 +57,9 @@ func TestDriverCheckAuthenticationUsesProviderOwnedClassification(t *testing.T) 
 		interaction := NewMockInteraction(gomock.NewController(t))
 		service := newDriver(testConfig(), credentials, interaction, defaultDriverOptions())
 
-		err := service.CheckProviderAuthentication(t.Context())
+		err := service.CheckCredentials(t.Context())
 
 		require.ErrorIs(t, err, ErrSignInRequired)
-		assert.True(t, service.IsProviderSignInRequired(err))
+		assert.True(t, service.IsSignInRequired(err))
 	})
 }

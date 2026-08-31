@@ -32,51 +32,51 @@ type sessionComposition struct {
 	gate *operationgate.Service
 	// pricing binds the provider catalog after storage initialization and before client execution.
 	pricing *pricingCatalogBinding
-	// models binds configured-model execution after provider construction.
-	models *modelCatalogBinding
+	// modelRequester binds model requests after provider construction.
+	modelRequester *modelRequesterBinding
 }
 
-// modelCatalogBinding preserves storage-first startup while binding configured-model execution once.
-type modelCatalogBinding struct {
+// modelRequesterBinding preserves storage-first startup while binding model requests once.
+type modelRequesterBinding struct {
 	// catalog is the provider catalog bound after storage initialization.
 	catalog *providers.Catalog
 }
 
 // Bind completes model execution assembly before client commands start.
-func (b *modelCatalogBinding) Bind(catalog *providers.Catalog) {
+func (b *modelRequesterBinding) Bind(catalog *providers.Catalog) {
 	if b.catalog != nil || catalog == nil {
 		panic("model catalog binding must be completed exactly once")
 	}
 	b.catalog = catalog
 }
 
-// Selection returns the active configured model snapshot.
-func (b *modelCatalogBinding) Selection() model.Selection {
+// ActiveSelection returns the active model selection.
+func (b *modelRequesterBinding) ActiveSelection() model.Selection {
 	if b.catalog == nil {
-		panic("model catalog selection before application assembly")
+		panic("active model selection before application assembly")
 	}
-	return b.catalog.Selection()
+	return b.catalog.ActiveSelection()
 }
 
-// ValidateConfigured validates one configured selection without model execution.
-func (b *modelCatalogBinding) ValidateConfigured(ctx context.Context, selection model.Selection) error {
+// CheckAvailability checks one exact selection without model execution.
+func (b *modelRequesterBinding) CheckAvailability(ctx context.Context, selection model.Selection) error {
 	if b.catalog == nil {
-		panic("configured validation before application assembly")
+		panic("model availability check before application assembly")
 	}
-	return b.catalog.ValidateConfigured(ctx, selection)
+	return b.catalog.CheckAvailability(ctx, selection)
 }
 
-// CompleteConfigured executes one configured model without active-selection mutation.
-func (b *modelCatalogBinding) CompleteConfigured(
+// Request executes one model request without changing the active selection.
+func (b *modelRequesterBinding) Request(
 	ctx context.Context,
 	selection model.Selection,
 	instructions string,
 	history []agent.HistoryEntry,
 ) (model.Response, error) {
 	if b.catalog == nil {
-		panic("configured completion before application assembly")
+		panic("model request before application assembly")
 	}
-	return b.catalog.CompleteConfigured(ctx, selection, instructions, history)
+	return b.catalog.Request(ctx, selection, instructions, history)
 }
 
 // pricingCatalogBinding preserves storage-first startup while binding the UI-dependent provider catalog once.
@@ -86,7 +86,7 @@ type pricingCatalogBinding struct {
 }
 
 var (
-	_ sessiontree.ModelCompleter  = (*modelCatalogBinding)(nil)
+	_ sessiontree.ModelRequester  = (*modelRequesterBinding)(nil)
 	_ hostsessions.PricingCatalog = (*pricingCatalogBinding)(nil)
 )
 
@@ -124,7 +124,7 @@ func newSessionComposition(
 		filepath.Join(paths.Directory, "sessions"), canonical, sessionfilesystem.New(),
 	)
 	pricing := &pricingCatalogBinding{catalog: nil}
-	models := &modelCatalogBinding{catalog: nil}
+	modelRequester := &modelRequesterBinding{catalog: nil}
 	active := hostsessions.New(
 		repository, sessionruntime.CryptoIDGenerator{}, sessionruntime.SystemClock{}, pricing, canonical,
 	)
@@ -133,10 +133,10 @@ func newSessionComposition(
 	}
 	gate := operationgate.New()
 	return sessionComposition{
-		active:  active,
-		control: sessioncontrol.New(active, sessiontree.New(active, models, extensions), gate),
-		gate:    gate,
-		pricing: pricing,
-		models:  models,
+		active:         active,
+		control:        sessioncontrol.New(active, sessiontree.New(active, modelRequester, extensions), gate),
+		gate:           gate,
+		pricing:        pricing,
+		modelRequester: modelRequester,
 	}, nil
 }

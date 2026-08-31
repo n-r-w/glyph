@@ -16,8 +16,8 @@ import (
 type Service struct {
 	// active supplies the immutable preparation snapshot and owns the commit.
 	active ActiveSession
-	// models validates selection and executes configured-model completion.
-	models ModelCompleter
+	// modelRequester supplies selection state and executes model requests.
+	modelRequester ModelRequester
 	// handlers supplies ordered extension handlers for navigation.
 	handlers HandlerRunner
 }
@@ -25,8 +25,8 @@ type Service struct {
 var _ sessioncontrol.Navigator = (*Service)(nil)
 
 // New creates an internal session-tree navigation service.
-func New(active ActiveSession, models ModelCompleter, handlers HandlerRunner) *Service {
-	return &Service{active: active, models: models, handlers: handlers}
+func New(active ActiveSession, modelRequester ModelRequester, handlers HandlerRunner) *Service {
+	return &Service{active: active, modelRequester: modelRequester, handlers: handlers}
 }
 
 // NavigateTree composes extension handlers around one atomic navigation commit.
@@ -47,7 +47,7 @@ func (s *Service) NavigateTree(
 	if err != nil {
 		return sessionnavigation.Result{}, err
 	}
-	selection := s.models.Selection()
+	selection := s.modelRequester.ActiveSelection()
 	original := HandlerNavigationState{
 		SessionID:             s.active.SessionID(),
 		PrecedingActiveLeafID: expectedActiveLeafID,

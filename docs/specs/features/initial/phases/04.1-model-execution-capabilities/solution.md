@@ -63,7 +63,7 @@ models:
 ### Host catalogue
 
 - APC-06: `providers.New` validates every descriptor's input modalities and limits with the same rules as APC-03 and APC-04. Descriptor validation applies independently of the descriptor source.
-- APC-07: `Catalog.Models` and `Catalog.Current` return descriptors whose `Input` slices do not share backing arrays with catalogue state.
+- APC-07: `Catalog.Models` and `Catalog.Snapshot` return descriptors whose `Input` slices do not share backing arrays with catalogue state.
 - APC-08: Catalogue queries preserve the configured modality order, context window, and maximum output tokens.
 
 ### Programmatic Control contract

@@ -60,7 +60,7 @@ func newProviderCatalog(
 						ToolCapabilities:      configuredModel.ToolCapabilities,
 						Pricing:               configuredModel.Pricing,
 					},
-					Provider: provider, SelectionCredentialValidator: nil, Authentication: provider,
+					Provider: provider, CredentialChecker: nil, Authentication: provider,
 				})
 			}
 		case settingstore.ProviderTypeOpenAICompatible:
@@ -98,7 +98,7 @@ func newProviderCatalog(
 						ToolCapabilities:      configuredModel.ToolCapabilities,
 						Pricing:               configuredModel.Pricing,
 					},
-					Provider: provider, SelectionCredentialValidator: resolver, Authentication: nil,
+					Provider: provider, CredentialChecker: resolver, Authentication: nil,
 				})
 			}
 		default:

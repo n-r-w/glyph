@@ -292,6 +292,20 @@ func (m *MockModelCatalog) EXPECT() *MockModelCatalogMockRecorder {
 	return m.recorder
 }
 
+// ActiveSelection mocks base method.
+func (m *MockModelCatalog) ActiveSelection() model.Selection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveSelection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// ActiveSelection indicates an expected call of ActiveSelection.
+func (mr *MockModelCatalogMockRecorder) ActiveSelection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockModelCatalog)(nil).ActiveSelection))
+}
+
 // Models mocks base method.
 func (m *MockModelCatalog) Models() []model.Descriptor {
 	m.ctrl.T.Helper()
@@ -322,32 +336,18 @@ func (mr *MockModelCatalogMockRecorder) SelectModel(ctx, provider, modelID any) 
 }
 
 // SelectReasoningChoice mocks base method.
-func (m *MockModelCatalog) SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error) {
+func (m *MockModelCatalog) SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelectReasoningChoice", level)
+	ret := m.ctrl.Call(m, "SelectReasoningChoice", choice)
 	ret0, _ := ret[0].(model.Selection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SelectReasoningChoice indicates an expected call of SelectReasoningChoice.
-func (mr *MockModelCatalogMockRecorder) SelectReasoningChoice(level any) *gomock.Call {
+func (mr *MockModelCatalogMockRecorder) SelectReasoningChoice(choice any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningChoice", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningChoice), level)
-}
-
-// Selection mocks base method.
-func (m *MockModelCatalog) Selection() model.Selection {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Selection")
-	ret0, _ := ret[0].(model.Selection)
-	return ret0
-}
-
-// Selection indicates an expected call of Selection.
-func (mr *MockModelCatalogMockRecorder) Selection() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selection", reflect.TypeOf((*MockModelCatalog)(nil).Selection))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningChoice", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningChoice), choice)
 }
 
 // MockSessionControl is a mock of SessionControl interface.

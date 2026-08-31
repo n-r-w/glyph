@@ -149,8 +149,8 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 		Provider:        "a-compatible",
 		Model:           "a-second",
 		ReasoningChoice: model.ReasoningChoiceHigh,
-	}, catalog.Selection())
-	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Current().Model.Provider)
+	}, catalog.ActiveSelection())
+	assert.Equal(t, model.ProviderID("a-compatible"), catalog.Snapshot().Model.Provider)
 	// Assert exact execution capabilities in catalog order.
 	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, models[0].Input)
 	assert.Equal(t, int64(131072), models[0].ContextWindow)

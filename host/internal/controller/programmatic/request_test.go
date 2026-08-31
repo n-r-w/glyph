@@ -511,13 +511,13 @@ func TestMapOpenRequestMapsReasoningChoices(t *testing.T) {
 		programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX:         "max",
 		programmaticv1.ReasoningChoice(99):                          "",
 	}
-	for level, want := range tests {
+	for choice, want := range tests {
 		//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
 		request := programmaticv1.OpenRequest_builder{
 			GetSessionEntries: nil,
-			CorrelationId:     new(level.String()),
+			CorrelationId:     new(choice.String()),
 			SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
-				Choice: level.Enum(),
+				Choice: choice.Enum(),
 			}.Build(),
 			CreateSession:       nil,
 			ListSessions:        nil,

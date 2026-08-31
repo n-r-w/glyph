@@ -95,18 +95,18 @@ func (m *MockModelRuntime) EXPECT() *MockModelRuntimeMockRecorder {
 	return m.recorder
 }
 
-// Current mocks base method.
-func (m *MockModelRuntime) Current() RuntimeSelection {
+// Snapshot mocks base method.
+func (m *MockModelRuntime) Snapshot() RequestSnapshot {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Current")
-	ret0, _ := ret[0].(RuntimeSelection)
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(RequestSnapshot)
 	return ret0
 }
 
-// Current indicates an expected call of Current.
-func (mr *MockModelRuntimeMockRecorder) Current() *gomock.Call {
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockModelRuntimeMockRecorder) Snapshot() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Current", reflect.TypeOf((*MockModelRuntime)(nil).Current))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockModelRuntime)(nil).Snapshot))
 }
 
 // MockModelProvider is a mock of ModelProvider interface.

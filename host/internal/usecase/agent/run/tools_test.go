@@ -197,13 +197,13 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 		Pricing:               mo.None[model.Pricing](),
 	}
 	committed := false
-	runtime.EXPECT().Current().DoAndReturn(func() RuntimeSelection {
+	runtime.EXPECT().Snapshot().DoAndReturn(func() RequestSnapshot {
 		if committed {
-			return RuntimeSelection{
+			return RequestSnapshot{
 				Model: newModel, ReasoningChoice: model.ReasoningChoiceHigh, Provider: newProvider,
 			}
 		}
-		return RuntimeSelection{
+		return RequestSnapshot{
 			Model: oldModel, ReasoningChoice: model.ReasoningChoiceLow, Provider: oldProvider,
 		}
 	}).AnyTimes()

@@ -179,7 +179,7 @@ func (api API) Validate() error {
 //
 //nolint:nestif // Error classification must preserve handler, cancellation, and provider outcomes.
 func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
-	configuredModel, err := s.requestModelConfig(request)
+	configuredModel, err := s.modelConfigForRequest(request)
 	if err != nil {
 		return s.emitFailure(handle, request, model.OutcomeFailed, err.Error(), err)
 	}
@@ -233,7 +233,8 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 	return nil
 }
 
-func (s *Driver) requestModelConfig(request run.ModelRequest) (modelConfig, error) {
+// modelConfigForRequest returns provider wire settings for the selected model.
+func (s *Driver) modelConfigForRequest(request run.ModelRequest) (modelConfig, error) {
 	if request.Model.Provider != s.providerID {
 		return modelConfig{}, errors.New("configured provider does not match request")
 	}

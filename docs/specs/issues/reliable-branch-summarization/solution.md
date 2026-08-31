@@ -113,17 +113,17 @@ The serializer excludes:
 
 ### Model request
 
-`Service.summarize` keeps the current configured-model execution boundary:
+`Service.summarize` keeps the model-request boundary:
 
 1. Load the static system rules.
 2. Convert the conversation entries in `preparation.AbandonedPath` to text.
 3. Render one user input from the conversation text, optional additional focus, and primary task.
 4. Create one `agent.HistoryEntryUser` containing one text `model.Message`.
-5. Call `ModelCompleter.CompleteConfigured` with the selected model, system rules, and the one-entry history.
+5. Call `ModelRequester.Request` with the selected model, system rules, and the one-entry history.
 6. Validate the terminal `model.Response` through `validateSummaryResponse`.
 7. Build the existing `BranchSummaryDraft` with unchanged source boundaries, selection, and normalized usage.
 
-- APC-08: `ModelCompleter` and `ConfiguredModelRequester` interfaces do not change.
+- APC-08: The `ModelRequester` interface does not change.
 - DEC-03: The active conversation selection remains the default branch-summary selection.
 - DEC-04: A `session_before_tree` request handler can replace the selection for one navigation through the existing `SummaryModel` field.
 - DEC-05: A complete handler-provided result continues to skip `Service.summarize`.

@@ -174,7 +174,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	selectedModel := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceLow}
 	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog.EXPECT().Models().Return(models)
-	catalog.EXPECT().Selection().Return(initial)
+	catalog.EXPECT().ActiveSelection().Return(initial)
 	catalog.EXPECT().
 		SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).
 		Return(selectedModel, nil)

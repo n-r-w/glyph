@@ -14,31 +14,31 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// TestCompleteConfiguredExecutesExactSelectionWithoutMutation verifies one alternate configured request preserves
+// TestRequestExecutesExactSelectionWithoutMutation verifies one alternate configured request preserves
 // active state.
-func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
+func TestRequestExecutesExactSelectionWithoutMutation(t *testing.T) {
 	t.Parallel()
 
 	// Arrange two configured selections and one terminal response from the alternate provider.
 	controller := gomock.NewController(t)
 	activeProvider := agentrun.NewMockModelProvider(controller)
 	alternateProvider := agentrun.NewMockModelProvider(controller)
-	validator := NewMockSelectionCredentialValidator(controller)
-	validator.EXPECT().ValidateSelectionCredentials(gomock.Any()).Return(nil)
+	validator := NewMockCredentialChecker(controller)
+	validator.EXPECT().CheckCredentials(gomock.Any()).Return(nil)
 	active := model.Selection{Provider: "active", Model: "main", ReasoningChoice: model.ReasoningChoiceLow}
 	alternate := model.Selection{Provider: "alternate", Model: "summary", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog, err := New([]Entry{
 		{
-			Descriptor:                   descriptor("active", "main", model.ReasoningChoiceLow),
-			Provider:                     activeProvider,
-			SelectionCredentialValidator: nil,
-			Authentication:               nil,
+			Descriptor:        descriptor("active", "main", model.ReasoningChoiceLow),
+			Provider:          activeProvider,
+			CredentialChecker: nil,
+			Authentication:    nil,
 		},
 		{
-			Descriptor:                   descriptor("alternate", "summary", model.ReasoningChoiceHigh),
-			Provider:                     alternateProvider,
-			SelectionCredentialValidator: validator,
-			Authentication:               nil,
+			Descriptor:        descriptor("alternate", "summary", model.ReasoningChoiceHigh),
+			Provider:          alternateProvider,
+			CredentialChecker: validator,
+			Authentication:    nil,
 		},
 	}, active)
 	require.NoError(t, err)
@@ -95,45 +95,45 @@ func TestCompleteConfiguredExecutesExactSelectionWithoutMutation(t *testing.T) {
 		},
 	)
 
-	// Act with the alternate configured selection.
-	response, err := catalog.CompleteConfigured(t.Context(), alternate, "instructions", history)
+	// Act with the alternate explicit selection.
+	response, err := catalog.Request(t.Context(), alternate, "instructions", history)
 
 	// Assert exact execution result and unchanged active selection.
 	require.NoError(t, err)
 	assert.Equal(t, terminal, response)
-	assert.Equal(t, active, catalog.Selection())
+	assert.Equal(t, active, catalog.ActiveSelection())
 }
 
-// TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation verifies provider-owned credentials are checked
+// TestRequestChecksCredentialsWithoutSelectionMutation verifies provider-owned credentials are checked
 // before execution.
-func TestCompleteConfiguredValidatesAuthenticationWithoutSelectionMutation(t *testing.T) {
+func TestRequestChecksCredentialsWithoutSelectionMutation(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one configured entry whose provider-owned authentication rejects credentials.
 	controller := gomock.NewController(t)
 	provider := agentrun.NewMockModelProvider(controller)
 	authentication := NewMockProviderAuthentication(controller)
-	authentication.EXPECT().CheckProviderAuthentication(gomock.Any()).Return(context.Canceled)
+	authentication.EXPECT().CheckCredentials(gomock.Any()).Return(context.Canceled)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	catalog, err := New([]Entry{{
 		Descriptor: descriptor("provider", "model", model.ReasoningChoiceOff), Provider: provider,
-		SelectionCredentialValidator: nil, Authentication: authentication,
+		CredentialChecker: nil, Authentication: authentication,
 	}}, selection)
 	require.NoError(t, err)
 
-	// Act by executing the configured entry.
-	_, err = catalog.CompleteConfigured(t.Context(), selection, "instructions", nil)
+	// Act by executing a request with the selected entry.
+	_, err = catalog.Request(t.Context(), selection, "instructions", nil)
 
 	// Assert credential classification and unchanged active selection without a provider stream call.
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeCredentialUnavailable, selectionErr.Code)
-	assert.Equal(t, selection, catalog.Selection())
+	assert.Equal(t, selection, catalog.ActiveSelection())
 }
 
-// TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation verifies exact provider, model, and reasoning
+// TestRequestRejectsUnavailableSelectionWithoutMutation verifies exact provider, model, and reasoning
 // validation.
-func TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation(t *testing.T) {
+func TestRequestRejectsUnavailableSelectionWithoutMutation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -163,23 +163,23 @@ func TestCompleteConfiguredRejectsUnavailableSelectionWithoutMutation(t *testing
 			// Arrange one configured model and strict unused runtime dependencies.
 			controller := gomock.NewController(t)
 			provider := agentrun.NewMockModelProvider(controller)
-			validator := NewMockSelectionCredentialValidator(controller)
+			validator := NewMockCredentialChecker(controller)
 			authentication := NewMockProviderAuthentication(controller)
 			active := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 			catalog, err := New([]Entry{{
 				Descriptor: descriptor("provider", "model", model.ReasoningChoiceOff), Provider: provider,
-				SelectionCredentialValidator: validator, Authentication: authentication,
+				CredentialChecker: validator, Authentication: authentication,
 			}}, active)
 			require.NoError(t, err)
 
-			// Act with an unavailable exact selection.
-			_, err = catalog.CompleteConfigured(t.Context(), test.selection, "instructions", nil)
+			// Act with an unavailable explicit selection.
+			_, err = catalog.Request(t.Context(), test.selection, "instructions", nil)
 
 			// Assert rejection occurs before credentials or execution and active state remains unchanged.
 			var selectionErr *SelectionError
 			require.ErrorAs(t, err, &selectionErr)
 			assert.Equal(t, test.code, selectionErr.Code)
-			assert.Equal(t, active, catalog.Selection())
+			assert.Equal(t, active, catalog.ActiveSelection())
 		})
 	}
 }

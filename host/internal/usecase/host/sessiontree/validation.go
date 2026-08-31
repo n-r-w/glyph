@@ -53,8 +53,8 @@ func (s *Service) validateFinalState(
 			errors.New("summary usage is invalid"),
 		)
 	}
-	if selectionErr := s.models.ValidateConfigured(ctx, current.Request.SummaryModel); selectionErr != nil {
-		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), classifyCompletionError(
+	if selectionErr := s.modelRequester.CheckAvailability(ctx, current.Request.SummaryModel); selectionErr != nil {
+		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), classifyModelRequestError(
 			ctx,
 			selectionErr,
 		)

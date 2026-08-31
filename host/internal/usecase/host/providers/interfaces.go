@@ -4,15 +4,18 @@ import "context"
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=providers
 
-// SelectionCredentialValidator checks credentials before a model selection commits.
+// CredentialChecker checks whether request credentials are available.
 // Implementations must return errors that contain no API keys or other secret values.
-type SelectionCredentialValidator interface {
-	ValidateSelectionCredentials(ctx context.Context) error
+type CredentialChecker interface {
+	// CheckCredentials checks whether request credentials can be resolved.
+	CheckCredentials(ctx context.Context) error
 }
 
-// ProviderAuthentication exposes provider-owned interactive authentication to the catalog.
+// ProviderAuthentication exposes provider-owned credential checks and interactive sign-in to the catalog.
 type ProviderAuthentication interface {
-	CheckProviderAuthentication(ctx context.Context) error
-	SignInProvider(ctx context.Context) error
-	IsProviderSignInRequired(err error) bool
+	CredentialChecker
+	// SignIn runs interactive provider authentication.
+	SignIn(ctx context.Context) error
+	// IsSignInRequired reports whether an error requires interactive authentication.
+	IsSignInRequired(err error) bool
 }

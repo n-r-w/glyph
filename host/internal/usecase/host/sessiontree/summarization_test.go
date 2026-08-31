@@ -45,7 +45,7 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			// Arrange a branch whose root remains at the destination and three later entries are abandoned.
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
-			models := NewMockModelCompleter(controller)
+			models := NewMockModelRequester(controller)
 			handlers := NewMockHandlerRunner(controller)
 			tree := navigationTree(t, time.Unix(1, 0).UTC())
 			selection := model.Selection{
@@ -55,9 +55,9 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			}
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().Selection().Return(selection)
+			models.EXPECT().ActiveSelection().Return(selection)
 			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
-			models.EXPECT().CompleteConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
+			models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
 					_ model.Selection,
@@ -95,7 +95,7 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 				CacheWriteTokens: 2, ReasoningTokens: 2, TotalTokens: 15,
 			}
 			handlers.EXPECT().Handlers(HandlerKindResult).Return(nil)
-			models.EXPECT().ValidateConfigured(gomock.Any(), selection).Return(nil)
+			models.EXPECT().CheckAvailability(gomock.Any(), selection).Return(nil)
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 				BranchSummary: mo.Some(BranchSummaryDraft{
@@ -125,7 +125,7 @@ func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
 	// Arrange an abandoned path with one tool argument that deterministic JSON cannot encode.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
-	models := NewMockModelCompleter(controller)
+	models := NewMockModelRequester(controller)
 	handlers := NewMockHandlerRunner(controller)
 	createdAt := time.Unix(1, 0).UTC()
 	entries := []session.Entry{
@@ -141,7 +141,7 @@ func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().Selection().Return(selection)
+	models.EXPECT().ActiveSelection().Return(selection)
 	handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 	service := New(active, models, handlers)
 
@@ -163,14 +163,14 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	// Arrange a valid abandoned path and a model response with no visible summary text.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
-	models := NewMockModelCompleter(controller)
+	models := NewMockModelRequester(controller)
 	handlers := NewMockHandlerRunner(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().Selection().Return(selection)
+	models.EXPECT().ActiveSelection().Return(selection)
 	handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
-	models.EXPECT().CompleteConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
+	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
 		summaryResponse("   ", mo.None[model.Usage]()), nil,
 	)
 	service := New(active, models, handlers)

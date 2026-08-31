@@ -2,11 +2,11 @@
 
 ## Context
 
-The issue was found while tracing the model request used by branch summarization. The call crosses `sessiontree.ModelCompleter`, an application binding, the provider catalogue, and a provider driver.
+The issue was found while tracing the model request used by branch summarization. The call crosses a session-tree interface, an application binding, the provider catalogue, and a provider driver.
 
 ## Problem Statement
 
-Some model-operation identifiers do not state the operation in project terms. They use provider-history terminology and state qualifiers that make the behavior, result, and execution boundary difficult to understand from the call site.
+Some model-operation identifiers do not state their action or result in project terms. They use provider-history terminology, omit the object of an action, or retain names from replaced domain concepts. A developer cannot determine the execution boundary from the call site.
 
 ## Who is affected
 
@@ -14,48 +14,52 @@ Glyph developers who implement, review, debug, or extend model execution paths a
 
 ## Evidence
 
-- `sessiontree.ModelCompleter.CompleteConfigured` accepts a `model.Selection`, system instructions, and history, then returns a terminal `model.Response`.
-- `providers.Catalog.CompleteConfigured` validates the selected catalogue entry, starts `Provider.Stream`, and waits for its terminal event.
-- The same method supports both Chat Completions and Responses APIs. `Complete` therefore depends on historical provider terminology rather than one operation shared by those APIs.
-- `ValidateConfigured` and `CompleteConfigured` repeat `Configured`, although both methods already accept the exact `model.Selection` that identifies the configured provider and model.
-- User review could not determine the meaning of `CompleteConfigured` from its name and required tracing the full call chain.
-- No repository-wide naming audit has established whether this problem is limited to these identifiers.
+- The branch summarizer calls a synchronous catalogue operation that accepts an exact `model.Selection`, system instructions, and history, then waits for and returns a terminal `model.Response`.
+- The synchronous catalogue operation starts `ModelProvider.Stream` but does not expose intermediate stream events to its caller.
+- The session-tree interface also exposes the active selection and an availability check, although its name describes only terminal response production.
+- The availability check can resolve API-key sources or refresh provider-owned OAuth credentials, although its prior name suggested a local configuration validation.
+- The provider catalogue exposes an identifier-only active selection and a request snapshot containing a descriptor and provider driver. Their prior accessor names did not express this difference.
+- Variables of type `ReasoningChoice` retain the old `level` name after PHS-03 replaced the reasoning-level domain concept.
 
 ## Impact
 
-Developers must inspect implementations to learn whether a method validates, starts a request, streams events, waits for a terminal response, or mutates active selection. This increases review and debugging time and makes incorrect assumptions about execution behavior more likely.
+Developers must inspect implementations to learn whether an operation checks availability, starts a request, streams events, waits for a terminal response, or changes the active selection. This increases review and debugging time and permits incorrect assumptions about execution behavior.
 
 ## Reproduction Steps
 
-1. Open `host/internal/usecase/host/sessiontree/interfaces.go`.
-2. Inspect `ModelCompleter.CompleteConfigured` without reading its implementation.
-3. Try to determine the operation, whether it blocks, what `Configured` distinguishes, and which result it returns.
-4. Trace the method through `host/internal/app/sessions.go` and `host/internal/usecase/host/providers/completion.go` to obtain those facts.
+1. Follow branch summarization from `host/internal/usecase/host/sessiontree/summarizer.go` to the provider catalogue.
+2. Compare the synchronous terminal-response operation with `ModelProvider.Stream`.
+3. Compare the catalogue accessors for the active `model.Selection` and the Agent Core request snapshot.
+4. Trace credential checks from model selection and model requests into API-key and OAuth implementations.
 
 ## Current State
 
-Model execution vocabulary is defined locally by interfaces and methods. The codebase has no verified inventory that distinguishes clear domain names from provider-specific or mechanically composed names.
+Model request, selection, availability, request snapshot, credential, and reasoning-choice names are defined across several consumer interfaces and provider implementations. Inconsistent names obscure distinctions between these operations.
 
 ## Desired Outcome
 
-Model-operation identifiers state their action, input boundary, result, and ownership in consistent Glyph terminology. A developer can understand a call without knowing historical provider API terms or reading every implementation in the chain.
+Model-operation identifiers state their action, result, and ownership in consistent Glyph terminology. A developer can distinguish availability checks, synchronous model requests, request snapshots, and provider streams without reading every implementation in the chain.
 
 ## Success Metrics
 
-- A model-operation naming audit covers Host interfaces, application bindings, provider catalogue methods, and provider-driver entry points.
-- Every renamed identifier has one documented meaning that matches its observable behavior.
-- Model request call sites do not require provider-specific knowledge to distinguish validation, generation, streaming, and terminal response handling.
-- No compatibility alias or forwarding method preserves an unclear identifier.
+- The naming audit covers Host interfaces, application bindings, provider catalogue methods, provider-driver entry points, credentials, and reasoning-choice mappings.
+- Each identifier has one meaning that matches its observable behavior.
+- Synchronous model requests and streaming event production use distinct operation names.
+- Variables of type `ReasoningChoice` use choice terminology.
+- No compatibility alias or forwarding method preserves a replaced identifier.
 
 ## Scope
 
 - Internal model request and response operation names.
-- Related interface, binding, catalogue, mock, test, and documentation identifiers.
-- Identification of other unclear names in the same execution boundary.
+- Active-selection and request-snapshot names.
+- Credential-check names used by selection and request execution.
+- Reasoning-choice variables and comments that retain reasoning-level terminology.
+- Related bindings, mocks, tests, errors, filenames, and documentation.
 
 ## Out of Scope / Non-Goals
 
 - Renaming provider SDK types or wire fields.
+- Renaming Chat Completions or Responses API concepts inside provider adapters.
 - A repository-wide style rewrite unrelated to model execution.
 - Changing model execution behavior.
 - Adding compatibility aliases for replaced names.
@@ -69,10 +73,8 @@ Model-operation identifiers state their action, input boundary, result, and owne
 
 ## Assumptions
 
-The observed naming problem may extend beyond `CompleteConfigured`. A bounded inventory of related model-operation symbols must verify its actual extent before renaming begins.
+The audit is bounded to the model execution path and related selection, credentials, and reasoning-choice contracts.
 
 ## Open Questions
 
-- Which model-operation identifiers besides `ModelCompleter` and `CompleteConfigured` fail to express their behavior?
-- Which project term should name generation of one terminal model response across Chat Completions and Responses APIs?
-- Should synchronous waiting and streaming event production use distinct operation names at their respective boundaries?
+None.

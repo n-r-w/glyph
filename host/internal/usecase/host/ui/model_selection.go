@@ -14,8 +14,8 @@ func selectionToUI(selection model.Selection) domainui.ModelSelection {
 }
 
 // reasoningChoiceToUI maps the closed model reasoning-choice set into the UI domain.
-func reasoningChoiceToUI(level model.ReasoningChoice) domainui.ReasoningChoice {
-	switch level {
+func reasoningChoiceToUI(choice model.ReasoningChoice) domainui.ReasoningChoice {
+	switch choice {
 	case model.ReasoningChoiceOff:
 		return domainui.ReasoningChoiceOff
 	case model.ReasoningChoiceOn:
@@ -38,8 +38,8 @@ func reasoningChoiceToUI(level model.ReasoningChoice) domainui.ReasoningChoice {
 }
 
 // reasoningChoiceFromUI maps a validated UI reasoning-choice command into the model domain.
-func reasoningChoiceFromUI(level domainui.ReasoningChoice) (model.ReasoningChoice, bool) {
-	switch level {
+func reasoningChoiceFromUI(choice domainui.ReasoningChoice) (model.ReasoningChoice, bool) {
+	switch choice {
 	case domainui.ReasoningChoiceOff:
 		return model.ReasoningChoiceOff, true
 	case domainui.ReasoningChoiceOn:

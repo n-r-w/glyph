@@ -28,8 +28,8 @@ type ModelRequest struct {
 	Tools []tool.Descriptor
 }
 
-// RuntimeSelection is one immutable provider request snapshot.
-type RuntimeSelection struct {
+// RequestSnapshot is one immutable model request snapshot.
+type RequestSnapshot struct {
 	// Model contains the immutable configured model snapshot.
 	Model model.Descriptor
 	// ReasoningChoice identifies the selected reasoning behavior.
@@ -49,9 +49,10 @@ type HistoryStore interface {
 	Append(context.Context, agent.HistoryEntry) error
 }
 
-// ModelRuntime supplies the active selection immediately before a provider request.
+// ModelRuntime supplies an immutable snapshot immediately before each model request.
 type ModelRuntime interface {
-	Current() RuntimeSelection
+	// Snapshot returns the active model descriptor, reasoning choice, and provider.
+	Snapshot() RequestSnapshot
 }
 
 // StreamEventKind identifies one provider-neutral model stream transition.

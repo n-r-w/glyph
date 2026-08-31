@@ -16,42 +16,42 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockSelectionCredentialValidator is a mock of SelectionCredentialValidator interface.
-type MockSelectionCredentialValidator struct {
+// MockCredentialChecker is a mock of CredentialChecker interface.
+type MockCredentialChecker struct {
 	ctrl     *gomock.Controller
-	recorder *MockSelectionCredentialValidatorMockRecorder
+	recorder *MockCredentialCheckerMockRecorder
 	isgomock struct{}
 }
 
-// MockSelectionCredentialValidatorMockRecorder is the mock recorder for MockSelectionCredentialValidator.
-type MockSelectionCredentialValidatorMockRecorder struct {
-	mock *MockSelectionCredentialValidator
+// MockCredentialCheckerMockRecorder is the mock recorder for MockCredentialChecker.
+type MockCredentialCheckerMockRecorder struct {
+	mock *MockCredentialChecker
 }
 
-// NewMockSelectionCredentialValidator creates a new mock instance.
-func NewMockSelectionCredentialValidator(ctrl *gomock.Controller) *MockSelectionCredentialValidator {
-	mock := &MockSelectionCredentialValidator{ctrl: ctrl}
-	mock.recorder = &MockSelectionCredentialValidatorMockRecorder{mock}
+// NewMockCredentialChecker creates a new mock instance.
+func NewMockCredentialChecker(ctrl *gomock.Controller) *MockCredentialChecker {
+	mock := &MockCredentialChecker{ctrl: ctrl}
+	mock.recorder = &MockCredentialCheckerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSelectionCredentialValidator) EXPECT() *MockSelectionCredentialValidatorMockRecorder {
+func (m *MockCredentialChecker) EXPECT() *MockCredentialCheckerMockRecorder {
 	return m.recorder
 }
 
-// ValidateSelectionCredentials mocks base method.
-func (m *MockSelectionCredentialValidator) ValidateSelectionCredentials(ctx context.Context) error {
+// CheckCredentials mocks base method.
+func (m *MockCredentialChecker) CheckCredentials(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateSelectionCredentials", ctx)
+	ret := m.ctrl.Call(m, "CheckCredentials", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ValidateSelectionCredentials indicates an expected call of ValidateSelectionCredentials.
-func (mr *MockSelectionCredentialValidatorMockRecorder) ValidateSelectionCredentials(ctx any) *gomock.Call {
+// CheckCredentials indicates an expected call of CheckCredentials.
+func (mr *MockCredentialCheckerMockRecorder) CheckCredentials(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSelectionCredentials", reflect.TypeOf((*MockSelectionCredentialValidator)(nil).ValidateSelectionCredentials), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCredentials", reflect.TypeOf((*MockCredentialChecker)(nil).CheckCredentials), ctx)
 }
 
 // MockProviderAuthentication is a mock of ProviderAuthentication interface.
@@ -78,44 +78,44 @@ func (m *MockProviderAuthentication) EXPECT() *MockProviderAuthenticationMockRec
 	return m.recorder
 }
 
-// CheckProviderAuthentication mocks base method.
-func (m *MockProviderAuthentication) CheckProviderAuthentication(ctx context.Context) error {
+// CheckCredentials mocks base method.
+func (m *MockProviderAuthentication) CheckCredentials(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckProviderAuthentication", ctx)
+	ret := m.ctrl.Call(m, "CheckCredentials", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CheckProviderAuthentication indicates an expected call of CheckProviderAuthentication.
-func (mr *MockProviderAuthenticationMockRecorder) CheckProviderAuthentication(ctx any) *gomock.Call {
+// CheckCredentials indicates an expected call of CheckCredentials.
+func (mr *MockProviderAuthenticationMockRecorder) CheckCredentials(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckProviderAuthentication", reflect.TypeOf((*MockProviderAuthentication)(nil).CheckProviderAuthentication), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCredentials", reflect.TypeOf((*MockProviderAuthentication)(nil).CheckCredentials), ctx)
 }
 
-// IsProviderSignInRequired mocks base method.
-func (m *MockProviderAuthentication) IsProviderSignInRequired(err error) bool {
+// IsSignInRequired mocks base method.
+func (m *MockProviderAuthentication) IsSignInRequired(err error) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsProviderSignInRequired", err)
+	ret := m.ctrl.Call(m, "IsSignInRequired", err)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// IsProviderSignInRequired indicates an expected call of IsProviderSignInRequired.
-func (mr *MockProviderAuthenticationMockRecorder) IsProviderSignInRequired(err any) *gomock.Call {
+// IsSignInRequired indicates an expected call of IsSignInRequired.
+func (mr *MockProviderAuthenticationMockRecorder) IsSignInRequired(err any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProviderSignInRequired", reflect.TypeOf((*MockProviderAuthentication)(nil).IsProviderSignInRequired), err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSignInRequired", reflect.TypeOf((*MockProviderAuthentication)(nil).IsSignInRequired), err)
 }
 
-// SignInProvider mocks base method.
-func (m *MockProviderAuthentication) SignInProvider(ctx context.Context) error {
+// SignIn mocks base method.
+func (m *MockProviderAuthentication) SignIn(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SignInProvider", ctx)
+	ret := m.ctrl.Call(m, "SignIn", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SignInProvider indicates an expected call of SignInProvider.
-func (mr *MockProviderAuthenticationMockRecorder) SignInProvider(ctx any) *gomock.Call {
+// SignIn indicates an expected call of SignIn.
+func (mr *MockProviderAuthenticationMockRecorder) SignIn(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignInProvider", reflect.TypeOf((*MockProviderAuthentication)(nil).SignInProvider), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockProviderAuthentication)(nil).SignIn), ctx)
 }

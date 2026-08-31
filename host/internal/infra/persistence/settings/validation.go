@@ -397,8 +397,8 @@ func (api API) Supported() bool {
 }
 
 // Supported reports whether the reasoning choice belongs to the closed settings contract.
-func (level ReasoningChoice) Supported() bool {
-	switch level {
+func (choice ReasoningChoice) Supported() bool {
+	switch choice {
 	case ReasoningChoiceOff,
 		ReasoningChoiceOn,
 		ReasoningChoiceMinimal,

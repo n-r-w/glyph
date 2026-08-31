@@ -1,4 +1,4 @@
-// Package providers owns configured model providers and the active runtime selection.
+// Package providers owns configured model providers and the active model selection.
 package providers
 
 import (
@@ -24,9 +24,9 @@ type ErrorCode string
 const (
 	// ErrorCodeNotFound reports an unknown provider and model pair.
 	ErrorCodeNotFound ErrorCode = "not_found"
-	// ErrorCodeReasoningUnsupported reports a level not supported by the active model.
+	// ErrorCodeReasoningUnsupported reports a choice not supported by the active model.
 	ErrorCodeReasoningUnsupported ErrorCode = "reasoning_unsupported"
-	// ErrorCodeCredentialUnavailable reports credentials that cannot resolve before selection.
+	// ErrorCodeCredentialUnavailable reports credentials unavailable for selection or a model request.
 	ErrorCodeCredentialUnavailable ErrorCode = "credential_unavailable" //nolint:gosec // This is an error code.
 	// ErrorCodeInvalidConfiguration reports invalid catalog construction input.
 	ErrorCodeInvalidConfiguration ErrorCode = "invalid_configuration"
@@ -74,8 +74,8 @@ type Entry struct {
 	Descriptor model.Descriptor
 	// Provider executes requests for the configured model.
 	Provider agentrun.ModelProvider
-	// SelectionCredentialValidator validates credentials before selection.
-	SelectionCredentialValidator SelectionCredentialValidator
+	// CredentialChecker checks credentials before selection or a model request.
+	CredentialChecker CredentialChecker
 	// Authentication handles provider sign-in and sign-out.
 	Authentication ProviderAuthentication
 }
@@ -85,12 +85,12 @@ type Catalog struct {
 	// entries contains immutable configured model bindings.
 	entries []Entry
 
-	// mutex protects selection and active.
+	// mutex protects activeSelection and activeEntryIndex.
 	mutex sync.RWMutex
-	// selection contains the active provider, model, and reasoning choice.
-	selection model.Selection
-	// active identifies the selected entry index.
-	active int
+	// activeSelection contains the active provider, model, and reasoning choice.
+	activeSelection model.Selection
+	// activeEntryIndex identifies the selected entry index.
+	activeEntryIndex int
 }
 
 var (
@@ -100,7 +100,7 @@ var (
 
 var (
 	_ hostsessions.PricingCatalog = (*Catalog)(nil)
-	_ sessiontree.ModelCompleter  = (*Catalog)(nil)
+	_ sessiontree.ModelRequester  = (*Catalog)(nil)
 )
 
 var (
@@ -110,7 +110,7 @@ var (
 )
 
 // New creates a catalog from configured entries and a valid default selection.
-func New(entries []Entry, selection model.Selection) (*Catalog, error) {
+func New(entries []Entry, initialSelection model.Selection) (*Catalog, error) {
 	configured := make([]Entry, len(entries))
 	seen := make(map[model.ProviderID]map[model.ID]struct{})
 	for index := range entries {
@@ -127,15 +127,20 @@ func New(entries []Entry, selection model.Selection) (*Catalog, error) {
 	slices.SortStableFunc(configured, func(left, right Entry) int {
 		return cmp.Compare(left.Descriptor.Provider, right.Descriptor.Provider)
 	})
-	catalog := &Catalog{entries: configured, mutex: sync.RWMutex{}, selection: selection, active: 0}
-	active, found := catalog.entryIndex(selection.Provider, selection.Model)
+	catalog := &Catalog{
+		entries: configured, mutex: sync.RWMutex{}, activeSelection: initialSelection, activeEntryIndex: 0,
+	}
+	activeEntryIndex, found := catalog.entryIndex(initialSelection.Provider, initialSelection.Model)
 	if !found {
 		return nil, invalidConfigurationError()
 	}
-	if !slices.Contains(catalog.entries[active].Descriptor.ReasoningCapabilities.Choices, selection.ReasoningChoice) {
+	if !slices.Contains(
+		catalog.entries[activeEntryIndex].Descriptor.ReasoningCapabilities.Choices,
+		initialSelection.ReasoningChoice,
+	) {
 		return nil, invalidConfigurationError()
 	}
-	catalog.active = active
+	catalog.activeEntryIndex = activeEntryIndex
 	return catalog, nil
 }
 
@@ -162,22 +167,22 @@ func (c *Catalog) Pricing(providerID model.ProviderID, modelID model.ID) mo.Opti
 	return mo.Some(pricing)
 }
 
-// Selection returns the active immutable selection.
-func (c *Catalog) Selection() model.Selection {
+// ActiveSelection returns the active immutable selection.
+func (c *Catalog) ActiveSelection() model.Selection {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return c.selection
+	return c.activeSelection
 }
 
-// Current returns a defensive request snapshot of the active runtime selection.
-func (c *Catalog) Current() agentrun.RuntimeSelection {
+// Snapshot returns a defensive snapshot for a request with the active selection.
+func (c *Catalog) Snapshot() agentrun.RequestSnapshot {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	entry := c.entries[c.active]
-	return agentrun.RuntimeSelection{
+	entry := c.entries[c.activeEntryIndex]
+	return agentrun.RequestSnapshot{
 		Model:           entry.Descriptor.Clone(),
-		ReasoningChoice: c.selection.ReasoningChoice,
+		ReasoningChoice: c.activeSelection.ReasoningChoice,
 		Provider:        entry.Provider,
 	}
 }
@@ -188,25 +193,26 @@ func (c *Catalog) SelectModel(
 	provider model.ProviderID,
 	modelID model.ID,
 ) (model.Selection, error) {
-	target, found := c.entryIndex(provider, modelID)
+	targetEntryIndex, found := c.entryIndex(provider, modelID)
 	if !found {
 		return model.Selection{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
 	}
-	validator := c.entries[target].SelectionCredentialValidator
-	if validator != nil {
-		if err := validator.ValidateSelectionCredentials(ctx); err != nil {
+	credentialChecker := c.entries[targetEntryIndex].CredentialChecker
+	if credentialChecker != nil {
+		if err := credentialChecker.CheckCredentials(ctx); err != nil {
 			return model.Selection{}, &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
 		}
 	}
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	level := fallbackReasoningChoice(
-		c.selection.ReasoningChoice, c.entries[target].Descriptor.ReasoningCapabilities,
+	choice := fallbackReasoningChoice(
+		c.activeSelection.ReasoningChoice,
+		c.entries[targetEntryIndex].Descriptor.ReasoningCapabilities,
 	)
-	c.selection = model.Selection{Provider: provider, Model: modelID, ReasoningChoice: level}
-	c.active = target
-	return c.selection, nil
+	c.activeSelection = model.Selection{Provider: provider, Model: modelID, ReasoningChoice: choice}
+	c.activeEntryIndex = targetEntryIndex
+	return c.activeSelection, nil
 }
 
 // CheckAuthentication checks authentication for the active provider.
@@ -215,7 +221,7 @@ func (c *Catalog) CheckAuthentication(ctx context.Context) error {
 	if authentication == nil {
 		return nil
 	}
-	return authentication.CheckProviderAuthentication(ctx)
+	return authentication.CheckCredentials(ctx)
 }
 
 // SignIn starts authentication for the active provider.
@@ -224,31 +230,31 @@ func (c *Catalog) SignIn(ctx context.Context) error {
 	if authentication == nil {
 		return nil
 	}
-	return authentication.SignInProvider(ctx)
+	return authentication.SignIn(ctx)
 }
 
 // IsSignInRequired classifies an active-provider authentication error.
 func (c *Catalog) IsSignInRequired(err error) bool {
 	authentication := c.activeAuthentication()
-	return authentication != nil && authentication.IsProviderSignInRequired(err)
+	return authentication != nil && authentication.IsSignInRequired(err)
 }
 
 func (c *Catalog) activeAuthentication() ProviderAuthentication {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return c.entries[c.active].Authentication
+	return c.entries[c.activeEntryIndex].Authentication
 }
 
 // SelectReasoningChoice commits a supported choice for the active model.
-func (c *Catalog) SelectReasoningChoice(level model.ReasoningChoice) (model.Selection, error) {
+func (c *Catalog) SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if !slices.Contains(c.entries[c.active].Descriptor.ReasoningCapabilities.Choices, level) {
+	if !slices.Contains(c.entries[c.activeEntryIndex].Descriptor.ReasoningCapabilities.Choices, choice) {
 		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
 	}
-	c.selection.ReasoningChoice = level
-	return c.selection, nil
+	c.activeSelection.ReasoningChoice = choice
+	return c.activeSelection, nil
 }
 
 func (c *Catalog) entryIndex(provider model.ProviderID, modelID model.ID) (int, bool) {
@@ -319,8 +325,8 @@ func fallbackReasoningChoice(active model.ReasoningChoice, target model.Reasonin
 }
 
 // reasoningRank defines the product ordering used by model-selection fallback.
-func reasoningRank(level model.ReasoningChoice) (int, bool) {
-	switch level {
+func reasoningRank(choice model.ReasoningChoice) (int, bool) {
+	switch choice {
 	case model.ReasoningChoiceOff, model.ReasoningChoiceOn:
 		return 0, false
 	case model.ReasoningChoiceMinimal:

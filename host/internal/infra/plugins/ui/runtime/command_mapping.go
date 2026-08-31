@@ -72,13 +72,13 @@ func mapSelectionCommand(command *uipb.OpenResponse) (domainui.Command, bool, er
 		if !selected.HasChoice() {
 			return domainui.Command{}, true, errors.New("receive UI command: reasoning choice is required")
 		}
-		level, err := mapReasoningChoiceFromProto(selected.GetChoice())
+		choice, err := mapReasoningChoiceFromProto(selected.GetChoice())
 		if err != nil {
 			return domainui.Command{}, true, err
 		}
 		return domainui.Command{
 			Kind:            domainui.CommandSelectReasoningChoice,
-			ReasoningChoice: mo.Some(level),
+			ReasoningChoice: mo.Some(choice),
 			Text:            mo.None[string](),
 			ProviderID:      mo.None[string](),
 			ModelID:         mo.None[string](),

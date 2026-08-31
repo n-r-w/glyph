@@ -116,7 +116,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			}
 			history := make([]agent.HistoryEntry, 0, 2)
 			expectToolResultPersistenceFailure(t, store, &history, persistenceErr)
-			runtime.EXPECT().Current().Return(RuntimeSelection{
+			runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 			})
 			tools.EXPECT().Tools().Return(nil)
@@ -196,7 +196,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	}
 	history := make([]agent.HistoryEntry, 0, 2)
 	expectToolResultPersistenceFailure(t, store, &history, persistErr)
-	runtime.EXPECT().Current().Return(RuntimeSelection{
+	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 	})
 	tools.EXPECT().Tools().Return(nil)
@@ -257,7 +257,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 		},
 	)
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
-	runtime.EXPECT().Current().Return(RuntimeSelection{
+	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
 	})
 	tools.EXPECT().Tools().Return(nil)

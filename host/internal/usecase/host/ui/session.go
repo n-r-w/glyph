@@ -479,11 +479,11 @@ func (s *Session) applySelectionCommand(ctx context.Context, command domainui.Co
 		if !present {
 			return s.sendSelectionError()
 		}
-		level, valid := reasoningChoiceFromUI(reasoningChoice)
+		choice, valid := reasoningChoiceFromUI(reasoningChoice)
 		if !valid {
 			return s.sendSelectionError()
 		}
-		selection, err = s.modelCatalog.SelectReasoningChoice(level)
+		selection, err = s.modelCatalog.SelectReasoningChoice(choice)
 	case domainui.CommandSubmit, domainui.CommandStop,
 		domainui.CommandRetryAuthentication, domainui.CommandQuit,
 		domainui.CommandCreateSession, domainui.CommandListSessions,

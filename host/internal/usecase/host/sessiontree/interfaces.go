@@ -194,12 +194,17 @@ type HandlerRunner interface {
 	Observe(context.Context, Handler, TreeObserverInvocation) error
 }
 
-// ModelCompleter validates selection and executes configured provider requests without changing active selection.
-type ModelCompleter interface {
-	// Selection returns the current configured provider, model, and reasoning choice.
-	Selection() model.Selection
-	// ValidateConfigured validates one exact configured selection and its credentials.
-	ValidateConfigured(context.Context, model.Selection) error
-	// CompleteConfigured executes the exact configured selection with no active-selection mutation.
-	CompleteConfigured(context.Context, model.Selection, string, []agent.HistoryEntry) (model.Response, error)
+// ModelRequester supplies active selection, checks availability, and executes model requests.
+type ModelRequester interface {
+	// ActiveSelection returns the active provider, model, and reasoning choice.
+	ActiveSelection() model.Selection
+	// CheckAvailability checks whether one exact selection is available for a model request.
+	CheckAvailability(ctx context.Context, selection model.Selection) error
+	// Request executes one model request without changing the active selection.
+	Request(
+		ctx context.Context,
+		selection model.Selection,
+		instructions string,
+		history []agent.HistoryEntry,
+	) (model.Response, error)
 }

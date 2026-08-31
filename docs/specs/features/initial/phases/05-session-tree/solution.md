@@ -110,10 +110,10 @@ The UI Plugin Contract sends a typed `SessionTreeFailed` frame for Failure. Prog
 
 ### Built-in branch summarizer
 
-The built-in summarizer depends on a consumer-owned `ConfiguredModelRequester` interface. `providers.Catalog` implements the interface without changing the active conversation selection.
+The built-in summarizer depends on a consumer-owned `ModelRequester` interface. `providers.Catalog` implements the interface without changing the active conversation selection.
 
 - APC-06: The request identifies one configured provider, model, and reasoning choice. It carries one system-rules value and one user history entry that contains one serialized text input.
-- APC-07: `providers.Catalog` resolves the exact catalogue entry, validates reasoning support and credentials, executes one provider stream without tools or Agent Core lifecycle events, and returns the terminal `model.Response`.
+- APC-07: `providers.Catalog` resolves the exact catalogue entry, checks reasoning support and credentials, executes one provider stream without tools or Agent Core lifecycle events, and returns the terminal `model.Response`.
 - APC-08: Provider credentials remain inside the provider implementation and catalogue validation path.
 
 The built-in strategy serializes `NavigationPreparation.AbandonedPath` into the single user input. The [reliable branch summarization solution](../../../../issues/reliable-branch-summarization/solution.md) owns the detailed prompt, source serialization, additional-focus, and stored-summary context contracts.
@@ -190,7 +190,7 @@ Final verification runs `go fix -diff ./...`, reviews the proposed fixes, runs `
 - CMP-11: `host/internal/domain/session` gains the tree and branch-summary model.
 - CMP-12: `host/internal/usecase/host/sessions`, `sessioncontrol`, and new `sessiontree` implement tree state and orchestration.
 - CMP-13: `host/internal/infra/persistence/sessions` implements JSONL format version 2.
-- CMP-14: `host/internal/usecase/host/providers` adds configured-model completion without active-selection mutation.
+- CMP-14: `host/internal/usecase/host/providers` adds model requests without active-selection mutation.
 - CMP-15: `host/internal/usecase/host/extensions`, extension runtime infrastructure, extension SDK, and extension protobuf implement handler registration and dispatch.
 - CMP-16: UI and Programmatic Control protobuf, controllers, mappings, generated packages, and tests add tree operations.
 - CMP-17: The standard TUI presentation model, controller, selector, rendering, and tests add tree interaction.

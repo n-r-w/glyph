@@ -28,7 +28,7 @@ func newTestService(
 	t *testing.T,
 	instructions string,
 	descriptor model.Descriptor,
-	level model.ReasoningChoice,
+	choice model.ReasoningChoice,
 	provider ModelProvider,
 	hookRunner hooks.ContextRunner,
 	tools ToolRuntime,
@@ -36,8 +36,8 @@ func newTestService(
 ) *Service {
 	t.Helper()
 	runtime := NewMockModelRuntime(gomock.NewController(t))
-	runtime.EXPECT().Current().Return(RuntimeSelection{
-		Model: descriptor, ReasoningChoice: level, Provider: provider,
+	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
+		Model: descriptor, ReasoningChoice: choice, Provider: provider,
 	}).AnyTimes()
 	return New(instructions, runtime, hookRunner, tools, events, newMockHistoryStore(t))
 }

@@ -70,8 +70,8 @@ type APIKeyResolver struct {
 }
 
 var (
-	_ compatible.APIKeyResolver              = (*APIKeyResolver)(nil)
-	_ providers.SelectionCredentialValidator = (*APIKeyResolver)(nil)
+	_ compatible.APIKeyResolver   = (*APIKeyResolver)(nil)
+	_ providers.CredentialChecker = (*APIKeyResolver)(nil)
 )
 
 // NewAPIKeyResolver creates a resolver for one configured source.
@@ -102,8 +102,8 @@ func (r *APIKeyResolver) ResolveAPIKey(ctx context.Context) (string, error) {
 	}
 }
 
-// ValidateSelectionCredentials checks that the configured source resolves.
-func (r *APIKeyResolver) ValidateSelectionCredentials(ctx context.Context) error {
+// CheckCredentials checks that the configured source resolves.
+func (r *APIKeyResolver) CheckCredentials(ctx context.Context) error {
 	_, err := r.ResolveAPIKey(ctx)
 	return err
 }
