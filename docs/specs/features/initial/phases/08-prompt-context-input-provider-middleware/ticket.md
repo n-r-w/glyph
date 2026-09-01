@@ -55,6 +55,7 @@ Out of scope:
 - FRQ-01.5: Agent Core shall not import `host/internal/hooks`. Host shall own any adapter from Agent Core's effective-context interface to extension middleware.
 - FRQ-02: Apply transformations sequentially. Each handler shall receive the immutable original input and the current value returned by preceding handlers and shall be able to preserve the current value or replace it with a value derived from either input.
 - FRQ-03: Continue later handlers and the core operation after an ordinary handler error while reporting that error. The next handler shall receive the same current value that the failed handler received.
+- FRQ-03.1: A reported handler error shall contain its closed Glyph category and complete error text while later handlers and the parent operation continue under FRQ-03.
 
 ### Non-Functional Requirements
 
@@ -74,7 +75,7 @@ Out of scope:
 - ACC-03: An input handler can transform or fully handle text and image input.
 - ACC-03.1: A text-and-image model accepts final text and image input, while a text-only model rejects final image input before Agent Core or a provider request starts.
 - ACC-04: Two transforming handlers observe registration order, and the second can inspect the immutable original input while preserving or discarding the first handler's current value.
-- ACC-05: After an earlier ordinary handler error, the next handler receives the unchanged original input and the same current value that the failed handler received.
+- ACC-05: After an earlier ordinary handler error, the next handler receives the unchanged original input and the same current value that the failed handler received, while the error report retains its Glyph category and complete error text.
 - ACC-06: `host/internal/usecase/agent/run` obtains effective context through its own minimal interface, imports no `host/internal/hooks` package, and receives no plugin or transport type.
 
 ## Overengineering and Overspecification Considerations

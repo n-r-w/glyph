@@ -50,6 +50,7 @@ Out of scope:
 - FRQ-02: Reload Host settings except active UI selection, provider registrations, extension runtimes, and resource contributions.
 - FRQ-03: Reload standard TUI themes and key bindings while retaining the selected UI plugin.
 - FRQ-04: Invalidate preceding extension contexts and bind later events and commands to the replacement runtimes and active session.
+- FRQ-05: Reload rejection, reinitialization failure, and invalid preceding-context failure shall return their closed Glyph category and complete error text through every client interface that exposes the operation.
 
 ### Non-Functional Requirements
 
@@ -63,9 +64,9 @@ Out of scope:
 ### Acceptance Criteria
 
 - ACC-01: Reload preserves the active session and history while applying changed settings, providers, extensions, and resources.
-- ACC-02: Reload while a run or compaction is active is rejected with a warning and changes no environment state.
-- ACC-03: Failed reinitialization preserves the session, reports the error, requires restart, and does not restore the preceding environment.
-- ACC-04: Every operation through a context created before reload fails.
+- ACC-02: Reload while a run or compaction is active is rejected with a warning, returns its defined Glyph category and complete error text, and changes no environment state.
+- ACC-03: Failed reinitialization preserves the session, reports its defined Glyph category and complete error text, requires restart, and does not restore the preceding environment.
+- ACC-04: Every operation through a context created before reload fails with its defined Glyph category and complete error text.
 
 ## Overengineering and Overspecification Considerations
 

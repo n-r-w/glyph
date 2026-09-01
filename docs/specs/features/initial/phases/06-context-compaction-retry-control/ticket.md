@@ -77,6 +77,8 @@ Out of scope:
 - FRQ-04.5: Host shall validate the final decision before scheduling a delay or repeating the request. When handlers preserve the initial decision, Host shall apply the configured built-in policy.
 - FRQ-04.6: Agent Core shall consume one logical model execution result and shall depend on no retry policy, extension handler, plugin transport, or delay scheduler.
 - FRQ-04.7: Agent Core shall declare its minimal logical model-execution interface in `host/internal/usecase/agent/run`. A Host model-execution adapter shall implement retry coordination and provider dispatch through that interface.
+- FRQ-04.8: After retry coordination ends, Host shall return one provider-neutral logical model-execution result to Agent Core. A failed result shall contain a closed Glyph category and complete error text that preserves the terminal provider, retry-handler, validation, delay, and delivery causes that contributed to that result.
+- FRQ-04.9: Retryability, retry decision, and terminal Glyph category shall remain separate values. A retry decision shall not replace or remove the source error.
 - FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
 - FRQ-06: A retry shall repeat only the failed model request and shall not repeat any completed tool execution. Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
 - FRQ-07: Enable retry by default with three retries after the initial request and delays of 1, 2, and 4 seconds. The built-in policy shall cap a provider-supplied `Retry-After` delay at 30 seconds. The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
@@ -109,6 +111,7 @@ Out of scope:
 - ACC-04.2: A retry handler changes one failure from no-retry to retry with a different delay and attempt limit, and Host applies the validated final decision.
 - ACC-04.3: Retry cancellation ends that logical model execution without scheduling another attempt. An invalid retry action preserves the preceding decision for later handlers.
 - ACC-04.4: `host/internal/usecase/agent/run` invokes a consumer-owned logical model-execution interface and imports no retry policy, extension handler, plugin transport, or delay scheduler.
+- ACC-04.5: Retry exhaustion, retry cancellation, retry-handler failure, and a non-retryable provider failure each produce their defined terminal category and complete error text through every applicable Glyph client interface.
 - ACC-05: Retrying a failed model request repeats no completed tool, adds no intermediate attempt to session messages or model context, and persists only the terminal model outcome.
 - ACC-06: Abort cancels an in-progress provider request or pending retry delay and leaves the agent idle.
 

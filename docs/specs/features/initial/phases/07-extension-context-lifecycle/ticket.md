@@ -69,6 +69,7 @@ Out of scope:
 - FRQ-02.4: An invalid selection action or ordinary handler error shall be reported, shall preserve the selection received by that handler, and shall not stop later handlers or deactivate the extension.
 - FRQ-02.5: Host shall validate model existence, reasoning capability, and authentication against the final current selection before it atomically commits provider, model, and reasoning choice. The selected catalogue entry shall retain the `input`, `contextWindow`, and `maxTokens` descriptor values delivered by PHS-04.1.
 - FRQ-02.6: Rejection or validation failure shall preserve the active selection. Host shall emit model-selection or reasoning-selection events only after a successful commit.
+- FRQ-02.7: A selection rejection, handler error, or final selection-validation failure shall preserve the active selection and return its closed Glyph category and complete error text to the operation initiator.
 - FRQ-03: Add model-hidden and model-visible branch-aware session entry operations.
 - FRQ-03.1: Glyph clients shall present model-visible extension messages in the session tree. Selecting one shall use its parent as the navigation destination and shall return its exact text as editable next input without submitting that text automatically. The PHS-05 branch-summarization rules shall determine the committed active leaf.
 
@@ -90,7 +91,7 @@ Out of scope:
 - ACC-04: An extension uses an explicitly selected configured model without changing the active conversation model or reasoning choice and without receiving provider credentials or provider reasoning context.
 - ACC-05: An extension changes the active conversation model and reasoning choice, and the next model request uses the committed selection without clearing session history.
 - ACC-06: Two selection handlers receive the same original target selection, while the second receives the current selection returned by the first.
-- ACC-07: Handler rejection, an invalid replacement, unavailable credentials, or an unsupported reasoning choice preserves the active provider, model, and reasoning choice and emits no selection event.
+- ACC-07: Handler rejection, an invalid replacement, unavailable credentials, or an unsupported reasoning choice preserves the active provider, model, and reasoning choice, emits no selection event, and returns the same Glyph category and complete error text through UI Plugin Contract and Programmatic Control.
 - ACC-08: A model-visible extension message survives restart, appears through both Glyph client contracts, and returns its exact text and parent navigation destination when selected without starting an agent run. When branch summarization is enabled, the created `BranchSummaryEntry` becomes the active leaf.
 
 ## Overengineering and Overspecification Considerations

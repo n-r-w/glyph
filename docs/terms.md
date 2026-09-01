@@ -51,6 +51,14 @@
 - `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
+- `public error`: An error exposed through the UI Plugin Contract, Programmatic Control, `glyph run`, the Extension Contract, or another public Glyph contract.
+- `complete error text`: The bounded external error detail plus every Glyph context message and cause needed to diagnose the failure without internal logs.
+- `original cause`: The earliest error inside Glyph that caused the current error result after secret removal and external-input size limits.
+- `error category`: A stable machine-readable value that describes the failure meaning for Glyph without identifying a transport, provider, or extension implementation.
+- `parent operation`: An operation that invokes another operation or consumes its result.
+- `nested operation`: An operation whose result is consumed by a parent operation and does not determine the parent result without an explicit parent semantic rule.
+- `external error data`: Error detail received from a system outside Glyph and subject to one documented size limit when it enters Glyph.
+- `secret redaction`: Removal of secret values from error data while preserving the remaining text, category, and cause information.
 - `client command`: A command sent by a Glyph client to request Host behavior.
 - `client session`: One active connection between a Glyph client and a Glyph host.
 - `contract operation`: Work requested across the UI Plugin Contract, Extension Contract, or Programmatic Control in either direction.

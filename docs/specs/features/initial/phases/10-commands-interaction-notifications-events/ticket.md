@@ -48,6 +48,7 @@ Out of scope:
 
 - FRQ-01: Add command registration, discovery, invocation, and provenance through Glyph clients.
 - FRQ-02: Add interface-neutral interaction requests and notifications with explicit unavailable-client and delivery-failure results.
+- FRQ-02.1: An unavailable-client or delivery-failure result shall contain a closed Glyph category and complete error text. Equivalent failures shall expose the same category and information completeness through UI Plugin Contract and Programmatic Control.
 - FRQ-03: Add non-persisted inter-extension events.
 - FRQ-04: Allow extension commands to use the configured-model request contract delivered by PHS-07 without changing the active conversation model or reasoning choice.
 
@@ -65,8 +66,8 @@ Out of scope:
 ### Acceptance Criteria
 
 - ACC-01: The same extension command is discoverable and invokable through the standard TUI and Programmatic Control.
-- ACC-02: An interaction request succeeds through either connected client kind and fails explicitly without a client.
-- ACC-03: Notification success means Host transferred it to the client and does not require presentation or a user response.
+- ACC-02: An interaction request succeeds through either connected client kind and fails without a client with its defined Glyph category and complete error text.
+- ACC-03: Notification success means Host transferred it to the client and does not require presentation or a user response. Delivery failure retains the same Glyph category and complete error text through UI Plugin Contract and Programmatic Control.
 - ACC-04: An extension model request uses a configured model without changing the active conversation model.
 
 ## Overengineering and Overspecification Considerations

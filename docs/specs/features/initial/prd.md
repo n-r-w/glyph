@@ -124,6 +124,19 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The agent core shall remain minimal and shall not define a specific agent workflow.
 - Glyph shall not depend on Pi or provide compatibility with Pi contracts or persisted formats.
 
+### Error Semantics
+
+- Every error that crosses a Glyph layer or public contract shall preserve its complete error text, original cause, and every context message added by Glyph. A layer shall not replace error text with a fixed message or internal logging.
+- Every public error shall contain nonempty complete error text and a nonempty stable machine-readable Glyph category. `INTERNAL` shall represent an error for which Glyph has no more specific category without removing its text or cause.
+- UI Plugin Contract, Programmatic Control, and `glyph run` shall expose the same category and information completeness for the same Host operation result.
+- An error category shall describe the failure meaning for Glyph. Transport, provider, and extension implementation details may appear in the error text but shall not define the public category.
+- Every operation shall define closed rejection and accepted-operation failure category sets. Categories not listed for that operation shall map to `INTERNAL` without changing the error text.
+- A parent operation shall define whether each nested operation error becomes a parent failure, result data, cancellation, or a reported error after which the parent continues.
+- Provider retry classification and terminal Glyph error category shall remain separate. Retry classification shall control retry decisions, while the terminal category shall describe the final result exposed by Glyph.
+- The component that receives external error data shall apply one documented finite size limit. Later Glyph layers shall preserve the bounded text without further truncation.
+- Only secrets may be redacted. Error text, events, logs, and diagnostics shall not expose credentials, authorization headers, OAuth values, or provider reasoning context.
+- When error delivery fails, Glyph shall preserve both the source error and the delivery error.
+
 ### Glyph Host Requirements
 
 #### Extensions and Glyph Clients

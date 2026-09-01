@@ -49,6 +49,7 @@ Out of scope:
 - FRQ-01: Create and maintain the Glyph public-behavior traceability matrix. Each row shall identify one Glyph-owned public behavior group, its owning PRD section, owner ticket, public-contract scenario, and passing evidence.
 - FRQ-02: Run every headless scenario through Programmatic Control and every terminal scenario through the standard TUI.
 - FRQ-03: Confirm that no fixture requires Pi compatibility, an external entry point, or another project's internal package.
+- FRQ-04: For every error behavior available through more than one Glyph client interface, the public-contract scenario suite shall trigger the same source condition through each interface and compare the resulting category and complete error text.
 
 ### Non-Functional Requirements
 
@@ -64,6 +65,7 @@ Out of scope:
 - ACC-01: Every Glyph public-behavior traceability row has at least one passing process-level scenario through public contracts.
 - ACC-02: Headless-capable fixtures run without loading the standard TUI.
 - ACC-03: TUI-only calls fail explicitly when no standard TUI capability is active.
+- ACC-04: Every multi-interface error scenario produces the same Glyph category and information completeness through all applicable interfaces.
 
 ## Overengineering and Overspecification Considerations
 
