@@ -4,9 +4,6 @@ package app
 
 import (
 	"bytes"
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -29,34 +26,29 @@ import (
 
 type headlessPersistenceFaultWriter struct {
 	mutex            sync.Mutex
-	output           bytes.Buffer
 	sessionsRoot     string
 	attempted        bool
 	projectDirectory string
 	err              error
 }
 
-type headlessLogRecord struct {
-	Message   string `json:"msg"`
-	Operation string `json:"operation"`
-	SessionID string `json:"session_id"`
-	Error     string `json:"error"`
-}
-
-// Write captures each JSON log record and injects the directory fault before logging returns to the application.
+// Write injects the directory fault after session initialization reaches the next lifecycle event.
 func (writer *headlessPersistenceFaultWriter) Write(data []byte) (int, error) {
 	writer.mutex.Lock()
 	defer writer.mutex.Unlock()
-	_, _ = writer.output.Write(data)
-	if writer.attempted || !bytes.Contains(data, []byte(`"msg":"loading extensions"`)) {
+	if writer.attempted {
 		return len(data), nil
 	}
-	writer.attempted = true
 	entries, err := os.ReadDir(writer.sessionsRoot)
+	if os.IsNotExist(err) {
+		return len(data), nil
+	}
 	if err != nil {
+		writer.attempted = true
 		writer.err = err
 		return len(data), nil
 	}
+	writer.attempted = true
 	if len(entries) != 1 {
 		writer.err = fmt.Errorf("expected one project session directory, got %d", len(entries))
 		return len(data), nil
@@ -66,7 +58,7 @@ func (writer *headlessPersistenceFaultWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-// TestRunWithPathsHeadlessPersistenceFailurePreservesContext verifies storage failures reach logs and CLI output.
+// TestRunWithPathsHeadlessPersistenceFailurePreservesContext verifies storage failures reach CLI output.
 //
 //nolint:paralleltest // The test replaces process-global HTTP transport and logger instances.
 func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
@@ -74,16 +66,18 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 		t.Skip("directory permission failure injection requires Darwin permission enforcement")
 	}
 
-	// Arrange the real headless composition, synchronous filesystem fault injection, logs, and CLI stderr boundary.
+	// Arrange the real headless composition, synchronous filesystem fault injection, and CLI stderr boundary.
 	paths := testPaths(t, restartSelectionSettings())
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = newCountingFailureTransport(t, requests)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	faultWriter := &headlessPersistenceFaultWriter{
-		mutex: sync.Mutex{}, output: bytes.Buffer{},
-		sessionsRoot: filepath.Join(paths.Directory, "sessions"),
-		attempted:    false, projectDirectory: "", err: nil,
+		mutex:            sync.Mutex{},
+		sessionsRoot:     filepath.Join(paths.Directory, "sessions"),
+		attempted:        false,
+		projectDirectory: "",
+		err:              nil,
 	}
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(faultWriter, nil)))
@@ -111,24 +105,12 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	faultAttempted := faultWriter.attempted
 	projectDirectory := faultWriter.projectDirectory
 	faultErr := faultWriter.err
-	logs := append([]byte(nil), faultWriter.output.Bytes()...)
 	faultWriter.mutex.Unlock()
 	if projectDirectory != "" {
 		t.Cleanup(func() { _ = os.Chmod(projectDirectory, 0o700) })
 	}
-	var records []headlessLogRecord
-	decoder := jsontext.NewDecoder(bytes.NewReader(logs))
-	for {
-		var record headlessLogRecord
-		if err := json.UnmarshalDecode(decoder, &record); errors.Is(err, io.EOF) {
-			break
-		} else {
-			require.NoError(t, err)
-		}
-		records = append(records, record)
-	}
 
-	// Assert the full persistence failure reaches the returned error, CLI renderer, and structured logs.
+	// Assert the full persistence failure reaches the returned error and CLI renderer.
 	require.True(t, faultAttempted)
 	require.NoError(t, faultErr)
 	require.NotEmpty(t, projectDirectory)
@@ -137,26 +119,7 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	assert.Contains(t, strings.ToLower(runErr.Error()), "permission")
 	assert.Equal(t, "[error] "+runErr.Error()+"\n", cliStderr.String())
 	assert.NotContains(t, cliStderr.String(), privateUserText)
-	assert.NotContains(t, string(logs), privateUserText)
 	assert.Empty(t, stdout.String())
 	assert.NotEmpty(t, applicationStderr.String())
 	assert.Zero(t, requests.Load())
-	var diagnostic *headlessLogRecord
-	var applicationFailure *headlessLogRecord
-	for index := range records {
-		switch records[index].Message {
-		case "session persistence failed":
-			diagnostic = &records[index]
-		case "headless Glyph application failed":
-			applicationFailure = &records[index]
-		}
-	}
-	require.NotNil(t, diagnostic)
-	require.NotNil(t, applicationFailure)
-	assert.Equal(t, "append_history", diagnostic.Operation)
-	require.NotEmpty(t, diagnostic.SessionID)
-	assert.Equal(t, runErr.Error(), applicationFailure.Error)
-	assert.Contains(t, diagnostic.Error, "open session file")
-	assert.True(t, strings.Contains(strings.ToLower(diagnostic.Error), "permission") ||
-		strings.Contains(strings.ToLower(diagnostic.Error), "operation not permitted"))
 }

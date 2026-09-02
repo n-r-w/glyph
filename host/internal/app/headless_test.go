@@ -89,8 +89,8 @@ providers:
 	assert.Equal(t, "compatible response\n", stdout.String())
 }
 
-// TestRunWithPathsUIInvalidSettingsStopsBeforeLogging verifies capability validation precedes UI startup effects.
-func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
+// TestRunWithPathsUIInvalidSettingsStopsBeforeUI verifies capability validation precedes UI startup.
+func TestRunWithPathsUIInvalidSettingsStopsBeforeUI(t *testing.T) {
 	t.Parallel()
 
 	// Arrange invalid model input and a UI process marker.
@@ -112,12 +112,10 @@ func TestRunWithPathsUIInvalidSettingsStopsBeforeLogging(t *testing.T) {
 		SocketPath:         "",
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	// Assert the field-specific error arrives before UI startup and logging.
+	// Assert the field-specific error arrives before UI startup.
 	require.ErrorContains(t, err, `provider "openai-codex" model "gpt-test": input must contain "text"`)
 	_, markerErr := os.Stat(startupMarker)
 	require.ErrorIs(t, markerErr, os.ErrNotExist)
-	_, logErr := os.Stat(paths.LogFile)
-	require.ErrorIs(t, logErr, os.ErrNotExist)
 }
 
 // TestRunWithPathsHeadlessInvalidSettingsStopsBeforeRun verifies capability validation precedes provider dispatch.

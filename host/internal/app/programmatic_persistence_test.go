@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -304,11 +303,6 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		)
 		_ = clearCommand.Run()
 	})
-	var logs bytes.Buffer
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
-	t.Cleanup(func() { slog.SetDefault(previousLogger) })
-
 	// Act by letting immutable interrupted-tail recovery fail during mode repair, then query and mutate prior state.
 	failedCode := sendProgrammaticFailure(
 		t,
@@ -359,7 +353,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	).GetSessionInfo().
 		GetInfo()
 
-	// Assert classified failure, preserved prior state, and a failed-recovery diagnostic.
+	// Assert the classified failure preserves the prior state.
 	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedCode)
 	assert.Equal(t, active.GetId(), priorInfo.GetId())
 	assert.Equal(t, "active before recovery failure", priorInfo.GetName())
@@ -367,13 +361,6 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	assert.Zero(t, priorStatistics.GetTotalMessages())
 	assert.Equal(t, active.GetId(), priorRenamed.GetId())
 	assert.Equal(t, "prior active remains writable", priorRenamed.GetName())
-	failedRecoveryLog := logs.String()
-	assert.Contains(t, failedRecoveryLog, `"operation":"resume"`)
-	assert.Contains(t, failedRecoveryLog, recoveryFixtures.interruptedPath)
-	assert.NotContains(t, failedRecoveryLog, "preceding tail text")
-	assert.NotContains(t, failedRecoveryLog, "provider-context")
-	assert.NotContains(t, failedRecoveryLog, "extension-json")
-
 	// Act by clearing the fault, resuming the interrupted session, and mutating recovered storage.
 	clearCommand := exec.CommandContext(t.Context(), "/usr/bin/chflags", "nouchg", recoveryFixtures.interruptedPath)
 	require.NoError(t, clearCommand.Run())

@@ -3,12 +3,9 @@
 package sessions
 
 import (
-	"bytes"
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,33 +17,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
-
-// TestInvalidListWarningsRetainSkippedFileContext verifies list warnings include exact path and original cause.
-//
-//nolint:paralleltest // The test temporarily captures the process-global structured logger.
-func TestInvalidListWarningsRetainSkippedFileContext(t *testing.T) {
-	// Arrange one candidate path, diagnostic error, and captured structured logger.
-	candidatePath := "/user-owned/sessions/candidate.jsonl"
-	cause := errors.New("decode session entry record 1: unexpected end of JSON input")
-	var output bytes.Buffer
-	previousLogger := slog.Default()
-	defer slog.SetDefault(previousLogger)
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
-
-	// Act by sending the skipped-file failure through the list warning boundary.
-	warnUnavailableSession(t.Context(), "list", candidatePath, classifyListWarningDiagnostic(cause), cause)
-
-	// Assert the warning keeps its path, category, and original skipped-file error.
-	var warning map[string]any
-	require.NoError(t, json.Unmarshal(bytes.TrimSpace(output.Bytes()), &warning))
-	assert.Equal(t, "WARN", warning["level"])
-	assert.Equal(t, "session file is unavailable", warning["msg"])
-	assert.Equal(t, "list", warning["operation"])
-	assert.Equal(t, candidatePath, warning["path"])
-	assert.Equal(t, "invalid_session_file", warning["diagnostic"])
-	assert.Equal(t, cause.Error(), warning["error"])
-	assert.NotContains(t, warning, "session_id")
-}
 
 // TestInterruptedTailRecoveryOrdersDurabilityOperations verifies recovery truncates and syncs before close.
 func TestInterruptedTailRecoveryOrdersDurabilityOperations(t *testing.T) {

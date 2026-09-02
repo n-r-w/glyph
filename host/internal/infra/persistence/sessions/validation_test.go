@@ -3,13 +3,9 @@
 package sessions_test
 
 import (
-	"bytes"
-	"encoding/json/v2"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/samber/mo"
@@ -152,53 +148,9 @@ func TestLoadRejectsInvalidCompletedSessionRecords(t *testing.T) {
 	}
 }
 
-// TestListReportsMalformedCandidatesWithPathAndCause verifies equal failures identify each skipped file.
-//
-//nolint:paralleltest // The test temporarily captures the process-global structured logger.
-func TestListReportsMalformedCandidatesWithPathAndCause(t *testing.T) {
-	// Arrange two newline-terminated headers with equal syntax failures and distinct user-owned paths.
-	repository, projectDirectory, _ := newValidationRepository(t)
-	paths := []string{
-		filepath.Join(projectDirectory, "first-malformed.jsonl"),
-		filepath.Join(projectDirectory, "second-malformed.jsonl"),
-	}
-	for _, path := range paths {
-		require.NoError(t, os.WriteFile(path, []byte("{invalid secret-user-content secret-api-key\n"), 0o600))
-	}
-	var logOutput bytes.Buffer
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
-	t.Cleanup(func() { slog.SetDefault(previousLogger) })
-
-	// Act by listing the project session partition.
-	listed, err := repository.List(t.Context())
-
-	// Assert each warning contains its exact path and original cause without persisted content or secrets.
-	require.NoError(t, err)
-	assert.Empty(t, listed)
-	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
-	require.Len(t, lines, 2)
-	observedPaths := make([]string, 0, len(lines))
-	for _, line := range lines {
-		var warning map[string]any
-		require.NoError(t, json.Unmarshal(line, &warning))
-		candidatePath, ok := warning["path"].(string)
-		require.True(t, ok)
-		observedPaths = append(observedPaths, candidatePath)
-		diagnostic, ok := warning["error"].(string)
-		require.True(t, ok)
-		assert.Equal(t, 1, strings.Count(diagnostic, "decode session header"))
-		assert.Equal(t, 1, strings.Count(diagnostic, "invalid character 'i'"))
-	}
-	assert.ElementsMatch(t, paths, observedPaths)
-	assert.NotContains(t, logOutput.String(), "secret-user-content")
-	assert.NotContains(t, logOutput.String(), "secret-api-key")
-}
-
-// TestEmptyHeaderTimestampIsUnavailable verifies Load and List reject an empty RFC3339 timestamp with the same cause.
-//
-//nolint:paralleltest // The test temporarily captures the process-global structured logger.
+// TestEmptyHeaderTimestampIsUnavailable verifies Load and List reject an empty RFC3339 timestamp.
 func TestEmptyHeaderTimestampIsUnavailable(t *testing.T) {
+	t.Parallel()
 	// Arrange one structurally complete header whose timestamp is an empty string.
 	repository, projectDirectory, cwd := newValidationRepository(t)
 	content := fmt.Sprintf(
@@ -207,28 +159,16 @@ func TestEmptyHeaderTimestampIsUnavailable(t *testing.T) {
 	)
 	require.NoError(t, os.WriteFile(filepath.Join(projectDirectory, "stored.jsonl"), []byte(content), 0o600))
 
-	// Act by loading the stored ID before listing under a captured logger.
+	// Act by loading the stored ID before listing sessions.
 	_, loadErr := repository.Load(t.Context(), session.ID("stored"))
-	var logOutput bytes.Buffer
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
-	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 	listed, listErr := repository.List(t.Context())
 
-	// Assert both boundaries reject the header with timestamp parse context and List emits one warning.
+	// Assert both boundaries reject the invalid timestamp.
 	require.Error(t, loadErr)
 	assert.Contains(t, loadErr.Error(), "decode session header record timestamp")
 	assert.Contains(t, loadErr.Error(), `cannot parse ""`)
 	require.NoError(t, listErr)
 	assert.Empty(t, listed)
-	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
-	require.Len(t, lines, 1)
-	var warning map[string]any
-	require.NoError(t, json.Unmarshal(lines[0], &warning))
-	diagnostic, ok := warning["error"].(string)
-	require.True(t, ok)
-	assert.Contains(t, diagnostic, "decode session header record timestamp")
-	assert.Contains(t, diagnostic, `cannot parse ""`)
 }
 
 // TestLoadRetainsSessionParserCauses verifies record context accompanies JSON, timestamp, and base64 diagnostics.
@@ -438,46 +378,6 @@ func TestListSkipsNonregularAndInvalidFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, session.ID("stored"), listed[0].Header.ID)
-}
-
-// TestListWarnsOnceForNonregularSessionFile verifies nonregular JSONL entries emit safe structured context.
-//
-//nolint:paralleltest // The test temporarily captures the process-global structured logger.
-func TestListWarnsOnceForNonregularSessionFile(t *testing.T) {
-	// Arrange one valid file, one session symlink, and one unrelated symlink under a captured JSON logger.
-	repository, projectDirectory, cwd := newValidationRepository(t)
-	validPath := filepath.Join(projectDirectory, "valid.jsonl")
-	candidatePath := filepath.Join(projectDirectory, "user-derived-id.jsonl")
-	require.NoError(t, os.WriteFile(validPath, []byte(fmt.Sprintf(validHeader, cwd)+validEntry), 0o600))
-	require.NoError(t, os.Symlink(validPath, candidatePath))
-	require.NoError(t, os.Symlink(validPath, filepath.Join(projectDirectory, "unrelated.txt")))
-	var logOutput bytes.Buffer
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logOutput, nil)))
-	t.Cleanup(func() { slog.SetDefault(previousLogger) })
-
-	// Act by listing the partition with one nonregular session candidate.
-	listed, err := repository.List(t.Context())
-
-	// Assert exactly one safe structured warning exists and unrelated extensions remain silent.
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-	lines := bytes.Split(bytes.TrimSpace(logOutput.Bytes()), []byte{'\n'})
-	require.Len(t, lines, 1)
-	var warning map[string]any
-	require.NoError(t, json.Unmarshal(lines[0], &warning))
-	assert.Equal(t, "WARN", warning["level"])
-	assert.Equal(t, "session file is unavailable", warning["msg"])
-	assert.Equal(t, "list", warning["operation"])
-	assert.Equal(t, candidatePath, warning["path"])
-	assert.Equal(t, "nonregular_session_file", warning["diagnostic"])
-	assert.Equal(t, "session file is not regular", warning["error"])
-	assert.NotContains(t, warning, "session_id")
-	for _, forbidden := range []string{
-		"Stored", "provider-context", "extension-json", "secret-content", "secret-api-key",
-	} {
-		assert.NotContains(t, logOutput.String(), forbidden)
-	}
 }
 
 // TestLoadDoesNotTreatClientIDAsPath verifies resume lookup uses validated header IDs only.

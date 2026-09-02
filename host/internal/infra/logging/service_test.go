@@ -14,7 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpenUICreatesOwnerOnlyAppendStructuredLog verifies the complete UI log sink contract.
+// TestOpenUICreatesOwnerOnlyAppendStructuredLog verifies the UI log sink contract.
+// It tests the logging adapter itself, not application behavior inferred from emitted logs.
 func TestOpenUICreatesOwnerOnlyAppendStructuredLog(t *testing.T) {
 	t.Parallel()
 
