@@ -26,10 +26,12 @@ message Accepted {}
 message Running {}
 message Rejected {
   optional string code = 1;
+  optional string message = 2;
 }
 message Canceled {}
 message Failed {
   optional string code = 1;
+  optional string message = 2;
 }
 message CancelOperation {
   optional string target_operation_id = 1;
@@ -46,9 +48,9 @@ message CancelCompleted {
 message CloseConnection {}
 ```
 
-- APC-03: `Rejected.code` and `Failed.code` are nonempty machine codes. They contain no user-facing message. Each operation kind defines a closed set of accepted codes beside its request and result contract.
-- APC-04: The common rejection codes are `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `BUSY`, `TARGET_NOT_ACTIVE`, and `NOT_READY`. Operation-specific contracts add codes only for domain failures that cannot use one of these values.
-- APC-05: The common failed code is `INTERNAL`. Operation-specific contracts define all classified failure codes. The receiving adapter logs the underlying error with `operation_id`, operation kind, peer kind, and failure code; it sends no error text through the lifecycle message.
+- APC-03: `Rejected.code` and `Failed.code` are nonempty machine-readable Glyph categories. `Rejected.message` and `Failed.message` contain nonempty complete error text. Each operation kind defines a closed set of accepted categories beside its request and result contract.
+- APC-04: The common rejection categories are `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `BUSY`, `TARGET_NOT_ACTIVE`, and `NOT_READY`. Operation-specific contracts add categories only for domain failures that cannot use one of these values.
+- APC-05: The common failed category is `INTERNAL`. Operation-specific contracts define all classified failure categories. The receiving adapter sends the complete error text through the lifecycle message and also logs the underlying error with `operation_id`, operation kind, peer kind, and failure category.
 
 ### Contract stream shape
 
@@ -67,21 +69,17 @@ Each contract defines one typed message for each direction. `OpenRequest` is sen
 
 - APC-09: Remove `UIService.GetCapabilities`, `ExtensionService.Register`, `ExtensionService.Handle`, and `ExtensionService.Execute`. `Register`, `Handle`, and `Execute` become typed operation kinds on `Open`; no operation replaces `GetCapabilities`.
 - APC-10: Connection establishment, stream closure, connection events, stream messages, lifecycle messages, and terminal messages do not recursively create operations. Only a typed request payload creates a contract operation.
-- DEC-08: Removed protobuf fields and field numbers are reserved, and new stream-message fields use the next unused numbers. The contracts retain no compatibility payload or fallback decoder.
-- DEC-08.1: Retained messages reserve both the numeric ranges and the field names they replace:
-  - UI `OpenRequest` reserves 1 through 15 and `initialization`, `lifecycle`, `authorization`, `information`, `error`, `model_selection_changed`, `session_list`, `session_changed`, `session_information`, `session_tree`, `session_tree_navigation`, `session_tree_failed`, `session_forked`, `session_cloned`, and `entry_label_set`.
-  - UI `OpenResponse` reserves 1 through 16 and `submit`, `stop`, `retry_authentication`, `quit`, `select_model`, `select_reasoning_choice`, `create_session`, `list_sessions`, `resume_session`, `set_session_name`, `get_session_info`, `get_session_tree`, `navigate_session_tree`, `fork_session`, `clone_session`, and `set_entry_label`.
-  - Programmatic `OpenRequest` reserves 1 through 20 and `correlation_id`, `user_request`, `abort`, `get_run_state`, `get_messages`, `get_models`, `select_model`, `select_reasoning_choice`, `create_session`, `list_sessions`, `resume_session`, `set_session_name`, `get_session_info`, `get_session_entries`, `get_session_stats`, `get_session_tree`, `navigate_session_tree`, `fork_session`, `clone_session`, and `set_entry_label`.
-  - Programmatic `OpenResponse` reserves 1 through 3 and `correlation_id`, `command_response`, and `agent_event`.
-- DEC-08.2: Programmatic `AgentEventType` reserves value 17 and `AGENT_EVENT_TYPE_AGENT_SETTLED`. UI `LifecycleType` reserves values 11 and 12 plus `LIFECYCLE_TYPE_AGENT_SETTLED` and `LIFECYCLE_TYPE_AVAILABILITY_CHANGED`. Programmatic `RunStateResult` reserves field 2 and `active_correlation_id`, then adds `active_operation_id = 3`.
+- DEC-08: Programmatic, UI, and Extension contract migrations remove replaced protobuf fields, names, and numbers without reservations, compatibility payloads, or fallback decoders.
+- DEC-08.1: Each migrated message numbers fields continuously from 1. Each migrated enum numbers values continuously from 0. A later contract migration does not retain gaps from the replaced contract.
+- DEC-08.2: Programmatic `AgentEventType` uses values 0 through 16, ending with `AGENT_EVENT_TYPE_AGENT_END = 16`. Programmatic `RunStateResult` uses `state = 1` and `active_operation_id = 2`. UI `LifecycleType` and retained Extension messages follow DEC-08.1 when their contracts migrate.
 - APC-14: Target stream-message fields are fixed as follows:
 
 | Contract message | New fields |
 |---|---|
-| UI `OpenRequest` | `operation_id = 16`, `HostRequest request = 17`, `HostEvent event = 18`, `HostConnectionEvent connection_event = 19`, `CloseConnection close = 20` |
-| UI `OpenResponse` | `operation_id = 17`, `UIRequest request = 18`, `UIEvent event = 19`, `CloseConnection close = 20` |
-| Programmatic `OpenRequest` | `operation_id = 21`, `ControllerRequest request = 22` |
-| Programmatic `OpenResponse` | `operation_id = 4`, `HostEvent event = 5`, `CloseConnection close = 6` |
+| UI `OpenRequest` | `operation_id = 1`, `HostRequest request = 2`, `HostEvent event = 3`, `HostConnectionEvent connection_event = 4`, `CloseConnection close = 5` |
+| UI `OpenResponse` | `operation_id = 1`, `UIRequest request = 2`, `UIEvent event = 3`, `CloseConnection close = 4` |
+| Programmatic `OpenRequest` | `operation_id = 1`, `ControllerRequest request = 2` |
+| Programmatic `OpenResponse` | `operation_id = 1`, `HostEvent event = 2`, `CloseConnection close = 3` |
 | Extension `OpenRequest` | `operation_id = 1`, `HostRequest request = 2`, `CloseConnection close = 3` |
 | Extension `OpenResponse` | `operation_id = 1`, `ExtensionEvent event = 2` |
 
@@ -95,8 +93,8 @@ Each contract defines one typed message for each direction. `OpenRequest` is sen
   - UI `HostProgress`: `agent_event = 1`, `authorization = 2`. UI `HostCompleted`: `cancel = 1`, `submit = 2`, `authentication = 3`, `model_selection = 4`, `session_changed = 5`, `session_list = 6`, `session_information = 7`, `session_tree = 8`, `session_tree_navigation = 9`, `session_forked = 10`, `session_cloned = 11`, `entry_label_set = 12`. UI `UICompleted`: `initialized = 1`, `cancel = 2`.
   - Programmatic `HostProgress`: `agent_event = 1`. Programmatic `HostCompleted`: `user_request = 1`, `cancel = 2`, `run_state = 3`, `messages = 4`, `models = 5`, `model_selection = 6`, `session_info = 7`, `sessions = 8`, `session_entries = 9`, `session_stats = 10`, `session_tree = 11`, `session_tree_navigation = 12`, `fork_session = 13`, `clone_session = 14`, `set_entry_label = 15`.
   - Extension `ExtensionProgress`: `tool = 1`. Extension `ExtensionCompleted`: `register = 1`, `handle = 2`, `tool = 3`, `cancel = 4`.
-- APC-18: UI `HostConnectionEvent` uses `information = 1`, `error = 2`, and `availability_changed = 3`. `Information` and `Error` retain their current payloads. `AvailabilityChanged` contains `optional Availability availability = 1`. Agent lifecycle values are operation progress, while idle extension-process failure is an `Error` connection event.
-- APC-18.1: `Initialized`, `SubmitCompleted`, `AuthenticationCompleted`, and `UserRequestCompleted` are empty acknowledgement messages. `CancelOperation.target_operation_id`, `CancelCompleted.target_state`, `Rejected.code`, `Failed.code`, and `AvailabilityChanged.availability` must be present and non-default. A completed or progress variant must match the request kind tracked for its `operation_id`; a mismatch is `FailedPrecondition` for the stream.
+- APC-18: UI `HostConnectionEvent` uses `information = 1`, `error = 2`, and `availability_changed = 3`. `Information` retains its current payload. `Error` contains `optional string code = 1` and `optional string text = 2`. `AvailabilityChanged` contains `optional Availability availability = 1`. Agent lifecycle values are operation progress, while idle extension-process failure is an `Error` connection event with category `EXTENSION_UNAVAILABLE` and complete error text.
+- APC-18.1: `Initialized`, `SubmitCompleted`, `AuthenticationCompleted`, and `UserRequestCompleted` are empty acknowledgement messages. `CancelOperation.target_operation_id`, `CancelCompleted.target_state`, `Rejected.code`, `Rejected.message`, `Failed.code`, `Failed.message`, `Error.code`, `Error.text`, and `AvailabilityChanged.availability` must be present and non-default. A completed or progress variant must match the request kind tracked for its `operation_id`; a mismatch is `FailedPrecondition` for the stream.
 - DEC-09: `sdk/plugins/ui/v1.ProtocolVersion` and `sdk/plugins/extension/v1.ProtocolVersion` change from 1 to 2. The handshake cookie values become `glyph-ui-v2` and `glyph-extension-v2`; plugin names remain `glyph-ui` and `extension`. A process using protocol version 1 is rejected during plugin negotiation.
 
 ### Lifecycle sequence
@@ -112,10 +110,10 @@ Each contract defines one typed message for each direction. `OpenRequest` is sen
 
 - CMP-01: Add repository-root package `internal/operation`. It imports no protobuf, gRPC, Host, UI, Extension, Programmatic Control, or plugin SDK package and is not part of the public Go API.
 - CMP-02: `internal/operation.Owner[P, R]` owns accepted operations for one contract connection. It stores nonterminal operations by `operation_id`, derives their contexts from the connection context, cancels a target by identifier, and waits for all work during closure.
-- CMP-03: `internal/operation.Tracker` owns operations initiated on the connection. It validates `Rejected`, lifecycle ordering, progress placement, terminal uniqueness, and unknown identifiers, then writes each event to the operation's bounded inbound queue. A full inbound queue fails the connection with `ResourceExhausted` instead of blocking stream receipt.
+- CMP-03: `internal/operation.Tracker` owns operations initiated on the connection. It validates nonempty `Rejected.code`, `Rejected.message`, `Failed.code`, and `Failed.message`, lifecycle ordering, progress placement, terminal uniqueness, and unknown identifiers, then writes each event to the operation's bounded inbound queue. A full inbound queue fails the connection with `ResourceExhausted` instead of blocking stream receipt.
 - CMP-04: `internal/operation.Prepared[P, R]` is the consumer-owned work interface used by `Owner`. It exposes `Run(context.Context, Reporter[P]) Outcome[R]` and `Release()`. In-repository implementations include compile-time interface assertions.
 - CMP-05: `Release` frees the in-memory admission reservation exactly once after `Run` returns or when accepted delivery fails before `Run` starts.
-- CMP-06: `Outcome[R]` has constructors for completed, canceled, and failed outcomes. A failed outcome contains its machine code and internal Go error. The runtime sends only the code and logs the error through the receiving adapter.
+- CMP-06: `Outcome[R]` has constructors for completed, canceled, and failed outcomes. A failed outcome contains its machine-readable category and internal Go error. The receiving adapter maps the category to `Failed.code`, maps the complete `error.Error()` text to `Failed.message`, and logs the same error.
 - CMP-07: `Reporter[P]` enqueues typed progress and returns a delivery error. A delivery error cancels the connection and all operations bound to it. Every `Prepared.Run` implementation must return after its context is canceled; closure waits rather than detaching work that ignores cancellation.
 
 ### Public plugin SDKs
@@ -166,19 +164,22 @@ type Cancellation struct { /* SDK-owned state */ }
 func (*Cancellation) Wait(context.Context) (*operationv1.CancelCompleted, error)
 
 // Both SDK packages export the same error surface.
-func Reject(string) error
+func Reject(string, error) error
 func Fail(string, error) error
 type RejectionError struct { /* SDK-owned state */ }
+func (*RejectionError) Error() string
 func (*RejectionError) Code() string
+func (*RejectionError) Unwrap() error
 type FailureError struct { /* SDK-owned state */ }
+func (*FailureError) Error() string
 func (*FailureError) Code() string
 func (*FailureError) Unwrap() error
 type CanceledError struct { /* SDK-owned state */ }
 func (*CanceledError) Unwrap() error
 ```
 
-- APC-12: Each `Prepare` method performs bounded validation and in-memory admission. It returns `Reject(code)` to produce `Rejected`; every other nonnil preparation error is a connection failure. The SDK calls `Run` only after delivery of `Accepted` and calls `Release` exactly once.
-- APC-12.1: `Run` returns a completed payload and `nil` for `Completed`, `context.Canceled` for `Canceled`, `Fail(code, err)` for classified `Failed`, or another error for `Failed` with `INTERNAL`. `Reject` and `Fail` are SDK constructors whose concrete error types expose their machine code through `errors.As`.
+- APC-12: Each `Prepare` method performs bounded validation and in-memory admission. It returns `Reject(code, err)` to produce `Rejected` with the category and complete error text; every other nonnil preparation error is a connection failure. The SDK calls `Run` only after delivery of `Accepted` and calls `Release` exactly once.
+- APC-12.1: `Run` returns a completed payload and `nil` for `Completed`, `context.Canceled` for `Canceled`, `Fail(code, err)` for classified `Failed`, or another error for `Failed` with `INTERNAL`. `Reject` and `Fail` preserve their cause through `Unwrap`, and their concrete error types expose the machine-readable category through `errors.As`.
 - APC-12.2: UI SDK calls `Service.Run` once after `Initialize` completes and its terminal message is delivered. `Host.Start` registers the caller-provided operation identifier before queueing the request, then returns SDK-owned state without waiting for operation acceptance. `Operation.Wait` delivers ordered progress on its calling goroutine and returns the completed payload or `RejectionError`, `CanceledError`, or `FailureError`. `Host.Cancel` creates a separate operation using the caller-provided cancellation identifier. `Host.Close` or return from `Service.Run` starts normal UI connection closure.
 - APC-13: SDK public interfaces use only standard-library, SDK-owned, and generated public types. No exported field, method parameter, method result, embedded interface, or generic constraint references `internal/operation` or another Glyph internal package. SDK-defined interfaces are consumed by the SDK; objects consumed by plugin code, including `Host` and `ProgressReporter`, are concrete SDK types.
 - CMP-09: Each SDK privately implements the generated gRPC server and adapts its public interfaces to `internal/operation.Prepared`, `Reporter`, and `Outcome`. External plugin code implements no generated gRPC server, operation registry, stream writer, cancellation dispatcher, or closure coordinator.
@@ -189,7 +190,7 @@ func (*CanceledError) Unwrap() error
 
 - STP-01: The stream receiver decodes one stream message. A protobuf or transport receive failure follows the stream failure mapping below.
 - STP-02: The contract adapter validates message content, `operation_id`, operation kind, and payload fields. It asks the operation-specific consumer to perform bounded in-memory admission and return `Prepared`.
-- STP-03: The adapter uses `Owner` to reserve the identifier and admission result. It enqueues `Rejected` on failure or `Accepted` with a writer acknowledgement on success, then returns to `Recv`.
+- STP-03: The adapter uses `Owner` to reserve the identifier and admission result. It enqueues `Rejected` with the category and complete error text on failure or `Accepted` with a writer acknowledgement on success, then returns to `Recv`.
 - STP-04: A tracked worker waits for successful gRPC delivery of `Accepted`. It then enqueues `Running` and calls `Prepared.Run`. If delivery of `Accepted` fails, the worker does not call `Run`.
 - STP-05: After `Run` returns, the worker calls `Release` and waits for all operation-owned work to stop before it enqueues the selected terminal message. The identifier remains reserved until the writer reports terminal delivery; removing that reservation is lifecycle bookkeeping, not operation work.
 - STP-06: Cancellation follows STP-02 through STP-05. Its run function cancels the target context, waits until the target has stopped and its terminal message precedes the cancellation terminal message in writer order, then completes with `CancelCompleted` containing the target state.
@@ -207,14 +208,14 @@ func (*CanceledError) Unwrap() error
 
 | Source condition | Per-request result | Stream result | Active operations |
 |---|---|---|---|
-| Empty `operation_id`, unknown operation kind, or invalid payload | `Rejected` with `INVALID_ARGUMENT` | Remains open | No operation is created; accepted operations continue |
-| Identifier owned by a nonterminal operation | `Rejected` with `OPERATION_ID_IN_USE` | Remains open | The accepted operation with that identifier continues |
-| Operation-specific admission unavailable | `Rejected` with `BUSY`, `NOT_READY`, or the operation's closed code | Remains open | No operation is created; accepted operations continue |
-| Cancellation target is not owned and nonterminal | `Rejected` with `TARGET_NOT_ACTIVE` | Remains open | No operation is created; accepted operations continue |
-| Accepted operation returns classified error | `Failed` with the operation's closed code | Remains open | Operation removed after delivery |
-| Accepted operation returns unclassified error | `Failed` with `INTERNAL` | Remains open | Operation removed after delivery |
+| Empty `operation_id`, unknown operation kind, or invalid payload | `Rejected` with `INVALID_ARGUMENT` and complete error text | Remains open | No operation is created; accepted operations continue |
+| Identifier owned by a nonterminal operation | `Rejected` with `OPERATION_ID_IN_USE` and complete error text | Remains open | The accepted operation with that identifier continues |
+| Operation-specific admission unavailable | `Rejected` with `BUSY`, `NOT_READY`, or the operation's closed category and complete error text | Remains open | No operation is created; accepted operations continue |
+| Cancellation target is not owned and nonterminal | `Rejected` with `TARGET_NOT_ACTIVE` and complete error text | Remains open | No operation is created; accepted operations continue |
+| Accepted operation returns classified error | `Failed` with the operation's closed category and complete error text | Remains open | Operation removed after delivery |
+| Accepted operation returns unclassified error | `Failed` with `INTERNAL` and complete error text | Remains open | Operation removed after delivery |
 | Incoming lifecycle event violates order or references an unknown identifier | None | `FailedPrecondition` | Canceled and joined |
-| Request message has no request kind or has invalid request fields | `Rejected` with `INVALID_ARGUMENT` | Remains open | No operation is created; accepted operations continue |
+| Request message has no request kind or has invalid request fields | `Rejected` with `INVALID_ARGUMENT` and complete error text | Remains open | No operation is created; accepted operations continue |
 | Incoming operation event, connection event, or close message has invalid fields | None | `FailedPrecondition` | Canceled and joined |
 | New request received after `CloseConnection` | None | `FailedPrecondition` | Canceled and joined; operation events remain allowed until EOF |
 | gRPC `Recv` cannot decode a protobuf frame | None | Incoming status or `InvalidArgument` | Canceled and joined |
@@ -270,12 +271,13 @@ func (*CanceledError) Unwrap() error
   - `UI-SESSION-R`: `SESSION-R` plus `NOT_READY`.
   - `CANCEL-R`: `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `TARGET_NOT_ACTIVE`.
   - `EXTENSION-R`: `READY-R` plus `BUSY`.
-- APC-20: Failed-code sets below are closed. Every set includes `INTERNAL`:
-  - `RUN-F`: `CREDENTIAL_UNAVAILABLE`, `MODEL_UNAVAILABLE`, `MODEL_FAILED`, `EXTENSION_INVALID_RESULT`, `EXTENSION_UNAVAILABLE`, `INTERNAL`.
+- APC-20: Failed-category sets below are closed. Every set includes `INTERNAL`:
+  - `RUN-F`: `INTERNAL`. PHS-06 owns terminal logical model-execution categories after retry coordination, and PHS-12 owns provider-neutral source classification before either phase extends `RUN-F`.
   - `AUTH-F`: `AUTHENTICATION_FAILED`, `INTERNAL`.
   - `MODEL-F`: `CREDENTIAL_UNAVAILABLE`, `INTERNAL`.
   - `SESSION-F`: `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `INTERNAL`.
   - `NAVIGATION-F`: `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `MODEL_FAILED`, `EXTENSION_INVALID_RESULT`, `EXTENSION_UNAVAILABLE`, `INTERNAL`.
+  - `CONNECTION-F`: `EXTENSION_UNAVAILABLE`, `INTERNAL`.
   - `INTERNAL-F`: `INTERNAL`.
 - DEC-12: `BASE-R` preparation validates identifiers and fields without domain work. `READY-R` also requires completed plugin startup. `RUN-R` additionally reserves the agent-run gate. `SESSION-R` additionally reserves the session-mutation gate. `MODEL-R` checks the in-memory model catalogue and reasoning choices; credential access remains in `Run`. Read operations reserve no domain gate. `EXTENSION-R` uses only extension-owned in-memory admission.
 
@@ -345,11 +347,11 @@ Extension operations:
 Implementation follows RED, GREEN, REFACTOR, and VERIFY. Each RED test must compile and fail through its expected assertion rather than a timeout.
 
 - TSK-01: Generate the common lifecycle package and replaced contract packages as compile setup. Run `task generate` twice and require no second-run diff before behavioral RED tests import the generated API.
-- TSK-02: Add `internal/operation` unit tests. Purpose: prove acceptance order, progress order, terminal uniqueness, targeted cancellation, release, and closure waiting. Inputs: prepared operations and a writer fake controlled by channels. Expected outputs: `Run` remains stopped until the writer acknowledges `Accepted`, release and owned work finish before terminal delivery, and closure joins all work. Edge cases: cancellation before `Run`, commit winning a cancellation race, delivery failure, duplicate identifier rejection, queue overflow from an operation worker, and unexpected transport cleanup. Dependencies: no gRPC or production use case.
-- TSK-03: Update Programmatic Control tests. Purpose: prove all command kinds use operations. Inputs: one blocked command followed by a query and cancellation. Expected outputs: the second request receives `Rejected` or `Accepted` before release, cancellation completes after the target terminal state, and connection closure joins work. Edge cases: malformed requests, duplicate identifiers, failed operations, writer overflow, and send failure. Dependencies: generated contract, mocked consumer, and `internal/operation`.
-- TSK-04: Update UI runtime and standard TUI tests. Purpose: prove initialization startup, typed command lifecycle, foreground cancellation, connection-event delivery, terminal rendering, and UI-owned presentation resources. Inputs: a real UI stream with one blocked Host operation and an idle extension-process exit. Expected outputs: ordered startup, later request receipt, an `Error` connection event without `operation_id`, and joined shutdown without Host terminal recovery. Edge cases: startup cancellation, `NOT_READY`, invalid lifecycle order, a full inbound operation queue, and UI process exit. Dependencies: generated contract and UI SDK.
-- TSK-05: Update Extension runtime and bundled tools tests. Purpose: prove Register, Handle, Execute, progress, cancellation, and process-exit ownership on one stream. Inputs: real test extension with blocked handler and tool operations. Expected outputs: another request is received before release and cancellation joins the target. Edge cases: ordinary handler error as completed data, tool `is_error` as completed data, protocol failure as failed operation, registration failure, queue overflow, and runtime exit. Dependencies: generated contract and Extension SDK.
-- TSK-06: Add integration tests for every implemented work-request direction. Purpose: detect blocked receipt at real gRPC boundaries. Inputs: keep one operation in `Running`, send a second request on that operation's contract connection, then cancel and close. Expected outputs: the second request receives `Rejected` or `Accepted` before the first is released, the target reaches one terminal state, and no goroutine survives closure. Edge cases: cancellation racing with completion, UI quit, Host-requested UI and Extension close, Programmatic controller half-close, Host-requested Programmatic close, simultaneous close, process exit, and failed transport. Dependencies: production controllers and real local gRPC streams. These tests use `//go:build integration` and run through `task itest`.
+- TSK-02: Add `internal/operation` unit tests. Purpose: prove acceptance order, progress order, terminal uniqueness, targeted cancellation, release, closure waiting, and preservation of rejected and failed error causes. Inputs: prepared operations and a writer fake controlled by channels. Expected outputs: `Run` remains stopped until the writer acknowledges `Accepted`, release and owned work finish before terminal delivery, rejected and failed results retain their category and complete error text, and closure joins all work. Edge cases: cancellation before `Run`, commit winning a cancellation race, delivery failure that joins the source error, duplicate identifier rejection, queue overflow from an operation worker, and unexpected transport cleanup. Dependencies: no gRPC or production use case.
+- TSK-03: Update Programmatic Control tests. Purpose: prove all command kinds use operations and preserve public error information. Inputs: one blocked command followed by a query and cancellation. Expected outputs: the second request receives `Rejected` or `Accepted` before release, rejected and failed results contain their exact category and complete error text, cancellation completes after the target terminal state, and connection closure joins work. Edge cases: malformed requests, duplicate identifiers, failed operations, writer overflow, and send failure that joins the source error. Dependencies: generated contract, mocked consumer, and `internal/operation`.
+- TSK-04: Update UI runtime and standard TUI tests. Purpose: prove initialization startup, typed command lifecycle, complete rejected and failed error delivery, foreground cancellation, connection-event delivery, terminal rendering, and UI-owned presentation resources. Inputs: a real UI stream with one blocked Host operation and an idle extension-process exit. Expected outputs: ordered startup, later request receipt, exact rejected and failed categories and complete error text, an `Error` connection event without `operation_id` that contains `EXTENSION_UNAVAILABLE` and the complete runtime error text, and joined shutdown without Host terminal recovery. Edge cases: startup cancellation, `NOT_READY`, invalid lifecycle order, a full inbound operation queue, and UI process exit. Dependencies: generated contract and UI SDK.
+- TSK-05: Update Extension runtime and bundled tools tests. Purpose: prove Register, Handle, Execute, progress, cancellation, complete rejected and failed error delivery, and process-exit ownership on one stream. Inputs: real test extension with blocked handler and tool operations. Expected outputs: another request is received before release, rejected and failed operations retain their exact category and complete error text, and cancellation joins the target. Edge cases: ordinary handler error as completed data, tool `is_error` as completed data, protocol failure as failed operation, registration failure, queue overflow, and runtime exit. Dependencies: generated contract and Extension SDK.
+- TSK-06: Add integration tests for every implemented work-request direction. Purpose: detect blocked receipt and error-information loss at real gRPC boundaries. Inputs: keep one operation in `Running`, send a second request on that operation's contract connection, then cancel and close. Expected outputs: the second request receives `Rejected` or `Accepted` before the first is released, every rejected or failed result retains its exact category and complete error text, the target reaches one terminal state, and no goroutine survives closure. Edge cases: cancellation racing with completion, UI quit, Host-requested UI and Extension close, Programmatic controller half-close, Host-requested Programmatic close, simultaneous close, process exit, and failed transport. Dependencies: production controllers and real local gRPC streams. These tests use `//go:build integration` and run through `task itest`.
 - TSK-07: Add a separate-module integration fixture for an external extension and external UI plugin. Purpose: prove that each plugin compiles and runs through public contract and SDK packages without importing Glyph internal packages or implementing generated gRPC services. Inputs: minimal plugin services in a module with a non-Glyph import path. Expected outputs: startup operations complete and one ordinary operation reaches a terminal state. Edge cases: cancellation and plugin shutdown. Dependencies: generated contracts and public SDKs.
 - TSK-08: After each GREEN slice, refactor while focused tests remain green. Final verification runs `task generate` twice, `task fmt`, `task fix_dry_run`, reviews the proposed fixes, runs `task fix` or applies the fixes manually, then runs `task lint`, `task test`, `task itest`, and `git diff --check`.
 

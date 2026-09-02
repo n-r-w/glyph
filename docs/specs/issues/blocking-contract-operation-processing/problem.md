@@ -6,7 +6,7 @@ The issue was found while tracing branch summarization during session-tree navig
 
 ## Problem Statement
 
-Operations across the UI Plugin Contract, Extension Contract, and Programmatic Control do not share one asynchronous operation lifecycle. Some contract receivers execute operation work or wait for it before receiving later requests. Contract operations do not consistently expose identity, acceptance, running state, cancellation, terminal state, ownership, and joining.
+Operations across the UI Plugin Contract, Extension Contract, and Programmatic Control do not share one asynchronous operation lifecycle. Some contract receivers execute operation work or wait for it before receiving later requests. Contract operations do not consistently expose identity, acceptance, running state, cancellation, terminal state, error category and complete error text, ownership, and joining.
 
 ## Who is affected
 
@@ -31,6 +31,7 @@ Operations across the UI Plugin Contract, Extension Contract, and Programmatic C
 - One blocked contract operation can delay later requests on the same receiving path.
 - Cancellation and shutdown may wait behind the operation they need to stop.
 - Operation correlation, progress, cancellation, errors, and completion differ by contract and operation kind.
+- Contract error results do not consistently preserve both a machine-readable Glyph category and complete error text.
 - Operation ownership and joining depend on individual implementations rather than one public contract rule.
 - New contract operations can repeat the blocking behavior or add another lifecycle model.
 
@@ -50,11 +51,12 @@ Agent runs have an explicit asynchronous lifecycle. Extension tool execution has
 
 ## Desired Outcome
 
-A request that passes contract validation creates a contract operation with observable accepted, running, canceled, failed, or completed states. A contract receiver does not execute operation work or wait for it before receiving later requests. Each contract operation has explicit ownership, cancellation, and joining. Operation-specific ordering and state consistency remain defined by the owning domain.
+A request that passes contract validation creates a contract operation with observable accepted, running, canceled, failed, or completed states. A rejected or failed result exposes both its machine-readable Glyph category and complete error text. A contract receiver does not execute operation work or wait for it before receiving later requests. Each contract operation has explicit ownership, cancellation, and joining. Operation-specific ordering, parent error semantics, and state consistency remain defined by the owning domain.
 
 ## Success Metrics
 
 - Each accepted contract operation reports acceptance before its work finishes, reports running, and reports exactly one terminal state.
+- Each rejected or failed result exposes both its exact category and complete error text through its public contract.
 - With a deliberately blocked contract operation, the receiver continues to receive later requests through the same contract connection.
 - A cancellation request can reach its target operation while that operation is blocked.
 - A canceled operation commits no state after its canceled terminal state.
@@ -64,7 +66,7 @@ A request that passes contract validation creates a contract operation with obse
 ## Scope
 
 - Every request exposed by the UI Plugin Contract, Extension Contract, and Programmatic Control, in either supported direction.
-- Contract operation identity, acceptance, running state, progress, cancellation, terminal state, ownership, and joining.
+- Contract operation identity, acceptance, running state, progress, cancellation, terminal state, error information, ownership, and joining.
 - Request receipt and result or event delivery while other contract operations are active.
 - Operation-specific ordering, exclusivity, and atomic state commit rules where asynchronous execution affects them.
 
@@ -80,7 +82,7 @@ A request that passes contract validation creates a contract operation with obse
 ## Constraints
 
 - `context.Context` remains the cancellation mechanism for in-process calls.
-- UI Plugin Contract, Extension Contract, and Programmatic Control may use different transport messages but must expose the same operation lifecycle semantics.
+- UI Plugin Contract, Extension Contract, and Programmatic Control may use different transport messages but must expose the same operation lifecycle semantics and preserve the error information required by the [initial product requirements](../../features/initial/prd.md).
 - Each accepted contract operation has one owner and a join path that completes before its owning connection or runtime closes.
 - Asynchronous receipt and execution do not permit conflicting state mutations to commit concurrently.
 - Navigation remains atomic and must not commit after cancellation or failure.
