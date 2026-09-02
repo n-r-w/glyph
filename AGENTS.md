@@ -51,6 +51,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
     2) `task fix_dry_run` -> analyze proposal -> `task fix` or manually fix issues
     3) `task lint`
     4) `task test`, `task itest`
+    5) `task test-coverage`
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only active field.
