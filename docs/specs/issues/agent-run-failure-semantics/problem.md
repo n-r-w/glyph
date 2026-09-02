@@ -2,11 +2,11 @@
 
 ## Context
 
-The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md) introduces `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. Its `RUN-F` definition lists six allowed codes for terminal agent-run failures.
+The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md) introduces `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. Its current `RUN-F` definition contains only `INTERNAL`. The roadmap assigns logical model-execution outcomes to PHS-06 and provider source classification to PHS-12 before `RUN-F` can expose additional categories.
 
 ## Problem Statement
 
-Glyph has no agreed end-to-end definition of which terminal agent-run failure causes clients must distinguish. The Technical Solution declares specific public codes that the current runtime cannot derive at the client boundary.
+Glyph has no agreed end-to-end definition of which terminal agent-run failure causes clients must distinguish beyond `INTERNAL`. The current runtime cannot derive stable client categories for these causes at the client boundary.
 
 ## Who is affected
 
@@ -16,7 +16,7 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 
 ## Evidence
 
-- [APC-20](../blocking-contract-operation-processing/solution.md) defines `RUN-F` as `CREDENTIAL_UNAVAILABLE`, `MODEL_UNAVAILABLE`, `MODEL_FAILED`, `EXTENSION_INVALID_RESULT`, `EXTENSION_UNAVAILABLE`, and `INTERNAL`.
+- [APC-20](../blocking-contract-operation-processing/solution.md) defines the current `RUN-F` set as `INTERNAL` and assigns later category work to PHS-06 and PHS-12.
 - `host/internal/usecase/host/programmatic/prepared.go` maps every unclassified accepted-run error to `INTERNAL` through `failureCode`.
 - Provider errors reach Agent Core as Go errors without a provider-neutral terminal failure kind.
 - Extension tool execution errors become model-visible error tool results and do not directly fail the parent agent run.
@@ -24,9 +24,9 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 
 ## Impact
 
-- A client cannot rely on the specific `RUN-F` codes declared by APC-20.
-- The Programmatic Control implementation unit cannot establish contract evidence for the declared code set.
-- Later retry-control and provider-extension work can define failure semantics that conflict with the earlier public contract.
+- Clients can distinguish terminal agent-run failures only as `INTERNAL`.
+- Programmatic Control and UI plugins cannot expose finer terminal distinctions until their source conditions and ownership are defined.
+- PHS-06 and PHS-12 can define incompatible failure semantics unless the cross-phase issue is resolved.
 
 ## Reproduction Steps
 
@@ -37,7 +37,7 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 
 ## Current State
 
-APC-20 defines six allowed terminal agent-run failure codes. The Programmatic run boundary can identify only `INTERNAL`. Other failure information is provider-specific, removed before the Programmatic boundary, or represented as nonterminal model-visible tool data.
+APC-20 defines `INTERNAL` as the only current terminal agent-run failure code. The Programmatic and UI run boundaries expose that category. Other failure information is provider-specific, removed before those boundaries, or represented as nonterminal model-visible tool data. PHS-06 and PHS-12 own the later work needed to define and carry additional categories.
 
 ## Desired Outcome
 
