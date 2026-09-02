@@ -68,23 +68,35 @@ tasks:
       - go build -o {{default "bin" .BUILD_ROOT}}/plugins/ui/glyph-tui ./plugins/ui/tui/cmd/glyph-tui
 
   test-coverage:
-    desc: Check test coverage
+    desc: Check combined test coverage
     vars:
-      COVERAGE_MIN: '{{default "50" .COVERAGE_MIN}}'
+      COVERAGE_MIN: '{{default "80" .COVERAGE_MIN}}'
     cmds:
       - |
+        set -euo pipefail
+
         tmp_dir="$(mktemp -d)"
         trap 'rm -rf "$tmp_dir"' EXIT
 
-        profile="$tmp_dir/coverage.out"
-        test_log="$tmp_dir/test.log"
+        packages="$(go list ./... | grep -v '/experiments/')"
+        cover_packages="$(printf '%s\n' "$packages" | paste -sd, -)"
 
-        if ! go test ./... -coverprofile="$profile" >"$test_log" 2>&1; then
-          cat "$test_log" >&2
+        if ! go test -count=1 -coverpkg="$cover_packages" $packages \
+          -args -test.gocoverdir="$tmp_dir" >"$tmp_dir/unit.log" 2>&1; then
+          cat "$tmp_dir/unit.log" >&2
           exit 1
         fi
 
-        awk 'NR == 1 || $0 !~ /(\.pb|_mock)\.go:/' "$profile" |
+        if ! go test -count=1 -tags=integration -p 1 -parallel 1 \
+          -coverpkg="$cover_packages" $packages \
+          -args -test.gocoverdir="$tmp_dir" >"$tmp_dir/integration.log" 2>&1; then
+          cat "$tmp_dir/integration.log" >&2
+          exit 1
+        fi
+
+        go tool covdata textfmt -i="$tmp_dir" -o="$tmp_dir/coverage.out"
+
+        awk 'NR == 1 || $0 !~ /(\.pb|_mock)\.go:/' "$tmp_dir/coverage.out" |
           go tool cover -func=/dev/stdin |
           awk -v minimum="{{.COVERAGE_MIN}}" '
             /^total:/ {
