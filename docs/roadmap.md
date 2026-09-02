@@ -17,6 +17,17 @@ Documents:
 - [PRD](specs/issues/blocking-contract-operation-processing/prd.md)
 - [Technical Solution](specs/issues/blocking-contract-operation-processing/solution.md)
 
+### Agent run failure semantics
+
+Status: Planned
+
+Execution position: Shared error transport in Blocking contract operation processing, logical model execution semantics in PHS-06, provider source classification in PHS-12, and final closure after PHS-12.
+
+Track the cross-phase closure of terminal agent-run failure semantics across their owning roadmap phases.
+
+Documents:
+- [Problem Statement](specs/issues/agent-run-failure-semantics/problem.md)
+
 ## PHS-00: Prototype baseline
 
 Status: Completed
