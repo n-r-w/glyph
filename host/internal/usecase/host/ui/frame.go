@@ -11,120 +11,95 @@ import (
 // initializationFrame creates the one complete startup frame.
 func initializationFrame(initialization domainui.Initialization) domainui.Frame {
 	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameInitialization,
-		Initialization:      mo.Some(initialization),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.None[string](),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		SessionEntries:    nil,
+		Kind:              domainui.FrameInitialization,
+		Initialization:    mo.Some(initialization),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.None[string](),
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 }
 
 // lifecycleFrame creates one complete lifecycle frame.
 func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameLifecycle,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.Some(lifecycle),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.None[string](),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		SessionEntries:    nil,
+		Kind:              domainui.FrameLifecycle,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.Some(lifecycle),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.None[string](),
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 }
 
 // authorizationFrame creates one complete OAuth URL frame.
 func authorizationFrame(authorizationURL string) domainui.Frame {
 	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameAuthorization,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.Some(authorizationURL),
-		Text:                mo.None[string](),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		SessionEntries:    nil,
+		Kind:              domainui.FrameAuthorization,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.Some(authorizationURL),
+		Text:              mo.None[string](),
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 }
 
-// informationFrame creates one complete notification frame.
-func informationFrame(text string) domainui.Frame {
+// classifiedErrorFrame creates one connection error with an exact public category.
+func classifiedErrorFrame(code, text string) domainui.Frame {
 	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameInformation,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.Some(text),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
-	}
-}
-
-// errorFrame creates one complete error frame.
-func errorFrame(text string, retryAuthentication bool) domainui.Frame {
-	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameError,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.Some(text),
-		RetryAuthentication: mo.Some(retryAuthentication),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		SessionEntries:    nil,
+		Kind:              domainui.FrameError,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.Some(text),
+		ErrorCode:         mo.Some(code),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 }
 
 // modelSelectionChangedFrame confirms one committed catalog selection.
 func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Frame {
 	return domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameModelSelectionChanged,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.None[string](),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.Some(selection),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		SessionEntries:    nil,
+		Kind:              domainui.FrameModelSelectionChanged,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.None[string](),
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.Some(selection),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 }
 

@@ -358,25 +358,35 @@ func (o *Owner[P, R]) finishOperation(
 	close(owned.done)
 }
 
-// CancelAndWait cancels an active target and waits for terminal delivery.
-func (o *Owner[P, R]) CancelAndWait(ctx context.Context, id string) (TerminalState, error) {
+// Cancellation reserves an active target for cancellation after the cancellation operation starts.
+func (o *Owner[P, R]) Cancellation(id string) (func(context.Context) (TerminalState, error), bool) {
 	o.mutex.Lock()
 	owned, exists := o.operations[id]
 	active := exists && owned.active
-	if active {
-		owned.cancel(context.Canceled)
-	}
 	o.mutex.Unlock()
+	if !active {
+		return nil, false
+	}
+	return func(ctx context.Context) (TerminalState, error) {
+		o.mutex.Lock()
+		owned.cancel(context.Canceled)
+		o.mutex.Unlock()
+		select {
+		case <-owned.done:
+			return owned.state, owned.err
+		case <-ctx.Done():
+			return 0, context.Cause(ctx)
+		}
+	}, true
+}
+
+// CancelAndWait cancels an active target and waits for terminal delivery.
+func (o *Owner[P, R]) CancelAndWait(ctx context.Context, id string) (TerminalState, error) {
+	cancel, active := o.Cancellation(id)
 	if !active {
 		return 0, ErrTargetNotActive
 	}
-
-	select {
-	case <-owned.done:
-		return owned.state, owned.err
-	case <-ctx.Done():
-		return 0, context.Cause(ctx)
-	}
+	return cancel(ctx)
 }
 
 // Fail cancels all owned work after a connection delivery failure.

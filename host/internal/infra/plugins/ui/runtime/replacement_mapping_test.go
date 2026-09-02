@@ -11,7 +11,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // TestMapReplacementAndLabelCommandsPreservesTypedArguments verifies all public UI command variants.
@@ -20,30 +20,30 @@ func TestMapReplacementAndLabelCommandsPreservesTypedArguments(t *testing.T) {
 
 	for _, test := range []struct {
 		name           string
-		set            func(*uipb.OpenResponse)
+		set            func(*uiv1.UIRequest)
 		expectedKind   domainui.CommandKind
 		expectedTarget mo.Option[string]
 		expectedLabel  mo.Option[string]
 	}{
-		{name: "fork", set: func(response *uipb.OpenResponse) {
-			response.SetForkSession(uipb.ForkSessionCommand_builder{TargetEntryId: new("entry")}.Build())
+		{name: "fork", set: func(response *uiv1.UIRequest) {
+			response.SetForkSession(uiv1.ForkSessionCommand_builder{TargetEntryId: new("entry")}.Build())
 		}, expectedKind: domainui.CommandForkSession, expectedTarget: mo.Some("entry"), expectedLabel: mo.None[string]()},
-		{name: "clone", set: func(response *uipb.OpenResponse) {
-			response.SetCloneSession(new(uipb.CloneSessionCommand))
+		{name: "clone", set: func(response *uiv1.UIRequest) {
+			response.SetCloneSession(new(uiv1.CloneSessionCommand))
 		}, expectedKind: domainui.CommandCloneSession, expectedTarget: mo.None[string](), expectedLabel: mo.None[string]()},
-		{name: "clear label", set: func(response *uipb.OpenResponse) {
-			response.SetSetEntryLabel(uipb.SetEntryLabelCommand_builder{TargetEntryId: new("entry"), Label: new("")}.Build())
+		{name: "clear label", set: func(response *uiv1.UIRequest) {
+			response.SetSetEntryLabel(uiv1.SetEntryLabelCommand_builder{TargetEntryId: new("entry"), Label: new("")}.Build())
 		}, expectedKind: domainui.CommandSetEntryLabel, expectedTarget: mo.Some("entry"), expectedLabel: mo.Some("")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one typed protobuf command.
-			response := new(uipb.OpenResponse)
-			test.set(response)
+			request := new(uiv1.UIRequest)
+			test.set(request)
 
 			// Act at the UI process boundary.
-			command, err := mapCommand(response)
+			command, err := mapCommand(operationResponse(request))
 
 			// Assert optional values preserve presence and exact content.
 			require.NoError(t, err)
@@ -57,6 +57,7 @@ func TestMapReplacementAndLabelCommandsPreservesTypedArguments(t *testing.T) {
 // TestMapReplacementAndLabelFramesPreservesCommittedState verifies dedicated Host frame variants.
 func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
 	t.Parallel()
+	// Arrange info, tree, and frames for mapFrame to verify dedicated Host frame variants.
 
 	info := session.Info{
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",
@@ -70,16 +71,18 @@ func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
 	}
 
 	// Act and assert each frame maps to its dedicated protobuf payload.
+	// Act by invoking mapFrame to exercise dedicated Host frame variants.
 	fork, err := mapFrame(frames[0])
+	// Assert dedicated Host frame variants.
 	require.NoError(t, err)
-	require.Equal(t, "exact input", fork.GetSessionForked().GetNextInput())
-	require.Equal(t, "replacement", fork.GetSessionForked().GetSession().GetInfo().GetId())
+	require.Equal(t, "exact input", fork.GetEvent().GetCompleted().GetSessionForked().GetNextInput())
+	require.Equal(t, "replacement", fork.GetEvent().GetCompleted().GetSessionForked().GetSession().GetInfo().GetId())
 	clone, err := mapFrame(frames[1])
 	require.NoError(t, err)
-	require.Equal(t, "replacement", clone.GetSessionCloned().GetSession().GetInfo().GetId())
+	require.Equal(t, "replacement", clone.GetEvent().GetCompleted().GetSessionCloned().GetSession().GetInfo().GetId())
 	label, err := mapFrame(frames[2])
 	require.NoError(t, err)
-	require.NotNil(t, label.GetEntryLabelSet().GetTree())
+	require.NotNil(t, label.GetEvent().GetCompleted().GetEntryLabelSet().GetTree())
 }
 
 // replacementFrame creates one fully initialized public UI frame.
@@ -91,9 +94,9 @@ func replacementFrame(
 ) domainui.Frame {
 	return domainui.Frame{
 		Kind: kind, Initialization: mo.None[domainui.Initialization](), Lifecycle: mo.None[domainui.Lifecycle](),
-		AuthorizationURL: mo.None[string](), Text: nextInput, RetryAuthentication: mo.None[bool](),
+		AuthorizationURL: mo.None[string](), Text: nextInput, ErrorCode: mo.None[string](),
 		ModelSelection: mo.None[domainui.ModelSelection](), SessionInfo: mo.Some(info), Sessions: nil,
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: tree,
-		TreeNavigation: mo.None[domainui.TreeNavigationResult](), TreeFailure: mo.None[domainui.TreeFailure](),
+		TreeNavigation: mo.None[domainui.TreeNavigationResult](),
 	}
 }

@@ -47,15 +47,15 @@ func TestMapRequestReconstructsAvailableSessionStatistics(t *testing.T) {
 		EstimatedCost: estimatedCost, CostBreakdown: costBreakdown,
 	}.Build()
 	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
-	request := uiv1.OpenRequest_builder{
+	request := uiv1.HostCompleted_builder{
 		SessionInformation: uiv1.SessionInformation_builder{Info: info, Statistics: statistics}.Build(),
-		SessionTree:        nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+		SessionTree:        nil, SessionTreeNavigation: nil, SessionForked: nil,
 
 		// Act by reconstructing the TUI presentation event.
 		SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 
-	event, err := mapRequest(request)
+	event, _, err := mapSessionRequest(request)
 
 	// Assert lifecycle, tokens, all cost fields, group order, and absence match the wire values.
 	require.NoError(t, err)

@@ -21,7 +21,7 @@ func New(session Session) *Service {
 
 // Execute runs the selected UI lifecycle until quit or stream termination.
 func (s *Service) Execute(ctx context.Context, initialization domainui.Initialization) error {
-	if err := s.session.Run(ctx, initialization); err != nil {
+	if err := s.session.RunOperations(ctx, initialization); err != nil {
 		return fmt.Errorf("execute UI session: %w", err)
 	}
 	return nil

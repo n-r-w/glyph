@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/domain/session"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -22,23 +21,23 @@ import (
 // TestFrameConstructorsSetOnlySelectedPayload verifies every Host frame alternative.
 func TestFrameConstructorsSetOnlySelectedPayload(t *testing.T) {
 	t.Parallel()
+	// Arrange initialization, lifecycle, and selection for the Host frame constructors to verify every Host frame alternative.
 
 	initialization := domainui.Initialization{}
 	lifecycle := domainui.Lifecycle{}
 	selection := domainui.ModelSelection{}
+	// Act by invoking the Host frame constructors to exercise every Host frame alternative.
 	frames := []domainui.Frame{
 		initializationFrame(initialization),
 		lifecycleFrame(lifecycle),
 		authorizationFrame(""),
-		informationFrame(""),
-		errorFrame("", false),
+		classifiedErrorFrame(failureCodeInternal, ""),
 		modelSelectionChangedFrame(selection),
 	}
 	expected := [][]bool{
 		{true, false, false, false, false, false},
 		{false, true, false, false, false, false},
 		{false, false, true, false, false, false},
-		{false, false, false, true, false, false},
 		{false, false, false, true, true, false},
 		{false, false, false, false, false, true},
 	}
@@ -48,36 +47,30 @@ func TestFrameConstructorsSetOnlySelectedPayload(t *testing.T) {
 			frame.Lifecycle.IsSome(),
 			frame.AuthorizationURL.IsSome(),
 			frame.Text.IsSome(),
-			frame.RetryAuthentication.IsSome(),
+			frame.ErrorCode.IsSome(),
 			frame.ModelSelection.IsSome(),
 		}
+		// Assert every Host frame alternative.
 		assert.Equal(t, expected[index], actual)
 	}
 	assert.Equal(t, mo.Some(""), frames[2].AuthorizationURL)
 	assert.Equal(t, mo.Some(""), frames[3].Text)
-	assert.Equal(t, mo.Some(false), frames[4].RetryAuthentication)
+	assert.Equal(t, mo.Some(failureCodeInternal), frames[3].ErrorCode)
 }
 
 // TestDeliveryReportsRuntimeFailure sends one safe identity-bearing error frame.
 func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 	t.Parallel()
+	// Arrange a runtime failure with safe text and operation identity.
+	// Act by passing the failure through the UI delivery adapter.
+	// Assert one error frame preserves the safe text and identity.
 
 	channel := NewMockChannel(gomock.NewController(t))
-	channel.EXPECT().Send(domainui.Frame{
-		SessionEntries:      nil,
-		Kind:                domainui.FrameError,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.Some("extension crashed-plugin unavailable: extension process exited"),
-		RetryAuthentication: mo.Some(false),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.None[session.Info](),
-		Sessions:            nil,
-		SessionStatistics:   mo.None[session.Statistics](),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		assert.Equal(t, domainui.FrameError, frame.Kind)
+		assert.Equal(t, mo.Some("extension crashed-plugin unavailable: extension process exited"), frame.Text)
+		assert.Equal(t, mo.Some("EXTENSION_UNAVAILABLE"), frame.ErrorCode)
+		return nil
 	})
 
 	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
@@ -114,6 +107,7 @@ func testContentLifecycleEvent(kind run.EventType) run.Event {
 // TestDeliveryMapsTypedTextLifecycle verifies typed content identity, position, and text.
 func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	t.Parallel()
+	// Arrange a delivery channel and start, delta, and end model content events.
 
 	channel := NewMockChannel(gomock.NewController(t))
 	delivered := make([]domainui.Frame, 0, 3)
@@ -123,6 +117,7 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	}).Times(3)
 	service := NewDelivery(channel)
 
+	// Act by delivering the ordered model content lifecycle.
 	for _, event := range []run.Event{
 		testContentLifecycleEvent(run.EventContentStart),
 		{
@@ -149,6 +144,7 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 		require.NoError(t, service.DeliverAgent(t.Context(), event))
 	}
 
+	// Assert all three frames preserve content type, position, and delta text.
 	startLifecycle, present := delivered[0].Lifecycle.Get()
 	require.True(t, present)
 	startContent, present := startLifecycle.ModelContent.Get()
@@ -168,8 +164,10 @@ func TestDeliveryMapsTypedTextLifecycle(t *testing.T) {
 	assert.Equal(t, domainui.ModelContentEnd, endContent.Type)
 }
 
+// TestDeliveryMapsToolCallPreviewAndFinalArguments verifies delivery maps tool call preview and final arguments.
 func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 	t.Parallel()
+	// Arrange preview and final tool-call events with nested mutable arguments.
 
 	channel := NewMockChannel(gomock.NewController(t))
 	delivered := make([]domainui.Frame, 0, 2)
@@ -198,6 +196,7 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 			},
 		},
 	}
+	// Act by delivering the preview followed by the finalized tool call.
 	require.NoError(
 		t,
 		service.DeliverAgent(
@@ -239,6 +238,7 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 		}),
 	)
 
+	// Assert both frames preserve values and clone nested argument ownership.
 	previewLifecycle, present := delivered[0].Lifecycle.Get()
 	require.True(t, present)
 	mappedPreview, present := previewLifecycle.ToolCallPreview.Get()
@@ -262,6 +262,7 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 // TestDeliveryFiltersProviderContextFromMessageEnd verifies opaque provider data cannot cross the UI boundary.
 func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 	t.Parallel()
+	// Arrange a finalized model response with visible content and opaque provider context.
 
 	channel := NewMockChannel(gomock.NewController(t))
 	actualModel := model.ID("gpt-actual")
@@ -351,8 +352,10 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 		Agent:      mo.None[run.AgentSummary](),
 	}
 
+	// Act by delivering the finalized model response to the UI channel.
 	err := NewDelivery(channel).DeliverAgent(t.Context(), event)
 
+	// Assert visible content survives while opaque provider context is removed.
 	require.NoError(t, err)
 	assert.Equal(t, domainui.FrameLifecycle, delivered.Kind)
 	lifecycle, present := delivered.Lifecycle.Get()
@@ -390,18 +393,20 @@ func TestDeliveryFiltersProviderContextFromMessageEnd(t *testing.T) {
 	assert.True(t, lifecycle.Outcome.IsNone())
 }
 
-// TestDeliveryPreservesAgentThenSettlementOrder verifies Host settlement remains a separate final lifecycle item.
-func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
+// TestDeliveryLeavesSettlementToOperationTerminal verifies progress does not duplicate terminal completion.
+func TestDeliveryLeavesSettlementToOperationTerminal(t *testing.T) {
 	t.Parallel()
+	// Arrange delivery observations for AgentEnd progress and later settlement.
 
 	channel := NewMockChannel(gomock.NewController(t))
-	frames := make([]domainui.Frame, 0, 2)
+	frames := make([]domainui.Frame, 0, 1)
 	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 		frames = append(frames, frame)
 		return nil
-	}).Times(2)
+	})
 	delivery := NewDelivery(channel)
 
+	// Act by delivering AgentEnd and then invoking settlement.
 	require.NoError(
 		t,
 		delivery.DeliverAgent(t.Context(), run.Event{
@@ -424,18 +429,17 @@ func TestDeliveryPreservesAgentThenSettlementOrder(t *testing.T) {
 	)
 	require.NoError(t, delivery.DeliverSettled(t.Context(), "run-1"))
 
-	require.Len(t, frames, 2)
+	// Assert AgentEnd produces one lifecycle frame and settlement adds no duplicate frame.
+	require.Len(t, frames, 1)
 	agentLifecycle, present := frames[0].Lifecycle.Get()
 	require.True(t, present)
-	settledLifecycle, present := frames[1].Lifecycle.Get()
-	require.True(t, present)
 	assert.Equal(t, domainui.LifecycleAgentEnd, agentLifecycle.Type)
-	assert.Equal(t, domainui.LifecycleAgentSettled, settledLifecycle.Type)
 }
 
 // TestCloneResultContentsClonesImageBytesInsideOption verifies lifecycle frames do not share mutable image data.
 func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	t.Parallel()
+	// Arrange one tool-result image backed by mutable source bytes.
 
 	original := []tool.ResultContent{{
 		Kind: tool.ResultContentImage,
@@ -445,6 +449,7 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 			Data:      []byte{1, 2, 3},
 		}),
 	}}
+	// Act by cloning the result and mutating the cloned image bytes.
 	cloned := (agent.ToolResult{
 		CallID: "", ToolName: "", Contents: original, IsError: false,
 	}).Clone().Contents
@@ -452,13 +457,14 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	require.True(t, ok)
 	image.Data[0] = 9
 
+	// Assert the original image retains its initial byte.
 	assert.Equal(t, byte(1), original[0].Image.OrEmpty().Data[0])
 }
 
 // TestMapUIModelEventRejectsMalformedResponseContent verifies projection errors are returned.
 func TestMapUIModelEventRejectsMalformedResponseContent(t *testing.T) {
 	t.Parallel()
-
+	// Arrange a MessageEnd event whose selected content has no required text.
 	event := run.Event{
 		Type:       run.EventMessageEnd,
 		RunID:      "run",
@@ -485,17 +491,21 @@ func TestMapUIModelEventRejectsMalformedResponseContent(t *testing.T) {
 		Agent: mo.None[run.AgentSummary](),
 	}
 
+	// Act by projecting the malformed response through mapUIModelEvent.
 	err := mapUIModelEvent(event, &domainui.Lifecycle{})
 
+	// Assert projection returns the missing-content error.
 	require.Error(t, err)
 }
 
 // TestDeliveryRejectsMissingSelectedPayload verifies malformed lifecycle variants do not reach the UI channel.
 func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
+	// Arrange a content-start event without its selected content payload.
 
 	channel := NewMockChannel(gomock.NewController(t))
 	delivery := NewDelivery(channel)
+	// Act by delivering the malformed content-start event.
 	err := delivery.DeliverAgent(t.Context(), run.Event{
 		Type:       run.EventContentStart,
 		RunID:      "run",
@@ -510,5 +520,6 @@ func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 		Agent:      mo.None[run.AgentSummary](),
 	})
 
+	// Assert delivery returns the payload error without sending a frame.
 	require.ErrorContains(t, err, "requires content")
 }

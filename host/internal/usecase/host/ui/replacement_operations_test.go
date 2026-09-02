@@ -15,73 +15,59 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
-// TestUISessionMutationOwnsGate verifies UI acquisition, busy handling, and release paths.
+// TestUISessionMutationOwnsGate verifies preparation reserves and releases the session mutation gate.
 func TestUISessionMutationOwnsGate(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name            string
-		acquired        bool
-		mutationErr     error
-		expectMutation  bool
-		expectedRelease bool
+	for _, test := range []struct {
+		name        string
+		acquired    bool
+		mutationErr error
+		expected    operation.TerminalState
 	}{
-		{name: "success", acquired: true, mutationErr: nil, expectMutation: true, expectedRelease: true},
-		{
-			name:            "error",
-			acquired:        true,
-			mutationErr:     errors.New("label failed"),
-			expectMutation:  true,
-			expectedRelease: true,
-		},
-		{name: "busy", acquired: false, mutationErr: nil, expectMutation: false, expectedRelease: false},
-	}
-	for _, test := range tests {
+		{name: "success", acquired: true, mutationErr: nil, expected: operation.TerminalStateCompleted},
+		{name: "error", acquired: true, mutationErr: errors.New("label failed"), expected: operation.TerminalStateFailed},
+		{name: "busy", acquired: false, mutationErr: nil, expected: operation.TerminalState(0)},
+	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange one UI label mutation and an observable caller-owned reservation.
+			// Arrange one label mutation and observable gate ownership.
 			controller := gomock.NewController(t)
-			channel := NewMockChannel(controller)
 			control := NewMockSessionControl(controller)
 			released := false
 			control.EXPECT().TryAcquire().Return(func() { released = true }, test.acquired)
-			if test.expectMutation {
+			if test.acquired {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, test.mutationErr)
 			}
-			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(domainui.Frame) error {
-				assert.Equal(t, test.expectedRelease, released)
-				return nil
-			})
-			service := NewSession(
-				channel,
-				NewMockAgentRunner(controller),
-				NewMockAuthenticator(controller),
-				NewMockModelCatalog(controller),
-				control,
-				func(context.Context) {},
-			)
-			command := uiReplacementCommand(
-				domainui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"),
-			)
+			service := replacementService(controller, control)
+			command := uiReplacementCommand(domainui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"))
 
-			// Act through internal UI session orchestration.
-			handled, err := service.applySessionCommand(t.Context(), command)
-
-			// Assert busy skips mutation and every acquired path releases ownership.
+			// Act through bounded preparation and terminal execution.
+			prepared, err := service.Prepare(t.Context(), command)
+			if !test.acquired {
+				require.Error(t, err)
+				assert.False(t, released)
+				return
+			}
 			require.NoError(t, err)
-			assert.True(t, handled)
-			assert.Equal(t, test.expectedRelease, released)
+			outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+			prepared.Release()
+
+			// Assert terminal state and reservation release match the operation result.
+			assert.Equal(t, test.expected, outcome.State())
+			assert.True(t, released)
 		})
 	}
 }
 
-// TestApplyReplacementAndLabelCommandsSendsCommittedFrames verifies typed UI results after durable operations.
-func TestApplyReplacementAndLabelCommandsSendsCommittedFrames(t *testing.T) {
+// TestApplyReplacementAndLabelCommandsReturnsCommittedFrames verifies typed durable operation results.
+func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -98,8 +84,7 @@ func TestApplyReplacementAndLabelCommandsSendsCommittedFrames(t *testing.T) {
 			},
 			expectedKind: domainui.FrameSessionForked,
 			assert: func(t *testing.T, frame domainui.Frame) {
-				require.Equal(t, mo.Some("exact input"), frame.Text)
-				require.Equal(t, session.ID("replacement"), frame.SessionInfo.MustGet().ID)
+				assert.Equal(t, mo.Some("exact input"), frame.Text)
 			},
 		},
 		{
@@ -109,8 +94,7 @@ func TestApplyReplacementAndLabelCommandsSendsCommittedFrames(t *testing.T) {
 			},
 			expectedKind: domainui.FrameSessionCloned,
 			assert: func(t *testing.T, frame domainui.Frame) {
-				require.True(t, frame.Text.IsNone())
-				require.Equal(t, session.ID("replacement"), frame.SessionInfo.MustGet().ID)
+				assert.Equal(t, session.ID("replacement"), frame.SessionInfo.MustGet().ID)
 			},
 		},
 		{
@@ -121,89 +105,65 @@ func TestApplyReplacementAndLabelCommandsSendsCommittedFrames(t *testing.T) {
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, nil)
 			},
 			expectedKind: domainui.FrameEntryLabelSet,
-			assert: func(t *testing.T, frame domainui.Frame) {
-				require.True(t, frame.SessionTree.IsSome())
-				require.True(t, frame.SessionInfo.IsNone())
-			},
+			assert:       func(t *testing.T, frame domainui.Frame) { assert.True(t, frame.SessionTree.IsSome()) },
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange strict dependencies and one expected committed frame.
+			// Arrange SessionControl for the case-specific replacement or label command.
 			controller := gomock.NewController(t)
-			channel := NewMockChannel(controller)
 			control := NewMockSessionControl(controller)
 			expectSessionMutationGate(control, 1)
 			test.expect(control)
-			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-				require.Equal(t, test.expectedKind, frame.Kind)
-				test.assert(t, frame)
-				return nil
-			})
-			service := NewSession(
-				channel,
-				NewMockAgentRunner(controller),
-				NewMockAuthenticator(controller),
-				NewMockModelCatalog(controller),
-				control,
-				func(context.Context) {},
-			)
 
-			// Act through the UI session command path.
-			handled, err := service.applySessionCommand(t.Context(), test.command)
+			// Act by running the prepared replacement or label command.
+			frame, err := runPreparedCommand(t, replacementService(controller, control), test.command)
 
-			// Assert the operation is handled without speculative state.
+			// Assert the completed frame has the expected durable result kind and payload.
 			require.NoError(t, err)
-			require.True(t, handled)
+			assert.Equal(t, test.expectedKind, frame.Kind)
+			test.assert(t, frame)
 		})
 	}
 }
 
-// TestForkFailureUsesExistingSessionFailureFrame verifies failed fork sends no replacement frame.
-func TestForkFailureUsesExistingSessionFailureFrame(t *testing.T) {
+// TestForkFailurePreservesSessionCause verifies failed replacement operations expose the original cause.
+func TestForkFailurePreservesSessionCause(t *testing.T) {
 	t.Parallel()
-
-	// Arrange a failed fork and one existing information failure frame.
+	// Arrange SessionControl to reject one fork with ErrInvalidForkTarget.
 	controller := gomock.NewController(t)
-	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
 	expectSessionMutationGate(control, 1)
 	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
-	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		require.Equal(t, domainui.FrameInformation, frame.Kind)
-		require.True(t, frame.SessionInfo.IsNone())
-		require.True(t, frame.Text.IsSome())
-		return nil
-	})
-	service := NewSession(
-		channel,
-		NewMockAgentRunner(controller),
-		NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller),
-		control,
-		func(context.Context) {},
-	)
 
-	// Act by forking a non-user entry.
-	handled, err := service.applySessionCommand(
-		t.Context(),
-		uiReplacementCommand(domainui.CommandForkSession, mo.Some("model"), mo.None[string]()),
-	)
+	// Act by running the prepared fork command against the rejected target.
+	_, err := runPreparedCommand(t, replacementService(controller, control), uiReplacementCommand(
+		domainui.CommandForkSession, mo.Some("model"), mo.None[string](),
+	))
 
-	// Assert the failure is handled through the existing session failure path.
-	require.NoError(t, err)
-	require.True(t, handled)
+	// Assert the operation error preserves the original session cause.
+	require.ErrorIs(t, err, session.ErrInvalidForkTarget)
 }
 
-// uiReplacementCommand creates one fully initialized UI replacement or label command.
+// replacementService creates one session service for prepared replacement operations.
+func replacementService(controller *gomock.Controller, control *MockSessionControl) *Session {
+	service := NewSession(
+		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
+		NewMockModelCatalog(controller), control, func(context.Context) {},
+	)
+	service.setOperationAvailability(domainui.AvailabilityIdle)
+	return service
+}
+
+// uiReplacementCommand creates one fully initialized replacement or label command.
 func uiReplacementCommand(kind domainui.CommandKind, target, label mo.Option[string]) domainui.Command {
-	command := uiTreeCommand(kind)
+	command := newCommandForPreparedTest(kind)
 	command.TargetEntryID = target
 	command.EntryLabel = label
 	return command
 }
 
-// replacementResult creates one active-session replacement for UI tests.
+// replacementResult returns one committed replacement fixture.
 func replacementResult() session.Replacement {
 	return session.Replacement{Info: session.Info{
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",

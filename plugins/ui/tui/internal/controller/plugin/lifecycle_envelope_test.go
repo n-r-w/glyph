@@ -15,11 +15,14 @@ import (
 // TestMapLifecycleRejectsInactiveAgentStartResponse verifies stale lifecycle payloads fail at ingress.
 func TestMapLifecycleRejectsInactiveAgentStartResponse(t *testing.T) {
 	t.Parallel()
+	// Arrange lifecycle for mapLifecycle to verify stale lifecycle payloads fail at ingress.
 
 	lifecycle := messageEndLifecycle(t, nil)
 	lifecycle.SetType(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START)
+	// Act by invoking mapLifecycle to exercise stale lifecycle payloads fail at ingress.
 	_, err := mapLifecycle(lifecycle)
 
+	// Assert stale lifecycle payloads fail at ingress.
 	require.Error(t, err)
 }
 
@@ -27,8 +30,8 @@ func TestMapLifecycleRejectsInactiveAgentStartResponse(t *testing.T) {
 func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) {
 	t.Parallel()
 
-	validLifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.LifecycleEvent {
-		lifecycle := uiv1.LifecycleEvent_builder{
+	validLifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.AgentEvent {
+		lifecycle := uiv1.AgentEvent_builder{
 			Type: new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
 			ProgressChannel: nil, IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
 			ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
@@ -50,7 +53,7 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 				text = new("")
 			}
 			lifecycle.SetModelContent(uiv1.ModelContent_builder{
-				Type: new(nestedType), Position: new(int32(0)), Text: text,
+				Type: new(nestedType), Position: new(int64(0)), Text: text,
 				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 			}.Build())
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
@@ -61,11 +64,11 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
 			uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
 			lifecycle.SetToolCallPreview(uiv1.ToolCallPreview_builder{
-				CallId: new("call"), Name: new("tool"), Position: new(int32(0)), Provisional: new(true), Fields: nil,
+				CallId: new("call"), Name: new("tool"), Position: new(int64(0)), Provisional: new(true), Fields: nil,
 			}.Build())
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
 			lifecycle.SetFinalToolCall(uiv1.FinalToolCall_builder{
-				CallId: new("call"), Name: new("tool"), Position: new(int32(0)),
+				CallId: new("call"), Name: new("tool"), Position: new(int64(0)),
 				Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{}},
 			}.Build())
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
@@ -89,12 +92,9 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 			lifecycle.SetText("")
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 			lifecycle.SetOutcome("")
-		case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
-			lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
 			uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START,
 			uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START,
-			uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
 			uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
 		}
 		return lifecycle
@@ -111,8 +111,6 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
@@ -123,25 +121,22 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 	for _, lifecycleType := range lifecycleTypes {
 		t.Run(lifecycleType.String(), func(t *testing.T) {
 			t.Parallel()
+			// Arrange valid for mapLifecycle to verify the complete lifecycle shape table.
 			valid := roundTripLifecycle(t, validLifecycle(lifecycleType))
+			// Act by invoking mapLifecycle to exercise the complete lifecycle shape table.
 			_, err := mapLifecycle(valid)
+			// Assert the complete lifecycle shape table.
 			require.NoError(t, err)
 
 			malformed := roundTripLifecycle(t, validLifecycle(lifecycleType))
-			if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED {
-				malformed.SetModelResponse(uiv1.ModelResponse_builder{
-					Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
-					ResponseId: nil, Usage: nil, Diagnostics: nil, Content: nil, ResponseModel: nil,
-				}.Build())
-			} else {
-				malformed.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
-			}
+			malformed.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
 			_, err = mapLifecycle(malformed)
 			require.Error(t, err)
 		})
 	}
 }
 
+// TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads verifies selected nested lifecycle payloads cannot be nil.
 func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T) {
 	t.Parallel()
 
@@ -149,8 +144,8 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 		lifecycleType uiv1.LifecycleType,
 		modelContent *uiv1.ModelContent,
 		preview *uiv1.ToolCallPreview,
-	) *uiv1.LifecycleEvent {
-		return uiv1.LifecycleEvent_builder{
+	) *uiv1.AgentEvent {
+		return uiv1.AgentEvent_builder{
 			Type:               new(lifecycleType),
 			RunId:              new("run"),
 			Text:               nil,
@@ -189,7 +184,7 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 
 	testCases := []struct {
 		name      string
-		lifecycle *uiv1.LifecycleEvent
+		lifecycle *uiv1.AgentEvent
 	}{
 		{
 			name:      "message end response",
@@ -216,7 +211,7 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 			name: "model kind",
 			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END, uiv1.ModelContent_builder{
 				Type:     nil,
-				Position: new(int32(0)),
+				Position: new(int64(0)),
 				Text:     nil,
 				Kind:     nil,
 			}.Build(), nil),
@@ -225,7 +220,7 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 			name: "text delta text",
 			lifecycle: lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA, uiv1.ModelContent_builder{
 				Type:     nil,
-				Position: new(int32(0)),
+				Position: new(int64(0)),
 				Text:     nil,
 				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 			}.Build(), nil),
@@ -235,7 +230,10 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify map lifecycle rejects missing selected model and preview payloads.
+			// Act by invoking mapLifecycle to exercise map lifecycle rejects missing selected model and preview payloads.
 			_, err := mapLifecycle(testCase.lifecycle)
+			// Assert map lifecycle rejects missing selected model and preview payloads.
 			require.Error(t, err)
 		})
 	}
@@ -245,15 +243,15 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 	t.Parallel()
 
-	lifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.LifecycleEvent {
-		return uiv1.LifecycleEvent_builder{
+	lifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.AgentEvent {
+		return uiv1.AgentEvent_builder{
 			Type: new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
 			ProgressChannel: nil, IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
 			ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
 			ToolResultContents: nil,
 		}.Build()
 	}
-	missingRunID := uiv1.LifecycleEvent_builder{
+	missingRunID := uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: nil, Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil, ModelResponse: nil,
@@ -261,12 +259,12 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 	}.Build()
 	missingModelType := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START)
 	missingModelType.SetModelContent(uiv1.ModelContent_builder{
-		Type: nil, Position: new(int32(0)), Text: nil,
+		Type: nil, Position: new(int64(0)), Text: nil,
 		Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 	}.Build())
 	missingPreviewProvisional := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START)
 	missingPreviewProvisional.SetToolCallPreview(uiv1.ToolCallPreview_builder{
-		CallId: new("call"), Name: new("tool"), Position: new(int32(0)), Provisional: nil, Fields: nil,
+		CallId: new("call"), Name: new("tool"), Position: new(int64(0)), Provisional: nil, Fields: nil,
 	}.Build())
 	missingFinalPosition := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END)
 	missingFinalPosition.SetFinalToolCall(uiv1.FinalToolCall_builder{
@@ -283,7 +281,7 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		lifecycle *uiv1.LifecycleEvent
+		lifecycle *uiv1.AgentEvent
 	}{
 		{name: "run ID", lifecycle: missingRunID},
 		{name: "model content type", lifecycle: missingModelType},
@@ -299,7 +297,10 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify each lifecycle variant checks its scalar contract.
+			// Act by invoking mapLifecycle to exercise each lifecycle variant checks its scalar contract.
 			_, err := mapLifecycle(roundTripLifecycle(t, test.lifecycle))
+			// Assert each lifecycle variant checks its scalar contract.
 			require.Error(t, err)
 		})
 	}

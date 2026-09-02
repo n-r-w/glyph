@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 
+	"github.com/n-r-w/glyph/internal/operation"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -17,28 +19,36 @@ type Catalog interface {
 	Discover(ctx context.Context, directory domainui.Directory) (domainui.Discovery, error)
 }
 
-// RuntimeFactory starts one UI candidate and validates fixed startup capabilities.
+// RuntimeFactory starts one UI candidate and validates protocol compatibility.
 type RuntimeFactory interface {
 	Start(ctx context.Context, candidate domainui.Candidate) (Runtime, error)
 }
 
 // Runtime owns one connected UI process.
 type Runtime interface {
-	Capabilities() domainui.Capabilities
 	Open(ctx context.Context) (Channel, error)
 	Close()
 }
 
 // Channel carries provider-neutral Host frames and UI commands on one stream.
 type Channel interface {
+	Initialize(context.Context, domainui.Frame) error
 	Send(frame domainui.Frame) error
-	Receive() (domainui.Command, error)
+	RunOperations(
+		ctx context.Context,
+		activate func(),
+		prepare func(context.Context, domainui.Command) (operation.Prepared[domainui.Frame, domainui.Frame], error),
+	) error
+	BindProgress(reporter operation.Reporter[domainui.Frame]) func()
 	Close()
 }
 
 // AgentRunner starts one user request against the retained Agent Core history.
 type AgentRunner interface {
 	Run(ctx context.Context, userText string) (agent.RunOutcome, error)
+	PrepareRun() (string, error)
+	CancelPrepared(runID string)
+	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
 }
 
 // ModelCatalog supplies configured models and commits runtime selection.

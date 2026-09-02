@@ -20,7 +20,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // TestHostSemanticClientMatchesHeadlessOutcome verifies shared public semantics.
@@ -172,14 +172,15 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 	var toolStartName, toolEndName string
 	for line := range strings.SplitSeq(strings.TrimSpace(string(payload)), "\n") {
 		var item struct {
-			Type               uipb.LifecycleType `json:"type"`
+			Type               uiv1.LifecycleType `json:"type"`
 			Text               string             `json:"text"`
 			ModelText          string             `json:"model_text"`
 			ToolName           string             `json:"tool_name"`
 			ToolStatus         bool               `json:"tool_status"`
 			Outcome            string             `json:"outcome"`
-			Availability       uipb.Availability  `json:"availability"`
+			Availability       uiv1.Availability  `json:"availability"`
 			ToolResultContents jsontext.Value     `json:"tool_result_contents"`
+			Settled            bool               `json:"settled"`
 		}
 		require.NoError(t, json.Unmarshal([]byte(line), &item))
 		record := semanticLifecycleRecord{
@@ -192,43 +193,42 @@ func parseUIObservation(t *testing.T, path string) uiObservation {
 			Outcome:            "",
 			Availability:       "",
 		}
-		//nolint:exhaustive // The fixture keeps only lifecycle fields used by the semantic consumer.
-		switch item.Type {
-		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START:
-			record.Type = "agent_start"
-		case uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
-			record.Type, record.ModelText = "message_end", item.ModelText
-			finalText = item.ModelText
-		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
-			record.Type, record.ToolName = "tool_execution_start", item.ToolName
-			toolStartName = item.ToolName
-			toolStarted = true
-		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
-			record.Type, record.ToolName = "tool_execution_end", item.ToolName
-			toolEndName = item.ToolName
-			toolEnded = true
-			if item.ToolStatus {
-				record.ToolStatus = "ok"
-			} else {
-				record.ToolStatus = "error"
-			}
-			toolName, toolStatus = item.ToolName, record.ToolStatus
-		case uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
-			record.Type, record.ToolName = "tool_result", item.ToolName
-			record.ToolResultContents = item.ToolResultContents
-		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
-			record.Type, record.Outcome = "agent_end", item.Outcome
-			agentCompleted = item.Outcome == "completed"
-		case uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+		if item.Settled {
 			record.Type = "agent_settled"
 			settled = true
-		case uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
-			if !settled || item.Availability != uipb.Availability_AVAILABILITY_IDLE {
+		} else if settled && item.Availability == uiv1.Availability_AVAILABILITY_IDLE {
+			record.Type, record.Availability = "availability", "idle"
+		} else {
+			//nolint:exhaustive // The fixture keeps only lifecycle fields used by the semantic consumer.
+			switch item.Type {
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START:
+				record.Type = "agent_start"
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
+				record.Type, record.ModelText = "message_end", item.ModelText
+				finalText = item.ModelText
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
+				record.Type, record.ToolName = "tool_execution_start", item.ToolName
+				toolStartName = item.ToolName
+				toolStarted = true
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END:
+				record.Type, record.ToolName = "tool_execution_end", item.ToolName
+				toolEndName = item.ToolName
+				toolEnded = true
+				if item.ToolStatus {
+					record.ToolStatus = "ok"
+				} else {
+					record.ToolStatus = "error"
+				}
+				toolName, toolStatus = item.ToolName, record.ToolStatus
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
+				record.Type, record.ToolName = "tool_result", item.ToolName
+				record.ToolResultContents = item.ToolResultContents
+			case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
+				record.Type, record.Outcome = "agent_end", item.Outcome
+				agentCompleted = item.Outcome == "completed"
+			default:
 				continue
 			}
-			record.Type, record.Availability = "availability", "idle"
-		default:
-			continue
 		}
 		records = append(records, record)
 		if item.ToolName != "" {

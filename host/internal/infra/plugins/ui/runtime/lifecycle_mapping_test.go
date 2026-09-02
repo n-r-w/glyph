@@ -15,12 +15,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // TestMapLifecycleCarriesTypedTerminalData verifies the generated terminal contract mapping.
 func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	t.Parallel()
+	// Arrange a MessageEnd lifecycle with visible, refusal, reasoning, usage, and diagnostic data.
 
 	event := domainui.Lifecycle{
 		Type:               domainui.LifecycleMessageEnd,
@@ -74,7 +75,10 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 		Availability:    mo.None[domainui.Availability](),
 	}
 
+	// Act by mapping the complete MessageEnd lifecycle to the wire contract.
 	mappedLifecycle, err := mapLifecycle(event)
+
+	// Assert all public terminal fields survive with their exact kinds and values.
 	require.NoError(t, err)
 	mapped := mappedLifecycle.GetModelResponse()
 
@@ -86,14 +90,15 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	assert.Equal(t, "resp-1", mapped.GetResponseId())
 	assert.Equal(t, int64(17), mapped.GetUsage().GetTotalTokens())
 	require.Len(t, mapped.GetContent(), 3)
-	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REASONING, mapped.GetContent()[0].GetKind())
-	assert.Equal(t, uipb.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL, mapped.GetContent()[2].GetKind())
+	assert.Equal(t, uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, mapped.GetContent()[0].GetKind())
+	assert.Equal(t, uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL, mapped.GetContent()[2].GetKind())
 	require.Len(t, mapped.GetDiagnostics(), 1)
 }
 
 // TestMapLifecycleCarriesToolResultBlocks verifies ordered text and exact image bytes.
 func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 	t.Parallel()
+	// Arrange contents and event for mapLifecycle to verify ordered text and exact image bytes.
 
 	contents := []tool.ResultContent{
 		{
@@ -127,7 +132,9 @@ func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 		ErrorMessage:       mo.None[string](),
 		Availability:       mo.None[domainui.Availability](),
 	}
+	// Act by invoking mapLifecycle to exercise ordered text and exact image bytes.
 	mappedLifecycle, err := mapLifecycle(event)
+	// Assert ordered text and exact image bytes.
 	require.NoError(t, err)
 	mapped := mappedLifecycle.GetToolResultContents()
 	image, present := contents[1].Image.Get()
@@ -143,6 +150,7 @@ func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 // TestMappingRejectsMissingPayloads verifies malformed stream items fail explicitly.
 func TestMappingRejectsMissingPayloads(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapFrame to verify malformed stream items fail explicitly.
 
 	for _, kind := range []domainui.FrameKind{
 		domainui.FrameInitialization,
@@ -152,31 +160,32 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 		domainui.FrameError,
 		domainui.FrameModelSelectionChanged,
 	} {
+		// Act by invoking mapFrame to exercise malformed stream items fail explicitly.
 		_, err := mapFrame(domainui.Frame{
-			SessionEntries:      nil,
-			Kind:                kind,
-			Initialization:      mo.None[domainui.Initialization](),
-			Lifecycle:           mo.None[domainui.Lifecycle](),
-			AuthorizationURL:    mo.None[string](),
-			Text:                mo.None[string](),
-			RetryAuthentication: mo.None[bool](),
-			ModelSelection:      mo.None[domainui.ModelSelection](),
-			SessionInfo:         mo.None[session.Info](),
-			Sessions:            nil,
-			SessionStatistics:   mo.None[session.Statistics](),
-			SessionTree:         mo.None[domainui.SessionTree](),
-			TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-			TreeFailure:         mo.None[domainui.TreeFailure](),
+			SessionEntries:    nil,
+			Kind:              kind,
+			Initialization:    mo.None[domainui.Initialization](),
+			Lifecycle:         mo.None[domainui.Lifecycle](),
+			AuthorizationURL:  mo.None[string](),
+			Text:              mo.None[string](),
+			ModelSelection:    mo.None[domainui.ModelSelection](),
+			SessionInfo:       mo.None[session.Info](),
+			Sessions:          nil,
+			SessionStatistics: mo.None[session.Statistics](),
+			SessionTree:       mo.None[domainui.SessionTree](),
+			TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 		})
+		// Assert malformed stream items fail explicitly.
 		require.Error(t, err)
 	}
-	_, err := mapCommand(&uipb.OpenResponse{})
+	_, err := mapCommand(&uiv1.OpenResponse{})
 	require.Error(t, err)
 }
 
 // TestMapLifecycleRejectsMissingSelectedPayload verifies required lifecycle alternatives.
 func TestMapLifecycleRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
+	// Arrange event for mapLifecycle to verify required lifecycle alternatives.
 
 	for _, lifecycleType := range []domainui.LifecycleType{
 		domainui.LifecycleModelContentStart,
@@ -211,7 +220,9 @@ func TestMapLifecycleRejectsMissingSelectedPayload(t *testing.T) {
 			ErrorMessage:       mo.None[string](),
 			Availability:       mo.None[domainui.Availability](),
 		}
+		// Act by invoking mapLifecycle to exercise required lifecycle alternatives.
 		_, err := mapLifecycle(event)
+		// Assert required lifecycle alternatives.
 		require.Error(t, err)
 	}
 	_, err := mapLifecycle(domainui.Lifecycle{
@@ -240,7 +251,9 @@ func TestMapLifecycleRejectsMissingSelectedPayload(t *testing.T) {
 // TestMapToolCallPreviewPreservesPresentZeroValues verifies oneof presence at the Protobuf boundary.
 func TestMapToolCallPreviewPreservesPresentZeroValues(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapToolCallPreview to verify oneof presence at the Protobuf boundary.
 
+	// Act by invoking mapToolCallPreview to exercise oneof presence at the Protobuf boundary.
 	mapped, err := mapToolCallPreview(domainui.ToolCallPreview{
 		CallID:      "call",
 		Name:        "tool",
@@ -252,6 +265,7 @@ func TestMapToolCallPreviewPreservesPresentZeroValues(t *testing.T) {
 		},
 	})
 
+	// Assert oneof presence at the Protobuf boundary.
 	require.NoError(t, err)
 	require.Len(t, mapped.GetFields(), 2)
 	assert.True(t, mapped.GetFields()[0].HasValue())

@@ -358,7 +358,7 @@ func TestDurableTreeResultsOwnTranscriptAndExactEditorReplacement(t *testing.T) 
 	model = updateModel(
 		t,
 		model,
-		treeControllerEvent(presentationdomain.EventSessionTreeFailed, presentationdomain.TreeEvent{
+		treeControllerEvent(presentationdomain.EventTreeOperationFailed, presentationdomain.TreeEvent{
 			Tree:               mo.None[presentationdomain.SessionTree](),
 			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
 			SessionInfo:        mo.None[presentationdomain.SessionInfo](),

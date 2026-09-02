@@ -76,8 +76,6 @@ const (
 	LifecycleTurnEnd
 	// LifecycleAgentEnd finalizes Agent Core work.
 	LifecycleAgentEnd
-	// LifecycleAgentSettled marks Host recipient completion and idle settlement.
-	LifecycleAgentSettled
 	// LifecycleAvailabilityChanged updates task or authentication availability.
 	LifecycleAvailabilityChanged
 )
@@ -112,12 +110,6 @@ type Directory struct {
 type Discovery struct {
 	// Candidates contains valid UI plugins in discovery order.
 	Candidates []Candidate
-}
-
-// Capabilities contains immutable startup behavior for one UI plugin.
-type Capabilities struct {
-	// ControlsTerminal reports whether the UI plugin owns terminal setup.
-	ControlsTerminal bool
 }
 
 // StartupContent carries one initialization information or error item.
@@ -400,14 +392,16 @@ const (
 	FrameSessionTree
 	// FrameSessionTreeNavigation carries committed or canceled navigation.
 	FrameSessionTreeNavigation
-	// FrameSessionTreeFailed carries a closed navigation failure.
-	FrameSessionTreeFailed
 	// FrameSessionForked carries a durable fork replacement and exact next input.
 	FrameSessionForked
 	// FrameSessionCloned carries a durable clone replacement.
 	FrameSessionCloned
 	// FrameEntryLabelSet carries the committed tree after a label mutation.
 	FrameEntryLabelSet
+	// FrameSubmitCompleted acknowledges completed submit work.
+	FrameSubmitCompleted
+	// FrameAuthenticationCompleted acknowledges completed authentication.
+	FrameAuthenticationCompleted
 )
 
 // Frame carries exactly one Host-to-UI payload.
@@ -422,8 +416,8 @@ type Frame struct {
 	AuthorizationURL mo.Option[string]
 	// Text contains user-visible information or error text.
 	Text mo.Option[string]
-	// RetryAuthentication reports whether the UI may retry authentication.
-	RetryAuthentication mo.Option[bool]
+	// ErrorCode contains the stable connection-error category.
+	ErrorCode mo.Option[string]
 	// ModelSelection contains the committed active selection.
 	ModelSelection mo.Option[ModelSelection]
 	// SessionInfo is present on replacement and information frames.
@@ -438,8 +432,6 @@ type Frame struct {
 	SessionTree mo.Option[SessionTree]
 	// TreeNavigation is present only on a navigation result frame.
 	TreeNavigation mo.Option[TreeNavigationResult]
-	// TreeFailure is present only on a navigation failure frame.
-	TreeFailure mo.Option[TreeFailure]
 }
 
 // SessionEntry carries one restored public terminal item.

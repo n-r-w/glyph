@@ -18,7 +18,6 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/camilbenameur/go-llm-stream v1.3.0
 	github.com/charmbracelet/x/ansi v0.11.8
-	github.com/charmbracelet/x/term v0.2.2
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/openai/openai-go/v3 v3.49.0
@@ -91,6 +90,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
+	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/ckaznocha/intrange v0.3.1 // indirect

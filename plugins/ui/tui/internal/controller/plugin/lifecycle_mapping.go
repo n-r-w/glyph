@@ -10,7 +10,7 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, error) {
+func mapLifecycle(lifecycle *uiv1.AgentEvent) (presentationdomain.Event, error) {
 	if lifecycle == nil {
 		return presentationdomain.Event{}, errors.New("lifecycle event is nil")
 	}
@@ -66,19 +66,8 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT:
 		err = mapToolLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 		err = mapTerminalLifecycle(&event, lifecycle)
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
-		if !lifecycle.HasAvailability() {
-			return presentationdomain.Event{}, errors.New("availability is missing")
-		}
-		availability, mapErr := mapAvailability(lifecycle.GetAvailability())
-		if mapErr != nil {
-			return presentationdomain.Event{}, mapErr
-		}
-		event.Kind = presentationdomain.EventAvailability
-		event.Availability = mo.Some(availability)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
 		return presentationdomain.Event{}, errors.New("lifecycle type is unspecified")
 	default:
@@ -90,7 +79,7 @@ func mapLifecycle(lifecycle *uiv1.LifecycleEvent) (presentationdomain.Event, err
 	return event, nil
 }
 
-// lifecycleFields is a presence mask for optional LifecycleEvent payload fields.
+// lifecycleFields is a presence mask for optional AgentEvent payload fields.
 type lifecycleFields uint16
 
 const (
@@ -112,11 +101,11 @@ const (
 )
 
 // validateLifecycleEnvelope validates shared fields and rejects fields owned by inactive variants.
-func validateLifecycleEnvelope(lifecycle *uiv1.LifecycleEvent) error {
+func validateLifecycleEnvelope(lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasType() {
 		return errors.New("lifecycle type is missing")
 	}
-	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED && !lifecycle.HasRunId() {
+	if !lifecycle.HasRunId() {
 		return errors.New("lifecycle run ID is missing")
 	}
 	allowed, err := allowedLifecycleFields(lifecycle.GetType())
@@ -154,11 +143,8 @@ func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, 
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END:
 		return base | lifecycleFieldText | lifecycleFieldIsError |
 			lifecycleFieldOutcome | lifecycleFieldErrorMessage, nil
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED:
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 		return base | lifecycleFieldIsError | lifecycleFieldOutcome | lifecycleFieldErrorMessage, nil
-	case uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED:
-		return base | lifecycleFieldAvailability, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
@@ -176,7 +162,7 @@ func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, 
 }
 
 // presentLifecycleFields records Protobuf presence without collapsing valid scalar zero values.
-func presentLifecycleFields(lifecycle *uiv1.LifecycleEvent) lifecycleFields {
+func presentLifecycleFields(lifecycle *uiv1.AgentEvent) lifecycleFields {
 	fields := lifecycleFieldType
 	if lifecycle.HasRunId() {
 		fields |= lifecycleFieldRunID
@@ -224,7 +210,7 @@ func presentLifecycleFields(lifecycle *uiv1.LifecycleEvent) lifecycleFields {
 }
 
 // mapModelLifecycle preserves optional streaming and terminal model payloads.
-func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END {
 		response := lifecycle.GetModelResponse()
 		event.Kind = presentationdomain.EventModelEnd
@@ -289,7 +275,7 @@ func validateModelContentText(lifecycleType uiv1.LifecycleType, content *uiv1.Mo
 }
 
 // mapToolCallLifecycle validates preview and final call payloads before projection.
-func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END {
 		preview := lifecycle.GetToolCallPreview()
 		if preview == nil {
@@ -323,7 +309,7 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifec
 }
 
 // mapToolLifecycle projects execution updates and terminal result payloads.
-func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	lifecycleType := lifecycle.GetType()
 	var err error
 	switch int(lifecycleType) {
@@ -356,7 +342,7 @@ func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Lifecycle
 	return nil
 }
 
-func mapToolStarted(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolStarted(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() {
 		return errors.New("started tool identity is missing")
 	}
@@ -366,14 +352,14 @@ func mapToolStarted(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEv
 	return nil
 }
 
-func mapToolProgress(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolProgress(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasText() || !lifecycle.HasProgressChannel() {
 		return errors.New("tool progress is missing")
 	}
 	return mapProgress(event, lifecycle.GetProgressChannel())
 }
 
-func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
 		return errors.New("ended tool result is missing")
 	}
@@ -388,7 +374,7 @@ func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEven
 	return nil
 }
 
-func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
 		return errors.New("tool result is missing")
 	}
@@ -402,38 +388,20 @@ func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEve
 	return nil
 }
 
-// mapTerminalLifecycle preserves turn and settlement outcome presence.
-func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.LifecycleEvent) error {
+// mapTerminalLifecycle preserves turn and agent outcome presence.
+func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
 	if err := validateTerminalLifecyclePresence(lifecycle); err != nil {
 		return err
 	}
-	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED {
-		event.Kind = presentationdomain.EventTurnEnded
-		if lifecycle.HasErrorMessage() {
-			event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
-		}
-		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
-		return nil
-	}
-	event.Kind = presentationdomain.EventAgentSettled
+	event.Kind = presentationdomain.EventTurnEnded
 	if lifecycle.HasErrorMessage() {
 		event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
 	}
-	if lifecycle.HasOutcome() {
-		event.Status = mo.Some(lifecycle.GetOutcome())
-	}
-	if lifecycle.HasIsError() || lifecycle.HasErrorMessage() {
-		event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
-	}
-	if lifecycle.HasErrorMessage() && lifecycle.GetErrorMessage() != "" {
-		event.Text = mo.Some(lifecycle.GetErrorMessage())
-	} else if lifecycle.HasOutcome() {
-		event.Text = mo.Some(lifecycle.GetOutcome())
-	}
+	event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
 	return nil
 }
 
-func validateTerminalLifecyclePresence(lifecycle *uiv1.LifecycleEvent) error {
+func validateTerminalLifecyclePresence(lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END && !lifecycle.HasText() {
 		return errors.New("turn summary is missing")
 	}

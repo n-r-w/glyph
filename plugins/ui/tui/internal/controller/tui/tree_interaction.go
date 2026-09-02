@@ -149,7 +149,7 @@ func (model Model) applyTreeEvent(kind presentationdomain.EventKind, event prese
 		model.treeMode = treeInteractionSelect
 		model.treeInput = nil
 		model.treeCursor = 0
-	case presentationdomain.EventSessionTreeFailed:
+	case presentationdomain.EventTreeOperationFailed:
 		model.treeAwaiting = presentationdomain.CommandUnspecified
 		model.treeRequest = mo.None[presentationdomain.TreePurpose]()
 		model.treeStatus = event.FailureMessage.OrElse(treeOperationFailedText)

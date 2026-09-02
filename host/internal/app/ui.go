@@ -26,7 +26,6 @@ import (
 	uicatalog "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/catalog"
 	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
 
-	"github.com/n-r-w/glyph/host/internal/infra/terminal"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
@@ -41,7 +40,6 @@ func runUIWithPaths(
 	ctx context.Context,
 	paths persistence.Paths,
 	command cli.Command,
-	captureTerminal func() (*terminal.Recovery, error),
 	stderr io.Writer,
 ) (returnErr error) {
 	configured, err := settingstore.New(paths.SettingsFile).Load()
@@ -82,19 +80,10 @@ func runUIWithPaths(
 		}
 	}()
 
-	var recovery *terminal.Recovery
-	if selection.Capabilities.ControlsTerminal {
-		recovery, err = captureTerminal()
-		if err != nil {
-			selection.Runtime.Close()
-			return fmt.Errorf("capture selected UI terminal: %w", err)
-		}
-	}
 	channel, err := selection.Runtime.Open(ctx)
 	if err != nil {
 		selection.Runtime.Close()
-		recoveryErr := recovery.Restore()
-		return errors.Join(fmt.Errorf("open selected UI: %w", err), recoveryErr)
+		return fmt.Errorf("open selected UI: %w", err)
 	}
 
 	delivery := hostui.NewDelivery(channel)
@@ -102,9 +91,8 @@ func runUIWithPaths(
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
 		selection.Runtime.Close()
-		recoveryErr := recovery.Restore()
 		extensions.Close()
-		return errors.Join(fmt.Errorf("initialize Host sessions: %w", err), recoveryErr)
+		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
 	startupService := startup.New(extensions.Load)
 	report, err := startupService.Load(ctx, startup.Request{
@@ -112,9 +100,8 @@ func runUIWithPaths(
 	})
 	if err != nil {
 		selection.Runtime.Close()
-		recoveryErr := recovery.Restore()
 		extensions.Close()
-		return errors.Join(fmt.Errorf("start UI Host extensions: %w", err), recoveryErr)
+		return fmt.Errorf("start UI Host extensions: %w", err)
 	}
 
 	hookRunner := hookrunner.New(nil, nil, nil)
@@ -122,9 +109,8 @@ func runUIWithPaths(
 	providerCatalog, err := newProviderCatalog(configured, paths, interaction, hookRunner)
 	if err != nil {
 		selection.Runtime.Close()
-		recoveryErr := recovery.Restore()
 		extensions.Close()
-		return errors.Join(fmt.Errorf("create provider catalog: %w", err), recoveryErr)
+		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
@@ -154,12 +140,10 @@ func runUIWithPaths(
 	initialization.SessionInfo = sessionServices.active.ActiveInfo()
 	executionErr := controller.Execute(ctx, initialization)
 
-	// The selected process stops before terminal recovery; extensions stop after recovery.
 	selection.Runtime.Close()
-	recoveryErr := recovery.Restore()
 	extensions.Close()
 	slog.InfoContext(context.WithoutCancel(ctx), "completed UI Glyph application")
-	return errors.Join(executionErr, recoveryErr)
+	return executionErr
 }
 
 // mapUIExtensionLoadReport maps extension startup state to the UI-owned initialization input.

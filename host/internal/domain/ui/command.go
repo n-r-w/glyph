@@ -8,12 +8,8 @@ type CommandKind uint8
 const (
 	// CommandSubmit starts one user request while idle.
 	CommandSubmit CommandKind = iota + 1
-	// CommandStop cancels the active run.
-	CommandStop
 	// CommandRetryAuthentication retries OAuth after failure.
 	CommandRetryAuthentication
-	// CommandQuit terminates the UI session.
-	CommandQuit
 	// CommandSelectModel requests one configured model.
 	CommandSelectModel
 	// CommandSelectReasoningChoice requests one reasoning choice for the active model.
@@ -42,6 +38,8 @@ const (
 
 // Command carries exactly one UI-to-Host command.
 type Command struct {
+	// OperationID identifies the public UI operation.
+	OperationID string
 	// Kind identifies the requested Host action and active payload.
 	Kind CommandKind
 	// Text contains submitted user text.

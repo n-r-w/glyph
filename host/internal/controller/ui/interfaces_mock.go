@@ -41,16 +41,16 @@ func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
 }
 
-// Run mocks base method.
-func (m *MockSession) Run(ctx context.Context, initialization ui.Initialization) error {
+// RunOperations mocks base method.
+func (m *MockSession) RunOperations(ctx context.Context, initialization ui.Initialization) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", ctx, initialization)
+	ret := m.ctrl.Call(m, "RunOperations", ctx, initialization)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Run indicates an expected call of Run.
-func (mr *MockSessionMockRecorder) Run(ctx, initialization any) *gomock.Call {
+// RunOperations indicates an expected call of RunOperations.
+func (mr *MockSessionMockRecorder) RunOperations(ctx, initialization any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSession)(nil).Run), ctx, initialization)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunOperations", reflect.TypeOf((*MockSession)(nil).RunOperations), ctx, initialization)
 }

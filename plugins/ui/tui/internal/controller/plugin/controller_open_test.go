@@ -6,320 +6,218 @@ import (
 	"bytes"
 	"io"
 	"testing"
-	"time"
-
-	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
+	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
-
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
-// modelTextDeltaOpenRequest creates one model text-delta frame.
-func modelTextDeltaOpenRequest(
-	kind uiv1.ModelContentKind,
-	position int32,
-	text string,
-) *uiv1.OpenRequest {
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	return uiv1.OpenRequest_builder{
-		Lifecycle: uiv1.LifecycleEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
-			ModelContent: uiv1.ModelContent_builder{
-				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-				Kind:     new(kind),
-				Position: new(position),
-				Text:     new(text),
-			}.Build(),
-			RunId:              new("run"),
-			Text:               nil,
-			ToolCallId:         nil,
-			ToolName:           nil,
-			ProgressChannel:    nil,
-			IsError:            nil,
-			Outcome:            nil,
-			ErrorMessage:       nil,
-			Availability:       nil,
-			ModelResponse:      nil,
-			ToolCallPreview:    nil,
-			FinalToolCall:      nil,
-			ToolResultContents: nil,
-		}.Build(),
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-		SessionCloned:         nil,
-		EntryLabelSet:         nil,
-	}.Build()
-}
-
-func TestOpenRejectsNonInitializationBeforeOpeningTerminal(t *testing.T) {
+// TestControllerMapsOperationProgressAndCompletion verifies retained rendering over the operation stream.
+func TestControllerMapsOperationProgressAndCompletion(t *testing.T) {
 	t.Parallel()
 
-	mockController := gomock.NewController(t)
-	client := uisdk.TestClient(t, New(
-		NewMockTerminal(mockController),
-		NewMockProgramFactory(mockController),
-	))
-	stream, err := client.Open(t.Context())
-	require.NoError(t, err)
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Information field.
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Information: uiv1.Information_builder{
-			Text: new("too early"),
-		}.Build(),
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-		SessionCloned:         nil,
-		EntryLabelSet:         nil,
-	}.Build()))
-	require.NoError(t, stream.CloseSend())
-
-	_, err = stream.Recv()
-	require.Error(t, err)
-	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-}
-
-// TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally verifies ordered startup and cleanup.
-func TestOpenStartsAfterInitializationDeliversFramesAndClosesNormally(t *testing.T) {
-	t.Parallel()
-
-	// Arrange terminal, program, and stream expectations for initialization and lifecycle frames.
+	// Arrange an initialized controller with one running presentation program.
 	mockController := gomock.NewController(t)
 	terminal := NewMockTerminal(mockController)
 	session := NewMockTerminalSession(mockController)
-	factory := NewMockProgramFactory(mockController)
+	programs := NewMockProgramFactory(mockController)
 	program := NewMockProgram(mockController)
-	input := bytes.NewBufferString("")
-	output := &bytes.Buffer{}
+	emitter := make(chan Emit, 1)
 	runDone := make(chan struct{})
-	started := make(chan struct{})
-
+	programStarted := make(chan struct{})
+	sent := make(chan struct{}, 2)
 	terminal.EXPECT().Open().Return(session, nil)
-	session.EXPECT().Input().Return(input)
-	session.EXPECT().Output().Return(output)
-	factory.EXPECT().New(gomock.Any(), input, output, gomock.Any()).DoAndReturn(
-		func(initial presentationdomain.Event, _ io.Reader, _ io.Writer, _ Emit) Program {
-			assert.Equal(t, presentationdomain.Event{
-				RestoredTranscript: nil,
-				Kind:               presentationdomain.EventInitialization,
-				Startup: []presentationdomain.Line{{
-					Kind:     presentationdomain.LineInformation,
-					Text:     mo.Some("ready"),
-					ToolName: mo.None[string](),
-					Status:   mo.None[string](),
-					Contents: mo.None[[]presentationdomain.Content](),
-				}},
-				Availability: mo.Some(presentationdomain.AvailabilityIdle),
-				Extensions: []presentationdomain.Extension{{
-					ID:    "tools",
-					Tools: []string{"read"},
-					Path:  "",
-				}},
-				Models: []presentationdomain.ConfiguredModel{{
-					ProviderID: "openai-codex",
-					ModelID:    "gpt",
-					Reasoning:  testReasoning(presentationdomain.ReasoningChoiceHigh),
-				}},
-				ModelSelection: mo.Some(presentationdomain.ModelSelection{
-					ProviderID:      "openai-codex",
-					ModelID:         "gpt",
-					ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
-				}),
-				SessionInfo: mo.Some(presentationdomain.SessionInfo{
-					ID:               "session",
-					Name:             "",
-					NamePresent:      false,
-					WorkingDirectory: "/project",
-					StoragePath:      "",
-					StoragePresent:   false,
-					CreatedAt:        time.Unix(1, 0).UTC(),
-					UpdatedAt:        time.Unix(1, 0).UTC(),
-				}),
-				Sessions:             nil,
-				Position:             mo.None[int](),
-				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-				ModelResponseContent: nil,
-				ToolCallID:           mo.None[string](),
-				ToolName:             mo.None[string](),
-				Status:               mo.None[string](),
-				Stream:               mo.None[presentationdomain.OutputStream](),
-				Text:                 mo.None[string](),
-				Contents:             mo.None[[]presentationdomain.Content](),
-				ErrorText:            mo.None[string](),
-				ExitCode:             mo.None[int](),
-				Failure:              mo.None[bool](),
-				ToolCall:             mo.None[presentationdomain.ToolCallState](),
-				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-			}, initial)
+	session.EXPECT().Input().Return(bytes.NewBuffer(nil))
+	session.EXPECT().Output().Return(new(bytes.Buffer))
+	programs.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ presentationdomain.Event, _ io.Reader, _ io.Writer, emit Emit) Program {
+			emitter <- emit
 			return program
 		},
 	)
 	program.EXPECT().Run().DoAndReturn(func() error {
-		close(started)
+		close(programStarted)
 		<-runDone
 		return nil
 	})
-	program.EXPECT().Send(testTextEvent(presentationdomain.EventInformation, "information"))
-	program.EXPECT().Send(gomock.Any()).Do(func(event presentationdomain.Event) {
-		contentKind, ok := event.ModelContentKind.Get()
-		require.True(t, ok)
-		position, ok := event.Position.Get()
-		require.True(t, ok)
-		text, ok := event.Text.Get()
-		require.True(t, ok)
-		switch contentKind {
-		case presentationdomain.ModelContentReasoning:
-			assert.Equal(t, 1, position)
-			assert.Equal(t, "hidden reasoning", text)
-		case presentationdomain.ModelContentText:
-			assert.Equal(t, 2, position)
-			assert.Equal(t, "delta", text)
-		case presentationdomain.ModelContentUnspecified, presentationdomain.ModelContentRefusal:
-			require.Fail(t, "unexpected model content kind")
-		default:
-			require.Fail(t, "unexpected model content kind")
-		}
-	}).Times(2)
+	program.EXPECT().Send(gomock.Any()).Times(2).Do(func(presentationdomain.Event) { sent <- struct{}{} })
 	program.EXPECT().Quit().Do(func() { close(runDone) })
 	session.EXPECT().Close().Return(nil)
-
-	// Act by opening the stream, sending ordered frames, and closing the client side.
-	client := uisdk.TestClient(t, New(terminal, factory))
+	client := uisdk.TestClient(t, New(terminal, programs))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, stream.Send(initializationRequest()))
-	<-started
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Information field.
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Information: uiv1.Information_builder{
-			Text: new("information"),
-		}.Build(),
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-		SessionCloned:         nil,
-		EntryLabelSet:         nil,
-	}.Build()))
-	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
-		uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING, 1, "hidden reasoning",
-	)))
-	require.NoError(t, stream.Send(modelTextDeltaOpenRequest(
-		uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT, 2, "delta",
-	)))
-	require.NoError(t, stream.CloseSend())
+	sendInitialization(t, stream)
+	emit := <-emitter
+	<-programStarted
 
-	// Assert the server closes normally with EOF after delivering every frame.
+	// Act by starting one submit operation and delivering progress and completion.
+	emitDone := make(chan error, 1)
+	go func() { emitDone <- emit(commandFixture(presentationdomain.CommandSubmit, mo.Some("hello"))) }()
+	request, err := stream.Recv()
+	require.NoError(t, err)
+	assert.Equal(t, "hello", request.GetRequest().GetSubmit().GetText())
+	operationID := request.GetOperationId()
+	sendHostEvent(t, stream, operationID, acceptedHostEvent())
+	sendHostEvent(t, stream, operationID, runningHostEvent())
+	progress := new(uiv1.HostProgress)
+	progress.SetAgentEvent(uiv1.AgentEvent_builder{
+		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
+		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
+		ErrorMessage: nil, Availability: nil, ModelContent: nil, ModelResponse: nil,
+		ToolCallPreview: nil, FinalToolCall: nil, ToolResultContents: nil,
+	}.Build())
+	progressEvent := new(uiv1.HostEvent)
+	progressEvent.SetProgress(progress)
+	sendHostEvent(t, stream, operationID, progressEvent)
+	completed := new(uiv1.HostCompleted)
+	completed.SetSubmit(new(uiv1.SubmitCompleted))
+	completedEvent := new(uiv1.HostEvent)
+	completedEvent.SetCompleted(completed)
+	sendHostEvent(t, stream, operationID, completedEvent)
+
+	// Assert the command joins after both retained presentation events are delivered.
+	require.NoError(t, <-emitDone)
+	<-sent
+	<-sent
+	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
 }
 
-// TestModelSelectionFramesAndCommandsPreserveContract verifies selection transport mappings.
-func TestModelSelectionFramesAndCommandsPreserveContract(t *testing.T) {
+// TestSnapshotRequestDoesNotReplaceForegroundCancelTarget verifies concurrent foreground ownership.
+func TestSnapshotRequestDoesNotReplaceForegroundCancelTarget(t *testing.T) {
 	t.Parallel()
+	// Arrange Submit as foreground work with navigation and snapshot commands running concurrently.
 
-	initial, err := mapInitialization(uiv1.Initialization_builder{
-		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
-		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-			ProviderId: new("openrouter"),
-			ModelId:    new("sonnet"),
-			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_OFF,
-				uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-		}.Build()},
-		ModelSelection: uiv1.ModelSelection_builder{
-			ProviderId:      new("openrouter"),
-			ModelId:         new("sonnet"),
-			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-		}.Build(),
-		SelectedUiId:   new("glyph-tui"),
-		StartupContent: nil,
-		Extensions:     nil,
-		SessionInfo:    testSessionInfo(),
-	}.Build())
+	// Act by canceling through the controller while all operations are active.
+	// Assert cancellation targets Submit rather than either concurrent command.
+	assertForegroundCancelTarget(t,
+		commandFixture(presentationdomain.CommandSubmit, mo.Some("hello")),
+		[]presentationdomain.Command{
+			navigateCommandFixture(),
+			commandFixture(presentationdomain.CommandGetSessionInfo, mo.None[string]()),
+		},
+	)
+}
+
+// TestNavigateSessionTreeRemainsForegroundCancelTarget verifies blocked navigation cancellation ownership.
+func TestNavigateSessionTreeRemainsForegroundCancelTarget(t *testing.T) {
+	t.Parallel()
+	// Arrange navigation as foreground work with a session-information snapshot running concurrently.
+
+	// Act by canceling through the controller while both operations are active.
+	// Assert cancellation targets the blocked navigation operation.
+	assertForegroundCancelTarget(t,
+		navigateCommandFixture(),
+		[]presentationdomain.Command{commandFixture(
+			presentationdomain.CommandGetSessionInfo, mo.None[string](),
+		)},
+	)
+}
+
+// assertForegroundCancelTarget runs one real SDK foreground-cancellation scenario.
+func assertForegroundCancelTarget(
+	t *testing.T,
+	foreground presentationdomain.Command,
+	concurrent []presentationdomain.Command,
+) {
+	t.Helper()
+
+	// Arrange one running controller and capture its presentation emitter.
+	mockController := gomock.NewController(t)
+	terminal := NewMockTerminal(mockController)
+	session := NewMockTerminalSession(mockController)
+	programs := NewMockProgramFactory(mockController)
+	program := NewMockProgram(mockController)
+	emitter := make(chan Emit, 1)
+	runDone := make(chan struct{})
+	terminal.EXPECT().Open().Return(session, nil)
+	session.EXPECT().Input().Return(bytes.NewBuffer(nil))
+	session.EXPECT().Output().Return(new(bytes.Buffer))
+	programs.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ presentationdomain.Event, _ io.Reader, _ io.Writer, emit Emit) Program {
+			emitter <- emit
+			return program
+		},
+	)
+	program.EXPECT().Run().DoAndReturn(func() error { <-runDone; return nil })
+	program.EXPECT().Send(gomock.Any()).AnyTimes()
+	program.EXPECT().Quit().Do(func() { close(runDone) })
+	session.EXPECT().Close().Return(nil)
+	client := uisdk.TestClient(t, New(terminal, programs))
+	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, []presentationdomain.ConfiguredModel{{
-		ProviderID: "openrouter",
-		ModelID:    "sonnet",
-		Reasoning:  testReasoning(presentationdomain.ReasoningChoiceOff, presentationdomain.ReasoningChoiceHigh),
-	}}, initial.Models)
-	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
-		ProviderID:      "openrouter",
-		ModelID:         "sonnet",
-		ReasoningChoice: presentationdomain.ReasoningChoiceHigh,
-	}), initial.ModelSelection)
+	sendInitialization(t, stream)
+	emit := <-emitter
 
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active ModelSelectionChanged field.
-	changed, err := mapRequest(uiv1.OpenRequest_builder{
-		ModelSelectionChanged: uiv1.ModelSelectionChanged_builder{
-			Selection: uiv1.ModelSelection_builder{
-				ProviderId:      new("openai-codex"),
-				ModelId:         new("gpt"),
-				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH),
-			}.Build(),
-		}.Build(),
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-		SessionCloned:         nil,
-		EntryLabelSet:         nil,
-	}.Build())
+	// Act by starting the foreground request, concurrent work, and Stop.
+	require.NoError(t, emit(foreground))
+	foregroundRequest, err := stream.Recv()
 	require.NoError(t, err)
-	assert.Equal(t, presentationdomain.EventModelSelectionChanged, changed.Kind)
-	assert.Equal(t, mo.Some(presentationdomain.ModelSelection{
-		ProviderID:      "openai-codex",
-		ModelID:         "gpt",
-		ReasoningChoice: presentationdomain.ReasoningChoiceXHigh,
-	}), changed.ModelSelection)
+	for _, command := range concurrent {
+		require.NoError(t, emit(command))
+		_, err = stream.Recv()
+		require.NoError(t, err)
+	}
+	require.NoError(t, emit(commandFixture(presentationdomain.CommandStop, mo.None[string]())))
+	cancellation, err := stream.Recv()
+	require.NoError(t, err)
 
-	modelCommand, err := mapCommand(presentationdomain.Command{
-		Kind:            presentationdomain.CommandSelectModel,
-		ProviderID:      mo.Some("openai-codex"),
-		ModelID:         mo.Some("gpt"),
-		Text:            mo.None[string](),
-		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
+	// Assert Stop still targets the first active foreground operation.
+	assert.Equal(t, foregroundRequest.GetOperationId(), cancellation.GetRequest().GetCancel().GetTargetOperationId())
+	require.NoError(t, stream.CloseSend())
+	_, err = stream.Recv()
+	assert.ErrorIs(t, err, io.EOF)
+}
+
+// navigateCommandFixture creates one valid navigation foreground command.
+func navigateCommandFixture() presentationdomain.Command {
+	command := commandFixture(presentationdomain.CommandNavigateSessionTree, mo.None[string]())
+	command.TreeCommand = mo.Some(presentationdomain.TreeCommand{
+		TargetEntryID: mo.Some("target"), SummaryMode: presentationdomain.SummaryModeSummarize,
+		CustomFocus: mo.None[string](), Label: mo.None[string](),
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "openai-codex", modelCommand.GetSelectModel().GetProviderId())
-	assert.Equal(t, "gpt", modelCommand.GetSelectModel().GetModelId())
+	return command
+}
 
-	reasoningCommand, err := mapCommand(presentationdomain.Command{
-		Kind:            presentationdomain.CommandSelectReasoningChoice,
-		ReasoningChoice: mo.Some(presentationdomain.ReasoningChoiceMax),
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
-	})
-	require.NoError(t, err)
-	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_MAX, reasoningCommand.GetSelectReasoningChoice().GetChoice())
+// sendInitialization completes the SDK-owned initialization lifecycle.
+func sendInitialization(t *testing.T, stream uiv1.UIService_OpenClient) {
+	t.Helper()
+	request := new(uiv1.HostRequest)
+	request.SetInitialize(validInitialization())
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		OperationId: new("initialize"), Request: request, Event: nil, ConnectionEvent: nil, Close: nil,
+	}.Build()))
+	for range 3 {
+		_, err := stream.Recv()
+		require.NoError(t, err)
+	}
+}
+
+// sendHostEvent delivers one correlated Host lifecycle event.
+func sendHostEvent(t *testing.T, stream uiv1.UIService_OpenClient, operationID string, event *uiv1.HostEvent) {
+	t.Helper()
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		OperationId: new(operationID), Request: nil, Event: event, ConnectionEvent: nil, Close: nil,
+	}.Build()))
+}
+
+// acceptedHostEvent creates one accepted lifecycle event.
+func acceptedHostEvent() *uiv1.HostEvent {
+	event := new(uiv1.HostEvent)
+	event.SetAccepted(new(operationv1.Accepted))
+	return event
+}
+
+// runningHostEvent creates one running lifecycle event.
+func runningHostEvent() *uiv1.HostEvent {
+	event := new(uiv1.HostEvent)
+	event.SetRunning(new(operationv1.Running))
+	return event
 }

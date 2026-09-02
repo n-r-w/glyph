@@ -37,20 +37,18 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 		},
 	}
 	frame := domainui.Frame{
-		Kind:                domainui.FrameSessionInformation,
-		Initialization:      mo.None[domainui.Initialization](),
-		Lifecycle:           mo.None[domainui.Lifecycle](),
-		AuthorizationURL:    mo.None[string](),
-		Text:                mo.None[string](),
-		RetryAuthentication: mo.None[bool](),
-		ModelSelection:      mo.None[domainui.ModelSelection](),
-		SessionInfo:         mo.Some(info),
-		Sessions:            nil,
-		SessionEntries:      nil,
-		SessionStatistics:   mo.Some(statistics),
-		SessionTree:         mo.None[domainui.SessionTree](),
-		TreeNavigation:      mo.None[domainui.TreeNavigationResult](),
-		TreeFailure:         mo.None[domainui.TreeFailure](),
+		Kind:              domainui.FrameSessionInformation,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.Some(info),
+		Sessions:          nil,
+		SessionEntries:    nil,
+		SessionStatistics: mo.Some(statistics),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
 	}
 
 	// Act by mapping the Host frame to the UI protobuf request.
@@ -58,7 +56,7 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 
 	// Assert lifecycle, token availability, all cost fields, group order, and absence survive.
 	require.NoError(t, err)
-	mapped := request.GetSessionInformation()
+	mapped := request.GetEvent().GetCompleted().GetSessionInformation()
 	assert.Equal(t, "active", mapped.GetInfo().GetId())
 	assert.Equal(t, "name", mapped.GetInfo().GetName())
 	assert.Equal(t, "/project", mapped.GetInfo().GetWorkingDirectory())

@@ -8,95 +8,82 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 const uiSDKHelperEnvironment = "GLYPH_UI_SDK_HELPER"
 
-// contractService provides deterministic capabilities and one bidirectional exchange.
-type contractService struct {
-	uipb.UnimplementedUIServiceServer
-}
-
-// TestSDKHelperProcess serves the UI contract when this test binary is started as a plugin child.
+// TestSDKHelperProcess serves the UI contract when this test binary is a plugin child.
 func TestSDKHelperProcess(t *testing.T) {
 	t.Parallel()
+	// Arrange the helper mode and generated service mock for the plugin child process.
+	// Act by calling Serve or the mismatched handshake server selected by the helper mode.
+	// Assert the child process exposes only the selected UI protocol behavior.
 
+	controller := gomock.NewController(t)
 	switch os.Getenv(uiSDKHelperEnvironment) {
 	case "serve":
-		Serve(&contractService{
-			UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
-		})
-	case "version-2":
+		Serve(newProcessMockService(controller))
+	case "version-mismatch":
+		service := NewMockService(controller)
 		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: handshakeConfig(),
-			TLSProvider:     nil,
-			Plugins:         nil,
-			VersionedPlugins: map[int]plugin.PluginSet{
-				2: pluginSets(&contractService{
-					UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
-				})[ProtocolVersion],
-			},
-			GRPCServer: plugin.DefaultGRPCServer,
-			Logger:     nil,
-			Test:       nil,
+			HandshakeConfig: handshakeConfig(), TLSProvider: nil, Plugins: nil,
+			VersionedPlugins: map[int]plugin.PluginSet{99: pluginSets(newServer(service))[ProtocolVersion]},
+			GRPCServer:       plugin.DefaultGRPCServer, Logger: nil, Test: nil,
 		})
 	}
 }
 
-// TestConnectAndServe proves handshake, capability retrieval, stream order, and process cleanup.
+// newProcessMockService configures one initialized service that waits for stream closure.
+func newProcessMockService(controller *gomock.Controller) *MockService {
+	service := NewMockService(controller)
+	initializationOperation := NewMockInitializeOperation(controller)
+	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
+	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
+	initializationOperation.EXPECT().Release()
+	service.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ *Host) error {
+		<-ctx.Done()
+		return ctx.Err()
+	})
+	service.EXPECT().Close().Return(nil)
+	return service
+}
+
+// TestConnectAndServe proves handshake, initialization lifecycle, and process cleanup.
 func TestConnectAndServe(t *testing.T) {
 	t.Parallel()
+	// Arrange command for Connect to verify handshake, initialization lifecycle, and process cleanup.
 
-	// Arrange: configure this test executable to serve as one UI plugin process.
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
 	command.Env = append(os.Environ(), uiSDKHelperEnvironment+"=serve")
-
-	// Act: connect through go-plugin and exchange both stream directions.
+	// Act by invoking Connect to exercise handshake, initialization lifecycle, and process cleanup.
 	client, err := Connect(t.Context(), command)
+	// Assert handshake, initialization lifecycle, and process cleanup.
 	require.NoError(t, err)
 	t.Cleanup(client.Close)
 	assert.Equal(t, ProtocolVersion, client.NegotiatedVersion())
-	assert.True(t, client.Capabilities().GetControlsTerminal())
 
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
-	//nolint:exhaustruct_v5 // uipb.OpenRequest_builder sets only the active Initialization field.
-	require.NoError(t, stream.Send(uipb.OpenRequest_builder{
-		Initialization: uipb.Initialization_builder{
-			SelectedUiId:   new("contract"),
-			StartupContent: nil,
-			Extensions:     nil,
-			Availability:   new(uipb.Availability_AVAILABILITY_UNSPECIFIED),
-			Models:         nil,
-			ModelSelection: nil,
-		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
-	}.Build()))
-	commandFrame, err := stream.Recv()
-	require.NoError(t, err)
-	assert.Equal(t, "first request", commandFrame.GetSubmit().GetText())
-	//nolint:exhaustruct_v5 // uipb.OpenRequest_builder sets only the active Information field.
-	require.NoError(t, stream.Send(uipb.OpenRequest_builder{
-		Information: uipb.Information_builder{
-			Text: new("received"),
-		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil,
-	}.Build()))
-	commandFrame, err = stream.Recv()
-	require.NoError(t, err)
-	assert.NotNil(t, commandFrame.GetQuit())
+	sendProcessInitialization(t, stream)
+	for range 3 {
+		response, receiveErr := stream.Recv()
+		require.NoError(t, receiveErr)
+		assert.Equal(t, "initialize", response.GetOperationId())
+	}
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
 	require.ErrorIs(t, err, io.EOF)
 
-	// Assert: client shutdown observes and exposes child-process termination.
 	client.Close()
 	assert.True(t, client.Exited())
 	select {
@@ -109,12 +96,14 @@ func TestConnectAndServe(t *testing.T) {
 // TestConnectRejectsVersionMismatch verifies the UI handshake has no compatibility path.
 func TestConnectRejectsVersionMismatch(t *testing.T) {
 	t.Parallel()
-
+	// Arrange a child process that exposes only an unsupported protocol version.
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
-	command.Env = append(os.Environ(), uiSDKHelperEnvironment+"=version-2")
+	command.Env = append(os.Environ(), uiSDKHelperEnvironment+"=version-mismatch")
 
+	// Act by connecting to the process with the unsupported handshake.
 	client, err := Connect(t.Context(), command)
 
+	// Assert negotiation fails without returning a compatibility client.
 	require.Error(t, err)
 	assert.Nil(t, client)
 }
@@ -122,80 +111,56 @@ func TestConnectRejectsVersionMismatch(t *testing.T) {
 // TestConnectRejectsCanceledContext verifies startup honors preexisting cancellation.
 func TestConnectRejectsCanceledContext(t *testing.T) {
 	t.Parallel()
+	// Arrange ctx, cancel, and command for Connect to verify startup honors preexisting cancellation.
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
-
+	// Act by invoking Connect to exercise startup honors preexisting cancellation.
 	client, err := Connect(ctx, command)
-
+	// Assert startup honors preexisting cancellation.
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, client)
 }
 
-// TestClientProvidesGeneratedContractAccess verifies the public contract-test helper.
-func TestClientProvidesGeneratedContractAccess(t *testing.T) {
+// TestOpenCancellationPropagatesToPersistentStream verifies context-owned stream cancellation.
+func TestOpenCancellationPropagatesToPersistentStream(t *testing.T) {
 	t.Parallel()
+	// Arrange controller, service, and cleanupCompleted for Client.Open to verify context-owned stream cancellation.
 
-	client := TestClient(t, &contractService{
-		UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
+	controller := gomock.NewController(t)
+	service := NewMockService(controller)
+	cleanupCompleted := make(chan struct{})
+	service.EXPECT().Close().DoAndReturn(func() error {
+		close(cleanupCompleted)
+		return nil
 	})
-
-	capabilities, err := client.GetCapabilities(t.Context(), &uipb.GetCapabilitiesRequest{})
-	require.NoError(t, err)
-	assert.True(t, capabilities.GetControlsTerminal())
-}
-
-// TestOpenCancellationPropagatesToThePersistentStream verifies context-owned stream cancellation.
-func TestOpenCancellationPropagatesToThePersistentStream(t *testing.T) {
-	t.Parallel()
-
-	client := TestClient(t, &contractService{
-		UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
-	})
+	client := TestClient(t, service)
 	ctx, cancel := context.WithCancel(t.Context())
+	// Act by invoking Client.Open to exercise context-owned stream cancellation.
 	stream, err := client.Open(ctx)
+	// Assert context-owned stream cancellation.
 	require.NoError(t, err)
-
 	cancel()
 	_, err = stream.Recv()
-
 	require.Error(t, err)
 	assert.Equal(t, codes.Canceled, status.Code(err))
+	require.Eventually(t, func() bool {
+		select {
+		case <-cleanupCompleted:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
 }
 
-// GetCapabilities returns the fixed terminal-control capability used by the contract test.
-func (*contractService) GetCapabilities(
-	_ context.Context,
-	_ *uipb.GetCapabilitiesRequest,
-) (*uipb.GetCapabilitiesResponse, error) {
-	return uipb.GetCapabilitiesResponse_builder{
-		ControlsTerminal: new(true),
-	}.Build(), nil
-}
-
-// Open validates Host frame order and returns one submit followed by quit.
-func (*contractService) Open(stream grpc.BidiStreamingServer[uipb.OpenRequest, uipb.OpenResponse]) error {
-	initialization, err := stream.Recv()
-	if err != nil {
-		return err
-	}
-	if initialization.GetInitialization().GetSelectedUiId() != "contract" {
-		return nil
-	}
-	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Submit field.
-	if err := stream.Send(uipb.OpenResponse_builder{
-		Submit: uipb.SubmitCommand_builder{
-			Text: new("first request"),
-		}.Build(),
-	}.Build()); err != nil {
-		return err
-	}
-	if _, err := stream.Recv(); err != nil {
-		return err
-	}
-	//nolint:exhaustruct_v5 // uipb.OpenResponse_builder sets only the active Quit field.
-	return stream.Send(uipb.OpenResponse_builder{
-		Quit: &uipb.QuitCommand{},
-	}.Build())
+// sendProcessInitialization sends one valid Host initialization operation.
+func sendProcessInitialization(t *testing.T, stream uiv1.UIService_OpenClient) {
+	t.Helper()
+	request := new(uiv1.HostRequest)
+	request.SetInitialize(new(uiv1.Initialization))
+	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
+		OperationId: new("initialize"), Request: request, Event: nil, ConnectionEvent: nil, Close: nil,
+	}.Build()))
 }

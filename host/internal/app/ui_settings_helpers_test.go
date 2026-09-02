@@ -56,7 +56,7 @@ providers:
 `
 }
 
-// pricedRestartSelectionSettings applies nonzero selected-model rates for cost reconstruction tests.
+// pricedRestartSelectionSettings applies distinct rates to the restart model.
 func pricedRestartSelectionSettings() string {
 	return strings.Replace(
 		restartSelectionSettings(),
@@ -124,7 +124,7 @@ func testPaths(t *testing.T, settingsContent string) persistence.Paths {
 	}
 }
 
-// validateBusyPreservation verifies that a rejected resume leaves all active UI state visible.
+// validateBusyPreservation verifies a rejected mutation preserves the active TUI state.
 func validateBusyPreservation(output, activeID string) error {
 	if !strings.Contains(output, "Session status: Session replacement is unavailable: another operation is active") {
 		return errors.New("busy redraw did not occur after the rejection")
@@ -154,7 +154,7 @@ func validateBusyPreservation(output, activeID string) error {
 	return nil
 }
 
-// validateRestartRow verifies that the selector preserves the expected resumed-session history count.
+// validateRestartRow verifies the expected resumed-session history count.
 func validateRestartRow(output string) error {
 	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, "restart session") && strings.Contains(line, "7 messages") {

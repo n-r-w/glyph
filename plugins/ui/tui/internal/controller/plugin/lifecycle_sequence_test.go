@@ -30,13 +30,12 @@ func TestSemanticLifecycleSequenceUsesContractMapping(t *testing.T) {
 	require.NoError(t, json.Unmarshal(payload, &sequence))
 
 	service := presentationusecase.New()
-	initial, err := mapRequest(initializationRequest())
+	initial, err := mapInitialization(initializationRequest().GetRequest().GetInitialize())
 	require.NoError(t, err)
 	// Act by mapping and applying every fixture frame.
 	state := service.Apply(presentationdomain.State{}, initial)
 	for _, frame := range sequence {
-		request := lifecycleRequest(frame)
-		event, mapErr := mapRequest(request)
+		event, mapErr := semanticEvent(frame)
 		require.NoError(t, mapErr)
 		state = service.Apply(state, event)
 	}
@@ -90,8 +89,26 @@ type semanticToolResultContent struct {
 	Text string `json:"text"`
 }
 
-// lifecycleRequest builds a public protobuf frame for the real controller mapper.
-func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
+// semanticEvent maps one semantic fixture through its operation-stream owner.
+func semanticEvent(frame semanticFrame) (presentationdomain.Event, error) {
+	if frame.Type == "agent_settled" {
+		completed := new(uiv1.HostCompleted)
+		completed.SetSubmit(new(uiv1.SubmitCompleted))
+		event, _, err := mapCompleted(completed)
+		return event, err
+	}
+	if frame.Type == "availability" {
+		connection := new(uiv1.HostConnectionEvent)
+		connection.SetAvailabilityChanged(uiv1.AvailabilityChanged_builder{
+			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		}.Build())
+		return mapConnectionEvent(connection)
+	}
+	return mapLifecycle(semanticLifecycle(frame))
+}
+
+// semanticLifecycle builds one retained agent lifecycle payload.
+func semanticLifecycle(frame semanticFrame) *uiv1.AgentEvent {
 	typeValue := uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	switch frame.Type {
 	case "agent_start":
@@ -104,49 +121,25 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
 	case "tool_result":
 		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
-	case "agent_settled":
-		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED
 	case "agent_end":
 		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END
-	case "availability":
-		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED
 	}
-	lifecycle := uiv1.LifecycleEvent_builder{
-		Type:               new(typeValue),
-		ToolName:           nil,
-		Text:               nil,
-		Outcome:            nil,
-		RunId:              new("run"),
-		ToolCallId:         nil,
-		ProgressChannel:    nil,
-		IsError:            nil,
-		ErrorMessage:       nil,
-		Availability:       nil,
-		ModelContent:       nil,
-		ModelResponse:      nil,
-		ToolCallPreview:    nil,
-		FinalToolCall:      nil,
+	lifecycle := uiv1.AgentEvent_builder{
+		Type: new(typeValue), ToolName: nil, Text: nil, Outcome: nil, RunId: new("run"),
+		ToolCallId: nil, ProgressChannel: nil, IsError: nil, ErrorMessage: nil, Availability: nil,
+		ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
 		ToolResultContents: nil,
 	}.Build()
 	if frame.Type == "message_end" {
 		var content []*uiv1.ModelResponseContent
 		if frame.ModelText != "" {
 			content = []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
-				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
-				Text: new(frame.ModelText), ToolCall: nil,
+				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT), Text: new(frame.ModelText), ToolCall: nil,
 			}.Build()}
 		}
 		lifecycle.SetModelResponse(uiv1.ModelResponse_builder{
-			Content:       content,
-			Text:          nil,
-			Outcome:       nil,
-			ErrorMessage:  nil,
-			Provider:      nil,
-			Model:         nil,
-			ResponseId:    nil,
-			Usage:         nil,
-			Diagnostics:   nil,
-			ResponseModel: nil,
+			Content: content, Text: nil, Outcome: nil, ErrorMessage: nil, Provider: nil, Model: nil,
+			ResponseId: nil, Usage: nil, Diagnostics: nil, ResponseModel: nil,
 		}.Build())
 	}
 	if frame.Type == "tool_execution_start" {
@@ -156,46 +149,25 @@ func lifecycleRequest(frame semanticFrame) *uiv1.OpenRequest {
 	if frame.Type == "tool_result" {
 		lifecycle.SetToolCallId("call")
 		lifecycle.SetToolName(frame.ToolName)
-		contents := lo.Map(
-			frame.ToolResultContents,
-			func(content semanticToolResultContent, _ int) *uiv1.ToolResultContent {
-				//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
+		lifecycle.SetToolResultContents(
+			lo.Map(frame.ToolResultContents, func(content semanticToolResultContent, _ int) *uiv1.ToolResultContent {
 				return uiv1.ToolResultContent_builder{Text: new(content.Text)}.Build()
-			},
+			}),
 		)
-		lifecycle.SetToolResultContents(contents)
+		lifecycle.SetIsError(false)
 	}
 	if frame.Type == "tool_execution_end" {
 		lifecycle.SetToolCallId("call")
 		lifecycle.SetToolName(frame.ToolName)
 		lifecycle.SetIsError(frame.ToolStatus != "ok")
 	}
-	if frame.Type == "tool_result" {
-		lifecycle.SetIsError(false)
-	}
 	if frame.Type == "agent_end" {
 		lifecycle.SetOutcome(frame.Outcome)
 	}
-	if frame.Type == "availability" {
-		lifecycle.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
-	}
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	return uiv1.OpenRequest_builder{
-		Lifecycle:             lifecycle,
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-
-		// repositoryRoot resolves shared testdata from the source file location.
-		SessionCloned: nil,
-		EntryLabelSet: nil,
-	}.Build()
+	return lifecycle
 }
 
+// repositoryRoot resolves shared testdata from the source file location.
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
@@ -206,13 +178,15 @@ func repositoryRoot(t *testing.T) string {
 // TestMapLifecyclePreservesRefusalKind verifies refusal deltas stay distinct from ordinary model text.
 func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapLifecycle to verify refusal deltas stay distinct from ordinary model text.
 
-	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	// Act by invoking mapLifecycle to exercise refusal deltas stay distinct from ordinary model text.
+	event, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL),
-			Position: new(int32(3)),
+			Position: new(int64(3)),
 			Text:     new("cannot help"),
 		}.Build(),
 		RunId:              new("run"),
@@ -230,6 +204,7 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 
+	// Assert refusal deltas stay distinct from ordinary model text.
 	require.NoError(t, err)
 	assert.Equal(t, presentationdomain.EventModelDelta, event.Kind)
 	assert.Equal(t, mo.Some(presentationdomain.ModelContentRefusal), event.ModelContentKind)
@@ -239,8 +214,10 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 // TestMapLifecyclePreservesFinalizedVisibleBlocks verifies mixed visible content reaches presentation state.
 func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapLifecycle to verify mixed visible content reaches presentation state.
 
-	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	// Act by invoking mapLifecycle to exercise mixed visible content reaches presentation state.
+	event, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 		ModelResponse: uiv1.ModelResponse_builder{
 			Content: []*uiv1.ModelResponseContent{
@@ -282,6 +259,7 @@ func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 
+	// Assert mixed visible content reaches presentation state.
 	require.NoError(t, err)
 	assert.Equal(t, []presentationdomain.ModelResponseContent{
 		{

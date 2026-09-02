@@ -4,9 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,29 +18,14 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-// TestChannelMapsEveryFrameAndCommand verifies the complete generated transport boundary.
-func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
+// TestMapEveryRetainedFrame verifies every retained Host frame maps to an operation-stream envelope.
+func TestMapEveryRetainedFrame(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a runtime stream with every frame and command contract variant.
-	service := &runtimeContractService{
-		UnimplementedUIServiceServer: uipb.UnimplementedUIServiceServer{},
-		received:                     make(chan *uipb.OpenRequest, 6),
-	}
-	client := uisdk.TestClient(t, service)
-	stream, err := client.Open(t.Context())
-	require.NoError(t, err)
-	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream,
-		cancel: cancel,
-		closed: atomic.Bool{},
-		mutex:  sync.Mutex{},
-	}
+	// Arrange every retained Host frame category.
 	frames := []domainui.Frame{
 		testInitializationFrame(),
 		testLifecycleFrame(),
@@ -53,92 +35,34 @@ func TestChannelMapsEveryFrameAndCommand(t *testing.T) {
 		testModelSelectionFrame(),
 	}
 
-	// Act by sending every host frame and receiving every UI command.
+	// Act by mapping every frame into the new operation stream.
 	for _, frame := range frames {
-		require.NoError(t, transport.Send(frame))
+		mapped, err := mapFrame(frame)
+
+		// Assert every retained frame produces one non-empty stream envelope.
+		require.NoError(t, err)
+		require.NotNil(t, mapped)
+		assert.NotEqual(t, uiv1.OpenRequest_Content_not_set_case, mapped.WhichContent())
 	}
-	// Assert every frame reaches the service and every command maps exactly.
-	for range frames {
-		assert.NotNil(t, <-service.received)
-	}
-	for _, expected := range []domainui.Command{
-		{
-			Kind:            domainui.CommandSubmit,
-			Text:            mo.Some("request"),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-		{
-			Kind:            domainui.CommandStop,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-		{
-			Kind:            domainui.CommandRetryAuthentication,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-		{
-			Kind:            domainui.CommandQuit,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-		{
-			Kind:            domainui.CommandSelectModel,
-			ProviderID:      mo.Some("openrouter"),
-			ModelID:         mo.Some("sonnet"),
-			Text:            mo.None[string](),
-			ReasoningChoice: mo.None[domainui.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-		{
-			Kind:            domainui.CommandSelectReasoningChoice,
-			ReasoningChoice: mo.Some(domainui.ReasoningChoiceXHigh),
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     domainui.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](), EntryLabel: mo.None[string](),
-		},
-	} {
-		command, receiveErr := transport.Receive()
-		require.NoError(t, receiveErr)
-		assert.Equal(t, expected, command)
-	}
+}
+
+// TestMapExtensionRuntimeFailureUsesConnectionCategory verifies idle extension failure semantics.
+func TestMapExtensionRuntimeFailureUsesConnectionCategory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one classified idle extension-process failure.
+	frame := domainui.NewFrame(domainui.FrameError)
+	frame.Text = mo.Some("extension tools unavailable: process exited")
+	frame.ErrorCode = mo.Some("EXTENSION_UNAVAILABLE")
+
+	// Act through the Host UI transport mapper.
+	mapped, err := mapFrame(frame)
+
+	// Assert the connection event has no operation identifier and preserves category and text.
+	require.NoError(t, err)
+	assert.Empty(t, mapped.GetOperationId())
+	assert.Equal(t, "EXTENSION_UNAVAILABLE", mapped.GetConnectionEvent().GetError().GetCode())
+	assert.Equal(t, frame.Text.OrEmpty(), mapped.GetConnectionEvent().GetError().GetText())
 }
 
 // TestRestoredSessionImageDataPresence verifies restored image presence and ownership after UI serialization.
@@ -161,6 +85,7 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 	for _, test := range tests {
 		t.Run("user "+test.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange a restored user image with the case-specific optional byte payload.
 			inputData := test.data
 			if data, present := test.data.Get(); present {
 				inputData = mo.Some(bytes.Clone(data))
@@ -187,11 +112,11 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 			}
 			payload, err := proto.Marshal(mapped[0])
 			require.NoError(t, err)
-			roundTripped := new(uipb.SessionEntry)
+			roundTripped := new(uiv1.SessionEntry)
 			require.NoError(t, proto.Unmarshal(payload, roundTripped))
 			require.Len(t, roundTripped.GetUser().GetContent(), 1)
 			content := roundTripped.GetUser().GetContent()[0]
-			assert.Equal(t, uipb.UserContent_Image_case, content.WhichContent())
+			assert.Equal(t, uiv1.UserContent_Image_case, content.WhichContent())
 			require.NotNil(t, content.GetImage())
 			assert.True(t, content.GetImage().HasData())
 			assert.Equal(t, test.expectData, content.GetImage().GetData())
@@ -199,6 +124,7 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 
 		t.Run("tool result "+test.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange a restored tool result with the case-specific optional image bytes.
 			inputData := test.data
 			if data, present := test.data.Get(); present {
 				inputData = mo.Some(bytes.Clone(data))
@@ -231,11 +157,11 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 			}
 			payload, err := proto.Marshal(mapped[0])
 			require.NoError(t, err)
-			roundTripped := new(uipb.SessionEntry)
+			roundTripped := new(uiv1.SessionEntry)
 			require.NoError(t, proto.Unmarshal(payload, roundTripped))
 			require.Len(t, roundTripped.GetToolResult().GetContents(), 1)
 			content := roundTripped.GetToolResult().GetContents()[0]
-			assert.Equal(t, uipb.ToolResultContent_Image_case, content.WhichContent())
+			assert.Equal(t, uiv1.ToolResultContent_Image_case, content.WhichContent())
 			require.NotNil(t, content.GetImage())
 			assert.True(t, content.GetImage().HasData())
 			assert.Equal(t, test.expectData, content.GetImage().GetData())
@@ -272,7 +198,7 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 	// Assert the oneof and complete summary payload survive mapping.
 	require.NoError(t, err)
 	require.Len(t, mapped, 1)
-	require.Equal(t, uipb.SessionEntry_BranchSummary_case, mapped[0].WhichEntry())
+	require.Equal(t, uiv1.SessionEntry_BranchSummary_case, mapped[0].WhichEntry())
 	require.Equal(t, summary.Summary, mapped[0].GetBranchSummary().GetSummary())
 	require.Equal(t, summary.FirstEntryID, mapped[0].GetBranchSummary().GetFirstEntryId())
 	require.Equal(t, summary.LastEntryID, mapped[0].GetBranchSummary().GetLastEntryId())

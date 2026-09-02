@@ -19,10 +19,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
+	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
 	testsupporttui "github.com/n-r-w/glyph/internal/testsupport/tui"
 )
 
@@ -250,12 +252,17 @@ func TestStandardTUIHostRuntimePersistenceFailuresInner(t *testing.T) {
 		),
 		LogFile: filepath.Join(dataDirectory, "logs", "glyph.log"),
 	}
-	transport := &uiRuntimeFailureTransport{
-		dataDirectory: dataDirectory,
-		effectPath:    os.Getenv(appUIRuntimeEffectEnvironment),
-		releasePath:   os.Getenv(appUIRuntimeReleaseEnvironment),
-		requestCount:  atomic.Int32{},
-	}
+	controller := gomock.NewController(t)
+	transport := codex.NewMockHTTPRoundTripper(controller)
+	requestCount := atomic.Int32{}
+	transport.EXPECT().RoundTrip(gomock.Any()).Times(3).DoAndReturn(func(*http.Request) (*http.Response, error) {
+		return runtimeFailureRoundTrip(
+			dataDirectory,
+			os.Getenv(appUIRuntimeEffectEnvironment),
+			os.Getenv(appUIRuntimeReleaseEnvironment),
+			&requestCount,
+		)
+	})
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = transport
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
@@ -275,7 +282,7 @@ func TestStandardTUIHostRuntimePersistenceFailuresInner(t *testing.T) {
 
 	// Assert only the three approved provider requests occurred and no dependent request followed tool-result failure.
 	require.NoError(t, runErr)
-	assert.Equal(t, int32(3), transport.requestCount.Load())
+	assert.Equal(t, int32(3), requestCount.Load())
 }
 
 func runtimeTUIClearInput(t *testing.T, input io.Writer, value string) {

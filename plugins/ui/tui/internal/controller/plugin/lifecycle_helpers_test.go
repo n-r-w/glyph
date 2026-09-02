@@ -18,11 +18,11 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-func roundTripLifecycle(t *testing.T, lifecycle *uiv1.LifecycleEvent) *uiv1.LifecycleEvent {
+func roundTripLifecycle(t *testing.T, lifecycle *uiv1.AgentEvent) *uiv1.AgentEvent {
 	t.Helper()
 	data, err := proto.Marshal(lifecycle)
 	require.NoError(t, err)
-	decoded := new(uiv1.LifecycleEvent)
+	decoded := new(uiv1.AgentEvent)
 	require.NoError(t, proto.Unmarshal(data, decoded))
 	return decoded
 }
@@ -33,7 +33,7 @@ func modelContentLifecycle(
 	outer uiv1.LifecycleType,
 	nested uiv1.ModelContentType,
 	kind uiv1.ModelContentKind,
-) *uiv1.LifecycleEvent {
+) *uiv1.AgentEvent {
 	var text *string
 	if outer == uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA {
 		text = new("")
@@ -47,7 +47,7 @@ func modelContentLifecycleWithText(
 	nested uiv1.ModelContentType,
 	kind uiv1.ModelContentKind,
 	text string,
-) *uiv1.LifecycleEvent {
+) *uiv1.AgentEvent {
 	return buildModelContentLifecycle(outer, nested, kind, new(text))
 }
 
@@ -57,8 +57,8 @@ func buildModelContentLifecycle(
 	nested uiv1.ModelContentType,
 	kind uiv1.ModelContentKind,
 	text *string,
-) *uiv1.LifecycleEvent {
-	return uiv1.LifecycleEvent_builder{
+) *uiv1.AgentEvent {
+	return uiv1.AgentEvent_builder{
 		Type:            new(outer),
 		RunId:           new("run"),
 		Text:            nil,
@@ -71,7 +71,7 @@ func buildModelContentLifecycle(
 		Availability:    nil,
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(nested),
-			Position: new(int32(0)),
+			Position: new(int64(0)),
 			Kind:     new(kind),
 			Text:     text,
 		}.Build(),
@@ -82,9 +82,9 @@ func buildModelContentLifecycle(
 	}.Build()
 }
 
-func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *uiv1.LifecycleEvent {
+func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *uiv1.AgentEvent {
 	t.Helper()
-	return roundTripLifecycle(t, uiv1.LifecycleEvent_builder{
+	return roundTripLifecycle(t, uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END), RunId: new("run"), Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil,
@@ -96,94 +96,56 @@ func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *ui
 	}.Build())
 }
 
-// TestMapSafeAuthenticationErrorEnablesManualRetry verifies retry state comes only from safe Host errors.
-func TestMapSafeAuthenticationErrorEnablesManualRetry(t *testing.T) {
+// TestMapAuthenticationFailureConnectionEventsPreservesTextAndAvailability verifies retained authentication rendering.
+func TestMapAuthenticationFailureConnectionEventsPreservesTextAndAvailability(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a safe authentication error that permits manual retry.
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
-	request := uiv1.OpenRequest_builder{
-		Error: uiv1.Error_builder{
-			Text:                new("Authentication failed."),
-			RetryAuthentication: new(true),
-		}.Build(),
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
+	// Arrange the classified error and availability events emitted by Host.
+	errorPayload := uiv1.Error_builder{Code: new("AUTHENTICATION_FAILED"), Text: new("Authentication failed.")}.Build()
+	errorEvent := new(uiv1.HostConnectionEvent)
+	errorEvent.SetError(errorPayload)
+	availabilityEvent := new(uiv1.HostConnectionEvent)
+	availabilityEvent.SetAvailabilityChanged(uiv1.AvailabilityChanged_builder{
+		Availability: new(uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED),
+	}.Build())
 
-		// Act by mapping the authentication error request.
-		SessionCloned: nil,
-		EntryLabelSet: nil,
-	}.Build()
-
-	event, err := mapRequest(request)
-
-	// Assert the event exposes retry availability and only the safe message.
+	// Act through connection-event mapping.
+	mappedError, err := mapConnectionEvent(errorEvent)
 	require.NoError(t, err)
-	assert.Equal(t, presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventError,
-		Text:                 mo.Some("Authentication failed."),
-		Availability:         mo.Some(presentationdomain.AvailabilityAuthenticationFailed),
-		Startup:              nil,
-		Extensions:           nil,
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-	}, event)
+	mappedAvailability, err := mapConnectionEvent(availabilityEvent)
+	require.NoError(t, err)
+
+	// Assert complete error text and authentication-failed availability remain visible.
+	assert.Equal(t, presentationdomain.EventError, mappedError.Kind)
+	assert.Equal(t, mo.Some("Authentication failed."), mappedError.Text)
+	assert.Equal(t, presentationdomain.EventAvailability, mappedAvailability.Kind)
+	assert.Equal(t, mo.Some(presentationdomain.AvailabilityAuthenticationFailed), mappedAvailability.Availability)
 }
 
 // initializationRequest builds the first valid Host frame used by stream tests.
 func initializationRequest() *uiv1.OpenRequest {
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Initialization field.
-	return uiv1.OpenRequest_builder{
-		Initialization: uiv1.Initialization_builder{
-			StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
-				Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION),
-				Text:     new("ready"),
-			}.Build()},
-			Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
-				PluginId: new("tools"),
-				Tools:    []string{"read"},
-				Path:     new(""),
-			}.Build()},
-			Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
-			Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
-				ProviderId: new("openai-codex"),
-				ModelId:    new("gpt"),
-				Reasoning:  testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-			}.Build()},
-			ModelSelection: uiv1.ModelSelection_builder{
-				ProviderId:      new("openai-codex"),
-				ModelId:         new("gpt"),
-				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
-			}.Build(),
-			SelectedUiId: new("glyph-tui"),
-			SessionInfo:  testSessionInfo(),
+	initialization := uiv1.Initialization_builder{
+		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
+			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION), Text: new("ready"),
+		}.Build()},
+		Extensions: []*uiv1.ExtensionAvailability{uiv1.ExtensionAvailability_builder{
+			PluginId: new("tools"), Tools: []string{"read"}, Path: new(""),
+		}.Build()},
+		Availability: new(uiv1.Availability_AVAILABILITY_IDLE),
+		Models: []*uiv1.ConfiguredModel{uiv1.ConfiguredModel_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			Reasoning: testUIReasoning(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+		}.Build()},
+		ModelSelection: uiv1.ModelSelection_builder{
+			ProviderId: new("openai-codex"), ModelId: new("gpt"),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
-		SessionList:        nil,
-		SessionChanged:     nil,
-		SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil,
-		SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
+		SelectedUiId: new("glyph-tui"), SessionInfo: testSessionInfo(),
+	}.Build()
+	request := new(uiv1.HostRequest)
+	request.SetInitialize(initialization)
+	return uiv1.OpenRequest_builder{
+		OperationId: new("initialize"), Request: request, Event: nil, ConnectionEvent: nil, Close: nil,
 	}.Build()
 }
 

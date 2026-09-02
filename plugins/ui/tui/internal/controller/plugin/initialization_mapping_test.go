@@ -60,11 +60,14 @@ func TestMapInitializationRequiresScalarPresence(t *testing.T) {
 	for name, clear := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange request and initialization for mapInitialization to verify initialization keeps its handwritten required fields.
 
 			request := proto.Clone(initializationRequest()).(*uiv1.OpenRequest)
-			initialization := request.GetInitialization()
+			initialization := request.GetRequest().GetInitialize()
 			clear(initialization)
+			// Act by invoking mapInitialization to exercise initialization keeps its handwritten required fields.
 			_, err := mapInitialization(initialization)
+			// Assert initialization keeps its handwritten required fields.
 			require.Error(t, err)
 		})
 	}
@@ -73,8 +76,11 @@ func TestMapInitializationRequiresScalarPresence(t *testing.T) {
 // TestMapInitializationPreservesPresentZeroScalars verifies valid zero values stay concrete.
 func TestMapInitializationPreservesPresentZeroScalars(t *testing.T) {
 	t.Parallel()
+	// Arrange initialization payloads with present zero-valued scalar fields.
+	// Act by passing each payload to mapInitialization.
+	// Assert each present zero value remains concrete after mapping.
 
-	initialization := proto.Clone(initializationRequest().GetInitialization()).(*uiv1.Initialization)
+	initialization := proto.Clone(initializationRequest().GetRequest().GetInitialize()).(*uiv1.Initialization)
 	initialization.SetSelectedUiId("")
 	initialization.GetStartupContent()[0].SetText("")
 	initialization.GetExtensions()[0].SetPluginId("")
@@ -96,6 +102,7 @@ func TestMapInitializationPreservesPresentZeroScalars(t *testing.T) {
 // TestReasoningMappingsCoverEveryValue verifies public and presentation enums stay exact.
 func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 	t.Parallel()
+	// Arrange values for the reasoning choice mappers to verify public and presentation enums stay exact.
 
 	values := []struct {
 		public       uiv1.ReasoningChoice
@@ -110,7 +117,9 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 		{uiv1.ReasoningChoice_REASONING_CHOICE_MAX, presentationdomain.ReasoningChoiceMax},
 	}
 	for _, value := range values {
+		// Act by invoking the reasoning choice mappers to exercise public and presentation enums stay exact.
 		mapped, err := mapReasoningChoice(value.public)
+		// Assert public and presentation enums stay exact.
 		require.NoError(t, err)
 		assert.Equal(t, value.presentation, mapped)
 		assert.Equal(t, value.public, mapReasoningChoiceToProto(value.presentation))

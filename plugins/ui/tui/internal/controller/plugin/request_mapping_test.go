@@ -13,205 +13,62 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-// TestMapRequestRequiresTextFrameScalarPresence verifies selected Host frame scalars cannot be omitted.
-func TestMapRequestRequiresTextFrameScalarPresence(t *testing.T) {
+// TestOperationMappersRequireSelectedPayloadPresence verifies required retained scalar presence.
+func TestOperationMappersRequireSelectedPayloadPresence(t *testing.T) {
 	t.Parallel()
+	// Arrange authorization for the operation payload mappers to verify required retained scalar presence.
 
-	tests := map[string]*uiv1.OpenRequest{
-		"authorization URL": uiv1.OpenRequest_builder{
-			Initialization:        nil,
-			Lifecycle:             nil,
-			Authorization:         uiv1.AuthorizationRequest_builder{Url: nil}.Build(),
-			Information:           nil,
-			Error:                 nil,
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-		"information text": uiv1.OpenRequest_builder{
-			Initialization:        nil,
-			Lifecycle:             nil,
-			Authorization:         nil,
-			Information:           uiv1.Information_builder{Text: nil}.Build(),
-			Error:                 nil,
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-		"error text": uiv1.OpenRequest_builder{
-			Initialization: nil,
-			Lifecycle:      nil,
-			Authorization:  nil,
-			Information:    nil,
-			Error: uiv1.Error_builder{
-				Text:                nil,
-				RetryAuthentication: new(false),
-			}.Build(),
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-		"error retry authentication": uiv1.OpenRequest_builder{
-			Initialization: nil,
-			Lifecycle:      nil,
-			Authorization:  nil,
-			Information:    nil,
-			Error: uiv1.Error_builder{
-				Text:                new("error"),
-				RetryAuthentication: nil,
-			}.Build(),
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-	}
+	authorization := new(uiv1.HostProgress)
+	authorization.SetAuthorization(new(uiv1.AuthorizationRequest))
+	// Act by invoking the operation payload mappers to exercise required retained scalar presence.
+	_, authorizationErr := mapHostProgress(authorization)
+	// Assert required retained scalar presence.
+	require.Error(t, authorizationErr)
 
-	for name, request := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+	connection := new(uiv1.HostConnectionEvent)
+	connection.SetInformation(new(uiv1.Information))
+	_, informationErr := mapConnectionEvent(connection)
+	require.Error(t, informationErr)
 
-			_, err := mapRequest(request)
-			require.Error(t, err)
-		})
-	}
+	connectionError := new(uiv1.HostConnectionEvent)
+	connectionError.SetError(new(uiv1.Error))
+	_, errorErr := mapConnectionEvent(connectionError)
+	require.Error(t, errorErr)
 }
 
-// TestMapRequestPreservesPresentFalseRetryAuthentication verifies false is not treated as absence.
-func TestMapRequestPreservesPresentFalseRetryAuthentication(t *testing.T) {
+// TestOperationMappersPreservePresentEmptyText verifies empty present text remains distinct from absence.
+func TestOperationMappersPreservePresentEmptyText(t *testing.T) {
 	t.Parallel()
+	// Arrange information for mapConnectionEvent to verify empty present text remains distinct from absence.
 
-	event, err := mapRequest(uiv1.OpenRequest_builder{
-		Initialization: nil,
-		Lifecycle:      nil,
-		Authorization:  nil,
-		Information:    nil,
-		Error: uiv1.Error_builder{
-			Text:                new(""),
-			RetryAuthentication: new(false),
-		}.Build(),
-		ModelSelectionChanged: nil,
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil,
-		SessionTree:           nil,
-		SessionTreeNavigation: nil,
-		SessionTreeFailed:     nil,
-		SessionForked:         nil,
-		SessionCloned:         nil,
-		EntryLabelSet:         nil,
-	}.Build())
+	information := new(uiv1.HostConnectionEvent)
+	information.SetInformation(uiv1.Information_builder{Text: new("")}.Build())
+	// Act by invoking mapConnectionEvent to exercise empty present text remains distinct from absence.
+	informationEvent, err := mapConnectionEvent(information)
+	// Assert empty present text remains distinct from absence.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some(""), event.Text)
-	assert.True(t, event.Availability.IsNone())
+	assert.Equal(t, mo.Some(""), informationEvent.Text)
+
+	connectionError := new(uiv1.HostConnectionEvent)
+	connectionError.SetError(uiv1.Error_builder{Code: new("INTERNAL"), Text: new("")}.Build())
+	_, err = mapConnectionEvent(connectionError)
+	require.EqualError(t, err, "connection error category and text are required")
 }
 
-// TestMapRequestPreservesPresentEmptyText verifies empty text stays active for text frames.
-func TestMapRequestPreservesPresentEmptyText(t *testing.T) {
-	t.Parallel()
-
-	for name, request := range map[string]*uiv1.OpenRequest{
-		"authorization": uiv1.OpenRequest_builder{
-			Initialization:        nil,
-			Lifecycle:             nil,
-			Authorization:         uiv1.AuthorizationRequest_builder{Url: new("")}.Build(),
-			Information:           nil,
-			Error:                 nil,
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-		"information": uiv1.OpenRequest_builder{
-			Initialization:        nil,
-			Lifecycle:             nil,
-			Authorization:         nil,
-			Information:           uiv1.Information_builder{Text: new("")}.Build(),
-			Error:                 nil,
-			ModelSelectionChanged: nil,
-			SessionList:           nil,
-			SessionChanged:        nil,
-			SessionInformation:    nil,
-			SessionTree:           nil,
-			SessionTreeNavigation: nil,
-			SessionTreeFailed:     nil,
-			SessionForked:         nil,
-			SessionCloned:         nil,
-			EntryLabelSet:         nil,
-		}.Build(),
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			event, err := mapRequest(request)
-			require.NoError(t, err)
-			assert.Equal(t, mo.Some(""), event.Text)
-		})
-	}
-}
-
-// TestMapCommandRejectsMissingSelectedPayload verifies malformed presentation commands do not emit zero payloads.
+// TestMapCommandRejectsMissingSelectedPayload verifies command option ownership remains strict.
 func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
+	// Arrange tests for mapCommand to verify command option ownership remains strict.
 
-	response, err := mapCommand(presentationdomain.Command{
-		Kind:            presentationdomain.CommandSubmit,
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
-	})
-
-	require.Error(t, err)
-	assert.Nil(t, response)
-
-	response, err = mapCommand(presentationdomain.Command{
-		Kind:            presentationdomain.CommandSubmit,
-		Text:            mo.Some(""),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[presentationdomain.TreeCommand](),
-	})
-	require.NoError(t, err)
-	assert.True(t, response.GetSubmit().HasText())
-	assert.Empty(t, response.GetSubmit().GetText())
+	tests := []presentationdomain.Command{
+		commandFixture(presentationdomain.CommandSubmit, mo.None[string]()),
+		commandFixture(presentationdomain.CommandResumeSession, mo.None[string]()),
+		commandFixture(presentationdomain.CommandSetSessionName, mo.None[string]()),
+	}
+	for _, command := range tests {
+		// Act by invoking mapCommand to exercise command option ownership remains strict.
+		_, err := mapCommand(command)
+		// Assert command option ownership remains strict.
+		require.Error(t, err)
+	}
 }

@@ -25,6 +25,7 @@ func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 	for _, outcome := range []string{"aborted", "failed"} {
 		t.Run(outcome, func(t *testing.T) {
 			t.Parallel()
+			// Arrange one restored model response with the selected terminal failure outcome.
 			errorMessage := "safe terminal failure"
 			entry := new(uiv1.SessionEntry)
 			entry.SetId("model-entry")
@@ -60,8 +61,8 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	callID := "call-1"
 	toolName := "read"
 	toolResultText := "tool-result"
-	//nolint:exhaustruct_v5 // OpenRequest_builder sets only the active SessionChanged field.
-	request := uiv1.OpenRequest_builder{
+	//nolint:exhaustruct_v5 // HostCompleted_builder sets only the active SessionChanged field.
+	request := uiv1.HostCompleted_builder{
 		SessionChanged: uiv1.SessionChanged_builder{
 			Info: uiv1.SessionInfo_builder{
 				Id: &id, Name: nil, WorkingDirectory: &workingDirectory, StoragePath: nil,
@@ -92,7 +93,7 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 							uiv1.ModelResponseContent_builder{
 								Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: nil,
 								ToolCall: uiv1.FinalToolCall_builder{
-									CallId: &callID, Name: &toolName, Position: new(int32(1)),
+									CallId: &callID, Name: &toolName, Position: new(int64(1)),
 									Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{
 										"path": structpb.NewStringValue("input.txt"),
 									}},
@@ -112,13 +113,13 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 					}.Build(),
 				}.Build(),
 			},
-		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionTreeFailed: nil, SessionForked: nil,
+		}.Build(), SessionTree: nil, SessionTreeNavigation: nil, SessionForked: nil,
 
 		// Act by mapping the restored session request.
 		SessionCloned: nil, EntryLabelSet: nil,
 	}.Build()
 
-	event, err := mapRequest(request)
+	event, _, err := mapSessionRequest(request)
 	// Assert the event preserves transcript order and public content.
 	require.NoError(t, err)
 	require.Empty(t, event.Startup)
@@ -208,19 +209,20 @@ func TestSessionChangedAcceptsStoredToolResultContentStates(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange a SessionChanged payload with the case-specific tool result contents.
 			contents, source := test.contents()
 			result := uiv1.ToolResult_builder{
 				CallId: new("call"), ToolName: new("render"), Contents: contents, IsError: new(false),
 			}.Build()
 			entry := new(uiv1.SessionEntry)
 			entry.SetToolResult(result)
-			request := new(uiv1.OpenRequest)
+			request := new(uiv1.HostCompleted)
 			request.SetSessionChanged(uiv1.SessionChanged_builder{
 				Info: testSessionInfo(), Entries: []*uiv1.SessionEntry{entry},
 			}.Build())
 
 			// Act by mapping a complete SessionChanged request.
-			event, err := mapRequest(request)
+			event, _, err := mapSessionRequest(request)
 
 			// Assert exact slice, option, byte ownership, and rendered text state.
 			require.NoError(t, err)

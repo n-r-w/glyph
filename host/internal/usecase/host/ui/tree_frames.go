@@ -59,22 +59,14 @@ func canceledNavigationFrame(issues []domainui.OperationIssue) domainui.Frame {
 	return frame
 }
 
-// treeFailureFrame reports one closed navigation failure.
-func treeFailureFrame(code domainui.TreeFailureCode, message string) domainui.Frame {
-	frame := emptyTreeFrame(domainui.FrameSessionTreeFailed)
-	frame.TreeFailure = mo.Some(domainui.TreeFailure{Code: code, Message: message})
-	return frame
-}
-
 // emptyTreeFrame initializes absent fields for one tree result frame.
 func emptyTreeFrame(kind domainui.FrameKind) domainui.Frame {
 	return domainui.Frame{
 		Kind: kind, Initialization: mo.None[domainui.Initialization](), Lifecycle: mo.None[domainui.Lifecycle](),
-		AuthorizationURL: mo.None[string](), Text: mo.None[string](), RetryAuthentication: mo.None[bool](),
+		AuthorizationURL: mo.None[string](), Text: mo.None[string](), ErrorCode: mo.None[string](),
 		ModelSelection: mo.None[domainui.ModelSelection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](),
 		SessionTree: mo.None[domainui.SessionTree](), TreeNavigation: mo.None[domainui.TreeNavigationResult](),
-		TreeFailure: mo.None[domainui.TreeFailure](),
 	}
 }
 

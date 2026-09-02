@@ -14,66 +14,64 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // mapLifecycleType converts Host lifecycle identity to the public contract.
 //
 //nolint:gocyclo // The flat switch maps the complete lifecycle enum.
-func mapLifecycleType(value domainui.LifecycleType) uipb.LifecycleType {
+func mapLifecycleType(value domainui.LifecycleType) uiv1.LifecycleType {
 	switch value {
 	case domainui.LifecycleAgentStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START
 	case domainui.LifecycleTurnStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TURN_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START
 	case domainui.LifecycleMessageStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START
 	case domainui.LifecycleModelContentStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START
 	case domainui.LifecycleModelTextDelta:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA
 	case domainui.LifecycleModelContentEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END
 	case domainui.LifecycleToolCallStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START
 	case domainui.LifecycleToolCallDelta:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA
 	case domainui.LifecycleToolCallEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END
 	case domainui.LifecycleMessageEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
 	case domainui.LifecycleToolExecutionStart:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START
 	case domainui.LifecycleToolExecutionUpdate:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE
 	case domainui.LifecycleToolExecutionEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
 	case domainui.LifecycleToolResult:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
 	case domainui.LifecycleTurnEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_TURN_END
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END
 	case domainui.LifecycleAgentEnd:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_END
-	case domainui.LifecycleAgentSettled:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_AGENT_SETTLED
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END
 	case domainui.LifecycleAvailabilityChanged:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_AVAILABILITY_CHANGED
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	default:
-		return uipb.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	}
 }
 
 // mapToolResultContents copies ordered domain blocks into the public UI contract.
-func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultContent {
-	return lo.FilterMap(contents, func(content tool.ResultContent, _ int) (*uipb.ToolResultContent, bool) {
+func mapToolResultContents(contents []tool.ResultContent) []*uiv1.ToolResultContent {
+	return lo.FilterMap(contents, func(content tool.ResultContent, _ int) (*uiv1.ToolResultContent, bool) {
 		switch content.Kind {
 		case tool.ResultContentText:
 			text, present := content.Text.Get()
 			if !present {
 				return nil, false
 			}
-			//nolint:exhaustruct_v5 // uipb.ToolResultContent_builder sets only the active Text field.
-			return uipb.ToolResultContent_builder{
+			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
+			return uiv1.ToolResultContent_builder{
 				Text: &text,
 			}.Build(), true
 		case tool.ResultContentImage:
@@ -81,13 +79,13 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 			if !present {
 				return nil, false
 			}
-			mappedImage := uipb.ToolResultImage_builder{
+			mappedImage := uiv1.ToolResultImage_builder{
 				MediaType: &image.MediaType,
 				Data:      nil,
 			}.Build()
 			mappedImage.SetData(bytes.Clone(image.Data))
-			//nolint:exhaustruct_v5 // uipb.ToolResultContent_builder sets only the active Image field.
-			return uipb.ToolResultContent_builder{
+			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Image field.
+			return uiv1.ToolResultContent_builder{
 				Image: mappedImage,
 			}.Build(), true
 		}
@@ -95,10 +93,10 @@ func mapToolResultContents(contents []tool.ResultContent) []*uipb.ToolResultCont
 	})
 }
 
-func mapToolCallPreview(preview domainui.ToolCallPreview) (*uipb.ToolCallPreview, error) {
-	fields := make([]*uipb.ToolCallPreviewField, 0, len(preview.Fields))
+func mapToolCallPreview(preview domainui.ToolCallPreview) (*uiv1.ToolCallPreview, error) {
+	fields := make([]*uiv1.ToolCallPreviewField, 0, len(preview.Fields))
 	for _, field := range preview.Fields {
-		mapped := uipb.ToolCallPreviewField_builder{
+		mapped := uiv1.ToolCallPreviewField_builder{
 			Name:   new(field.Name),
 			Value:  nil,
 			Prefix: nil,
@@ -122,32 +120,32 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) (*uipb.ToolCallPreview
 		}
 		fields = append(fields, mapped)
 	}
-	return uipb.ToolCallPreview_builder{
+	return uiv1.ToolCallPreview_builder{
 		CallId:      new(preview.CallID),
 		Name:        new(preview.Name),
-		Position:    new(int32(preview.Position)), //nolint:gosec // Positions are bounded by response size.
+		Position:    new(int64(preview.Position)),
 		Provisional: new(preview.Provisional),
 		Fields:      fields,
 	}.Build(), nil
 }
 
-func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, error) {
+func mapModelResponse(response domainui.ModelResponse) (*uiv1.ModelResponse, error) {
 	content, err := lo.MapErr(
 		response.Content,
-		func(item domainui.ModelResponseContent, _ int) (*uipb.ModelResponseContent, error) {
-			var call *uipb.FinalToolCall
+		func(item domainui.ModelResponseContent, _ int) (*uiv1.ModelResponseContent, error) {
+			var call *uiv1.FinalToolCall
 			if value, present := item.ToolCall.Get(); present {
 				arguments, mapErr := structpb.NewStruct(value.Arguments)
 				if mapErr != nil {
 					return nil, fmt.Errorf("map restored tool call arguments: %w", mapErr)
 				}
-				position := int32(value.Position) //nolint:gosec // Response content bounds the position.
-				call = uipb.FinalToolCall_builder{
+				position := int64(value.Position)
+				call = uiv1.FinalToolCall_builder{
 					CallId: new(value.CallID), Name: new(value.Name),
 					Position: new(position), Arguments: arguments,
 				}.Build()
 			}
-			return uipb.ModelResponseContent_builder{
+			return uiv1.ModelResponseContent_builder{
 				Kind: new(mapModelContentKind(item.Kind)), Text: new(item.Text), ToolCall: call,
 			}.Build(), nil
 		},
@@ -155,8 +153,8 @@ func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, err
 	if err != nil {
 		return nil, err
 	}
-	diagnostics := lo.Map(response.Diagnostics, func(diagnostic domainui.ModelDiagnostic, _ int) *uipb.ModelDiagnostic {
-		return uipb.ModelDiagnostic_builder{
+	diagnostics := lo.Map(response.Diagnostics, func(diagnostic domainui.ModelDiagnostic, _ int) *uiv1.ModelDiagnostic {
+		return uiv1.ModelDiagnostic_builder{
 			Code:    new(diagnostic.Code),
 			Message: new(diagnostic.Message),
 		}.Build()
@@ -185,9 +183,9 @@ func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, err
 	if value, present := response.ResponseID.Get(); present {
 		responseID = new(value)
 	}
-	var usage *uipb.ModelUsage
+	var usage *uiv1.ModelUsage
 	if value, present := response.Usage.Get(); present {
-		usage = uipb.ModelUsage_builder{
+		usage = uiv1.ModelUsage_builder{
 			InputTokens:       new(value.InputTokens),
 			OutputTokens:      new(value.OutputTokens),
 			CachedInputTokens: new(value.CachedInputTokens),
@@ -196,7 +194,7 @@ func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, err
 			TotalTokens:       new(value.TotalTokens),
 		}.Build()
 	}
-	return uipb.ModelResponse_builder{
+	return uiv1.ModelResponse_builder{
 		Text:          new(response.Text),
 		Outcome:       outcome,
 		ErrorMessage:  errorMessage,
@@ -210,33 +208,33 @@ func mapModelResponse(response domainui.ModelResponse) (*uipb.ModelResponse, err
 	}.Build(), nil
 }
 
-func mapModelContentKind(value domainui.ModelContentKind) uipb.ModelContentKind {
+func mapModelContentKind(value domainui.ModelContentKind) uiv1.ModelContentKind {
 	switch value {
 	case domainui.ModelContentKindText:
-		return uipb.ModelContentKind_MODEL_CONTENT_KIND_TEXT
+		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT
 	case domainui.ModelContentKindRefusal:
-		return uipb.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL
+		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL
 	case domainui.ModelContentKindReasoning:
-		return uipb.ModelContentKind_MODEL_CONTENT_KIND_REASONING
+		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING
 	default:
-		return uipb.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED
+		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED
 	}
 }
 
-func mapModelContentType(value domainui.ModelContentType) uipb.ModelContentType {
+func mapModelContentType(value domainui.ModelContentType) uiv1.ModelContentType {
 	switch value {
 	case domainui.ModelContentStart:
-		return uipb.ModelContentType_MODEL_CONTENT_TYPE_START
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_START
 	case domainui.ModelContentTextDelta:
-		return uipb.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA
 	case domainui.ModelContentEnd:
-		return uipb.ModelContentType_MODEL_CONTENT_TYPE_END
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_END
 	default:
-		return uipb.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED
+		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED
 	}
 }
 
 // mapProgressChannel converts Host tool progress identity to the public contract.
-func mapProgressChannel(value domainui.ProgressChannel) uipb.ProgressChannel {
-	return uipb.ProgressChannel(value)
+func mapProgressChannel(value domainui.ProgressChannel) uiv1.ProgressChannel {
+	return uiv1.ProgressChannel(value)
 }

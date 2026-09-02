@@ -9,8 +9,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
-
-	"github.com/n-r-w/glyph/host/internal/infra/terminal"
 )
 
 // Run initializes user data paths and performs one validated invocation.
@@ -35,7 +33,7 @@ func runWithPaths(
 	case cli.ModeRPC:
 		return runProgrammaticWithPaths(ctx, paths, command, stdout)
 	case cli.ModeUI:
-		return runUIWithPaths(ctx, paths, command, terminal.Capture, stderr)
+		return runUIWithPaths(ctx, paths, command, stderr)
 	}
 	return fmt.Errorf("unsupported Glyph application mode %d", command.Mode)
 }

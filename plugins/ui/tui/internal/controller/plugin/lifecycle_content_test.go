@@ -3,20 +3,13 @@
 package plugin
 
 import (
-	"bytes"
 	"testing"
-
-	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-
-	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
 // TestMapLifecycleRejectsInvalidModelContentDiscriminators verifies public discriminator consistency.
@@ -94,7 +87,10 @@ func TestMapLifecycleRejectsInvalidModelContentDiscriminators(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify public discriminator consistency.
+			// Act by invoking mapLifecycle to exercise public discriminator consistency.
 			_, err := mapLifecycle(modelContentLifecycle(testCase.outer, testCase.nested, testCase.kind))
+			// Assert public discriminator consistency.
 			require.ErrorContains(t, err, testCase.errorContains)
 		})
 	}
@@ -125,11 +121,14 @@ func TestMapLifecycleAcceptsMatchingModelContentDiscriminators(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify each valid discriminator pair.
+			// Act by invoking mapLifecycle to exercise each valid discriminator pair.
 			_, err := mapLifecycle(modelContentLifecycle(
 				testCase.outer,
 				testCase.nested,
 				uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
 			))
+			// Assert each valid discriminator pair.
 			require.NoError(t, err)
 		})
 	}
@@ -138,8 +137,10 @@ func TestMapLifecycleAcceptsMatchingModelContentDiscriminators(t *testing.T) {
 // TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText verifies present zero values survive mapping.
 func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapLifecycle to verify present zero values survive mapping.
 
-	event, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	// Act by invoking mapLifecycle to exercise present zero values survive mapping.
+	event, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		RunId:           new("run"),
 		Text:            nil,
@@ -152,7 +153,7 @@ func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
 		Availability:    nil,
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-			Position: new(int32(0)),
+			Position: new(int64(0)),
 			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 			Text:     new(""),
 		}.Build(),
@@ -161,6 +162,7 @@ func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
 		FinalToolCall:      nil,
 		ToolResultContents: nil,
 	}.Build())
+	// Assert present zero values survive mapping.
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(0), event.Position)
 	assert.Equal(t, mo.Some(""), event.Text)
@@ -176,7 +178,8 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 	} {
 		t.Run(lifecycleType.String(), func(t *testing.T) {
 			t.Parallel()
-			build := func(isError *bool) *uiv1.LifecycleEvent {
+			// Arrange build and contents for mapLifecycle to verify absent false differs from present false on the wire.
+			build := func(isError *bool) *uiv1.AgentEvent {
 				contents := []*uiv1.ToolResultContent(nil)
 				if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT {
 					contents = []*uiv1.ToolResultContent{uiv1.ToolResultContent_builder{
@@ -184,7 +187,7 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 						Image: nil,
 					}.Build()}
 				}
-				return roundTripLifecycle(t, uiv1.LifecycleEvent_builder{
+				return roundTripLifecycle(t, uiv1.AgentEvent_builder{
 					Type: new(lifecycleType), RunId: new("run"), Text: nil,
 					ToolCallId: new("call"), ToolName: new("tool"), ProgressChannel: nil,
 					IsError: isError, Outcome: nil, ErrorMessage: nil, Availability: nil,
@@ -193,7 +196,9 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 				}.Build())
 			}
 
+			// Act by invoking mapLifecycle to exercise absent false differs from present false on the wire.
 			_, err := mapLifecycle(build(nil))
+			// Assert absent false differs from present false on the wire.
 			require.Error(t, err)
 			event, err := mapLifecycle(build(new(false)))
 			require.NoError(t, err)
@@ -241,7 +246,10 @@ func TestMapLifecycleValidatesFinalResponseContent(t *testing.T) {
 	for _, test := range invalid {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify malformed items fail and present empty text survives.
+			// Act by invoking mapLifecycle to exercise malformed items fail and present empty text survives.
 			_, err := mapLifecycle(messageEndLifecycle(t, []*uiv1.ModelResponseContent{test.item}))
+			// Assert malformed items fail and present empty text survives.
 			require.Error(t, err)
 		})
 	}
@@ -250,51 +258,6 @@ func TestMapLifecycleValidatesFinalResponseContent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, event.ModelResponseContent, 1)
 	assert.Equal(t, mo.Some(""), event.ModelResponseContent[0].Text)
-}
-
-// TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument verifies stream error ownership.
-func TestOpenRejectsConflictingModelContentDiscriminatorsAsInvalidArgument(t *testing.T) {
-	t.Parallel()
-
-	mockController := gomock.NewController(t)
-	terminal := NewMockTerminal(mockController)
-	session := NewMockTerminalSession(mockController)
-	factory := NewMockProgramFactory(mockController)
-	program := NewMockProgram(mockController)
-	runDone := make(chan struct{})
-	terminal.EXPECT().Open().Return(session, nil)
-	session.EXPECT().Input().Return(bytes.NewBuffer(nil))
-	session.EXPECT().Output().Return(&bytes.Buffer{})
-	factory.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(program)
-	program.EXPECT().Run().DoAndReturn(func() error { <-runDone; return nil })
-	program.EXPECT().Send(gomock.Any()).AnyTimes()
-	program.EXPECT().Quit().Do(func() { close(runDone) })
-	session.EXPECT().Close().Return(nil)
-
-	client := uisdk.TestClient(t, New(terminal, factory))
-	stream, err := client.Open(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, stream.Send(initializationRequest()))
-	require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-		Initialization: nil,
-		Lifecycle: modelContentLifecycle(
-			uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
-			uiv1.ModelContentType_MODEL_CONTENT_TYPE_END,
-			uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
-		),
-		Authorization:         nil,
-		Information:           nil,
-		Error:                 nil,
-		ModelSelectionChanged: nil,
-		SessionList:           nil,
-		SessionChanged:        nil,
-		SessionInformation:    nil, SessionTree: nil, SessionTreeNavigation: nil,
-		SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
-	}.Build()))
-	require.NoError(t, stream.CloseSend())
-	_, err = stream.Recv()
-	require.Error(t, err)
-	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
 // TestMapLifecycleRejectsInactiveModelContentText verifies structural variants reject nested text.
@@ -317,76 +280,17 @@ func TestMapLifecycleRejectsInactiveModelContentText(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapLifecycle to verify structural variants reject nested text.
 
+			// Act by invoking mapLifecycle to exercise structural variants reject nested text.
 			_, err := mapLifecycle(modelContentLifecycleWithText(
 				testCase.outer,
 				testCase.nested,
 				uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
 				"",
 			))
+			// Assert structural variants reject nested text.
 			require.ErrorContains(t, err, "model content text")
-		})
-	}
-}
-
-// TestOpenRejectsInactiveModelContentTextAsInvalidArgument verifies mapper errors keep gRPC ownership.
-func TestOpenRejectsInactiveModelContentTextAsInvalidArgument(t *testing.T) {
-	t.Parallel()
-
-	testCases := map[string]struct {
-		outer  uiv1.LifecycleType
-		nested uiv1.ModelContentType
-	}{
-		"content start": {
-			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
-			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_START,
-		},
-		"content end": {
-			outer:  uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
-			nested: uiv1.ModelContentType_MODEL_CONTENT_TYPE_END,
-		},
-	}
-	for name, testCase := range testCases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			mockController := gomock.NewController(t)
-			terminal := NewMockTerminal(mockController)
-			session := NewMockTerminalSession(mockController)
-			factory := NewMockProgramFactory(mockController)
-			program := NewMockProgram(mockController)
-			runDone := make(chan struct{})
-			terminal.EXPECT().Open().Return(session, nil)
-			session.EXPECT().Input().Return(bytes.NewBuffer(nil))
-			session.EXPECT().Output().Return(&bytes.Buffer{})
-			factory.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(program)
-			program.EXPECT().Run().DoAndReturn(func() error { <-runDone; return nil })
-			program.EXPECT().Send(gomock.Any()).AnyTimes()
-			program.EXPECT().Quit().Do(func() { close(runDone) })
-			session.EXPECT().Close().Return(nil)
-
-			client := uisdk.TestClient(t, New(terminal, factory))
-			stream, err := client.Open(t.Context())
-			require.NoError(t, err)
-			require.NoError(t, stream.Send(initializationRequest()))
-			require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
-				Initialization: nil,
-				Lifecycle: modelContentLifecycleWithText(
-					testCase.outer,
-					testCase.nested,
-					uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
-					"malformed",
-				),
-				Authorization: nil, Information: nil, Error: nil, ModelSelectionChanged: nil,
-				SessionList:        nil,
-				SessionChanged:     nil,
-				SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil,
-				SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
-			}.Build()))
-			require.NoError(t, stream.CloseSend())
-			_, err = stream.Recv()
-			require.Error(t, err)
-			assert.Equal(t, codes.InvalidArgument, status.Code(err))
 		})
 	}
 }

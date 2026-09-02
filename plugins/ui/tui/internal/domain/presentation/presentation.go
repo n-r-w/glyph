@@ -133,8 +133,8 @@ const (
 	EventSessionTree
 	// EventSessionTreeNavigation reports committed or canceled tree navigation.
 	EventSessionTreeNavigation
-	// EventSessionTreeFailed reports a rejected tree operation.
-	EventSessionTreeFailed
+	// EventTreeOperationFailed reports a rejected tree operation.
+	EventTreeOperationFailed
 	// EventSessionForked confirms a durable replacement-session fork.
 	EventSessionForked
 	// EventSessionCloned confirms a durable replacement-session clone.

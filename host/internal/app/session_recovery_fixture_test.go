@@ -29,7 +29,7 @@ type sessionRecoveryFixture struct {
 	interruptedPath string
 }
 
-// findSessionStoragePath resolves a test fixture from its stored header ID.
+// findSessionStoragePath resolves one durable session and its working directory.
 func findSessionStoragePath(t *testing.T, dataDirectory, id string) (string, string) {
 	t.Helper()
 	var matchedPath string

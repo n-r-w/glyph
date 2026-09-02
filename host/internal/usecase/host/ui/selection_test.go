@@ -26,7 +26,6 @@ func TestSelectorUsesExplicitSelectionWithoutFallback(t *testing.T) {
 	candidates := []domainui.Candidate{{ID: "first", Path: "/ui/first"}, {ID: "second", Path: "/ui/second"}}
 	catalog.EXPECT().Discover(gomock.Any(), directory).Return(domainui.Discovery{Candidates: candidates}, nil)
 	factory.EXPECT().Start(gomock.Any(), candidates[1]).Return(selectedRuntime, nil)
-	selectedRuntime.EXPECT().Capabilities().Return(domainui.Capabilities{ControlsTerminal: true})
 
 	// Act: select using a value that requires shared normalization.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
@@ -37,13 +36,13 @@ func TestSelectorUsesExplicitSelectionWithoutFallback(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "second", selection.ID)
 	assert.Same(t, selectedRuntime, selection.Runtime)
-	assert.True(t, selection.Capabilities.ControlsTerminal)
 	assert.Empty(t, selection.Issues)
 }
 
 // TestSelectorUsesActiveSelectionWhenExplicitIsAbsent verifies settings priority and reuse.
 func TestSelectorUsesActiveSelectionWhenExplicitIsAbsent(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and selectedRuntime for Selector.Select to verify settings priority and reuse.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -54,12 +53,13 @@ func TestSelectorUsesActiveSelectionWhenExplicitIsAbsent(t *testing.T) {
 		domainui.Discovery{Candidates: []domainui.Candidate{candidate}}, nil,
 	)
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(selectedRuntime, nil)
-	selectedRuntime.EXPECT().Capabilities().Return(domainui.Capabilities{ControlsTerminal: false})
 
+	// Act by invoking Selector.Select to exercise settings priority and reuse.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "", ActiveUI: mo.Some(" Active_UI "),
 	})
 
+	// Assert settings priority and reuse.
 	require.NoError(t, err)
 	assert.Equal(t, "active-ui", selection.ID)
 	assert.Same(t, selectedRuntime, selection.Runtime)
@@ -68,6 +68,7 @@ func TestSelectorUsesActiveSelectionWhenExplicitIsAbsent(t *testing.T) {
 // TestSelectorRejectsAbsentExplicitSelectionWithoutProbing verifies no fallback candidate starts.
 func TestSelectorRejectsAbsentExplicitSelectionWithoutProbing(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and directory for Selector.Select to verify no fallback candidate starts.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -76,10 +77,12 @@ func TestSelectorRejectsAbsentExplicitSelectionWithoutProbing(t *testing.T) {
 		Candidates: []domainui.Candidate{{ID: "other", Path: "/ui/other"}},
 	}, nil)
 
+	// Act by invoking Selector.Select to exercise no fallback candidate starts.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "missing", ActiveUI: mo.Some("other"),
 	})
 
+	// Assert no fallback candidate starts.
 	require.Error(t, err)
 	assert.Nil(t, selection.Runtime)
 	assert.ErrorContains(t, err, "is absent")
@@ -88,6 +91,7 @@ func TestSelectorRejectsAbsentExplicitSelectionWithoutProbing(t *testing.T) {
 // TestSelectorDoesNotFallbackWhenExplicitStartFails verifies a selected startup failure is terminal.
 func TestSelectorDoesNotFallbackWhenExplicitStartFails(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and directory for Selector.Select to verify a selected startup failure is terminal.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -98,10 +102,12 @@ func TestSelectorDoesNotFallbackWhenExplicitStartFails(t *testing.T) {
 		Return(domainui.Discovery{Candidates: []domainui.Candidate{candidate}}, nil)
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(nil, errors.New("startup failed"))
 
+	// Act by invoking Selector.Select to exercise a selected startup failure is terminal.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "selected", ActiveUI: mo.None[string](),
 	})
 
+	// Assert a selected startup failure is terminal.
 	require.Error(t, err)
 	assert.Nil(t, selection.Runtime)
 	assert.ErrorContains(t, err, "start selected UI")
@@ -127,7 +133,6 @@ func TestSelectorProbesEveryCandidateAndRestartsSoleCompatible(t *testing.T) {
 		probeRuntime.EXPECT().Close(),
 		factory.EXPECT().Start(gomock.Any(), second).Return(nil, errors.New("incompatible")),
 		factory.EXPECT().Start(gomock.Any(), first).Return(selectedRuntime, nil),
-		selectedRuntime.EXPECT().Capabilities().Return(domainui.Capabilities{ControlsTerminal: false}),
 	)
 
 	// Act: select without explicit or active preference.
@@ -146,6 +151,7 @@ func TestSelectorProbesEveryCandidateAndRestartsSoleCompatible(t *testing.T) {
 // TestSelectorReportsEveryExcludedCandidateWhenNoCompatible verifies automatic probe diagnostics survive failure.
 func TestSelectorReportsEveryExcludedCandidateWhenNoCompatible(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and directory for Selector.Select to verify automatic probe diagnostics survive failure.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -158,10 +164,12 @@ func TestSelectorReportsEveryExcludedCandidateWhenNoCompatible(t *testing.T) {
 	factory.EXPECT().Start(gomock.Any(), first).Return(nil, errors.New("first unavailable"))
 	factory.EXPECT().Start(gomock.Any(), second).Return(nil, errors.New("second incompatible"))
 
+	// Act by invoking Selector.Select to exercise automatic probe diagnostics survive failure.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
+	// Assert automatic probe diagnostics survive failure.
 	require.Error(t, err)
 	assert.Nil(t, selection.Runtime)
 	assert.Equal(t, []SelectionIssue{
@@ -174,6 +182,7 @@ func TestSelectorReportsEveryExcludedCandidateWhenNoCompatible(t *testing.T) {
 // TestSelectorRetainsProbeIssuesWhenSelectedRestartFails verifies diagnostics survive final startup failure.
 func TestSelectorRetainsProbeIssuesWhenSelectedRestartFails(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and probeRuntime for Selector.Select to verify diagnostics survive final startup failure.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -191,10 +200,12 @@ func TestSelectorRetainsProbeIssuesWhenSelectedRestartFails(t *testing.T) {
 		factory.EXPECT().Start(gomock.Any(), first).Return(nil, errors.New("restart failed")),
 	)
 
+	// Act by invoking Selector.Select to exercise diagnostics survive final startup failure.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
+	// Assert diagnostics survive final startup failure.
 	require.Error(t, err)
 	assert.Nil(t, selection.Runtime)
 	assert.Equal(t, []SelectionIssue{
@@ -207,6 +218,7 @@ func TestSelectorRetainsProbeIssuesWhenSelectedRestartFails(t *testing.T) {
 // TestSelectorRejectsMultipleCompatibleCandidates verifies automatic selection requires exactly one.
 func TestSelectorRejectsMultipleCompatibleCandidates(t *testing.T) {
 	t.Parallel()
+	// Arrange catalog, factory, and firstRuntime for Selector.Select to verify automatic selection requires exactly one.
 
 	catalog := NewMockCatalog(gomock.NewController(t))
 	factory := NewMockRuntimeFactory(gomock.NewController(t))
@@ -225,10 +237,12 @@ func TestSelectorRejectsMultipleCompatibleCandidates(t *testing.T) {
 		secondRuntime.EXPECT().Close(),
 	)
 
+	// Act by invoking Selector.Select to exercise automatic selection requires exactly one.
 	selection, err := NewSelector(catalog, factory).Select(t.Context(), SelectionRequest{
 		Directory: directory, ExplicitUI: "", ActiveUI: mo.None[string](),
 	})
 
+	// Assert automatic selection requires exactly one.
 	require.Error(t, err)
 	assert.Nil(t, selection.Runtime)
 	assert.ErrorContains(t, err, "multiple compatible UI plugins")

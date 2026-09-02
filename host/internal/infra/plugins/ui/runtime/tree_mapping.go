@@ -10,12 +10,12 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-// mapTreeFrame maps tree query, navigation, and failure frames.
-func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
-	request := new(uipb.OpenRequest)
+// mapTreeFrame maps tree query, navigation, and label completion frames.
+func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
+	request := new(uiv1.HostCompleted)
 	switch frame.Kind {
 	case domainui.FrameSessionTree:
 		tree, present := frame.SessionTree.Get()
@@ -26,7 +26,7 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		if err != nil {
 			return nil, true, err
 		}
-		result := new(uipb.SessionTreeResult)
+		result := new(uiv1.SessionTreeResult)
 		result.SetTree(mapped)
 		request.SetSessionTree(result)
 		return request, true, nil
@@ -39,7 +39,7 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		if err != nil {
 			return nil, true, err
 		}
-		result := new(uipb.EntryLabelSet)
+		result := new(uiv1.EntryLabelSet)
 		result.SetTree(mapped)
 		request.SetEntryLabelSet(result)
 		return request, true, nil
@@ -54,24 +54,11 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		}
 		request.SetSessionTreeNavigation(mapped)
 		return request, true, nil
-	case domainui.FrameSessionTreeFailed:
-		failure, present := frame.TreeFailure.Get()
-		if !present {
-			return nil, true, errors.New("map UI tree failure: result is required")
-		}
-		code, err := mapTreeFailureCode(failure.Code)
-		if err != nil {
-			return nil, true, err
-		}
-		mapped := new(uipb.SessionTreeFailed)
-		mapped.SetCode(code)
-		mapped.SetMessage(failure.Message)
-		request.SetSessionTreeFailed(mapped)
-		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
 		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
-		domainui.FrameSessionForked, domainui.FrameSessionCloned:
+		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameSubmitCompleted,
+		domainui.FrameAuthenticationCompleted:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -79,8 +66,8 @@ func mapTreeFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 }
 
 // mapTreeNavigation maps committed state or cancellation without speculative fields.
-func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionTreeNavigationResult, error) {
-	wire := new(uipb.SessionTreeNavigationResult)
+func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionTreeNavigationResult, error) {
+	wire := new(uiv1.SessionTreeNavigationResult)
 	switch navigation.Status {
 	case domainui.TreeNavigationStatusCommitted:
 		committed, present := navigation.Committed.Get()
@@ -95,7 +82,7 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionT
 		if err != nil {
 			return nil, fmt.Errorf("map UI tree navigation active branch: %w", err)
 		}
-		wire.SetStatus(uipb.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
+		wire.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
 		wire.SetTree(tree)
 		wire.SetActiveBranch(branch)
 		if nextInput, nextInputPresent := committed.NextInput.Get(); nextInputPresent {
@@ -105,7 +92,7 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionT
 		if navigation.Committed.IsSome() {
 			return nil, errors.New("map UI tree navigation: canceled result contains committed state")
 		}
-		wire.SetStatus(uipb.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED)
+		wire.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED)
 	case domainui.TreeNavigationStatusUnspecified:
 		return nil, errors.New("map UI tree navigation: status is unspecified")
 	default:
@@ -116,10 +103,10 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uipb.SessionT
 }
 
 // mapOperationIssues maps safe ordered navigation issues to the UI contract.
-func mapOperationIssues(issues []domainui.OperationIssue) []*uipb.OperationIssue {
-	return lo.Map(issues, func(value domainui.OperationIssue, _ int) *uipb.OperationIssue {
-		issue := new(uipb.OperationIssue)
-		issue.SetCode(uipb.OperationIssueCode(value.Code))
+func mapOperationIssues(issues []domainui.OperationIssue) []*uiv1.OperationIssue {
+	return lo.Map(issues, func(value domainui.OperationIssue, _ int) *uiv1.OperationIssue {
+		issue := new(uiv1.OperationIssue)
+		issue.SetCode(uiv1.OperationIssueCode(value.Code))
 		issue.SetExtensionId(value.ExtensionID)
 		issue.SetHandlerId(value.HandlerID)
 		issue.SetMessage(value.Message)
@@ -128,10 +115,10 @@ func mapOperationIssues(issues []domainui.OperationIssue) []*uipb.OperationIssue
 }
 
 // mapSessionTree maps every tree entry in persistence order.
-func mapSessionTree(tree domainui.SessionTree) (*uipb.SessionTree, error) {
+func mapSessionTree(tree domainui.SessionTree) (*uiv1.SessionTree, error) {
 	entries, err := lo.MapErr(
 		tree.Entries,
-		func(entry domainui.SessionTreeEntry, index int) (*uipb.SessionTreeEntry, error) {
+		func(entry domainui.SessionTreeEntry, index int) (*uiv1.SessionTreeEntry, error) {
 			mapped, mapErr := mapSessionTreeEntry(entry)
 			if mapErr != nil {
 				return nil, fmt.Errorf("map UI tree entry %d: %w", index, mapErr)
@@ -142,7 +129,7 @@ func mapSessionTree(tree domainui.SessionTree) (*uipb.SessionTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	wire := new(uipb.SessionTree)
+	wire := new(uiv1.SessionTree)
 	wire.SetEntries(entries)
 	if activeLeafID, present := tree.ActiveLeafID.Get(); present {
 		wire.SetActiveLeafId(activeLeafID)
@@ -151,8 +138,8 @@ func mapSessionTree(tree domainui.SessionTree) (*uipb.SessionTree, error) {
 }
 
 // mapSessionTreeEntry maps one closed public tree payload.
-func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uipb.SessionTreeEntry, error) {
-	wire := new(uipb.SessionTreeEntry)
+func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntry, error) {
+	wire := new(uiv1.SessionTreeEntry)
 	wire.SetId(entry.ID)
 	if parentID, present := entry.ParentID.Get(); present {
 		wire.SetParentId(parentID)
@@ -188,7 +175,7 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uipb.SessionTreeEntr
 		if !present {
 			return nil, errors.New("extension metadata is absent")
 		}
-		mapped := new(uipb.ExtensionEntry)
+		mapped := new(uiv1.ExtensionEntry)
 		mapped.SetExtensionId(extension.ExtensionID)
 		mapped.SetEntryType(extension.EntryType)
 		wire.SetExtension(mapped)
@@ -211,12 +198,12 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uipb.SessionTreeEntr
 }
 
 // mapBranchSummary maps one persisted summary and optional accounting.
-func mapBranchSummary(summary domainui.BranchSummary) (*uipb.BranchSummary, error) {
+func mapBranchSummary(summary domainui.BranchSummary) (*uiv1.BranchSummary, error) {
 	reasoning, err := mapModelReasoningChoice(summary.ReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
-	wire := new(uipb.BranchSummary)
+	wire := new(uiv1.BranchSummary)
 	wire.SetSummary(summary.Summary)
 	wire.SetFirstEntryId(summary.FirstEntryID)
 	wire.SetLastEntryId(summary.LastEntryID)
@@ -224,7 +211,7 @@ func mapBranchSummary(summary domainui.BranchSummary) (*uipb.BranchSummary, erro
 	wire.SetModelId(string(summary.Model))
 	wire.SetReasoningChoice(reasoning)
 	if usage, present := summary.Usage.Get(); present {
-		mapped := new(uipb.TokenUsage)
+		mapped := new(uiv1.TokenUsage)
 		mapped.SetInputTokens(usage.InputTokens)
 		mapped.SetOutputTokens(usage.OutputTokens)
 		mapped.SetCacheReadTokens(usage.CacheReadTokens)
@@ -240,55 +227,25 @@ func mapBranchSummary(summary domainui.BranchSummary) (*uipb.BranchSummary, erro
 }
 
 // mapModelReasoningChoice maps a stored model reasoning choice.
-func mapModelReasoningChoice(choice model.ReasoningChoice) (uipb.ReasoningChoice, error) {
+func mapModelReasoningChoice(choice model.ReasoningChoice) (uiv1.ReasoningChoice, error) {
 	switch choice {
 	case model.ReasoningChoiceOff:
-		return uipb.ReasoningChoice_REASONING_CHOICE_OFF, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_OFF, nil
 	case model.ReasoningChoiceOn:
-		return uipb.ReasoningChoice_REASONING_CHOICE_ON, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_ON, nil
 	case model.ReasoningChoiceMinimal:
-		return uipb.ReasoningChoice_REASONING_CHOICE_MINIMAL, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL, nil
 	case model.ReasoningChoiceLow:
-		return uipb.ReasoningChoice_REASONING_CHOICE_LOW, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_LOW, nil
 	case model.ReasoningChoiceMedium:
-		return uipb.ReasoningChoice_REASONING_CHOICE_MEDIUM, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM, nil
 	case model.ReasoningChoiceHigh:
-		return uipb.ReasoningChoice_REASONING_CHOICE_HIGH, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_HIGH, nil
 	case model.ReasoningChoiceXHigh:
-		return uipb.ReasoningChoice_REASONING_CHOICE_XHIGH, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH, nil
 	case model.ReasoningChoiceMax:
-		return uipb.ReasoningChoice_REASONING_CHOICE_MAX, nil
+		return uiv1.ReasoningChoice_REASONING_CHOICE_MAX, nil
 	default:
 		return 0, fmt.Errorf("unknown summary reasoning choice %q", choice)
-	}
-}
-
-// mapTreeFailureCode maps current closed UI navigation failures.
-func mapTreeFailureCode(code domainui.TreeFailureCode) (uipb.SessionTreeFailureCode, error) {
-	switch code {
-	case domainui.TreeFailureInvalidArgument:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_INVALID_ARGUMENT, nil
-	case domainui.TreeFailureNotFound:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_NOT_FOUND, nil
-	case domainui.TreeFailureBusy:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_BUSY, nil
-	case domainui.TreeFailureModelUnavailable:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_MODEL_UNAVAILABLE, nil
-	case domainui.TreeFailureCredentialUnavailable:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_CREDENTIAL_UNAVAILABLE, nil
-	case domainui.TreeFailureModelFailed:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_MODEL_FAILED, nil
-	case domainui.TreeFailureExtensionInvalidResult:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_EXTENSION_INVALID_RESULT, nil
-	case domainui.TreeFailureExtensionUnavailable:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_EXTENSION_UNAVAILABLE, nil
-	case domainui.TreeFailurePersistenceUnavailable:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_PERSISTENCE_UNAVAILABLE, nil
-	case domainui.TreeFailureInternal:
-		return uipb.SessionTreeFailureCode_SESSION_TREE_FAILURE_CODE_INTERNAL, nil
-	case domainui.TreeFailureUnspecified:
-		return 0, errors.New("tree failure code is unspecified")
-	default:
-		return 0, fmt.Errorf("unknown tree failure code %d", code)
 	}
 }

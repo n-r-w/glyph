@@ -10,5 +10,5 @@ import (
 
 // Session owns one selected UI lifecycle after its stream opens.
 type Session interface {
-	Run(ctx context.Context, initialization domainui.Initialization) error
+	RunOperations(ctx context.Context, initialization domainui.Initialization) error
 }

@@ -21,8 +21,8 @@ const (
 	treeImageSuffix = "]"
 )
 
-// mapTreeRequest maps every Host tree, replacement, label, and failure frame.
-func mapTreeRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, error) {
+// mapTreeRequest maps every Host tree, replacement, and label completion.
+func mapTreeRequest(request *uiv1.HostCompleted) (presentationdomain.Event, bool, error) {
 	switch {
 	case request.GetSessionTree() != nil:
 		tree, err := mapSessionTree(request.GetSessionTree().GetTree())
@@ -34,20 +34,6 @@ func mapTreeRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, 
 	case request.GetSessionTreeNavigation() != nil:
 		event, err := mapTreeNavigation(request.GetSessionTreeNavigation())
 		return treeEvent(presentationdomain.EventSessionTreeNavigation, event), true, err
-	case request.GetSessionTreeFailed() != nil:
-		failure := request.GetSessionTreeFailed()
-		if !failure.HasCode() || !failure.HasMessage() {
-			return presentationdomain.Event{}, true, errors.New("session tree failure is incomplete")
-		}
-		return treeEvent(presentationdomain.EventSessionTreeFailed, presentationdomain.TreeEvent{
-			Tree:               mo.None[presentationdomain.SessionTree](),
-			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
-			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
-			RestoredTranscript: nil,
-			NextInput:          mo.None[string](),
-			Issues:             nil,
-			FailureMessage:     mo.Some(failure.GetMessage()),
-		}), true, nil
 	case request.GetSessionForked() != nil:
 		mapped, err := mapReplacement(request.GetSessionForked().GetSession())
 		if err != nil {
@@ -278,7 +264,7 @@ func treeEvent(kind presentationdomain.EventKind, tree presentationdomain.TreeEv
 }
 
 // mapTreeCommand maps one presentation tree command to the public UI contract.
-func mapTreeCommand(command presentationdomain.Command) (*uiv1.OpenResponse, bool, error) {
+func mapTreeCommand(command presentationdomain.Command) (*uiv1.UIRequest, bool, error) {
 	if command.Kind < presentationdomain.CommandGetSessionTree ||
 		command.Kind > presentationdomain.CommandSetEntryLabel {
 		return nil, false, nil
@@ -290,7 +276,7 @@ func mapTreeCommand(command presentationdomain.Command) (*uiv1.OpenResponse, boo
 	switch command.Kind {
 	case presentationdomain.CommandGetSessionTree:
 		//nolint:exhaustruct_v5 // The protobuf builder sets only the active GetSessionTree field.
-		return uiv1.OpenResponse_builder{GetSessionTree: &uiv1.GetSessionTreeCommand{}}.Build(), true, nil
+		return uiv1.UIRequest_builder{GetSessionTree: &uiv1.GetSessionTreeCommand{}}.Build(), true, nil
 	case presentationdomain.CommandNavigateSessionTree:
 		response, err := mapNavigateTreeResponse(treeCommand)
 		return response, true, err
@@ -299,7 +285,7 @@ func mapTreeCommand(command presentationdomain.Command) (*uiv1.OpenResponse, boo
 		return response, true, err
 	case presentationdomain.CommandCloneSession:
 		//nolint:exhaustruct_v5 // The protobuf builder sets only the active CloneSession field.
-		return uiv1.OpenResponse_builder{CloneSession: &uiv1.CloneSessionCommand{}}.Build(), true, nil
+		return uiv1.UIRequest_builder{CloneSession: &uiv1.CloneSessionCommand{}}.Build(), true, nil
 	case presentationdomain.CommandSetEntryLabel:
 		response, err := mapEntryLabelResponse(treeCommand)
 		return response, true, err
@@ -316,7 +302,7 @@ func mapTreeCommand(command presentationdomain.Command) (*uiv1.OpenResponse, boo
 }
 
 // mapNavigateTreeResponse maps a validated navigation payload.
-func mapNavigateTreeResponse(command presentationdomain.TreeCommand) (*uiv1.OpenResponse, error) {
+func mapNavigateTreeResponse(command presentationdomain.TreeCommand) (*uiv1.UIRequest, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return nil, errors.New("UI tree navigation target is missing")
@@ -332,30 +318,30 @@ func mapNavigateTreeResponse(command presentationdomain.TreeCommand) (*uiv1.Open
 		builder.CustomFocus = new(customFocus)
 	}
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active NavigateSessionTree field.
-	return uiv1.OpenResponse_builder{NavigateSessionTree: builder.Build()}.Build(), nil
+	return uiv1.UIRequest_builder{NavigateSessionTree: builder.Build()}.Build(), nil
 }
 
 // mapForkTreeResponse maps a validated fork target.
-func mapForkTreeResponse(command presentationdomain.TreeCommand) (*uiv1.OpenResponse, error) {
+func mapForkTreeResponse(command presentationdomain.TreeCommand) (*uiv1.UIRequest, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return nil, errors.New("UI fork target is missing")
 	}
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active ForkSession field.
-	return uiv1.OpenResponse_builder{
+	return uiv1.UIRequest_builder{
 		ForkSession: uiv1.ForkSessionCommand_builder{TargetEntryId: new(targetID)}.Build(),
 	}.Build(), nil
 }
 
 // mapEntryLabelResponse maps a label set or clear payload.
-func mapEntryLabelResponse(command presentationdomain.TreeCommand) (*uiv1.OpenResponse, error) {
+func mapEntryLabelResponse(command presentationdomain.TreeCommand) (*uiv1.UIRequest, error) {
 	targetID, targetPresent := command.TargetEntryID.Get()
 	label, labelPresent := command.Label.Get()
 	if !targetPresent || targetID == "" || !labelPresent {
 		return nil, errors.New("UI entry label command is incomplete")
 	}
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active SetEntryLabel field.
-	return uiv1.OpenResponse_builder{
+	return uiv1.UIRequest_builder{
 		SetEntryLabel: uiv1.SetEntryLabelCommand_builder{TargetEntryId: new(targetID), Label: new(label)}.Build(),
 	}.Build(), nil
 }

@@ -45,8 +45,6 @@ func (i SelectionIssue) Warning() domainui.StartupContent {
 type Selection struct {
 	// ID identifies the selected UI plugin.
 	ID string
-	// Capabilities contains immutable UI startup behavior.
-	Capabilities domainui.Capabilities
 	// Runtime owns the connected UI process.
 	Runtime Runtime
 	// Issues contains automatically excluded candidates.
@@ -107,7 +105,6 @@ func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Select
 	slog.InfoContext(ctx, "loaded UI plugin",
 		"plugin_id", selection.ID,
 		"directory", request.Directory.Path,
-		"controls_terminal", selection.Capabilities.ControlsTerminal,
 		"candidate_count", len(discovery.Candidates),
 		"issue_count", len(selection.Issues),
 	)
@@ -128,12 +125,7 @@ func (s *Selector) startSelected(
 		if err != nil {
 			return Selection{}, fmt.Errorf("start selected UI %q: %w", selectedID, err)
 		}
-		return Selection{
-			ID:           candidate.ID,
-			Capabilities: runtime.Capabilities(),
-			Runtime:      runtime,
-			Issues:       nil,
-		}, nil
+		return Selection{ID: candidate.ID, Runtime: runtime, Issues: nil}, nil
 	}
 	return Selection{}, fmt.Errorf("selected UI %q is absent", selectedID)
 }
@@ -155,27 +147,20 @@ func (s *Selector) selectCompatible(
 		runtime.Close()
 	}
 	if len(compatible) == 0 {
-		return Selection{
-			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
-		}, errors.New("no compatible UI plugin is available")
+		return Selection{ID: "", Runtime: nil, Issues: issues}, errors.New("no compatible UI plugin is available")
 	}
 	if len(compatible) > 1 {
-		return Selection{
-			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
-		}, errors.New("multiple compatible UI plugins are available")
+		return Selection{ID: "", Runtime: nil, Issues: issues}, errors.New(
+			"multiple compatible UI plugins are available",
+		)
 	}
 	candidate := compatible[0]
 	runtime, err := s.factory.Start(ctx, candidate)
 	if err != nil {
 		issues = append(issues, SelectionIssue{Candidate: candidate, Err: err})
-		return Selection{
-			ID: "", Capabilities: domainui.Capabilities{ControlsTerminal: false}, Runtime: nil, Issues: issues,
-		}, fmt.Errorf("restart automatically selected UI %q: %w", candidate.ID, err)
+		return Selection{ID: "", Runtime: nil, Issues: issues}, fmt.Errorf(
+			"restart automatically selected UI %q: %w", candidate.ID, err,
+		)
 	}
-	return Selection{
-		ID:           candidate.ID,
-		Capabilities: runtime.Capabilities(),
-		Runtime:      runtime,
-		Issues:       issues,
-	}, nil
+	return Selection{ID: candidate.ID, Runtime: runtime, Issues: issues}, nil
 }

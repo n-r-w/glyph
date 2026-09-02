@@ -19,19 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UIService_GetCapabilities_FullMethodName = "/glyph.plugins.ui.v1.UIService/GetCapabilities"
-	UIService_Open_FullMethodName            = "/glyph.plugins.ui.v1.UIService/Open"
+	UIService_Open_FullMethodName = "/glyph.plugins.ui.v1.UIService/Open"
 )
 
 // UIServiceClient is the client API for UIService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// UIService exposes fixed startup capabilities and one UI lifecycle stream.
+// UIService exposes one bidirectional UI operation stream.
 type UIServiceClient interface {
-	// GetCapabilities returns immutable capabilities without opening the UI stream.
-	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
-	// Open carries ordered Host frames and UI commands for one application lifecycle.
+	// Open exchanges Host requests and events with UI requests and events.
 	Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error)
 }
 
@@ -41,16 +38,6 @@ type uIServiceClient struct {
 
 func NewUIServiceClient(cc grpc.ClientConnInterface) UIServiceClient {
 	return &uIServiceClient{cc}
-}
-
-func (c *uIServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetCapabilitiesResponse)
-	err := c.cc.Invoke(ctx, UIService_GetCapabilities_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *uIServiceClient) Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error) {
@@ -70,11 +57,9 @@ type UIService_OpenClient = grpc.BidiStreamingClient[OpenRequest, OpenResponse]
 // All implementations must embed UnimplementedUIServiceServer
 // for forward compatibility.
 //
-// UIService exposes fixed startup capabilities and one UI lifecycle stream.
+// UIService exposes one bidirectional UI operation stream.
 type UIServiceServer interface {
-	// GetCapabilities returns immutable capabilities without opening the UI stream.
-	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
-	// Open carries ordered Host frames and UI commands for one application lifecycle.
+	// Open exchanges Host requests and events with UI requests and events.
 	Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error
 	mustEmbedUnimplementedUIServiceServer()
 }
@@ -86,9 +71,6 @@ type UIServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedUIServiceServer struct{}
 
-func (UnimplementedUIServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetCapabilities not implemented")
-}
 func (UnimplementedUIServiceServer) Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error {
 	return status.Error(codes.Unimplemented, "method Open not implemented")
 }
@@ -113,24 +95,6 @@ func RegisterUIServiceServer(s grpc.ServiceRegistrar, srv UIServiceServer) {
 	s.RegisterService(&UIService_ServiceDesc, srv)
 }
 
-func _UIService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCapabilitiesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UIServiceServer).GetCapabilities(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UIService_GetCapabilities_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UIServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _UIService_Open_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(UIServiceServer).Open(&grpc.GenericServerStream[OpenRequest, OpenResponse]{ServerStream: stream})
 }
@@ -144,12 +108,7 @@ type UIService_OpenServer = grpc.BidiStreamingServer[OpenRequest, OpenResponse]
 var UIService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "glyph.plugins.ui.v1.UIService",
 	HandlerType: (*UIServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetCapabilities",
-			Handler:    _UIService_GetCapabilities_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Open",

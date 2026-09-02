@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
-	"github.com/samber/mo"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -15,82 +14,126 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.
-func mapFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
-	if request, handled, err := mapTreeFrame(frame); handled {
-		return request, err
+//
+//nolint:gocyclo // The closed frame union requires one explicit mapping for each public payload.
+func mapFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
+	if completed, handled, err := mapTreeFrame(frame); handled {
+		return completedRequest(completed), err
 	}
-	if request, handled, err := mapSessionFrame(frame); handled {
-		return request, err
+	if completed, handled, err := mapSessionFrame(frame); handled {
+		return completedRequest(completed), err
 	}
 	switch frame.Kind {
 	case domainui.FrameInitialization:
 		return mapInitializationFrame(frame)
 	case domainui.FrameLifecycle:
+		lifecycle, present := frame.Lifecycle.Get()
+		if !present {
+			return nil, errors.New("map UI frame: lifecycle payload is required")
+		}
+		if lifecycle.Type == domainui.LifecycleAvailabilityChanged {
+			availability, availabilityPresent := lifecycle.Availability.Get()
+			if !availabilityPresent {
+				return nil, errors.New("map UI frame: availability payload is required")
+			}
+			connection := new(uiv1.HostConnectionEvent)
+			connection.SetAvailabilityChanged(uiv1.AvailabilityChanged_builder{
+				Availability: new(mapAvailability(availability)),
+			}.Build())
+			return connectionRequest(connection), nil
+		}
 		return mapLifecycleFrame(frame)
 	case domainui.FrameAuthorization:
 		authorizationURL, present := frame.AuthorizationURL.Get()
 		if !present {
 			return nil, errors.New("map UI frame: authorization payload is required")
 		}
-		request := &uipb.OpenRequest{}
-		request.SetAuthorization(uipb.AuthorizationRequest_builder{
-			Url: new(authorizationURL),
-		}.Build())
-		return request, nil
+		progress := new(uiv1.HostProgress)
+		progress.SetAuthorization(uiv1.AuthorizationRequest_builder{Url: new(authorizationURL)}.Build())
+		return progressRequest(progress), nil
 	case domainui.FrameInformation:
 		text, present := frame.Text.Get()
 		if !present {
 			return nil, errors.New("map UI frame: information payload is required")
 		}
-		request := &uipb.OpenRequest{}
-		request.SetInformation(uipb.Information_builder{
-			Text: new(text),
-		}.Build())
-		return request, nil
+		connection := new(uiv1.HostConnectionEvent)
+		connection.SetInformation(uiv1.Information_builder{Text: new(text)}.Build())
+		return connectionRequest(connection), nil
 	case domainui.FrameError:
-		text, hasText := frame.Text.Get()
-		retryAuthentication, hasRetryAuthentication := frame.RetryAuthentication.Get()
-		if !hasText || !hasRetryAuthentication {
+		text, present := frame.Text.Get()
+		if !present {
 			return nil, errors.New("map UI frame: error payload is required")
 		}
-		request := &uipb.OpenRequest{}
-		request.SetError(uipb.Error_builder{
-			Text:                new(text),
-			RetryAuthentication: new(retryAuthentication),
-		}.Build())
-		return request, nil
+		code, codePresent := frame.ErrorCode.Get()
+		if !codePresent || code == "" {
+			return nil, errors.New("map UI frame: error category is required")
+		}
+		connection := new(uiv1.HostConnectionEvent)
+		connection.SetError(uiv1.Error_builder{Code: new(code), Text: new(text)}.Build())
+		return connectionRequest(connection), nil
+	case domainui.FrameSubmitCompleted:
+		completed := new(uiv1.HostCompleted)
+		completed.SetSubmit(new(uiv1.SubmitCompleted))
+		return completedRequest(completed), nil
+	case domainui.FrameAuthenticationCompleted:
+		completed := new(uiv1.HostCompleted)
+		completed.SetAuthentication(new(uiv1.AuthenticationCompleted))
+		return completedRequest(completed), nil
 	case domainui.FrameModelSelectionChanged:
 		selection, present := frame.ModelSelection.Get()
 		if !present {
 			return nil, errors.New("map UI frame: model selection payload is required")
 		}
-		request := &uipb.OpenRequest{}
-		request.SetModelSelectionChanged(uipb.ModelSelectionChanged_builder{
-			Selection: mapModelSelection(selection),
-		}.Build())
-		return request, nil
+		completed := new(uiv1.HostCompleted)
+		completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{Selection: mapModelSelection(selection)}.Build())
+		return completedRequest(completed), nil
 	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed,
-		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameEntryLabelSet:
-		return nil, errors.New("map UI frame: session frame was not mapped")
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionForked,
+		domainui.FrameSessionCloned, domainui.FrameEntryLabelSet:
+		return nil, errors.New("map UI frame: completed payload was not mapped")
 	default:
 		return nil, errors.New("map UI frame: payload is required")
 	}
 }
 
+// completedRequest wraps one completed operation payload.
+func completedRequest(completed *uiv1.HostCompleted) *uiv1.OpenRequest {
+	event := new(uiv1.HostEvent)
+	event.SetCompleted(completed)
+	request := new(uiv1.OpenRequest)
+	request.SetEvent(event)
+	return request
+}
+
+// progressRequest wraps one operation progress payload.
+func progressRequest(progress *uiv1.HostProgress) *uiv1.OpenRequest {
+	event := new(uiv1.HostEvent)
+	event.SetProgress(progress)
+	request := new(uiv1.OpenRequest)
+	request.SetEvent(event)
+	return request
+}
+
+// connectionRequest wraps one Host connection event.
+func connectionRequest(connection *uiv1.HostConnectionEvent) *uiv1.OpenRequest {
+	request := new(uiv1.OpenRequest)
+	request.SetConnectionEvent(connection)
+	return request
+}
+
 // mapSessionFrame maps lifecycle frames to protobuf payloads without losing optional fields.
-func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
-	request := new(uipb.OpenRequest)
+func mapSessionFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
+	request := new(uiv1.HostCompleted)
 	switch frame.Kind {
 	case domainui.FrameSessionList:
-		mapped := lo.Map(frame.Sessions, func(value session.Summary, _ int) *uipb.SessionSummary {
+		mapped := lo.Map(frame.Sessions, func(value session.Summary, _ int) *uiv1.SessionSummary {
 			return mapSessionSummary(value)
 		})
-		request.SetSessionList(uipb.SessionList_builder{Sessions: mapped}.Build())
+		request.SetSessionList(uiv1.SessionList_builder{Sessions: mapped}.Build())
 		return request, true, nil
 	case domainui.FrameSessionChanged, domainui.FrameSessionForked, domainui.FrameSessionCloned:
 		return mapReplacementSessionFrame(request, frame)
@@ -103,14 +146,14 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 		if !statisticsPresent {
 			return nil, true, errors.New("map UI frame: session statistics are required")
 		}
-		request.SetSessionInformation(uipb.SessionInformation_builder{
+		request.SetSessionInformation(uiv1.SessionInformation_builder{
 			Info: mapSessionInfo(info), Statistics: mapSessionStatistics(statistics),
 		}.Build())
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionTreeFailed,
-		domainui.FrameEntryLabelSet:
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation,
+		domainui.FrameEntryLabelSet, domainui.FrameSubmitCompleted, domainui.FrameAuthenticationCompleted:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -119,9 +162,9 @@ func mapSessionFrame(frame domainui.Frame) (*uipb.OpenRequest, bool, error) {
 
 // mapReplacementSessionFrame maps create, resume, fork, and clone replacement state.
 func mapReplacementSessionFrame(
-	request *uipb.OpenRequest,
+	request *uiv1.HostCompleted,
 	frame domainui.Frame,
-) (*uipb.OpenRequest, bool, error) {
+) (*uiv1.HostCompleted, bool, error) {
 	info, present := frame.SessionInfo.Get()
 	if !present {
 		return nil, true, errors.New("map UI frame: session information is required")
@@ -130,26 +173,26 @@ func mapReplacementSessionFrame(
 	if err != nil {
 		return nil, true, err
 	}
-	changed := uipb.SessionChanged_builder{Info: mapSessionInfo(info), Entries: entries}.Build()
+	changed := uiv1.SessionChanged_builder{Info: mapSessionInfo(info), Entries: entries}.Build()
 	if frame.Kind == domainui.FrameSessionForked {
 		nextInput, nextInputPresent := frame.Text.Get()
 		if !nextInputPresent {
 			return nil, true, errors.New("map UI fork frame: next input is required")
 		}
-		request.SetSessionForked(uipb.SessionForked_builder{Session: changed, NextInput: new(nextInput)}.Build())
+		request.SetSessionForked(uiv1.SessionForked_builder{Session: changed, NextInput: new(nextInput)}.Build())
 		return request, true, nil
 	}
 	if frame.Kind == domainui.FrameSessionCloned {
-		request.SetSessionCloned(uipb.SessionCloned_builder{Session: changed}.Build())
+		request.SetSessionCloned(uiv1.SessionCloned_builder{Session: changed}.Build())
 		return request, true, nil
 	}
 	request.SetSessionChanged(changed)
 	return request, true, nil
 }
 
-func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.SessionEntry, error) {
-	return lo.MapErr(entries, func(entry domainui.SessionEntry, index int) (*uipb.SessionEntry, error) {
-		wire := new(uipb.SessionEntry)
+func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uiv1.SessionEntry, error) {
+	return lo.MapErr(entries, func(entry domainui.SessionEntry, index int) (*uiv1.SessionEntry, error) {
+		wire := new(uiv1.SessionEntry)
 		wire.SetId(entry.ID)
 		wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
 		switch entry.Kind {
@@ -172,7 +215,7 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 			wire.SetModel(mapped)
 		case domainui.SessionEntryToolResult:
 			result, _ := entry.ToolResult.Get()
-			wire.SetToolResult(uipb.ToolResult_builder{
+			wire.SetToolResult(uiv1.ToolResult_builder{
 				CallId: new(result.CallID), ToolName: new(result.ToolName),
 				Contents: mapToolResultContents(result.Contents), IsError: new(result.IsError),
 			}.Build())
@@ -192,17 +235,17 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uipb.Session
 }
 
 // mapRestoredUserMessage maps all content in one restored user message.
-func mapRestoredUserMessage(user model.Message) (*uipb.UserMessage, error) {
+func mapRestoredUserMessage(user model.Message) (*uiv1.UserMessage, error) {
 	content, err := lo.MapErr(user.Content, mapRestoredUserContent)
 	if err != nil {
 		return nil, err
 	}
-	return uipb.UserMessage_builder{Content: content}.Build(), nil
+	return uiv1.UserMessage_builder{Content: content}.Build(), nil
 }
 
 // mapRestoredUserContent validates and maps one restored user content item.
-func mapRestoredUserContent(item model.InputContent, index int) (*uipb.UserContent, error) {
-	wire := new(uipb.UserContent)
+func mapRestoredUserContent(item model.InputContent, index int) (*uiv1.UserContent, error) {
+	wire := new(uiv1.UserContent)
 	switch item.Kind {
 	case model.InputContentText:
 		text, hasText := item.Text.Get()
@@ -216,7 +259,7 @@ func mapRestoredUserContent(item model.InputContent, index int) (*uipb.UserConte
 		if item.Text.IsSome() || !hasMediaType || !hasData {
 			return nil, fmt.Errorf("map restored user content %d: invalid image payload", index)
 		}
-		image := uipb.UserImage_builder{MediaType: new(mediaType), Data: nil}.Build()
+		image := uiv1.UserImage_builder{MediaType: new(mediaType), Data: nil}.Build()
 		image.SetData(bytes.Clone(data))
 		wire.SetImage(image)
 	default:
@@ -226,41 +269,33 @@ func mapRestoredUserContent(item model.InputContent, index int) (*uipb.UserConte
 }
 
 // mapInitializationFrame validates and maps the selected initialization payload.
-func mapInitializationFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
-	return mapRequiredFramePayload(
-		frame.Initialization,
-		"map UI frame: initialization payload is required",
-		mapInitialization,
-		(*uipb.OpenRequest).SetInitialization,
-	)
-}
-
-// mapLifecycleFrame validates and maps the selected lifecycle payload.
-func mapLifecycleFrame(frame domainui.Frame) (*uipb.OpenRequest, error) {
-	return mapRequiredFramePayload(
-		frame.Lifecycle,
-		"map UI frame: lifecycle payload is required",
-		mapLifecycle,
-		(*uipb.OpenRequest).SetLifecycle,
-	)
-}
-
-// mapRequiredFramePayload validates, maps, and installs one required frame payload.
-func mapRequiredFramePayload[A, B any](
-	payload mo.Option[A],
-	missingMessage string,
-	mapper func(A) (B, error),
-	set func(*uipb.OpenRequest, B),
-) (*uipb.OpenRequest, error) {
-	value, present := payload.Get()
+func mapInitializationFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
+	initialization, present := frame.Initialization.Get()
 	if !present {
-		return nil, errors.New(missingMessage)
+		return nil, errors.New("map UI frame: initialization payload is required")
 	}
-	mapped, err := mapper(value)
+	mapped, err := mapInitialization(initialization)
 	if err != nil {
 		return nil, err
 	}
-	request := &uipb.OpenRequest{}
-	set(request, mapped)
+	hostRequest := new(uiv1.HostRequest)
+	hostRequest.SetInitialize(mapped)
+	request := new(uiv1.OpenRequest)
+	request.SetRequest(hostRequest)
 	return request, nil
+}
+
+// mapLifecycleFrame validates and maps one agent progress payload.
+func mapLifecycleFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
+	lifecycle, present := frame.Lifecycle.Get()
+	if !present {
+		return nil, errors.New("map UI frame: lifecycle payload is required")
+	}
+	mapped, err := mapLifecycle(lifecycle)
+	if err != nil {
+		return nil, err
+	}
+	progress := new(uiv1.HostProgress)
+	progress.SetAgentEvent(mapped)
+	return progressRequest(progress), nil
 }

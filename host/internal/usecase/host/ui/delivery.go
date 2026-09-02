@@ -40,7 +40,7 @@ func (d *Delivery) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeF
 	if err != nil {
 		return fmt.Errorf("format extension runtime failure: %w", err)
 	}
-	if sendErr := d.channel.Send(errorFrame(message, false)); sendErr != nil {
+	if sendErr := d.channel.Send(classifiedErrorFrame(failureCodeExtension, message)); sendErr != nil {
 		return fmt.Errorf("send extension runtime failure: %w", sendErr)
 	}
 	return nil
@@ -88,29 +88,9 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	return nil
 }
 
-// DeliverSettled sends the Host-owned settlement after every Agent recipient completes.
-func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
+// DeliverSettled confirms Host settlement without duplicating the operation terminal result.
+func (*Delivery) DeliverSettled(ctx context.Context, _ string) error {
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("deliver UI agent settlement: %w", err)
-	}
-	lifecycle := domainui.Lifecycle{
-		Type:               domainui.LifecycleAgentSettled,
-		RunID:              mo.Some(runID),
-		Text:               mo.None[string](),
-		ToolResultContents: mo.None[[]tool.ResultContent](),
-		ModelContent:       mo.None[domainui.ModelContent](),
-		ModelResponse:      mo.None[domainui.ModelResponse](),
-		ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
-		FinalToolCall:      mo.None[domainui.FinalToolCall](),
-		ToolCallID:         mo.None[string](),
-		ToolName:           mo.None[string](),
-		ProgressChannel:    mo.None[domainui.ProgressChannel](),
-		IsError:            mo.None[bool](),
-		Outcome:            mo.None[string](),
-		ErrorMessage:       mo.None[string](),
-		Availability:       mo.None[domainui.Availability](),
-	}
-	if err := d.channel.Send(lifecycleFrame(lifecycle)); err != nil {
 		return fmt.Errorf("deliver UI agent settlement: %w", err)
 	}
 	return nil

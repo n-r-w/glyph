@@ -34,14 +34,14 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 
 	for _, testCase := range []struct {
 		name      string
-		request   *uiv1.OpenRequest
+		request   *uiv1.HostCompleted
 		kind      presentation.EventKind
 		nextInput mo.Option[string]
 	}{
 		{
 			name: "forked",
 			//nolint:exhaustruct_v5 // The protobuf builder sets only the active SessionForked field.
-			request: uiv1.OpenRequest_builder{
+			request: uiv1.HostCompleted_builder{
 				SessionForked: uiv1.SessionForked_builder{Session: session, NextInput: new(" exact input ")}.Build(),
 			}.Build(),
 			kind: presentation.EventSessionForked, nextInput: mo.Some(" exact input "),
@@ -49,7 +49,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 		{
 			name: "cloned",
 			//nolint:exhaustruct_v5 // The protobuf builder sets only the active SessionCloned field.
-			request: uiv1.OpenRequest_builder{
+			request: uiv1.HostCompleted_builder{
 				SessionCloned: uiv1.SessionCloned_builder{Session: session}.Build(),
 			}.Build(),
 			kind: presentation.EventSessionCloned, nextInput: mo.None[string](),
@@ -57,7 +57,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 		{
 			name: "label set",
 			//nolint:exhaustruct_v5 // The protobuf builder sets only the active EntryLabelSet field.
-			request: uiv1.OpenRequest_builder{
+			request: uiv1.HostCompleted_builder{
 				EntryLabelSet: uiv1.EntryLabelSet_builder{Tree: tree}.Build(),
 			}.Build(),
 			kind: presentation.EventEntryLabelSet, nextInput: mo.None[string](),
@@ -65,11 +65,14 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapTreeRequest to verify every new Host frame is supported.
 
 			// Act by decoding the typed Host frame.
-			event, err := mapRequest(testCase.request)
+			// Act by invoking mapTreeRequest to exercise every new Host frame is supported.
+			event, _, err := mapTreeRequest(testCase.request)
 
 			// Assert the frame maps to typed presentation state instead of an unknown frame.
+			// Assert every new Host frame is supported.
 			require.NoError(t, err)
 			require.Equal(t, testCase.kind, event.Kind)
 			mapped, present := event.TreeEvent.Get()
@@ -93,7 +96,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 	for _, testCase := range []struct {
 		name    string
 		command presentation.Command
-		assert  func(*testing.T, *uiv1.OpenResponse)
+		assert  func(*testing.T, *uiv1.UIRequest)
 	}{
 		{
 			name: "get tree",
@@ -101,7 +104,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 				TargetEntryID: mo.None[string](), SummaryMode: presentation.SummaryModeUnspecified,
 				CustomFocus: mo.None[string](), Label: mo.None[string](),
 			}),
-			assert: func(t *testing.T, response *uiv1.OpenResponse) { require.NotNil(t, response.GetGetSessionTree()) },
+			assert: func(t *testing.T, response *uiv1.UIRequest) { require.NotNil(t, response.GetGetSessionTree()) },
 		},
 		{
 			name: "navigate with custom focus",
@@ -109,7 +112,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeCustomFocus,
 				CustomFocus: mo.Some("focus"), Label: mo.None[string](),
 			}),
-			assert: func(t *testing.T, response *uiv1.OpenResponse) {
+			assert: func(t *testing.T, response *uiv1.UIRequest) {
 				command := response.GetNavigateSessionTree()
 				require.Equal(t, "target", command.GetTargetEntryId())
 				require.Equal(t, uiv1.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT, command.GetSummaryMode())
@@ -122,7 +125,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeUnspecified,
 				CustomFocus: mo.None[string](), Label: mo.None[string](),
 			}),
-			assert: func(t *testing.T, response *uiv1.OpenResponse) {
+			assert: func(t *testing.T, response *uiv1.UIRequest) {
 				require.Equal(t, "target", response.GetForkSession().GetTargetEntryId())
 			},
 		},
@@ -132,7 +135,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 				TargetEntryID: mo.None[string](), SummaryMode: presentation.SummaryModeUnspecified,
 				CustomFocus: mo.None[string](), Label: mo.None[string](),
 			}),
-			assert: func(t *testing.T, response *uiv1.OpenResponse) { require.NotNil(t, response.GetCloneSession()) },
+			assert: func(t *testing.T, response *uiv1.UIRequest) { require.NotNil(t, response.GetCloneSession()) },
 		},
 		{
 			name: "set label",
@@ -140,7 +143,7 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeUnspecified,
 				CustomFocus: mo.None[string](), Label: mo.Some(""),
 			}),
-			assert: func(t *testing.T, response *uiv1.OpenResponse) {
+			assert: func(t *testing.T, response *uiv1.UIRequest) {
 				command := response.GetSetEntryLabel()
 				require.True(t, command.HasLabel())
 				require.Empty(t, command.GetLabel())
@@ -149,11 +152,14 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
+			// Arrange the inline payload for mapCommand to verify typed tree commands use the public UI contract.
 
 			// Act by mapping one presentation command.
+			// Act by invoking mapCommand to exercise typed tree commands use the public UI contract.
 			response, err := mapCommand(testCase.command)
 
 			// Assert the matching typed contract command is populated.
+			// Assert typed tree commands use the public UI contract.
 			require.NoError(t, err)
 			testCase.assert(t, response)
 		})

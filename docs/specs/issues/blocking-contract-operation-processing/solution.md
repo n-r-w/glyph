@@ -95,7 +95,7 @@ Each contract defines one typed message for each direction. `OpenRequest` is sen
   - Extension `ExtensionProgress`: `tool = 1`. Extension `ExtensionCompleted`: `register = 1`, `handle = 2`, `tool = 3`, `cancel = 4`.
 - APC-18: UI `HostConnectionEvent` uses `information = 1`, `error = 2`, and `availability_changed = 3`. `Information` retains its current payload. `Error` contains `optional string code = 1` and `optional string text = 2`. `AvailabilityChanged` contains `optional Availability availability = 1`. Agent lifecycle values are operation progress, while idle extension-process failure is an `Error` connection event with category `EXTENSION_UNAVAILABLE` and complete error text.
 - APC-18.1: `Initialized`, `SubmitCompleted`, `AuthenticationCompleted`, and `UserRequestCompleted` are empty acknowledgement messages. `CancelOperation.target_operation_id`, `CancelCompleted.target_state`, `Rejected.code`, `Rejected.message`, `Failed.code`, `Failed.message`, `Error.code`, `Error.text`, and `AvailabilityChanged.availability` must be present and non-default. A completed or progress variant must match the request kind tracked for its `operation_id`; a mismatch is `FailedPrecondition` for the stream.
-- DEC-09: `sdk/plugins/ui/v1.ProtocolVersion` and `sdk/plugins/extension/v1.ProtocolVersion` change from 1 to 2. The handshake cookie values become `glyph-ui-v2` and `glyph-extension-v2`; plugin names remain `glyph-ui` and `extension`. A process using protocol version 1 is rejected during plugin negotiation.
+- DEC-09: `sdk/plugins/ui/v1.ProtocolVersion` remains `1` with cookie `glyph-ui-v1`. `sdk/plugins/extension/v1.ProtocolVersion` remains `1` with cookie `glyph-extension-v1`; the Extension contract changes only in its later delivery stage. Plugin names remain `glyph-ui` and `extension`. The implementation adds no unversioned or `/v2` API package.
 
 ### Lifecycle sequence
 
@@ -149,6 +149,7 @@ func (*ProgressReporter) Report(context.Context, *extensionv1.ToolProgress) erro
 type Service interface {
     PrepareInitialize(context.Context, *uiv1.Initialization) (InitializeOperation, error)
     Run(context.Context, *Host) error
+    Close() error
 }
 type InitializeOperation interface {
     Run(context.Context) (*uiv1.Initialized, error)
@@ -181,6 +182,7 @@ func (*CanceledError) Unwrap() error
 - APC-12: Each `Prepare` method performs bounded validation and in-memory admission. It returns `Reject(code, err)` to produce `Rejected` with the category and complete error text; every other nonnil preparation error is a connection failure. The SDK calls `Run` only after delivery of `Accepted` and calls `Release` exactly once.
 - APC-12.1: `Run` returns a completed payload and `nil` for `Completed`, `context.Canceled` for `Canceled`, `Fail(code, err)` for classified `Failed`, or another error for `Failed` with `INTERNAL`. `Reject` and `Fail` preserve their cause through `Unwrap`, and their concrete error types expose the machine-readable category through `errors.As`.
 - APC-12.2: UI SDK calls `Service.Run` once after `Initialize` completes and its terminal message is delivered. `Host.Start` registers the caller-provided operation identifier before queueing the request, then returns SDK-owned state without waiting for operation acceptance. `Operation.Wait` delivers ordered progress on its calling goroutine and returns the completed payload or `RejectionError`, `CanceledError`, or `FailureError`. `Host.Cancel` creates a separate operation using the caller-provided cancellation identifier. `Host.Close` or return from `Service.Run` starts normal UI connection closure.
+- APC-12.3: Standard TUI `InitializeOperation.Run` opens the controlling-terminal session and retains it for `Controller.Run`. `Initialized` means terminal opening succeeded. `Service.Close` closes an opened session that `Service.Run` did not consume, and connection cleanup joins the startup failure with any terminal close failure.
 - APC-13: SDK public interfaces use only standard-library, SDK-owned, and generated public types. No exported field, method parameter, method result, embedded interface, or generic constraint references `internal/operation` or another Glyph internal package. SDK-defined interfaces are consumed by the SDK; objects consumed by plugin code, including `Host` and `ProgressReporter`, are concrete SDK types.
 - CMP-09: Each SDK privately implements the generated gRPC server and adapts its public interfaces to `internal/operation.Prepared`, `Reporter`, and `Outcome`. External plugin code implements no generated gRPC server, operation registry, stream writer, cancellation dispatcher, or closure coordinator.
 - CMP-09.1: Each SDK-initiated operation registers its `Tracker` queue before its request is sent. `Operation.Wait` consumes that queue and invokes the progress callback outside the stream receive goroutine. Queue failure cancels and joins bound operations, so a slow plugin callback cannot block request receipt.
@@ -235,7 +237,7 @@ func (*CanceledError) Unwrap() error
 ### Startup operations
 
 - ALG-01: UI startup uses the opened stream in this order:
-  1. Host sends `Initialize` as an operation and waits for completed acknowledgement.
+  1. Host sends `Initialize` as an operation. The standard TUI opens its controlling-terminal session before returning `Initialized`, and Host waits for the completed acknowledgement.
   2. Host and UI mark the connection ready for ordinary operation kinds.
 - ALG-02: Extension startup uses the opened stream in this order:
   1. Host sends `Register` as an operation and waits for its completed registration payload.
@@ -253,7 +255,7 @@ func (*CanceledError) Unwrap() error
 - CMP-15: `Register`, session-tree request and result handlers, observers, and tool execution become `HostRequest` variants in the Extension Contract. Tool progress becomes `ExtensionProgress`; registration, handler actions, and tool results become `ExtensionCompleted` variants.
 - DEC-02: An ordinary extension handler error remains a completed handler result because Host handler composition continues. A handler transport or protocol failure becomes operation `Failed`.
 - DEC-03: A tool result with `is_error` remains completed operation data because Agent Core consumes it as a model-visible tool result. Extension transport, protocol, or runtime failure becomes operation `Failed`.
-- CMP-16: The standard TUI assigns an identifier to every UI request and stores the identifier of its foreground operation. The stop action sends a new cancellation operation targeting that foreground identifier.
+- CMP-16: The standard TUI assigns an identifier to every UI request. Only nonterminal `SubmitCommand` and `NavigateSessionTreeCommand` operations own the foreground identifier. Other requests do not replace that identifier, and a terminal event clears it only when the terminal operation identifier matches. The stop action sends a new cancellation operation targeting the foreground identifier.
 - CMP-17: Programmatic controllers assign identifiers and target any owned nonterminal operation explicitly. `RunStateResult` reports the active agent-run operation identifier when one exists.
 - CMP-18: A Host operation that invokes an Extension Contract operation assigns a new identifier, tracks it through `Tracker`, and sends cancellation for that identifier when the parent in-process context is canceled. No public parent identifier is added.
 

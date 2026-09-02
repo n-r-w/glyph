@@ -10,6 +10,7 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+	"github.com/n-r-w/glyph/internal/operation"
 
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
@@ -38,7 +39,7 @@ func NewFactory() *Factory {
 	return &Factory{}
 }
 
-// Start launches one trusted local UI candidate and validates its fixed capabilities.
+// Start launches one trusted local UI candidate and validates the required protocol.
 func (*Factory) Start(ctx context.Context, candidate domainui.Candidate) (hostui.Runtime, error) {
 	//nolint:gosec // The catalog contains trusted local UI plugin executables.
 	command := exec.CommandContext(context.WithoutCancel(ctx), candidate.Path)
@@ -54,17 +55,10 @@ func (*Factory) Start(ctx context.Context, candidate domainui.Candidate) (hostui
 	}, nil
 }
 
-// Capabilities returns the immutable capabilities retrieved before stream creation.
-func (r *Runtime) Capabilities() domainui.Capabilities {
-	return domainui.Capabilities{
-		ControlsTerminal: r.client.Capabilities().GetControlsTerminal(),
-	}
-}
-
 // Open opens and reuses the one persistent UI lifecycle stream.
 func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
 	r.openOnce.Do(func() {
-		streamContext, cancel := context.WithCancel(ctx)
+		streamContext, cancel := context.WithCancel(context.WithoutCancel(ctx))
 		stream, err := r.client.Service().Open(streamContext)
 		if err != nil {
 			cancel()
@@ -72,10 +66,13 @@ func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
 			return
 		}
 		r.channel = &channel{
-			stream: stream,
-			cancel: cancel,
-			closed: atomic.Bool{},
-			mutex:  sync.Mutex{},
+			stream:           stream,
+			cancel:           cancel,
+			closed:           atomic.Bool{},
+			mutex:            sync.Mutex{},
+			ready:            false,
+			writer:           nil,
+			progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
 		}
 	})
 	return r.channel, r.openErr
@@ -83,5 +80,8 @@ func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
 
 // Close stops the selected UI process once.
 func (r *Runtime) Close() {
+	if r.channel != nil {
+		r.channel.Close()
+	}
 	r.client.Close()
 }

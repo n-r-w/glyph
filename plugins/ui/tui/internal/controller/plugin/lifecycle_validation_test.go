@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"google.golang.org/protobuf/proto"
-
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 	presentationusecase "github.com/n-r-w/glyph/plugins/ui/tui/internal/usecase/presentation"
@@ -46,24 +44,22 @@ func testTextEvent(kind presentationdomain.EventKind, text string) presentationd
 	}
 }
 
-// TestMapRequestRejectsUnknownLifecycleAndMapsSafeError verifies malformed frames and safe errors.
-func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
+// TestOperationMappersRejectUnknownLifecycleAndMapSafeError verifies malformed progress and safe errors.
+func TestOperationMappersRejectUnknownLifecycleAndMapSafeError(t *testing.T) {
 	t.Parallel()
 
-	// Arrange unknown lifecycle and safe-error requests.
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-	unknownLifecycle := uiv1.OpenRequest_builder{Lifecycle: &uiv1.LifecycleEvent{}}.Build()
+	// Arrange unknown lifecycle progress and one classified connection error.
+	unknownProgress := new(uiv1.HostProgress)
+	unknownProgress.SetAgentEvent(new(uiv1.AgentEvent))
+	errorPayload := uiv1.Error_builder{Code: new("INTERNAL"), Text: new("safe error")}.Build()
+	connection := new(uiv1.HostConnectionEvent)
+	connection.SetError(errorPayload)
 
-	//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Error field.
-	safeError := uiv1.OpenRequest_builder{Error: uiv1.Error_builder{
-		Text: new("safe error"), RetryAuthentication: new(false),
-	}.Build()}.Build()
+	// Act through the operation-stream mappers.
+	_, unknownErr := mapHostProgress(unknownProgress)
+	event, err := mapConnectionEvent(connection)
 
-	// Act by mapping both requests.
-	_, unknownErr := mapRequest(unknownLifecycle)
-	event, err := mapRequest(safeError)
-
-	// Assert the unknown lifecycle fails while the safe error maps without private data.
+	// Assert malformed lifecycle fails while safe error text remains visible.
 	require.Error(t, unknownErr)
 	require.NoError(t, err)
 	assert.Equal(t, testTextEvent(presentationdomain.EventError, "safe error"), event)
@@ -72,8 +68,10 @@ func TestMapRequestRejectsUnknownLifecycleAndMapsSafeError(t *testing.T) {
 // TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.
 func TestMapLifecycleRejectsEmptyToolResultContents(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapLifecycle to verify missing terminal output fails at the UI boundary.
 
-	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	// Act by invoking mapLifecycle to exercise missing terminal output fails at the UI boundary.
+	_, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		RunId:              new("run"),
 		Text:               nil,
@@ -90,14 +88,17 @@ func TestMapLifecycleRejectsEmptyToolResultContents(t *testing.T) {
 		FinalToolCall:      nil,
 		ToolResultContents: nil,
 	}.Build())
+	// Assert missing terminal output fails at the UI boundary.
 	require.ErrorContains(t, err, "tool result contents are empty")
 }
 
 // TestMapLifecycleRejectsMissingToolResultContent verifies malformed blocks fail at the UI boundary.
 func TestMapLifecycleRejectsMissingToolResultContent(t *testing.T) {
 	t.Parallel()
+	// Arrange the inline payload for mapLifecycle to verify malformed blocks fail at the UI boundary.
 
-	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	// Act by invoking mapLifecycle to exercise malformed blocks fail at the UI boundary.
+	_, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
 			uiv1.ToolResultContent_builder{}.Build(),
@@ -116,14 +117,18 @@ func TestMapLifecycleRejectsMissingToolResultContent(t *testing.T) {
 		ToolCallPreview: nil,
 		FinalToolCall:   nil,
 	}.Build())
+	// Assert malformed blocks fail at the UI boundary.
 	require.ErrorContains(t, err, "tool result content 0 is missing")
 }
 
 // TestMapLifecycleRejectsEmptyToolResultImage prevents empty image payloads from reaching presentation.
 func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 	t.Parallel()
+	// Arrange a tool result image without its required media type or data.
+	// Act by passing the malformed lifecycle event to mapLifecycle.
+	// Assert mapping fails before the empty image reaches presentation state.
 
-	_, err := mapLifecycle(uiv1.LifecycleEvent_builder{
+	_, err := mapLifecycle(uiv1.AgentEvent_builder{
 		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
 			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Image field.
@@ -158,8 +163,8 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	// Arrange model lifecycle frames whose terminal response uses another stream position.
 	projection := presentationusecase.New()
 	state := presentationdomain.State{}
-	frames := []*uiv1.LifecycleEvent{
-		uiv1.LifecycleEvent_builder{
+	frames := []*uiv1.AgentEvent{
+		uiv1.AgentEvent_builder{
 			Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START),
 			RunId:              new("run"),
 			Text:               nil,
@@ -176,11 +181,11 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			FinalToolCall:      nil,
 			ToolResultContents: nil,
 		}.Build(),
-		uiv1.LifecycleEvent_builder{
+		uiv1.AgentEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 			ModelContent: uiv1.ModelContent_builder{
 				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
-				Position: new(int32(1)),
+				Position: new(int64(1)),
 				Text:     new("complete answer"),
 				Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),
 			}.Build(),
@@ -198,7 +203,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			FinalToolCall:      nil,
 			ToolResultContents: nil,
 		}.Build(),
-		uiv1.LifecycleEvent_builder{
+		uiv1.AgentEvent_builder{
 			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 			ModelResponse: uiv1.ModelResponse_builder{
 				Text:       new("complete answer"),
@@ -248,14 +253,7 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	}
 	// Act by mapping and applying the lifecycle frame sequence.
 	for _, lifecycle := range frames {
-		//nolint:exhaustruct_v5 // uiv1.OpenRequest_builder sets only the active Lifecycle field.
-		event, err := mapRequest(uiv1.OpenRequest_builder{
-			Lifecycle:          proto.ValueOrDefault(lifecycle),
-			SessionList:        nil,
-			SessionChanged:     nil,
-			SessionInformation: nil, SessionTree: nil, SessionTreeNavigation: nil,
-			SessionTreeFailed: nil, SessionForked: nil, SessionCloned: nil, EntryLabelSet: nil,
-		}.Build())
+		event, err := mapLifecycle(lifecycle)
 		require.NoError(t, err)
 		state = projection.Apply(state, event)
 	}

@@ -14,40 +14,40 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // mapInitialization converts one complete startup state.
-func mapInitialization(initialization domainui.Initialization) (*uipb.Initialization, error) {
-	startup := lo.Map(initialization.StartupContent, func(content domainui.StartupContent, _ int) *uipb.StartupContent {
-		return uipb.StartupContent_builder{
+func mapInitialization(initialization domainui.Initialization) (*uiv1.Initialization, error) {
+	startup := lo.Map(initialization.StartupContent, func(content domainui.StartupContent, _ int) *uiv1.StartupContent {
+		return uiv1.StartupContent_builder{
 			Severity: new(mapSeverity(content.Severity)),
 			Text:     new(content.Text),
 		}.Build()
 	})
 	extensions := lo.Map(
 		initialization.Extensions,
-		func(extension domainui.ExtensionAvailability, _ int) *uipb.ExtensionAvailability {
-			return uipb.ExtensionAvailability_builder{
+		func(extension domainui.ExtensionAvailability, _ int) *uiv1.ExtensionAvailability {
+			return uiv1.ExtensionAvailability_builder{
 				PluginId: new(extension.PluginID),
 				Tools:    slices.Clone(extension.Tools),
 				Path:     new(extension.Path),
 			}.Build()
 		},
 	)
-	models := lo.Map(initialization.Models, func(configured domainui.ConfiguredModel, _ int) *uipb.ConfiguredModel {
+	models := lo.Map(initialization.Models, func(configured domainui.ConfiguredModel, _ int) *uiv1.ConfiguredModel {
 		choices := lo.Map(
 			configured.Reasoning.Choices,
-			func(choice domainui.ReasoningChoice, _ int) uipb.ReasoningChoice {
+			func(choice domainui.ReasoningChoice, _ int) uiv1.ReasoningChoice {
 				return mapReasoningChoice(choice)
 			},
 		)
-		reasoning := uipb.ReasoningCapabilities_builder{
+		reasoning := uiv1.ReasoningCapabilities_builder{
 			Supported:     new(configured.Reasoning.Supported),
 			Choices:       choices,
 			DefaultChoice: new(mapReasoningChoice(configured.Reasoning.Default)),
 		}.Build()
-		return uipb.ConfiguredModel_builder{
+		return uiv1.ConfiguredModel_builder{
 			ProviderId: new(configured.ProviderID),
 			ModelId:    new(configured.ModelID),
 			Reasoning:  reasoning,
@@ -57,7 +57,7 @@ func mapInitialization(initialization domainui.Initialization) (*uipb.Initializa
 	if !present {
 		return nil, errors.New("map UI initialization: model selection is required")
 	}
-	return uipb.Initialization_builder{
+	return uiv1.Initialization_builder{
 		SelectedUiId:   new(initialization.SelectedUIID),
 		StartupContent: startup,
 		Extensions:     extensions,
@@ -69,8 +69,8 @@ func mapInitialization(initialization domainui.Initialization) (*uipb.Initializa
 }
 
 // mapModelSelection converts one Host-confirmed selection.
-func mapModelSelection(selection domainui.ModelSelection) *uipb.ModelSelection {
-	return uipb.ModelSelection_builder{
+func mapModelSelection(selection domainui.ModelSelection) *uiv1.ModelSelection {
+	return uiv1.ModelSelection_builder{
 		ProviderId:      new(selection.ProviderID),
 		ModelId:         new(selection.ModelID),
 		ReasoningChoice: new(mapReasoningChoice(selection.ReasoningChoice)),
@@ -78,14 +78,13 @@ func mapModelSelection(selection domainui.ModelSelection) *uipb.ModelSelection {
 }
 
 // mapLifecycle converts one explicit lifecycle payload.
-func mapLifecycle(event domainui.Lifecycle) (*uipb.LifecycleEvent, error) {
+func mapLifecycle(event domainui.Lifecycle) (*uiv1.AgentEvent, error) {
 	mapped := mapLifecycleScalars(event)
 	if event.Type != domainui.LifecycleAvailabilityChanged && event.RunID.IsNone() {
 		return nil, errors.New("map UI lifecycle: run ID is required")
 	}
 	switch event.Type {
-	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
-		domainui.LifecycleAgentSettled:
+	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart:
 		return mapped, nil
 	case domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
 		domainui.LifecycleModelContentEnd, domainui.LifecycleMessageEnd:
@@ -107,7 +106,7 @@ func mapLifecycle(event domainui.Lifecycle) (*uipb.LifecycleEvent, error) {
 }
 
 // mapLifecycleScalars maps scalar Options at the generated Protobuf boundary.
-func mapLifecycleScalars(event domainui.Lifecycle) *uipb.LifecycleEvent {
+func mapLifecycleScalars(event domainui.Lifecycle) *uiv1.AgentEvent {
 	var runID *string
 	if value, present := event.RunID.Get(); present {
 		runID = new(value)
@@ -124,7 +123,7 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uipb.LifecycleEvent {
 	if value, present := event.ToolName.Get(); present {
 		toolName = new(value)
 	}
-	var mappedProgressChannel *uipb.ProgressChannel
+	var mappedProgressChannel *uiv1.ProgressChannel
 	if value, present := event.ProgressChannel.Get(); present {
 		mappedProgressChannel = new(mapProgressChannel(value))
 	}
@@ -140,11 +139,11 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uipb.LifecycleEvent {
 	if value, present := event.ErrorMessage.Get(); present {
 		errorMessage = new(value)
 	}
-	var availability *uipb.Availability
+	var availability *uiv1.Availability
 	if value, present := event.Availability.Get(); present {
 		availability = new(mapAvailability(value))
 	}
-	return uipb.LifecycleEvent_builder{
+	return uiv1.AgentEvent_builder{
 		Type:               new(mapLifecycleType(event.Type)),
 		RunId:              runID,
 		Text:               text,
@@ -164,7 +163,7 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uipb.LifecycleEvent {
 }
 
 // mapModelLifecycle validates and maps selected model payloads.
-func mapModelLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+func mapModelLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	if event.Type == domainui.LifecycleMessageEnd {
 		response, present := event.ModelResponse.Get()
 		if !present {
@@ -188,9 +187,9 @@ func mapModelLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*
 	if event.Type == domainui.LifecycleModelTextDelta && contentText == nil {
 		return nil, errors.New("map UI lifecycle: model text delta is required")
 	}
-	mapped.SetModelContent(uipb.ModelContent_builder{
+	mapped.SetModelContent(uiv1.ModelContent_builder{
 		Type:     new(mapModelContentType(content.Type)),
-		Position: new(int32(content.Position)), //nolint:gosec // Model positions remain bounded by response size.
+		Position: new(int64(content.Position)),
 		Text:     contentText,
 		Kind:     new(mapModelContentKind(content.Kind)),
 	}.Build())
@@ -198,7 +197,7 @@ func mapModelLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*
 }
 
 // mapToolCallLifecycle validates and maps selected tool-call payloads.
-func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	if event.Type == domainui.LifecycleToolCallEnd {
 		call, present := event.FinalToolCall.Get()
 		if !present {
@@ -208,10 +207,10 @@ func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent)
 		if err != nil {
 			return nil, fmt.Errorf("map UI lifecycle final tool call: %w", err)
 		}
-		mapped.SetFinalToolCall(uipb.FinalToolCall_builder{
+		mapped.SetFinalToolCall(uiv1.FinalToolCall_builder{
 			CallId:    new(call.CallID),
 			Name:      new(call.Name),
-			Position:  new(int32(call.Position)), //nolint:gosec // Positions are bounded by response size.
+			Position:  new(int64(call.Position)),
 			Arguments: arguments,
 		}.Build())
 		return mapped, nil
@@ -229,7 +228,7 @@ func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent)
 }
 
 // mapToolExecutionLifecycle validates and maps selected tool-execution payloads.
-func mapToolExecutionLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+func mapToolExecutionLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	switch event.Type {
 	case domainui.LifecycleToolExecutionStart:
 		if event.ToolCallID.IsNone() || event.ToolName.IsNone() {
@@ -252,14 +251,14 @@ func mapToolExecutionLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleE
 		domainui.LifecycleModelContentEnd, domainui.LifecycleToolCallStart,
 		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
 		domainui.LifecycleTurnEnd, domainui.LifecycleAgentEnd,
-		domainui.LifecycleAgentSettled, domainui.LifecycleAvailabilityChanged:
+		domainui.LifecycleAvailabilityChanged:
 		return nil, fmt.Errorf("map UI lifecycle: unsupported tool execution event type %d", event.Type)
 	}
 	return mapped, nil
 }
 
 // mapTerminalLifecycle validates selected turn and agent summaries.
-func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent) (*uipb.LifecycleEvent, error) {
+func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	switch event.Type {
 	case domainui.LifecycleTurnEnd:
 		if event.Text.IsNone() {
@@ -275,15 +274,15 @@ func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uipb.LifecycleEvent)
 		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
 		domainui.LifecycleToolExecutionStart, domainui.LifecycleToolExecutionUpdate,
 		domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult,
-		domainui.LifecycleAgentSettled, domainui.LifecycleAvailabilityChanged:
+		domainui.LifecycleAvailabilityChanged:
 		return nil, fmt.Errorf("map UI lifecycle: unsupported terminal event type %d", event.Type)
 	}
 	return mapped, nil
 }
 
 // mapSessionInfo preserves absent name and storage path through protobuf scalar presence.
-func mapSessionInfo(info session.Info) *uipb.SessionInfo {
-	wire := uipb.SessionInfo_builder{
+func mapSessionInfo(info session.Info) *uiv1.SessionInfo {
+	wire := uiv1.SessionInfo_builder{
 		Id:               new(string(info.ID)),
 		WorkingDirectory: new(info.WorkingDirectory),
 		CreatedTime:      timestamppb.New(info.CreatedAt),
@@ -299,15 +298,15 @@ func mapSessionInfo(info session.Info) *uipb.SessionInfo {
 }
 
 // mapSessionStatistics preserves counts and optional complete token and cost values on the UI wire boundary.
-func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics {
-	wire := uipb.SessionStatistics_builder{
+func mapSessionStatistics(statistics session.Statistics) *uiv1.SessionStatistics {
+	wire := uiv1.SessionStatistics_builder{
 		UserMessages: new(int64(statistics.UserMessages)), ModelResponses: new(int64(statistics.ModelResponses)),
 		ToolCalls: new(int64(statistics.ToolCalls)), ToolResults: new(int64(statistics.ToolResults)),
 		TotalMessages: new(int64(statistics.TotalMessages)), Tokens: nil,
 		EstimatedCost: nil, CostBreakdown: nil,
 	}.Build()
 	if usage, present := statistics.TokenUsage.Get(); present {
-		wire.SetTokens(uipb.TokenUsage_builder{
+		wire.SetTokens(uiv1.TokenUsage_builder{
 			InputTokens: new(usage.InputTokens), OutputTokens: new(usage.OutputTokens),
 			CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
 			ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
@@ -316,8 +315,8 @@ func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics
 	if cost, present := statistics.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
 	}
-	breakdown := lo.Map(statistics.CostBreakdown, func(group session.ProviderModelCost, _ int) *uipb.ProviderModelCost {
-		mapped := uipb.ProviderModelCost_builder{
+	breakdown := lo.Map(statistics.CostBreakdown, func(group session.ProviderModelCost, _ int) *uiv1.ProviderModelCost {
+		mapped := uiv1.ProviderModelCost_builder{
 			ProviderId: new(string(group.Provider)), ModelId: new(string(group.Model)), EstimatedCost: nil,
 		}.Build()
 		if cost, present := group.EstimatedCost.Get(); present {
@@ -330,16 +329,16 @@ func mapSessionStatistics(statistics session.Statistics) *uipb.SessionStatistics
 }
 
 // mapEstimatedCost preserves calculated cost buckets and their stored total.
-func mapEstimatedCost(cost session.EstimatedCost) *uipb.EstimatedCost {
-	return uipb.EstimatedCost_builder{
+func mapEstimatedCost(cost session.EstimatedCost) *uiv1.EstimatedCost {
+	return uiv1.EstimatedCost_builder{
 		Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
 		CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
 	}.Build()
 }
 
 // mapSessionSummary preserves optional row labels while mapping an ordered list entry.
-func mapSessionSummary(summary session.Summary) *uipb.SessionSummary {
-	wire := uipb.SessionSummary_builder{
+func mapSessionSummary(summary session.Summary) *uiv1.SessionSummary {
+	wire := uiv1.SessionSummary_builder{
 		Info:          mapSessionInfo(summary.Info),
 		TotalMessages: new(int64(summary.TotalMessages)), FirstUserText: nil,
 	}.Build()

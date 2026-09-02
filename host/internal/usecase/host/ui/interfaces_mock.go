@@ -18,6 +18,7 @@ import (
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	ui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	operation "github.com/n-r-w/glyph/internal/operation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -123,20 +124,6 @@ func (m *MockRuntime) EXPECT() *MockRuntimeMockRecorder {
 	return m.recorder
 }
 
-// Capabilities mocks base method.
-func (m *MockRuntime) Capabilities() ui.Capabilities {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Capabilities")
-	ret0, _ := ret[0].(ui.Capabilities)
-	return ret0
-}
-
-// Capabilities indicates an expected call of Capabilities.
-func (mr *MockRuntimeMockRecorder) Capabilities() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Capabilities", reflect.TypeOf((*MockRuntime)(nil).Capabilities))
-}
-
 // Close mocks base method.
 func (m *MockRuntime) Close() {
 	m.ctrl.T.Helper()
@@ -188,6 +175,20 @@ func (m *MockChannel) EXPECT() *MockChannelMockRecorder {
 	return m.recorder
 }
 
+// BindProgress mocks base method.
+func (m *MockChannel) BindProgress(reporter operation.Reporter[ui.Frame]) func() {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BindProgress", reporter)
+	ret0, _ := ret[0].(func())
+	return ret0
+}
+
+// BindProgress indicates an expected call of BindProgress.
+func (mr *MockChannelMockRecorder) BindProgress(reporter any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindProgress", reflect.TypeOf((*MockChannel)(nil).BindProgress), reporter)
+}
+
 // Close mocks base method.
 func (m *MockChannel) Close() {
 	m.ctrl.T.Helper()
@@ -200,19 +201,32 @@ func (mr *MockChannelMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockChannel)(nil).Close))
 }
 
-// Receive mocks base method.
-func (m *MockChannel) Receive() (ui.Command, error) {
+// Initialize mocks base method.
+func (m *MockChannel) Initialize(arg0 context.Context, arg1 ui.Frame) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Receive")
-	ret0, _ := ret[0].(ui.Command)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "Initialize", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Receive indicates an expected call of Receive.
-func (mr *MockChannelMockRecorder) Receive() *gomock.Call {
+// Initialize indicates an expected call of Initialize.
+func (mr *MockChannelMockRecorder) Initialize(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receive", reflect.TypeOf((*MockChannel)(nil).Receive))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockChannel)(nil).Initialize), arg0, arg1)
+}
+
+// RunOperations mocks base method.
+func (m *MockChannel) RunOperations(ctx context.Context, activate func(), prepare func(context.Context, ui.Command) (operation.Prepared[ui.Frame, ui.Frame], error)) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunOperations", ctx, activate, prepare)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunOperations indicates an expected call of RunOperations.
+func (mr *MockChannelMockRecorder) RunOperations(ctx, activate, prepare any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunOperations", reflect.TypeOf((*MockChannel)(nil).RunOperations), ctx, activate, prepare)
 }
 
 // Send mocks base method.
@@ -253,6 +267,33 @@ func (m *MockAgentRunner) EXPECT() *MockAgentRunnerMockRecorder {
 	return m.recorder
 }
 
+// CancelPrepared mocks base method.
+func (m *MockAgentRunner) CancelPrepared(runID string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CancelPrepared", runID)
+}
+
+// CancelPrepared indicates an expected call of CancelPrepared.
+func (mr *MockAgentRunnerMockRecorder) CancelPrepared(runID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelPrepared", reflect.TypeOf((*MockAgentRunner)(nil).CancelPrepared), runID)
+}
+
+// PrepareRun mocks base method.
+func (m *MockAgentRunner) PrepareRun() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareRun")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareRun indicates an expected call of PrepareRun.
+func (mr *MockAgentRunnerMockRecorder) PrepareRun() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareRun", reflect.TypeOf((*MockAgentRunner)(nil).PrepareRun))
+}
+
 // Run mocks base method.
 func (m *MockAgentRunner) Run(ctx context.Context, userText string) (agent.RunOutcome, error) {
 	m.ctrl.T.Helper()
@@ -266,6 +307,21 @@ func (m *MockAgentRunner) Run(ctx context.Context, userText string) (agent.RunOu
 func (mr *MockAgentRunnerMockRecorder) Run(ctx, userText any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockAgentRunner)(nil).Run), ctx, userText)
+}
+
+// RunPrepared mocks base method.
+func (m *MockAgentRunner) RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunPrepared", ctx, runID, userText)
+	ret0, _ := ret[0].(agent.RunOutcome)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunPrepared indicates an expected call of RunPrepared.
+func (mr *MockAgentRunnerMockRecorder) RunPrepared(ctx, runID, userText any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockAgentRunner)(nil).RunPrepared), ctx, runID, userText)
 }
 
 // MockModelCatalog is a mock of ModelCatalog interface.

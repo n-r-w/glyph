@@ -4,240 +4,147 @@ package ui
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"testing"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
-// TestSessionReadyRunAndQuit verifies initialization, ready submission, completion, and termination order.
-func (s *SessionSuite) TestSessionReadyRunAndQuit() {
-	t := s.T()
+// TestSubmitPreparationReservesRunnerBeforeAcceptance verifies submit admission and execution ownership.
+func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
+	t.Parallel()
+	// Arrange controller, channel, and runner for service.Prepare to verify submit admission and execution ownership.
 
-	// Arrange: return one submit command and withhold quit until the run completes.
-	channel := s.channel
-	runner := s.runner
-	authenticator := s.authenticator
-	initialization := domainui.Initialization{
-		SelectedUIID:   "test-ui",
-		StartupContent: nil,
-		Extensions:     nil,
-		Availability:   domainui.AvailabilityCheckingAuthentication,
-		Models:         nil,
-		ModelSelection: mo.Some(domainui.ModelSelection{}),
-		SessionInfo:    session.Info{},
-	}
-	var mutex sync.Mutex
-	var readyOnce sync.Once
-	var idleOnce sync.Once
-	ready := make(chan struct{})
-	idleAfterRun := make(chan struct{})
-	frames := make([]domainui.Frame, 0, 5)
-	activationOrder := make([]string, 0, 2)
-	contextKey := sessionContextKey{}
-	runContext := context.WithValue(t.Context(), contextKey, "session-value")
-	var activationValue any
-	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		mutex.Lock()
-		frames = append(frames, frame)
-		if frame.Kind == domainui.FrameInitialization {
-			activationOrder = append(activationOrder, "initialization")
-		}
-		frameCount := len(frames)
-		mutex.Unlock()
-		if frame.Kind == domainui.FrameLifecycle &&
-			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
-			if frameCount == 2 {
-				readyOnce.Do(func() { close(ready) })
-			} else if frameCount > 2 {
-				idleOnce.Do(func() { close(idleAfterRun) })
-			}
-		}
-		return nil
-	}).AnyTimes()
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
-	runner.EXPECT().Run(gomock.Any(), "first request").DoAndReturn(
-		func(_ context.Context, _ string) (agent.RunOutcome, error) {
-			return agent.RunOutcomeCompleted, nil
-		},
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	runner := NewMockAgentRunner(controller)
+	authenticator := NewMockAuthenticator(controller)
+	runner.EXPECT().PrepareRun().Return("run", nil)
+	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().Send(gomock.Any()).Times(2).Return(nil)
+	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
+	runner.EXPECT().CancelPrepared("run")
+	service := NewSession(
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, func(context.Context) {},
 	)
-	commandCall := 0
-	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
-		commandCall++
-		if commandCall == 1 {
-			<-ready
-			return testUICommand(domainui.CommandSubmit, mo.Some("first request")), nil
-		}
-		<-idleAfterRun
-		return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
-	}).Times(2)
+	service.setOperationAvailability(domainui.AvailabilityIdle)
+	command := newCommandForPreparedTest(domainui.CommandSubmit)
+	command.OperationID = "operation"
+	command.Text = mo.Some("hello")
 
-	// Act: run the complete UI session.
-	err := NewSession(channel, runner, authenticator, s.modelCatalog, nil, func(ctx context.Context) {
-		mutex.Lock()
-		activationOrder = append(activationOrder, "activated")
-		activationValue = ctx.Value(contextKey)
-		mutex.Unlock()
-	}).Run(runContext, initialization)
-
-	// Assert: initialization is first and state reaches idle, running, then idle before quit.
+	// Act by invoking service.Prepare to exercise submit admission and execution ownership.
+	prepared, err := service.Prepare(t.Context(), command)
+	// Assert submit admission and execution ownership.
 	require.NoError(t, err)
-	mutex.Lock()
-	defer mutex.Unlock()
-	require.Len(t, frames, 4)
-	assert.Equal(t, []string{"initialization", "activated"}, activationOrder)
-	assert.Equal(t, "session-value", activationValue)
-	assert.Equal(t, domainui.FrameInitialization, frames[0].Kind)
-	assert.Equal(t, domainui.AvailabilityIdle, frames[1].Lifecycle.MustGet().Availability.MustGet())
-	assert.Equal(t, domainui.AvailabilityRunning, frames[2].Lifecycle.MustGet().Availability.MustGet())
-	assert.Equal(t, domainui.AvailabilityIdle, frames[3].Lifecycle.MustGet().Availability.MustGet())
+	outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+	prepared.Release()
+
+	assert.Equal(t, operation.TerminalStateCompleted, outcome.State())
+	frame, ok := outcome.Result()
+	require.True(t, ok)
+	assert.Equal(t, domainui.FrameSubmitCompleted, frame.Kind)
+	assert.Equal(t, domainui.AvailabilityIdle, service.operationAvailabilitySnapshot())
 }
 
-// TestSessionRejectsBusySubmissionAndStopsActiveRun verifies no queue or parallel run exists.
-func (s *SessionSuite) TestSessionRejectsBusySubmissionAndStopsActiveRun() {
-	t := s.T()
+// TestSubmitAvailabilityDeliveryFailureStopsRun verifies connection delivery failure propagation.
+func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
+	t.Parallel()
 
-	channel := s.channel
-	runner := s.runner
-	authenticator := s.authenticator
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
-	ready := make(chan struct{})
-	runStarted := make(chan struct{})
-	idleAfterStop := make(chan struct{})
-	var readyOnce sync.Once
-	var stoppedOnce sync.Once
-	var mutex sync.Mutex
-	frames := make([]domainui.Frame, 0, 10)
-	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		mutex.Lock()
-		frames = append(frames, frame)
-		frameCount := len(frames)
-		mutex.Unlock()
-		if frame.Kind == domainui.FrameLifecycle &&
-			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
-			readyOnce.Do(func() { close(ready) })
-			if frameCount > 3 {
-				stoppedOnce.Do(func() { close(idleAfterStop) })
-			}
-		}
-		return nil
-	}).AnyTimes()
-	runner.EXPECT().Run(gomock.Any(), "first").DoAndReturn(
-		func(ctx context.Context, _ string) (agent.RunOutcome, error) {
-			close(runStarted)
-			<-ctx.Done()
-			return agent.RunOutcomeAborted, ctx.Err()
-		},
-	)
-	commandCall := 0
-	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
-		commandCall++
-		switch commandCall {
-		case 1:
-			<-ready
-			return testUICommand(domainui.CommandSubmit, mo.Some("first")), nil
-		case 2:
-			<-runStarted
-			return testUICommand(domainui.CommandSubmit, mo.Some("queued")), nil
-		case 3:
-			return testUICommand(domainui.CommandStop, mo.None[string]()), nil
-		default:
-			<-idleAfterStop
-			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
-		}
-	}).Times(4)
-
-	err := NewSession(
-		channel,
-		runner,
-		authenticator,
-		s.modelCatalog,
-		nil,
+	// Arrange an admitted submit whose first connection event cannot be queued.
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	runner := NewMockAgentRunner(controller)
+	source := errors.New("deliver running availability failed")
+	runner.EXPECT().PrepareRun().Return("run", nil)
+	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().Send(gomock.Any()).Return(source)
+	channel.EXPECT().Send(gomock.Any()).Return(nil)
+	runner.EXPECT().CancelPrepared("run")
+	service := NewSession(
+		channel, runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil,
 		func(context.Context) {},
-	).Run(t.Context(), domainui.Initialization{
-		SelectedUIID:   "ui",
-		StartupContent: nil,
-		Extensions:     nil,
-		Availability:   domainui.AvailabilityCheckingAuthentication,
-		Models:         nil,
-		ModelSelection: mo.Some(domainui.ModelSelection{}),
-		SessionInfo:    session.Info{},
-	})
-
+	)
+	service.setOperationAvailability(domainui.AvailabilityIdle)
+	command := newCommandForPreparedTest(domainui.CommandSubmit)
+	command.Text = mo.Some("hello")
+	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
-	mutex.Lock()
-	defer mutex.Unlock()
-	assert.True(t, containsInformation(frames, "not ready"))
-	assert.True(t, containsAvailability(frames, domainui.AvailabilityRunning))
-	assert.True(t, containsAvailability(frames, domainui.AvailabilityIdle))
+
+	// Act through prepared execution and release.
+	outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+	prepared.Release()
+
+	// Assert the source cause stops agent execution and reaches the failed outcome.
+	assert.Equal(t, operation.TerminalStateFailed, outcome.State())
+	assert.ErrorIs(t, outcome.Err(), source)
 }
 
-// TestSessionRunsMultipleTurnsThroughTheSameRunner verifies retained Agent Core ownership across requests.
-func (s *SessionSuite) TestSessionRunsMultipleTurnsThroughTheSameRunner() {
-	t := s.T()
+// TestSubmitPreparationRejectsBusyRunner verifies busy is decided before acceptance.
+func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
+	t.Parallel()
+	// Arrange controller, runner, and service for service.Prepare to verify busy is decided before acceptance.
 
-	channel := s.channel
-	runner := s.runner
-	authenticator := s.authenticator
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
-	gomock.InOrder(
-		runner.EXPECT().Run(gomock.Any(), "first").Return(agent.RunOutcomeCompleted, nil),
-		runner.EXPECT().Run(gomock.Any(), "second").Return(agent.RunOutcomeCompleted, nil),
-	)
-	idleSignals := []chan struct{}{make(chan struct{}), make(chan struct{}), make(chan struct{})}
-	idleCount := 0
-	var mutex sync.Mutex
-	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
-		if frame.Kind == domainui.FrameLifecycle &&
-			frame.Lifecycle.MustGet().Availability.MustGet() == domainui.AvailabilityIdle {
-			mutex.Lock()
-			index := idleCount
-			idleCount++
-			mutex.Unlock()
-			close(idleSignals[index])
-		}
-		return nil
-	}).AnyTimes()
-	commandCall := 0
-	channel.EXPECT().Receive().DoAndReturn(func() (domainui.Command, error) {
-		index := commandCall
-		commandCall++
-		<-idleSignals[index]
-		switch index {
-		case 0:
-			return testUICommand(domainui.CommandSubmit, mo.Some("first")), nil
-		case 1:
-			return testUICommand(domainui.CommandSubmit, mo.Some("second")), nil
-		default:
-			return testUICommand(domainui.CommandQuit, mo.None[string]()), nil
-		}
-	}).Times(3)
-
-	err := NewSession(
-		channel,
-		runner,
-		authenticator,
-		s.modelCatalog,
-		nil,
+	controller := gomock.NewController(t)
+	runner := NewMockAgentRunner(controller)
+	runner.EXPECT().PrepareRun().Return("", session.ErrBusy)
+	service := NewSession(
+		NewMockChannel(controller), runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil,
 		func(context.Context) {},
-	).Run(t.Context(), domainui.Initialization{
-		SelectedUIID:   "ui",
-		StartupContent: nil,
-		Extensions:     nil,
-		Availability:   domainui.AvailabilityCheckingAuthentication,
-		Models:         nil,
-		ModelSelection: mo.Some(domainui.ModelSelection{}),
-		SessionInfo:    session.Info{},
-	})
+	)
+	service.setOperationAvailability(domainui.AvailabilityIdle)
+	command := newCommandForPreparedTest(domainui.CommandSubmit)
+	command.Text = mo.Some("hello")
 
+	// Act by invoking service.Prepare to exercise busy is decided before acceptance.
+	_, err := service.Prepare(t.Context(), command)
+
+	var rejection *PreparationError
+	// Assert busy is decided before acceptance.
+	require.ErrorAs(t, err, &rejection)
+	assert.Equal(t, rejectionCodeBusy, rejection.Code())
+	assert.ErrorIs(t, err, session.ErrBusy)
+}
+
+// TestSubmitFailurePreservesCauseAndAuthenticationAvailability verifies failed run terminal semantics.
+func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) {
+	t.Parallel()
+	// Arrange controller, channel, and runner for Prepared.Run to verify failed run terminal semantics.
+
+	controller := gomock.NewController(t)
+	channel := NewMockChannel(controller)
+	runner := NewMockAgentRunner(controller)
+	authenticator := NewMockAuthenticator(controller)
+	source := errors.New("credentials expired")
+	runner.EXPECT().PrepareRun().Return("run", nil)
+	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().Send(gomock.Any()).Times(2).Return(nil)
+	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, source)
+	runner.EXPECT().CancelPrepared("run")
+	authenticator.EXPECT().IsSignInRequired(source).Return(true)
+	service := NewSession(
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, func(context.Context) {},
+	)
+	service.setOperationAvailability(domainui.AvailabilityIdle)
+	command := newCommandForPreparedTest(domainui.CommandSubmit)
+	command.OperationID = "operation"
+	command.Text = mo.Some("hello")
+	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
-	assert.Equal(t, 3, idleCount)
+
+	// Act by invoking Prepared.Run to exercise failed run terminal semantics.
+	outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+	prepared.Release()
+
+	// Assert failed run terminal semantics.
+	assert.Equal(t, operation.TerminalStateFailed, outcome.State())
+	assert.ErrorIs(t, outcome.Err(), source)
+	assert.Equal(t, domainui.AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
 }

@@ -78,42 +78,6 @@ type TreeNavigationCommitted struct {
 	NextInput mo.Option[string]
 }
 
-// TreeFailureCode identifies why navigation failed.
-type TreeFailureCode uint8
-
-const (
-	// TreeFailureUnspecified identifies a missing failure code.
-	TreeFailureUnspecified TreeFailureCode = iota
-	// TreeFailureInvalidArgument reports invalid command fields.
-	TreeFailureInvalidArgument
-	// TreeFailureNotFound reports an unknown target entry.
-	TreeFailureNotFound
-	// TreeFailureBusy reports an occupied operation gate.
-	TreeFailureBusy
-	// TreeFailureModelUnavailable reports an unavailable configured summary model.
-	TreeFailureModelUnavailable
-	// TreeFailureCredentialUnavailable reports unavailable summary-model credentials.
-	TreeFailureCredentialUnavailable
-	// TreeFailureModelFailed reports failed summary-model execution or output validation.
-	TreeFailureModelFailed
-	// TreeFailureExtensionInvalidResult reports invalid final extension output.
-	TreeFailureExtensionInvalidResult
-	// TreeFailureExtensionUnavailable reports extension process or protocol failure.
-	TreeFailureExtensionUnavailable
-	// TreeFailurePersistenceUnavailable reports unavailable persistence.
-	TreeFailurePersistenceUnavailable
-	// TreeFailureInternal reports an unclassified Host failure.
-	TreeFailureInternal
-)
-
-// TreeFailure contains one closed failure and safe message.
-type TreeFailure struct {
-	// Code classifies the navigation failure.
-	Code TreeFailureCode
-	// Message contains safe failure details.
-	Message string
-}
-
 // SessionTree contains every public tree entry and optional active leaf.
 type SessionTree struct {
 	// Entries are ordered by persistence order.

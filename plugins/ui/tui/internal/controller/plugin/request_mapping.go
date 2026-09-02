@@ -9,148 +9,133 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-// mapRequest validates and projects one public UI frame into presentation state.
-func mapRequest(request *uiv1.OpenRequest) (presentationdomain.Event, error) {
+// mapInitializationRequest validates and projects the startup payload.
+func mapInitializationRequest(request *uiv1.Initialization) (presentationdomain.Event, error) {
 	if request == nil {
-		return presentationdomain.Event{}, errors.New("frame is nil")
+		return presentationdomain.Event{}, errors.New("initialization is required")
 	}
-	if initialization := request.GetInitialization(); initialization != nil {
-		return mapInitialization(initialization)
+	return mapInitialization(request)
+}
+
+// mapProgress projects one Host operation progress event.
+func mapHostProgress(progress *uiv1.HostProgress) (presentationdomain.Event, error) {
+	if progress == nil {
+		return presentationdomain.Event{}, errors.New("host progress is required")
 	}
-	if lifecycle := request.GetLifecycle(); lifecycle != nil {
-		return mapLifecycle(lifecycle)
-	}
-	if event, handled, err := mapTreeRequest(request); handled {
-		return event, err
-	}
-	if event, handled, err := mapSessionRequest(request); handled {
-		return event, err
-	}
-	if event, handled, err := mapTextRequest(request); handled {
-		return event, err
-	}
-	if safeError := request.GetError(); safeError != nil {
-		if !safeError.HasText() {
-			return presentationdomain.Event{}, errors.New("error text is required")
+	switch progress.WhichProgress() {
+	case uiv1.HostProgress_AgentEvent_case:
+		return mapLifecycle(progress.GetAgentEvent())
+	case uiv1.HostProgress_Authorization_case:
+		authorization := progress.GetAuthorization()
+		if authorization == nil || !authorization.HasUrl() {
+			return presentationdomain.Event{}, errors.New("authorization URL is required")
 		}
-		if !safeError.HasRetryAuthentication() {
-			return presentationdomain.Event{}, errors.New("error retry authentication is required")
-		}
-		availability := mo.None[presentationdomain.Availability]()
-		if safeError.GetRetryAuthentication() {
-			availability = mo.Some(presentationdomain.AvailabilityAuthenticationFailed)
-		}
-		return presentationdomain.Event{
-			RestoredTranscript:   nil,
-			Kind:                 presentationdomain.EventError,
-			Startup:              nil,
-			Extensions:           nil,
-			Availability:         availability,
-			Position:             mo.None[int](),
-			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-			ModelResponseContent: nil,
-			ToolCallID:           mo.None[string](),
-			ToolName:             mo.None[string](),
-			Status:               mo.None[string](),
-			Stream:               mo.None[presentationdomain.OutputStream](),
-			Text:                 mo.Some(safeError.GetText()),
-			Contents:             mo.None[[]presentationdomain.Content](),
-			ErrorText:            mo.None[string](),
-			ExitCode:             mo.None[int](),
-			Failure:              mo.None[bool](),
-			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			Models:               nil,
-			ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-			Sessions:             nil,
-			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-		}, nil
+		return textEvent(presentationdomain.EventAuthorization, authorization.GetUrl()), nil
+	case uiv1.HostProgress_Progress_not_set_case:
+		return presentationdomain.Event{}, errors.New("host progress payload is required")
+	default:
+		return presentationdomain.Event{}, errors.New("host progress payload is unknown")
 	}
-	if changed := request.GetModelSelectionChanged(); changed != nil {
+}
+
+// mapCompleted projects one Host operation completed payload.
+func mapCompleted(completed *uiv1.HostCompleted) (presentationdomain.Event, bool, error) {
+	if completed == nil {
+		return presentationdomain.Event{}, false, errors.New("host completion is required")
+	}
+	if event, handled, err := mapTreeRequest(completed); handled {
+		return event, true, err
+	}
+	if event, handled, err := mapSessionRequest(completed); handled {
+		return event, true, err
+	}
+	if changed := completed.GetModelSelection(); changed != nil {
 		selection, err := mapModelSelection(changed.GetSelection())
+		if err != nil {
+			return presentationdomain.Event{}, true, err
+		}
+		event := emptyEvent(presentationdomain.EventModelSelectionChanged)
+		event.ModelSelection = mo.Some(selection)
+		return event, true, nil
+	}
+	switch completed.WhichCompleted() {
+	case uiv1.HostCompleted_Submit_case:
+		return emptyEvent(presentationdomain.EventAgentSettled), true, nil
+	case uiv1.HostCompleted_Authentication_case, uiv1.HostCompleted_Cancel_case:
+		return presentationdomain.Event{}, false, nil
+	case uiv1.HostCompleted_ModelSelection_case, uiv1.HostCompleted_SessionChanged_case,
+		uiv1.HostCompleted_SessionList_case, uiv1.HostCompleted_SessionInformation_case,
+		uiv1.HostCompleted_SessionTree_case, uiv1.HostCompleted_SessionTreeNavigation_case,
+		uiv1.HostCompleted_SessionForked_case, uiv1.HostCompleted_SessionCloned_case,
+		uiv1.HostCompleted_EntryLabelSet_case:
+		return presentationdomain.Event{}, false, errors.New("host completion payload was not mapped")
+	case uiv1.HostCompleted_Completed_not_set_case:
+		return presentationdomain.Event{}, false, errors.New("host completion payload is required")
+	default:
+		return presentationdomain.Event{}, false, errors.New("host completion payload is unknown")
+	}
+}
+
+// mapConnectionEvent projects one host connection event.
+func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomain.Event, error) {
+	if connection == nil {
+		return presentationdomain.Event{}, errors.New("host connection event is required")
+	}
+	switch connection.WhichEvent() {
+	case uiv1.HostConnectionEvent_Information_case:
+		information := connection.GetInformation()
+		if information == nil || !information.HasText() {
+			return presentationdomain.Event{}, errors.New("information text is required")
+		}
+		return textEvent(presentationdomain.EventInformation, information.GetText()), nil
+	case uiv1.HostConnectionEvent_Error_case:
+		failure := connection.GetError()
+		if failure == nil || !failure.HasCode() || failure.GetCode() == "" ||
+			!failure.HasText() || failure.GetText() == "" {
+			return presentationdomain.Event{}, errors.New("connection error category and text are required")
+		}
+		return textEvent(presentationdomain.EventError, failure.GetText()), nil
+	case uiv1.HostConnectionEvent_AvailabilityChanged_case:
+		availability, err := mapAvailability(connection.GetAvailabilityChanged().GetAvailability())
 		if err != nil {
 			return presentationdomain.Event{}, err
 		}
-		return presentationdomain.Event{
-			RestoredTranscript:   nil,
-			Kind:                 presentationdomain.EventModelSelectionChanged,
-			Startup:              nil,
-			Extensions:           nil,
-			Availability:         mo.None[presentationdomain.Availability](),
-			Position:             mo.None[int](),
-			ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-			ModelResponseContent: nil,
-			ToolCallID:           mo.None[string](),
-			ToolName:             mo.None[string](),
-			Status:               mo.None[string](),
-			Stream:               mo.None[presentationdomain.OutputStream](),
-			Text:                 mo.None[string](),
-			Contents:             mo.None[[]presentationdomain.Content](),
-			ErrorText:            mo.None[string](),
-			ExitCode:             mo.None[int](),
-			Failure:              mo.None[bool](),
-			ToolCall:             mo.None[presentationdomain.ToolCallState](),
-			Models:               nil,
-			ModelSelection:       mo.Some(selection),
-			SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-			Sessions:             nil,
-			SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-			TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-		}, nil
+		event := emptyEvent(presentationdomain.EventAvailability)
+		event.Availability = mo.Some(availability)
+		return event, nil
+	case uiv1.HostConnectionEvent_Event_not_set_case:
+		return presentationdomain.Event{}, errors.New("host connection event payload is required")
+	default:
+		return presentationdomain.Event{}, errors.New("host connection event payload is unknown")
 	}
-	return presentationdomain.Event{}, errors.New("frame content is missing")
 }
 
-// mapTextRequest maps authorization and information payloads that share text-only presentation state.
-func mapTextRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, error) {
-	var kind presentationdomain.EventKind
-	var text string
-	if authorization := request.GetAuthorization(); authorization != nil {
-		if !authorization.HasUrl() {
-			return presentationdomain.Event{}, true, errors.New("authorization URL is required")
-		}
-		kind = presentationdomain.EventAuthorization
-		text = authorization.GetUrl()
-	} else if information := request.GetInformation(); information != nil {
-		if !information.HasText() {
-			return presentationdomain.Event{}, true, errors.New("information text is required")
-		}
-		kind = presentationdomain.EventInformation
-		text = information.GetText()
-	} else {
-		return presentationdomain.Event{}, false, nil
-	}
+// textEvent creates one complete text-only presentation event.
+func textEvent(kind presentationdomain.EventKind, text string) presentationdomain.Event {
+	event := emptyEvent(kind)
+	event.Text = mo.Some(text)
+	return event
+}
+
+// emptyEvent creates one fully initialized presentation event.
+func emptyEvent(kind presentationdomain.EventKind) presentationdomain.Event {
 	return presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 kind,
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.Some(text),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-	}, true, nil
+		RestoredTranscript: nil, Kind: kind, Startup: nil, Extensions: nil,
+		Availability: mo.None[presentationdomain.Availability](), Position: mo.None[int](),
+		ModelContentKind: mo.None[presentationdomain.ModelContentKind](), ModelResponseContent: nil,
+		ToolCallID: mo.None[string](), ToolName: mo.None[string](), Status: mo.None[string](),
+		Stream: mo.None[presentationdomain.OutputStream](), Text: mo.None[string](),
+		Contents: mo.None[[]presentationdomain.Content](), ErrorText: mo.None[string](),
+		ExitCode: mo.None[int](), Failure: mo.None[bool](), ToolCall: mo.None[presentationdomain.ToolCallState](),
+		Models: nil, ModelSelection: mo.None[presentationdomain.ModelSelection](),
+		SessionInfo: mo.None[presentationdomain.SessionInfo](), Sessions: nil,
+		SessionStatistics: mo.None[presentationdomain.SessionStatistics](),
+		TreeEvent:         mo.None[presentationdomain.TreeEvent](),
+	}
 }
 
 // mapSessionRequest validates lifecycle frames before they enter TUI state.
-func mapSessionRequest(request *uiv1.OpenRequest) (presentationdomain.Event, bool, error) {
+func mapSessionRequest(request *uiv1.HostCompleted) (presentationdomain.Event, bool, error) {
 	if listed := request.GetSessionList(); listed != nil {
 		summaries := make([]presentationdomain.SessionSummary, 0, len(listed.GetSessions()))
 		for _, value := range listed.GetSessions() {

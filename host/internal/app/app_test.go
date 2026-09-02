@@ -5,11 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/samber/lo"
-
 	"github.com/stretchr/testify/require"
-
-	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 const (
@@ -23,24 +19,6 @@ const (
 	appUIRuntimeEffectEnvironment  = "GLYPH_APP_UI_RUNTIME_EFFECT"
 	appUIRuntimeReleaseEnvironment = "GLYPH_APP_UI_RUNTIME_RELEASE"
 )
-
-// semanticToolResultContents keeps typed result blocks stable in the shared lifecycle fixture.
-func semanticToolResultContents(contents []*uipb.ToolResultContent) []map[string]any {
-	return lo.FilterMap(contents, func(content *uipb.ToolResultContent, _ int) (map[string]any, bool) {
-		switch content.WhichContent() {
-		case uipb.ToolResultContent_Text_case:
-			return map[string]any{"text": content.GetText()}, true
-		case uipb.ToolResultContent_Image_case:
-			image := content.GetImage()
-			return map[string]any{"image": map[string]any{
-				"media_type": image.GetMediaType(), "data": image.GetData(),
-			}}, true
-		case uipb.ToolResultContent_Content_not_set_case:
-			return nil, false
-		}
-		return nil, false
-	})
-}
 
 // repoRoot resolves the repository from the test package working directory.
 func repoRoot(t *testing.T) string {
