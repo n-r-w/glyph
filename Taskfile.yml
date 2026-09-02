@@ -68,7 +68,28 @@ tasks:
       - go build -o {{default "bin" .BUILD_ROOT}}/plugins/ui/glyph-tui ./plugins/ui/tui/cmd/glyph-tui
 
   test-coverage:
-    desc: Run tests with coverage
+    desc: Check test coverage
+    vars:
+      COVERAGE_MIN: '{{default "50" .COVERAGE_MIN}}'
     cmds:
-      - go test ./... -coverprofile=coverage.out -v
-      - go tool cover -html=coverage.out -o coverage.html
+      - |
+        tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "$tmp_dir"' EXIT
+
+        profile="$tmp_dir/coverage.out"
+        test_log="$tmp_dir/test.log"
+
+        if ! go test ./... -coverprofile="$profile" >"$test_log" 2>&1; then
+          cat "$test_log" >&2
+          exit 1
+        fi
+
+        awk 'NR == 1 || $0 !~ /(\.pb|_mock)\.go:/' "$profile" |
+          go tool cover -func=/dev/stdin |
+          awk -v minimum="{{.COVERAGE_MIN}}" '
+            /^total:/ {
+              gsub("%", "", $3)
+              printf "Coverage: %.1f%%, required: %.1f%%\n", $3, minimum
+              exit ($3 + 0 < minimum + 0)
+            }
+          '
