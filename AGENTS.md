@@ -57,6 +57,9 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 5. Use `mo.Option[T]` directly for required JSON fields, but use `*T` with `omitempty` when `Some` zero values must remain distinguishable from `None`.
 6. MUST NOT suppress ifaceguard warnings in production code. If they appear, it means dependency direction is incorrect.
 7. Define named constants for strings that represent stable UI text, commands, domain or protocol values, and formatting templates, even when used once. Keep incidental implementation text, including one-off error messages, inline.
+8. Unused parameter such as `_ name` is allowed only in these cases:
+    1) Current stage is an intermediate compile state and the parameter will be used by a later approved stage
+    2) Function implements a shared interface whose parameter is used by another implementation
 
 ## Protobuf rules
 1. Proto `edition 2023`
