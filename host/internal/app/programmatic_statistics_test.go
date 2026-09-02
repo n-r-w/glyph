@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
@@ -105,7 +106,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 			)
 			require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
 			previousTransport := http.DefaultTransport
-			http.DefaultTransport = usageCodexTransport{usageJSON: test.usageJSON}
+			http.DefaultTransport = newUsageCodexTransport(t, test.usageJSON)
 			t.Cleanup(func() { http.DefaultTransport = previousTransport })
 			fixture := startProgrammaticFixture(t, paths)
 
@@ -213,27 +214,30 @@ func requestProgrammaticInfo(
 	}).GetSessionInfo().GetInfo()
 }
 
-type usageCodexTransport struct {
-	usageJSON string
-}
-
-// RoundTrip returns a deterministic provider response with token usage.
-func (transport usageCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	usageField := ""
-	if transport.usageJSON != "" {
-		usageField = fmt.Sprintf(",\"usage\":%s", transport.usageJSON)
-	}
-	body := fmt.Sprintf(
-		"data: {\"type\":\"response.completed\","+
-			"\"response\":{\"id\":\"usage-response\","+
-			"\"model\":\"selected-model\",\"status\":\"completed\","+
-			"\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\n"+
-			"data: [DONE]\n\n",
-		usageField,
+// newUsageCodexTransport returns a mock provider response with token usage.
+func newUsageCodexTransport(t *testing.T, usageJSON string) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(*http.Request) (*http.Response, error) {
+			usageField := ""
+			if usageJSON != "" {
+				usageField = fmt.Sprintf(",\"usage\":%s", usageJSON)
+			}
+			body := fmt.Sprintf(
+				"data: {\"type\":\"response.completed\","+
+					"\"response\":{\"id\":\"usage-response\","+
+					"\"model\":\"selected-model\",\"status\":\"completed\","+
+					"\"service_tier\":\"default\",\"metadata\":{}%s,\"output\":[]}}\n\n"+
+					"data: [DONE]\n\n",
+				usageField,
+			)
+			return &http.Response{
+				StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header),
+				Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,
+				Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
+			}, nil
+		},
 	)
-	return &http.Response{
-		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header),
-		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,
-		Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
-	}, nil
+	return transport
 }

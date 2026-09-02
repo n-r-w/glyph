@@ -22,7 +22,7 @@ func (testSuite *ProgrammaticAppSuite) TestProgrammaticBlockedRunAllowsQueryAndT
 	requestCount := new(atomic.Int32)
 	providerStarted := make(chan struct{}, 1)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = programmaticTransport{requestCount: requestCount, started: providerStarted}
+	http.DefaultTransport = newProgrammaticTransport(t, requestCount, providerStarted)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixtureWithExtension(t, paths, buildToolsExecutable(t))
 	defer fixture.closeOwner(t)

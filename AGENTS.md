@@ -89,6 +89,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 6. ALL non integration tests MUST use `//go:build !integration` and run through `task test`.
 7. MUST NEVER test mutable content (like prompts), ONLY logic.
 8. MUST NEVER test logs.
+9. MUST investigate causes of flaky tests.
 
 ### Mocking
 1. Use `go.uber.org/mock` and `//go:generate go tool mockgen ...` to generate.

@@ -30,7 +30,7 @@ func TestRunWithPathsSessionRootFailureStopsBeforeProgrammaticControl(t *testing
 	require.NoError(t, os.WriteFile(filepath.Join(paths.Directory, "sessions"), []byte("blocked"), 0o600))
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = countingFailureTransport{requests: requests}
+	http.DefaultTransport = newCountingFailureTransport(t, requests)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	socketPath := filepath.Join(t.TempDir(), "glyph.sock")
 
@@ -62,7 +62,7 @@ func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testi
 	require.NoError(t, os.WriteFile(filepath.Join(sessionRoot, projectDirectoryName), []byte("blocked"), 0o600))
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = countingFailureTransport{requests: requests}
+	http.DefaultTransport = newCountingFailureTransport(t, requests)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Must_Not_Start_UI")

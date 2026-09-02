@@ -128,7 +128,7 @@ func TestRunWithPathsHeadlessInvalidSettingsStopsBeforeRun(t *testing.T) {
 	paths := testPaths(t, strings.Replace(codexSettings(""), "input: [text]", "input: [image]", 1))
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = countingFailureTransport{requests: requests}
+	http.DefaultTransport = newCountingFailureTransport(t, requests)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

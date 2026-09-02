@@ -13,69 +13,81 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
-// deterministicCodexTransport returns two fixed responses and never performs network I/O.
-type countingFailureTransport struct{ requests *atomic.Int32 }
-
-// RoundTrip records any provider request that escaped an application-startup failure.
-func (transport countingFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	transport.requests.Add(1)
-	return nil, errors.New("provider request must not start")
+// newCountingFailureTransport returns a mock that records provider requests which must not start.
+func newCountingFailureTransport(t *testing.T, requests *atomic.Int32) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(*http.Request) (*http.Response, error) {
+			requests.Add(1)
+			return nil, errors.New("provider request must not start")
+		},
+	)
+	return transport
 }
 
-type deterministicCodexTransport struct {
-	requestCount *atomic.Int32
-	lastBody     *atomic.Value
-}
-
-func (transport deterministicCodexTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if transport.lastBody != nil {
-		body, err := io.ReadAll(request.Body)
-		if err != nil {
-			return nil, err
-		}
-		transport.lastBody.Store(body)
-	}
-	requestNumber := transport.requestCount.Add(1)
-	switch requestNumber {
-	case 1:
-		return &http.Response{
-			StatusCode:       http.StatusOK,
-			Body:             io.NopCloser(strings.NewReader(toolResponseSSE)),
-			Header:           make(http.Header),
-			Status:           "",
-			Proto:            "",
-			ProtoMajor:       0,
-			ProtoMinor:       0,
-			ContentLength:    0,
-			TransferEncoding: nil,
-			Close:            false,
-			Uncompressed:     false,
-			Trailer:          nil,
-			Request:          nil,
-			TLS:              nil,
-		}, nil
-	case 2, 3, 4, 5:
-		return &http.Response{
-			StatusCode:       http.StatusOK,
-			Body:             io.NopCloser(strings.NewReader(finalResponseSSE)),
-			Header:           make(http.Header),
-			Status:           "",
-			Proto:            "",
-			ProtoMajor:       0,
-			ProtoMinor:       0,
-			ContentLength:    0,
-			TransferEncoding: nil,
-			Close:            false,
-			Uncompressed:     false,
-			Trailer:          nil,
-			Request:          nil,
-			TLS:              nil,
-		}, nil
-	default:
-		return nil, errors.New("deterministic Codex transport received more than three requests")
-	}
+// newDeterministicCodexTransport returns fixed provider responses without network I/O.
+func newDeterministicCodexTransport(
+	t *testing.T,
+	requestCount *atomic.Int32,
+	lastBody *atomic.Value,
+) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(request *http.Request) (*http.Response, error) {
+			if lastBody != nil {
+				body, err := io.ReadAll(request.Body)
+				if err != nil {
+					return nil, err
+				}
+				lastBody.Store(body)
+			}
+			requestNumber := requestCount.Add(1)
+			switch requestNumber {
+			case 1:
+				return &http.Response{
+					StatusCode:       http.StatusOK,
+					Body:             io.NopCloser(strings.NewReader(toolResponseSSE)),
+					Header:           make(http.Header),
+					Status:           "",
+					Proto:            "",
+					ProtoMajor:       0,
+					ProtoMinor:       0,
+					ContentLength:    0,
+					TransferEncoding: nil,
+					Close:            false,
+					Uncompressed:     false,
+					Trailer:          nil,
+					Request:          nil,
+					TLS:              nil,
+				}, nil
+			case 2, 3, 4, 5:
+				return &http.Response{
+					StatusCode:       http.StatusOK,
+					Body:             io.NopCloser(strings.NewReader(finalResponseSSE)),
+					Header:           make(http.Header),
+					Status:           "",
+					Proto:            "",
+					ProtoMajor:       0,
+					ProtoMinor:       0,
+					ContentLength:    0,
+					TransferEncoding: nil,
+					Close:            false,
+					Uncompressed:     false,
+					Trailer:          nil,
+					Request:          nil,
+					TLS:              nil,
+				}, nil
+			default:
+				return nil, errors.New("deterministic Codex transport received more than three requests")
+			}
+		},
+	)
+	return transport
 }
 
 const toolResponseSSE = `data: {"type":"response.output_item.done","output_index":0,` +

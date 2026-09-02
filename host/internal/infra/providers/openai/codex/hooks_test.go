@@ -153,10 +153,36 @@ func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	t.Parallel()
 
 	closeErr := errors.New("unique response body close error")
-	body := NewMockIOReadCloser(gomock.NewController(t))
+	controller := gomock.NewController(t)
+	body := NewMockIOReadCloser(controller)
 	body.EXPECT().Read(gomock.Any()).Times(0)
 	body.EXPECT().Close().Return(closeErr)
-	transport := &staticResponseTransport{body: body, requests: atomic.Int32{}}
+	requestCount := new(atomic.Int32)
+	transport := NewMockHTTPRoundTripper(controller)
+	transport.EXPECT().RoundTrip(gomock.Any()).Times(1).DoAndReturn(
+		func(*http.Request) (*http.Response, error) {
+			requestCount.Add(1)
+			return &http.Response{
+				Status:     "",
+				StatusCode: http.StatusOK,
+				Proto:      "",
+				ProtoMajor: 0,
+				ProtoMinor: 0,
+				Header: http.Header{
+					"Content-Type": {"text/event-stream"},
+					"X-Response":   {"response-value"},
+				},
+				Body:             body,
+				ContentLength:    0,
+				TransferEncoding: nil,
+				Close:            false,
+				Uncompressed:     false,
+				Trailer:          nil,
+				Request:          nil,
+				TLS:              nil,
+			}, nil
+		},
+	)
 	options := defaultDriverOptions()
 	options.modelBaseURL = "https://hooks.invalid"
 	options.httpClient = &http.Client{
@@ -199,39 +225,11 @@ func TestDriverStreamClosesBodyOnResponseHookFailure(t *testing.T) {
 	require.ErrorIs(t, err, closeErr)
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), hookErr.Error())
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), closeErr.Error())
-	assert.Equal(t, int32(1), transport.requests.Load())
+	assert.Equal(t, int32(1), requestCount.Load())
 	assert.Zero(t, laterCalls)
 	require.Len(t, events, 1)
 	assert.Equal(t, run.StreamEventError, events[0].Kind)
 	assertHookFailure(t, response, hooks.StageResponse)
-}
-
-type staticResponseTransport struct {
-	requests atomic.Int32
-	body     io.ReadCloser
-}
-
-func (transport *staticResponseTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	transport.requests.Add(1)
-	return &http.Response{
-		Status:     "",
-		StatusCode: http.StatusOK,
-		Proto:      "",
-		ProtoMajor: 0,
-		ProtoMinor: 0,
-		Header: http.Header{
-			"Content-Type": {"text/event-stream"},
-			"X-Response":   {"response-value"},
-		},
-		Body:             transport.body,
-		ContentLength:    0,
-		TransferEncoding: nil,
-		Close:            false,
-		Uncompressed:     false,
-		Trailer:          nil,
-		Request:          nil,
-		TLS:              nil,
-	}, nil
 }
 
 func hookTestDriver(t *testing.T, runner *hookrunner.Runner, options driverOptions, calls int) *Driver {

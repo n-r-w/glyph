@@ -32,7 +32,7 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 	writeProgrammaticCredentials(t, paths)
 	requestCount := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = countingFailureTransport{requests: requestCount}
+	http.DefaultTransport = newCountingFailureTransport(t, requestCount)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixture(t, paths)
 	defer fixture.closeOwner(t)
@@ -146,7 +146,7 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	body := &atomic.Value{}
 	body.Store(finalResponseSSE)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = runtimeFailureTransport{body: body, requests: requests, started: started, release: release}
+	http.DefaultTransport = newRuntimeFailureTransport(t, body, requests, started, release)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixture(t, paths)
 	defer fixture.closeOwner(t)
@@ -219,7 +219,7 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 	writeProgrammaticCredentials(t, paths)
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = deterministicCodexTransport{requestCount: requests, lastBody: nil}
+	http.DefaultTransport = newDeterministicCodexTransport(t, requests, nil)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixtureWithExtension(t, paths, buildToolsExecutable(t))
 	defer fixture.closeOwner(t)

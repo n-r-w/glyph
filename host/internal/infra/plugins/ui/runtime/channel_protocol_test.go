@@ -80,6 +80,41 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	assert.True(t, transport.ready)
 }
 
+// TestChannelSendAfterWriterCloseDoesNotFailConnection verifies late connection events remain local during shutdown.
+func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a channel whose operation writer completed normal shutdown.
+	writer := operation.NewWriter(func(*uiv1.OpenRequest) error { return nil })
+	writer.Close()
+	deliveryFailures := make(chan error, 1)
+	_, cancel := context.WithCancel(t.Context())
+	transport := &channel{
+		stream:           nil,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           writer,
+		progressReporter: operation.Reporter[domainui.Frame]{},
+		progressBound:    false,
+		failConnection: func(err error) {
+			deliveryFailures <- err
+		},
+	}
+
+	// Act by sending a connection event after the writer closes.
+	err := transport.Send(testSimpleFrame(domainui.FrameInformation, "late connection event"))
+
+	// Assert the caller receives the complete closure error without failing the closing connection.
+	require.ErrorIs(t, err, operation.ErrClosed)
+	select {
+	case deliveryErr := <-deliveryFailures:
+		require.Fail(t, "normal writer closure failed the connection", deliveryErr.Error())
+	default:
+	}
+}
+
 // TestStartupCancellationRejectionCategories verifies cancellation rejection while initialization continues.
 func TestStartupCancellationRejectionCategories(t *testing.T) {
 	t.Parallel()

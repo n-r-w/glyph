@@ -22,6 +22,7 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
@@ -511,10 +512,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	requestCount := &atomic.Int32{}
 	lastBody := &atomic.Value{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = &blockingStandardTUITransport{
-		delegate: standardTUIUsageTransport{requestCount: requestCount, lastBody: lastBody},
-		release:  providerRelease, requestCount: new(atomic.Int32),
-	}
+	http.DefaultTransport = newStandardTUITransport(t, requestCount, lastBody, providerRelease)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	// Act by running two complete Host and standard TUI process cycles.
@@ -608,56 +606,66 @@ func serveStandardTUIControl(
 	return nil
 }
 
-type standardTUIUsageTransport struct {
-	requestCount *atomic.Int32
-	lastBody     *atomic.Value
-}
-
-func (transport standardTUIUsageTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	body, err := io.ReadAll(request.Body)
-	if err != nil {
-		return nil, err
-	}
-	transport.lastBody.Store(body)
-	requestNumber := transport.requestCount.Add(1)
-	responseBody := finalResponseSSE
-	if requestNumber == 1 {
-		responseBody = toolResponseSSE
-	}
-	usage := `{"input_tokens":0,"output_tokens":0,"total_tokens":0,` +
-		`"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}` +
-		`,"output_tokens_details":{"reasoning_tokens":0}}`
-	if requestNumber == 1 || requestNumber == 2 {
-		usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,` +
-			`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1}` +
-			`,"output_tokens_details":{"reasoning_tokens":3}}`
-	}
-	if requestNumber != 5 && requestNumber != 6 {
-		responseBody = strings.Replace(
-			responseBody,
-			`"status":"completed","output":[]`,
-			`"status":"completed","usage":`+usage+`,"output":[]`,
-			1,
-		)
-	}
-	return &http.Response{
-		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(responseBody)), Header: make(http.Header),
-		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0, TransferEncoding: nil,
-		Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
-	}, nil
-}
-
-type blockingStandardTUITransport struct {
-	delegate     http.RoundTripper
-	release      <-chan struct{}
-	requestCount *atomic.Int32
-}
-
-func (transport *blockingStandardTUITransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if transport.requestCount.Add(1) == 4 {
-		<-transport.release
-	}
-	return transport.delegate.RoundTrip(request)
+// newStandardTUITransport returns deterministic usage responses and blocks the fourth request.
+func newStandardTUITransport(
+	t *testing.T,
+	requestCount *atomic.Int32,
+	lastBody *atomic.Value,
+	release <-chan struct{},
+) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	blockingRequestCount := new(atomic.Int32)
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(request *http.Request) (*http.Response, error) {
+			if blockingRequestCount.Add(1) == 4 {
+				<-release
+			}
+			body, err := io.ReadAll(request.Body)
+			if err != nil {
+				return nil, err
+			}
+			lastBody.Store(body)
+			requestNumber := requestCount.Add(1)
+			responseBody := finalResponseSSE
+			if requestNumber == 1 {
+				responseBody = toolResponseSSE
+			}
+			usage := `{"input_tokens":0,"output_tokens":0,"total_tokens":0,` +
+				`"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}` +
+				`,"output_tokens_details":{"reasoning_tokens":0}}`
+			if requestNumber == 1 || requestNumber == 2 {
+				usage = `{"input_tokens":10,"output_tokens":4,"total_tokens":99,` +
+					`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1}` +
+					`,"output_tokens_details":{"reasoning_tokens":3}}`
+			}
+			if requestNumber != 5 && requestNumber != 6 {
+				responseBody = strings.Replace(
+					responseBody,
+					`"status":"completed","output":[]`,
+					`"status":"completed","usage":`+usage+`,"output":[]`,
+					1,
+				)
+			}
+			return &http.Response{
+				StatusCode:       http.StatusOK,
+				Body:             io.NopCloser(strings.NewReader(responseBody)),
+				Header:           make(http.Header),
+				Status:           "",
+				Proto:            "",
+				ProtoMajor:       0,
+				ProtoMinor:       0,
+				ContentLength:    0,
+				TransferEncoding: nil,
+				Close:            false,
+				Uncompressed:     false,
+				Trailer:          nil,
+				Request:          nil,
+				TLS:              nil,
+			}, nil
+		},
+	)
+	return transport
 }
 
 // buildStandardTUIExecutable compiles the real UI command into a discoverable test directory.

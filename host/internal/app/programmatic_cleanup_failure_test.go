@@ -16,34 +16,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
 const programmaticCleanupProviderMarker = "private model provider-context extension-json"
 
-type programmaticOwnerCleanupTransport struct {
-	requests *atomic.Int32
-	started  chan<- struct{}
-	canceled chan<- struct{}
-}
-
 type programmaticCleanupLogRecord struct {
 	Message   string `json:"msg"`
 	Operation string `json:"operation"`
 	SessionID string `json:"session_id"`
 	Error     string `json:"error"`
-}
-
-// RoundTrip blocks one provider request until owner cleanup cancels its context.
-func (transport programmaticOwnerCleanupTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if transport.requests.Add(1) != 1 {
-		return nil, errors.New("unexpected dependent provider request")
-	}
-	transport.started <- struct{}{}
-	<-request.Context().Done()
-	transport.canceled <- struct{}{}
-	return nil, errors.Join(request.Context().Err(), errors.New(programmaticCleanupProviderMarker))
 }
 
 // TestOwnerClosurePersistenceFailurePreservesContext verifies Programmatic cleanup returns storage details.
@@ -56,10 +40,20 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 	requests := new(atomic.Int32)
 	providerStarted := make(chan struct{}, 1)
 	providerCanceled := make(chan struct{}, 1)
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(request *http.Request) (*http.Response, error) {
+			if requests.Add(1) != 1 {
+				return nil, errors.New("unexpected dependent provider request")
+			}
+			providerStarted <- struct{}{}
+			<-request.Context().Done()
+			providerCanceled <- struct{}{}
+			return nil, errors.Join(request.Context().Err(), errors.New(programmaticCleanupProviderMarker))
+		},
+	)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = programmaticOwnerCleanupTransport{
-		requests: requests, started: providerStarted, canceled: providerCanceled,
-	}
+	http.DefaultTransport = transport
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	var logs bytes.Buffer
 	previousLogger := slog.Default()

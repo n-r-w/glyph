@@ -1,5 +1,7 @@
 package app
 
+//go:generate go tool mockgen -build_constraint=integration -destination=http_roundtripper_mock_test.go -package=app -mock_names=RoundTripper=MockHTTPRoundTripper net/http RoundTripper
+
 import (
 	"os"
 	"path/filepath"

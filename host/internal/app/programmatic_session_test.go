@@ -33,7 +33,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	requestCount.Store(0)
 	lastBody := &atomic.Value{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = deterministicCodexTransport{requestCount: requestCount, lastBody: lastBody}
+	http.DefaultTransport = newDeterministicCodexTransport(t, requestCount, lastBody)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	extensionDirectory := buildToolsExecutable(t)
 	fixture := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)

@@ -78,7 +78,7 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	paths := testPaths(t, restartSelectionSettings())
 	requests := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = countingFailureTransport{requests: requests}
+	http.DefaultTransport = newCountingFailureTransport(t, requests)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	faultWriter := &headlessPersistenceFaultWriter{
 		mutex: sync.Mutex{}, output: bytes.Buffer{},

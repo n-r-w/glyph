@@ -44,10 +44,7 @@ func TestHostSemanticClientMatchesHeadlessOutcome(t *testing.T) {
 	)
 	requestCount := &atomic.Int32{}
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = deterministicCodexTransport{
-		requestCount: requestCount,
-		lastBody:     nil,
-	}
+	http.DefaultTransport = newDeterministicCodexTransport(t, requestCount, nil)
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 
 	extensionDirectory := buildToolsExecutable(t)

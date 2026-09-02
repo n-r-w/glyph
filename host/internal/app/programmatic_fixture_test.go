@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
@@ -142,69 +143,91 @@ func (fixture *programmaticFixture) assertStdout(t *testing.T) {
 	assert.Empty(t, remaining)
 }
 
-// programmaticTransport blocks the first run and completes the second run.
-type runtimeFailureTransport struct {
-	body     *atomic.Value
-	requests *atomic.Int32
-	started  chan<- struct{}
-	release  <-chan struct{}
+// newRuntimeFailureTransport returns a mock provider response with optional synchronization.
+func newRuntimeFailureTransport(
+	t *testing.T,
+	body *atomic.Value,
+	requests *atomic.Int32,
+	started chan<- struct{},
+	release <-chan struct{},
+) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(*http.Request) (*http.Response, error) {
+			if requests.Add(1) != 1 {
+				return nil, errors.New("runtime failure transport received a dependent provider request")
+			}
+			if started != nil {
+				started <- struct{}{}
+				<-release
+			}
+			responseBody, ok := body.Load().(string)
+			if !ok {
+				return nil, errors.New("runtime failure transport has no response body")
+			}
+			return &http.Response{
+				StatusCode:       http.StatusOK,
+				Body:             io.NopCloser(strings.NewReader(responseBody)),
+				Header:           make(http.Header),
+				Status:           "",
+				Proto:            "",
+				ProtoMajor:       0,
+				ProtoMinor:       0,
+				ContentLength:    0,
+				TransferEncoding: nil,
+				Close:            false,
+				Uncompressed:     false,
+				Trailer:          nil,
+				Request:          nil,
+				TLS:              nil,
+			}, nil
+		},
+	)
+	return transport
 }
 
-// RoundTrip returns the configured provider response after optional test synchronization.
-func (transport runtimeFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	if transport.requests.Add(1) != 1 {
-		return nil, errors.New("runtime failure transport received a dependent provider request")
-	}
-	if transport.started != nil {
-		transport.started <- struct{}{}
-		<-transport.release
-	}
-	body, ok := transport.body.Load().(string)
-	if !ok {
-		return nil, errors.New("runtime failure transport has no response body")
-	}
-	return &http.Response{
-		StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header),
-		Status: "", Proto: "", ProtoMajor: 0, ProtoMinor: 0, ContentLength: 0,
-		TransferEncoding: nil, Close: false, Uncompressed: false, Trailer: nil, Request: nil, TLS: nil,
-	}, nil
-}
-
-type programmaticTransport struct {
-	requestCount *atomic.Int32
-	started      chan<- struct{}
-}
-
-// RoundTrip returns deterministic provider behavior without network access.
-func (transport programmaticTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	switch transport.requestCount.Add(1) {
-	case 1:
-		if transport.started != nil {
-			// The signal proves that provider transport owns the active request before cancellation.
-			transport.started <- struct{}{}
-		}
-		<-request.Context().Done()
-		return nil, request.Context().Err()
-	case 2:
-		return &http.Response{
-			StatusCode:       http.StatusOK,
-			Body:             io.NopCloser(bytes.NewBufferString(finalResponseSSE)),
-			Header:           make(http.Header),
-			Status:           "",
-			Proto:            "",
-			ProtoMajor:       0,
-			ProtoMinor:       0,
-			ContentLength:    0,
-			TransferEncoding: nil,
-			Close:            false,
-			Uncompressed:     false,
-			Trailer:          nil,
-			Request:          nil,
-			TLS:              nil,
-		}, nil
-	default:
-		return nil, fmt.Errorf("unexpected programmatic provider request")
-	}
+// newProgrammaticTransport returns deterministic cancellation behavior without network access.
+func newProgrammaticTransport(
+	t *testing.T,
+	requestCount *atomic.Int32,
+	started chan<- struct{},
+) *MockHTTPRoundTripper {
+	t.Helper()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(request *http.Request) (*http.Response, error) {
+			switch requestCount.Add(1) {
+			case 1:
+				if started != nil {
+					// The signal proves that provider transport owns the active request before cancellation.
+					started <- struct{}{}
+				}
+				<-request.Context().Done()
+				return nil, request.Context().Err()
+			case 2:
+				return &http.Response{
+					StatusCode:       http.StatusOK,
+					Body:             io.NopCloser(bytes.NewBufferString(finalResponseSSE)),
+					Header:           make(http.Header),
+					Status:           "",
+					Proto:            "",
+					ProtoMajor:       0,
+					ProtoMinor:       0,
+					ContentLength:    0,
+					TransferEncoding: nil,
+					Close:            false,
+					Uncompressed:     false,
+					Trailer:          nil,
+					Request:          nil,
+					TLS:              nil,
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected programmatic provider request")
+			}
+		},
+	)
+	return transport
 }
 
 // writeProgrammaticCredentials stores credentials accepted by the deterministic provider.

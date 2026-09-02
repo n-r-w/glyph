@@ -67,7 +67,7 @@ func (c *channel) Send(frame domainui.Frame) error {
 		return errors.New("send UI frame: operation writer is not running")
 	}
 	err = writer.Enqueue(mapped)
-	if err != nil {
+	if err != nil && !errors.Is(err, operation.ErrClosed) {
 		c.reportDeliveryFailure(err)
 	}
 	return err
