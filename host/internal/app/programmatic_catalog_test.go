@@ -16,13 +16,9 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 	fixture := startProgrammaticFixture(t, testPaths(t, programmaticModelCatalogSettings()))
 
 	// Act by querying models and selecting the model and reasoning choice.
-	require.NoError(t, fixture.stream.Send(getModelsRequest("models")))
-	modelsResponse, err := fixture.stream.Recv()
+	models := completeProgrammaticRequest(t, fixture, getModelsRequest("models")).GetModels()
 
 	// Assert every response uses the same catalog and confirmed selection.
-	require.NoError(t, err)
-	assert.Equal(t, "models", modelsResponse.GetCorrelationId())
-	models := modelsResponse.GetCommandResponse().GetModels()
 	require.Len(t, models.GetModels(), 2)
 	assert.Equal(t, "openai-codex", models.GetModels()[0].GetProviderId())
 	assert.Equal(t, "gpt-test", models.GetModels()[0].GetModelId())
@@ -48,25 +44,16 @@ func (testSuite *ProgrammaticAppSuite) TestModelCommandsUseSharedCatalog() {
 		models.GetActiveSelection().GetReasoningChoice(),
 	)
 
-	require.NoError(t, fixture.stream.Send(selectModelRequest("model", "openai-codex", "gpt-test")))
-	modelResponse, err := fixture.stream.Recv()
-	require.NoError(t, err)
-	assert.Equal(t, "model", modelResponse.GetCorrelationId())
-	modelSelection := modelResponse.GetCommandResponse().GetModelSelection().GetSelection()
+	modelSelection := completeProgrammaticRequest(
+		t, fixture, selectModelRequest("model", "openai-codex", "gpt-test"),
+	).GetModelSelection().GetSelection()
 	assert.Equal(t, "openai-codex", modelSelection.GetProviderId())
 	assert.Equal(t, "gpt-test", modelSelection.GetModelId())
 
-	require.NoError(t, fixture.stream.Send(selectReasoningRequest(
+	reasoning := completeProgrammaticRequest(t, fixture, selectReasoningRequest(
 		"reasoning", programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
-	)))
-	reasoningResponse, err := fixture.stream.Recv()
-	require.NoError(t, err)
-	assert.Equal(t, "reasoning", reasoningResponse.GetCorrelationId())
-	assert.Equal(
-		t,
-		programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF,
-		reasoningResponse.GetCommandResponse().GetModelSelection().GetSelection().GetReasoningChoice(),
-	)
+	)).GetModelSelection().GetSelection()
+	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF, reasoning.GetReasoningChoice())
 
 	fixture.closeOwner(t)
 }

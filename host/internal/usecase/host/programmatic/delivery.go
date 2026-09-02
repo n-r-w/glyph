@@ -26,8 +26,8 @@ const (
 type activeRun struct {
 	// delivery owns this operation and its event stream.
 	delivery *Delivery
-	// correlationID identifies the accepted client request.
-	correlationID string
+	// operationID identifies the active operation.
+	operationID string
 	// runID identifies the prepared Agent Core run.
 	runID string
 	// coordinator starts and cancels the prepared run.
@@ -38,7 +38,7 @@ type activeRun struct {
 	runContext context.Context
 	// cancel requests run cancellation.
 	cancel context.CancelFunc
-	// events publishes correlated lifecycle events.
+	// events publishes agent progress events.
 	events chan controller.AgentEvent
 	// streamDone closes when event delivery has stopped.
 	streamDone chan struct{}
@@ -46,25 +46,23 @@ type activeRun struct {
 	done chan struct{}
 	// state identifies the operation lifecycle state.
 	state operationState
-	// streamStopped reports whether events was closed.
+	// streamStopped reports whether streamDone was closed.
 	streamStopped bool
 	// err contains the terminal operation failure.
 	err error
 }
-
-var _ controller.Operation = (*activeRun)(nil)
 
 // Start begins the prepared run at most once.
 func (a *activeRun) Start() {
 	a.delivery.start(a)
 }
 
-// Events returns the operation's synchronous event stream.
+// Events returns the operation's agent progress stream.
 func (a *activeRun) Events() <-chan controller.AgentEvent {
 	return a.events
 }
 
-// Delivery correlates Host lifecycle delivery with one accepted user request.
+// Delivery routes lifecycle and progress events for one user request operation.
 type Delivery struct {
 	// mutex protects delivery lifecycle state.
 	mutex sync.Mutex
@@ -76,7 +74,7 @@ type Delivery struct {
 	operations map[*activeRun]struct{}
 }
 
-// NewDelivery creates a synchronous Programmatic Control delivery router.
+// NewDelivery creates a Programmatic Control agent-run delivery router.
 func NewDelivery() *Delivery {
 	return &Delivery{
 		mutex:      sync.Mutex{},
@@ -86,12 +84,14 @@ func NewDelivery() *Delivery {
 	}
 }
 
+// activeSnapshot returns the current run while holding delivery synchronization.
 func (d *Delivery) activeSnapshot() *activeRun {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	return d.active
 }
 
+// reserve registers an accepted operation as the active run.
 func (d *Delivery) reserve(active *activeRun) bool {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -103,6 +103,7 @@ func (d *Delivery) reserve(active *activeRun) bool {
 	return true
 }
 
+// start transitions an accepted operation to running and starts progress delivery.
 func (d *Delivery) start(active *activeRun) {
 	d.mutex.Lock()
 	if active.state != operationAccepted {
@@ -120,6 +121,7 @@ func (d *Delivery) start(active *activeRun) {
 	}()
 }
 
+// finish records terminal state and releases active run resources.
 func (d *Delivery) finish(active *activeRun, err error) {
 	d.mutex.Lock()
 	if active.state == operationFinished {
@@ -136,6 +138,7 @@ func (d *Delivery) finish(active *activeRun, err error) {
 	d.mutex.Unlock()
 }
 
+// finishAcceptedLocked closes an operation that never entered running state.
 func (d *Delivery) finishAcceptedLocked(active *activeRun) {
 	if d.active == active {
 		d.active = nil
@@ -151,6 +154,7 @@ func (d *Delivery) finishAcceptedLocked(active *activeRun) {
 	close(active.done)
 }
 
+// stopStreamLocked cancels progress delivery exactly once.
 func (d *Delivery) stopStreamLocked(active *activeRun) {
 	if active.streamStopped {
 		return
@@ -159,29 +163,7 @@ func (d *Delivery) stopStreamLocked(active *activeRun) {
 	close(active.streamDone)
 }
 
-func (d *Delivery) cancelAndWaitAll() error {
-	d.mutex.Lock()
-	d.closed = true
-	operations := make([]*activeRun, 0, len(d.operations))
-	for operation := range d.operations {
-		operations = append(operations, operation)
-		d.stopStreamLocked(operation)
-		if operation.state == operationAccepted {
-			d.finishAcceptedLocked(operation)
-			continue
-		}
-		operation.cancel()
-	}
-	d.mutex.Unlock()
-
-	errs := make([]error, 0, len(operations))
-	for _, operation := range operations {
-		<-operation.done
-		errs = append(errs, operation.err)
-	}
-	return errors.Join(errs...)
-}
-
+// cancelAndWait requests run cancellation and waits for terminal cleanup.
 func (d *Delivery) cancelAndWait(active *activeRun) error {
 	d.mutex.Lock()
 	if active.state == operationAccepted {
@@ -190,6 +172,7 @@ func (d *Delivery) cancelAndWait(active *activeRun) error {
 		return nil
 	}
 	if d.active == active {
+		d.stopStreamLocked(active)
 		active.cancel()
 	}
 	d.mutex.Unlock()
@@ -198,6 +181,7 @@ func (d *Delivery) cancelAndWait(active *activeRun) error {
 	return active.err
 }
 
+// emit maps and publishes one operation progress event.
 func (d *Delivery) emit(
 	ctx context.Context,
 	active *activeRun,
@@ -225,7 +209,7 @@ func (d *Delivery) emit(
 	}
 }
 
-// DeliverAgent forwards one correlated Agent Core event with controller backpressure.
+// DeliverAgent forwards one Agent Core event with controller backpressure.
 func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	d.mutex.Lock()
 	active := d.active
@@ -233,14 +217,14 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 		d.mutex.Unlock()
 		return fmt.Errorf("deliver Programmatic Control agent event: inactive Host run %q", event.RunID)
 	}
-	correlationID := active.correlationID
+	operationID := active.operationID
 	d.mutex.Unlock()
 
 	mapped, err := mapAgentEvent(event)
 	if err != nil {
 		return fmt.Errorf("deliver Programmatic Control agent event: %w", err)
 	}
-	mapped.CorrelationID = correlationID
+	mapped.OperationID = operationID
 	if emitErr := d.emit(ctx, active, mapped); emitErr != nil {
 		return fmt.Errorf("deliver Programmatic Control agent event: %w", emitErr)
 	}
@@ -248,40 +232,22 @@ func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 }
 
 // DeliverSettled clears active state and delivers the coordinator-owned settlement.
-func (d *Delivery) DeliverSettled(ctx context.Context, runID string) error {
+func (d *Delivery) DeliverSettled(_ context.Context, runID string) error {
 	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	active := d.active
 	if active == nil || active.runID != runID {
-		d.mutex.Unlock()
 		return fmt.Errorf("deliver Programmatic Control settlement: inactive Host run %q", runID)
 	}
+	// Settlement is represented by the operation terminal event, not public progress.
 	d.active = nil
-	correlationID := active.correlationID
-	d.mutex.Unlock()
-
-	settled := controller.AgentEvent{
-		CorrelationID:   correlationID,
-		Type:            controller.AgentEventAgentSettled,
-		RunID:           runID,
-		ModelContent:    mo.None[controller.ModelContent](),
-		ToolCallPreview: mo.None[controller.ToolCallPreview](),
-		FinalToolCall:   mo.None[controller.FinalToolCall](),
-		ToolExecution:   mo.None[controller.ToolExecution](),
-		ToolProgress:    mo.None[controller.ToolProgress](),
-		ToolResult:      mo.None[controller.ToolResult](),
-		ModelResponse:   mo.None[controller.ModelResponse](),
-		Turn:            mo.None[controller.TurnSummary](),
-		Agent:           mo.None[controller.AgentSummary](),
-	}
-	if err := d.emit(ctx, active, settled); err != nil {
-		return fmt.Errorf("deliver Programmatic Control settlement: %w", err)
-	}
 	return nil
 }
 
+// mapAgentEvent maps one Agent Core event to Programmatic operation progress.
 func mapAgentEvent(event run.Event) (controller.AgentEvent, error) {
 	mapped := controller.AgentEvent{
-		CorrelationID:   "",
+		OperationID:     "",
 		Type:            mapAgentEventType(event.Type),
 		RunID:           event.RunID,
 		ModelContent:    mo.None[controller.ModelContent](),
@@ -429,6 +395,7 @@ func mapProgrammaticTerminalEvent(event run.Event, mapped *controller.AgentEvent
 	return nil
 }
 
+// mapAgentEventType maps nonterminal Agent Core event types.
 func mapAgentEventType(eventType run.EventType) controller.AgentEventType {
 	switch eventType {
 	case run.EventAgentStart:
@@ -461,6 +428,7 @@ func mapAgentEventType(eventType run.EventType) controller.AgentEventType {
 	}
 }
 
+// mapTerminalAgentEventType maps terminal Agent Core event types.
 func mapTerminalAgentEventType(eventType run.EventType) controller.AgentEventType {
 	switch eventType {
 	case run.EventToolCallEnd:

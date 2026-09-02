@@ -160,13 +160,9 @@ func mapModelContent(content ModelContent, requireText bool) (*programmaticv1.Mo
 	if err != nil {
 		return nil, err
 	}
-	position, err := mapPosition(content.Position)
-	if err != nil {
-		return nil, err
-	}
 	mapped := new(programmaticv1.ModelContent)
 	mapped.SetKind(kind)
-	mapped.SetPosition(position)
+	mapped.SetPosition(int64(content.Position))
 	if text, present := content.Text.Get(); present {
 		mapped.SetText(text)
 	} else if requireText {
@@ -176,10 +172,6 @@ func mapModelContent(content ModelContent, requireText bool) (*programmaticv1.Mo
 }
 
 func mapToolCallPreview(preview ToolCallPreview) (*programmaticv1.ToolCallPreview, error) {
-	position, err := mapPosition(preview.Position)
-	if err != nil {
-		return nil, err
-	}
 	fields, err := lo.MapErr(
 		preview.Fields,
 		func(field ToolCallPreviewField, index int) (*programmaticv1.ToolCallPreviewField, error) {
@@ -216,17 +208,13 @@ func mapToolCallPreview(preview ToolCallPreview) (*programmaticv1.ToolCallPrevie
 	mapped := new(programmaticv1.ToolCallPreview)
 	mapped.SetCallId(preview.CallID)
 	mapped.SetName(preview.Name)
-	mapped.SetPosition(position)
+	mapped.SetPosition(int64(preview.Position))
 	mapped.SetProvisional(preview.Provisional)
 	mapped.SetFields(fields)
 	return mapped, nil
 }
 
 func mapFinalToolCall(call FinalToolCall) (*programmaticv1.FinalToolCall, error) {
-	position, err := mapPosition(call.Position)
-	if err != nil {
-		return nil, err
-	}
 	arguments, err := structpb.NewStruct(call.Arguments)
 	if err != nil {
 		return nil, fmt.Errorf("map final tool call arguments: %w", err)
@@ -234,7 +222,7 @@ func mapFinalToolCall(call FinalToolCall) (*programmaticv1.FinalToolCall, error)
 	mapped := new(programmaticv1.FinalToolCall)
 	mapped.SetCallId(call.CallID)
 	mapped.SetName(call.Name)
-	mapped.SetPosition(position)
+	mapped.SetPosition(int64(call.Position))
 	mapped.SetArguments(arguments)
 	return mapped, nil
 }

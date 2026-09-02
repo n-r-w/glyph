@@ -16,8 +16,8 @@ const (
 	CommandUnspecified CommandKind = iota
 	// CommandUserRequest identifies one agent request.
 	CommandUserRequest
-	// CommandAbort identifies active-run cancellation.
-	CommandAbort
+	// CommandCancel identifies active-run cancellation.
+	CommandCancel
 	// CommandGetRunState identifies a run-state query.
 	CommandGetRunState
 	// CommandGetMessages identifies a public-history query.
@@ -54,10 +54,10 @@ const (
 	CommandSetEntryLabel
 )
 
-// Command is one correlated transport-independent controller operation.
+// Command is one transport-independent controller operation.
 type Command struct {
-	// CorrelationID identifies the command and its result.
-	CorrelationID string
+	// OperationID identifies the command and its result.
+	OperationID string
 	// Kind identifies the requested controller operation.
 	Kind CommandKind
 	// UserText contains submitted user text.

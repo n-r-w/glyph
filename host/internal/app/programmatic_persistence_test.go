@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -35,18 +36,14 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	fixture := startProgrammaticFixture(t, paths)
 	defer fixture.closeOwner(t)
-	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
-		request := new(programmaticv1.OpenRequest)
-		request.SetCorrelationId(correlationID)
-		configure(request)
-		require.NoError(t, fixture.stream.Send(request))
-		response, err := fixture.stream.Recv()
-		require.NoError(t, err)
-		return response.GetCommandResponse()
+	send := func(operationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.HostCompleted {
+		return sendProgrammaticOperation(t, fixture, operationID, configure)
 	}
 
 	initial := send("name-durable", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("durable name")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("durable name")}.Build())
 	}).GetSessionInfo().GetInfo()
 	require.True(t, initial.HasStoragePath())
 	storagePath := initial.GetStoragePath()
@@ -58,37 +55,37 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 	})
 
 	// Act by failing naming, restoring OS permissions, and attempting the mutation again.
-	rejected := send("name-failed", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("secret replacement")}.Build())
-	}).GetRejected()
+	failedCode := sendProgrammaticFailure(t, fixture, "name-failed", func(request *programmaticv1.OpenRequest) {
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("secret replacement")}.Build())
+	})
 	require.NoError(t, os.Chmod(storagePath, 0o600))
-	rejectedAgain := send("name-blocked", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("must not persist")}.Build())
-	}).GetRejected()
+	failedAgainCode := sendProgrammaticFailure(t, fixture, "name-blocked", func(request *programmaticv1.OpenRequest) {
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("must not persist")}.Build())
+	})
 	info := send("read-info", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	entries := send("read-entries", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
 	statistics := send("read-statistics", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 
-	// Assert both mutations retain persistence classification while durable queries retain the prior snapshot.
-	for _, result := range []*programmaticv1.CommandRejected{rejected, rejectedAgain} {
-		require.NotNil(t, result)
-		assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, result.GetCode())
-		assert.Contains(t, result.GetMessage(), "session persistence failed")
-	}
-	assert.Contains(t, strings.ToLower(rejected.GetMessage()), "permission")
+	// Assert both mutations retain persistence classification without exposing error text.
+	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedCode)
+	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedAgainCode)
 	assert.Equal(t, initial.GetId(), info.GetId())
 	assert.Equal(t, "durable name", info.GetName())
 	require.Empty(t, entries)
 	assert.Zero(t, statistics.GetTotalMessages())
 
 	created := send("create-recovery", func(request *programmaticv1.OpenRequest) {
-		request.SetCreateSession(new(programmaticv1.CreateSession))
+		programmaticRequest(request).SetCreateSession(new(programmaticv1.CreateSession))
 	}).GetSessionInfo().GetInfo()
 	assert.NotEqual(t, initial.GetId(), created.GetId())
 	require.NoError(t, os.Chmod(projectDirectory, 0o500))
@@ -97,18 +94,20 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 	require.NoError(t, fixture.stream.Send(userRequest("first-user-failed", "private user content")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	require.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	require.True(t, accepted.GetEvent().HasAccepted())
 	var terminalText string
 	var eventTypes []programmaticv1.AgentEventType
 	for {
 		response, receiveErr := fixture.stream.Recv()
 		require.NoError(t, receiveErr)
-		event := response.GetAgentEvent()
-		eventTypes = append(eventTypes, event.GetType())
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
-			terminalText = event.GetAgent().GetErrorMessage()
+		if response.GetEvent().HasProgress() {
+			event := response.GetEvent().GetProgress().GetAgentEvent()
+			eventTypes = append(eventTypes, event.GetType())
+			if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
+				terminalText = event.GetAgent().GetErrorMessage()
+			}
 		}
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
 			break
 		}
 	}
@@ -118,17 +117,18 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 	assert.Equal(t, []programmaticv1.AgentEventType{
 		programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_START,
 		programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END,
-		programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED,
 	}, eventTypes)
 	assert.Contains(t, terminalText, "session persistence failed")
 	assert.Contains(t, strings.ToLower(terminalText), "permission")
 	assert.Zero(t, requestCount.Load())
 	recovered := send("create-after-run-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetCreateSession(new(programmaticv1.CreateSession))
+		programmaticRequest(request).SetCreateSession(new(programmaticv1.CreateSession))
 	}).GetSessionInfo().GetInfo()
 	require.NotEqual(t, created.GetId(), recovered.GetId())
 	renamed := send("name-after-recovery", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("writable again")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("writable again")}.Build())
 	}).GetSessionInfo().GetInfo()
 	assert.Equal(t, "writable again", renamed.GetName())
 }
@@ -151,7 +151,9 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	fixture := startProgrammaticFixture(t, paths)
 	defer fixture.closeOwner(t)
 	named := sendProgrammaticCommand(t, fixture, "name-model-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("model failure")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("model failure")}.Build())
 	}).GetSessionInfo().GetInfo()
 	selectProgrammaticFailureModel(t, fixture)
 
@@ -159,22 +161,22 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 	require.NoError(t, fixture.stream.Send(userRequest("model-failure", "private user text")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	require.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	require.True(t, accepted.GetEvent().HasAccepted())
 	<-started
-	contention := new(programmaticv1.OpenRequest)
-	contention.SetCorrelationId("resume-contention")
-	contention.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
+	contention := testProgrammaticRequest("resume-contention", func(request *programmaticv1.ControllerRequest) {
+		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
+	})
 	require.NoError(t, fixture.stream.Send(contention))
 	preFailureEvents := make([]programmaticv1.AgentEventType, 0)
-	var contentionResult *programmaticv1.CommandRejected
+	var contentionResult *operationv1.Rejected
 	for {
 		response, receiveErr := fixture.stream.Recv()
 		require.NoError(t, receiveErr)
-		if response.GetCorrelationId() == "resume-contention" {
-			contentionResult = response.GetCommandResponse().GetRejected()
+		if response.GetOperationId() == "resume-contention" && response.GetEvent().HasRejected() {
+			contentionResult = response.GetEvent().GetRejected()
 			break
 		}
-		if event := response.GetAgentEvent(); event != nil {
+		if event := response.GetEvent().GetProgress().GetAgentEvent(); event != nil {
 			preFailureEvents = append(preFailureEvents, event.GetType())
 		}
 	}
@@ -186,20 +188,21 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalModelPersistenceFailureProces
 
 	// Assert contention is busy, terminal model value stays hidden, and terminal cleanup releases the gate.
 	require.NotNil(t, contentionResult)
-	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_BUSY, contentionResult.GetCode())
+	assert.Equal(t, "BUSY", contentionResult.GetCode())
 	assert.Equal(t, int32(1), requests.Load())
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_MESSAGE_END)
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START)
 	assert.Contains(t, terminalText, "session persistence failed")
 	assert.Contains(t, strings.ToLower(terminalText), "permission")
-	assert.Equal(t, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED, events[len(events)-1])
 	require.NoError(t, os.Chmod(named.GetStoragePath(), 0o600))
 	resumed := sendProgrammaticCommand(
 		t,
 		fixture,
 		"resume-after-terminal-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
+			programmaticRequest(
+				request,
+			).SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
 		},
 	).GetSessionInfo().
 		GetInfo()
@@ -221,7 +224,9 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 	fixture := startProgrammaticFixtureWithExtension(t, paths, buildToolsExecutable(t))
 	defer fixture.closeOwner(t)
 	named := sendProgrammaticCommand(t, fixture, "name-tool-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("tool failure")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("tool failure")}.Build())
 	}).GetSessionInfo().GetInfo()
 	selectProgrammaticFailureModel(t, fixture)
 	t.Cleanup(func() { _ = os.Chmod(named.GetStoragePath(), 0o600) })
@@ -230,21 +235,23 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 	require.NoError(t, fixture.stream.Send(userRequest("tool-failure", "change mode")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	require.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	require.True(t, accepted.GetEvent().HasAccepted())
 	events := make([]programmaticv1.AgentEventType, 0)
 	terminalText := ""
 	for {
 		response, receiveErr := fixture.stream.Recv()
 		require.NoError(t, receiveErr)
-		event := response.GetAgentEvent()
-		events = append(events, event.GetType())
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START {
-			require.NoError(t, os.Chmod(named.GetStoragePath(), 0o400))
+		if response.GetEvent().HasProgress() {
+			event := response.GetEvent().GetProgress().GetAgentEvent()
+			events = append(events, event.GetType())
+			if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START {
+				require.NoError(t, os.Chmod(named.GetStoragePath(), 0o400))
+			}
+			if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
+				terminalText = event.GetAgent().GetErrorMessage()
+			}
 		}
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
-			terminalText = event.GetAgent().GetErrorMessage()
-		}
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
 			break
 		}
 	}
@@ -279,7 +286,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"persist-active-before-recovery-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetSetSessionName(
+			programmaticRequest(request).SetSetSessionName(
 				programmaticv1.SetSessionName_builder{Name: new("active before recovery failure")}.Build(),
 			)
 		},
@@ -303,17 +310,22 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
 	// Act by letting immutable interrupted-tail recovery fail during mode repair, then query and mutate prior state.
-	rejected := sendProgrammaticCommand(t, fixture, "resume-immutable-tail", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(
-			programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build(),
-		)
-	}).GetRejected()
+	failedCode := sendProgrammaticFailure(
+		t,
+		fixture,
+		"resume-immutable-tail",
+		func(request *programmaticv1.OpenRequest) {
+			programmaticRequest(request).SetResumeSession(
+				programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build(),
+			)
+		},
+	)
 	priorInfo := sendProgrammaticCommand(
 		t,
 		fixture,
 		"info-after-recovery-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+			programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 		},
 	).GetSessionInfo().
 		GetInfo()
@@ -322,7 +334,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"entries-after-recovery-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+			programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 		},
 	).GetSessionEntries().
 		GetEntries()
@@ -331,7 +343,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"statistics-after-recovery-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+			programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 		},
 	).GetSessionStats().
 		GetStatistics()
@@ -340,18 +352,15 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"name-prior-active-after-recovery-failure",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetSetSessionName(
+			programmaticRequest(request).SetSetSessionName(
 				programmaticv1.SetSessionName_builder{Name: new("prior active remains writable")}.Build(),
 			)
 		},
 	).GetSessionInfo().
 		GetInfo()
 
-	// Assert detailed rejection, preserved prior state, and a failed-recovery diagnostic.
-	require.NotNil(t, rejected)
-	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, rejected.GetCode())
-	assert.Contains(t, rejected.GetMessage(), "session persistence failed")
-	assert.Contains(t, rejected.GetMessage(), "operation not permitted")
+	// Assert classified failure, preserved prior state, and a failed-recovery diagnostic.
+	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedCode)
 	assert.Equal(t, active.GetId(), priorInfo.GetId())
 	assert.Equal(t, "active before recovery failure", priorInfo.GetName())
 	assert.Empty(t, priorEntries)
@@ -373,7 +382,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"resume-after-recovery-fault-cleared",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetResumeSession(
+			programmaticRequest(request).SetResumeSession(
 				programmaticv1.ResumeSession_builder{SessionId: new(recoveryFixtures.interruptedID)}.Build(),
 			)
 		},
@@ -384,7 +393,7 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"entries-after-recovery",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+			programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 		},
 	).GetSessionEntries().
 		GetEntries()
@@ -393,7 +402,9 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 		fixture,
 		"name-after-recovery",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("recovered writable")}.Build())
+			programmaticRequest(
+				request,
+			).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("recovered writable")}.Build())
 		},
 	).GetSessionInfo().
 		GetInfo()
@@ -406,22 +417,18 @@ func (testSuite *ProgrammaticAppSuite) TestResumeRecoveryPersistenceFailureProce
 	assert.Equal(t, "recovered writable", recoveredRenamed.GetName())
 }
 
+// sendProgrammaticCommand sends one operation request and returns its completed payload.
 func sendProgrammaticCommand(
 	t *testing.T,
 	fixture *programmaticFixture,
-	correlationID string,
+	operationID string,
 	configure func(*programmaticv1.OpenRequest),
-) *programmaticv1.CommandResponse {
+) *programmaticv1.HostCompleted {
 	t.Helper()
-	request := new(programmaticv1.OpenRequest)
-	request.SetCorrelationId(correlationID)
-	configure(request)
-	require.NoError(t, fixture.stream.Send(request))
-	response, err := fixture.stream.Recv()
-	require.NoError(t, err)
-	return response.GetCommandResponse()
+	return sendProgrammaticOperation(t, fixture, operationID, configure)
 }
 
+// selectProgrammaticFailureModel selects the provider model used by persistence failure scenarios.
 func selectProgrammaticFailureModel(t *testing.T, fixture *programmaticFixture) {
 	t.Helper()
 	selection := sendProgrammaticCommand(
@@ -429,7 +436,7 @@ func selectProgrammaticFailureModel(t *testing.T, fixture *programmaticFixture) 
 		fixture,
 		"select-runtime-failure-model",
 		func(request *programmaticv1.OpenRequest) {
-			request.SetSelectModel(programmaticv1.SelectModel_builder{
+			programmaticRequest(request).SetSelectModel(programmaticv1.SelectModel_builder{
 				ProviderId: new("openai-codex"), ModelId: new("selected-model"),
 			}.Build())
 		},
@@ -439,6 +446,7 @@ func selectProgrammaticFailureModel(t *testing.T, fixture *programmaticFixture) 
 	require.Equal(t, "selected-model", selection.GetModelId())
 }
 
+// receiveProgrammaticFailure receives one failed operation and returns its error details.
 func receiveProgrammaticFailure(
 	t *testing.T,
 	fixture *programmaticFixture,
@@ -449,12 +457,14 @@ func receiveProgrammaticFailure(
 	for {
 		response, err := fixture.stream.Recv()
 		require.NoError(t, err)
-		event := response.GetAgentEvent()
-		events = append(events, event.GetType())
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
-			terminalText = event.GetAgent().GetErrorMessage()
+		if response.GetEvent().HasProgress() {
+			event := response.GetEvent().GetProgress().GetAgentEvent()
+			events = append(events, event.GetType())
+			if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END {
+				terminalText = event.GetAgent().GetErrorMessage()
+			}
 		}
-		if event.GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
 			return events, terminalText
 		}
 	}
@@ -477,17 +487,13 @@ func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(credentials), 0o600))
 	process := startProgrammaticFixture(t, paths)
 	defer process.closeOwner(t)
-	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
-		request := new(programmaticv1.OpenRequest)
-		request.SetCorrelationId(correlationID)
-		configure(request)
-		require.NoError(t, process.stream.Send(request))
-		response, err := process.stream.Recv()
-		require.NoError(t, err)
-		return response.GetCommandResponse()
+	send := func(operationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.HostCompleted {
+		return sendProgrammaticOperation(t, process, operationID, configure)
 	}
 	active := send("persist-active", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("active")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("active")}.Build())
 	}).GetSessionInfo().GetInfo()
 	fixtures := writeSessionRecoveryFixture(t, active.GetStoragePath(), active.GetWorkingDirectory())
 
@@ -500,32 +506,31 @@ func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 		{name: "wrong cwd", id: fixtures.wrongCWDID},
 		{name: "unsupported", id: fixtures.unsupportedID},
 	} {
-		response := send("reject-"+test.name, func(request *programmaticv1.OpenRequest) {
-			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(test.id)}.Build())
+		code := sendProgrammaticFailure(t, process, "reject-"+test.name, func(request *programmaticv1.OpenRequest) {
+			programmaticRequest(
+				request,
+			).SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(test.id)}.Build())
 		})
-		require.NotNil(t, response.GetRejected())
-		assert.Equal(
-			t,
-			programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE,
-			response.GetRejected().GetCode(),
-		)
+		assert.Equal(t, "SESSION_UNAVAILABLE", code)
 		current := send("active-after-"+test.name, func(request *programmaticv1.OpenRequest) {
-			request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+			programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 		}).GetSessionInfo().GetInfo()
 		assert.Equal(t, active.GetId(), current.GetId())
 	}
 	listed := send("list-valid", func(request *programmaticv1.OpenRequest) {
-		request.SetListSessions(new(programmaticv1.ListSessions))
+		programmaticRequest(request).SetListSessions(new(programmaticv1.ListSessions))
 	}).GetSessions().GetSessions()
 	listedIDs := make([]string, 0, len(listed))
 	for _, summary := range listed {
 		listedIDs = append(listedIDs, summary.GetInfo().GetId())
 	}
 	resumed := send("recover-tail", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(fixtures.interruptedID)}.Build())
+		programmaticRequest(
+			request,
+		).SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(fixtures.interruptedID)}.Build())
 	}).GetSessionInfo().GetInfo()
 	entries := send("recovered-entries", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
 
 	// Assert list skips invalid files, failures preserve identity, and recovery restores only the preceding entry.
@@ -541,17 +546,19 @@ func (testSuite *ProgrammaticAppSuite) TestSessionRecoveryProcessPaths() {
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
+// waitProgrammaticSettled waits until the Programmatic process has no active run.
 func waitProgrammaticSettled(t *testing.T, fixture *programmaticFixture) {
 	t.Helper()
 	for {
 		response, err := fixture.stream.Recv()
 		require.NoError(t, err)
-		if response.GetAgentEvent().GetType() == programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED {
+		if response.GetEvent().HasCompleted() || response.GetEvent().HasCanceled() || response.GetEvent().HasFailed() {
 			return
 		}
 	}
 }
 
+// assertProgrammaticSessionInfoEqual compares stable session information fields.
 func assertProgrammaticSessionInfoEqual(
 	t *testing.T,
 	expected *programmaticv1.SessionInfo,

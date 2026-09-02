@@ -12,7 +12,7 @@ func (command Command) Valid() bool {
 	switch command.Kind {
 	case CommandUserRequest:
 		return !command.invalidUserRequest()
-	case CommandAbort, CommandGetRunState, CommandGetMessages, CommandGetModels:
+	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
 		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments()
 	case CommandSelectModel:
 		return !command.invalidModelSelection()
@@ -45,7 +45,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 		return command.UserText.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
 	case CommandSetEntryLabel:
 		return command.invalidSetEntryLabel(), true
-	case CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages,
+	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
 		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice:
 		return false, false
 	default:
@@ -62,14 +62,20 @@ func (command Command) invalidResumeSession() bool {
 
 // invalidSessionName reports a malformed session-name payload.
 func (command Command) invalidSessionName() bool {
-	return command.SessionName.IsNone() || command.SessionID.IsSome() || command.UserText.IsSome() ||
+	name, present := command.SessionName.Get()
+	return !present || strings.TrimSpace(name) == "" || command.SessionID.IsSome() || command.UserText.IsSome() ||
 		command.hasModelArguments() || command.hasTreeArguments()
 }
 
 // invalidTreeNavigation reports a malformed tree-navigation payload.
 func (command Command) invalidTreeNavigation() bool {
+	switch command.SummaryMode {
+	case SummaryModeNoSummary, SummaryModeSummarize, SummaryModeSummarizeWithCustomPrompt:
+	default:
+		return true
+	}
 	targetID, present := command.TargetEntryID.Get()
-	customFocus := command.CustomFocus.OrEmpty()
+	customFocus := strings.TrimSpace(command.CustomFocus.OrEmpty())
 	invalidFocus := command.SummaryMode == SummaryModeSummarizeWithCustomPrompt && customFocus == "" ||
 		command.SummaryMode != SummaryModeSummarizeWithCustomPrompt && customFocus != ""
 	return !present || targetID == "" || invalidFocus || command.UserText.IsSome() ||

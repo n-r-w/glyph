@@ -38,28 +38,20 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	extensionDirectory := buildToolsExecutable(t)
 	fixture := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 
-	send := func(correlationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.CommandResponse {
-		request := new(programmaticv1.OpenRequest)
-		request.SetCorrelationId(correlationID)
-		configure(request)
-		require.NoError(t, fixture.stream.Send(request))
-		response, err := fixture.stream.Recv()
-		require.NoError(t, err)
-		assert.Equal(t, correlationID, response.GetCorrelationId())
-		require.NotNil(t, response.GetCommandResponse())
-		return response.GetCommandResponse()
+	send := func(operationID string, configure func(*programmaticv1.OpenRequest)) *programmaticv1.HostCompleted {
+		return sendProgrammaticOperation(t, fixture, operationID, configure)
 	}
 
 	// Act by creating, naming, selecting, persisting, restarting, and resuming one session.
 	initial := send("initial", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	// Assert session presence state before checking the complete restart sequence.
 	require.NotEmpty(t, initial.GetId())
 	assert.False(t, initial.HasName())
 	assert.False(t, initial.HasStoragePath())
 	emptyStats := send("initial-stats", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 	assert.Zero(t, emptyStats.GetTotalMessages())
 	assert.True(t, emptyStats.HasTokens())
@@ -69,27 +61,29 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Empty(t, emptyStats.GetCostBreakdown())
 
 	named := send("name", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("named")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("named")}.Build())
 	}).GetSessionInfo().GetInfo()
 	assert.Equal(t, initial.GetId(), named.GetId())
 	assert.Equal(t, "named", named.GetName())
 	assert.True(t, named.HasStoragePath())
 
 	listed := send("list", func(request *programmaticv1.OpenRequest) {
-		request.SetListSessions(new(programmaticv1.ListSessions))
+		programmaticRequest(request).SetListSessions(new(programmaticv1.ListSessions))
 	}).GetSessions().GetSessions()
 	require.Len(t, listed, 1)
 	assert.Equal(t, initial.GetId(), listed[0].GetInfo().GetId())
 
 	selectedModel := send("select-model", func(request *programmaticv1.OpenRequest) {
-		request.SetSelectModel(programmaticv1.SelectModel_builder{
+		programmaticRequest(request).SetSelectModel(programmaticv1.SelectModel_builder{
 			ProviderId: new("openai-codex"), ModelId: new("selected-model"),
 		}.Build())
 	}).GetModelSelection().GetSelection()
 	assert.Equal(t, "openai-codex", selectedModel.GetProviderId())
 	assert.Equal(t, "selected-model", selectedModel.GetModelId())
 	selectedReasoning := send("select-reasoning", func(request *programmaticv1.OpenRequest) {
-		request.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
+		programmaticRequest(request).SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
 			Choice: new(programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build())
 	}).GetModelSelection().GetSelection()
@@ -98,11 +92,11 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.NoError(t, fixture.stream.Send(userRequest("first-turn", "restart text")))
 	accepted, err := fixture.stream.Recv()
 	require.NoError(t, err)
-	assert.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	assert.True(t, accepted.GetEvent().HasAccepted())
 	waitProgrammaticSettled(t, fixture)
 	require.Equal(t, int32(2), requestCount.Load())
 	beforeRestartEntries := send("before-restart-entries", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
 	require.Len(t, beforeRestartEntries, 4)
 	availableEntryCosts := 0
@@ -114,7 +108,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	}
 	assert.Zero(t, availableEntryCosts)
 	beforeRestartStats := send("before-restart-stats", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 	assert.Equal(t, int64(4), beforeRestartStats.GetTotalMessages())
 	assert.False(t, beforeRestartStats.HasTokens())
@@ -122,7 +116,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.Len(t, beforeRestartStats.GetCostBreakdown(), 1)
 	assert.False(t, beforeRestartStats.GetCostBreakdown()[0].HasEstimatedCost())
 	named = send("after-turn-information", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	fixture.closeOwner(t)
 	appendFullContentFixture(t, paths, named.GetId())
@@ -130,19 +124,13 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	restarted := startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 	defer restarted.closeOwner(t)
 	restartSend := func(
-		correlationID string,
+		operationID string,
 		configure func(*programmaticv1.OpenRequest),
-	) *programmaticv1.CommandResponse {
-		request := new(programmaticv1.OpenRequest)
-		request.SetCorrelationId(correlationID)
-		configure(request)
-		require.NoError(t, restarted.stream.Send(request))
-		response, err := restarted.stream.Recv()
-		require.NoError(t, err)
-		return response.GetCommandResponse()
+	) *programmaticv1.HostCompleted {
+		return sendProgrammaticOperation(t, restarted, operationID, configure)
 	}
 	restartedInfo := restartSend("restart-information", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	require.NotEmpty(t, restartedInfo.GetId())
 	assert.True(t, restartedInfo.HasId())
@@ -154,7 +142,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.True(t, restartedInfo.HasCreatedTime())
 	assert.True(t, restartedInfo.HasUpdateTime())
 	restartedEmptyStats := restartSend("restart-empty-stats", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 	assert.Zero(t, restartedEmptyStats.GetTotalMessages())
 	assert.True(t, restartedEmptyStats.HasTokens())
@@ -163,7 +151,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Zero(t, restartedEmptyStats.GetEstimatedCost().GetTotal())
 	assert.Empty(t, restartedEmptyStats.GetCostBreakdown())
 	restartedList := restartSend("restart-list", func(request *programmaticv1.OpenRequest) {
-		request.SetListSessions(new(programmaticv1.ListSessions))
+		programmaticRequest(request).SetListSessions(new(programmaticv1.ListSessions))
 	}).GetSessions().GetSessions()
 	require.Len(t, restartedList, 1)
 	storedInfo := restartedList[0].GetInfo()
@@ -176,29 +164,31 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.Equal(t, int64(7), restartedList[0].GetTotalMessages())
 
 	restartedModel := restartSend("restart-select-model", func(request *programmaticv1.OpenRequest) {
-		request.SetSelectModel(programmaticv1.SelectModel_builder{
+		programmaticRequest(request).SetSelectModel(programmaticv1.SelectModel_builder{
 			ProviderId: new("openai-codex"), ModelId: new("selected-model"),
 		}.Build())
 	}).GetModelSelection().GetSelection()
 	assert.Equal(t, "openai-codex", restartedModel.GetProviderId())
 	assert.Equal(t, "selected-model", restartedModel.GetModelId())
 	restartedReasoning := restartSend("restart-select-reasoning", func(request *programmaticv1.OpenRequest) {
-		request.SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
+		programmaticRequest(request).SetSelectReasoningChoice(programmaticv1.SelectReasoningChoice_builder{
 			Choice: new(programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build())
 	}).GetModelSelection().GetSelection()
 	assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, restartedReasoning.GetReasoningChoice())
 
 	restartedResume := restartSend("restart-resume", func(request *programmaticv1.OpenRequest) {
-		request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
+		programmaticRequest(
+			request,
+		).SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(named.GetId())}.Build())
 	}).GetSessionInfo().GetInfo()
 	assertProgrammaticSessionInfoEqual(t, storedInfo, restartedResume)
 	restartedActive := restartSend("restart-resumed-information", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
 	}).GetSessionInfo().GetInfo()
 	assert.Equal(t, named.GetId(), restartedActive.GetId())
 	restartedStats := restartSend("restart-resumed-stats", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 	assert.Equal(t, int64(7), restartedStats.GetTotalMessages())
 	assert.False(t, restartedStats.HasTokens())
@@ -207,7 +197,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	assert.False(t, restartedStats.GetCostBreakdown()[0].HasEstimatedCost())
 
 	messages := restartSend("restart-messages", func(request *programmaticv1.OpenRequest) {
-		request.SetGetMessages(new(programmaticv1.GetMessages))
+		programmaticRequest(request).SetGetMessages(new(programmaticv1.GetMessages))
 	}).GetMessages().GetEntries()
 	require.Len(t, messages, 8)
 	assert.Equal(t, "restart text", messages[0].GetUser().GetContent()[0].GetText())
@@ -239,7 +229,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.Len(t, messages[7].GetUser().GetContent(), 1)
 	assert.Contains(t, messages[7].GetUser().GetContent()[0].GetText(), "Full branch summary")
 	entries := restartSend("restart-entries", func(request *programmaticv1.OpenRequest) {
-		request.SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
+		programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
 	require.Len(t, entries, 8)
 	assert.NotEmpty(t, entries[0].GetId())
@@ -249,7 +239,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	require.NoError(t, restarted.stream.Send(userRequest("continued-turn", "continue")))
 	accepted, err = restarted.stream.Recv()
 	require.NoError(t, err)
-	assert.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	assert.True(t, accepted.GetEvent().HasAccepted())
 	waitProgrammaticSettled(t, restarted)
 	body, ok := lastBody.Load().([]byte)
 	require.True(t, ok)

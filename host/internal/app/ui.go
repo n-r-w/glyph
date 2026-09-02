@@ -132,7 +132,7 @@ func runUIWithPaths(
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	session := hostui.NewSession(
 		channel,
 		coordinator,

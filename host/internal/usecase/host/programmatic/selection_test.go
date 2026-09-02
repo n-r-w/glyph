@@ -27,7 +27,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 		expectedType controller.CommandKind
 	}{
 		{
-			name:         "missing payload precedes active correlation and busy state",
+			name:         "missing payload precedes active operation and busy state",
 			active:       true,
 			command:      testProgrammaticCommand("active", controller.CommandUnspecified),
 			expectedCode: controller.RejectionInvalidArgument,
@@ -35,7 +35,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			prepareErr:   nil,
 		},
 		{
-			name:         "blank user request precedes active correlation and busy state",
+			name:         "blank user request precedes active operation and busy state",
 			active:       true,
 			command:      testProgrammaticUserCommand("active", " \t"),
 			expectedCode: controller.RejectionInvalidArgument,
@@ -43,10 +43,10 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			prepareErr:   nil,
 		},
 		{
-			name:   "unexpected query payload precedes active correlation",
+			name:   "unexpected query payload precedes active operation",
 			active: true,
 			command: controller.Command{
-				CorrelationID:   "active",
+				OperationID:     "active",
 				Kind:            controller.CommandGetRunState,
 				UserText:        mo.Some("unexpected"),
 				ProviderID:      mo.None[model.ProviderID](),
@@ -64,10 +64,10 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			prepareErr:   nil,
 		},
 		{
-			name:         "active correlation precedes busy state",
+			name:         "active operation precedes busy state",
 			active:       true,
 			command:      testProgrammaticUserCommand("active", "next"),
-			expectedCode: controller.RejectionCorrelationInUse,
+			expectedCode: controller.RejectionOperationIDInUse,
 			expectedType: controller.CommandUserRequest,
 			prepareErr:   nil,
 		},
@@ -78,18 +78,12 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			expectedType: controller.CommandUserRequest,
 		},
 		{
-			name:         "abort without active run",
-			command:      testProgrammaticCommand("abort", controller.CommandAbort),
-			expectedCode: controller.RejectionNoActiveRun,
-			expectedType: controller.CommandAbort,
+			name:         "controller-owned cancellation is invalid Host work",
+			command:      testProgrammaticCommand("cancel", controller.CommandCancel),
+			expectedCode: controller.RejectionInvalidArgument,
+			expectedType: controller.CommandCancel,
 			active:       false,
 			prepareErr:   nil,
-		},
-		{
-			name:       "allocation failure after valid idle request",
-			command:    testProgrammaticUserCommand("request", "next"),
-			prepareErr: errors.New("entropy failed"), expectedCode: controller.RejectionInternal,
-			expectedType: controller.CommandUserRequest, active: false,
 		},
 	}
 
@@ -101,8 +95,8 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-				_, operation, err := service.Handle(s.T().Context(), controller.Command{
-					CorrelationID:   "active",
+				_, operation, err := service.handle(s.T().Context(), controller.Command{
+					OperationID:     "active",
 					Kind:            controller.CommandUserRequest,
 					UserText:        mo.Some("first"),
 					ProviderID:      mo.None[model.ProviderID](),
@@ -117,17 +111,17 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(operation)
-				defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+				defer func() { s.Require().NoError(cancelActiveTestRun(service)) }()
 			}
 			if test.expectedCode == controller.RejectionInternal {
 				coordinator.EXPECT().PrepareRun().Return("", test.prepareErr)
 			}
 
-			response, operation, err := service.Handle(s.T().Context(), test.command)
+			response, operation, err := service.handle(s.T().Context(), test.command)
 
 			s.Require().NoError(err)
 			s.Nil(operation)
-			s.Equal(test.command.CorrelationID, response.CorrelationID)
+			s.Equal(test.command.OperationID, response.OperationID)
 			s.Equal(controller.ResponseRejected, response.Kind)
 			s.Equal(test.expectedType, response.Rejection.OrEmpty().Command)
 			s.Equal(test.expectedCode, response.Rejection.OrEmpty().Code)
@@ -144,8 +138,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	catalog := NewMockModelCatalog(ctrl)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-	_, activeOperation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID:   "active",
+	_, activeOperation, err := service.handle(s.T().Context(), controller.Command{
+		OperationID:     "active",
 		Kind:            controller.CommandUserRequest,
 		UserText:        mo.Some("request"),
 		ProviderID:      mo.None[model.ProviderID](),
@@ -160,7 +154,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(activeOperation)
-	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+	defer func() { s.Require().NoError(cancelActiveTestRun(service)) }()
 
 	type contextKey struct{}
 	commandContext := context.WithValue(s.T().Context(), contextKey{}, "selection")
@@ -190,7 +184,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			command: testProgrammaticCommand("models", controller.CommandGetModels),
 			want: controller.Response{
 				SessionEntries: nil,
-				CorrelationID:  "models",
+				OperationID:    "models",
 				Kind:           controller.ResponseModels,
 				Models: mo.Some(
 					controller.ModelsResult{Models: models, ActiveSelection: mo.Some(initial)},
@@ -209,7 +203,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		},
 		{
 			command: controller.Command{
-				CorrelationID:   "model",
+				OperationID:     "model",
 				Kind:            controller.CommandSelectModel,
 				ProviderID:      mo.Some(model.ProviderID("other")),
 				ModelID:         mo.Some(model.ID("next")),
@@ -224,7 +218,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			},
 			want: controller.Response{
 				SessionEntries:    nil,
-				CorrelationID:     "model",
+				OperationID:       "model",
 				Kind:              controller.ResponseModelSelection,
 				Selection:         mo.Some(selectedModel),
 				State:             mo.None[controller.RunStateResult](),
@@ -241,8 +235,8 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		},
 		{
 			command: controller.Command{
-				CorrelationID: "reasoning",
-				Kind:          controller.CommandSelectReasoningChoice,
+				OperationID: "reasoning",
+				Kind:        controller.CommandSelectReasoningChoice,
 				ReasoningChoice: mo.Some(
 					model.ReasoningChoiceHigh,
 				),
@@ -258,7 +252,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 			},
 			want: controller.Response{
 				SessionEntries:    nil,
-				CorrelationID:     "reasoning",
+				OperationID:       "reasoning",
 				Kind:              controller.ResponseModelSelection,
 				Selection:         mo.Some(selectedReasoning),
 				State:             mo.None[controller.RunStateResult](),
@@ -279,7 +273,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	}
 
 	for _, test := range tests {
-		response, operation, handleErr := service.Handle(commandContext, test.command)
+		response, operation, handleErr := service.handle(commandContext, test.command)
 
 		// Assert the command returns its exact catalog response without a new operation.
 		s.Require().NoError(handleErr)
@@ -298,7 +292,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 
 	commands := []controller.Command{
 		{
-			CorrelationID:   "provider",
+			OperationID:     "provider",
 			Kind:            controller.CommandSelectModel,
 			ModelID:         mo.Some(model.ID("model")),
 			UserText:        mo.None[string](),
@@ -312,7 +306,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 			EntryLabel:      mo.None[string](),
 		},
 		{
-			CorrelationID:   "model",
+			OperationID:     "model",
 			Kind:            controller.CommandSelectModel,
 			ProviderID:      mo.Some(model.ProviderID("provider")),
 			UserText:        mo.None[string](),
@@ -326,7 +320,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 			EntryLabel:      mo.None[string](),
 		},
 		{
-			CorrelationID:   "reasoning",
+			OperationID:     "reasoning",
 			Kind:            controller.CommandSelectReasoningChoice,
 			UserText:        mo.None[string](),
 			ProviderID:      mo.None[model.ProviderID](),
@@ -341,7 +335,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 		},
 	}
 	for _, command := range commands {
-		response, operation, err := service.Handle(s.T().Context(), command)
+		response, operation, err := service.handle(s.T().Context(), command)
 		s.Require().NoError(err)
 		s.Nil(operation)
 		s.Equal(controller.ResponseRejected, response.Kind)
@@ -386,9 +380,9 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 				SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).
 				Return(model.Selection{}, test.err)
 
-			response, operation, err := service.Handle(s.T().Context(), controller.Command{
-				CorrelationID: "selection",
-				Kind:          controller.CommandSelectModel,
+			response, operation, err := service.handle(s.T().Context(), controller.Command{
+				OperationID: "selection",
+				Kind:        controller.CommandSelectModel,
 				ProviderID: mo.Some(
 					model.ProviderID("provider"),
 				),

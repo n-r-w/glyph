@@ -39,7 +39,7 @@ func TestMapSessionTreeResponsePreservesPublicTreeState(t *testing.T) {
 
 	// Assert the complete public state is present and extension data is limited to identifiers.
 	require.NoError(t, err)
-	result := wire.GetCommandResponse().GetSessionTree()
+	result := wire.GetSessionTree()
 	require.Equal(t, "extension", result.GetTree().GetActiveLeafId())
 	require.True(t, result.GetTree().HasActiveLeafId())
 	require.Len(t, result.GetTree().GetEntries(), 1)
@@ -73,7 +73,7 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 
 	// Assert committed status, tree presence, and exact next input reach the contract.
 	require.NoError(t, err)
-	result := wire.GetCommandResponse().GetSessionTreeNavigation()
+	result := wire.GetSessionTreeNavigation()
 	require.Equal(
 		t,
 		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED,
@@ -107,7 +107,7 @@ func TestMapCanceledNavigationOmitsSpeculativeState(t *testing.T) {
 
 	// Assert no tree, transcript, or next input is emitted.
 	require.NoError(t, err)
-	result := wire.GetCommandResponse().GetSessionTreeNavigation()
+	result := wire.GetSessionTreeNavigation()
 	require.Equal(
 		t,
 		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED,
@@ -148,16 +148,16 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	navigationWire, navigationErr := mapResponse(navigationResponse)
 	absentTree, absentTreeErr := mapSessionTree(SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()})
 
-	// Assert explicit empty values remain present, absent values remain absent, and fields use proto3 optional presence.
+	// Assert explicit empty values remain present, absent values remain absent, and fields retain explicit presence.
 	require.NoError(t, treeErr)
 	require.NoError(t, navigationErr)
 	require.NoError(t, absentTreeErr)
-	mappedTree := treeWire.GetCommandResponse().GetSessionTree().GetTree()
+	mappedTree := treeWire.GetSessionTree().GetTree()
 	require.True(t, mappedTree.HasActiveLeafId())
 	require.Empty(t, mappedTree.GetActiveLeafId())
 	require.True(t, mappedTree.GetEntries()[0].HasParentId())
 	require.Empty(t, mappedTree.GetEntries()[0].GetParentId())
-	mappedNavigation := navigationWire.GetCommandResponse().GetSessionTreeNavigation()
+	mappedNavigation := navigationWire.GetSessionTreeNavigation()
 	require.True(t, mappedNavigation.HasNextInput())
 	require.Empty(t, mappedNavigation.GetNextInput())
 	require.False(t, absentTree.HasActiveLeafId())
@@ -167,7 +167,7 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 			Descriptor().
 			Fields().
 			ByName(protoreflect.Name("next_input")).
-			HasOptionalKeyword(),
+			HasPresence(),
 	)
 	require.True(
 		t,
@@ -175,7 +175,7 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 			Descriptor().
 			Fields().
 			ByName(protoreflect.Name("active_leaf_id")).
-			HasOptionalKeyword(),
+			HasPresence(),
 	)
 	require.True(
 		t,
@@ -183,14 +183,14 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 			Descriptor().
 			Fields().
 			ByName(protoreflect.Name("parent_id")).
-			HasOptionalKeyword(),
+			HasPresence(),
 	)
 }
 
 // treeControllerResponse creates one fully initialized tree response.
-func treeControllerResponse(correlationID string, kind ResponseKind) Response {
+func treeControllerResponse(operationID string, kind ResponseKind) Response {
 	return Response{
-		CorrelationID:     correlationID,
+		OperationID:       operationID,
 		Kind:              kind,
 		State:             mo.None[RunStateResult](),
 		Messages:          nil,

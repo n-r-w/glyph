@@ -8,459 +8,396 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// SessionCompletionCause identifies the owning stream terminal cause.
+// SessionCompletionCause identifies why the sole Programmatic session ended.
 type SessionCompletionCause uint8
 
-// Session completion causes classify owner termination.
 const (
+	// SessionCompletionUnspecified identifies an unset completion cause.
 	SessionCompletionUnspecified SessionCompletionCause = iota
+	// SessionCompletionCleanClientClosure reports controller half-close.
 	SessionCompletionCleanClientClosure
+	// SessionCompletionApplicationCanceled reports Host-requested closure.
 	SessionCompletionApplicationCanceled
+	// SessionCompletionProtocolFailure reports a stream protocol failure.
 	SessionCompletionProtocolFailure
+	// SessionCompletionTransportFailure reports unavailable transport delivery.
 	SessionCompletionTransportFailure
-	SessionCompletionCleanupFailure
 )
 
-// SessionCompletion reports one owner result after all controller work joins.
+// SessionCompletion reports terminal state to application wiring.
 type SessionCompletion struct {
-	// Cause classifies why the owning stream ended.
+	// Cause identifies why the session ended.
 	Cause SessionCompletionCause
-	// Err contains the primary stream or protocol failure.
+	// Err contains the terminal error when present.
 	Err error
-	// CleanupErr contains a session cleanup failure.
-	CleanupErr error
 }
 
-// Service owns one Programmatic Control stream and its serialized sends.
+// Service owns the sole Programmatic Control connection.
 type Service struct {
-	// UnimplementedProgrammaticControlServiceServer provides forward-compatible gRPC defaults.
+	// UnimplementedProgrammaticControlServiceServer supplies generated default gRPC methods.
 	programmaticv1.UnimplementedProgrammaticControlServiceServer
-
-	// applicationContext controls Host application lifetime.
+	// applicationContext closes the session when the Host stops.
 	applicationContext context.Context
-	// session handles Programmatic Control commands and events.
+	// session prepares and runs Programmatic operations.
 	session HostSession
-	// ownerClaimed reports whether the single owning stream was accepted.
+	// ownerClaimed prevents a second stream from claiming the sole controller.
 	ownerClaimed atomic.Bool
-	// sendMutex serializes responses on the owning stream.
-	sendMutex sync.Mutex
-	// completions publishes the single owner session result.
+	// completions reports the sole stream terminal result to application wiring.
 	completions chan SessionCompletion
 }
 
 var _ programmaticv1.ProgrammaticControlServiceServer = (*Service)(nil)
 
-// New creates a Programmatic Control gRPC service.
+// New creates the sole Programmatic Control stream controller.
 func New(applicationContext context.Context, session HostSession) *Service {
+	unimplemented := programmaticv1.UnimplementedProgrammaticControlServiceServer{}
 	return &Service{
-		UnimplementedProgrammaticControlServiceServer: programmaticv1.
-			UnimplementedProgrammaticControlServiceServer{},
+		UnimplementedProgrammaticControlServiceServer: unimplemented,
+
 		applicationContext: applicationContext,
 		session:            session,
 		ownerClaimed:       atomic.Bool{},
-		sendMutex:          sync.Mutex{},
 		completions:        make(chan SessionCompletion, 1),
 	}
 }
 
-// Completions returns the single owner session result stream.
+// Completions reports the sole stream terminal result.
 func (s *Service) Completions() <-chan SessionCompletion {
 	return s.completions
 }
 
-// Open serves the single owning Programmatic Control stream.
-func (s *Service) Open(stream grpc.BidiStreamingServer[
-	programmaticv1.OpenRequest,
-	programmaticv1.OpenResponse,
-],
-) error {
+// Open executes one asynchronous Programmatic operation stream.
+func (s *Service) Open(stream programmaticv1.ProgrammaticControlService_OpenServer) error {
 	return s.open(stream)
 }
 
-type terminalResult struct {
-	// cause classifies why the owning stream ended.
-	cause SessionCompletionCause
-	// err contains the terminal stream or protocol failure.
-	err error
-	// clean reports whether the client closed the stream normally.
-	clean bool
-	// passthrough reports whether Open must return err unchanged.
-	passthrough bool
-}
-
+// open owns receipt, operation work, delivery, and closure for one stream.
 func (s *Service) open(stream OpenStream) error {
 	if !s.ownerClaimed.CompareAndSwap(false, true) {
 		return status.Error(codes.FailedPrecondition, "a Programmatic Control stream already owns this process")
 	}
 
-	controllerContext, cancelController := context.WithCancel(stream.Context())
-	eventTerminals := make(chan terminalResult, 1)
-	receiveTerminals := make(chan terminalResult, 1)
-	var commandWork sync.Mutex
-	var eventWork sync.WaitGroup
-	if s.applicationContext.Err() == nil && stream.Context().Err() == nil {
-		go func() {
-			receiveTerminals <- s.receive(
-				controllerContext, stream, eventTerminals, &commandWork, &eventWork,
-			)
-		}()
+	connectionContext, cancelConnection := context.WithCancelCause(stream.Context())
+	defer cancelConnection(context.Canceled)
+	registry := newTargetRegistry()
+	writer := operation.NewWriter(stream.Send)
+	var owner *operation.Owner[AgentEvent, Response]
+	delivery := &streamDelivery{
+		context:  connectionContext,
+		writer:   writer,
+		registry: registry,
+		fail: func(err error) {
+			cancelConnection(mapDeliveryError(err))
+			if owner != nil {
+				owner.Fail(mapDeliveryError(err))
+			}
+		},
 	}
+	owner = operation.NewOwner(connectionContext, delivery)
 
-	terminal := s.waitForTerminal(stream.Context(), eventTerminals, receiveTerminals)
-	cancelController()
-	commandWork.Lock()
-	// Cleanup uses a context that remains active after application cancellation.
-	cleanupErr := s.session.CancelAndWait(context.WithoutCancel(s.applicationContext))
-	commandWork.Unlock()
-	eventWork.Wait()
-	if applicationErr := s.applicationContext.Err(); applicationErr != nil {
-		terminal = terminal.collectReady(eventTerminals)
-		terminal = terminal.collectReady(receiveTerminals)
-		terminal = applicationCanceledTerminal(applicationErr, terminal.err)
-	} else if terminal.clean || stream.Context().Err() != nil {
-		terminal = terminal.ownerClosed(eventTerminals, receiveTerminals)
+	writerResult := make(chan error, 1)
+	go func() {
+		writerResult <- writer.Run(connectionContext)
+	}()
+	closing := &localClosingState{started: atomic.Bool{}}
+	receiveResult := make(chan error, 1)
+	go func() {
+		receiveResult <- s.receive(connectionContext, stream, owner, delivery, registry, closing)
+	}()
+
+	var completion SessionCompletion
+	var rpcErr error
+	select {
+	case receiveErr := <-receiveResult:
+		if errors.Is(receiveErr, io.EOF) {
+			completion = SessionCompletion{Cause: SessionCompletionCleanClientClosure, Err: nil}
+			owner.Close()
+			registry.close()
+			writer.Close()
+			if writeErr := <-writerResult; writeErr != nil {
+				completion = SessionCompletion{Cause: SessionCompletionTransportFailure, Err: writeErr}
+				rpcErr = mapTransportError(writeErr)
+			}
+		} else {
+			cancelConnection(receiveErr)
+			owner.Fail(receiveErr)
+			owner.Wait()
+			registry.close()
+			<-writerResult
+			if isReceiveTransportFailure(receiveErr) {
+				completion = SessionCompletion{
+					Cause: SessionCompletionTransportFailure,
+					Err:   receiveErr,
+				}
+				rpcErr = mapTransportError(receiveErr)
+			} else {
+				completion = SessionCompletion{
+					Cause: SessionCompletionProtocolFailure,
+					Err:   receiveErr,
+				}
+				rpcErr = mapReceiveError(receiveErr)
+			}
+		}
+	case writeErr := <-writerResult:
+		if writeErr == nil {
+			writeErr = errors.New("programmatic writer stopped before stream closure")
+		}
+		owner.Fail(writeErr)
+		owner.Wait()
+		registry.close()
+		completion = SessionCompletion{Cause: SessionCompletionTransportFailure, Err: writeErr}
+		rpcErr = mapTransportError(writeErr)
+	case <-connectionContext.Done():
+		connectionErr := context.Cause(connectionContext)
+		owner.Fail(connectionErr)
+		owner.Wait()
+		registry.close()
+		<-writerResult
+		completion = SessionCompletion{Cause: SessionCompletionTransportFailure, Err: connectionErr}
+		rpcErr = mapDeliveryError(connectionErr)
+	case <-s.applicationContext.Done():
+		closing.started.Store(true)
+		closeErr := delivery.closeConnection()
+		owner.Close()
+		registry.close()
+		if closeErr != nil {
+			<-writerResult
+			completion = SessionCompletion{
+				Cause: SessionCompletionTransportFailure,
+				Err:   closeErr,
+			}
+			rpcErr = mapDeliveryError(closeErr)
+			break
+		}
+
+		completion, rpcErr = waitForControllerHalfClose(
+			connectionContext, s.applicationContext.Err(), cancelConnection, writer, receiveResult, writerResult,
+		)
 	}
-	completion, rpcErr := s.complete(stream.Context(), terminal, cleanupErr)
 	s.completions <- completion
 	return rpcErr
 }
 
-func (s *Service) waitForTerminal(
-	streamContext context.Context,
-	eventTerminals <-chan terminalResult,
-	receiveTerminals <-chan terminalResult,
-) terminalResult {
-	var selected terminalResult
-	select {
-	case <-s.applicationContext.Done():
-		selected = terminalResult{
-			cause: SessionCompletionApplicationCanceled,
-			err:   s.applicationContext.Err(), clean: false, passthrough: true,
-		}
-	case <-streamContext.Done():
-		selected = terminalResult{
-			cause: SessionCompletionCleanClientClosure, err: nil, clean: true, passthrough: false,
-		}
-	case selected = <-eventTerminals:
-	case selected = <-receiveTerminals:
-	}
-	return s.applyTerminalPrecedence(streamContext, selected, eventTerminals, receiveTerminals)
-}
-
-func (s *Service) applyTerminalPrecedence(
-	streamContext context.Context,
-	selected terminalResult,
-	eventTerminals <-chan terminalResult,
-	receiveTerminals <-chan terminalResult,
-) terminalResult {
-	if err := s.applicationContext.Err(); err != nil {
-		selected = selected.collectReady(eventTerminals)
-		selected = selected.collectReady(receiveTerminals)
-		return applicationCanceledTerminal(err, selected.err)
-	}
-	if selected.clean || streamContext.Err() != nil {
-		return selected.ownerClosed(eventTerminals, receiveTerminals)
-	}
-	select {
-	case received := <-receiveTerminals:
-		if received.clean {
-			selected.err = joinIndependentError(selected.err, received.err)
-			return selected.ownerClosed(eventTerminals, nil)
-		}
-	default:
-	}
-	return selected
-}
-
-func (s *Service) receive(
-	controllerContext context.Context,
-	stream OpenStream,
-	eventTerminals chan terminalResult,
-	commandWork *sync.Mutex,
-	eventWork *sync.WaitGroup,
-) terminalResult {
-	for {
-		request, recvErr := stream.Recv()
-		if recvErr != nil {
-			return s.receiveError(stream.Context(), recvErr)
-		}
-
-		commandWork.Lock()
-		if controllerContext.Err() != nil {
-			commandWork.Unlock()
-			return terminalResult{
-				cause: SessionCompletionCleanClientClosure, err: nil, clean: true, passthrough: false,
-			}
-		}
-		terminal, done := s.handleRequest(
-			controllerContext, stream, request, eventTerminals, eventWork,
-		)
-		commandWork.Unlock()
-		if done {
-			return terminal
-		}
-	}
-}
-
-func (s *Service) handleRequest(
-	controllerContext context.Context,
-	stream OpenStream,
-	request *programmaticv1.OpenRequest,
-	eventTerminals chan terminalResult,
-	eventWork *sync.WaitGroup,
-) (terminalResult, bool) {
-	command, err := mapOpenRequest(request)
-	if err != nil {
-		return terminalResult{
-			cause: SessionCompletionProtocolFailure, err: err, clean: false,
-			passthrough: status.Code(err) == codes.InvalidArgument,
-		}, true
-	}
-	response, operation, err := s.session.Handle(controllerContext, command)
-	if err != nil {
-		return terminalResult{
-			cause: SessionCompletionProtocolFailure, err: err, clean: false, passthrough: false,
-		}, true
-	}
-	if (response.Kind == ResponseUserRequestAccepted) != (operation != nil) {
-		return terminalResult{
-			cause: SessionCompletionProtocolFailure,
-			err:   errors.New("host acceptance and operation presence differ"),
-			clean: false, passthrough: false,
-		}, true
-	}
-	var events <-chan AgentEvent
-	if operation != nil {
-		events = operation.Events()
-		if events == nil {
-			return terminalResult{
-				cause: SessionCompletionProtocolFailure,
-				err:   errors.New("host operation returned a nil event stream"),
-				clean: false, passthrough: false,
-			}, true
-		}
-	}
-	sendTerminal := s.sendResponse(stream, response)
-	if sendTerminal.err != nil {
-		return sendTerminal, true
-	}
-	if operation == nil {
-		return terminalResult{cause: 0, err: nil, clean: false, passthrough: false}, false
-	}
-	eventWork.Add(1)
-	go s.consumeEvents(stream, events, eventTerminals, eventWork)
-	// Acceptance is sent and the event consumer is ready before execution starts.
-	operation.Start()
-	return terminalResult{cause: 0, err: nil, clean: false, passthrough: false}, false
-}
-
-func (s *Service) receiveError(streamContext context.Context, recvErr error) terminalResult {
-	if errors.Is(recvErr, io.EOF) || streamContext.Err() != nil {
-		return terminalResult{
-			cause: SessionCompletionCleanClientClosure, err: nil, clean: true, passthrough: false,
-		}
-	}
-	return terminalResult{
-		cause: SessionCompletionTransportFailure, err: recvErr, clean: false, passthrough: true,
-	}
-}
-
-func (s *Service) consumeEvents(
-	stream OpenStream,
-	events <-chan AgentEvent,
-	terminals chan<- terminalResult,
-	work *sync.WaitGroup,
-) {
-	defer work.Done()
-	for event := range events {
-		mapped, err := mapEvent(event)
-		if err != nil {
-			s.publishEventTerminal(terminals, terminalResult{
-				cause: SessionCompletionProtocolFailure, err: err, clean: false, passthrough: false,
-			})
-			return
-		}
-		if err = s.send(stream, mapped); err != nil {
-			s.publishEventTerminal(terminals, terminalResult{
-				cause: SessionCompletionTransportFailure, err: err, clean: false, passthrough: true,
-			})
-			return
-		}
-	}
-}
-
-func (*Service) publishEventTerminal(terminals chan<- terminalResult, terminal terminalResult) {
-	select {
-	case terminals <- terminal:
-	default:
-	}
-}
-
-func (s *Service) sendResponse(stream OpenStream, response Response) terminalResult {
-	mapped, err := mapResponse(response)
-	if err != nil {
-		return terminalResult{
-			cause: SessionCompletionProtocolFailure, err: err, clean: false, passthrough: false,
-		}
-	}
-	if err = s.send(stream, mapped); err != nil {
-		return terminalResult{
-			cause: SessionCompletionTransportFailure, err: err, clean: false, passthrough: true,
-		}
-	}
-	return terminalResult{cause: 0, err: nil, clean: false, passthrough: false}
-}
-
-func (s *Service) send(stream OpenStream, response *programmaticv1.OpenResponse) error {
-	s.sendMutex.Lock()
-	defer s.sendMutex.Unlock()
-	return stream.Send(response)
-}
-
-func (s *Service) complete(
-	streamContext context.Context,
-	terminal terminalResult,
-	cleanupErr error,
+// waitForControllerHalfClose keeps the response writer active until request EOF or stream failure.
+func waitForControllerHalfClose(
+	connectionContext context.Context,
+	applicationErr error,
+	cancelConnection context.CancelCauseFunc,
+	writer *operation.Writer[*programmaticv1.OpenResponse],
+	receiveResult <-chan error,
+	writerResult <-chan error,
 ) (SessionCompletion, error) {
-	completion := SessionCompletion{Cause: terminal.cause, Err: terminal.err, CleanupErr: cleanupErr}
-	if err := s.applicationContext.Err(); err != nil {
-		completion.Cause = SessionCompletionApplicationCanceled
-		completion.Err = joinIndependentError(err, completion.Err)
-		return completion, status.FromContextError(err).Err()
-	}
-	if streamContext.Err() != nil || terminal.clean {
-		completion.Err = withoutOwnerClosure(completion.Err)
-		if completion.Err != nil {
-			if cleanupErr != nil {
-				completion.Err = joinIndependentError(completion.Err, cleanupErr)
-				return completion, status.Error(
-					codes.Internal, fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr),
-				)
-			}
-			return completion, nil
-		}
-		if cleanupErr != nil {
-			completion.Cause = SessionCompletionCleanupFailure
-			completion.Err = cleanupErr
-			return completion, status.Error(
-				codes.Internal,
-				fmt.Sprintf("clean up Programmatic Control session: %v", cleanupErr),
-			)
-		}
-		completion.Cause = SessionCompletionCleanClientClosure
-		completion.Err = nil
-		return completion, nil
-	}
-	transportPassthrough := terminal.cause == SessionCompletionTransportFailure && terminal.passthrough
-	_, transportStatus := status.FromError(terminal.err)
-	protocolPassthrough := terminal.cause == SessionCompletionProtocolFailure && terminal.passthrough
-	if transportPassthrough && transportStatus || protocolPassthrough {
-		if cleanupErr == nil {
-			return completion, terminal.err
-		}
-		terminalStatus := status.Convert(terminal.err)
-		message := fmt.Sprintf(
-			"%s: clean up Programmatic Control session: %v", terminalStatus.Message(), cleanupErr,
-		)
-		return completion, status.Error(terminalStatus.Code(), message)
-	}
-	message := fmt.Sprintf("Programmatic Control controller failed: %v", terminal.err)
-	if cleanupErr != nil {
-		message = fmt.Sprintf("%s: clean up Programmatic Control session: %v", message, cleanupErr)
-	}
-	return completion, status.Error(codes.Internal, message)
-}
-
-// ownerClosed removes only closure leaves after collecting already-ready terminals.
-func (selected terminalResult) ownerClosed(
-	eventTerminals <-chan terminalResult,
-	receiveTerminals <-chan terminalResult,
-) terminalResult {
-	selected = selected.collectReady(eventTerminals)
-	selected = selected.collectReady(receiveTerminals)
-	selected.err = withoutOwnerClosure(selected.err)
-	selected.clean = true
-	if selected.err == nil {
-		selected.cause = SessionCompletionCleanClientClosure
-		selected.passthrough = false
-	}
-	return selected
-}
-
-// collectReady joins one terminal that is already published without blocking arbitration.
-func (selected terminalResult) collectReady(terminals <-chan terminalResult) terminalResult {
 	select {
-	case ready := <-terminals:
-		if ready.err != nil && (selected.err == nil || selected.clean) {
-			selected.cause = ready.cause
-			selected.passthrough = ready.passthrough
+	case receiveErr := <-receiveResult:
+		if !errors.Is(receiveErr, io.EOF) {
+			cancelConnection(receiveErr)
+			<-writerResult
+			if isReceiveTransportFailure(receiveErr) {
+				return SessionCompletion{
+					Cause: SessionCompletionTransportFailure,
+					Err:   receiveErr,
+				}, mapTransportError(receiveErr)
+			}
+			return SessionCompletion{
+				Cause: SessionCompletionProtocolFailure,
+				Err:   receiveErr,
+			}, mapReceiveError(receiveErr)
 		}
-		selected.err = joinIndependentError(selected.err, ready.err)
-	default:
+		writer.Close()
+		if writeErr := <-writerResult; writeErr != nil {
+			return SessionCompletion{
+				Cause: SessionCompletionTransportFailure,
+				Err:   writeErr,
+			}, mapTransportError(writeErr)
+		}
+		return SessionCompletion{
+			Cause: SessionCompletionApplicationCanceled,
+			Err:   applicationErr,
+		}, nil
+	case writeErr := <-writerResult:
+		if writeErr == nil {
+			writeErr = errors.New("programmatic writer stopped before controller half-close")
+		}
+		cancelConnection(writeErr)
+		return SessionCompletion{
+			Cause: SessionCompletionTransportFailure,
+			Err:   writeErr,
+		}, mapTransportError(writeErr)
+	case <-connectionContext.Done():
+		connectionErr := context.Cause(connectionContext)
+		<-writerResult
+		return SessionCompletion{
+			Cause: SessionCompletionTransportFailure,
+			Err:   connectionErr,
+		}, mapDeliveryError(connectionErr)
 	}
-	return selected
 }
 
-// withoutOwnerClosure removes closure-equivalent leaves and keeps wrappers around surviving causes.
-func withoutOwnerClosure(err error) error {
-	if err == nil {
-		return nil
-	}
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		filtered := make([]error, 0, len(joined.Unwrap()))
-		for _, nested := range joined.Unwrap() {
-			if remaining := withoutOwnerClosure(nested); remaining != nil {
-				filtered = append(filtered, remaining)
+// localClosingState records when Host-requested closure stops request admission.
+type localClosingState struct {
+	// started is true after the Host begins the local close protocol.
+	started atomic.Bool
+}
+
+// receive prepares requests without waiting for accepted operation work.
+//
+//nolint:gocognit,gocyclo // Receipt exhaustively handles cancellation, mapping, admission, and rejection.
+func (s *Service) receive(
+	ctx context.Context,
+	stream OpenStream,
+	owner *operation.Owner[AgentEvent, Response],
+	delivery *streamDelivery,
+	registry *targetRegistry,
+	closing *localClosingState,
+) error {
+	for {
+		request, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if closing.started.Load() {
+			return status.Error(codes.FailedPrecondition, "request received after CloseConnection")
+		}
+		if request != nil && request.HasRequest() &&
+			request.GetRequest().WhichRequest() == programmaticv1.ControllerRequest_Cancel_case {
+			if cancelErr := s.prepareCancellation(request, owner, delivery, registry); cancelErr != nil {
+				if errors.Is(cancelErr, operation.ErrClosed) && closing.started.Load() {
+					return status.Error(codes.FailedPrecondition, "request received after CloseConnection")
+				}
+				return cancelErr
 			}
+			continue
 		}
-		return errors.Join(filtered...)
+		command, mapErr := mapOpenRequest(request)
+		if mapErr != nil {
+			operationID := ""
+			if request != nil {
+				operationID = request.GetOperationId()
+			}
+			if code, rejected := rejectionCode(mapErr); rejected {
+				if rejectErr := delivery.reject(operationID, code); rejectErr != nil {
+					return rejectErr
+				}
+				continue
+			}
+			return mapErr
+		}
+		err = owner.Start(command.OperationID, func() (operation.Prepared[AgentEvent, Response], error) {
+			prepared, prepareErr := s.session.Prepare(ctx, command)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+			target := registry.add(command.OperationID, command.Kind)
+			return &registeredPrepared{
+				id: command.OperationID, prepared: prepared, registry: registry, target: target,
+				mutex: sync.Mutex{}, started: false, release: sync.Once{},
+			}, nil
+		})
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, operation.ErrClosed) && closing.started.Load() {
+			return status.Error(codes.FailedPrecondition, "request received after CloseConnection")
+		}
+		code, perRequest := rejectionCode(err)
+		if errors.Is(err, operation.ErrIdentifierInUse) {
+			code, perRequest = RejectionCodeOperationIDInUse, true
+		}
+		if perRequest {
+			if rejectErr := delivery.reject(command.OperationID, code); rejectErr != nil {
+				return rejectErr
+			}
+			continue
+		}
+		return status.Errorf(codes.Internal, "prepare Programmatic operation: %v", err)
 	}
-	if nested := errors.Unwrap(err); nested != nil {
-		remaining := withoutOwnerClosure(nested)
-		if remaining == nil {
-			return nil
-		}
-		if isOwnerClosure(err) {
-			return remaining
-		}
-		return err
+}
+
+// prepareCancellation validates and starts one controller-owned cancellation operation.
+func (s *Service) prepareCancellation(
+	request *programmaticv1.OpenRequest,
+	owner *operation.Owner[AgentEvent, Response],
+	delivery *streamDelivery,
+	registry *targetRegistry,
+) error {
+	operationID := request.GetOperationId()
+	cancelRequest := request.GetRequest().GetCancel()
+	if operationID == "" || cancelRequest == nil || !cancelRequest.HasTargetOperationId() ||
+		cancelRequest.GetTargetOperationId() == "" {
+		return delivery.reject(operationID, RejectionCodeInvalidArgument)
 	}
-	if isOwnerClosure(err) {
-		return nil
+	targetID := cancelRequest.GetTargetOperationId()
+	err := owner.Start(operationID, func() (operation.Prepared[AgentEvent, Response], error) {
+		target, active := registry.active(targetID)
+		if !active {
+			return nil, Reject(RejectionCodeTargetNotActive)
+		}
+		ownedTarget := registry.add(operationID, CommandCancel)
+		prepared := &cancellationPrepared{owner: owner, targetID: targetID, target: target}
+		return &registeredPrepared{
+			id: operationID, prepared: prepared, registry: registry, target: ownedTarget,
+			mutex: sync.Mutex{}, started: false, release: sync.Once{},
+		}, nil
+	})
+	if errors.Is(err, operation.ErrIdentifierInUse) {
+		return delivery.reject(operationID, RejectionCodeOperationIDInUse)
+	}
+	if code, rejected := rejectionCode(err); rejected {
+		return delivery.reject(operationID, code)
 	}
 	return err
 }
 
-// isOwnerClosure identifies one EOF, context cancellation, or gRPC cancellation leaf.
-func isOwnerClosure(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || status.Code(err) == codes.Canceled
+// mapDeliveryError maps local bounded delivery failures to stream status.
+func mapDeliveryError(err error) error {
+	if errors.Is(err, operation.ErrQueueFull) {
+		return status.Error(codes.ResourceExhausted, "Programmatic delivery queue is full")
+	}
+	return mapTransportError(err)
 }
 
-// applicationCanceledTerminal keeps cancellation ownership and any independent terminal cause.
-func applicationCanceledTerminal(applicationErr, terminalErr error) terminalResult {
-	return terminalResult{
-		cause: SessionCompletionApplicationCanceled,
-		err:   joinIndependentError(applicationErr, terminalErr), clean: false, passthrough: true,
+// mapTransportError preserves gRPC status and classifies other transport failures.
+func mapTransportError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, present := status.FromError(err); present {
+		return err
+	}
+	return status.Error(codes.Unavailable, fmt.Sprintf("Programmatic transport failed: %v", err))
+}
+
+// isReceiveTransportFailure identifies stream termination caused by the receive transport.
+func isReceiveTransportFailure(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	switch status.Code(err) {
+	case codes.Canceled, codes.DeadlineExceeded, codes.Unavailable:
+		return true
+	case codes.OK, codes.Unknown, codes.InvalidArgument, codes.NotFound, codes.AlreadyExists,
+		codes.PermissionDenied, codes.ResourceExhausted, codes.FailedPrecondition, codes.Aborted,
+		codes.OutOfRange, codes.Unimplemented, codes.Internal, codes.DataLoss, codes.Unauthenticated:
+		return false
+	default:
+		return false
 	}
 }
 
-// joinIndependentError keeps the broader chain when either error already contains the other.
-func joinIndependentError(current, candidate error) error {
-	if candidate == nil {
-		return current
+// mapReceiveError preserves incoming status and classifies undecodable frames.
+func mapReceiveError(err error) error {
+	if err == nil || errors.Is(err, io.EOF) {
+		return nil
 	}
-	if current == nil || errors.Is(candidate, current) {
-		return candidate
+	if _, present := status.FromError(err); present {
+		return err
 	}
-	if errors.Is(current, candidate) {
-		return current
-	}
-	return errors.Join(current, candidate)
+	return status.Error(codes.InvalidArgument, fmt.Sprintf("receive Programmatic request: %v", err))
 }

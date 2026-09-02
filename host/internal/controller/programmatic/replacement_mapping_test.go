@@ -81,12 +81,12 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 			view := &ResponseWire{}
 			switch test.name {
 			case "fork":
-				view.SessionID = wire.GetCommandResponse().GetForkSession().GetInfo().GetId()
-				view.ForkInput = wire.GetCommandResponse().GetForkSession().GetNextInput()
+				view.SessionID = wire.GetForkSession().GetInfo().GetId()
+				view.ForkInput = wire.GetForkSession().GetNextInput()
 			case "clone":
-				view.SessionID = wire.GetCommandResponse().GetCloneSession().GetInfo().GetId()
+				view.SessionID = wire.GetCloneSession().GetInfo().GetId()
 			case "label":
-				view.HasLabelTree = wire.GetCommandResponse().GetSetEntryLabel().HasTree()
+				view.HasLabelTree = wire.GetSetEntryLabel().HasTree()
 			default:
 				t.Fatalf("unexpected test case %q", test.name)
 			}
@@ -112,7 +112,7 @@ func replacementMappingResponse(
 	tree mo.Option[SessionTree],
 ) Response {
 	return Response{
-		CorrelationID: "correlation", Kind: kind, State: mo.None[RunStateResult](), Messages: nil,
+		OperationID: "operation", Kind: kind, State: mo.None[RunStateResult](), Messages: nil,
 		Models: mo.None[ModelsResult](), Selection: mo.None[model.Selection](), SessionInfo: mo.None[session.Info](),
 		Sessions: nil, SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: tree,
 		TreeNavigation: mo.None[TreeNavigationResult](), Replacement: replacement,

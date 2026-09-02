@@ -15,8 +15,8 @@ type Service struct {
 	active ActiveSessions
 	// navigator commits internal tree navigation and optional built-in summaries.
 	navigator Navigator
-	// gate is shared with agent execution and is held through active mutation.
-	gate OperationGate
+	// tryAcquire reserves session mutation against agent execution.
+	tryAcquire func() (release func(), acquired bool)
 }
 
 var (
@@ -25,69 +25,53 @@ var (
 )
 
 // New creates a session-control orchestrator.
-func New(active ActiveSessions, navigator Navigator, gate OperationGate) *Service {
-	return &Service{active: active, navigator: navigator, gate: gate}
+func New(
+	active ActiveSessions,
+	navigator Navigator,
+	tryAcquire func() (release func(), acquired bool),
+) *Service {
+	return &Service{active: active, navigator: navigator, tryAcquire: tryAcquire}
 }
 
-// Create replaces the active session while holding the operation gate.
+// TryAcquire reserves session mutation ownership for any internal transport caller.
+func (s *Service) TryAcquire() (func(), bool) {
+	return s.tryAcquire()
+}
+
+// Create replaces the active session under the caller-owned reservation.
 func (s *Service) Create(ctx context.Context) (session.Replacement, error) {
-	release, acquired := s.gate.TryAcquire()
-	if !acquired {
-		return session.Replacement{}, session.ErrBusy
-	}
-	// The orchestrator owns release until active replacement returns on every terminal path.
-	defer release()
 	return s.active.CreateActive(ctx)
 }
 
-// Resume loads and replaces the active session while holding the operation gate.
+// Resume loads and replaces the active session under the caller-owned reservation.
 func (s *Service) Resume(ctx context.Context, id session.ID) (session.Replacement, error) {
-	release, acquired := s.gate.TryAcquire()
-	if !acquired {
-		return session.Replacement{}, session.ErrBusy
-	}
-	// Loading and validation remain inside the reservation so a run cannot observe partial replacement.
-	defer release()
 	return s.active.ResumeActive(ctx, id)
 }
 
-// Fork persists and activates a replacement session while holding the operation gate.
+// Fork persists a replacement under the caller-owned reservation.
 func (s *Service) Fork(ctx context.Context, targetID string) (session.Replacement, string, error) {
-	release, acquired := s.gate.TryAcquire()
-	if !acquired {
-		return session.Replacement{}, "", session.ErrBusy
-	}
-	defer release()
 	return s.active.ForkActive(ctx, targetID)
 }
 
-// Clone persists and activates an active-branch copy while holding the operation gate.
+// Clone persists an active-branch copy under the caller-owned reservation.
 func (s *Service) Clone(ctx context.Context) (session.Replacement, error) {
-	release, acquired := s.gate.TryAcquire()
-	if !acquired {
-		return session.Replacement{}, session.ErrBusy
-	}
-	defer release()
 	return s.active.CloneActive(ctx)
 }
 
-// SetLabel persists one entry label without replacing the active session.
+// SetLabel persists one entry label under the caller-owned reservation.
 func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session.Tree, error) {
 	return s.active.SetLabel(ctx, targetID, label)
 }
 
-// Navigate commits one tree navigation while holding the operation gate.
-func (s *Service) Navigate(ctx context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
-	release, acquired := s.gate.TryAcquire()
-	if !acquired {
-		return sessionnavigation.Result{}, session.ErrBusy
-	}
-	// Navigation owns the gate until every preparation and commit terminal path returns.
-	defer release()
+// Navigate commits tree navigation under the caller-owned reservation.
+func (s *Service) Navigate(
+	ctx context.Context,
+	request sessionnavigation.Request,
+) (sessionnavigation.Result, error) {
 	return s.navigator.NavigateTree(ctx, request)
 }
 
-// SetName updates the active session without replacing it.
+// SetName updates the active session under the caller-owned reservation.
 func (s *Service) SetName(ctx context.Context, name string) (session.Info, error) {
 	return s.active.SetActiveName(ctx, name)
 }

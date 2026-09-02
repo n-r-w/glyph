@@ -77,7 +77,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			command.CustomFocus = test.focus
 
 			// Act through Programmatic Control.
-			response, operation, err := service.Handle(t.Context(), command)
+			response, operation, err := service.handle(t.Context(), command)
 
 			// Assert the committed or canceled terminal result survives equivalent request forwarding.
 			require.NoError(t, err)

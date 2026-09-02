@@ -6,150 +6,215 @@ import (
 	"context"
 	"errors"
 	"io"
+	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/n-r-w/glyph/internal/operation"
+	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// TestTerminalCausePrecedence verifies application, client, transport, and cleanup precedence.
-func (s *ServiceSuite) TestTerminalCausePrecedence() {
-	transportErr := status.Error(codes.Unavailable, "transport failed")
-	plainErr := errors.New("receive failed")
-	cleanupErr := errors.New("cleanup failed")
-	passthroughErr := status.Error(codes.Unavailable, "unique passthrough terminal failure")
-	passthroughCleanupErr := errors.New("unique passthrough cleanup failure")
-	controllerErr := errors.New("unique controller terminal failure")
-	controllerCleanupErr := errors.New("unique controller cleanup failure")
+// TestControllerHalfCloseCancelsAndJoinsOwnedWork verifies clean drain and joining.
+func TestControllerHalfCloseCancelsAndJoinsOwnedWork(t *testing.T) {
+	t.Parallel()
+
+	// Arrange work that exits only after connection closure cancels it.
+	controller := gomock.NewController(t)
+	host := NewMockHostSession(controller)
+	prepared := operation.NewMockPrepared[AgentEvent, Response](controller)
+	joined := make(chan struct{})
+	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+			<-ctx.Done()
+			close(joined)
+			return operation.Canceled[Response]()
+		},
+	)
+	prepared.EXPECT().Release()
+	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
+	stream := newStreamHarness(t, t.Context())
+	service := New(t.Context(), host)
+	result := make(chan error, 1)
+	go func() { result <- service.open(stream.stream) }()
+	stream.requests <- testRequest("owned", func(request *programmaticv1.ControllerRequest) {
+		request.SetGetMessages(new(programmaticv1.GetMessages))
+	})
+	for {
+		response := <-stream.responses
+		if response.GetOperationId() == "owned" && response.GetEvent().HasRunning() {
+			break
+		}
+	}
+
+	// Act by half-closing while work is running.
+	stream.closeSend()
+
+	// Assert work joined and its terminal event drained before return.
+	require.NoError(t, <-result)
+	<-joined
+}
+
+// TestHostClosureWaitsForControllerHalfClose verifies orderly Host-requested shutdown.
+func TestHostClosureWaitsForControllerHalfClose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an idle stream and an independently cancelable Host context.
+	controller := gomock.NewController(t)
+	host := NewMockHostSession(controller)
+	applicationContext, cancelApplication := context.WithCancel(t.Context())
+	stream := newStreamHarness(t, t.Context())
+	service := New(applicationContext, host)
+	result := make(chan error, 1)
+	go func() { result <- service.open(stream.stream) }()
+
+	// Act by closing the Host and half-closing only after its close request arrives.
+	cancelApplication()
+	response := <-stream.responses
+	require.True(t, response.HasClose())
+	stream.closeSend()
+
+	// Assert the controller half-close completes clean Host-requested closure.
+	require.NoError(t, <-result)
+}
+
+// TestHostClosureRejectsLateRequestAndJoinsOwnedWork verifies post-close request failure.
+func TestHostClosureRejectsLateRequestAndJoinsOwnedWork(t *testing.T) {
+	t.Parallel()
+
+	// Arrange work that records when Host-requested closure has joined it.
+	controller := gomock.NewController(t)
+	host := NewMockHostSession(controller)
+	prepared := operation.NewMockPrepared[AgentEvent, Response](controller)
+	joined := make(chan struct{})
+	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+			<-ctx.Done()
+			close(joined)
+			return operation.Canceled[Response]()
+		},
+	)
+	prepared.EXPECT().Release()
+	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
+	applicationContext, cancelApplication := context.WithCancel(t.Context())
+	stream := newStreamHarness(t, t.Context())
+	service := New(applicationContext, host)
+	result := make(chan error, 1)
+	go func() { result <- service.open(stream.stream) }()
+	stream.requests <- testRequest("owned", func(request *programmaticv1.ControllerRequest) {
+		request.SetGetMessages(new(programmaticv1.GetMessages))
+	})
+	for {
+		response := <-stream.responses
+		if response.GetOperationId() == "owned" && response.GetEvent().HasRunning() {
+			break
+		}
+	}
+
+	// Act by starting Host closure, then queueing one late request before request EOF.
+	cancelApplication()
+	response := <-stream.responses
+	require.True(t, response.HasClose())
+	stream.requests <- testRequest("late", func(request *programmaticv1.ControllerRequest) {
+		request.SetGetMessages(new(programmaticv1.GetMessages))
+	})
+	stream.closeSend()
+
+	// Assert the late request fails the stream and all prior work is joined.
+	err := <-result
+	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+	<-joined
+	for {
+		select {
+		case response = <-stream.responses:
+			require.False(t,
+				response.GetOperationId() == "late" && response.GetEvent().HasAccepted(),
+				"late request must not be accepted",
+			)
+		default:
+			return
+		}
+	}
+}
+
+// TestHostClosurePreservesReceiveFailure verifies failure precedence while waiting for request EOF.
+func TestHostClosurePreservesReceiveFailure(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
-		appCanceled    bool
-		streamCanceled bool
-		recvErr        error
-		cleanupErr     error
-		wantCode       codes.Code
-		wantMessages   []string
-		wantCause      SessionCompletionCause
-		wantErr        error
+		receiveErr error
+		wantCode   codes.Code
 	}{
-		"application cancellation": {
-			appCanceled:    true,
-			recvErr:        transportErr,
-			wantCode:       codes.Canceled,
-			wantMessages:   nil,
-			wantCause:      SessionCompletionApplicationCanceled,
-			wantErr:        context.Canceled,
-			streamCanceled: false,
-			cleanupErr:     nil,
+		"protocol": {
+			receiveErr: status.Error(codes.FailedPrecondition, "late request"),
+			wantCode:   codes.FailedPrecondition,
 		},
-		"stream cancellation": {
-			streamCanceled: true,
-			recvErr:        transportErr,
-			wantCode:       codes.OK,
-			wantMessages:   nil,
-			wantCause:      SessionCompletionCleanClientClosure,
-			appCanceled:    false,
-			cleanupErr:     nil,
-			wantErr:        nil,
-		},
-		"eof": {
-			recvErr:        io.EOF,
-			wantCode:       codes.OK,
-			wantMessages:   nil,
-			wantCause:      SessionCompletionCleanClientClosure,
-			appCanceled:    false,
-			streamCanceled: false,
-			cleanupErr:     nil,
-			wantErr:        nil,
-		},
-		"status": {
-			recvErr:        transportErr,
-			wantCode:       codes.Unavailable,
-			wantMessages:   nil,
-			wantCause:      SessionCompletionTransportFailure,
-			wantErr:        transportErr,
-			appCanceled:    false,
-			streamCanceled: false,
-			cleanupErr:     nil,
-		},
-		"plain receive error": {
-			recvErr:        plainErr,
-			wantCode:       codes.Internal,
-			wantMessages:   []string{"Programmatic Control controller failed", "receive failed"},
-			wantCause:      SessionCompletionTransportFailure,
-			wantErr:        plainErr,
-			appCanceled:    false,
-			streamCanceled: false,
-			cleanupErr:     nil,
-		},
-		"status and cleanup": {
-			recvErr:        passthroughErr,
-			cleanupErr:     passthroughCleanupErr,
-			wantCode:       codes.Unavailable,
-			wantMessages:   []string{"unique passthrough terminal failure", "unique passthrough cleanup failure"},
-			wantCause:      SessionCompletionTransportFailure,
-			wantErr:        passthroughErr,
-			appCanceled:    false,
-			streamCanceled: false,
-		},
-		"controller and cleanup": {
-			recvErr:        controllerErr,
-			cleanupErr:     controllerCleanupErr,
-			wantCode:       codes.Internal,
-			wantMessages:   []string{"unique controller terminal failure", "unique controller cleanup failure"},
-			wantCause:      SessionCompletionTransportFailure,
-			wantErr:        controllerErr,
-			appCanceled:    false,
-			streamCanceled: false,
-		},
-		"cleanup": {
-			recvErr:        io.EOF,
-			cleanupErr:     cleanupErr,
-			wantCode:       codes.Internal,
-			wantMessages:   []string{"clean up Programmatic Control session", "cleanup failed"},
-			wantCause:      SessionCompletionCleanupFailure,
-			wantErr:        cleanupErr,
-			appCanceled:    false,
-			streamCanceled: false,
+		"transport": {
+			receiveErr: status.Error(codes.Unavailable, "receive failed"),
+			wantCode:   codes.Unavailable,
 		},
 	}
 	for name, test := range tests {
-		s.Run(name, func() {
-			ctrl := gomock.NewController(s.T())
-			session := NewMockHostSession(ctrl)
-			stream := NewMockOpenStream(ctrl)
-			appContext, cancelApp := context.WithCancel(s.T().Context())
-			streamContext, cancelStream := context.WithCancel(s.T().Context())
-			stream.EXPECT().Context().Return(streamContext).AnyTimes()
-			if test.appCanceled {
-				cancelApp()
-			}
-			if test.streamCanceled {
-				cancelStream()
-			}
-			if !test.appCanceled && !test.streamCanceled {
-				stream.EXPECT().Recv().Return(nil, test.recvErr)
-			}
-			session.EXPECT().CancelAndWait(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
-				s.NoError(ctx.Err())
-				return test.cleanupErr
-			})
-			service := New(appContext, session)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
+			// Arrange receive failure after the Host close message is delivered.
+			controller := gomock.NewController(t)
+			host := NewMockHostSession(controller)
+			applicationContext, cancelApplication := context.WithCancel(t.Context())
+			cancelApplication()
+			closeSent := make(chan struct{})
+			stream := NewMockOpenStream(controller)
+			stream.EXPECT().Context().Return(t.Context()).AnyTimes()
+			stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+				<-closeSent
+				return nil, test.receiveErr
+			})
+			stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
+				require.True(t, response.HasClose())
+				close(closeSent)
+				return nil
+			})
+			service := New(applicationContext, host)
+
+			// Act by opening with Host closure already requested.
 			err := service.open(stream)
-			s.Equal(test.wantCode, status.Code(err))
-			for _, message := range test.wantMessages {
-				s.Contains(status.Convert(err).Message(), message)
-			}
-			completion := <-service.Completions()
-			s.Equal(test.wantCause, completion.Cause)
-			if test.wantErr == nil {
-				s.Require().NoError(completion.Err)
-			} else {
-				s.Require().ErrorIs(completion.Err, test.wantErr)
-			}
-			s.Require().ErrorIs(completion.CleanupErr, test.cleanupErr)
-			cancelApp()
-			cancelStream()
+
+			// Assert the receive failure wins over clean application closure.
+			require.Equal(t, test.wantCode, status.Code(err))
 		})
 	}
+}
+
+// TestHostClosurePreservesWriterFailure verifies send failure precedence during closure.
+func TestHostClosurePreservesWriterFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a Host closure whose CloseConnection send fails.
+	controller := gomock.NewController(t)
+	host := NewMockHostSession(controller)
+	applicationContext, cancelApplication := context.WithCancel(t.Context())
+	cancelApplication()
+	stopReceive := make(chan struct{})
+	stream := NewMockOpenStream(controller)
+	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
+	stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+		<-stopReceive
+		return nil, io.EOF
+	})
+	writerErr := errors.New("send failed")
+	stream.EXPECT().Send(gomock.Any()).Return(writerErr)
+	service := New(applicationContext, host)
+	result := make(chan error, 1)
+	go func() { result <- service.open(stream) }()
+
+	// Act by waiting for the writer failure, then release the receive goroutine.
+	err := <-result
+	close(stopReceive)
+
+	// Assert Host closure preserves the writer failure.
+	require.Equal(t, codes.Unavailable, status.Code(err))
+	require.ErrorContains(t, err, writerErr.Error())
 }

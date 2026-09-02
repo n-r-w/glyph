@@ -43,9 +43,3 @@ type Navigator interface {
 	// NavigateTree commits the destination and optional branch summary for one request.
 	NavigateTree(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
 }
-
-// OperationGate reserves active-session mutation against agent execution.
-type OperationGate interface {
-	// TryAcquire reserves replacement without waiting and returns idempotent cleanup on success.
-	TryAcquire() (release func(), acquired bool)
-}

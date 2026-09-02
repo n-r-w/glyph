@@ -133,8 +133,12 @@ func newSessionComposition(
 	}
 	gate := operationgate.New()
 	return sessionComposition{
-		active:         active,
-		control:        sessioncontrol.New(active, sessiontree.New(active, modelRequester, extensions), gate),
+		active: active,
+		control: sessioncontrol.New(
+			active,
+			sessiontree.New(active, modelRequester, extensions),
+			gate.TryAcquire,
+		),
 		gate:           gate,
 		pricing:        pricing,
 		modelRequester: modelRequester,

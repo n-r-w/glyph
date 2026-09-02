@@ -8,10 +8,11 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 )
 
+// newTestActiveRun creates an accepted run for delivery state tests.
 func newTestActiveRun(
 	ctx context.Context,
 	delivery *Delivery,
-	correlationID string,
+	operationID string,
 	runID string,
 ) *activeRun {
 	runContext, cancel := context.WithCancel(ctx)
@@ -21,7 +22,7 @@ func newTestActiveRun(
 		streamStopped: false,
 		err:           nil,
 		delivery:      delivery,
-		correlationID: correlationID,
+		operationID:   operationID,
 		runID:         runID,
 		runContext:    runContext,
 		cancel:        cancel,

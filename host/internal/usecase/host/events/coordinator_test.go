@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -101,14 +100,14 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a begun failed run with no durable history and an observable operation-gate release.
-	controller := gomock.NewController(t)
-	gate := NewMockOperationGate(controller)
 	released := 0
 	sequence := make([]string, 0, 3)
-	gate.EXPECT().TryAcquire().Return(func() {
-		released++
-		sequence = append(sequence, "release")
-	}, true)
+	tryAcquire := func() (func(), bool) {
+		return func() {
+			released++
+			sequence = append(sequence, "release")
+		}, true
+	}
 	settled := 0
 	settle := 0
 	coordinator := newCoordinator(
@@ -129,7 +128,7 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 			return nil
 		}),
 		func() (string, error) { return "failed-run", nil },
-		gate,
+		tryAcquire,
 	)
 
 	// Act by running the accepted request through terminal persistence failure.
@@ -299,12 +298,10 @@ func TestGenerateRunIDProducesUniqueNonemptyValues(t *testing.T) {
 	assert.NotEqual(t, first, second)
 }
 
-// newAvailableOperationGate returns a gate that accepts every test operation.
-func newAvailableOperationGate(t *testing.T) *MockOperationGate {
+// newAvailableOperationGate returns admission that accepts every test operation.
+func newAvailableOperationGate(t *testing.T) func() (func(), bool) {
 	t.Helper()
-	gate := NewMockOperationGate(gomock.NewController(t))
-	gate.EXPECT().TryAcquire().AnyTimes().Return(func() {}, true)
-	return gate
+	return func() (func(), bool) { return func() {}, true }
 }
 
 // completedResult identifies a run that entered Agent Core and completed.

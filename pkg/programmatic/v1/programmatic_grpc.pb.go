@@ -28,7 +28,7 @@ const (
 //
 // ProgrammaticControlService exposes one programmatic control session.
 type ProgrammaticControlServiceClient interface {
-	// Open exchanges commands, command responses, and agent events.
+	// Open exchanges controller requests and Host operation events.
 	Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error)
 }
 
@@ -59,7 +59,7 @@ type ProgrammaticControlService_OpenClient = grpc.BidiStreamingClient[OpenReques
 //
 // ProgrammaticControlService exposes one programmatic control session.
 type ProgrammaticControlServiceServer interface {
-	// Open exchanges commands, command responses, and agent events.
+	// Open exchanges controller requests and Host operation events.
 	Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error
 	mustEmbedUnimplementedProgrammaticControlServiceServer()
 }

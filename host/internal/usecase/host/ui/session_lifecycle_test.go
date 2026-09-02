@@ -22,6 +22,21 @@ import (
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
+// expectLifecycleMutationGate requires admission only after lifecycle command validation succeeds.
+func expectLifecycleMutationGate(control *MockSessionControl, command domainui.Command) {
+	required := command.Kind == domainui.CommandCreateSession
+	if command.Kind == domainui.CommandResumeSession {
+		id, present := command.SessionID.Get()
+		required = present && id != ""
+	}
+	if command.Kind == domainui.CommandSetSessionName {
+		_, required = command.SessionName.Get()
+	}
+	if required {
+		expectSessionMutationGate(control, 1)
+	}
+}
+
 // TestSessionLifecycleCommandsSendTypedFrames verifies each session command emits its typed UI frame.
 func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 	t.Parallel()
@@ -94,6 +109,7 @@ func TestSessionLifecycleCommandsSendTypedFrames(t *testing.T) {
 			controller := gomock.NewController(t)
 			channel := NewMockChannel(controller)
 			control := NewMockSessionControl(controller)
+			expectLifecycleMutationGate(control, test.command)
 			test.expectControl(control)
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				assert.Equal(t, test.expectedKind, frame.Kind)
@@ -172,6 +188,7 @@ func TestSessionReplacementFrameUsesOneCommittedSnapshot(t *testing.T) {
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
+	expectSessionMutationGate(control, 1)
 	infoA := testSessionInfo("session-a")
 	infoB := testSessionInfo("session-b")
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
@@ -467,6 +484,7 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 			controller := gomock.NewController(t)
 			channel := NewMockChannel(controller)
 			control := NewMockSessionControl(controller)
+			expectLifecycleMutationGate(control, test.command)
 			test.expectControl(control)
 			channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
 				// Assert each frame contains the operation context and original error.
@@ -488,19 +506,16 @@ func TestSessionLifecycleRejectionsPreserveInformationContext(t *testing.T) {
 	}
 }
 
-// TestSessionNameAndQueriesRemainAvailableDuringActiveRun verifies session queries include statistics without stopping
-// a run.
-func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
+// TestSessionMutationsBusyAndQueriesAvailableDuringActiveRun verifies gate rejection does not block read queries.
+func TestSessionMutationsBusyAndQueriesAvailableDuringActiveRun(t *testing.T) {
 	t.Parallel()
 
-	// Arrange busy replacements and successful name, list, information, and statistics queries.
+	// Arrange busy mutation admission and successful list and information queries.
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
+	control.EXPECT().TryAcquire().Return(nil, false).Times(3)
 	info := testSessionInfo("active")
-	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, session.ErrBusy)
-	control.EXPECT().Resume(gomock.Any(), session.ID("stored")).Return(session.Replacement{}, session.ErrBusy)
-	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
 	control.EXPECT().List(gomock.Any()).Return([]session.Summary{}, nil)
 	control.EXPECT().Information().Return(session.InformationSnapshot{
 		Info: info,
@@ -516,7 +531,7 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			CostBreakdown: nil,
 		},
-	}).Times(2)
+	}).Times(1)
 	channel.EXPECT().Send(gomock.Any()).Times(5)
 	usecase := NewSession(channel, nil, nil, nil, control, nil)
 	cancel := func() {}
@@ -527,7 +542,7 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 		testSessionCommand(domainui.CommandListSessions, mo.None[string](), mo.None[string]()),
 		testSessionCommand(domainui.CommandGetSessionInfo, mo.None[string](), mo.None[string]()),
 	}
-	// Act by applying all session commands while run availability is active.
+	// Act by applying mutations and queries while run availability is active.
 	for _, command := range commands {
 		availability, activeCancel, activeKind, err := usecase.applyCommand(
 			t.Context(), domainui.AvailabilityRunning, cancel, operationRun, command, make(chan operationResult),
@@ -540,6 +555,7 @@ func TestSessionNameAndQueriesRemainAvailableDuringActiveRun(t *testing.T) {
 	}
 }
 
+// testSessionCommand builds one UI session command with optional lifecycle fields.
 func testSessionCommand(kind domainui.CommandKind, id, name mo.Option[string]) domainui.Command {
 	return domainui.Command{
 		Kind:            kind,
@@ -556,6 +572,7 @@ func testSessionCommand(kind domainui.CommandKind, id, name mo.Option[string]) d
 	}
 }
 
+// testSessionInfo builds stable session information for UI scenarios.
 func testSessionInfo(id session.ID) session.Info {
 	return session.Info{
 		ID: id, Name: mo.Some("named"), WorkingDirectory: "/project", StoragePath: mo.Some("/sessions/stored.jsonl"),

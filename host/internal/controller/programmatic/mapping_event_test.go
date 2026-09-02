@@ -16,7 +16,7 @@ import (
 func modelContentAgentEvent(kind ModelContentKind, position int, text mo.Option[string]) AgentEvent {
 	return AgentEvent{
 		ModelContent:    mo.Some(ModelContent{Kind: kind, Position: position, Text: text}),
-		CorrelationID:   "",
+		OperationID:     "",
 		Type:            0,
 		RunID:           "",
 		ToolCallPreview: mo.None[ToolCallPreview](),
@@ -74,7 +74,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "tool_call_preview",
 			event: AgentEvent{
 				ToolCallPreview: mo.Some(maximalToolCallPreview()),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -92,7 +92,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "tool_call_preview",
 			event: AgentEvent{
 				ToolCallPreview: mo.Some(maximalToolCallPreview()),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -110,7 +110,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "final_tool_call",
 			event: AgentEvent{
 				FinalToolCall:   mo.Some(maximalFinalToolCall()),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -128,7 +128,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "model_response",
 			event: AgentEvent{
 				ModelResponse:   mo.Some(maximalModelResponse(mo.Some(""))),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -149,7 +149,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 					CallID:   "call",
 					ToolName: "tool",
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -170,7 +170,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 					Channel: ProgressChannelStderr,
 					Content: "progress",
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -188,7 +188,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "tool_result",
 			event: AgentEvent{
 				ToolResult:      mo.Some(maximalToolResult()),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -206,7 +206,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "tool_result",
 			event: AgentEvent{
 				ToolResult:      mo.Some(maximalToolResult()),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -227,7 +227,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 					Response:    maximalModelResponse(mo.Some("")),
 					ToolResults: []ToolResult{maximalToolResult()},
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -248,7 +248,7 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 					Outcome:      RunOutcomeFailed,
 					ErrorMessage: mo.Some("failed"),
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				Type:            0,
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
@@ -261,23 +261,17 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 				Turn:            mo.None[TurnSummary](),
 			},
 		},
-		{
-			typeValue: AgentEventAgentSettled,
-			payload:   "",
-			event:     AgentEvent{},
-		},
 	}
 
 	for _, test := range tests {
 		t.Run(programmaticv1.AgentEventType(test.typeValue).String(), func(t *testing.T) {
 			t.Parallel()
 			test.event.Type = test.typeValue
-			test.event.CorrelationID = "correlation"
+			test.event.OperationID = "operation"
 			test.event.RunID = "run"
 			got, err := mapEvent(test.event)
 			require.NoError(t, err)
-			assert.Equal(t, "correlation", got.GetCorrelationId())
-			event := got.GetAgentEvent()
+			event := got
 			assert.Equal(t, programmaticv1.AgentEventType(test.typeValue), event.GetType())
 			assert.Equal(t, "run", event.GetRunId())
 			if test.payload == "" {

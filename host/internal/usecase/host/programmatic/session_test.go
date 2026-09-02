@@ -21,62 +21,41 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// TestRunPreparationRejectionPreservesClassificationAndCause verifies preparation errors retain domain behavior and
-// details.
-func TestRunPreparationRejectionPreservesClassificationAndCause(t *testing.T) {
+// TestRunPreparationBusyPreservesRejectionClassification verifies gate contention remains a per-request rejection.
+func TestRunPreparationBusyPreservesRejectionClassification(t *testing.T) {
 	t.Parallel()
+	// Arrange a coordinator with a reserved run gate.
+	controllerMock := gomock.NewController(t)
+	coordinator := NewMockCoordinator(controllerMock)
+	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
 
-	tests := []struct {
-		name            string
-		prepareErr      error
-		expectedCode    controller.RejectionCode
-		expectedMessage string
-	}{
-		{
-			name:            "busy",
-			prepareErr:      session.ErrBusy,
-			expectedCode:    controller.RejectionBusy,
-			expectedMessage: "another operation is active",
-		},
-		{
-			name:            "internal",
-			prepareErr:      errors.New("allocate unique run ID"),
-			expectedCode:    controller.RejectionInternal,
-			expectedMessage: "Host run ID allocation failed: allocate unique run ID",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			// Arrange a coordinator that rejects run preparation.
-			controllerMock := gomock.NewController(t)
-			coordinator := NewMockCoordinator(controllerMock)
-			coordinator.EXPECT().PrepareRun().Return("", test.prepareErr)
-			service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+	// Act by handling a user request while the run gate is reserved.
+	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("busy", "request"))
 
-			// Act by handling a user request while run preparation fails.
-			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID:   test.name,
-				Kind:            controller.CommandUserRequest,
-				UserText:        mo.Some("request"),
-				ProviderID:      mo.None[model.ProviderID](),
-				ModelID:         mo.None[model.ID](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[session.ID](),
-				SessionName:     mo.None[string](),
-				TargetEntryID:   mo.None[string](),
-				SummaryMode:     controller.SummaryModeNoSummary,
-				CustomFocus:     mo.None[string](),
-				EntryLabel:      mo.None[string](),
-			})
+	// Assert gate contention remains a closed-set busy rejection.
+	require.NoError(t, err)
+	assert.Nil(t, operation)
+	assert.Equal(t, controller.RejectionBusy, response.Rejection.MustGet().Code)
+}
 
-			// Assert domain classification remains stable and internal details reach the rejection boundary.
-			require.NoError(t, err)
-			assert.Nil(t, operation)
-			assert.Equal(t, test.expectedCode, response.Rejection.MustGet().Code)
-			assert.Equal(t, test.expectedMessage, response.Rejection.MustGet().Message)
-		})
-	}
+// TestRunPreparationInternalFailurePropagates verifies admission infrastructure errors are not misclassified.
+func TestRunPreparationInternalFailurePropagates(t *testing.T) {
+	t.Parallel()
+	// Arrange a coordinator that cannot allocate a run identifier.
+	controllerMock := gomock.NewController(t)
+	coordinator := NewMockCoordinator(controllerMock)
+	prepareErr := errors.New("allocate unique run ID")
+	coordinator.EXPECT().PrepareRun().Return("", prepareErr)
+	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+
+	// Act by handling a valid user request.
+	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("internal", "request"))
+
+	// Assert the infrastructure error reaches the controller as an internal session failure.
+	require.ErrorIs(t, err, prepareErr)
+	assert.Nil(t, operation)
+	assert.Equal(t, controller.Response{}, response)
 }
 
 // TestSessionReplacementPreservesNondefaultModelSelection verifies create and resume keep runtime selection unchanged.
@@ -84,8 +63,8 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 	t.Parallel()
 
 	// Arrange create and resume commands around one nondefault provider, model, and reasoning selection.
-	commandWithoutArguments := func(correlationID string, kind controller.CommandKind) controller.Command {
-		return testProgrammaticCommand(correlationID, kind)
+	commandWithoutArguments := func(operationID string, kind controller.CommandKind) controller.Command {
+		return testProgrammaticCommand(operationID, kind)
 	}
 	for _, test := range []struct {
 		name string
@@ -110,7 +89,9 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 				StoragePath: mo.Some("/sessions/session.jsonl"), CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 			}
 			if test.kind == controller.CommandCreateSession {
-				sessions.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
+				sessions.EXPECT().
+					Create(gomock.Any()).
+					Return(session.Replacement{Info: info, Entries: nil}, nil)
 			} else {
 				sessions.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(
 					session.Replacement{Info: info, Entries: nil}, nil,
@@ -119,7 +100,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, sessions, NewDelivery())
 
 			// Act by reading selection before and after replacing the active session.
-			before, _, err := service.Handle(
+			before, _, err := service.handle(
 				t.Context(),
 				commandWithoutArguments("before", controller.CommandGetModels),
 			)
@@ -128,9 +109,9 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			if test.kind == controller.CommandResumeSession {
 				command.SessionID = mo.Some(session.ID("session-id"))
 			}
-			_, _, err = service.Handle(t.Context(), command)
+			_, _, err = service.handle(t.Context(), command)
 			require.NoError(t, err)
-			after, _, err := service.Handle(t.Context(), commandWithoutArguments("after", controller.CommandGetModels))
+			after, _, err := service.handle(t.Context(), commandWithoutArguments("after", controller.CommandGetModels))
 
 			// Assert provider, model, and reasoning selection remain identical across replacement.
 			require.NoError(t, err)
@@ -229,7 +210,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				control.EXPECT().
 					SetName(gomock.Any(), test.sessionName.MustGet()).
 					Return(session.Info{}, test.operationErr)
-			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
+			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 				controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
 				controller.CommandListSessions, controller.CommandGetSessionInfo,
@@ -239,8 +220,8 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
-			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID:   test.name,
+			response, operation, err := service.handle(t.Context(), controller.Command{
+				OperationID:     test.name,
 				Kind:            test.kind,
 				UserText:        mo.None[string](),
 				ProviderID:      mo.None[model.ProviderID](),
@@ -288,7 +269,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 
 	// Act by requesting the active session entries.
-	response, operation, err := service.Handle(
+	response, operation, err := service.handle(
 		t.Context(),
 		testProgrammaticCommand("entries", controller.CommandGetSessionEntries),
 	)
@@ -375,8 +356,8 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 
 			// Act by handling the lifecycle command through Programmatic Control.
-			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID:   test.name,
+			response, operation, err := service.handle(t.Context(), controller.Command{
+				OperationID:     test.name,
 				Kind:            test.kind,
 				UserText:        mo.None[string](),
 				ProviderID:      mo.None[model.ProviderID](),

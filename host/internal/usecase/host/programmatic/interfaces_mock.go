@@ -287,6 +287,21 @@ func (mr *MockSessionControlMockRecorder) Tree() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockSessionControl)(nil).Tree))
 }
 
+// TryAcquire mocks base method.
+func (m *MockSessionControl) TryAcquire() (func(), bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryAcquire")
+	ret0, _ := ret[0].(func())
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// TryAcquire indicates an expected call of TryAcquire.
+func (mr *MockSessionControlMockRecorder) TryAcquire() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryAcquire", reflect.TypeOf((*MockSessionControl)(nil).TryAcquire))
+}
+
 // MockSelectionFailure is a mock of SelectionFailure interface.
 type MockSelectionFailure struct {
 	ctrl     *gomock.Controller

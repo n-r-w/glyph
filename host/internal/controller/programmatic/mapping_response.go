@@ -11,24 +11,41 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/internal/operation"
+	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
-	wire := new(programmaticv1.CommandResponse)
-	if handled, err := mapSessionOrRejectionResponse(wire, response); handled {
-		if err != nil {
-			return nil, err
-		}
-		return wrapCommandResponse(response.CorrelationID, wire), nil
+// mapResponse maps one completed internal result to its typed public payload.
+//
+//nolint:gocyclo // The switch exhaustively maps the closed completed payload union.
+func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
+	wire := new(programmaticv1.HostCompleted)
+	if handled, err := mapSessionResponse(wire, response); handled {
+		return wire, err
 	}
 	switch response.Kind {
-	case ResponseUserRequestAccepted:
-		wire.SetUserRequestAccepted(new(programmaticv1.UserRequestAccepted))
-	case ResponseAbortCompleted:
-		wire.SetAbortCompleted(new(programmaticv1.AbortCompleted))
+	case ResponseUserRequestCompleted:
+		wire.SetUserRequest(new(programmaticv1.UserRequestCompleted))
+	case ResponseCancelCompleted:
+		state, present := response.CancelTargetState.Get()
+		if !present {
+			return nil, errors.New("map cancellation: target state is absent")
+		}
+		completed := new(operationv1.CancelCompleted)
+		switch state {
+		case operation.TerminalStateCompleted:
+			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_COMPLETED)
+		case operation.TerminalStateCanceled:
+			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_CANCELED)
+		case operation.TerminalStateFailed:
+			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_FAILED)
+		default:
+			return nil, fmt.Errorf("map cancellation: unknown target state %d", state)
+		}
+		wire.SetCancel(completed)
 	case ResponseRunState:
-		if err := mapRunStateCommandResponse(wire, response.State); err != nil {
+		if err := mapRunStateCompleted(wire, response.State); err != nil {
 			return nil, err
 		}
 	case ResponseMessages:
@@ -40,29 +57,31 @@ func mapResponse(response Response) (*programmaticv1.OpenResponse, error) {
 		result.SetEntries(entries)
 		wire.SetMessages(result)
 	case ResponseModels:
-		if err := mapModelsCommandResponse(wire, response.Models); err != nil {
+		if err := mapModelsCompleted(wire, response.Models); err != nil {
 			return nil, err
 		}
 	case ResponseModelSelection:
-		if err := mapModelSelectionCommandResponse(wire, response.Selection); err != nil {
+		if err := mapModelSelectionCompleted(wire, response.Selection); err != nil {
 			return nil, err
 		}
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
 		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
-		ResponseSetEntryLabel, ResponseRejected:
-		return nil, errors.New("map command response: handled response was not mapped")
+		ResponseSetEntryLabel:
+		return nil, errors.New("map completed response: handled response was not mapped")
+	case ResponseRejected:
+		return nil, errors.New("map completed response: rejection reached Host mapping")
 	case ResponseUnspecified:
-		return nil, errors.New("map command response: unspecified response kind")
+		return nil, errors.New("map completed response: unspecified response kind")
 	default:
-		return nil, fmt.Errorf("map command response: unknown response kind %d", response.Kind)
+		return nil, fmt.Errorf("map completed response: unknown response kind %d", response.Kind)
 	}
-	return wrapCommandResponse(response.CorrelationID, wire), nil
+	return wire, nil
 }
 
-// mapSessionOrRejectionResponse isolates lifecycle and rejection payload mapping from the core response dispatch.
+// mapSessionResponse isolates session payload mapping from the core response dispatch.
 //
 //nolint:gocyclo // The switch maps every closed session response kind explicitly.
-func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, response Response) (bool, error) {
+func mapSessionResponse(wire *programmaticv1.HostCompleted, response Response) (bool, error) {
 	switch response.Kind {
 	case ResponseSessionInfo:
 		info, present := response.SessionInfo.Get()
@@ -105,17 +124,17 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 		if !present {
 			return true, errors.New("map session tree: result is absent")
 		}
-		return true, mapSessionTreeCommandResponse(wire, tree)
+		return true, mapSessionTreeCompleted(wire, tree)
 	case ResponseSessionTreeNavigation:
 		navigation, present := response.TreeNavigation.Get()
 		if !present {
 			return true, errors.New("map tree navigation: result is absent")
 		}
-		return true, mapTreeNavigationCommandResponse(wire, navigation)
+		return true, mapTreeNavigationCompleted(wire, navigation)
 	case ResponseForkSession:
-		return true, mapForkSessionCommandResponse(wire, response)
+		return true, mapForkSessionCompleted(wire, response)
 	case ResponseCloneSession:
-		return true, mapCloneSessionCommandResponse(wire, response)
+		return true, mapCloneSessionCompleted(wire, response)
 	case ResponseSetEntryLabel:
 		tree, present := response.SessionTree.Get()
 		if !present {
@@ -130,8 +149,8 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 		wire.SetSetEntryLabel(result)
 		return true, nil
 	case ResponseRejected:
-		return true, mapRejectionCommandResponse(wire, response.Rejection)
-	case ResponseUnspecified, ResponseUserRequestAccepted, ResponseAbortCompleted,
+		return true, errors.New("map session response: rejection reached completed mapping")
+	case ResponseUnspecified, ResponseUserRequestCompleted, ResponseCancelCompleted,
 		ResponseRunState, ResponseMessages, ResponseModels, ResponseModelSelection:
 		return false, nil
 	default:
@@ -139,8 +158,8 @@ func mapSessionOrRejectionResponse(wire *programmaticv1.CommandResponse, respons
 	}
 }
 
-// mapForkSessionCommandResponse maps one durable fork replacement and exact next input.
-func mapForkSessionCommandResponse(wire *programmaticv1.CommandResponse, response Response) error {
+// mapForkSessionCompleted maps one durable fork replacement and exact next input.
+func mapForkSessionCompleted(wire *programmaticv1.HostCompleted, response Response) error {
 	replacement, present := response.Replacement.Get()
 	if !present {
 		return errors.New("map fork session: replacement is absent")
@@ -161,8 +180,8 @@ func mapForkSessionCommandResponse(wire *programmaticv1.CommandResponse, respons
 	return nil
 }
 
-// mapCloneSessionCommandResponse maps one durable active-branch clone replacement.
-func mapCloneSessionCommandResponse(wire *programmaticv1.CommandResponse, response Response) error {
+// mapCloneSessionCompleted maps one durable active-branch clone replacement.
+func mapCloneSessionCompleted(wire *programmaticv1.HostCompleted, response Response) error {
 	replacement, present := response.Replacement.Get()
 	if !present {
 		return errors.New("map clone session: replacement is absent")
@@ -274,14 +293,14 @@ func mapSessionSummary(summary session.Summary) *programmaticv1.SessionSummary {
 	return wire
 }
 
-// mapRunStateCommandResponse maps one run-state response after response-kind dispatch.
-func mapRunStateCommandResponse(
-	wire *programmaticv1.CommandResponse,
+// mapRunStateCompleted maps one run-state response after response-kind dispatch.
+func mapRunStateCompleted(
+	wire *programmaticv1.HostCompleted,
 	response mo.Option[RunStateResult],
 ) error {
 	stateResult, ok := response.Get()
 	if !ok {
-		return errors.New("map command response: missing run state")
+		return errors.New("map completed response: missing run state")
 	}
 	state, err := mapRunState(stateResult.State)
 	if err != nil {
@@ -289,21 +308,21 @@ func mapRunStateCommandResponse(
 	}
 	result := new(programmaticv1.RunStateResult)
 	result.SetState(state)
-	if activeCorrelationID, present := stateResult.ActiveCorrelationID.Get(); present {
-		result.SetActiveCorrelationId(activeCorrelationID)
+	if activeOperationID, present := stateResult.ActiveOperationID.Get(); present {
+		result.SetActiveOperationId(activeOperationID)
 	}
 	wire.SetRunState(result)
 	return nil
 }
 
-// mapModelsCommandResponse maps the catalog and confirmed selection after response-kind dispatch.
-func mapModelsCommandResponse(
-	wire *programmaticv1.CommandResponse,
+// mapModelsCompleted maps the catalog and confirmed selection after response-kind dispatch.
+func mapModelsCompleted(
+	wire *programmaticv1.HostCompleted,
 	response mo.Option[ModelsResult],
 ) error {
 	modelsResult, ok := response.Get()
 	if !ok {
-		return errors.New("map command response: missing models result")
+		return errors.New("map completed response: missing models result")
 	}
 	models, err := mapConfiguredModels(modelsResult.Models)
 	if err != nil {
@@ -324,14 +343,14 @@ func mapModelsCommandResponse(
 	return nil
 }
 
-// mapModelSelectionCommandResponse maps one confirmed selection after response-kind dispatch.
-func mapModelSelectionCommandResponse(
-	wire *programmaticv1.CommandResponse,
+// mapModelSelectionCompleted maps one confirmed selection after response-kind dispatch.
+func mapModelSelectionCompleted(
+	wire *programmaticv1.HostCompleted,
 	selection mo.Option[model.Selection],
 ) error {
 	selectionValue, ok := selection.Get()
 	if !ok {
-		return errors.New("map command response: missing model selection")
+		return errors.New("map completed response: missing model selection")
 	}
 	mapped, err := mapModelSelection(selectionValue)
 	if err != nil {
@@ -341,39 +360,4 @@ func mapModelSelectionCommandResponse(
 	result.SetSelection(mapped)
 	wire.SetModelSelection(result)
 	return nil
-}
-
-// mapRejectionCommandResponse maps one rejection after response-kind dispatch.
-func mapRejectionCommandResponse(
-	wire *programmaticv1.CommandResponse,
-	response mo.Option[Rejection],
-) error {
-	rejection, ok := response.Get()
-	if !ok {
-		return errors.New("map command response: missing rejection")
-	}
-	command, err := mapCommandType(rejection.Command)
-	if err != nil {
-		return err
-	}
-	code, err := mapRejectionCode(rejection.Code)
-	if err != nil {
-		return err
-	}
-	rejected := new(programmaticv1.CommandRejected)
-	rejected.SetCommand(command)
-	rejected.SetCode(code)
-	rejected.SetMessage(rejection.Message)
-	wire.SetRejected(rejected)
-	return nil
-}
-
-func wrapCommandResponse(
-	correlationID string,
-	response *programmaticv1.CommandResponse,
-) *programmaticv1.OpenResponse {
-	mapped := new(programmaticv1.OpenResponse)
-	mapped.SetCorrelationId(correlationID)
-	mapped.SetCommandResponse(response)
-	return mapped
 }

@@ -85,7 +85,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			)
 
 			// Act through Programmatic Control.
-			response, operation, err := service.Handle(t.Context(), test.command)
+			response, operation, err := service.handle(t.Context(), test.command)
 
 			// Assert only committed state is returned.
 			require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 	)
 
 	// Act by forking a non-user entry.
-	response, operation, err := service.Handle(
+	response, operation, err := service.handle(
 		t.Context(),
 		replacementCommand("fork", controller.CommandForkSession, mo.Some("model"), mo.None[string]()),
 	)
@@ -128,11 +128,11 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 
 // replacementCommand creates one fully initialized fork, clone, or label command.
 func replacementCommand(
-	correlationID string,
+	operationID string,
 	kind controller.CommandKind,
 	target, label mo.Option[string],
 ) controller.Command {
-	command := testProgrammaticCommand(correlationID, kind)
+	command := testProgrammaticCommand(operationID, kind)
 	command.TargetEntryID = target
 	command.EntryLabel = label
 	return command

@@ -3,6 +3,7 @@
 package programmatic
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 
@@ -16,7 +17,67 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/internal/operation"
 )
+
+// TestSessionMutationOwnsGate verifies Programmatic busy rejection and release after mutation outcomes.
+func (s *ServiceSuite) TestSessionMutationOwnsGate() {
+	tests := []struct {
+		name            string
+		acquired        bool
+		mutationErr     error
+		expectedState   operation.TerminalState
+		expectedRelease bool
+	}{
+		{
+			name: "success", acquired: true, mutationErr: nil,
+			expectedState: operation.TerminalStateCompleted, expectedRelease: true,
+		},
+		{
+			name: "error", acquired: true, mutationErr: errors.New("create failed"),
+			expectedState: operation.TerminalStateFailed, expectedRelease: true,
+		},
+		{
+			name: "busy", acquired: false, mutationErr: nil,
+			expectedState: 0, expectedRelease: false,
+		},
+	}
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			// Arrange one Programmatic mutation and an observable caller-owned reservation.
+			controllerMock := gomock.NewController(s.T())
+			control := NewMockSessionControl(controllerMock)
+			released := false
+			release := func() { released = true }
+			control.EXPECT().TryAcquire().Return(release, test.acquired)
+			if test.acquired {
+				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.mutationErr)
+			}
+			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+
+			// Act through Programmatic preparation and operation execution.
+			prepared, err := service.Prepare(
+				s.T().Context(), testProgrammaticCommand(test.name, controller.CommandCreateSession),
+			)
+			if !test.acquired {
+				var rejection *controller.RejectionError
+				s.Require().ErrorAs(err, &rejection)
+				s.Equal(controller.RejectionCodeBusy, rejection.Code())
+				s.Nil(prepared)
+				s.False(released)
+				return
+			}
+			s.Require().NoError(err)
+			var reporter operation.Reporter[controller.AgentEvent]
+			outcome := prepared.Run(s.T().Context(), reporter)
+			prepared.Release()
+
+			// Assert acquired ownership survives execution and releases on success or error.
+			s.Equal(test.expectedState, outcome.State())
+			s.Equal(test.expectedRelease, released)
+		})
+	}
+}
 
 // TestConcurrentReservationRejectsOneRequest verifies active reservation is atomic.
 func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
@@ -40,7 +101,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	// Act by submitting both requests concurrently.
 	type result struct {
 		response  controller.Response
-		operation controller.Operation
+		operation *activeRun
 		err       error
 	}
 	results := make([]result, 2)
@@ -49,9 +110,9 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	for index := range results {
 		go func() {
 			defer calls.Done()
-			results[index].response, results[index].operation, results[index].err = service.Handle(
+			results[index].response, results[index].operation, results[index].err = service.handle(
 				s.T().Context(), controller.Command{
-					CorrelationID: string(
+					OperationID: string(
 						rune('a' + index),
 					),
 					Kind:            controller.CommandUserRequest,
@@ -77,14 +138,14 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	for _, result := range results {
 		s.Require().NoError(result.err)
 		switch result.response.Kind {
-		case controller.ResponseUserRequestAccepted:
+		case controller.ResponseUserRequestCompleted:
 			accepted++
 			s.Require().NotNil(result.operation)
 		case controller.ResponseRejected:
 			rejected++
 			s.Equal(controller.RejectionBusy, result.response.Rejection.OrEmpty().Code)
 		case controller.ResponseUnspecified,
-			controller.ResponseAbortCompleted,
+			controller.ResponseCancelCompleted,
 			controller.ResponseRunState,
 			controller.ResponseMessages,
 			controller.ResponseModels,
@@ -103,58 +164,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	}
 	s.Equal(1, accepted)
 	s.Equal(1, rejected)
-	s.Require().NoError(service.CancelAndWait(s.T().Context()))
-}
-
-// TestDisconnectPreventsLateReservation verifies in-flight acceptance cannot outlive session cleanup.
-func (s *ServiceSuite) TestDisconnectPreventsLateReservation() {
-	// Arrange a run preparation that completes only after disconnect begins.
-	ctrl := gomock.NewController(s.T())
-	coordinator := NewMockCoordinator(ctrl)
-	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
-	preparing := make(chan struct{})
-	prepared := make(chan struct{})
-	coordinator.EXPECT().PrepareRun().DoAndReturn(func() (string, error) {
-		close(preparing)
-		<-prepared
-		return "run-late", nil
-	})
-	type handleResult struct {
-		response  controller.Response
-		operation controller.Operation
-		err       error
-	}
-	// Act by starting the request, disconnecting, and then releasing preparation.
-	result := make(chan handleResult)
-	go func() {
-		response, operation, err := service.Handle(s.T().Context(), controller.Command{
-			CorrelationID:   "late",
-			Kind:            controller.CommandUserRequest,
-			UserText:        mo.Some("request"),
-			ProviderID:      mo.None[model.ProviderID](),
-			ModelID:         mo.None[model.ID](),
-			ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:       mo.None[session.ID](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     controller.SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
-			EntryLabel:      mo.None[string](),
-		})
-		result <- handleResult{response: response, operation: operation, err: err}
-	}()
-	<-preparing
-
-	s.Require().NoError(service.CancelAndWait(s.T().Context()))
-	close(prepared)
-	handled := <-result
-
-	// Assert the late prepared run is rejected and never reserved.
-	s.Require().NoError(handled.err)
-	s.Nil(handled.operation)
-	s.Equal(controller.ResponseRejected, handled.response.Kind)
-	s.Equal(controller.RejectionBusy, handled.response.Rejection.OrEmpty().Code)
+	s.Require().NoError(cancelActiveTestRun(service))
 }
 
 // TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies live queries expose complete owned public history.
@@ -204,8 +214,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 
 	// Act by accepting a run and querying state and messages while it remains active.
-	_, operation, err := service.Handle(s.T().Context(), controller.Command{
-		CorrelationID:   "active",
+	_, operation, err := service.handle(s.T().Context(), controller.Command{
+		OperationID:     "active",
 		Kind:            controller.CommandUserRequest,
 		UserText:        mo.Some("first"),
 		ProviderID:      mo.None[model.ProviderID](),
@@ -220,9 +230,9 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
-	defer func() { s.Require().NoError(service.CancelAndWait(s.T().Context())) }()
+	defer func() { s.Require().NoError(cancelActiveTestRun(service)) }()
 
-	response, returnedOperation, err := service.Handle(
+	response, returnedOperation, err := service.handle(
 		s.T().Context(),
 		testProgrammaticCommand("state", controller.CommandGetRunState),
 	)
@@ -230,10 +240,10 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	s.Nil(returnedOperation)
 	s.Equal(controller.Response{
 		SessionEntries: nil,
-		CorrelationID:  "state",
+		OperationID:    "state",
 		Kind:           controller.ResponseRunState,
 		State: mo.Some(
-			controller.RunStateResult{State: controller.RunStateRunning, ActiveCorrelationID: mo.Some("active")},
+			controller.RunStateResult{State: controller.RunStateRunning, ActiveOperationID: mo.Some("active")},
 		),
 		Messages:          nil,
 		Models:            mo.None[controller.ModelsResult](),
@@ -333,7 +343,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 			}), User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		},
 	}
-	response, returnedOperation, err = service.Handle(
+	response, returnedOperation, err = service.handle(
 		s.T().Context(),
 		testProgrammaticCommand("messages", controller.CommandGetMessages),
 	)

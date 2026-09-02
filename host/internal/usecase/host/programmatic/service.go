@@ -16,10 +16,11 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
-// ErrCorrelationRequired reports a command that cannot receive a correlated response.
-var ErrCorrelationRequired = errors.New("correlation ID is required")
+// ErrOperationIDRequired reports an operation without an identifier.
+var ErrOperationIDRequired = errors.New("operation ID is required")
 
 // Service coordinates one Programmatic Control connection.
 type Service struct {
@@ -33,13 +34,13 @@ type Service struct {
 	historySnapshot func() []agent.HistoryEntry
 	// sessionControl owns active-session lifecycle operations.
 	sessionControl SessionControl
-	// delivery correlates run events with accepted requests.
+	// delivery routes run progress and settlement to active operations.
 	delivery *Delivery
 }
 
 var _ controller.HostSession = (*Service)(nil)
 
-// New creates one Programmatic Control session over a synchronous delivery router.
+// New creates one Programmatic Control session over the agent-run delivery router.
 func New(
 	coordinator Coordinator,
 	modelCatalog ModelCatalog,
@@ -55,11 +56,11 @@ func New(
 	}
 }
 
-// Handle executes one transport-independent command and returns its single response.
-func (s *Service) Handle(
+// handle executes one prepared transport-independent operation.
+func (s *Service) handle(
 	ctx context.Context,
 	command controller.Command,
-) (controller.Response, controller.Operation, error) {
+) (controller.Response, *activeRun, error) {
 	current, rejection, err := s.preflight(command)
 	if err != nil {
 		return controller.Response{}, nil, err
@@ -82,9 +83,9 @@ func (s *Service) Handle(
 		return s.rejection(command, controller.RejectionInvalidArgument, "user text is required"), nil, nil
 	}
 	runContext, cancel := context.WithCancel(ctx)
-	operation := &activeRun{
+	preparedRun := &activeRun{
 		delivery:      s.delivery,
-		correlationID: command.CorrelationID,
+		operationID:   command.OperationID,
 		runID:         runID,
 		coordinator:   s.coordinator,
 		userText:      userText,
@@ -97,44 +98,42 @@ func (s *Service) Handle(
 		streamStopped: false,
 		err:           nil,
 	}
-	if !s.delivery.reserve(operation) {
+	if !s.delivery.reserve(preparedRun) {
 		// Delivery did not accept ownership, so this path must release the prepared run reservation.
 		s.coordinator.CancelPrepared(runID)
 		cancel()
-		close(operation.events)
-		close(operation.streamDone)
-		close(operation.done)
+		close(preparedRun.events)
+		close(preparedRun.streamDone)
+		close(preparedRun.done)
 		return s.rejection(command, controller.RejectionBusy, "a run is active"), nil, nil
 	}
 
-	return emptyResponse(command.CorrelationID, controller.ResponseUserRequestAccepted), operation, nil
+	return emptyResponse(command.OperationID, controller.ResponseUserRequestCompleted), preparedRun, nil
 }
 
-// handleImmediate dispatches commands that do not transfer ownership to an asynchronous run.
+// handleImmediate dispatches commands that do not own an agent-run event stream.
 func (s *Service) handleImmediate(
 	ctx context.Context,
 	command controller.Command,
 	current *activeRun,
 ) (controller.Response, bool, error) {
-	if response, handled := s.handleSessionImmediate(ctx, command); handled {
-		return response, true, nil
+	if response, handled, sessionErr := s.handleSessionImmediate(ctx, command); handled {
+		return response, true, sessionErr
 	}
 	switch command.Kind {
-	case controller.CommandAbort:
-		response, err := s.abort(command.CorrelationID, current)
-		return response, true, err
 	case controller.CommandGetRunState:
-		return s.runState(command.CorrelationID, current), true, nil
+		return s.runState(command.OperationID, current), true, nil
 	case controller.CommandGetMessages:
-		response, err := s.messages(command.CorrelationID)
+		response, err := s.messages(command.OperationID)
 		return response, true, err
 	case controller.CommandGetModels:
-		return s.models(command.CorrelationID), true, nil
+		return s.models(command.OperationID), true, nil
 	case controller.CommandSelectModel:
-		return s.selectModel(ctx, command), true, nil
+		response, err := s.selectModel(ctx, command)
+		return response, true, err
 	case controller.CommandSelectReasoningChoice:
 		return s.selectReasoningChoice(command), true, nil
-	case controller.CommandUnspecified:
+	case controller.CommandUnspecified, controller.CommandCancel:
 		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
 	case controller.CommandUserRequest:
 		return controller.Response{}, false, nil
@@ -149,73 +148,74 @@ func (s *Service) handleImmediate(
 }
 
 // handleSessionImmediate routes session commands that do not require run coordination.
-func (s *Service) handleSessionImmediate(ctx context.Context, command controller.Command) (controller.Response, bool) {
+func (s *Service) handleSessionImmediate(
+	ctx context.Context,
+	command controller.Command,
+) (controller.Response, bool, error) {
 	switch command.Kind {
 	case controller.CommandCreateSession:
-		return s.createSession(ctx, command), true
+		response, err := s.createSession(ctx, command)
+		return response, true, err
 	case controller.CommandListSessions:
-		return s.listSessions(ctx, command), true
+		response, err := s.listSessions(ctx, command)
+		return response, true, err
 	case controller.CommandResumeSession:
-		return s.resumeSession(ctx, command), true
+		response, err := s.resumeSession(ctx, command)
+		return response, true, err
 	case controller.CommandSetSessionName:
-		return s.setSessionName(ctx, command), true
+		response, err := s.setSessionName(ctx, command)
+		return response, true, err
 	case controller.CommandGetSessionInfo:
-		return sessionInfoResponse(command.CorrelationID, s.sessionControl.Info()), true
+		return sessionInfoResponse(command.OperationID, s.sessionControl.Info()), true, nil
 	case controller.CommandGetSessionEntries:
-		return s.sessionEntries(command), true
+		return s.sessionEntries(command), true, nil
 	case controller.CommandGetSessionStats:
-		return sessionStatisticsResponse(command.CorrelationID, s.sessionControl.Statistics()), true
+		return sessionStatisticsResponse(command.OperationID, s.sessionControl.Statistics()), true, nil
 	case controller.CommandGetSessionTree:
-		return s.sessionTree(command), true
+		return s.sessionTree(command), true, nil
 	case controller.CommandNavigateSessionTree:
-		return s.navigateSessionTree(ctx, command), true
+		response, err := s.navigateSessionTree(ctx, command)
+		return response, true, err
 	case controller.CommandForkSession:
-		return s.forkSession(ctx, command), true
+		response, err := s.forkSession(ctx, command)
+		return response, true, err
 	case controller.CommandCloneSession:
-		return s.cloneSession(ctx, command), true
+		response, err := s.cloneSession(ctx, command)
+		return response, true, err
 	case controller.CommandSetEntryLabel:
-		return s.setEntryLabel(ctx, command), true
-	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandAbort,
+		response, err := s.setEntryLabel(ctx, command)
+		return response, true, err
+	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
-		return controller.Response{}, false
+		return controller.Response{}, false, nil
 	default:
-		return controller.Response{}, false
+		return controller.Response{}, false, nil
 	}
 }
 
-// CancelAndWait cancels and joins work owned by the controller connection.
-func (s *Service) CancelAndWait(context.Context) error {
-	return s.delivery.cancelAndWaitAll()
-}
-
-func (s *Service) abort(correlationID string, active *activeRun) (controller.Response, error) {
-	if err := s.delivery.cancelAndWait(active); err != nil {
-		return controller.Response{}, fmt.Errorf("abort Programmatic Control run: %w", err)
-	}
-	return emptyResponse(correlationID, controller.ResponseAbortCompleted), nil
-}
-
-func (s *Service) runState(correlationID string, active *activeRun) controller.Response {
+// runState returns the public run state for one operation query.
+func (s *Service) runState(operationID string, active *activeRun) controller.Response {
 	state := s.stateSnapshot()
 	publicState := controller.RunStateIdle
 	if active != nil || state.Status == run.StatusRunning || state.Status == run.StatusAwaitingSettlement {
 		publicState = controller.RunStateRunning
 	}
-	activeCorrelationID := mo.None[string]()
+	activeOperationID := mo.None[string]()
 	if publicState == controller.RunStateRunning && active != nil {
-		activeCorrelationID = mo.Some(active.correlationID)
+		activeOperationID = mo.Some(active.operationID)
 	}
-	response := emptyResponse(correlationID, controller.ResponseRunState)
+	response := emptyResponse(operationID, controller.ResponseRunState)
 	response.State = mo.Some(controller.RunStateResult{
-		State:               publicState,
-		ActiveCorrelationID: activeCorrelationID,
+		State:             publicState,
+		ActiveOperationID: activeOperationID,
 	})
 	return response
 }
 
-func (s *Service) messages(correlationID string) (controller.Response, error) {
-	response := emptyResponse(correlationID, controller.ResponseMessages)
+// messages returns a public history snapshot for one operation query.
+func (s *Service) messages(operationID string) (controller.Response, error) {
+	response := emptyResponse(operationID, controller.ResponseMessages)
 	messages, err := mapHistory(s.historySnapshot())
 	if err != nil {
 		return controller.Response{}, err
@@ -224,8 +224,9 @@ func (s *Service) messages(correlationID string) (controller.Response, error) {
 	return response, nil
 }
 
-func (s *Service) models(correlationID string) controller.Response {
-	response := emptyResponse(correlationID, controller.ResponseModels)
+// models returns configured models and the active selection.
+func (s *Service) models(operationID string) controller.Response {
+	response := emptyResponse(operationID, controller.ResponseModels)
 	response.Models = mo.Some(controller.ModelsResult{
 		Models:          s.modelCatalog.Models(),
 		ActiveSelection: mo.Some(s.modelCatalog.ActiveSelection()),
@@ -233,21 +234,26 @@ func (s *Service) models(correlationID string) controller.Response {
 	return response
 }
 
-func (s *Service) selectModel(ctx context.Context, command controller.Command) controller.Response {
+// selectModel validates and commits a provider model selection.
+func (s *Service) selectModel(ctx context.Context, command controller.Command) (controller.Response, error) {
 	providerID, hasProvider := command.ProviderID.Get()
 	modelID, hasModel := command.ModelID.Get()
 	if !hasProvider || !hasModel {
-		return s.rejection(command, controller.RejectionInvalidArgument, "provider and model are required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "provider and model are required"), nil
 	}
 	selection, err := s.modelCatalog.SelectModel(ctx, providerID, modelID)
 	if err != nil {
-		return s.selectionRejected(command, err)
+		if isOperationCancellation(ctx, err) {
+			return controller.Response{}, err
+		}
+		return s.selectionRejected(command, err), nil
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
+	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
 	response.Selection = mo.Some(selection)
-	return response
+	return response, nil
 }
 
+// selectReasoningChoice validates and commits a reasoning selection.
 func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
 	reasoningChoice, present := command.ReasoningChoice.Get()
 	if !present {
@@ -257,11 +263,12 @@ func (s *Service) selectReasoningChoice(command controller.Command) controller.R
 	if err != nil {
 		return s.selectionRejected(command, err)
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseModelSelection)
+	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
 	response.Selection = mo.Some(selection)
 	return response
 }
 
+// selectionRejected maps a model-selection failure to an operation rejection.
 func (s *Service) selectionRejected(command controller.Command, err error) controller.Response {
 	var selectionFailure SelectionFailure
 	if !errors.As(err, &selectionFailure) {
@@ -281,60 +288,60 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 }
 
 // createSession returns replacement information only after the shared gate and active state commit succeed.
-func (s *Service) createSession(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) createSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	replacement, err := s.sessionControl.Create(ctx)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
-	return sessionInfoResponse(command.CorrelationID, replacement.Info)
+	return sessionInfoResponse(command.OperationID, replacement.Info), nil
 }
 
 // listSessions maps the ordered persisted-session view without changing active state.
-func (s *Service) listSessions(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) listSessions(ctx context.Context, command controller.Command) (controller.Response, error) {
 	listed, err := s.sessionControl.List(ctx)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseSessions)
+	response := emptyResponse(command.OperationID, controller.ResponseSessions)
 	response.Sessions = listed
-	return response
+	return response, nil
 }
 
 // resumeSession preserves the previous active session when load or replacement fails.
-func (s *Service) resumeSession(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) resumeSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	id, present := command.SessionID.Get()
 	if !present || id == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "session ID is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "session ID is required"), nil
 	}
 	replacement, err := s.sessionControl.Resume(ctx, id)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
-	return sessionInfoResponse(command.CorrelationID, replacement.Info)
+	return sessionInfoResponse(command.OperationID, replacement.Info), nil
 }
 
 // setSessionName returns the information snapshot produced by the durable name append.
-func (s *Service) setSessionName(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) setSessionName(ctx context.Context, command controller.Command) (controller.Response, error) {
 	name, present := command.SessionName.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required"), nil
 	}
 	info, err := s.sessionControl.SetName(ctx, name)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
-	return sessionInfoResponse(command.CorrelationID, info)
+	return sessionInfoResponse(command.OperationID, info), nil
 }
 
 // forkSession returns a replacement only after its snapshot is durable.
-func (s *Service) forkSession(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) forkSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required"), nil
 	}
 	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
 	entries, mapErr := mapSessionEntries(replacement.Entries)
 	if mapErr != nil {
@@ -342,20 +349,20 @@ func (s *Service) forkSession(ctx context.Context, command controller.Command) c
 			command,
 			controller.RejectionInternal,
 			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
-		)
+		), nil
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseForkSession)
+	response := emptyResponse(command.OperationID, controller.ResponseForkSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
 		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.Some(nextInput),
 	})
-	return response
+	return response, nil
 }
 
 // cloneSession returns a replacement only after its snapshot is durable.
-func (s *Service) cloneSession(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) cloneSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	replacement, err := s.sessionControl.Clone(ctx)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
 	entries, mapErr := mapSessionEntries(replacement.Entries)
 	if mapErr != nil {
@@ -363,69 +370,76 @@ func (s *Service) cloneSession(ctx context.Context, command controller.Command) 
 			command,
 			controller.RejectionInternal,
 			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
-		)
+		), nil
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseCloneSession)
+	response := emptyResponse(command.OperationID, controller.ResponseCloneSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
 		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.None[string](),
 	})
-	return response
+	return response, nil
 }
 
 // setEntryLabel returns the complete committed tree after one durable mutation.
-func (s *Service) setEntryLabel(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) setEntryLabel(ctx context.Context, command controller.Command) (controller.Response, error) {
 	targetID, targetPresent := command.TargetEntryID.Get()
 	label, labelPresent := command.EntryLabel.Get()
 	if !targetPresent || targetID == "" || !labelPresent {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID and label are required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID and label are required"), nil
 	}
 	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
 	if err != nil {
-		return s.sessionRejection(command, err)
+		return s.sessionOperationError(ctx, command, err)
 	}
 	mapped, err := mapSessionTree(tree)
 	if err != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", err))
+		return s.rejection(
+			command,
+			controller.RejectionInternal,
+			fmt.Sprintf("Session tree is unavailable: %v", err),
+		), nil
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseSetEntryLabel)
+	response := emptyResponse(command.OperationID, controller.ResponseSetEntryLabel)
 	response.SessionTree = mo.Some(mapped)
-	return response
+	return response, nil
 }
 
 // navigateSessionTree commits requested navigation or returns one classified terminal result.
-func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) controller.Response {
+func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required"), nil
 	}
 	mode, validMode := summaryModeFromProgrammatic(command.SummaryMode)
 	focus := strings.TrimSpace(command.CustomFocus.OrEmpty())
 	invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
 		mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus != ""
 	if !validMode || invalidFocus {
-		return s.rejection(command, controller.RejectionInvalidArgument, "invalid summary mode or custom focus")
+		return s.rejection(command, controller.RejectionInvalidArgument, "invalid summary mode or custom focus"), nil
 	}
 	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
 	})
 	if err != nil {
+		if isOperationCancellation(ctx, err) {
+			return controller.Response{}, err
+		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+			response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
 			response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
 				Status:    controller.TreeNavigationStatusCanceled,
 				Committed: mo.None[controller.TreeNavigationCommitted](), Issues: nil,
 			})
-			return response
+			return response, nil
 		}
-		return s.sessionRejection(command, err)
+		return s.sessionRejection(command, err), nil
 	}
 	if result.Canceled {
-		response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+		response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
 		response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
 			Status:    controller.TreeNavigationStatusCanceled,
 			Committed: mo.None[controller.TreeNavigationCommitted](), Issues: mapOperationIssues(result.Issues),
 		})
-		return response
+		return response, nil
 	}
 	committed, mapErr := mapTreeNavigationCommitted(result)
 	if mapErr != nil {
@@ -433,14 +447,14 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 			command,
 			controller.RejectionInternal,
 			fmt.Sprintf("Session tree is unavailable: %v", mapErr),
-		)
+		), nil
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTreeNavigation)
+	response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
 	response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
 		Status: controller.TreeNavigationStatusCommitted, Committed: mo.Some(committed),
 		Issues: mapOperationIssues(result.Issues),
 	})
-	return response
+	return response, nil
 }
 
 // sessionEntries returns the current active-session entries without taking the replacement gate.
@@ -453,9 +467,21 @@ func (s *Service) sessionEntries(command controller.Command) controller.Response
 			fmt.Sprintf("Session entries are unavailable: %v", err),
 		)
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseSessionEntries)
+	response := emptyResponse(command.OperationID, controller.ResponseSessionEntries)
 	response.SessionEntries = entries
 	return response
+}
+
+// sessionOperationError preserves pure owner cancellation and maps every independent failure to a response.
+func (s *Service) sessionOperationError(
+	ctx context.Context,
+	command controller.Command,
+	err error,
+) (controller.Response, error) {
+	if isOperationCancellation(ctx, err) {
+		return controller.Response{}, err
+	}
+	return s.sessionRejection(command, err), nil
 }
 
 // sessionRejection maps domain failures to stable rejection codes while retaining error details.
@@ -496,23 +522,23 @@ func (s *Service) sessionTree(command controller.Command) controller.Response {
 	if err != nil {
 		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", err))
 	}
-	response := emptyResponse(command.CorrelationID, controller.ResponseSessionTree)
+	response := emptyResponse(command.OperationID, controller.ResponseSessionTree)
 	response.SessionTree = mo.Some(tree)
 	return response
 }
 
 // sessionInfoResponse initializes only the session-information response variant.
-func sessionInfoResponse(correlationID string, info session.Info) controller.Response {
-	response := emptyResponse(correlationID, controller.ResponseSessionInfo)
+func sessionInfoResponse(operationID string, info session.Info) controller.Response {
+	response := emptyResponse(operationID, controller.ResponseSessionInfo)
 	response.SessionInfo = mo.Some(info)
 	return response
 }
 
 // sessionStatisticsResponse initializes the complete statistics response variant.
-func sessionStatisticsResponse(correlationID string, statistics session.Statistics) controller.Response {
+func sessionStatisticsResponse(operationID string, statistics session.Statistics) controller.Response {
 	return controller.Response{
 		SessionEntries:    nil,
-		CorrelationID:     correlationID,
+		OperationID:       operationID,
 		Kind:              controller.ResponseSessionStats,
 		State:             mo.None[controller.RunStateResult](),
 		Messages:          nil,
@@ -523,36 +549,36 @@ func sessionStatisticsResponse(correlationID string, statistics session.Statisti
 		SessionStatistics: mo.Some(statistics),
 		SessionTree:       mo.None[controller.SessionTree](),
 		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
-		Rejection:         mo.None[controller.Rejection](), Replacement: mo.None[controller.SessionReplacement](),
+		Rejection:         mo.None[controller.Rejection](),
+		Replacement:       mo.None[controller.SessionReplacement](),
+		CancelTargetState: mo.None[operation.TerminalState](),
 	}
 }
 
+// preflight validates operation identity, payload, and run admission.
 func (s *Service) preflight(
 	command controller.Command,
 ) (*activeRun, *controller.Response, error) {
-	if command.CorrelationID == "" {
-		return nil, nil, ErrCorrelationRequired
+	if command.OperationID == "" {
+		return nil, nil, ErrOperationIDRequired
 	}
 	if !command.Valid() {
 		response := s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload")
 		return nil, &response, nil
 	}
 	active := s.delivery.activeSnapshot()
-	if active != nil && active.correlationID == command.CorrelationID {
-		response := s.rejection(command, controller.RejectionCorrelationInUse, "correlation ID is active")
+	if active != nil && active.operationID == command.OperationID {
+		response := s.rejection(command, controller.RejectionOperationIDInUse, "operation ID is active")
 		return active, &response, nil
 	}
 	if command.Kind == controller.CommandUserRequest && active != nil {
 		response := s.rejection(command, controller.RejectionBusy, "a run is active")
 		return active, &response, nil
 	}
-	if command.Kind == controller.CommandAbort && active == nil {
-		response := s.rejection(command, controller.RejectionNoActiveRun, "no run is active")
-		return nil, &response, nil
-	}
 	return active, nil, nil
 }
 
+// filterRunError removes expected cancellation while preserving independent run failures.
 func filterRunError(outcome agent.RunOutcome, runErr error) error {
 	if outcome != agent.RunOutcomeAborted {
 		return runErr
@@ -560,6 +586,12 @@ func filterRunError(outcome agent.RunOutcome, runErr error) error {
 	return removeCancellation(runErr)
 }
 
+// isOperationCancellation reports when owner cancellation is the only reason accepted work stopped.
+func isOperationCancellation(ctx context.Context, err error) bool {
+	return errors.Is(ctx.Err(), context.Canceled) && removeCancellation(err) == nil
+}
+
+// removeCancellation recursively removes cancellation leaves from joined errors.
 func removeCancellation(err error) error {
 	if err == nil {
 		return nil
@@ -588,10 +620,11 @@ func removeCancellation(err error) error {
 	return err
 }
 
-func emptyResponse(correlationID string, kind controller.ResponseKind) controller.Response {
+// emptyResponse creates a response with only operation identity and kind set.
+func emptyResponse(operationID string, kind controller.ResponseKind) controller.Response {
 	return controller.Response{
 		SessionEntries:    nil,
-		CorrelationID:     correlationID,
+		OperationID:       operationID,
 		Kind:              kind,
 		State:             mo.None[controller.RunStateResult](),
 		Messages:          nil,
@@ -604,6 +637,7 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
 		Replacement:       mo.None[controller.SessionReplacement](),
 		Rejection:         mo.None[controller.Rejection](),
+		CancelTargetState: mo.None[operation.TerminalState](),
 	}
 }
 
@@ -611,21 +645,20 @@ func emptyResponse(correlationID string, kind controller.ResponseKind) controlle
 func (s *Service) runPreparationRejected(
 	command controller.Command,
 	prepareErr error,
-) (controller.Response, controller.Operation, error) {
+) (controller.Response, *activeRun, error) {
 	if errors.Is(prepareErr, session.ErrBusy) {
 		return s.rejection(command, controller.RejectionBusy, "another operation is active"), nil, nil
 	}
-	return s.rejection(
-		command, controller.RejectionInternal, fmt.Sprintf("Host run ID allocation failed: %v", prepareErr),
-	), nil, nil
+	return controller.Response{}, nil, fmt.Errorf("prepare Host run: %w", prepareErr)
 }
 
+// rejection creates a typed rejection for one operation.
 func (s *Service) rejection(
 	command controller.Command,
 	code controller.RejectionCode,
 	message string,
 ) controller.Response {
-	response := emptyResponse(command.CorrelationID, controller.ResponseRejected)
+	response := emptyResponse(command.OperationID, controller.ResponseRejected)
 	response.Rejection = mo.Some(controller.Rejection{Command: command.Kind, Code: code, Message: message})
 	return response
 }

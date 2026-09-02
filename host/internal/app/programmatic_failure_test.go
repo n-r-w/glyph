@@ -24,36 +24,27 @@ import (
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
-	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// TestProtocolFailureReturnsNonzero verifies that invalid input terminates the owning process as an error.
-func (testSuite *ProgrammaticAppSuite) TestProtocolFailureReturnsNonzero() {
+// TestMalformedRequestIsRejectedWithoutClosingStream verifies per-request protocol failure mapping.
+func (testSuite *ProgrammaticAppSuite) TestMalformedRequestIsRejectedWithoutClosingStream() {
 	t := testSuite.T()
 
-	// Arrange a Programmatic stream and a request without correlation identity.
-	paths := testPaths(t, codexSettings(""))
-	fixture := startProgrammaticFixture(t, paths)
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
-	invalid := programmaticv1.OpenRequest_builder{
-		UserRequest: programmaticv1.UserRequest_builder{
-			Text: new("missing correlation"),
-		}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
-	// Act by sending the invalid protocol request and receiving stream termination.
+	// Arrange a Programmatic stream and a request without an operation identifier.
+	fixture := startProgrammaticFixture(t, testPaths(t, codexSettings("")))
+	defer fixture.closeOwner(t)
+	invalid := userRequest("", "missing operation identifier")
+
+	// Act by sending the malformed request and then a valid query.
 	require.NoError(t, fixture.stream.Send(invalid))
-	_, receiveErr := fixture.stream.Recv()
-	require.Error(t, receiveErr)
-	runErr := <-fixture.result
-	// Assert the application exits nonzero with the safe protocol error.
-	require.Error(t, runErr)
-	require.ErrorContains(t, runErr, "correlation ID is required")
-	fixture.assertClosed(t)
+	rejected, err := fixture.stream.Recv()
+	require.NoError(t, err)
+	state := completeProgrammaticRequest(t, fixture, runStateRequest("state"))
+
+	// Assert exact rejection mapping and continued stream use.
+	assert.True(t, rejected.GetEvent().HasRejected())
+	assert.Equal(t, "INVALID_ARGUMENT", rejected.GetEvent().GetRejected().GetCode())
+	assert.True(t, state.HasRunState())
 }
 
 // TestServeFailureReturnsNonzero verifies that an independent server failure changes the process result.
@@ -80,7 +71,7 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	require.NoError(t, err)
 	require.NoError(t, socketService.Listener.Close())
 
-	runErr := runProgrammaticServer(t.Context(), server, socketService, controller.Completions(), session)
+	runErr := runProgrammaticServer(t.Context(), server, socketService, controller.Completions())
 	require.Error(t, runErr)
 	require.ErrorContains(t, runErr, "serve Programmatic Control")
 	require.NoError(t, socketService.Close())
@@ -89,21 +80,6 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 // TestTransportCompletionReturnsNonzero verifies app handling of an independent send failure.
 func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 	t := testSuite.T()
-	delivery := hostprogrammatic.NewDelivery()
-	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
-	session := hostprogrammatic.New(
-		coordinator, nil,
-		func() agentrun.State {
-			return agentrun.State{
-				Status:          agentrun.StatusIdle,
-				RunID:           mo.None[string](),
-				PartialResponse: mo.None[model.Response](),
-				ToolPreviews:    nil,
-			}
-		},
-		func() []agent.HistoryEntry { return nil },
-		nil, delivery,
-	)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	socketService, err := programmaticsocket.New(t.Context(), "")
 	require.NoError(t, err)
@@ -111,7 +87,7 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 	completions := make(chan controllerprogrammatic.SessionCompletion, 1)
 	results := make(chan error, 1)
 	go func() {
-		results <- runProgrammaticServer(t.Context(), server, socketService, completions, session)
+		results <- runProgrammaticServer(t.Context(), server, socketService, completions)
 	}()
 	connection, err := grpc.NewClient(
 		"unix://"+socketService.Path(),
@@ -123,9 +99,8 @@ func (testSuite *ProgrammaticAppSuite) TestTransportCompletionReturnsNonzero() {
 		require.True(t, connection.WaitForStateChange(t.Context(), state))
 	}
 	completions <- controllerprogrammatic.SessionCompletion{
-		Cause:      controllerprogrammatic.SessionCompletionTransportFailure,
-		Err:        sendErr,
-		CleanupErr: nil,
+		Cause: controllerprogrammatic.SessionCompletionTransportFailure,
+		Err:   sendErr,
 	}
 
 	runErr := <-results

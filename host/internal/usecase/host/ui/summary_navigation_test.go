@@ -56,6 +56,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			authenticator := NewMockAuthenticator(mockController)
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
+			expectSessionMutationGate(control, 1)
 			control.EXPECT().Navigate(gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
 					require.Equal(t, "target", request.TargetEntryID)

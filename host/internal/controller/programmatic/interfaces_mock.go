@@ -13,59 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	operation "github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 	gomock "go.uber.org/mock/gomock"
 )
-
-// MockOperation is a mock of Operation interface.
-type MockOperation struct {
-	ctrl     *gomock.Controller
-	recorder *MockOperationMockRecorder
-	isgomock struct{}
-}
-
-// MockOperationMockRecorder is the mock recorder for MockOperation.
-type MockOperationMockRecorder struct {
-	mock *MockOperation
-}
-
-// NewMockOperation creates a new mock instance.
-func NewMockOperation(ctrl *gomock.Controller) *MockOperation {
-	mock := &MockOperation{ctrl: ctrl}
-	mock.recorder = &MockOperationMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
-	return m.recorder
-}
-
-// Events mocks base method.
-func (m *MockOperation) Events() <-chan AgentEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Events")
-	ret0, _ := ret[0].(<-chan AgentEvent)
-	return ret0
-}
-
-// Events indicates an expected call of Events.
-func (mr *MockOperationMockRecorder) Events() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockOperation)(nil).Events))
-}
-
-// Start mocks base method.
-func (m *MockOperation) Start() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start")
-}
-
-// Start indicates an expected call of Start.
-func (mr *MockOperationMockRecorder) Start() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockOperation)(nil).Start))
-}
 
 // MockHostSession is a mock of HostSession interface.
 type MockHostSession struct {
@@ -91,34 +42,19 @@ func (m *MockHostSession) EXPECT() *MockHostSessionMockRecorder {
 	return m.recorder
 }
 
-// CancelAndWait mocks base method.
-func (m *MockHostSession) CancelAndWait(ctx context.Context) error {
+// Prepare mocks base method.
+func (m *MockHostSession) Prepare(ctx context.Context, command Command) (operation.Prepared[AgentEvent, Response], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CancelAndWait", ctx)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "Prepare", ctx, command)
+	ret0, _ := ret[0].(operation.Prepared[AgentEvent, Response])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// CancelAndWait indicates an expected call of CancelAndWait.
-func (mr *MockHostSessionMockRecorder) CancelAndWait(ctx any) *gomock.Call {
+// Prepare indicates an expected call of Prepare.
+func (mr *MockHostSessionMockRecorder) Prepare(ctx, command any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelAndWait", reflect.TypeOf((*MockHostSession)(nil).CancelAndWait), ctx)
-}
-
-// Handle mocks base method.
-func (m *MockHostSession) Handle(ctx context.Context, command Command) (Response, Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handle", ctx, command)
-	ret0, _ := ret[0].(Response)
-	ret1, _ := ret[1].(Operation)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// Handle indicates an expected call of Handle.
-func (mr *MockHostSessionMockRecorder) Handle(ctx, command any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHostSession)(nil).Handle), ctx, command)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockHostSession)(nil).Prepare), ctx, command)
 }
 
 // MockOpenStream is a mock of OpenStream interface.

@@ -31,7 +31,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	command := treeCommand("tree", controller.CommandGetSessionTree)
 
 	// Act by requesting the active-session tree.
-	response, operation, err := service.Handle(t.Context(), command)
+	response, operation, err := service.handle(t.Context(), command)
 
 	// Assert the complete snapshot is returned without starting a run.
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	command.TargetEntryID = mo.Some("user")
 
 	// Act by requesting no-summary navigation.
-	response, operation, err := service.Handle(t.Context(), command)
+	response, operation, err := service.handle(t.Context(), command)
 
 	// Assert the result is committed and contains no speculative substitutions.
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	command.TargetEntryID = mo.Some("user")
 
 	// Act by navigating with a client operation that ends before commit.
-	response, operation, err := service.Handle(t.Context(), command)
+	response, operation, err := service.handle(t.Context(), command)
 
 	// Assert cancellation is a typed result with no speculative tree or input state.
 	require.NoError(t, err)
@@ -221,7 +221,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			command.SummaryMode = test.summaryMode
 
 			// Act by requesting the failing navigation.
-			response, operation, err := service.Handle(t.Context(), command)
+			response, operation, err := service.handle(t.Context(), command)
 
 			// Assert the operation does not expose speculative state and uses the closed code.
 			require.NoError(t, err)
@@ -235,9 +235,9 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 }
 
 // treeCommand creates one argument-free tree command for focused tests.
-func treeCommand(correlationID string, kind controller.CommandKind) controller.Command {
+func treeCommand(operationID string, kind controller.CommandKind) controller.Command {
 	return controller.Command{
-		CorrelationID: correlationID, Kind: kind, UserText: mo.None[string](),
+		OperationID: operationID, Kind: kind, UserText: mo.None[string](),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),

@@ -45,8 +45,8 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 			},
 		)
 
-		response, operation, err := service.Handle(t.Context(), controller.Command{
-			CorrelationID:   "c1",
+		response, operation, err := service.handle(t.Context(), controller.Command{
+			OperationID:     "c1",
 			Kind:            controller.CommandUserRequest,
 			UserText:        mo.Some("request"),
 			ProviderID:      mo.None[model.ProviderID](),
@@ -63,8 +63,8 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		require.NoError(t, err)
 		assert.Equal(t, controller.Response{
 			SessionEntries:    nil,
-			CorrelationID:     "c1",
-			Kind:              controller.ResponseUserRequestAccepted,
+			OperationID:       "c1",
+			Kind:              controller.ResponseUserRequestCompleted,
 			State:             mo.None[controller.RunStateResult](),
 			Messages:          nil,
 			Models:            mo.None[controller.ModelsResult](),
@@ -108,11 +108,6 @@ func (s *ServiceSuite) TestAcceptedOperationStartsExplicitlyAndBackpressures() {
 		default:
 			assert.Fail(t, "event producer remained blocked after consumption")
 		}
-		assert.Equal(
-			t,
-			testEmptyAgentEvent(controller.AgentEventAgentSettled, "c1", "run-1"),
-			<-operation.Events(),
-		)
 		synctest.Wait()
 		_, open := <-operation.Events()
 		assert.False(t, open)
@@ -129,11 +124,11 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
 
 		for index, values := range []struct {
-			correlationID string
-			runID         string
+			operationID string
+			runID       string
 		}{
-			{correlationID: "c1", runID: "run-1"},
-			{correlationID: "c2", runID: "run-2"},
+			{operationID: "c1", runID: "run-1"},
+			{operationID: "c2", runID: "run-2"},
 		} {
 			coordinator.EXPECT().PrepareRun().Return(values.runID, nil)
 			coordinator.EXPECT().RunPrepared(gomock.Any(), values.runID, "request").DoAndReturn(
@@ -144,8 +139,8 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 					return agent.RunOutcomeCompleted, nil
 				},
 			)
-			response, operation, err := service.Handle(t.Context(), controller.Command{
-				CorrelationID:   values.correlationID,
+			response, operation, err := service.handle(t.Context(), controller.Command{
+				OperationID:     values.operationID,
 				Kind:            controller.CommandUserRequest,
 				UserText:        mo.Some("request"),
 				ProviderID:      mo.None[model.ProviderID](),
@@ -159,12 +154,9 @@ func (s *ServiceSuite) TestSequentialRunsKeepPreparedRunIDs() {
 				EntryLabel:      mo.None[string](),
 			})
 			require.NoError(t, err)
-			assert.Equal(t, controller.ResponseUserRequestAccepted, response.Kind)
+			assert.Equal(t, controller.ResponseUserRequestCompleted, response.Kind)
 			require.NotNil(t, operation)
 			operation.Start()
-			event := <-operation.Events()
-			assert.Equal(t, values.runID, event.RunID)
-			assert.Equal(t, values.correlationID, event.CorrelationID)
 			synctest.Wait()
 			_, open := <-operation.Events()
 			assert.False(t, open, "run %d event stream remained open", index)

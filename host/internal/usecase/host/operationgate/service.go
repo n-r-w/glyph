@@ -1,23 +1,13 @@
 // Package operationgate serializes agent runs with active-session replacement.
 package operationgate
 
-import (
-	"sync/atomic"
-
-	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
-)
+import "sync/atomic"
 
 // Service is one process-local nonblocking operation gate.
 type Service struct {
 	// occupied has one owner at a time and never blocks a caller waiting for release.
 	occupied atomic.Bool
 }
-
-var (
-	_ events.OperationGate         = (*Service)(nil)
-	_ sessioncontrol.OperationGate = (*Service)(nil)
-)
 
 // New creates an idle operation gate.
 func New() *Service { return &Service{} }

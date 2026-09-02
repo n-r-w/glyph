@@ -13,8 +13,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// TestForkAndCloneHoldTheOperationGate verifies replacement creation cannot overlap agent execution.
-func TestForkAndCloneHoldTheOperationGate(t *testing.T) {
+// TestForkAndCloneUseCallerReservation verifies mutation methods do not reacquire the shared gate.
+func TestForkAndCloneUseCallerReservation(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -56,46 +56,46 @@ func TestForkAndCloneHoldTheOperationGate(t *testing.T) {
 			// Arrange an acquired gate and an active replacement that observes ownership.
 			controller := gomock.NewController(t)
 			active := NewMockActiveSessions(controller)
-			gate := NewMockOperationGate(controller)
 			released := false
-			gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
+			tryAcquire := func() (func(), bool) { return func() { released = true }, true }
 			test.expect(active, &released)
-			service := New(active, NewMockNavigator(controller), gate)
+			service := New(active, NewMockNavigator(controller), tryAcquire)
 
-			// Act through the replacement facade.
+			// Act after the caller acquires mutation ownership.
+			release, acquired := service.TryAcquire()
+			require.True(t, acquired)
 			err := test.invoke(service)
 
-			// Assert success releases the operation gate after persistence returns.
+			// Assert the mutation retains ownership until the caller releases it.
 			require.NoError(t, err)
+			require.False(t, released)
+			release()
 			require.True(t, released)
 		})
 	}
 }
 
-// TestForkAndCloneReturnBusyWithoutReplacement verifies gate rejection publishes no replacement state.
-func TestForkAndCloneReturnBusyWithoutReplacement(t *testing.T) {
+// TestReplacementCallerRejectsBusyWithoutMutation verifies admission publishes no replacement state.
+func TestReplacementCallerRejectsBusyWithoutMutation(t *testing.T) {
 	t.Parallel()
 
-	for _, invoke := range []func(*Service) error{
-		func(service *Service) error { _, _, err := service.Fork(t.Context(), "target"); return err },
-		func(service *Service) error { _, err := service.Clone(t.Context()); return err },
-	} {
-		// Arrange strict dependencies with no active-session call expected.
-		controller := gomock.NewController(t)
-		gate := NewMockOperationGate(controller)
-		gate.EXPECT().TryAcquire().Return(nil, false)
-		service := New(NewMockActiveSessions(controller), NewMockNavigator(controller), gate)
+	// Arrange strict dependencies with no active-session call expected.
+	controller := gomock.NewController(t)
+	service := New(
+		NewMockActiveSessions(controller),
+		NewMockNavigator(controller),
+		func() (func(), bool) { return nil, false },
+	)
 
-		// Act while another operation owns the gate.
-		err := invoke(service)
+	// Act while another operation owns the gate.
+	_, acquired := service.TryAcquire()
 
-		// Assert the stable busy error is returned.
-		require.ErrorIs(t, err, session.ErrBusy)
-	}
+	// Assert the caller observes busy without invoking a mutation.
+	require.False(t, acquired)
 }
 
-// TestSetLabelDelegatesWithoutReplacementGate verifies label mutation follows session-name concurrency behavior.
-func TestSetLabelDelegatesWithoutReplacementGate(t *testing.T) {
+// TestSetLabelUsesCallerReservation verifies label mutation does not reacquire the gate.
+func TestSetLabelUsesCallerReservation(t *testing.T) {
 	t.Parallel()
 
 	// Arrange strict dependencies and one committed label tree.
@@ -104,33 +104,43 @@ func TestSetLabelDelegatesWithoutReplacementGate(t *testing.T) {
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
 	active.EXPECT().SetLabel(gomock.Any(), "entry", "label").Return(tree, nil)
-	service := New(active, NewMockNavigator(controller), NewMockOperationGate(controller))
+	released := false
+	tryAcquire := func() (func(), bool) { return func() { released = true }, true }
+	service := New(active, NewMockNavigator(controller), tryAcquire)
 
-	// Act by setting one label.
+	// Act after the caller acquires label ownership.
+	release, acquired := service.TryAcquire()
+	require.True(t, acquired)
 	committed, err := service.SetLabel(t.Context(), "entry", "label")
 
-	// Assert the committed snapshot is returned unchanged.
+	// Assert the committed snapshot is returned before caller cleanup.
 	require.NoError(t, err)
 	require.Equal(t, tree, committed)
+	require.False(t, released)
+	release()
+	require.True(t, released)
 }
 
-// TestForkReleasesGateOnFailure verifies failed durable creation still releases operation ownership.
-func TestForkReleasesGateOnFailure(t *testing.T) {
+// TestForkCallerReleasesGateOnFailure verifies caller cleanup after a mutation error.
+func TestForkCallerReleasesGateOnFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one failed active replacement under an acquired gate.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
-	gate := NewMockOperationGate(controller)
 	released := false
-	gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
+	tryAcquire := func() (func(), bool) { return func() { released = true }, true }
 	active.EXPECT().ForkActive(gomock.Any(), "target").Return(session.Replacement{}, "", errors.New("failed"))
-	service := New(active, NewMockNavigator(controller), gate)
+	service := New(active, NewMockNavigator(controller), tryAcquire)
 
-	// Act through the fork facade.
+	// Act after the caller acquires mutation ownership.
+	release, acquired := service.TryAcquire()
+	require.True(t, acquired)
 	_, _, err := service.Fork(t.Context(), "target")
 
-	// Assert the failure is preserved and cleanup runs.
+	// Assert the error is preserved and ownership remains until caller cleanup.
 	require.Error(t, err)
+	require.False(t, released)
+	release()
 	require.True(t, released)
 }

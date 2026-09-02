@@ -10,8 +10,8 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// mapSessionTreeCommandResponse maps one complete tree query result.
-func mapSessionTreeCommandResponse(wire *programmaticv1.CommandResponse, tree SessionTree) error {
+// mapSessionTreeCompleted maps one complete tree query result.
+func mapSessionTreeCompleted(wire *programmaticv1.HostCompleted, tree SessionTree) error {
 	mapped, err := mapSessionTree(tree)
 	if err != nil {
 		return err
@@ -22,8 +22,8 @@ func mapSessionTreeCommandResponse(wire *programmaticv1.CommandResponse, tree Se
 	return nil
 }
 
-// mapTreeNavigationCommandResponse maps a committed or canceled navigation result.
-func mapTreeNavigationCommandResponse(wire *programmaticv1.CommandResponse, navigation TreeNavigationResult) error {
+// mapTreeNavigationCompleted maps a committed or canceled navigation result.
+func mapTreeNavigationCompleted(wire *programmaticv1.HostCompleted, navigation TreeNavigationResult) error {
 	result := new(programmaticv1.SessionTreeNavigationResult)
 	switch navigation.Status {
 	case TreeNavigationStatusCommitted:

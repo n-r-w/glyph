@@ -18,28 +18,18 @@ import (
 func TestMapOpenRequestAcceptsSessionStatisticsQuery(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a correlated GetSessionStats request.
-	//nolint:exhaustruct_v5 // The protobuf builder intentionally sets only the active oneof field.
-	request := programmaticv1.OpenRequest_builder{
-		CorrelationId: new(
-			"stats",
-		),
-		GetSessionStats:     programmaticv1.GetSessionStats_builder{}.Build(),
-		GetSessionTree:      nil,
-		NavigateSessionTree: nil,
-		ForkSession:         nil,
+	// Arrange a GetSessionStats operation request.
+	request := testRequest("stats", func(payload *programmaticv1.ControllerRequest) {
+		payload.SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	})
 
-		// Act by mapping the public request.
-		CloneSession:  nil,
-		SetEntryLabel: nil,
-	}.Build()
-
+	// Act by mapping the public request.
 	command, err := mapOpenRequest(request)
 
-	// Assert the statistics command and correlation ID are preserved.
+	// Assert the statistics command and operation ID are preserved.
 	require.NoError(t, err)
 	assert.Equal(t, CommandGetSessionStats, command.Kind)
-	assert.Equal(t, "stats", command.CorrelationID)
+	assert.Equal(t, "stats", command.OperationID)
 }
 
 // TestMapResponsePreservesSessionStatisticsAvailability verifies counts and optional tokens map independently.
@@ -52,7 +42,7 @@ func TestMapResponsePreservesSessionStatisticsAvailability(t *testing.T) {
 		TokenUsage: mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](), CostBreakdown: nil,
 	}
 	response := Response{
-		CorrelationID:     "stats",
+		OperationID:       "stats",
 		Kind:              ResponseSessionStats,
 		State:             mo.None[RunStateResult](),
 		Messages:          nil,
@@ -75,7 +65,7 @@ func TestMapResponsePreservesSessionStatisticsAvailability(t *testing.T) {
 
 	// Assert counts remain present and the token message remains absent.
 	require.NoError(t, err)
-	mapped := wire.GetCommandResponse().GetSessionStats().GetStatistics()
+	mapped := wire.GetSessionStats().GetStatistics()
 	assert.Equal(t, int64(2), mapped.GetUserMessages())
 	assert.Equal(t, int64(3), mapped.GetModelResponses())
 	assert.Equal(t, int64(4), mapped.GetToolCalls())
@@ -101,7 +91,7 @@ func TestMapResponsePreservesEstimatedCostAndOrderedBreakdown(t *testing.T) {
 		},
 	}
 	response := Response{
-		CorrelationID:     "stats",
+		OperationID:       "stats",
 		Kind:              ResponseSessionStats,
 		State:             mo.None[RunStateResult](),
 		Messages:          nil,
@@ -123,7 +113,7 @@ func TestMapResponsePreservesEstimatedCostAndOrderedBreakdown(t *testing.T) {
 
 	// Assert aggregate and group buckets, unavailable presence, and order are exact.
 	require.NoError(t, err)
-	mapped := wire.GetCommandResponse().GetSessionStats().GetStatistics()
+	mapped := wire.GetSessionStats().GetStatistics()
 	require.True(t, mapped.HasEstimatedCost())
 	mappedAggregate := mapped.GetEstimatedCost()
 	assert.InDelta(t, 1, mappedAggregate.GetInput(), 1e-12)

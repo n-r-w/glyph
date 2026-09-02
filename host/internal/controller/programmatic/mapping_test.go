@@ -123,12 +123,12 @@ func assertEventPayload(t *testing.T, kind string, event *programmaticv1.AgentEv
 	case "model_content":
 		content := event.GetModelContent()
 		assert.NotEqual(t, programmaticv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED, content.GetKind())
-		assert.GreaterOrEqual(t, content.GetPosition(), int32(1))
+		assert.GreaterOrEqual(t, content.GetPosition(), int64(1))
 	case "tool_call_preview":
 		preview := event.GetToolCallPreview()
 		assert.Equal(t, "call", preview.GetCallId())
 		assert.Equal(t, "tool", preview.GetName())
-		assert.Equal(t, int32(4), preview.GetPosition())
+		assert.Equal(t, int64(4), preview.GetPosition())
 		assert.True(t, preview.GetProvisional())
 		fields := preview.GetFields()
 		require.Len(t, fields, 2)
@@ -163,7 +163,7 @@ func assertFinalToolCall(t *testing.T, call *programmaticv1.FinalToolCall) {
 	t.Helper()
 	assert.Equal(t, "call", call.GetCallId())
 	assert.Equal(t, "tool", call.GetName())
-	assert.Equal(t, int32(4), call.GetPosition())
+	assert.Equal(t, int64(4), call.GetPosition())
 	arguments := call.GetArguments().AsMap()
 	assert.Contains(t, arguments, "null")
 	assert.Nil(t, arguments["null"])

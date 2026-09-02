@@ -97,7 +97,7 @@ func runProgrammaticWithPaths(
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	session := hostprogrammatic.New(
 		coordinator, providerCatalog, agentCore.State, agentCore.History, sessionServices.control, delivery,
 	)
@@ -122,7 +122,7 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("terminate Programmatic Control socket announcement: %w", err)
 	}
 
-	return runProgrammaticServer(ctx, server, socketService, controller.Completions(), session)
+	return runProgrammaticServer(ctx, server, socketService, controller.Completions())
 }
 
 // runProgrammaticServer owns server execution and Host-session shutdown.
@@ -131,7 +131,6 @@ func runProgrammaticServer(
 	server *grpc.Server,
 	socketService *programmaticsocket.Service,
 	completions <-chan controllerprogrammatic.SessionCompletion,
-	session *hostprogrammatic.Service,
 ) error {
 	serveResults := make(chan error, 1)
 	go func() {
@@ -160,9 +159,7 @@ func runProgrammaticServer(
 		completions: completions, serveResults: serveResults,
 		completionRead: completionRead, serveResultRead: serveResultRead,
 	}
-	return collector.finish(
-		result, ctx.Err(), session.CancelAndWait(context.WithoutCancel(ctx)), server.Stop,
-	)
+	return collector.finish(result, ctx.Err(), server.Stop)
 }
 
 // programmaticShutdownCollector owns non-blocking terminal collection around explicit server Stop.
@@ -178,8 +175,7 @@ type programmaticShutdownCollector struct {
 }
 
 // finish collects ready shutdown causes before and after explicit server Stop.
-func (c *programmaticShutdownCollector) finish(result, contextErr, cleanupErr error, stopServer func()) error {
-	result = joinIndependentError(result, cleanupErr)
+func (c *programmaticShutdownCollector) finish(result, contextErr error, stopServer func()) error {
 	c.completionRead, result = collectPendingCompletion(result, c.completions, c.completionRead)
 	c.serveResultRead, result = collectPendingServeResult(result, c.serveResults, c.serveResultRead, false)
 
@@ -191,10 +187,9 @@ func (c *programmaticShutdownCollector) finish(result, contextErr, cleanupErr er
 	return joinIndependentError(result, contextErr)
 }
 
-// joinCompletionError adds the controller terminal and cleanup errors once.
+// joinCompletionError adds the controller terminal error once.
 func joinCompletionError(current error, completion controllerprogrammatic.SessionCompletion) error {
-	current = joinIndependentError(current, completion.Err)
-	return joinIndependentError(current, completion.CleanupErr)
+	return joinIndependentError(current, completion.Err)
 }
 
 // collectPendingCompletion adds one ready controller completion without blocking shutdown.

@@ -28,8 +28,8 @@ type Coordinator struct {
 	events *Dispatcher
 	// newRunID creates one opaque run identifier.
 	newRunID func() (string, error)
-	// gate is shared with session replacement across headless, UI, and Programmatic Control paths.
-	gate OperationGate
+	// tryAcquire reserves agent execution against session mutation.
+	tryAcquire func() (release func(), acquired bool)
 	// mutex protects transfer of prepared reservation ownership to execution or cancellation.
 	mutex sync.Mutex
 	// prepared stores each release function until exactly one terminal owner takes it.
@@ -47,9 +47,9 @@ func NewCoordinator(
 	execute func(context.Context, run.Request) (run.Result, error),
 	settle func(string) error,
 	events *Dispatcher,
-	gate OperationGate,
+	tryAcquire func() (release func(), acquired bool),
 ) *Coordinator {
-	return newCoordinator(execute, settle, events, generateRunID, gate)
+	return newCoordinator(execute, settle, events, generateRunID, tryAcquire)
 }
 
 // newCoordinator creates a coordinator with deterministic package-test seams.
@@ -58,22 +58,22 @@ func newCoordinator(
 	settle func(string) error,
 	events *Dispatcher,
 	newRunID func() (string, error),
-	gate OperationGate,
+	tryAcquire func() (release func(), acquired bool),
 ) *Coordinator {
 	return &Coordinator{
-		execute:  execute,
-		settle:   settle,
-		events:   events,
-		newRunID: newRunID,
-		gate:     gate,
-		mutex:    sync.Mutex{},
-		prepared: make(map[string]func()),
+		execute:    execute,
+		settle:     settle,
+		events:     events,
+		newRunID:   newRunID,
+		tryAcquire: tryAcquire,
+		mutex:      sync.Mutex{},
+		prepared:   make(map[string]func()),
 	}
 }
 
 // PrepareRun allocates one Host-owned run ID before a controller accepts the run.
 func (c *Coordinator) PrepareRun() (string, error) {
-	release, acquired := c.gate.TryAcquire()
+	release, acquired := c.tryAcquire()
 	if !acquired {
 		return "", session.ErrBusy
 	}

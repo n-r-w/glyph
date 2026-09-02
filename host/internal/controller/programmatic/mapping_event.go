@@ -7,7 +7,8 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
+// mapEvent maps internal operation progress to a Programmatic agent event.
+func mapEvent(event AgentEvent) (*programmaticv1.AgentEvent, error) {
 	eventType, err := mapAgentEventType(event.Type)
 	if err != nil {
 		return nil, err
@@ -17,7 +18,7 @@ func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
 	wire.SetRunId(event.RunID)
 
 	switch event.Type {
-	case AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart, AgentEventAgentSettled:
+	case AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart:
 	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd:
 		err = mapModelEvent(event, wire)
 	case AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd:
@@ -34,12 +35,10 @@ func mapEvent(event AgentEvent) (*programmaticv1.OpenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	mapped := new(programmaticv1.OpenResponse)
-	mapped.SetCorrelationId(event.CorrelationID)
-	mapped.SetAgentEvent(wire)
-	return mapped, nil
+	return wire, nil
 }
 
+// mapModelEvent maps model progress and terminal model data.
 func mapModelEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	switch event.Type {
 	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd:
@@ -65,7 +64,7 @@ func mapModelEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
-		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd:
 		return fmt.Errorf("map model event: unsupported event type %d", event.Type)
 	default:
 		return fmt.Errorf("map model event: unsupported event type %d", event.Type)
@@ -73,6 +72,7 @@ func mapModelEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	return nil
 }
 
+// mapToolCallEvent maps incremental and final tool-call data.
 func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	switch event.Type {
 	case AgentEventToolCallStart, AgentEventToolCallDelta:
@@ -98,7 +98,7 @@ func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
-		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd:
 		return fmt.Errorf("map tool call event: unsupported event type %d", event.Type)
 	default:
 		return fmt.Errorf("map tool call event: unsupported event type %d", event.Type)
@@ -106,6 +106,7 @@ func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	return nil
 }
 
+// mapToolExecutionEvent maps tool execution progress and results.
 func mapToolExecutionEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	switch event.Type {
 	case AgentEventToolExecutionStart:
@@ -140,7 +141,7 @@ func mapToolExecutionEvent(event AgentEvent, wire *programmaticv1.AgentEvent) er
 	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
-		AgentEventTurnEnd, AgentEventAgentEnd, AgentEventAgentSettled:
+		AgentEventTurnEnd, AgentEventAgentEnd:
 		return fmt.Errorf("map tool execution event: unsupported event type %d", event.Type)
 	default:
 		return fmt.Errorf("map tool execution event: unsupported event type %d", event.Type)
@@ -148,6 +149,7 @@ func mapToolExecutionEvent(event AgentEvent, wire *programmaticv1.AgentEvent) er
 	return nil
 }
 
+// mapTerminalEvent maps turn and agent terminal progress.
 func mapTerminalEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 	switch event.Type {
 	case AgentEventTurnEnd:
@@ -174,7 +176,7 @@ func mapTerminalEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
-		AgentEventToolResult, AgentEventAgentSettled:
+		AgentEventToolResult:
 		return fmt.Errorf("map terminal event: unsupported event type %d", event.Type)
 	default:
 		return fmt.Errorf("map terminal event: unsupported event type %d", event.Type)

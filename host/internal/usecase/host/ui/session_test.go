@@ -19,6 +19,11 @@ import (
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
+// expectSessionMutationGate requires successful admission for each tested mutation.
+func expectSessionMutationGate(control *MockSessionControl, count int) {
+	control.EXPECT().TryAcquire().Return(func() {}, true).Times(count)
+}
+
 // TestSetSessionNamePreservesTranscriptFrameKind verifies naming returns information with current statistics.
 func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 	t.Parallel()
@@ -27,6 +32,7 @@ func TestSetSessionNamePreservesTranscriptFrameKind(t *testing.T) {
 	controller := gomock.NewController(t)
 	channel := NewMockChannel(controller)
 	control := NewMockSessionControl(controller)
+	expectSessionMutationGate(control, 1)
 	info := session.Info{}
 	control.EXPECT().SetName(gomock.Any(), "renamed").Return(info, nil)
 	control.EXPECT().Information().Return(session.InformationSnapshot{

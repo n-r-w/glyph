@@ -20,11 +20,13 @@ type Coordinator interface {
 
 // SessionControl provides client session lifecycle operations.
 type SessionControl interface {
-	// Create replaces active state with a new empty session.
+	// TryAcquire reserves the shared session-mutation gate for bounded preparation.
+	TryAcquire() (func(), bool)
+	// Create replaces active state while the caller owns the mutation gate.
 	Create(context.Context) (session.Replacement, error)
-	// Resume validates and replaces active state by opaque ID.
+	// Resume validates and replaces active state while the caller owns the mutation gate.
 	Resume(context.Context, session.ID) (session.Replacement, error)
-	// SetName persists a normalized active-session name.
+	// SetName persists a normalized active-session name while the caller owns the mutation gate.
 	SetName(context.Context, string) (session.Info, error)
 	// List returns ordered persisted-session summaries.
 	List(context.Context) ([]session.Summary, error)
@@ -36,13 +38,13 @@ type SessionControl interface {
 	Statistics() session.Statistics
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
-	// Navigate commits one tree navigation with optional built-in summarization.
+	// Navigate commits tree navigation while the caller owns the mutation gate.
 	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
-	// Fork creates and activates a replacement before one user message.
+	// Fork creates a replacement while the caller owns the mutation gate.
 	Fork(context.Context, string) (session.Replacement, string, error)
-	// Clone creates and activates a copy of the complete active branch.
+	// Clone creates a copy while the caller owns the mutation gate.
 	Clone(context.Context) (session.Replacement, error)
-	// SetLabel persists one entry label and returns the committed tree.
+	// SetLabel persists a label while the caller owns the mutation gate.
 	SetLabel(context.Context, string, string) (session.Tree, error)
 }
 

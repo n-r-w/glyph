@@ -3,99 +3,13 @@ package programmatic
 import (
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/samber/mo"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-//nolint:gocyclo // The exhaustive switch maps every closed command kind explicitly.
-func mapCommandType(kind CommandKind) (programmaticv1.CommandType, error) {
-	switch kind {
-	case CommandUnspecified:
-		return programmaticv1.CommandType_COMMAND_TYPE_UNSPECIFIED, nil
-	case CommandUserRequest:
-		return programmaticv1.CommandType_COMMAND_TYPE_USER_REQUEST, nil
-	case CommandAbort:
-		return programmaticv1.CommandType_COMMAND_TYPE_ABORT, nil
-	case CommandGetRunState:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_RUN_STATE, nil
-	case CommandGetMessages:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_MESSAGES, nil
-	case CommandGetModels:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_MODELS, nil
-	case CommandSelectModel:
-		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_MODEL, nil
-	case CommandSelectReasoningChoice:
-		return programmaticv1.CommandType_COMMAND_TYPE_SELECT_REASONING_CHOICE, nil
-	case CommandCreateSession:
-		return programmaticv1.CommandType_COMMAND_TYPE_CREATE_SESSION, nil
-	case CommandListSessions:
-		return programmaticv1.CommandType_COMMAND_TYPE_LIST_SESSIONS, nil
-	case CommandResumeSession:
-		return programmaticv1.CommandType_COMMAND_TYPE_RESUME_SESSION, nil
-	case CommandSetSessionName:
-		return programmaticv1.CommandType_COMMAND_TYPE_SET_SESSION_NAME, nil
-	case CommandGetSessionInfo:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_INFO, nil
-	case CommandGetSessionEntries:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES, nil
-	case CommandGetSessionStats:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_STATS, nil
-	case CommandGetSessionTree:
-		return programmaticv1.CommandType_COMMAND_TYPE_GET_SESSION_TREE, nil
-	case CommandNavigateSessionTree:
-		return programmaticv1.CommandType_COMMAND_TYPE_NAVIGATE_SESSION_TREE, nil
-	case CommandForkSession:
-		return programmaticv1.CommandType_COMMAND_TYPE_FORK_SESSION, nil
-	case CommandCloneSession:
-		return programmaticv1.CommandType_COMMAND_TYPE_CLONE_SESSION, nil
-	case CommandSetEntryLabel:
-		return programmaticv1.CommandType_COMMAND_TYPE_SET_ENTRY_LABEL, nil
-	default:
-		return 0, fmt.Errorf("map command type: unknown value %d", kind)
-	}
-}
-
-//nolint:gocyclo // The switch maps every closed public rejection code.
-func mapRejectionCode(code RejectionCode) (programmaticv1.RejectionCode, error) {
-	switch code {
-	case RejectionInvalidArgument:
-		return programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, nil
-	case RejectionBusy:
-		return programmaticv1.RejectionCode_REJECTION_CODE_BUSY, nil
-	case RejectionNoActiveRun:
-		return programmaticv1.RejectionCode_REJECTION_CODE_NO_ACTIVE_RUN, nil
-	case RejectionCorrelationInUse:
-		return programmaticv1.RejectionCode_REJECTION_CODE_CORRELATION_IN_USE, nil
-	case RejectionInternal:
-		return programmaticv1.RejectionCode_REJECTION_CODE_INTERNAL, nil
-	case RejectionNotFound:
-		return programmaticv1.RejectionCode_REJECTION_CODE_NOT_FOUND, nil
-	case RejectionReasoningUnsupported:
-		return programmaticv1.RejectionCode_REJECTION_CODE_REASONING_UNSUPPORTED, nil
-	case RejectionCredentialUnavailable:
-		return programmaticv1.RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE, nil
-	case RejectionSessionUnavailable:
-		return programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, nil
-	case RejectionPersistenceUnavailable:
-		return programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, nil
-	case RejectionModelUnavailable:
-		return programmaticv1.RejectionCode_REJECTION_CODE_MODEL_UNAVAILABLE, nil
-	case RejectionModelFailed:
-		return programmaticv1.RejectionCode_REJECTION_CODE_MODEL_FAILED, nil
-	case RejectionExtensionInvalidResult:
-		return programmaticv1.RejectionCode_REJECTION_CODE_EXTENSION_INVALID_RESULT, nil
-	case RejectionExtensionUnavailable:
-		return programmaticv1.RejectionCode_REJECTION_CODE_EXTENSION_UNAVAILABLE, nil
-	case RejectionUnspecified:
-		return 0, errors.New("map rejection code: unspecified value")
-	default:
-		return 0, fmt.Errorf("map rejection code: unknown value %d", code)
-	}
-}
-
+// mapRunState maps one internal run state to its public enum.
 func mapRunState(state RunState) (programmaticv1.RunState, error) {
 	switch state {
 	case RunStateIdle:
@@ -109,6 +23,8 @@ func mapRunState(state RunState) (programmaticv1.RunState, error) {
 	}
 }
 
+// mapAgentEventType maps one internal agent event type to its public enum.
+//
 //nolint:gocyclo // The closed event enum is mapped exhaustively.
 func mapAgentEventType(eventType AgentEventType) (programmaticv1.AgentEventType, error) {
 	switch eventType {
@@ -144,8 +60,6 @@ func mapAgentEventType(eventType AgentEventType) (programmaticv1.AgentEventType,
 		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TURN_END, nil
 	case AgentEventAgentEnd:
 		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END, nil
-	case AgentEventAgentSettled:
-		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED, nil
 	case AgentEventUnspecified:
 		return 0, errors.New("map agent event type: unspecified value")
 	default:
@@ -153,6 +67,7 @@ func mapAgentEventType(eventType AgentEventType) (programmaticv1.AgentEventType,
 	}
 }
 
+// mapModelContentKind maps one internal model content kind to its public enum.
 func mapModelContentKind(kind ModelContentKind) (programmaticv1.ModelContentKind, error) {
 	switch kind {
 	case ModelContentText:
@@ -168,6 +83,7 @@ func mapModelContentKind(kind ModelContentKind) (programmaticv1.ModelContentKind
 	}
 }
 
+// mapProgressChannel maps one internal progress channel to its public enum.
 func mapProgressChannel(channel ProgressChannel) (programmaticv1.ProgressChannel, error) {
 	switch channel {
 	case ProgressChannelStatus:
@@ -192,6 +108,7 @@ func mapRequiredModelOutcome(outcome mo.Option[ModelOutcome]) (programmaticv1.Mo
 	return mapModelOutcome(outcomeValue)
 }
 
+// mapModelOutcome maps one internal model outcome to its public enum.
 func mapModelOutcome(outcome ModelOutcome) (programmaticv1.ModelOutcome, error) {
 	switch outcome {
 	case ModelOutcomeStop:
@@ -211,6 +128,7 @@ func mapModelOutcome(outcome ModelOutcome) (programmaticv1.ModelOutcome, error) 
 	}
 }
 
+// mapRunOutcome maps one internal run outcome to its public enum.
 func mapRunOutcome(outcome RunOutcome) (programmaticv1.RunOutcome, error) {
 	switch outcome {
 	case RunOutcomeCompleted:
@@ -224,11 +142,4 @@ func mapRunOutcome(outcome RunOutcome) (programmaticv1.RunOutcome, error) {
 	default:
 		return 0, fmt.Errorf("map run outcome: unknown value %d", outcome)
 	}
-}
-
-func mapPosition(position int) (int32, error) {
-	if position < math.MinInt32 || position > math.MaxInt32 {
-		return 0, fmt.Errorf("map position: value %d exceeds int32", position)
-	}
-	return int32(position), nil
 }

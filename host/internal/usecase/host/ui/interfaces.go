@@ -51,6 +51,8 @@ type ModelCatalog interface {
 
 // SessionControl provides UI session lifecycle operations.
 type SessionControl interface {
+	// TryAcquire reserves the shared session-mutation gate for one UI mutation.
+	TryAcquire() (func(), bool)
 	// Create replaces active state with a new empty session.
 	Create(context.Context) (session.Replacement, error)
 	// Resume validates and replaces active state by opaque ID.

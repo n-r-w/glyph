@@ -7,19 +7,20 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
-// ResponseKind identifies one command result.
+// ResponseKind identifies one operation result.
 type ResponseKind uint8
 
-// Response values enumerate command results.
+// Response values enumerate operation results.
 const (
 	// ResponseUnspecified identifies a missing result payload.
 	ResponseUnspecified ResponseKind = iota
-	// ResponseUserRequestAccepted confirms agent-request acceptance.
-	ResponseUserRequestAccepted
-	// ResponseAbortCompleted confirms active-run cancellation.
-	ResponseAbortCompleted
+	// ResponseUserRequestCompleted reports an agent run after settlement.
+	ResponseUserRequestCompleted
+	// ResponseCancelCompleted reports the target operation's observed terminal state.
+	ResponseCancelCompleted
 	// ResponseRunState contains a run-state snapshot.
 	ResponseRunState
 	// ResponseMessages contains public history.
@@ -50,7 +51,7 @@ const (
 	ResponseSetEntryLabel
 )
 
-// RejectionCode identifies why a correlated command was not executed.
+// RejectionCode identifies why an operation was not executed.
 type RejectionCode uint8
 
 // Rejection values enumerate closed rejection reasons.
@@ -61,10 +62,8 @@ const (
 	RejectionInvalidArgument
 	// RejectionBusy reports an occupied operation gate.
 	RejectionBusy
-	// RejectionNoActiveRun reports an abort without an active run.
-	RejectionNoActiveRun
-	// RejectionCorrelationInUse reports an active correlation identifier.
-	RejectionCorrelationInUse
+	// RejectionOperationIDInUse reports an active operation identifier.
+	RejectionOperationIDInUse
 	// RejectionInternal reports an unclassified Host failure.
 	RejectionInternal
 	// RejectionNotFound reports a missing requested resource.
@@ -87,10 +86,10 @@ const (
 	RejectionExtensionUnavailable
 )
 
-// Response is the single result of one correlated command.
+// Response is the completed result of one controller operation.
 type Response struct {
-	// CorrelationID identifies the completed command.
-	CorrelationID string
+	// OperationID identifies the completed operation.
+	OperationID string
 	// Kind identifies the response payload.
 	Kind ResponseKind
 	// State contains the requested run-state snapshot.
@@ -115,8 +114,10 @@ type Response struct {
 	TreeNavigation mo.Option[TreeNavigationResult]
 	// Replacement is present for fork and clone results.
 	Replacement mo.Option[SessionReplacement]
-	// Rejection contains a command failure that keeps the session open.
+	// Rejection contains an operation rejection that keeps the session open.
 	Rejection mo.Option[Rejection]
+	// CancelTargetState contains the terminal state observed by cancellation.
+	CancelTargetState mo.Option[operation.TerminalState]
 }
 
 // SessionReplacement contains public active-session state after fork or clone.
@@ -157,7 +158,7 @@ type ModelsResult struct {
 	ActiveSelection mo.Option[model.Selection]
 }
 
-// Rejection describes one command failure that keeps the session open.
+// Rejection describes one operation rejection that keeps the session open.
 type Rejection struct {
 	// Command identifies the rejected operation.
 	Command CommandKind
@@ -181,8 +182,8 @@ const (
 type RunStateResult struct {
 	// State identifies whether Agent Core is idle or running.
 	State RunState
-	// ActiveCorrelationID identifies the accepted request while running.
-	ActiveCorrelationID mo.Option[string]
+	// ActiveOperationID identifies the running operation.
+	ActiveOperationID mo.Option[string]
 }
 
 // HistoryEntryKind identifies one public history entry.
@@ -210,7 +211,7 @@ type HistoryEntry struct {
 	ToolResult mo.Option[ToolResult]
 }
 
-// AgentEventType identifies one correlated agent lifecycle event.
+// AgentEventType identifies one agent progress event.
 type AgentEventType uint8
 
 // AgentEvent values enumerate public lifecycle events.
@@ -232,13 +233,12 @@ const (
 	AgentEventToolResult
 	AgentEventTurnEnd
 	AgentEventAgentEnd
-	AgentEventAgentSettled
 )
 
-// AgentEvent is one synchronous event for the accepted user request.
+// AgentEvent is one progress event from an active user operation.
 type AgentEvent struct {
-	// CorrelationID identifies the accepted user request.
-	CorrelationID string
+	// OperationID identifies the active user operation.
+	OperationID string
 	// Type identifies the lifecycle transition and active payload.
 	Type AgentEventType
 	// RunID identifies the agent run.

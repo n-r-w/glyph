@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -73,13 +71,19 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 		_ = fixture.connection.Close()
 	})
 	named := sendProgrammaticCommand(t, fixture, "name-cleanup-failure", func(request *programmaticv1.OpenRequest) {
-		request.SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("cleanup durable")}.Build())
+		programmaticRequest(
+			request,
+		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("cleanup durable")}.Build())
 	}).GetSessionInfo().GetInfo()
 	privateUserText := "private cleanup user"
 	require.NoError(t, fixture.stream.Send(userRequest("cleanup-failure", privateUserText)))
-	accepted, err := fixture.stream.Recv()
-	require.NoError(t, err)
-	require.True(t, accepted.GetCommandResponse().HasUserRequestAccepted())
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetOperationId() == "cleanup-failure" && response.GetEvent().HasRunning() {
+			break
+		}
+	}
 	<-providerStarted
 	require.NoError(t, os.Chmod(named.GetStoragePath(), 0o400))
 	t.Cleanup(func() { _ = os.Chmod(named.GetStoragePath(), 0o600) })
@@ -87,9 +91,7 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 	// Act by closing the owner while terminal aborted-model persistence targets the read-only active file.
 	require.NoError(t, fixture.stream.CloseSend())
 	runErr := <-fixture.result
-	require.Error(t, runErr)
-	var cliStderr bytes.Buffer
-	require.NoError(t, headless.NewRenderer(io.Discard, &cliStderr).WriteError(runErr))
+	require.NoError(t, runErr)
 	fixture.assertClosed(t)
 	require.NoError(t, os.Chmod(named.GetStoragePath(), 0o600))
 	stored, err := os.ReadFile(named.GetStoragePath())
@@ -106,17 +108,12 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 		records = append(records, record)
 	}
 
-	// Assert cleanup classification, durable user state, and the full error at application boundaries.
+	// Assert joined cancellation, durable user state, and internal failure diagnostics.
 	select {
 	case <-providerCanceled:
 	default:
 		require.Fail(t, "process returned before provider cancellation completed")
 	}
-	require.ErrorIs(t, runErr, agentrun.ErrPersistenceUnavailable)
-	assert.Contains(t, runErr.Error(), "session persistence failed")
-	assert.Contains(t, strings.ToLower(runErr.Error()), "permission")
-	assert.Equal(t, "[error] "+runErr.Error()+"\n", cliStderr.String())
-	assert.NotContains(t, cliStderr.String(), privateUserText)
 	assert.NotContains(t, logs.String(), privateUserText)
 	assert.Equal(t, int32(1), requests.Load())
 	assert.Contains(t, string(stored), privateUserText)
@@ -130,8 +127,6 @@ func (testSuite *ProgrammaticAppSuite) TestOwnerClosurePersistenceFailurePreserv
 	require.NotNil(t, diagnostic)
 	assert.Equal(t, "append_history", diagnostic.Operation)
 	assert.Equal(t, named.GetId(), diagnostic.SessionID)
-	assert.Equal(t, 1, strings.Count(runErr.Error(), diagnostic.Error))
-	assert.Equal(t, 1, strings.Count(cliStderr.String(), diagnostic.Error))
 	assert.Contains(t, diagnostic.Error, "open session file")
 	assert.True(t, strings.Contains(strings.ToLower(diagnostic.Error), "permission") ||
 		strings.Contains(strings.ToLower(diagnostic.Error), "operation not permitted"),

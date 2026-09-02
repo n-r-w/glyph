@@ -30,7 +30,7 @@ func invalidModelOutcomeEvent() AgentEvent {
 			Diagnostics:   nil,
 			Content:       nil,
 		}),
-		CorrelationID:   "",
+		OperationID:     "",
 		RunID:           "",
 		ModelContent:    mo.None[ModelContent](),
 		ToolCallPreview: mo.None[ToolCallPreview](),
@@ -82,7 +82,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 				SessionEntries:    nil,
 				SessionStatistics: mo.None[session.Statistics](),
 				Kind:              ResponseUnspecified,
-				CorrelationID:     "",
+				OperationID:       "",
 				State:             mo.None[RunStateResult](),
 				Messages:          nil,
 				Models:            mo.None[ModelsResult](),
@@ -106,7 +106,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Model:      mo.None[ModelResponse](),
 					ToolResult: mo.None[ToolResult](),
 				}},
-				CorrelationID:  "",
+				OperationID:    "",
 				State:          mo.None[RunStateResult](),
 				Models:         mo.None[ModelsResult](),
 				Selection:      mo.None[model.Selection](),
@@ -122,7 +122,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 		"event": func() error {
 			_, err := mapEvent(AgentEvent{
 				Type:            AgentEventUnspecified,
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
 				ToolCallPreview: mo.None[ToolCallPreview](),
@@ -144,7 +144,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Position: 0,
 					Text:     mo.None[string](),
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ToolCallPreview: mo.None[ToolCallPreview](),
 				FinalToolCall:   mo.None[FinalToolCall](),
@@ -172,7 +172,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Position:    0,
 					Provisional: false,
 				}),
-				CorrelationID: "",
+				OperationID:   "",
 				RunID:         "",
 				ModelContent:  mo.None[ModelContent](),
 				FinalToolCall: mo.None[FinalToolCall](),
@@ -200,7 +200,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Position:    0,
 					Provisional: false,
 				}),
-				CorrelationID: "",
+				OperationID:   "",
 				RunID:         "",
 				ModelContent:  mo.None[ModelContent](),
 				FinalToolCall: mo.None[FinalToolCall](),
@@ -220,7 +220,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Channel: ProgressChannelUnspecified,
 					Content: "",
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
 				ToolCallPreview: mo.None[ToolCallPreview](),
@@ -246,7 +246,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					ToolName: "",
 					IsError:  false,
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
 				ToolCallPreview: mo.None[ToolCallPreview](),
@@ -282,7 +282,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Usage:         mo.None[ModelUsage](),
 					Diagnostics:   nil,
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
 				ToolCallPreview: mo.None[ToolCallPreview](),
@@ -302,7 +302,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 					Outcome:      RunOutcomeUnspecified,
 					ErrorMessage: mo.None[string](),
 				}),
-				CorrelationID:   "",
+				OperationID:     "",
 				RunID:           "",
 				ModelContent:    mo.None[ModelContent](),
 				ToolCallPreview: mo.None[ToolCallPreview](),
@@ -333,7 +333,7 @@ func TestMapEventRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
 	_, err := mapEvent(AgentEvent{
-		CorrelationID:   "correlation",
+		OperationID:     "operation",
 		Type:            AgentEventToolExecutionStart,
 		RunID:           "run",
 		ModelContent:    mo.None[ModelContent](),
@@ -401,36 +401,6 @@ func TestMappingRejectsMissingNestedAlternatives(t *testing.T) {
 	}
 }
 
-// TestSessionUnavailableRejectionMapsExactly verifies malformed storage has a dedicated transport code.
-func TestSessionUnavailableRejectionMapsExactly(t *testing.T) {
-	t.Parallel()
-
-	// Arrange the internal rejection for a stored session that cannot be resumed.
-	code := RejectionSessionUnavailable
-
-	// Act by mapping the rejection to the Programmatic protobuf contract.
-	mapped, err := mapRejectionCode(code)
-
-	// Assert the dedicated unavailable-session code is emitted.
-	require.NoError(t, err)
-	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE, mapped)
-}
-
-// TestPersistenceUnavailableRejectionMapsExactly verifies active storage failure has a dedicated transport code.
-func TestPersistenceUnavailableRejectionMapsExactly(t *testing.T) {
-	t.Parallel()
-
-	// Arrange the internal rejection for an active session that cannot accept mutations.
-	code := RejectionPersistenceUnavailable
-
-	// Act by mapping the rejection to the Programmatic protobuf contract.
-	mapped, err := mapRejectionCode(code)
-
-	// Assert the dedicated persistence-unavailable code is emitted.
-	require.NoError(t, err)
-	assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE, mapped)
-}
-
 // TestMapModelContentPreservesPresentZeroValues verifies zero position and empty text remain present values.
 func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
 	t.Parallel()
@@ -439,7 +409,7 @@ func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
 		Kind: ModelContentText, Position: 0, Text: mo.Some(""),
 	}, true)
 	require.NoError(t, err)
-	assert.Equal(t, int32(0), mapped.GetPosition())
+	assert.Equal(t, int64(0), mapped.GetPosition())
 	assert.Empty(t, mapped.GetText())
 }
 
@@ -447,22 +417,6 @@ func TestMapModelContentPreservesPresentZeroValues(t *testing.T) {
 func TestApprovedEnumValuesMapExactly(t *testing.T) {
 	t.Parallel()
 
-	for index, value := range []CommandKind{
-		CommandUnspecified, CommandUserRequest, CommandAbort, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice,
-	} {
-		mapped, err := mapCommandType(value)
-		require.NoError(t, err)
-		assert.Equal(t, programmaticv1.CommandType(index), mapped)
-	}
-	for index, value := range []RejectionCode{
-		RejectionInvalidArgument, RejectionBusy, RejectionNoActiveRun, RejectionCorrelationInUse,
-		RejectionInternal, RejectionNotFound, RejectionReasoningUnsupported, RejectionCredentialUnavailable,
-	} {
-		mapped, err := mapRejectionCode(value)
-		require.NoError(t, err)
-		assert.Equal(t, programmaticv1.RejectionCode(index+1), mapped)
-	}
 	for index, value := range []RunState{RunStateIdle, RunStateRunning} {
 		mapped, err := mapRunState(value)
 		require.NoError(t, err)

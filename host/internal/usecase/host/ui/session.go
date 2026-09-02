@@ -286,7 +286,14 @@ func (s *Session) applySubmit(
 func (s *Session) applySessionCommand(ctx context.Context, command domainui.Command) (bool, error) {
 	switch command.Kind {
 	case domainui.CommandCreateSession:
+		release, gateErr := s.acquireSessionMutation()
+		if gateErr != nil {
+			return true, preserveUndeliveredSource(
+				gateErr, s.sendInformation(sessionFailureText(gateErr, "Session replacement is unavailable.")),
+			)
+		}
 		replacement, err := s.sessionControl.Create(ctx)
+		release()
 		if err != nil {
 			return true, preserveUndeliveredSource(
 				err, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable.")),
@@ -306,7 +313,14 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		if !present || id == "" {
 			return true, s.sendInformation("A session ID is required.")
 		}
+		release, gateErr := s.acquireSessionMutation()
+		if gateErr != nil {
+			return true, preserveUndeliveredSource(
+				gateErr, s.sendInformation(sessionFailureText(gateErr, "Session replacement is unavailable.")),
+			)
+		}
 		replacement, err := s.sessionControl.Resume(ctx, session.ID(id))
+		release()
 		if err != nil {
 			return true, preserveUndeliveredSource(
 				err, s.sendInformation(sessionFailureText(err, "Session replacement is unavailable.")),
@@ -318,7 +332,15 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 		if !present {
 			return true, s.sendInformation("A session name is required.")
 		}
-		if _, err := s.sessionControl.SetName(ctx, name); err != nil {
+		release, gateErr := s.acquireSessionMutation()
+		if gateErr != nil {
+			return true, preserveUndeliveredSource(
+				gateErr, s.sendInformation(sessionFailureText(gateErr, "Session naming is unavailable.")),
+			)
+		}
+		_, err := s.sessionControl.SetName(ctx, name)
+		release()
+		if err != nil {
 			return true, preserveUndeliveredSource(
 				err, s.sendInformation(sessionFailureText(err, "Session naming is unavailable.")),
 			)
@@ -350,13 +372,30 @@ func (s *Session) applySessionCommand(ctx context.Context, command domainui.Comm
 	}
 }
 
+// acquireSessionMutation reserves the shared gate for one validated UI mutation.
+func (s *Session) acquireSessionMutation() (func(), error) {
+	release, acquired := s.sessionControl.TryAcquire()
+	if !acquired {
+		return nil, session.ErrBusy
+	}
+	return release, nil
+}
+
 // forkSession sends a replacement and exact next input only after durable creation.
 func (s *Session) forkSession(ctx context.Context, command domainui.Command) error {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return s.sendInformation("A target entry ID is required.")
 	}
+	release, gateErr := s.acquireSessionMutation()
+	if gateErr != nil {
+		return preserveUndeliveredSource(
+			gateErr,
+			s.sendInformation(sessionFailureText(gateErr, "Session fork is unavailable.")),
+		)
+	}
 	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
+	release()
 	if err != nil {
 		return preserveUndeliveredSource(
 			err,
@@ -374,7 +413,15 @@ func (s *Session) forkSession(ctx context.Context, command domainui.Command) err
 
 // cloneSession sends a replacement only after durable creation.
 func (s *Session) cloneSession(ctx context.Context) error {
+	release, gateErr := s.acquireSessionMutation()
+	if gateErr != nil {
+		return preserveUndeliveredSource(
+			gateErr,
+			s.sendInformation(sessionFailureText(gateErr, "Session clone is unavailable.")),
+		)
+	}
 	replacement, err := s.sessionControl.Clone(ctx)
+	release()
 	if err != nil {
 		return preserveUndeliveredSource(
 			err,
@@ -396,7 +443,15 @@ func (s *Session) setEntryLabel(ctx context.Context, command domainui.Command) e
 	if !targetPresent || targetID == "" || !labelPresent {
 		return s.sendInformation("A target entry ID and label are required.")
 	}
+	release, gateErr := s.acquireSessionMutation()
+	if gateErr != nil {
+		return preserveUndeliveredSource(
+			gateErr,
+			s.sendInformation(sessionFailureText(gateErr, "Entry labeling is unavailable.")),
+		)
+	}
 	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
+	release()
 	if err != nil {
 		return preserveUndeliveredSource(
 			err,
@@ -421,9 +476,14 @@ func (s *Session) navigateSessionTree(ctx context.Context, command domainui.Comm
 	if !present || targetID == "" || invalidFocus || !validMode {
 		return s.channel.Send(treeFailureFrame(domainui.TreeFailureInvalidArgument, "invalid tree navigation command"))
 	}
+	release, gateErr := s.acquireSessionMutation()
+	if gateErr != nil {
+		return s.channel.Send(navigationFailureFrame(gateErr))
+	}
 	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
 	})
+	release()
 	if err != nil {
 		return s.channel.Send(navigationFailureFrame(err))
 	}
@@ -737,7 +797,6 @@ func (s *Session) sendSelectionError() error {
 	return s.channel.Send(errorFrame("Could not change model selection.", false))
 }
 
-// sendAuthenticationError emits the failure and a state that permits explicit retry.
 // sendSourceError keeps source provenance only when its error frame cannot be delivered.
 func (s *Session) sendSourceError(sourceErr error, retryAuthentication bool) error {
 	return preserveUndeliveredSource(
@@ -746,6 +805,7 @@ func (s *Session) sendSourceError(sourceErr error, retryAuthentication bool) err
 	)
 }
 
+// sendAuthenticationError reports an authentication failure through the UI channel.
 func (s *Session) sendAuthenticationError(err error) error {
 	if sendErr := s.sendSourceError(err, true); sendErr != nil {
 		return sendErr

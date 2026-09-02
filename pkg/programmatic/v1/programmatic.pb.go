@@ -7,6 +7,7 @@
 package programmaticv1
 
 import (
+	v1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -21,218 +22,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// CommandType identifies a controller command.
-type CommandType int32
-
-const (
-	// No command type was provided.
-	CommandType_COMMAND_TYPE_UNSPECIFIED CommandType = 0
-	// A user request command.
-	CommandType_COMMAND_TYPE_USER_REQUEST CommandType = 1
-	// An abort command.
-	CommandType_COMMAND_TYPE_ABORT CommandType = 2
-	// A run-state query.
-	CommandType_COMMAND_TYPE_GET_RUN_STATE CommandType = 3
-	// A message-history query.
-	CommandType_COMMAND_TYPE_GET_MESSAGES CommandType = 4
-	// A configured-model query.
-	CommandType_COMMAND_TYPE_GET_MODELS CommandType = 5
-	// A model selection command.
-	CommandType_COMMAND_TYPE_SELECT_MODEL CommandType = 6
-	// A reasoning-choice selection command.
-	CommandType_COMMAND_TYPE_SELECT_REASONING_CHOICE CommandType = 7
-	// A new-session command.
-	CommandType_COMMAND_TYPE_CREATE_SESSION CommandType = 8
-	// A stored-session query.
-	CommandType_COMMAND_TYPE_LIST_SESSIONS CommandType = 9
-	// A session-resume command.
-	CommandType_COMMAND_TYPE_RESUME_SESSION CommandType = 10
-	// A session-name command.
-	CommandType_COMMAND_TYPE_SET_SESSION_NAME CommandType = 11
-	// An active-session information query.
-	CommandType_COMMAND_TYPE_GET_SESSION_INFO CommandType = 12
-	// An active-session entry query.
-	CommandType_COMMAND_TYPE_GET_SESSION_ENTRIES CommandType = 13
-	// An active-session statistics query.
-	CommandType_COMMAND_TYPE_GET_SESSION_STATS CommandType = 14
-	// A complete session-tree query.
-	CommandType_COMMAND_TYPE_GET_SESSION_TREE CommandType = 15
-	// A session-tree navigation command.
-	CommandType_COMMAND_TYPE_NAVIGATE_SESSION_TREE CommandType = 16
-	// A session-fork command.
-	CommandType_COMMAND_TYPE_FORK_SESSION CommandType = 17
-	// An active-branch clone command.
-	CommandType_COMMAND_TYPE_CLONE_SESSION CommandType = 18
-	// An entry-label mutation command.
-	CommandType_COMMAND_TYPE_SET_ENTRY_LABEL CommandType = 19
-)
-
-// Enum value maps for CommandType.
-var (
-	CommandType_name = map[int32]string{
-		0:  "COMMAND_TYPE_UNSPECIFIED",
-		1:  "COMMAND_TYPE_USER_REQUEST",
-		2:  "COMMAND_TYPE_ABORT",
-		3:  "COMMAND_TYPE_GET_RUN_STATE",
-		4:  "COMMAND_TYPE_GET_MESSAGES",
-		5:  "COMMAND_TYPE_GET_MODELS",
-		6:  "COMMAND_TYPE_SELECT_MODEL",
-		7:  "COMMAND_TYPE_SELECT_REASONING_CHOICE",
-		8:  "COMMAND_TYPE_CREATE_SESSION",
-		9:  "COMMAND_TYPE_LIST_SESSIONS",
-		10: "COMMAND_TYPE_RESUME_SESSION",
-		11: "COMMAND_TYPE_SET_SESSION_NAME",
-		12: "COMMAND_TYPE_GET_SESSION_INFO",
-		13: "COMMAND_TYPE_GET_SESSION_ENTRIES",
-		14: "COMMAND_TYPE_GET_SESSION_STATS",
-		15: "COMMAND_TYPE_GET_SESSION_TREE",
-		16: "COMMAND_TYPE_NAVIGATE_SESSION_TREE",
-		17: "COMMAND_TYPE_FORK_SESSION",
-		18: "COMMAND_TYPE_CLONE_SESSION",
-		19: "COMMAND_TYPE_SET_ENTRY_LABEL",
-	}
-	CommandType_value = map[string]int32{
-		"COMMAND_TYPE_UNSPECIFIED":             0,
-		"COMMAND_TYPE_USER_REQUEST":            1,
-		"COMMAND_TYPE_ABORT":                   2,
-		"COMMAND_TYPE_GET_RUN_STATE":           3,
-		"COMMAND_TYPE_GET_MESSAGES":            4,
-		"COMMAND_TYPE_GET_MODELS":              5,
-		"COMMAND_TYPE_SELECT_MODEL":            6,
-		"COMMAND_TYPE_SELECT_REASONING_CHOICE": 7,
-		"COMMAND_TYPE_CREATE_SESSION":          8,
-		"COMMAND_TYPE_LIST_SESSIONS":           9,
-		"COMMAND_TYPE_RESUME_SESSION":          10,
-		"COMMAND_TYPE_SET_SESSION_NAME":        11,
-		"COMMAND_TYPE_GET_SESSION_INFO":        12,
-		"COMMAND_TYPE_GET_SESSION_ENTRIES":     13,
-		"COMMAND_TYPE_GET_SESSION_STATS":       14,
-		"COMMAND_TYPE_GET_SESSION_TREE":        15,
-		"COMMAND_TYPE_NAVIGATE_SESSION_TREE":   16,
-		"COMMAND_TYPE_FORK_SESSION":            17,
-		"COMMAND_TYPE_CLONE_SESSION":           18,
-		"COMMAND_TYPE_SET_ENTRY_LABEL":         19,
-	}
-)
-
-func (x CommandType) Enum() *CommandType {
-	p := new(CommandType)
-	*p = x
-	return p
-}
-
-func (x CommandType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CommandType) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[0].Descriptor()
-}
-
-func (CommandType) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[0]
-}
-
-func (x CommandType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// RejectionCode identifies why a command was rejected.
-type RejectionCode int32
-
-const (
-	// No rejection code was provided.
-	RejectionCode_REJECTION_CODE_UNSPECIFIED RejectionCode = 0
-	// The command arguments are invalid.
-	RejectionCode_REJECTION_CODE_INVALID_ARGUMENT RejectionCode = 1
-	// Another agent run is active.
-	RejectionCode_REJECTION_CODE_BUSY RejectionCode = 2
-	// No agent run is active.
-	RejectionCode_REJECTION_CODE_NO_ACTIVE_RUN RejectionCode = 3
-	// The correlation identifier belongs to the active run.
-	RejectionCode_REJECTION_CODE_CORRELATION_IN_USE RejectionCode = 4
-	// An internal operation failed.
-	RejectionCode_REJECTION_CODE_INTERNAL RejectionCode = 5
-	// The provider-model pair was not found.
-	RejectionCode_REJECTION_CODE_NOT_FOUND RejectionCode = 6
-	// The reasoning choice is not supported.
-	RejectionCode_REJECTION_CODE_REASONING_UNSUPPORTED RejectionCode = 7
-	// The selected model credential is unavailable.
-	RejectionCode_REJECTION_CODE_CREDENTIAL_UNAVAILABLE RejectionCode = 8
-	// The requested session file cannot be resumed.
-	RejectionCode_REJECTION_CODE_SESSION_UNAVAILABLE RejectionCode = 9
-	// The active session cannot accept persistence mutations.
-	RejectionCode_REJECTION_CODE_PERSISTENCE_UNAVAILABLE RejectionCode = 10
-	// The selected summary model is unavailable.
-	RejectionCode_REJECTION_CODE_MODEL_UNAVAILABLE RejectionCode = 11
-	// Summary-model execution failed.
-	RejectionCode_REJECTION_CODE_MODEL_FAILED RejectionCode = 12
-	// An extension returned an invalid result.
-	RejectionCode_REJECTION_CODE_EXTENSION_INVALID_RESULT RejectionCode = 13
-	// An extension is unavailable.
-	RejectionCode_REJECTION_CODE_EXTENSION_UNAVAILABLE RejectionCode = 14
-)
-
-// Enum value maps for RejectionCode.
-var (
-	RejectionCode_name = map[int32]string{
-		0:  "REJECTION_CODE_UNSPECIFIED",
-		1:  "REJECTION_CODE_INVALID_ARGUMENT",
-		2:  "REJECTION_CODE_BUSY",
-		3:  "REJECTION_CODE_NO_ACTIVE_RUN",
-		4:  "REJECTION_CODE_CORRELATION_IN_USE",
-		5:  "REJECTION_CODE_INTERNAL",
-		6:  "REJECTION_CODE_NOT_FOUND",
-		7:  "REJECTION_CODE_REASONING_UNSUPPORTED",
-		8:  "REJECTION_CODE_CREDENTIAL_UNAVAILABLE",
-		9:  "REJECTION_CODE_SESSION_UNAVAILABLE",
-		10: "REJECTION_CODE_PERSISTENCE_UNAVAILABLE",
-		11: "REJECTION_CODE_MODEL_UNAVAILABLE",
-		12: "REJECTION_CODE_MODEL_FAILED",
-		13: "REJECTION_CODE_EXTENSION_INVALID_RESULT",
-		14: "REJECTION_CODE_EXTENSION_UNAVAILABLE",
-	}
-	RejectionCode_value = map[string]int32{
-		"REJECTION_CODE_UNSPECIFIED":              0,
-		"REJECTION_CODE_INVALID_ARGUMENT":         1,
-		"REJECTION_CODE_BUSY":                     2,
-		"REJECTION_CODE_NO_ACTIVE_RUN":            3,
-		"REJECTION_CODE_CORRELATION_IN_USE":       4,
-		"REJECTION_CODE_INTERNAL":                 5,
-		"REJECTION_CODE_NOT_FOUND":                6,
-		"REJECTION_CODE_REASONING_UNSUPPORTED":    7,
-		"REJECTION_CODE_CREDENTIAL_UNAVAILABLE":   8,
-		"REJECTION_CODE_SESSION_UNAVAILABLE":      9,
-		"REJECTION_CODE_PERSISTENCE_UNAVAILABLE":  10,
-		"REJECTION_CODE_MODEL_UNAVAILABLE":        11,
-		"REJECTION_CODE_MODEL_FAILED":             12,
-		"REJECTION_CODE_EXTENSION_INVALID_RESULT": 13,
-		"REJECTION_CODE_EXTENSION_UNAVAILABLE":    14,
-	}
-)
-
-func (x RejectionCode) Enum() *RejectionCode {
-	p := new(RejectionCode)
-	*p = x
-	return p
-}
-
-func (x RejectionCode) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (RejectionCode) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[1].Descriptor()
-}
-
-func (RejectionCode) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[1]
-}
-
-func (x RejectionCode) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
 
 // SummaryMode identifies branch-summary behavior for tree navigation.
 type SummaryMode int32
@@ -275,11 +64,11 @@ func (x SummaryMode) String() string {
 }
 
 func (SummaryMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[2].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[0].Descriptor()
 }
 
 func (SummaryMode) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[2]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[0]
 }
 
 func (x SummaryMode) Number() protoreflect.EnumNumber {
@@ -323,11 +112,11 @@ func (x SessionTreeNavigationStatus) String() string {
 }
 
 func (SessionTreeNavigationStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[3].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[1].Descriptor()
 }
 
 func (SessionTreeNavigationStatus) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[3]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[1]
 }
 
 func (x SessionTreeNavigationStatus) Number() protoreflect.EnumNumber {
@@ -375,11 +164,11 @@ func (x OperationIssueCode) String() string {
 }
 
 func (OperationIssueCode) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[4].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[2].Descriptor()
 }
 
 func (OperationIssueCode) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[4]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[2]
 }
 
 func (x OperationIssueCode) Number() protoreflect.EnumNumber {
@@ -423,11 +212,11 @@ func (x InputModality) String() string {
 }
 
 func (InputModality) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[5].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[3].Descriptor()
 }
 
 func (InputModality) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[5]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[3]
 }
 
 func (x InputModality) Number() protoreflect.EnumNumber {
@@ -495,11 +284,11 @@ func (x ReasoningChoice) String() string {
 }
 
 func (ReasoningChoice) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[6].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[4].Descriptor()
 }
 
 func (ReasoningChoice) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[6]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[4]
 }
 
 func (x ReasoningChoice) Number() protoreflect.EnumNumber {
@@ -543,11 +332,11 @@ func (x RunState) String() string {
 }
 
 func (RunState) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[7].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[5].Descriptor()
 }
 
 func (RunState) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[7]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[5]
 }
 
 func (x RunState) Number() protoreflect.EnumNumber {
@@ -592,8 +381,6 @@ const (
 	AgentEventType_AGENT_EVENT_TYPE_TURN_END AgentEventType = 15
 	// The agent run ended.
 	AgentEventType_AGENT_EVENT_TYPE_AGENT_END AgentEventType = 16
-	// The agent completed all terminal processing.
-	AgentEventType_AGENT_EVENT_TYPE_AGENT_SETTLED AgentEventType = 17
 )
 
 // Enum value maps for AgentEventType.
@@ -616,7 +403,6 @@ var (
 		14: "AGENT_EVENT_TYPE_TOOL_RESULT",
 		15: "AGENT_EVENT_TYPE_TURN_END",
 		16: "AGENT_EVENT_TYPE_AGENT_END",
-		17: "AGENT_EVENT_TYPE_AGENT_SETTLED",
 	}
 	AgentEventType_value = map[string]int32{
 		"AGENT_EVENT_TYPE_UNSPECIFIED":           0,
@@ -636,7 +422,6 @@ var (
 		"AGENT_EVENT_TYPE_TOOL_RESULT":           14,
 		"AGENT_EVENT_TYPE_TURN_END":              15,
 		"AGENT_EVENT_TYPE_AGENT_END":             16,
-		"AGENT_EVENT_TYPE_AGENT_SETTLED":         17,
 	}
 )
 
@@ -651,11 +436,11 @@ func (x AgentEventType) String() string {
 }
 
 func (AgentEventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[8].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[6].Descriptor()
 }
 
 func (AgentEventType) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[8]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[6]
 }
 
 func (x AgentEventType) Number() protoreflect.EnumNumber {
@@ -703,11 +488,11 @@ func (x ModelContentKind) String() string {
 }
 
 func (ModelContentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[9].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[7].Descriptor()
 }
 
 func (ModelContentKind) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[9]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[7]
 }
 
 func (x ModelContentKind) Number() protoreflect.EnumNumber {
@@ -755,11 +540,11 @@ func (x ProgressChannel) String() string {
 }
 
 func (ProgressChannel) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[10].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[8].Descriptor()
 }
 
 func (ProgressChannel) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[10]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[8]
 }
 
 func (x ProgressChannel) Number() protoreflect.EnumNumber {
@@ -815,11 +600,11 @@ func (x ModelOutcome) String() string {
 }
 
 func (ModelOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[11].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[9].Descriptor()
 }
 
 func (ModelOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[11]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[9]
 }
 
 func (x ModelOutcome) Number() protoreflect.EnumNumber {
@@ -867,26 +652,26 @@ func (x RunOutcome) String() string {
 }
 
 func (RunOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_programmatic_proto_enumTypes[12].Descriptor()
+	return file_api_programmatic_v1_programmatic_proto_enumTypes[10].Descriptor()
 }
 
 func (RunOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_programmatic_proto_enumTypes[12]
+	return &file_api_programmatic_v1_programmatic_proto_enumTypes[10]
 }
 
 func (x RunOutcome) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// OpenRequest carries one correlated command.
+// OpenRequest carries one controller operation request.
 type OpenRequest struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CorrelationId *string                `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3,oneof"`
-	xxx_hidden_Command       isOpenRequest_Command  `protobuf_oneof:"command"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_OperationId *string                `protobuf:"bytes,1,opt,name=operation_id,json=operationId"`
+	xxx_hidden_Content     isOpenRequest_Content  `protobuf_oneof:"content"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *OpenRequest) Reset() {
@@ -914,712 +699,848 @@ func (x *OpenRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *OpenRequest) GetCorrelationId() string {
+func (x *OpenRequest) GetOperationId() string {
 	if x != nil {
-		if x.xxx_hidden_CorrelationId != nil {
-			return *x.xxx_hidden_CorrelationId
+		if x.xxx_hidden_OperationId != nil {
+			return *x.xxx_hidden_OperationId
 		}
 		return ""
 	}
 	return ""
 }
 
-func (x *OpenRequest) GetUserRequest() *UserRequest {
+func (x *OpenRequest) GetRequest() *ControllerRequest {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_UserRequest); ok {
-			return x.UserRequest
+		if x, ok := x.xxx_hidden_Content.(*openRequest_Request); ok {
+			return x.Request
 		}
 	}
 	return nil
 }
 
-func (x *OpenRequest) GetAbort() *Abort {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_Abort); ok {
-			return x.Abort
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetRunState() *GetRunState {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetRunState); ok {
-			return x.GetRunState
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetMessages() *GetMessages {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetMessages); ok {
-			return x.GetMessages
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetModels() *GetModels {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetModels); ok {
-			return x.GetModels
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetSelectModel() *SelectModel {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_SelectModel); ok {
-			return x.SelectModel
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetSelectReasoningChoice() *SelectReasoningChoice {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_SelectReasoningChoice); ok {
-			return x.SelectReasoningChoice
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetCreateSession() *CreateSession {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_CreateSession); ok {
-			return x.CreateSession
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetListSessions() *ListSessions {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_ListSessions); ok {
-			return x.ListSessions
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetResumeSession() *ResumeSession {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_ResumeSession); ok {
-			return x.ResumeSession
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetSetSessionName() *SetSessionName {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_SetSessionName); ok {
-			return x.SetSessionName
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetSessionInfo() *GetSessionInfo {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetSessionInfo); ok {
-			return x.GetSessionInfo
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetSessionEntries() *GetSessionEntries {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries); ok {
-			return x.GetSessionEntries
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetSessionStats() *GetSessionStats {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetSessionStats); ok {
-			return x.GetSessionStats
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetGetSessionTree() *GetSessionTree {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_GetSessionTree); ok {
-			return x.GetSessionTree
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetNavigateSessionTree() *NavigateSessionTree {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_NavigateSessionTree); ok {
-			return x.NavigateSessionTree
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetForkSession() *ForkSession {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_ForkSession); ok {
-			return x.ForkSession
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetCloneSession() *CloneSession {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_CloneSession); ok {
-			return x.CloneSession
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) GetSetEntryLabel() *SetEntryLabel {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Command.(*openRequest_SetEntryLabel); ok {
-			return x.SetEntryLabel
-		}
-	}
-	return nil
-}
-
-func (x *OpenRequest) SetCorrelationId(v string) {
-	x.xxx_hidden_CorrelationId = &v
+func (x *OpenRequest) SetOperationId(v string) {
+	x.xxx_hidden_OperationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *OpenRequest) SetUserRequest(v *UserRequest) {
+func (x *OpenRequest) SetRequest(v *ControllerRequest) {
 	if v == nil {
-		x.xxx_hidden_Command = nil
+		x.xxx_hidden_Content = nil
 		return
 	}
-	x.xxx_hidden_Command = &openRequest_UserRequest{v}
+	x.xxx_hidden_Content = &openRequest_Request{v}
 }
 
-func (x *OpenRequest) SetAbort(v *Abort) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_Abort{v}
-}
-
-func (x *OpenRequest) SetGetRunState(v *GetRunState) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetRunState{v}
-}
-
-func (x *OpenRequest) SetGetMessages(v *GetMessages) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetMessages{v}
-}
-
-func (x *OpenRequest) SetGetModels(v *GetModels) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetModels{v}
-}
-
-func (x *OpenRequest) SetSelectModel(v *SelectModel) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_SelectModel{v}
-}
-
-func (x *OpenRequest) SetSelectReasoningChoice(v *SelectReasoningChoice) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_SelectReasoningChoice{v}
-}
-
-func (x *OpenRequest) SetCreateSession(v *CreateSession) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_CreateSession{v}
-}
-
-func (x *OpenRequest) SetListSessions(v *ListSessions) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_ListSessions{v}
-}
-
-func (x *OpenRequest) SetResumeSession(v *ResumeSession) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_ResumeSession{v}
-}
-
-func (x *OpenRequest) SetSetSessionName(v *SetSessionName) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_SetSessionName{v}
-}
-
-func (x *OpenRequest) SetGetSessionInfo(v *GetSessionInfo) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetSessionInfo{v}
-}
-
-func (x *OpenRequest) SetGetSessionEntries(v *GetSessionEntries) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetSessionEntries{v}
-}
-
-func (x *OpenRequest) SetGetSessionStats(v *GetSessionStats) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetSessionStats{v}
-}
-
-func (x *OpenRequest) SetGetSessionTree(v *GetSessionTree) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_GetSessionTree{v}
-}
-
-func (x *OpenRequest) SetNavigateSessionTree(v *NavigateSessionTree) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_NavigateSessionTree{v}
-}
-
-func (x *OpenRequest) SetForkSession(v *ForkSession) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_ForkSession{v}
-}
-
-func (x *OpenRequest) SetCloneSession(v *CloneSession) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_CloneSession{v}
-}
-
-func (x *OpenRequest) SetSetEntryLabel(v *SetEntryLabel) {
-	if v == nil {
-		x.xxx_hidden_Command = nil
-		return
-	}
-	x.xxx_hidden_Command = &openRequest_SetEntryLabel{v}
-}
-
-func (x *OpenRequest) HasCorrelationId() bool {
+func (x *OpenRequest) HasOperationId() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *OpenRequest) HasCommand() bool {
+func (x *OpenRequest) HasContent() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Command != nil
+	return x.xxx_hidden_Content != nil
 }
 
-func (x *OpenRequest) HasUserRequest() bool {
+func (x *OpenRequest) HasRequest() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_UserRequest)
+	_, ok := x.xxx_hidden_Content.(*openRequest_Request)
 	return ok
 }
 
-func (x *OpenRequest) HasAbort() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_Abort)
-	return ok
-}
-
-func (x *OpenRequest) HasGetRunState() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetRunState)
-	return ok
-}
-
-func (x *OpenRequest) HasGetMessages() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetMessages)
-	return ok
-}
-
-func (x *OpenRequest) HasGetModels() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetModels)
-	return ok
-}
-
-func (x *OpenRequest) HasSelectModel() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_SelectModel)
-	return ok
-}
-
-func (x *OpenRequest) HasSelectReasoningChoice() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_SelectReasoningChoice)
-	return ok
-}
-
-func (x *OpenRequest) HasCreateSession() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_CreateSession)
-	return ok
-}
-
-func (x *OpenRequest) HasListSessions() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_ListSessions)
-	return ok
-}
-
-func (x *OpenRequest) HasResumeSession() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_ResumeSession)
-	return ok
-}
-
-func (x *OpenRequest) HasSetSessionName() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_SetSessionName)
-	return ok
-}
-
-func (x *OpenRequest) HasGetSessionInfo() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetSessionInfo)
-	return ok
-}
-
-func (x *OpenRequest) HasGetSessionEntries() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries)
-	return ok
-}
-
-func (x *OpenRequest) HasGetSessionStats() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetSessionStats)
-	return ok
-}
-
-func (x *OpenRequest) HasGetSessionTree() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_GetSessionTree)
-	return ok
-}
-
-func (x *OpenRequest) HasNavigateSessionTree() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_NavigateSessionTree)
-	return ok
-}
-
-func (x *OpenRequest) HasForkSession() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_ForkSession)
-	return ok
-}
-
-func (x *OpenRequest) HasCloneSession() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_CloneSession)
-	return ok
-}
-
-func (x *OpenRequest) HasSetEntryLabel() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Command.(*openRequest_SetEntryLabel)
-	return ok
-}
-
-func (x *OpenRequest) ClearCorrelationId() {
+func (x *OpenRequest) ClearOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_CorrelationId = nil
+	x.xxx_hidden_OperationId = nil
 }
 
-func (x *OpenRequest) ClearCommand() {
-	x.xxx_hidden_Command = nil
+func (x *OpenRequest) ClearContent() {
+	x.xxx_hidden_Content = nil
 }
 
-func (x *OpenRequest) ClearUserRequest() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_UserRequest); ok {
-		x.xxx_hidden_Command = nil
+func (x *OpenRequest) ClearRequest() {
+	if _, ok := x.xxx_hidden_Content.(*openRequest_Request); ok {
+		x.xxx_hidden_Content = nil
 	}
 }
 
-func (x *OpenRequest) ClearAbort() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_Abort); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
+const OpenRequest_Content_not_set_case case_OpenRequest_Content = 0
+const OpenRequest_Request_case case_OpenRequest_Content = 2
 
-func (x *OpenRequest) ClearGetRunState() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetRunState); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetMessages() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetMessages); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetModels() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetModels); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearSelectModel() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_SelectModel); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearSelectReasoningChoice() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_SelectReasoningChoice); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearCreateSession() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_CreateSession); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearListSessions() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_ListSessions); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearResumeSession() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_ResumeSession); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearSetSessionName() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_SetSessionName); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetSessionInfo() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetSessionInfo); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetSessionEntries() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetSessionEntries); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetSessionStats() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetSessionStats); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearGetSessionTree() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_GetSessionTree); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearNavigateSessionTree() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_NavigateSessionTree); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearForkSession() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_ForkSession); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearCloneSession() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_CloneSession); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-func (x *OpenRequest) ClearSetEntryLabel() {
-	if _, ok := x.xxx_hidden_Command.(*openRequest_SetEntryLabel); ok {
-		x.xxx_hidden_Command = nil
-	}
-}
-
-const OpenRequest_Command_not_set_case case_OpenRequest_Command = 0
-const OpenRequest_UserRequest_case case_OpenRequest_Command = 2
-const OpenRequest_Abort_case case_OpenRequest_Command = 3
-const OpenRequest_GetRunState_case case_OpenRequest_Command = 4
-const OpenRequest_GetMessages_case case_OpenRequest_Command = 5
-const OpenRequest_GetModels_case case_OpenRequest_Command = 6
-const OpenRequest_SelectModel_case case_OpenRequest_Command = 7
-const OpenRequest_SelectReasoningChoice_case case_OpenRequest_Command = 8
-const OpenRequest_CreateSession_case case_OpenRequest_Command = 9
-const OpenRequest_ListSessions_case case_OpenRequest_Command = 10
-const OpenRequest_ResumeSession_case case_OpenRequest_Command = 11
-const OpenRequest_SetSessionName_case case_OpenRequest_Command = 12
-const OpenRequest_GetSessionInfo_case case_OpenRequest_Command = 13
-const OpenRequest_GetSessionEntries_case case_OpenRequest_Command = 14
-const OpenRequest_GetSessionStats_case case_OpenRequest_Command = 15
-const OpenRequest_GetSessionTree_case case_OpenRequest_Command = 16
-const OpenRequest_NavigateSessionTree_case case_OpenRequest_Command = 17
-const OpenRequest_ForkSession_case case_OpenRequest_Command = 18
-const OpenRequest_CloneSession_case case_OpenRequest_Command = 19
-const OpenRequest_SetEntryLabel_case case_OpenRequest_Command = 20
-
-func (x *OpenRequest) WhichCommand() case_OpenRequest_Command {
+func (x *OpenRequest) WhichContent() case_OpenRequest_Content {
 	if x == nil {
-		return OpenRequest_Command_not_set_case
+		return OpenRequest_Content_not_set_case
 	}
-	switch x.xxx_hidden_Command.(type) {
-	case *openRequest_UserRequest:
-		return OpenRequest_UserRequest_case
-	case *openRequest_Abort:
-		return OpenRequest_Abort_case
-	case *openRequest_GetRunState:
-		return OpenRequest_GetRunState_case
-	case *openRequest_GetMessages:
-		return OpenRequest_GetMessages_case
-	case *openRequest_GetModels:
-		return OpenRequest_GetModels_case
-	case *openRequest_SelectModel:
-		return OpenRequest_SelectModel_case
-	case *openRequest_SelectReasoningChoice:
-		return OpenRequest_SelectReasoningChoice_case
-	case *openRequest_CreateSession:
-		return OpenRequest_CreateSession_case
-	case *openRequest_ListSessions:
-		return OpenRequest_ListSessions_case
-	case *openRequest_ResumeSession:
-		return OpenRequest_ResumeSession_case
-	case *openRequest_SetSessionName:
-		return OpenRequest_SetSessionName_case
-	case *openRequest_GetSessionInfo:
-		return OpenRequest_GetSessionInfo_case
-	case *openRequest_GetSessionEntries:
-		return OpenRequest_GetSessionEntries_case
-	case *openRequest_GetSessionStats:
-		return OpenRequest_GetSessionStats_case
-	case *openRequest_GetSessionTree:
-		return OpenRequest_GetSessionTree_case
-	case *openRequest_NavigateSessionTree:
-		return OpenRequest_NavigateSessionTree_case
-	case *openRequest_ForkSession:
-		return OpenRequest_ForkSession_case
-	case *openRequest_CloneSession:
-		return OpenRequest_CloneSession_case
-	case *openRequest_SetEntryLabel:
-		return OpenRequest_SetEntryLabel_case
+	switch x.xxx_hidden_Content.(type) {
+	case *openRequest_Request:
+		return OpenRequest_Request_case
 	default:
-		return OpenRequest_Command_not_set_case
+		return OpenRequest_Content_not_set_case
 	}
 }
 
 type OpenRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The controller-assigned command correlation identifier.
-	CorrelationId *string
-	// The command payload.
+	// The controller-assigned operation identifier.
+	OperationId *string
+	// The stream content.
 
-	// Fields of oneof xxx_hidden_Command:
+	// Fields of oneof xxx_hidden_Content:
+	// The operation request.
+	Request *ControllerRequest
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 OpenRequest_builder) Build() *OpenRequest {
+	m0 := &OpenRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.OperationId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_OperationId = b.OperationId
+	}
+	if b.Request != nil {
+		x.xxx_hidden_Content = &openRequest_Request{b.Request}
+	}
+	return m0
+}
+
+type case_OpenRequest_Content protoreflect.FieldNumber
+
+func (x case_OpenRequest_Content) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[0].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isOpenRequest_Content interface {
+	isOpenRequest_Content()
+}
+
+type openRequest_Request struct {
+	// The operation request.
+	Request *ControllerRequest `protobuf:"bytes,2,opt,name=request,oneof"`
+}
+
+func (*openRequest_Request) isOpenRequest_Content() {}
+
+// ControllerRequest carries exactly one Programmatic operation kind.
+type ControllerRequest struct {
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Request isControllerRequest_Request `protobuf_oneof:"request"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ControllerRequest) Reset() {
+	*x = ControllerRequest{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ControllerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ControllerRequest) ProtoMessage() {}
+
+func (x *ControllerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ControllerRequest) GetUserRequest() *UserRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_UserRequest); ok {
+			return x.UserRequest
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetCancel() *v1.CancelOperation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_Cancel); ok {
+			return x.Cancel
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetRunState() *GetRunState {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetRunState); ok {
+			return x.GetRunState
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetMessages() *GetMessages {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetMessages); ok {
+			return x.GetMessages
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetModels() *GetModels {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetModels); ok {
+			return x.GetModels
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetSelectModel() *SelectModel {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_SelectModel); ok {
+			return x.SelectModel
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetSelectReasoningChoice() *SelectReasoningChoice {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_SelectReasoningChoice); ok {
+			return x.SelectReasoningChoice
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetCreateSession() *CreateSession {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_CreateSession); ok {
+			return x.CreateSession
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetListSessions() *ListSessions {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_ListSessions); ok {
+			return x.ListSessions
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetResumeSession() *ResumeSession {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_ResumeSession); ok {
+			return x.ResumeSession
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetSetSessionName() *SetSessionName {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_SetSessionName); ok {
+			return x.SetSessionName
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetSessionInfo() *GetSessionInfo {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionInfo); ok {
+			return x.GetSessionInfo
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetSessionEntries() *GetSessionEntries {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionEntries); ok {
+			return x.GetSessionEntries
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetSessionStats() *GetSessionStats {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionStats); ok {
+			return x.GetSessionStats
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetGetSessionTree() *GetSessionTree {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionTree); ok {
+			return x.GetSessionTree
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetNavigateSessionTree() *NavigateSessionTree {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_NavigateSessionTree); ok {
+			return x.NavigateSessionTree
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetForkSession() *ForkSession {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_ForkSession); ok {
+			return x.ForkSession
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetCloneSession() *CloneSession {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_CloneSession); ok {
+			return x.CloneSession
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) GetSetEntryLabel() *SetEntryLabel {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_SetEntryLabel); ok {
+			return x.SetEntryLabel
+		}
+	}
+	return nil
+}
+
+func (x *ControllerRequest) SetUserRequest(v *UserRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_UserRequest{v}
+}
+
+func (x *ControllerRequest) SetCancel(v *v1.CancelOperation) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_Cancel{v}
+}
+
+func (x *ControllerRequest) SetGetRunState(v *GetRunState) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetRunState{v}
+}
+
+func (x *ControllerRequest) SetGetMessages(v *GetMessages) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetMessages{v}
+}
+
+func (x *ControllerRequest) SetGetModels(v *GetModels) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetModels{v}
+}
+
+func (x *ControllerRequest) SetSelectModel(v *SelectModel) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_SelectModel{v}
+}
+
+func (x *ControllerRequest) SetSelectReasoningChoice(v *SelectReasoningChoice) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_SelectReasoningChoice{v}
+}
+
+func (x *ControllerRequest) SetCreateSession(v *CreateSession) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_CreateSession{v}
+}
+
+func (x *ControllerRequest) SetListSessions(v *ListSessions) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_ListSessions{v}
+}
+
+func (x *ControllerRequest) SetResumeSession(v *ResumeSession) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_ResumeSession{v}
+}
+
+func (x *ControllerRequest) SetSetSessionName(v *SetSessionName) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_SetSessionName{v}
+}
+
+func (x *ControllerRequest) SetGetSessionInfo(v *GetSessionInfo) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetSessionInfo{v}
+}
+
+func (x *ControllerRequest) SetGetSessionEntries(v *GetSessionEntries) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetSessionEntries{v}
+}
+
+func (x *ControllerRequest) SetGetSessionStats(v *GetSessionStats) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetSessionStats{v}
+}
+
+func (x *ControllerRequest) SetGetSessionTree(v *GetSessionTree) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_GetSessionTree{v}
+}
+
+func (x *ControllerRequest) SetNavigateSessionTree(v *NavigateSessionTree) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_NavigateSessionTree{v}
+}
+
+func (x *ControllerRequest) SetForkSession(v *ForkSession) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_ForkSession{v}
+}
+
+func (x *ControllerRequest) SetCloneSession(v *CloneSession) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_CloneSession{v}
+}
+
+func (x *ControllerRequest) SetSetEntryLabel(v *SetEntryLabel) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_SetEntryLabel{v}
+}
+
+func (x *ControllerRequest) HasRequest() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Request != nil
+}
+
+func (x *ControllerRequest) HasUserRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_UserRequest)
+	return ok
+}
+
+func (x *ControllerRequest) HasCancel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_Cancel)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetRunState() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetRunState)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetMessages() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetMessages)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetModels() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetModels)
+	return ok
+}
+
+func (x *ControllerRequest) HasSelectModel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_SelectModel)
+	return ok
+}
+
+func (x *ControllerRequest) HasSelectReasoningChoice() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_SelectReasoningChoice)
+	return ok
+}
+
+func (x *ControllerRequest) HasCreateSession() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_CreateSession)
+	return ok
+}
+
+func (x *ControllerRequest) HasListSessions() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_ListSessions)
+	return ok
+}
+
+func (x *ControllerRequest) HasResumeSession() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_ResumeSession)
+	return ok
+}
+
+func (x *ControllerRequest) HasSetSessionName() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_SetSessionName)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetSessionInfo() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionInfo)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetSessionEntries() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionEntries)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetSessionStats() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionStats)
+	return ok
+}
+
+func (x *ControllerRequest) HasGetSessionTree() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionTree)
+	return ok
+}
+
+func (x *ControllerRequest) HasNavigateSessionTree() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_NavigateSessionTree)
+	return ok
+}
+
+func (x *ControllerRequest) HasForkSession() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_ForkSession)
+	return ok
+}
+
+func (x *ControllerRequest) HasCloneSession() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_CloneSession)
+	return ok
+}
+
+func (x *ControllerRequest) HasSetEntryLabel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_SetEntryLabel)
+	return ok
+}
+
+func (x *ControllerRequest) ClearRequest() {
+	x.xxx_hidden_Request = nil
+}
+
+func (x *ControllerRequest) ClearUserRequest() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_UserRequest); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearCancel() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_Cancel); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetRunState() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetRunState); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetMessages() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetMessages); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetModels() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetModels); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearSelectModel() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_SelectModel); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearSelectReasoningChoice() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_SelectReasoningChoice); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearCreateSession() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_CreateSession); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearListSessions() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_ListSessions); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearResumeSession() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_ResumeSession); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearSetSessionName() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_SetSessionName); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetSessionInfo() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionInfo); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetSessionEntries() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionEntries); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetSessionStats() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionStats); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearGetSessionTree() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_GetSessionTree); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearNavigateSessionTree() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_NavigateSessionTree); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearForkSession() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_ForkSession); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearCloneSession() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_CloneSession); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ControllerRequest) ClearSetEntryLabel() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_SetEntryLabel); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+const ControllerRequest_Request_not_set_case case_ControllerRequest_Request = 0
+const ControllerRequest_UserRequest_case case_ControllerRequest_Request = 1
+const ControllerRequest_Cancel_case case_ControllerRequest_Request = 2
+const ControllerRequest_GetRunState_case case_ControllerRequest_Request = 3
+const ControllerRequest_GetMessages_case case_ControllerRequest_Request = 4
+const ControllerRequest_GetModels_case case_ControllerRequest_Request = 5
+const ControllerRequest_SelectModel_case case_ControllerRequest_Request = 6
+const ControllerRequest_SelectReasoningChoice_case case_ControllerRequest_Request = 7
+const ControllerRequest_CreateSession_case case_ControllerRequest_Request = 8
+const ControllerRequest_ListSessions_case case_ControllerRequest_Request = 9
+const ControllerRequest_ResumeSession_case case_ControllerRequest_Request = 10
+const ControllerRequest_SetSessionName_case case_ControllerRequest_Request = 11
+const ControllerRequest_GetSessionInfo_case case_ControllerRequest_Request = 12
+const ControllerRequest_GetSessionEntries_case case_ControllerRequest_Request = 13
+const ControllerRequest_GetSessionStats_case case_ControllerRequest_Request = 14
+const ControllerRequest_GetSessionTree_case case_ControllerRequest_Request = 15
+const ControllerRequest_NavigateSessionTree_case case_ControllerRequest_Request = 16
+const ControllerRequest_ForkSession_case case_ControllerRequest_Request = 17
+const ControllerRequest_CloneSession_case case_ControllerRequest_Request = 18
+const ControllerRequest_SetEntryLabel_case case_ControllerRequest_Request = 19
+
+func (x *ControllerRequest) WhichRequest() case_ControllerRequest_Request {
+	if x == nil {
+		return ControllerRequest_Request_not_set_case
+	}
+	switch x.xxx_hidden_Request.(type) {
+	case *controllerRequest_UserRequest:
+		return ControllerRequest_UserRequest_case
+	case *controllerRequest_Cancel:
+		return ControllerRequest_Cancel_case
+	case *controllerRequest_GetRunState:
+		return ControllerRequest_GetRunState_case
+	case *controllerRequest_GetMessages:
+		return ControllerRequest_GetMessages_case
+	case *controllerRequest_GetModels:
+		return ControllerRequest_GetModels_case
+	case *controllerRequest_SelectModel:
+		return ControllerRequest_SelectModel_case
+	case *controllerRequest_SelectReasoningChoice:
+		return ControllerRequest_SelectReasoningChoice_case
+	case *controllerRequest_CreateSession:
+		return ControllerRequest_CreateSession_case
+	case *controllerRequest_ListSessions:
+		return ControllerRequest_ListSessions_case
+	case *controllerRequest_ResumeSession:
+		return ControllerRequest_ResumeSession_case
+	case *controllerRequest_SetSessionName:
+		return ControllerRequest_SetSessionName_case
+	case *controllerRequest_GetSessionInfo:
+		return ControllerRequest_GetSessionInfo_case
+	case *controllerRequest_GetSessionEntries:
+		return ControllerRequest_GetSessionEntries_case
+	case *controllerRequest_GetSessionStats:
+		return ControllerRequest_GetSessionStats_case
+	case *controllerRequest_GetSessionTree:
+		return ControllerRequest_GetSessionTree_case
+	case *controllerRequest_NavigateSessionTree:
+		return ControllerRequest_NavigateSessionTree_case
+	case *controllerRequest_ForkSession:
+		return ControllerRequest_ForkSession_case
+	case *controllerRequest_CloneSession:
+		return ControllerRequest_CloneSession_case
+	case *controllerRequest_SetEntryLabel:
+		return ControllerRequest_SetEntryLabel_case
+	default:
+		return ControllerRequest_Request_not_set_case
+	}
+}
+
+type ControllerRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The operation request.
+
+	// Fields of oneof xxx_hidden_Request:
 	UserRequest           *UserRequest
-	Abort                 *Abort
+	Cancel                *v1.CancelOperation
 	GetRunState           *GetRunState
 	GetMessages           *GetMessages
 	GetModels             *GetModels
@@ -1637,209 +1558,205 @@ type OpenRequest_builder struct {
 	ForkSession           *ForkSession
 	CloneSession          *CloneSession
 	SetEntryLabel         *SetEntryLabel
-	// -- end of xxx_hidden_Command
+	// -- end of xxx_hidden_Request
 }
 
-func (b0 OpenRequest_builder) Build() *OpenRequest {
-	m0 := &OpenRequest{}
+func (b0 ControllerRequest_builder) Build() *ControllerRequest {
+	m0 := &ControllerRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.CorrelationId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_CorrelationId = b.CorrelationId
-	}
 	if b.UserRequest != nil {
-		x.xxx_hidden_Command = &openRequest_UserRequest{b.UserRequest}
+		x.xxx_hidden_Request = &controllerRequest_UserRequest{b.UserRequest}
 	}
-	if b.Abort != nil {
-		x.xxx_hidden_Command = &openRequest_Abort{b.Abort}
+	if b.Cancel != nil {
+		x.xxx_hidden_Request = &controllerRequest_Cancel{b.Cancel}
 	}
 	if b.GetRunState != nil {
-		x.xxx_hidden_Command = &openRequest_GetRunState{b.GetRunState}
+		x.xxx_hidden_Request = &controllerRequest_GetRunState{b.GetRunState}
 	}
 	if b.GetMessages != nil {
-		x.xxx_hidden_Command = &openRequest_GetMessages{b.GetMessages}
+		x.xxx_hidden_Request = &controllerRequest_GetMessages{b.GetMessages}
 	}
 	if b.GetModels != nil {
-		x.xxx_hidden_Command = &openRequest_GetModels{b.GetModels}
+		x.xxx_hidden_Request = &controllerRequest_GetModels{b.GetModels}
 	}
 	if b.SelectModel != nil {
-		x.xxx_hidden_Command = &openRequest_SelectModel{b.SelectModel}
+		x.xxx_hidden_Request = &controllerRequest_SelectModel{b.SelectModel}
 	}
 	if b.SelectReasoningChoice != nil {
-		x.xxx_hidden_Command = &openRequest_SelectReasoningChoice{b.SelectReasoningChoice}
+		x.xxx_hidden_Request = &controllerRequest_SelectReasoningChoice{b.SelectReasoningChoice}
 	}
 	if b.CreateSession != nil {
-		x.xxx_hidden_Command = &openRequest_CreateSession{b.CreateSession}
+		x.xxx_hidden_Request = &controllerRequest_CreateSession{b.CreateSession}
 	}
 	if b.ListSessions != nil {
-		x.xxx_hidden_Command = &openRequest_ListSessions{b.ListSessions}
+		x.xxx_hidden_Request = &controllerRequest_ListSessions{b.ListSessions}
 	}
 	if b.ResumeSession != nil {
-		x.xxx_hidden_Command = &openRequest_ResumeSession{b.ResumeSession}
+		x.xxx_hidden_Request = &controllerRequest_ResumeSession{b.ResumeSession}
 	}
 	if b.SetSessionName != nil {
-		x.xxx_hidden_Command = &openRequest_SetSessionName{b.SetSessionName}
+		x.xxx_hidden_Request = &controllerRequest_SetSessionName{b.SetSessionName}
 	}
 	if b.GetSessionInfo != nil {
-		x.xxx_hidden_Command = &openRequest_GetSessionInfo{b.GetSessionInfo}
+		x.xxx_hidden_Request = &controllerRequest_GetSessionInfo{b.GetSessionInfo}
 	}
 	if b.GetSessionEntries != nil {
-		x.xxx_hidden_Command = &openRequest_GetSessionEntries{b.GetSessionEntries}
+		x.xxx_hidden_Request = &controllerRequest_GetSessionEntries{b.GetSessionEntries}
 	}
 	if b.GetSessionStats != nil {
-		x.xxx_hidden_Command = &openRequest_GetSessionStats{b.GetSessionStats}
+		x.xxx_hidden_Request = &controllerRequest_GetSessionStats{b.GetSessionStats}
 	}
 	if b.GetSessionTree != nil {
-		x.xxx_hidden_Command = &openRequest_GetSessionTree{b.GetSessionTree}
+		x.xxx_hidden_Request = &controllerRequest_GetSessionTree{b.GetSessionTree}
 	}
 	if b.NavigateSessionTree != nil {
-		x.xxx_hidden_Command = &openRequest_NavigateSessionTree{b.NavigateSessionTree}
+		x.xxx_hidden_Request = &controllerRequest_NavigateSessionTree{b.NavigateSessionTree}
 	}
 	if b.ForkSession != nil {
-		x.xxx_hidden_Command = &openRequest_ForkSession{b.ForkSession}
+		x.xxx_hidden_Request = &controllerRequest_ForkSession{b.ForkSession}
 	}
 	if b.CloneSession != nil {
-		x.xxx_hidden_Command = &openRequest_CloneSession{b.CloneSession}
+		x.xxx_hidden_Request = &controllerRequest_CloneSession{b.CloneSession}
 	}
 	if b.SetEntryLabel != nil {
-		x.xxx_hidden_Command = &openRequest_SetEntryLabel{b.SetEntryLabel}
+		x.xxx_hidden_Request = &controllerRequest_SetEntryLabel{b.SetEntryLabel}
 	}
 	return m0
 }
 
-type case_OpenRequest_Command protoreflect.FieldNumber
+type case_ControllerRequest_Request protoreflect.FieldNumber
 
-func (x case_OpenRequest_Command) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[0].Descriptor()
+func (x case_ControllerRequest_Request) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[1].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
 	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
 }
 
-type isOpenRequest_Command interface {
-	isOpenRequest_Command()
+type isControllerRequest_Request interface {
+	isControllerRequest_Request()
 }
 
-type openRequest_UserRequest struct {
-	UserRequest *UserRequest `protobuf:"bytes,2,opt,name=user_request,json=userRequest,proto3,oneof"`
+type controllerRequest_UserRequest struct {
+	UserRequest *UserRequest `protobuf:"bytes,1,opt,name=user_request,json=userRequest,oneof"`
 }
 
-type openRequest_Abort struct {
-	Abort *Abort `protobuf:"bytes,3,opt,name=abort,proto3,oneof"`
+type controllerRequest_Cancel struct {
+	Cancel *v1.CancelOperation `protobuf:"bytes,2,opt,name=cancel,oneof"`
 }
 
-type openRequest_GetRunState struct {
-	GetRunState *GetRunState `protobuf:"bytes,4,opt,name=get_run_state,json=getRunState,proto3,oneof"`
+type controllerRequest_GetRunState struct {
+	GetRunState *GetRunState `protobuf:"bytes,3,opt,name=get_run_state,json=getRunState,oneof"`
 }
 
-type openRequest_GetMessages struct {
-	GetMessages *GetMessages `protobuf:"bytes,5,opt,name=get_messages,json=getMessages,proto3,oneof"`
+type controllerRequest_GetMessages struct {
+	GetMessages *GetMessages `protobuf:"bytes,4,opt,name=get_messages,json=getMessages,oneof"`
 }
 
-type openRequest_GetModels struct {
-	GetModels *GetModels `protobuf:"bytes,6,opt,name=get_models,json=getModels,proto3,oneof"`
+type controllerRequest_GetModels struct {
+	GetModels *GetModels `protobuf:"bytes,5,opt,name=get_models,json=getModels,oneof"`
 }
 
-type openRequest_SelectModel struct {
-	SelectModel *SelectModel `protobuf:"bytes,7,opt,name=select_model,json=selectModel,proto3,oneof"`
+type controllerRequest_SelectModel struct {
+	SelectModel *SelectModel `protobuf:"bytes,6,opt,name=select_model,json=selectModel,oneof"`
 }
 
-type openRequest_SelectReasoningChoice struct {
-	SelectReasoningChoice *SelectReasoningChoice `protobuf:"bytes,8,opt,name=select_reasoning_choice,json=selectReasoningChoice,proto3,oneof"`
+type controllerRequest_SelectReasoningChoice struct {
+	SelectReasoningChoice *SelectReasoningChoice `protobuf:"bytes,7,opt,name=select_reasoning_choice,json=selectReasoningChoice,oneof"`
 }
 
-type openRequest_CreateSession struct {
-	CreateSession *CreateSession `protobuf:"bytes,9,opt,name=create_session,json=createSession,proto3,oneof"`
+type controllerRequest_CreateSession struct {
+	CreateSession *CreateSession `protobuf:"bytes,8,opt,name=create_session,json=createSession,oneof"`
 }
 
-type openRequest_ListSessions struct {
-	ListSessions *ListSessions `protobuf:"bytes,10,opt,name=list_sessions,json=listSessions,proto3,oneof"`
+type controllerRequest_ListSessions struct {
+	ListSessions *ListSessions `protobuf:"bytes,9,opt,name=list_sessions,json=listSessions,oneof"`
 }
 
-type openRequest_ResumeSession struct {
-	ResumeSession *ResumeSession `protobuf:"bytes,11,opt,name=resume_session,json=resumeSession,proto3,oneof"`
+type controllerRequest_ResumeSession struct {
+	ResumeSession *ResumeSession `protobuf:"bytes,10,opt,name=resume_session,json=resumeSession,oneof"`
 }
 
-type openRequest_SetSessionName struct {
-	SetSessionName *SetSessionName `protobuf:"bytes,12,opt,name=set_session_name,json=setSessionName,proto3,oneof"`
+type controllerRequest_SetSessionName struct {
+	SetSessionName *SetSessionName `protobuf:"bytes,11,opt,name=set_session_name,json=setSessionName,oneof"`
 }
 
-type openRequest_GetSessionInfo struct {
-	GetSessionInfo *GetSessionInfo `protobuf:"bytes,13,opt,name=get_session_info,json=getSessionInfo,proto3,oneof"`
+type controllerRequest_GetSessionInfo struct {
+	GetSessionInfo *GetSessionInfo `protobuf:"bytes,12,opt,name=get_session_info,json=getSessionInfo,oneof"`
 }
 
-type openRequest_GetSessionEntries struct {
-	GetSessionEntries *GetSessionEntries `protobuf:"bytes,14,opt,name=get_session_entries,json=getSessionEntries,proto3,oneof"`
+type controllerRequest_GetSessionEntries struct {
+	GetSessionEntries *GetSessionEntries `protobuf:"bytes,13,opt,name=get_session_entries,json=getSessionEntries,oneof"`
 }
 
-type openRequest_GetSessionStats struct {
-	GetSessionStats *GetSessionStats `protobuf:"bytes,15,opt,name=get_session_stats,json=getSessionStats,proto3,oneof"`
+type controllerRequest_GetSessionStats struct {
+	GetSessionStats *GetSessionStats `protobuf:"bytes,14,opt,name=get_session_stats,json=getSessionStats,oneof"`
 }
 
-type openRequest_GetSessionTree struct {
-	GetSessionTree *GetSessionTree `protobuf:"bytes,16,opt,name=get_session_tree,json=getSessionTree,proto3,oneof"`
+type controllerRequest_GetSessionTree struct {
+	GetSessionTree *GetSessionTree `protobuf:"bytes,15,opt,name=get_session_tree,json=getSessionTree,oneof"`
 }
 
-type openRequest_NavigateSessionTree struct {
-	NavigateSessionTree *NavigateSessionTree `protobuf:"bytes,17,opt,name=navigate_session_tree,json=navigateSessionTree,proto3,oneof"`
+type controllerRequest_NavigateSessionTree struct {
+	NavigateSessionTree *NavigateSessionTree `protobuf:"bytes,16,opt,name=navigate_session_tree,json=navigateSessionTree,oneof"`
 }
 
-type openRequest_ForkSession struct {
-	ForkSession *ForkSession `protobuf:"bytes,18,opt,name=fork_session,json=forkSession,proto3,oneof"`
+type controllerRequest_ForkSession struct {
+	ForkSession *ForkSession `protobuf:"bytes,17,opt,name=fork_session,json=forkSession,oneof"`
 }
 
-type openRequest_CloneSession struct {
-	CloneSession *CloneSession `protobuf:"bytes,19,opt,name=clone_session,json=cloneSession,proto3,oneof"`
+type controllerRequest_CloneSession struct {
+	CloneSession *CloneSession `protobuf:"bytes,18,opt,name=clone_session,json=cloneSession,oneof"`
 }
 
-type openRequest_SetEntryLabel struct {
-	SetEntryLabel *SetEntryLabel `protobuf:"bytes,20,opt,name=set_entry_label,json=setEntryLabel,proto3,oneof"`
+type controllerRequest_SetEntryLabel struct {
+	SetEntryLabel *SetEntryLabel `protobuf:"bytes,19,opt,name=set_entry_label,json=setEntryLabel,oneof"`
 }
 
-func (*openRequest_UserRequest) isOpenRequest_Command() {}
+func (*controllerRequest_UserRequest) isControllerRequest_Request() {}
 
-func (*openRequest_Abort) isOpenRequest_Command() {}
+func (*controllerRequest_Cancel) isControllerRequest_Request() {}
 
-func (*openRequest_GetRunState) isOpenRequest_Command() {}
+func (*controllerRequest_GetRunState) isControllerRequest_Request() {}
 
-func (*openRequest_GetMessages) isOpenRequest_Command() {}
+func (*controllerRequest_GetMessages) isControllerRequest_Request() {}
 
-func (*openRequest_GetModels) isOpenRequest_Command() {}
+func (*controllerRequest_GetModels) isControllerRequest_Request() {}
 
-func (*openRequest_SelectModel) isOpenRequest_Command() {}
+func (*controllerRequest_SelectModel) isControllerRequest_Request() {}
 
-func (*openRequest_SelectReasoningChoice) isOpenRequest_Command() {}
+func (*controllerRequest_SelectReasoningChoice) isControllerRequest_Request() {}
 
-func (*openRequest_CreateSession) isOpenRequest_Command() {}
+func (*controllerRequest_CreateSession) isControllerRequest_Request() {}
 
-func (*openRequest_ListSessions) isOpenRequest_Command() {}
+func (*controllerRequest_ListSessions) isControllerRequest_Request() {}
 
-func (*openRequest_ResumeSession) isOpenRequest_Command() {}
+func (*controllerRequest_ResumeSession) isControllerRequest_Request() {}
 
-func (*openRequest_SetSessionName) isOpenRequest_Command() {}
+func (*controllerRequest_SetSessionName) isControllerRequest_Request() {}
 
-func (*openRequest_GetSessionInfo) isOpenRequest_Command() {}
+func (*controllerRequest_GetSessionInfo) isControllerRequest_Request() {}
 
-func (*openRequest_GetSessionEntries) isOpenRequest_Command() {}
+func (*controllerRequest_GetSessionEntries) isControllerRequest_Request() {}
 
-func (*openRequest_GetSessionStats) isOpenRequest_Command() {}
+func (*controllerRequest_GetSessionStats) isControllerRequest_Request() {}
 
-func (*openRequest_GetSessionTree) isOpenRequest_Command() {}
+func (*controllerRequest_GetSessionTree) isControllerRequest_Request() {}
 
-func (*openRequest_NavigateSessionTree) isOpenRequest_Command() {}
+func (*controllerRequest_NavigateSessionTree) isControllerRequest_Request() {}
 
-func (*openRequest_ForkSession) isOpenRequest_Command() {}
+func (*controllerRequest_ForkSession) isControllerRequest_Request() {}
 
-func (*openRequest_CloneSession) isOpenRequest_Command() {}
+func (*controllerRequest_CloneSession) isControllerRequest_Request() {}
 
-func (*openRequest_SetEntryLabel) isOpenRequest_Command() {}
+func (*controllerRequest_SetEntryLabel) isControllerRequest_Request() {}
 
 // UserRequest starts an agent run for user text.
 type UserRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1848,7 +1765,7 @@ type UserRequest struct {
 
 func (x *UserRequest) Reset() {
 	*x = UserRequest{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[1]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1860,7 +1777,7 @@ func (x *UserRequest) String() string {
 func (*UserRequest) ProtoMessage() {}
 
 func (x *UserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[1]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,50 +1830,6 @@ func (b0 UserRequest_builder) Build() *UserRequest {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
 		x.xxx_hidden_Text = b.Text
 	}
-	return m0
-}
-
-// Abort cancels the active agent run.
-type Abort struct {
-	state         protoimpl.MessageState `protogen:"opaque.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Abort) Reset() {
-	*x = Abort{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Abort) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Abort) ProtoMessage() {}
-
-func (x *Abort) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-type Abort_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-}
-
-func (b0 Abort_builder) Build() *Abort {
-	m0 := &Abort{}
-	b, x := &b0, m0
-	_, _ = b, x
 	return m0
 }
 
@@ -2095,8 +1968,8 @@ func (b0 GetModels_builder) Build() *GetModels {
 // SelectModel selects one configured provider and model.
 type SelectModel struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId  *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3,oneof"`
-	xxx_hidden_ModelId     *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3,oneof"`
+	xxx_hidden_ProviderId  *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId     *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -2209,7 +2082,7 @@ func (b0 SelectModel_builder) Build() *SelectModel {
 // SelectReasoningChoice selects the active model reasoning choice.
 type SelectReasoningChoice struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Choice      ReasoningChoice        `protobuf:"varint,1,opt,name=choice,proto3,enum=glyph.programmatic.v1.ReasoningChoice,oneof"`
+	xxx_hidden_Choice      ReasoningChoice        `protobuf:"varint,1,opt,name=choice,enum=glyph.programmatic.v1.ReasoningChoice"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -2376,7 +2249,7 @@ func (b0 ListSessions_builder) Build() *ListSessions {
 // ResumeSession requests active-session replacement by opaque identifier.
 type ResumeSession struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_SessionId   *string                `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3,oneof"`
+	xxx_hidden_SessionId   *string                `protobuf:"bytes,1,opt,name=session_id,json=sessionId"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -2456,7 +2329,7 @@ func (b0 ResumeSession_builder) Build() *ResumeSession {
 // SetSessionName requests a persisted active-session name.
 type SetSessionName struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -2712,9 +2585,9 @@ func (b0 GetSessionTree_builder) Build() *GetSessionTree {
 // NavigateSessionTree requests one session-tree navigation.
 type NavigateSessionTree struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId,proto3,oneof"`
-	xxx_hidden_SummaryMode   SummaryMode            `protobuf:"varint,2,opt,name=summary_mode,json=summaryMode,proto3,enum=glyph.programmatic.v1.SummaryMode,oneof"`
-	xxx_hidden_CustomFocus   *string                `protobuf:"bytes,3,opt,name=custom_focus,json=customFocus,proto3,oneof"`
+	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId"`
+	xxx_hidden_SummaryMode   SummaryMode            `protobuf:"varint,2,opt,name=summary_mode,json=summaryMode,enum=glyph.programmatic.v1.SummaryMode"`
+	xxx_hidden_CustomFocus   *string                `protobuf:"bytes,3,opt,name=custom_focus,json=customFocus"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -2859,7 +2732,7 @@ func (b0 NavigateSessionTree_builder) Build() *NavigateSessionTree {
 // ForkSession creates a replacement session before one selected user message.
 type ForkSession struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId,proto3,oneof"`
+	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -2983,8 +2856,8 @@ func (b0 CloneSession_builder) Build() *CloneSession {
 // SetEntryLabel changes or clears one persisted entry label.
 type SetEntryLabel struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId,proto3,oneof"`
-	xxx_hidden_Label         *string                `protobuf:"bytes,2,opt,name=label,proto3,oneof"`
+	xxx_hidden_TargetEntryId *string                `protobuf:"bytes,1,opt,name=target_entry_id,json=targetEntryId"`
+	xxx_hidden_Label         *string                `protobuf:"bytes,2,opt,name=label"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -3094,15 +2967,15 @@ func (b0 SetEntryLabel_builder) Build() *SetEntryLabel {
 	return m0
 }
 
-// OpenResponse carries one correlated command response or agent event.
+// OpenResponse carries one Host operation event or connection close request.
 type OpenResponse struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CorrelationId *string                `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3,oneof"`
-	xxx_hidden_Content       isOpenResponse_Content `protobuf_oneof:"content"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_OperationId *string                `protobuf:"bytes,1,opt,name=operation_id,json=operationId"`
+	xxx_hidden_Content     isOpenResponse_Content `protobuf_oneof:"content"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *OpenResponse) Reset() {
@@ -3130,56 +3003,56 @@ func (x *OpenResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *OpenResponse) GetCorrelationId() string {
+func (x *OpenResponse) GetOperationId() string {
 	if x != nil {
-		if x.xxx_hidden_CorrelationId != nil {
-			return *x.xxx_hidden_CorrelationId
+		if x.xxx_hidden_OperationId != nil {
+			return *x.xxx_hidden_OperationId
 		}
 		return ""
 	}
 	return ""
 }
 
-func (x *OpenResponse) GetCommandResponse() *CommandResponse {
+func (x *OpenResponse) GetEvent() *HostEvent {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*openResponse_CommandResponse); ok {
-			return x.CommandResponse
+		if x, ok := x.xxx_hidden_Content.(*openResponse_Event); ok {
+			return x.Event
 		}
 	}
 	return nil
 }
 
-func (x *OpenResponse) GetAgentEvent() *AgentEvent {
+func (x *OpenResponse) GetClose() *v1.CloseConnection {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*openResponse_AgentEvent); ok {
-			return x.AgentEvent
+		if x, ok := x.xxx_hidden_Content.(*openResponse_Close); ok {
+			return x.Close
 		}
 	}
 	return nil
 }
 
-func (x *OpenResponse) SetCorrelationId(v string) {
-	x.xxx_hidden_CorrelationId = &v
+func (x *OpenResponse) SetOperationId(v string) {
+	x.xxx_hidden_OperationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *OpenResponse) SetCommandResponse(v *CommandResponse) {
+func (x *OpenResponse) SetEvent(v *HostEvent) {
 	if v == nil {
 		x.xxx_hidden_Content = nil
 		return
 	}
-	x.xxx_hidden_Content = &openResponse_CommandResponse{v}
+	x.xxx_hidden_Content = &openResponse_Event{v}
 }
 
-func (x *OpenResponse) SetAgentEvent(v *AgentEvent) {
+func (x *OpenResponse) SetClose(v *v1.CloseConnection) {
 	if v == nil {
 		x.xxx_hidden_Content = nil
 		return
 	}
-	x.xxx_hidden_Content = &openResponse_AgentEvent{v}
+	x.xxx_hidden_Content = &openResponse_Close{v}
 }
 
-func (x *OpenResponse) HasCorrelationId() bool {
+func (x *OpenResponse) HasOperationId() bool {
 	if x == nil {
 		return false
 	}
@@ -3193,56 +3066,56 @@ func (x *OpenResponse) HasContent() bool {
 	return x.xxx_hidden_Content != nil
 }
 
-func (x *OpenResponse) HasCommandResponse() bool {
+func (x *OpenResponse) HasEvent() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Content.(*openResponse_CommandResponse)
+	_, ok := x.xxx_hidden_Content.(*openResponse_Event)
 	return ok
 }
 
-func (x *OpenResponse) HasAgentEvent() bool {
+func (x *OpenResponse) HasClose() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Content.(*openResponse_AgentEvent)
+	_, ok := x.xxx_hidden_Content.(*openResponse_Close)
 	return ok
 }
 
-func (x *OpenResponse) ClearCorrelationId() {
+func (x *OpenResponse) ClearOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_CorrelationId = nil
+	x.xxx_hidden_OperationId = nil
 }
 
 func (x *OpenResponse) ClearContent() {
 	x.xxx_hidden_Content = nil
 }
 
-func (x *OpenResponse) ClearCommandResponse() {
-	if _, ok := x.xxx_hidden_Content.(*openResponse_CommandResponse); ok {
+func (x *OpenResponse) ClearEvent() {
+	if _, ok := x.xxx_hidden_Content.(*openResponse_Event); ok {
 		x.xxx_hidden_Content = nil
 	}
 }
 
-func (x *OpenResponse) ClearAgentEvent() {
-	if _, ok := x.xxx_hidden_Content.(*openResponse_AgentEvent); ok {
+func (x *OpenResponse) ClearClose() {
+	if _, ok := x.xxx_hidden_Content.(*openResponse_Close); ok {
 		x.xxx_hidden_Content = nil
 	}
 }
 
 const OpenResponse_Content_not_set_case case_OpenResponse_Content = 0
-const OpenResponse_CommandResponse_case case_OpenResponse_Content = 2
-const OpenResponse_AgentEvent_case case_OpenResponse_Content = 3
+const OpenResponse_Event_case case_OpenResponse_Content = 2
+const OpenResponse_Close_case case_OpenResponse_Content = 3
 
 func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 	if x == nil {
 		return OpenResponse_Content_not_set_case
 	}
 	switch x.xxx_hidden_Content.(type) {
-	case *openResponse_CommandResponse:
-		return OpenResponse_CommandResponse_case
-	case *openResponse_AgentEvent:
-		return OpenResponse_AgentEvent_case
+	case *openResponse_Event:
+		return OpenResponse_Event_case
+	case *openResponse_Close:
+		return OpenResponse_Close_case
 	default:
 		return OpenResponse_Content_not_set_case
 	}
@@ -3251,13 +3124,15 @@ func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 type OpenResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The correlation identifier associated with the response.
-	CorrelationId *string
-	// The response payload.
+	// The controller-assigned operation identifier for an operation event.
+	OperationId *string
+	// The stream content.
 
 	// Fields of oneof xxx_hidden_Content:
-	CommandResponse *CommandResponse
-	AgentEvent      *AgentEvent
+	// The operation event.
+	Event *HostEvent
+	// The Host-requested connection close.
+	Close *v1.CloseConnection
 	// -- end of xxx_hidden_Content
 }
 
@@ -3265,15 +3140,15 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 	m0 := &OpenResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.CorrelationId != nil {
+	if b.OperationId != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_CorrelationId = b.CorrelationId
+		x.xxx_hidden_OperationId = b.OperationId
 	}
-	if b.CommandResponse != nil {
-		x.xxx_hidden_Content = &openResponse_CommandResponse{b.CommandResponse}
+	if b.Event != nil {
+		x.xxx_hidden_Content = &openResponse_Event{b.Event}
 	}
-	if b.AgentEvent != nil {
-		x.xxx_hidden_Content = &openResponse_AgentEvent{b.AgentEvent}
+	if b.Close != nil {
+		x.xxx_hidden_Content = &openResponse_Close{b.Close}
 	}
 	return m0
 }
@@ -3292,40 +3167,42 @@ type isOpenResponse_Content interface {
 	isOpenResponse_Content()
 }
 
-type openResponse_CommandResponse struct {
-	CommandResponse *CommandResponse `protobuf:"bytes,2,opt,name=command_response,json=commandResponse,proto3,oneof"`
+type openResponse_Event struct {
+	// The operation event.
+	Event *HostEvent `protobuf:"bytes,2,opt,name=event,oneof"`
 }
 
-type openResponse_AgentEvent struct {
-	AgentEvent *AgentEvent `protobuf:"bytes,3,opt,name=agent_event,json=agentEvent,proto3,oneof"`
+type openResponse_Close struct {
+	// The Host-requested connection close.
+	Close *v1.CloseConnection `protobuf:"bytes,3,opt,name=close,oneof"`
 }
 
-func (*openResponse_CommandResponse) isOpenResponse_Content() {}
+func (*openResponse_Event) isOpenResponse_Content() {}
 
-func (*openResponse_AgentEvent) isOpenResponse_Content() {}
+func (*openResponse_Close) isOpenResponse_Content() {}
 
-// CommandResponse carries exactly one command result.
-type CommandResponse struct {
-	state             protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Result isCommandResponse_Result `protobuf_oneof:"result"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+// HostEvent carries one lifecycle event for a controller operation.
+type HostEvent struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Event isHostEvent_Event      `protobuf_oneof:"event"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
-func (x *CommandResponse) Reset() {
-	*x = CommandResponse{}
+func (x *HostEvent) Reset() {
+	*x = HostEvent{}
 	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CommandResponse) String() string {
+func (x *HostEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CommandResponse) ProtoMessage() {}
+func (*HostEvent) ProtoMessage() {}
 
-func (x *CommandResponse) ProtoReflect() protoreflect.Message {
+func (x *HostEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3337,584 +3214,1073 @@ func (x *CommandResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CommandResponse) GetUserRequestAccepted() *UserRequestAccepted {
+func (x *HostEvent) GetAccepted() *v1.Accepted {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_UserRequestAccepted); ok {
-			return x.UserRequestAccepted
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Accepted); ok {
+			return x.Accepted
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetAbortCompleted() *AbortCompleted {
+func (x *HostEvent) GetRunning() *v1.Running {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_AbortCompleted); ok {
-			return x.AbortCompleted
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Running); ok {
+			return x.Running
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetRunState() *RunStateResult {
+func (x *HostEvent) GetProgress() *HostProgress {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_RunState); ok {
-			return x.RunState
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Progress); ok {
+			return x.Progress
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetMessages() *MessagesResult {
+func (x *HostEvent) GetCompleted() *HostCompleted {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_Messages); ok {
-			return x.Messages
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Completed); ok {
+			return x.Completed
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetRejected() *CommandRejected {
+func (x *HostEvent) GetCanceled() *v1.Canceled {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_Rejected); ok {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Canceled); ok {
+			return x.Canceled
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetFailed() *v1.Failed {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Failed); ok {
+			return x.Failed
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetRejected() *v1.Rejected {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Rejected); ok {
 			return x.Rejected
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetModels() *ModelsResult {
+func (x *HostEvent) SetAccepted(v *v1.Accepted) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Accepted{v}
+}
+
+func (x *HostEvent) SetRunning(v *v1.Running) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Running{v}
+}
+
+func (x *HostEvent) SetProgress(v *HostProgress) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Progress{v}
+}
+
+func (x *HostEvent) SetCompleted(v *HostCompleted) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Completed{v}
+}
+
+func (x *HostEvent) SetCanceled(v *v1.Canceled) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Canceled{v}
+}
+
+func (x *HostEvent) SetFailed(v *v1.Failed) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Failed{v}
+}
+
+func (x *HostEvent) SetRejected(v *v1.Rejected) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Rejected{v}
+}
+
+func (x *HostEvent) HasEvent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Event != nil
+}
+
+func (x *HostEvent) HasAccepted() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Accepted)
+	return ok
+}
+
+func (x *HostEvent) HasRunning() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Running)
+	return ok
+}
+
+func (x *HostEvent) HasProgress() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Progress)
+	return ok
+}
+
+func (x *HostEvent) HasCompleted() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Completed)
+	return ok
+}
+
+func (x *HostEvent) HasCanceled() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Canceled)
+	return ok
+}
+
+func (x *HostEvent) HasFailed() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Failed)
+	return ok
+}
+
+func (x *HostEvent) HasRejected() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Rejected)
+	return ok
+}
+
+func (x *HostEvent) ClearEvent() {
+	x.xxx_hidden_Event = nil
+}
+
+func (x *HostEvent) ClearAccepted() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Accepted); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearRunning() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Running); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearProgress() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Progress); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearCompleted() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Completed); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearCanceled() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Canceled); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearFailed() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Failed); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearRejected() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Rejected); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+const HostEvent_Event_not_set_case case_HostEvent_Event = 0
+const HostEvent_Accepted_case case_HostEvent_Event = 1
+const HostEvent_Running_case case_HostEvent_Event = 2
+const HostEvent_Progress_case case_HostEvent_Event = 3
+const HostEvent_Completed_case case_HostEvent_Event = 4
+const HostEvent_Canceled_case case_HostEvent_Event = 5
+const HostEvent_Failed_case case_HostEvent_Event = 6
+const HostEvent_Rejected_case case_HostEvent_Event = 7
+
+func (x *HostEvent) WhichEvent() case_HostEvent_Event {
+	if x == nil {
+		return HostEvent_Event_not_set_case
+	}
+	switch x.xxx_hidden_Event.(type) {
+	case *hostEvent_Accepted:
+		return HostEvent_Accepted_case
+	case *hostEvent_Running:
+		return HostEvent_Running_case
+	case *hostEvent_Progress:
+		return HostEvent_Progress_case
+	case *hostEvent_Completed:
+		return HostEvent_Completed_case
+	case *hostEvent_Canceled:
+		return HostEvent_Canceled_case
+	case *hostEvent_Failed:
+		return HostEvent_Failed_case
+	case *hostEvent_Rejected:
+		return HostEvent_Rejected_case
+	default:
+		return HostEvent_Event_not_set_case
+	}
+}
+
+type HostEvent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The lifecycle event.
+
+	// Fields of oneof xxx_hidden_Event:
+	Accepted  *v1.Accepted
+	Running   *v1.Running
+	Progress  *HostProgress
+	Completed *HostCompleted
+	Canceled  *v1.Canceled
+	Failed    *v1.Failed
+	Rejected  *v1.Rejected
+	// -- end of xxx_hidden_Event
+}
+
+func (b0 HostEvent_builder) Build() *HostEvent {
+	m0 := &HostEvent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Accepted != nil {
+		x.xxx_hidden_Event = &hostEvent_Accepted{b.Accepted}
+	}
+	if b.Running != nil {
+		x.xxx_hidden_Event = &hostEvent_Running{b.Running}
+	}
+	if b.Progress != nil {
+		x.xxx_hidden_Event = &hostEvent_Progress{b.Progress}
+	}
+	if b.Completed != nil {
+		x.xxx_hidden_Event = &hostEvent_Completed{b.Completed}
+	}
+	if b.Canceled != nil {
+		x.xxx_hidden_Event = &hostEvent_Canceled{b.Canceled}
+	}
+	if b.Failed != nil {
+		x.xxx_hidden_Event = &hostEvent_Failed{b.Failed}
+	}
+	if b.Rejected != nil {
+		x.xxx_hidden_Event = &hostEvent_Rejected{b.Rejected}
+	}
+	return m0
+}
+
+type case_HostEvent_Event protoreflect.FieldNumber
+
+func (x case_HostEvent_Event) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[21].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isHostEvent_Event interface {
+	isHostEvent_Event()
+}
+
+type hostEvent_Accepted struct {
+	Accepted *v1.Accepted `protobuf:"bytes,1,opt,name=accepted,oneof"`
+}
+
+type hostEvent_Running struct {
+	Running *v1.Running `protobuf:"bytes,2,opt,name=running,oneof"`
+}
+
+type hostEvent_Progress struct {
+	Progress *HostProgress `protobuf:"bytes,3,opt,name=progress,oneof"`
+}
+
+type hostEvent_Completed struct {
+	Completed *HostCompleted `protobuf:"bytes,4,opt,name=completed,oneof"`
+}
+
+type hostEvent_Canceled struct {
+	Canceled *v1.Canceled `protobuf:"bytes,5,opt,name=canceled,oneof"`
+}
+
+type hostEvent_Failed struct {
+	Failed *v1.Failed `protobuf:"bytes,6,opt,name=failed,oneof"`
+}
+
+type hostEvent_Rejected struct {
+	Rejected *v1.Rejected `protobuf:"bytes,7,opt,name=rejected,oneof"`
+}
+
+func (*hostEvent_Accepted) isHostEvent_Event() {}
+
+func (*hostEvent_Running) isHostEvent_Event() {}
+
+func (*hostEvent_Progress) isHostEvent_Event() {}
+
+func (*hostEvent_Completed) isHostEvent_Event() {}
+
+func (*hostEvent_Canceled) isHostEvent_Event() {}
+
+func (*hostEvent_Failed) isHostEvent_Event() {}
+
+func (*hostEvent_Rejected) isHostEvent_Event() {}
+
+// HostProgress carries one operation-specific progress payload.
+type HostProgress struct {
+	state               protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Progress isHostProgress_Progress `protobuf_oneof:"progress"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *HostProgress) Reset() {
+	*x = HostProgress{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostProgress) ProtoMessage() {}
+
+func (x *HostProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_Models); ok {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostProgress) GetAgentEvent() *AgentEvent {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Progress.(*hostProgress_AgentEvent); ok {
+			return x.AgentEvent
+		}
+	}
+	return nil
+}
+
+func (x *HostProgress) SetAgentEvent(v *AgentEvent) {
+	if v == nil {
+		x.xxx_hidden_Progress = nil
+		return
+	}
+	x.xxx_hidden_Progress = &hostProgress_AgentEvent{v}
+}
+
+func (x *HostProgress) HasProgress() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Progress != nil
+}
+
+func (x *HostProgress) HasAgentEvent() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Progress.(*hostProgress_AgentEvent)
+	return ok
+}
+
+func (x *HostProgress) ClearProgress() {
+	x.xxx_hidden_Progress = nil
+}
+
+func (x *HostProgress) ClearAgentEvent() {
+	if _, ok := x.xxx_hidden_Progress.(*hostProgress_AgentEvent); ok {
+		x.xxx_hidden_Progress = nil
+	}
+}
+
+const HostProgress_Progress_not_set_case case_HostProgress_Progress = 0
+const HostProgress_AgentEvent_case case_HostProgress_Progress = 1
+
+func (x *HostProgress) WhichProgress() case_HostProgress_Progress {
+	if x == nil {
+		return HostProgress_Progress_not_set_case
+	}
+	switch x.xxx_hidden_Progress.(type) {
+	case *hostProgress_AgentEvent:
+		return HostProgress_AgentEvent_case
+	default:
+		return HostProgress_Progress_not_set_case
+	}
+}
+
+type HostProgress_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The progress payload.
+
+	// Fields of oneof xxx_hidden_Progress:
+	AgentEvent *AgentEvent
+	// -- end of xxx_hidden_Progress
+}
+
+func (b0 HostProgress_builder) Build() *HostProgress {
+	m0 := &HostProgress{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.AgentEvent != nil {
+		x.xxx_hidden_Progress = &hostProgress_AgentEvent{b.AgentEvent}
+	}
+	return m0
+}
+
+type case_HostProgress_Progress protoreflect.FieldNumber
+
+func (x case_HostProgress_Progress) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[22].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isHostProgress_Progress interface {
+	isHostProgress_Progress()
+}
+
+type hostProgress_AgentEvent struct {
+	AgentEvent *AgentEvent `protobuf:"bytes,1,opt,name=agent_event,json=agentEvent,oneof"`
+}
+
+func (*hostProgress_AgentEvent) isHostProgress_Progress() {}
+
+// HostCompleted carries one operation-specific completed payload.
+type HostCompleted struct {
+	state                protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Completed isHostCompleted_Completed `protobuf_oneof:"completed"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *HostCompleted) Reset() {
+	*x = HostCompleted{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostCompleted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostCompleted) ProtoMessage() {}
+
+func (x *HostCompleted) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostCompleted) GetUserRequest() *UserRequestCompleted {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_UserRequest); ok {
+			return x.UserRequest
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetCancel() *v1.CancelCompleted {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel); ok {
+			return x.Cancel
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetRunState() *RunStateResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_RunState); ok {
+			return x.RunState
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetMessages() *MessagesResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_Messages); ok {
+			return x.Messages
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetModels() *ModelsResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_Models); ok {
 			return x.Models
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetModelSelection() *ModelSelectionResult {
+func (x *HostCompleted) GetModelSelection() *ModelSelectionResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_ModelSelection); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_ModelSelection); ok {
 			return x.ModelSelection
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessionInfo() *SessionInfoResult {
+func (x *HostCompleted) GetSessionInfo() *SessionInfoResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionInfo); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionInfo); ok {
 			return x.SessionInfo
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessions() *SessionsResult {
+func (x *HostCompleted) GetSessions() *SessionsResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_Sessions); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_Sessions); ok {
 			return x.Sessions
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessionEntries() *SessionEntriesResult {
+func (x *HostCompleted) GetSessionEntries() *SessionEntriesResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionEntries); ok {
 			return x.SessionEntries
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessionStats() *SessionStatsResult {
+func (x *HostCompleted) GetSessionStats() *SessionStatsResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionStats); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionStats); ok {
 			return x.SessionStats
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessionTree() *SessionTreeResult {
+func (x *HostCompleted) GetSessionTree() *SessionTreeResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionTree); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTree); ok {
 			return x.SessionTree
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSessionTreeNavigation() *SessionTreeNavigationResult {
+func (x *HostCompleted) GetSessionTreeNavigation() *SessionTreeNavigationResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SessionTreeNavigation); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTreeNavigation); ok {
 			return x.SessionTreeNavigation
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetForkSession() *ForkSessionResult {
+func (x *HostCompleted) GetForkSession() *ForkSessionResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_ForkSession); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_ForkSession); ok {
 			return x.ForkSession
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetCloneSession() *CloneSessionResult {
+func (x *HostCompleted) GetCloneSession() *CloneSessionResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_CloneSession); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_CloneSession); ok {
 			return x.CloneSession
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) GetSetEntryLabel() *SetEntryLabelResult {
+func (x *HostCompleted) GetSetEntryLabel() *SetEntryLabelResult {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Result.(*commandResponse_SetEntryLabel); ok {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_SetEntryLabel); ok {
 			return x.SetEntryLabel
 		}
 	}
 	return nil
 }
 
-func (x *CommandResponse) SetUserRequestAccepted(v *UserRequestAccepted) {
+func (x *HostCompleted) SetUserRequest(v *UserRequestCompleted) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_UserRequestAccepted{v}
+	x.xxx_hidden_Completed = &hostCompleted_UserRequest{v}
 }
 
-func (x *CommandResponse) SetAbortCompleted(v *AbortCompleted) {
+func (x *HostCompleted) SetCancel(v *v1.CancelCompleted) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_AbortCompleted{v}
+	x.xxx_hidden_Completed = &hostCompleted_Cancel{v}
 }
 
-func (x *CommandResponse) SetRunState(v *RunStateResult) {
+func (x *HostCompleted) SetRunState(v *RunStateResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_RunState{v}
+	x.xxx_hidden_Completed = &hostCompleted_RunState{v}
 }
 
-func (x *CommandResponse) SetMessages(v *MessagesResult) {
+func (x *HostCompleted) SetMessages(v *MessagesResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_Messages{v}
+	x.xxx_hidden_Completed = &hostCompleted_Messages{v}
 }
 
-func (x *CommandResponse) SetRejected(v *CommandRejected) {
+func (x *HostCompleted) SetModels(v *ModelsResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_Rejected{v}
+	x.xxx_hidden_Completed = &hostCompleted_Models{v}
 }
 
-func (x *CommandResponse) SetModels(v *ModelsResult) {
+func (x *HostCompleted) SetModelSelection(v *ModelSelectionResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_Models{v}
+	x.xxx_hidden_Completed = &hostCompleted_ModelSelection{v}
 }
 
-func (x *CommandResponse) SetModelSelection(v *ModelSelectionResult) {
+func (x *HostCompleted) SetSessionInfo(v *SessionInfoResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_ModelSelection{v}
+	x.xxx_hidden_Completed = &hostCompleted_SessionInfo{v}
 }
 
-func (x *CommandResponse) SetSessionInfo(v *SessionInfoResult) {
+func (x *HostCompleted) SetSessions(v *SessionsResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_SessionInfo{v}
+	x.xxx_hidden_Completed = &hostCompleted_Sessions{v}
 }
 
-func (x *CommandResponse) SetSessions(v *SessionsResult) {
+func (x *HostCompleted) SetSessionEntries(v *SessionEntriesResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_Sessions{v}
+	x.xxx_hidden_Completed = &hostCompleted_SessionEntries{v}
 }
 
-func (x *CommandResponse) SetSessionEntries(v *SessionEntriesResult) {
+func (x *HostCompleted) SetSessionStats(v *SessionStatsResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_SessionEntries{v}
+	x.xxx_hidden_Completed = &hostCompleted_SessionStats{v}
 }
 
-func (x *CommandResponse) SetSessionStats(v *SessionStatsResult) {
+func (x *HostCompleted) SetSessionTree(v *SessionTreeResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_SessionStats{v}
+	x.xxx_hidden_Completed = &hostCompleted_SessionTree{v}
 }
 
-func (x *CommandResponse) SetSessionTree(v *SessionTreeResult) {
+func (x *HostCompleted) SetSessionTreeNavigation(v *SessionTreeNavigationResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_SessionTree{v}
+	x.xxx_hidden_Completed = &hostCompleted_SessionTreeNavigation{v}
 }
 
-func (x *CommandResponse) SetSessionTreeNavigation(v *SessionTreeNavigationResult) {
+func (x *HostCompleted) SetForkSession(v *ForkSessionResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_SessionTreeNavigation{v}
+	x.xxx_hidden_Completed = &hostCompleted_ForkSession{v}
 }
 
-func (x *CommandResponse) SetForkSession(v *ForkSessionResult) {
+func (x *HostCompleted) SetCloneSession(v *CloneSessionResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_ForkSession{v}
+	x.xxx_hidden_Completed = &hostCompleted_CloneSession{v}
 }
 
-func (x *CommandResponse) SetCloneSession(v *CloneSessionResult) {
+func (x *HostCompleted) SetSetEntryLabel(v *SetEntryLabelResult) {
 	if v == nil {
-		x.xxx_hidden_Result = nil
+		x.xxx_hidden_Completed = nil
 		return
 	}
-	x.xxx_hidden_Result = &commandResponse_CloneSession{v}
+	x.xxx_hidden_Completed = &hostCompleted_SetEntryLabel{v}
 }
 
-func (x *CommandResponse) SetSetEntryLabel(v *SetEntryLabelResult) {
-	if v == nil {
-		x.xxx_hidden_Result = nil
-		return
-	}
-	x.xxx_hidden_Result = &commandResponse_SetEntryLabel{v}
-}
-
-func (x *CommandResponse) HasResult() bool {
+func (x *HostCompleted) HasCompleted() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Result != nil
+	return x.xxx_hidden_Completed != nil
 }
 
-func (x *CommandResponse) HasUserRequestAccepted() bool {
+func (x *HostCompleted) HasUserRequest() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_UserRequestAccepted)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_UserRequest)
 	return ok
 }
 
-func (x *CommandResponse) HasAbortCompleted() bool {
+func (x *HostCompleted) HasCancel() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_AbortCompleted)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel)
 	return ok
 }
 
-func (x *CommandResponse) HasRunState() bool {
+func (x *HostCompleted) HasRunState() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_RunState)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_RunState)
 	return ok
 }
 
-func (x *CommandResponse) HasMessages() bool {
+func (x *HostCompleted) HasMessages() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_Messages)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_Messages)
 	return ok
 }
 
-func (x *CommandResponse) HasRejected() bool {
+func (x *HostCompleted) HasModels() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_Rejected)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_Models)
 	return ok
 }
 
-func (x *CommandResponse) HasModels() bool {
+func (x *HostCompleted) HasModelSelection() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_Models)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_ModelSelection)
 	return ok
 }
 
-func (x *CommandResponse) HasModelSelection() bool {
+func (x *HostCompleted) HasSessionInfo() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_ModelSelection)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionInfo)
 	return ok
 }
 
-func (x *CommandResponse) HasSessionInfo() bool {
+func (x *HostCompleted) HasSessions() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionInfo)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_Sessions)
 	return ok
 }
 
-func (x *CommandResponse) HasSessions() bool {
+func (x *HostCompleted) HasSessionEntries() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_Sessions)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionEntries)
 	return ok
 }
 
-func (x *CommandResponse) HasSessionEntries() bool {
+func (x *HostCompleted) HasSessionStats() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionStats)
 	return ok
 }
 
-func (x *CommandResponse) HasSessionStats() bool {
+func (x *HostCompleted) HasSessionTree() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionStats)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTree)
 	return ok
 }
 
-func (x *CommandResponse) HasSessionTree() bool {
+func (x *HostCompleted) HasSessionTreeNavigation() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionTree)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTreeNavigation)
 	return ok
 }
 
-func (x *CommandResponse) HasSessionTreeNavigation() bool {
+func (x *HostCompleted) HasForkSession() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SessionTreeNavigation)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_ForkSession)
 	return ok
 }
 
-func (x *CommandResponse) HasForkSession() bool {
+func (x *HostCompleted) HasCloneSession() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_ForkSession)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_CloneSession)
 	return ok
 }
 
-func (x *CommandResponse) HasCloneSession() bool {
+func (x *HostCompleted) HasSetEntryLabel() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_CloneSession)
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_SetEntryLabel)
 	return ok
 }
 
-func (x *CommandResponse) HasSetEntryLabel() bool {
+func (x *HostCompleted) ClearCompleted() {
+	x.xxx_hidden_Completed = nil
+}
+
+func (x *HostCompleted) ClearUserRequest() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_UserRequest); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearCancel() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearRunState() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_RunState); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearMessages() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_Messages); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearModels() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_Models); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearModelSelection() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_ModelSelection); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessionInfo() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionInfo); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessions() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_Sessions); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessionEntries() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionEntries); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessionStats() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionStats); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessionTree() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTree); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSessionTreeNavigation() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SessionTreeNavigation); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearForkSession() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_ForkSession); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearCloneSession() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_CloneSession); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearSetEntryLabel() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_SetEntryLabel); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+const HostCompleted_Completed_not_set_case case_HostCompleted_Completed = 0
+const HostCompleted_UserRequest_case case_HostCompleted_Completed = 1
+const HostCompleted_Cancel_case case_HostCompleted_Completed = 2
+const HostCompleted_RunState_case case_HostCompleted_Completed = 3
+const HostCompleted_Messages_case case_HostCompleted_Completed = 4
+const HostCompleted_Models_case case_HostCompleted_Completed = 5
+const HostCompleted_ModelSelection_case case_HostCompleted_Completed = 6
+const HostCompleted_SessionInfo_case case_HostCompleted_Completed = 7
+const HostCompleted_Sessions_case case_HostCompleted_Completed = 8
+const HostCompleted_SessionEntries_case case_HostCompleted_Completed = 9
+const HostCompleted_SessionStats_case case_HostCompleted_Completed = 10
+const HostCompleted_SessionTree_case case_HostCompleted_Completed = 11
+const HostCompleted_SessionTreeNavigation_case case_HostCompleted_Completed = 12
+const HostCompleted_ForkSession_case case_HostCompleted_Completed = 13
+const HostCompleted_CloneSession_case case_HostCompleted_Completed = 14
+const HostCompleted_SetEntryLabel_case case_HostCompleted_Completed = 15
+
+func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 	if x == nil {
-		return false
+		return HostCompleted_Completed_not_set_case
 	}
-	_, ok := x.xxx_hidden_Result.(*commandResponse_SetEntryLabel)
-	return ok
-}
-
-func (x *CommandResponse) ClearResult() {
-	x.xxx_hidden_Result = nil
-}
-
-func (x *CommandResponse) ClearUserRequestAccepted() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_UserRequestAccepted); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearAbortCompleted() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_AbortCompleted); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearRunState() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_RunState); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearMessages() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_Messages); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearRejected() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_Rejected); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearModels() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_Models); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearModelSelection() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_ModelSelection); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessionInfo() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionInfo); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessions() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_Sessions); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessionEntries() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionEntries); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessionStats() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionStats); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessionTree() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionTree); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSessionTreeNavigation() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SessionTreeNavigation); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearForkSession() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_ForkSession); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearCloneSession() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_CloneSession); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-func (x *CommandResponse) ClearSetEntryLabel() {
-	if _, ok := x.xxx_hidden_Result.(*commandResponse_SetEntryLabel); ok {
-		x.xxx_hidden_Result = nil
-	}
-}
-
-const CommandResponse_Result_not_set_case case_CommandResponse_Result = 0
-const CommandResponse_UserRequestAccepted_case case_CommandResponse_Result = 1
-const CommandResponse_AbortCompleted_case case_CommandResponse_Result = 2
-const CommandResponse_RunState_case case_CommandResponse_Result = 3
-const CommandResponse_Messages_case case_CommandResponse_Result = 4
-const CommandResponse_Rejected_case case_CommandResponse_Result = 5
-const CommandResponse_Models_case case_CommandResponse_Result = 6
-const CommandResponse_ModelSelection_case case_CommandResponse_Result = 7
-const CommandResponse_SessionInfo_case case_CommandResponse_Result = 8
-const CommandResponse_Sessions_case case_CommandResponse_Result = 9
-const CommandResponse_SessionEntries_case case_CommandResponse_Result = 10
-const CommandResponse_SessionStats_case case_CommandResponse_Result = 11
-const CommandResponse_SessionTree_case case_CommandResponse_Result = 12
-const CommandResponse_SessionTreeNavigation_case case_CommandResponse_Result = 13
-const CommandResponse_ForkSession_case case_CommandResponse_Result = 14
-const CommandResponse_CloneSession_case case_CommandResponse_Result = 15
-const CommandResponse_SetEntryLabel_case case_CommandResponse_Result = 16
-
-func (x *CommandResponse) WhichResult() case_CommandResponse_Result {
-	if x == nil {
-		return CommandResponse_Result_not_set_case
-	}
-	switch x.xxx_hidden_Result.(type) {
-	case *commandResponse_UserRequestAccepted:
-		return CommandResponse_UserRequestAccepted_case
-	case *commandResponse_AbortCompleted:
-		return CommandResponse_AbortCompleted_case
-	case *commandResponse_RunState:
-		return CommandResponse_RunState_case
-	case *commandResponse_Messages:
-		return CommandResponse_Messages_case
-	case *commandResponse_Rejected:
-		return CommandResponse_Rejected_case
-	case *commandResponse_Models:
-		return CommandResponse_Models_case
-	case *commandResponse_ModelSelection:
-		return CommandResponse_ModelSelection_case
-	case *commandResponse_SessionInfo:
-		return CommandResponse_SessionInfo_case
-	case *commandResponse_Sessions:
-		return CommandResponse_Sessions_case
-	case *commandResponse_SessionEntries:
-		return CommandResponse_SessionEntries_case
-	case *commandResponse_SessionStats:
-		return CommandResponse_SessionStats_case
-	case *commandResponse_SessionTree:
-		return CommandResponse_SessionTree_case
-	case *commandResponse_SessionTreeNavigation:
-		return CommandResponse_SessionTreeNavigation_case
-	case *commandResponse_ForkSession:
-		return CommandResponse_ForkSession_case
-	case *commandResponse_CloneSession:
-		return CommandResponse_CloneSession_case
-	case *commandResponse_SetEntryLabel:
-		return CommandResponse_SetEntryLabel_case
+	switch x.xxx_hidden_Completed.(type) {
+	case *hostCompleted_UserRequest:
+		return HostCompleted_UserRequest_case
+	case *hostCompleted_Cancel:
+		return HostCompleted_Cancel_case
+	case *hostCompleted_RunState:
+		return HostCompleted_RunState_case
+	case *hostCompleted_Messages:
+		return HostCompleted_Messages_case
+	case *hostCompleted_Models:
+		return HostCompleted_Models_case
+	case *hostCompleted_ModelSelection:
+		return HostCompleted_ModelSelection_case
+	case *hostCompleted_SessionInfo:
+		return HostCompleted_SessionInfo_case
+	case *hostCompleted_Sessions:
+		return HostCompleted_Sessions_case
+	case *hostCompleted_SessionEntries:
+		return HostCompleted_SessionEntries_case
+	case *hostCompleted_SessionStats:
+		return HostCompleted_SessionStats_case
+	case *hostCompleted_SessionTree:
+		return HostCompleted_SessionTree_case
+	case *hostCompleted_SessionTreeNavigation:
+		return HostCompleted_SessionTreeNavigation_case
+	case *hostCompleted_ForkSession:
+		return HostCompleted_ForkSession_case
+	case *hostCompleted_CloneSession:
+		return HostCompleted_CloneSession_case
+	case *hostCompleted_SetEntryLabel:
+		return HostCompleted_SetEntryLabel_case
 	default:
-		return CommandResponse_Result_not_set_case
+		return HostCompleted_Completed_not_set_case
 	}
 }
 
-type CommandResponse_builder struct {
+type HostCompleted_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The command result.
+	// The completed payload.
 
-	// Fields of oneof xxx_hidden_Result:
-	UserRequestAccepted   *UserRequestAccepted
-	AbortCompleted        *AbortCompleted
+	// Fields of oneof xxx_hidden_Completed:
+	UserRequest           *UserRequestCompleted
+	Cancel                *v1.CancelCompleted
 	RunState              *RunStateResult
 	Messages              *MessagesResult
-	Rejected              *CommandRejected
 	Models                *ModelsResult
 	ModelSelection        *ModelSelectionResult
 	SessionInfo           *SessionInfoResult
@@ -3926,180 +4292,171 @@ type CommandResponse_builder struct {
 	ForkSession           *ForkSessionResult
 	CloneSession          *CloneSessionResult
 	SetEntryLabel         *SetEntryLabelResult
-	// -- end of xxx_hidden_Result
+	// -- end of xxx_hidden_Completed
 }
 
-func (b0 CommandResponse_builder) Build() *CommandResponse {
-	m0 := &CommandResponse{}
+func (b0 HostCompleted_builder) Build() *HostCompleted {
+	m0 := &HostCompleted{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.UserRequestAccepted != nil {
-		x.xxx_hidden_Result = &commandResponse_UserRequestAccepted{b.UserRequestAccepted}
+	if b.UserRequest != nil {
+		x.xxx_hidden_Completed = &hostCompleted_UserRequest{b.UserRequest}
 	}
-	if b.AbortCompleted != nil {
-		x.xxx_hidden_Result = &commandResponse_AbortCompleted{b.AbortCompleted}
+	if b.Cancel != nil {
+		x.xxx_hidden_Completed = &hostCompleted_Cancel{b.Cancel}
 	}
 	if b.RunState != nil {
-		x.xxx_hidden_Result = &commandResponse_RunState{b.RunState}
+		x.xxx_hidden_Completed = &hostCompleted_RunState{b.RunState}
 	}
 	if b.Messages != nil {
-		x.xxx_hidden_Result = &commandResponse_Messages{b.Messages}
-	}
-	if b.Rejected != nil {
-		x.xxx_hidden_Result = &commandResponse_Rejected{b.Rejected}
+		x.xxx_hidden_Completed = &hostCompleted_Messages{b.Messages}
 	}
 	if b.Models != nil {
-		x.xxx_hidden_Result = &commandResponse_Models{b.Models}
+		x.xxx_hidden_Completed = &hostCompleted_Models{b.Models}
 	}
 	if b.ModelSelection != nil {
-		x.xxx_hidden_Result = &commandResponse_ModelSelection{b.ModelSelection}
+		x.xxx_hidden_Completed = &hostCompleted_ModelSelection{b.ModelSelection}
 	}
 	if b.SessionInfo != nil {
-		x.xxx_hidden_Result = &commandResponse_SessionInfo{b.SessionInfo}
+		x.xxx_hidden_Completed = &hostCompleted_SessionInfo{b.SessionInfo}
 	}
 	if b.Sessions != nil {
-		x.xxx_hidden_Result = &commandResponse_Sessions{b.Sessions}
+		x.xxx_hidden_Completed = &hostCompleted_Sessions{b.Sessions}
 	}
 	if b.SessionEntries != nil {
-		x.xxx_hidden_Result = &commandResponse_SessionEntries{b.SessionEntries}
+		x.xxx_hidden_Completed = &hostCompleted_SessionEntries{b.SessionEntries}
 	}
 	if b.SessionStats != nil {
-		x.xxx_hidden_Result = &commandResponse_SessionStats{b.SessionStats}
+		x.xxx_hidden_Completed = &hostCompleted_SessionStats{b.SessionStats}
 	}
 	if b.SessionTree != nil {
-		x.xxx_hidden_Result = &commandResponse_SessionTree{b.SessionTree}
+		x.xxx_hidden_Completed = &hostCompleted_SessionTree{b.SessionTree}
 	}
 	if b.SessionTreeNavigation != nil {
-		x.xxx_hidden_Result = &commandResponse_SessionTreeNavigation{b.SessionTreeNavigation}
+		x.xxx_hidden_Completed = &hostCompleted_SessionTreeNavigation{b.SessionTreeNavigation}
 	}
 	if b.ForkSession != nil {
-		x.xxx_hidden_Result = &commandResponse_ForkSession{b.ForkSession}
+		x.xxx_hidden_Completed = &hostCompleted_ForkSession{b.ForkSession}
 	}
 	if b.CloneSession != nil {
-		x.xxx_hidden_Result = &commandResponse_CloneSession{b.CloneSession}
+		x.xxx_hidden_Completed = &hostCompleted_CloneSession{b.CloneSession}
 	}
 	if b.SetEntryLabel != nil {
-		x.xxx_hidden_Result = &commandResponse_SetEntryLabel{b.SetEntryLabel}
+		x.xxx_hidden_Completed = &hostCompleted_SetEntryLabel{b.SetEntryLabel}
 	}
 	return m0
 }
 
-type case_CommandResponse_Result protoreflect.FieldNumber
+type case_HostCompleted_Completed protoreflect.FieldNumber
 
-func (x case_CommandResponse_Result) String() string {
-	md := file_api_programmatic_v1_programmatic_proto_msgTypes[21].Descriptor()
+func (x case_HostCompleted_Completed) String() string {
+	md := file_api_programmatic_v1_programmatic_proto_msgTypes[23].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
 	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
 }
 
-type isCommandResponse_Result interface {
-	isCommandResponse_Result()
+type isHostCompleted_Completed interface {
+	isHostCompleted_Completed()
 }
 
-type commandResponse_UserRequestAccepted struct {
-	UserRequestAccepted *UserRequestAccepted `protobuf:"bytes,1,opt,name=user_request_accepted,json=userRequestAccepted,proto3,oneof"`
+type hostCompleted_UserRequest struct {
+	UserRequest *UserRequestCompleted `protobuf:"bytes,1,opt,name=user_request,json=userRequest,oneof"`
 }
 
-type commandResponse_AbortCompleted struct {
-	AbortCompleted *AbortCompleted `protobuf:"bytes,2,opt,name=abort_completed,json=abortCompleted,proto3,oneof"`
+type hostCompleted_Cancel struct {
+	Cancel *v1.CancelCompleted `protobuf:"bytes,2,opt,name=cancel,oneof"`
 }
 
-type commandResponse_RunState struct {
-	RunState *RunStateResult `protobuf:"bytes,3,opt,name=run_state,json=runState,proto3,oneof"`
+type hostCompleted_RunState struct {
+	RunState *RunStateResult `protobuf:"bytes,3,opt,name=run_state,json=runState,oneof"`
 }
 
-type commandResponse_Messages struct {
-	Messages *MessagesResult `protobuf:"bytes,4,opt,name=messages,proto3,oneof"`
+type hostCompleted_Messages struct {
+	Messages *MessagesResult `protobuf:"bytes,4,opt,name=messages,oneof"`
 }
 
-type commandResponse_Rejected struct {
-	Rejected *CommandRejected `protobuf:"bytes,5,opt,name=rejected,proto3,oneof"`
+type hostCompleted_Models struct {
+	Models *ModelsResult `protobuf:"bytes,5,opt,name=models,oneof"`
 }
 
-type commandResponse_Models struct {
-	Models *ModelsResult `protobuf:"bytes,6,opt,name=models,proto3,oneof"`
+type hostCompleted_ModelSelection struct {
+	ModelSelection *ModelSelectionResult `protobuf:"bytes,6,opt,name=model_selection,json=modelSelection,oneof"`
 }
 
-type commandResponse_ModelSelection struct {
-	ModelSelection *ModelSelectionResult `protobuf:"bytes,7,opt,name=model_selection,json=modelSelection,proto3,oneof"`
+type hostCompleted_SessionInfo struct {
+	SessionInfo *SessionInfoResult `protobuf:"bytes,7,opt,name=session_info,json=sessionInfo,oneof"`
 }
 
-type commandResponse_SessionInfo struct {
-	SessionInfo *SessionInfoResult `protobuf:"bytes,8,opt,name=session_info,json=sessionInfo,proto3,oneof"`
+type hostCompleted_Sessions struct {
+	Sessions *SessionsResult `protobuf:"bytes,8,opt,name=sessions,oneof"`
 }
 
-type commandResponse_Sessions struct {
-	Sessions *SessionsResult `protobuf:"bytes,9,opt,name=sessions,proto3,oneof"`
+type hostCompleted_SessionEntries struct {
+	SessionEntries *SessionEntriesResult `protobuf:"bytes,9,opt,name=session_entries,json=sessionEntries,oneof"`
 }
 
-type commandResponse_SessionEntries struct {
-	SessionEntries *SessionEntriesResult `protobuf:"bytes,10,opt,name=session_entries,json=sessionEntries,proto3,oneof"`
+type hostCompleted_SessionStats struct {
+	SessionStats *SessionStatsResult `protobuf:"bytes,10,opt,name=session_stats,json=sessionStats,oneof"`
 }
 
-type commandResponse_SessionStats struct {
-	SessionStats *SessionStatsResult `protobuf:"bytes,11,opt,name=session_stats,json=sessionStats,proto3,oneof"`
+type hostCompleted_SessionTree struct {
+	SessionTree *SessionTreeResult `protobuf:"bytes,11,opt,name=session_tree,json=sessionTree,oneof"`
 }
 
-type commandResponse_SessionTree struct {
-	SessionTree *SessionTreeResult `protobuf:"bytes,12,opt,name=session_tree,json=sessionTree,proto3,oneof"`
+type hostCompleted_SessionTreeNavigation struct {
+	SessionTreeNavigation *SessionTreeNavigationResult `protobuf:"bytes,12,opt,name=session_tree_navigation,json=sessionTreeNavigation,oneof"`
 }
 
-type commandResponse_SessionTreeNavigation struct {
-	SessionTreeNavigation *SessionTreeNavigationResult `protobuf:"bytes,13,opt,name=session_tree_navigation,json=sessionTreeNavigation,proto3,oneof"`
+type hostCompleted_ForkSession struct {
+	ForkSession *ForkSessionResult `protobuf:"bytes,13,opt,name=fork_session,json=forkSession,oneof"`
 }
 
-type commandResponse_ForkSession struct {
-	ForkSession *ForkSessionResult `protobuf:"bytes,14,opt,name=fork_session,json=forkSession,proto3,oneof"`
+type hostCompleted_CloneSession struct {
+	CloneSession *CloneSessionResult `protobuf:"bytes,14,opt,name=clone_session,json=cloneSession,oneof"`
 }
 
-type commandResponse_CloneSession struct {
-	CloneSession *CloneSessionResult `protobuf:"bytes,15,opt,name=clone_session,json=cloneSession,proto3,oneof"`
+type hostCompleted_SetEntryLabel struct {
+	SetEntryLabel *SetEntryLabelResult `protobuf:"bytes,15,opt,name=set_entry_label,json=setEntryLabel,oneof"`
 }
 
-type commandResponse_SetEntryLabel struct {
-	SetEntryLabel *SetEntryLabelResult `protobuf:"bytes,16,opt,name=set_entry_label,json=setEntryLabel,proto3,oneof"`
-}
+func (*hostCompleted_UserRequest) isHostCompleted_Completed() {}
 
-func (*commandResponse_UserRequestAccepted) isCommandResponse_Result() {}
+func (*hostCompleted_Cancel) isHostCompleted_Completed() {}
 
-func (*commandResponse_AbortCompleted) isCommandResponse_Result() {}
+func (*hostCompleted_RunState) isHostCompleted_Completed() {}
 
-func (*commandResponse_RunState) isCommandResponse_Result() {}
+func (*hostCompleted_Messages) isHostCompleted_Completed() {}
 
-func (*commandResponse_Messages) isCommandResponse_Result() {}
+func (*hostCompleted_Models) isHostCompleted_Completed() {}
 
-func (*commandResponse_Rejected) isCommandResponse_Result() {}
+func (*hostCompleted_ModelSelection) isHostCompleted_Completed() {}
 
-func (*commandResponse_Models) isCommandResponse_Result() {}
+func (*hostCompleted_SessionInfo) isHostCompleted_Completed() {}
 
-func (*commandResponse_ModelSelection) isCommandResponse_Result() {}
+func (*hostCompleted_Sessions) isHostCompleted_Completed() {}
 
-func (*commandResponse_SessionInfo) isCommandResponse_Result() {}
+func (*hostCompleted_SessionEntries) isHostCompleted_Completed() {}
 
-func (*commandResponse_Sessions) isCommandResponse_Result() {}
+func (*hostCompleted_SessionStats) isHostCompleted_Completed() {}
 
-func (*commandResponse_SessionEntries) isCommandResponse_Result() {}
+func (*hostCompleted_SessionTree) isHostCompleted_Completed() {}
 
-func (*commandResponse_SessionStats) isCommandResponse_Result() {}
+func (*hostCompleted_SessionTreeNavigation) isHostCompleted_Completed() {}
 
-func (*commandResponse_SessionTree) isCommandResponse_Result() {}
+func (*hostCompleted_ForkSession) isHostCompleted_Completed() {}
 
-func (*commandResponse_SessionTreeNavigation) isCommandResponse_Result() {}
+func (*hostCompleted_CloneSession) isHostCompleted_Completed() {}
 
-func (*commandResponse_ForkSession) isCommandResponse_Result() {}
-
-func (*commandResponse_CloneSession) isCommandResponse_Result() {}
-
-func (*commandResponse_SetEntryLabel) isCommandResponse_Result() {}
+func (*hostCompleted_SetEntryLabel) isHostCompleted_Completed() {}
 
 // ForkSessionResult contains the replacement session and exact editable input.
 type ForkSessionResult struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Info         *SessionInfo           `protobuf:"bytes,1,opt,name=info,proto3"`
-	xxx_hidden_ActiveBranch *[]*SessionEntry       `protobuf:"bytes,2,rep,name=active_branch,json=activeBranch,proto3"`
-	xxx_hidden_NextInput    *string                `protobuf:"bytes,3,opt,name=next_input,json=nextInput,proto3,oneof"`
+	xxx_hidden_Info         *SessionInfo           `protobuf:"bytes,1,opt,name=info"`
+	xxx_hidden_ActiveBranch *[]*SessionEntry       `protobuf:"bytes,2,rep,name=active_branch,json=activeBranch"`
+	xxx_hidden_NextInput    *string                `protobuf:"bytes,3,opt,name=next_input,json=nextInput"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -4108,7 +4465,7 @@ type ForkSessionResult struct {
 
 func (x *ForkSessionResult) Reset() {
 	*x = ForkSessionResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4120,7 +4477,7 @@ func (x *ForkSessionResult) String() string {
 func (*ForkSessionResult) ProtoMessage() {}
 
 func (x *ForkSessionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[22]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4220,15 +4577,15 @@ func (b0 ForkSessionResult_builder) Build() *ForkSessionResult {
 // CloneSessionResult contains the replacement active session.
 type CloneSessionResult struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Info         *SessionInfo           `protobuf:"bytes,1,opt,name=info,proto3"`
-	xxx_hidden_ActiveBranch *[]*SessionEntry       `protobuf:"bytes,2,rep,name=active_branch,json=activeBranch,proto3"`
+	xxx_hidden_Info         *SessionInfo           `protobuf:"bytes,1,opt,name=info"`
+	xxx_hidden_ActiveBranch *[]*SessionEntry       `protobuf:"bytes,2,rep,name=active_branch,json=activeBranch"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *CloneSessionResult) Reset() {
 	*x = CloneSessionResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4240,7 +4597,7 @@ func (x *CloneSessionResult) String() string {
 func (*CloneSessionResult) ProtoMessage() {}
 
 func (x *CloneSessionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[23]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4307,14 +4664,14 @@ func (b0 CloneSessionResult_builder) Build() *CloneSessionResult {
 // SetEntryLabelResult contains the committed active-session tree.
 type SetEntryLabelResult struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Tree *SessionTree           `protobuf:"bytes,1,opt,name=tree,proto3"`
+	xxx_hidden_Tree *SessionTree           `protobuf:"bytes,1,opt,name=tree"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SetEntryLabelResult) Reset() {
 	*x = SetEntryLabelResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4326,7 +4683,7 @@ func (x *SetEntryLabelResult) String() string {
 func (*SetEntryLabelResult) ProtoMessage() {}
 
 func (x *SetEntryLabelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[24]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4374,28 +4731,28 @@ func (b0 SetEntryLabelResult_builder) Build() *SetEntryLabelResult {
 	return m0
 }
 
-// UserRequestAccepted confirms that an agent run was accepted.
-type UserRequestAccepted struct {
+// UserRequestCompleted acknowledges a settled agent run.
+type UserRequestCompleted struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserRequestAccepted) Reset() {
-	*x = UserRequestAccepted{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
+func (x *UserRequestCompleted) Reset() {
+	*x = UserRequestCompleted{}
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserRequestAccepted) String() string {
+func (x *UserRequestCompleted) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserRequestAccepted) ProtoMessage() {}
+func (*UserRequestCompleted) ProtoMessage() {}
 
-func (x *UserRequestAccepted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[25]
+func (x *UserRequestCompleted) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4406,57 +4763,13 @@ func (x *UserRequestAccepted) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-type UserRequestAccepted_builder struct {
+type UserRequestCompleted_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 }
 
-func (b0 UserRequestAccepted_builder) Build() *UserRequestAccepted {
-	m0 := &UserRequestAccepted{}
-	b, x := &b0, m0
-	_, _ = b, x
-	return m0
-}
-
-// AbortCompleted confirms that the active run settled after cancellation.
-type AbortCompleted struct {
-	state         protoimpl.MessageState `protogen:"opaque.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AbortCompleted) Reset() {
-	*x = AbortCompleted{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AbortCompleted) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AbortCompleted) ProtoMessage() {}
-
-func (x *AbortCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-type AbortCompleted_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-}
-
-func (b0 AbortCompleted_builder) Build() *AbortCompleted {
-	m0 := &AbortCompleted{}
+func (b0 UserRequestCompleted_builder) Build() *UserRequestCompleted {
+	m0 := &UserRequestCompleted{}
 	b, x := &b0, m0
 	_, _ = b, x
 	return m0
@@ -4464,18 +4777,18 @@ func (b0 AbortCompleted_builder) Build() *AbortCompleted {
 
 // RunStateResult reports the current agent run state.
 type RunStateResult struct {
-	state                          protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_State               RunState               `protobuf:"varint,1,opt,name=state,proto3,enum=glyph.programmatic.v1.RunState,oneof"`
-	xxx_hidden_ActiveCorrelationId *string                `protobuf:"bytes,2,opt,name=active_correlation_id,json=activeCorrelationId,proto3,oneof"`
-	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
-	XXX_presence                   [1]uint32
-	unknownFields                  protoimpl.UnknownFields
-	sizeCache                      protoimpl.SizeCache
+	state                        protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_State             RunState               `protobuf:"varint,1,opt,name=state,enum=glyph.programmatic.v1.RunState"`
+	xxx_hidden_ActiveOperationId *string                `protobuf:"bytes,2,opt,name=active_operation_id,json=activeOperationId"`
+	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
+	XXX_presence                 [1]uint32
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *RunStateResult) Reset() {
 	*x = RunStateResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4487,7 +4800,7 @@ func (x *RunStateResult) String() string {
 func (*RunStateResult) ProtoMessage() {}
 
 func (x *RunStateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[27]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4507,10 +4820,10 @@ func (x *RunStateResult) GetState() RunState {
 	return RunState_RUN_STATE_UNSPECIFIED
 }
 
-func (x *RunStateResult) GetActiveCorrelationId() string {
+func (x *RunStateResult) GetActiveOperationId() string {
 	if x != nil {
-		if x.xxx_hidden_ActiveCorrelationId != nil {
-			return *x.xxx_hidden_ActiveCorrelationId
+		if x.xxx_hidden_ActiveOperationId != nil {
+			return *x.xxx_hidden_ActiveOperationId
 		}
 		return ""
 	}
@@ -4522,8 +4835,8 @@ func (x *RunStateResult) SetState(v RunState) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *RunStateResult) SetActiveCorrelationId(v string) {
-	x.xxx_hidden_ActiveCorrelationId = &v
+func (x *RunStateResult) SetActiveOperationId(v string) {
+	x.xxx_hidden_ActiveOperationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
@@ -4534,7 +4847,7 @@ func (x *RunStateResult) HasState() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *RunStateResult) HasActiveCorrelationId() bool {
+func (x *RunStateResult) HasActiveOperationId() bool {
 	if x == nil {
 		return false
 	}
@@ -4546,9 +4859,9 @@ func (x *RunStateResult) ClearState() {
 	x.xxx_hidden_State = RunState_RUN_STATE_UNSPECIFIED
 }
 
-func (x *RunStateResult) ClearActiveCorrelationId() {
+func (x *RunStateResult) ClearActiveOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_ActiveCorrelationId = nil
+	x.xxx_hidden_ActiveOperationId = nil
 }
 
 type RunStateResult_builder struct {
@@ -4556,8 +4869,8 @@ type RunStateResult_builder struct {
 
 	// The current run state.
 	State *RunState
-	// The correlation identifier of the active user request.
-	ActiveCorrelationId *string
+	// The operation identifier of the active user request.
+	ActiveOperationId *string
 }
 
 func (b0 RunStateResult_builder) Build() *RunStateResult {
@@ -4568,9 +4881,9 @@ func (b0 RunStateResult_builder) Build() *RunStateResult {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_State = *b.State
 	}
-	if b.ActiveCorrelationId != nil {
+	if b.ActiveOperationId != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_ActiveCorrelationId = b.ActiveCorrelationId
+		x.xxx_hidden_ActiveOperationId = b.ActiveOperationId
 	}
 	return m0
 }
@@ -4578,14 +4891,14 @@ func (b0 RunStateResult_builder) Build() *RunStateResult {
 // MessagesResult contains the ordered public message history.
 type MessagesResult struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Entries *[]*HistoryEntry       `protobuf:"bytes,1,rep,name=entries,proto3"`
+	xxx_hidden_Entries *[]*HistoryEntry       `protobuf:"bytes,1,rep,name=entries"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *MessagesResult) Reset() {
 	*x = MessagesResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4597,7 +4910,7 @@ func (x *MessagesResult) String() string {
 func (*MessagesResult) ProtoMessage() {}
 
 func (x *MessagesResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[28]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4639,15 +4952,15 @@ func (b0 MessagesResult_builder) Build() *MessagesResult {
 // ModelsResult contains the configured model catalogue and active selection.
 type ModelsResult struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Models          *[]*ConfiguredModel    `protobuf:"bytes,1,rep,name=models,proto3"`
-	xxx_hidden_ActiveSelection *ModelSelection        `protobuf:"bytes,2,opt,name=active_selection,json=activeSelection,proto3"`
+	xxx_hidden_Models          *[]*ConfiguredModel    `protobuf:"bytes,1,rep,name=models"`
+	xxx_hidden_ActiveSelection *ModelSelection        `protobuf:"bytes,2,opt,name=active_selection,json=activeSelection"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *ModelsResult) Reset() {
 	*x = ModelsResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4659,7 +4972,7 @@ func (x *ModelsResult) String() string {
 func (*ModelsResult) ProtoMessage() {}
 
 func (x *ModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[29]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4726,12 +5039,12 @@ func (b0 ModelsResult_builder) Build() *ModelsResult {
 // ConfiguredModel describes one configured provider model.
 type ConfiguredModel struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3,oneof"`
-	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3,oneof"`
-	xxx_hidden_Reasoning       *ReasoningCapabilities `protobuf:"bytes,3,opt,name=reasoning,proto3"`
-	xxx_hidden_InputModalities []InputModality        `protobuf:"varint,4,rep,packed,name=input_modalities,json=inputModalities,proto3,enum=glyph.programmatic.v1.InputModality"`
-	xxx_hidden_ContextWindow   int64                  `protobuf:"varint,5,opt,name=context_window,json=contextWindow,proto3,oneof"`
-	xxx_hidden_MaxTokens       int64                  `protobuf:"varint,6,opt,name=max_tokens,json=maxTokens,proto3,oneof"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_Reasoning       *ReasoningCapabilities `protobuf:"bytes,3,opt,name=reasoning"`
+	xxx_hidden_InputModalities []InputModality        `protobuf:"varint,4,rep,packed,name=input_modalities,json=inputModalities,enum=glyph.programmatic.v1.InputModality"`
+	xxx_hidden_ContextWindow   int64                  `protobuf:"varint,5,opt,name=context_window,json=contextWindow"`
+	xxx_hidden_MaxTokens       int64                  `protobuf:"varint,6,opt,name=max_tokens,json=maxTokens"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -4740,7 +5053,7 @@ type ConfiguredModel struct {
 
 func (x *ConfiguredModel) Reset() {
 	*x = ConfiguredModel{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4752,7 +5065,7 @@ func (x *ConfiguredModel) String() string {
 func (*ConfiguredModel) ProtoMessage() {}
 
 func (x *ConfiguredModel) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[30]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4943,9 +5256,9 @@ func (b0 ConfiguredModel_builder) Build() *ConfiguredModel {
 // ReasoningCapabilities describes one model reasoning contract.
 type ReasoningCapabilities struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Supported     bool                   `protobuf:"varint,1,opt,name=supported,proto3,oneof"`
-	xxx_hidden_Choices       []ReasoningChoice      `protobuf:"varint,2,rep,packed,name=choices,proto3,enum=glyph.programmatic.v1.ReasoningChoice"`
-	xxx_hidden_DefaultChoice ReasoningChoice        `protobuf:"varint,3,opt,name=default_choice,json=defaultChoice,proto3,enum=glyph.programmatic.v1.ReasoningChoice,oneof"`
+	xxx_hidden_Supported     bool                   `protobuf:"varint,1,opt,name=supported"`
+	xxx_hidden_Choices       []ReasoningChoice      `protobuf:"varint,2,rep,packed,name=choices,enum=glyph.programmatic.v1.ReasoningChoice"`
+	xxx_hidden_DefaultChoice ReasoningChoice        `protobuf:"varint,3,opt,name=default_choice,json=defaultChoice,enum=glyph.programmatic.v1.ReasoningChoice"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -4954,7 +5267,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4966,7 +5279,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[31]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5068,9 +5381,9 @@ func (b0 ReasoningCapabilities_builder) Build() *ReasoningCapabilities {
 // ModelSelection identifies the active provider, model, and reasoning choice.
 type ModelSelection struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3,oneof"`
-	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3,oneof"`
-	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,3,opt,name=reasoning_choice,json=reasoningChoice,proto3,enum=glyph.programmatic.v1.ReasoningChoice,oneof"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,3,opt,name=reasoning_choice,json=reasoningChoice,enum=glyph.programmatic.v1.ReasoningChoice"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -5079,7 +5392,7 @@ type ModelSelection struct {
 
 func (x *ModelSelection) Reset() {
 	*x = ModelSelection{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5091,7 +5404,7 @@ func (x *ModelSelection) String() string {
 func (*ModelSelection) ProtoMessage() {}
 
 func (x *ModelSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[32]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5215,14 +5528,14 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 // ModelSelectionResult contains the committed model selection.
 type ModelSelectionResult struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection,proto3"`
+	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ModelSelectionResult) Reset() {
 	*x = ModelSelectionResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5234,7 +5547,7 @@ func (x *ModelSelectionResult) String() string {
 func (*ModelSelectionResult) ProtoMessage() {}
 
 func (x *ModelSelectionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[33]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5285,14 +5598,14 @@ func (b0 ModelSelectionResult_builder) Build() *ModelSelectionResult {
 // SessionInfoResult contains active-session information.
 type SessionInfoResult struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Info *SessionInfo           `protobuf:"bytes,1,opt,name=info,proto3"`
+	xxx_hidden_Info *SessionInfo           `protobuf:"bytes,1,opt,name=info"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SessionInfoResult) Reset() {
 	*x = SessionInfoResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5304,7 +5617,7 @@ func (x *SessionInfoResult) String() string {
 func (*SessionInfoResult) ProtoMessage() {}
 
 func (x *SessionInfoResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[34]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5355,14 +5668,14 @@ func (b0 SessionInfoResult_builder) Build() *SessionInfoResult {
 // SessionsResult contains stored sessions in display order.
 type SessionsResult struct {
 	state               protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Sessions *[]*SessionSummary     `protobuf:"bytes,1,rep,name=sessions,proto3"`
+	xxx_hidden_Sessions *[]*SessionSummary     `protobuf:"bytes,1,rep,name=sessions"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *SessionsResult) Reset() {
 	*x = SessionsResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5374,7 +5687,7 @@ func (x *SessionsResult) String() string {
 func (*SessionsResult) ProtoMessage() {}
 
 func (x *SessionsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[35]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5416,12 +5729,12 @@ func (b0 SessionsResult_builder) Build() *SessionsResult {
 // SessionInfo contains lifecycle information for one session.
 type SessionInfo struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id               *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
-	xxx_hidden_Name             *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
-	xxx_hidden_WorkingDirectory *string                `protobuf:"bytes,3,opt,name=working_directory,json=workingDirectory,proto3,oneof"`
-	xxx_hidden_StoragePath      *string                `protobuf:"bytes,4,opt,name=storage_path,json=storagePath,proto3,oneof"`
-	xxx_hidden_CreatedTime      *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_time,json=createdTime,proto3"`
-	xxx_hidden_UpdateTime       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=update_time,json=updateTime,proto3"`
+	xxx_hidden_Id               *string                `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_Name             *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_WorkingDirectory *string                `protobuf:"bytes,3,opt,name=working_directory,json=workingDirectory"`
+	xxx_hidden_StoragePath      *string                `protobuf:"bytes,4,opt,name=storage_path,json=storagePath"`
+	xxx_hidden_CreatedTime      *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_time,json=createdTime"`
+	xxx_hidden_UpdateTime       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=update_time,json=updateTime"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -5430,7 +5743,7 @@ type SessionInfo struct {
 
 func (x *SessionInfo) Reset() {
 	*x = SessionInfo{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5442,7 +5755,7 @@ func (x *SessionInfo) String() string {
 func (*SessionInfo) ProtoMessage() {}
 
 func (x *SessionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[36]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5650,9 +5963,9 @@ func (b0 SessionInfo_builder) Build() *SessionInfo {
 // SessionSummary contains one stored session list row.
 type SessionSummary struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Info          *SessionInfo           `protobuf:"bytes,1,opt,name=info,proto3"`
-	xxx_hidden_FirstUserText *string                `protobuf:"bytes,2,opt,name=first_user_text,json=firstUserText,proto3,oneof"`
-	xxx_hidden_TotalMessages int64                  `protobuf:"varint,3,opt,name=total_messages,json=totalMessages,proto3,oneof"`
+	xxx_hidden_Info          *SessionInfo           `protobuf:"bytes,1,opt,name=info"`
+	xxx_hidden_FirstUserText *string                `protobuf:"bytes,2,opt,name=first_user_text,json=firstUserText"`
+	xxx_hidden_TotalMessages int64                  `protobuf:"varint,3,opt,name=total_messages,json=totalMessages"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -5661,7 +5974,7 @@ type SessionSummary struct {
 
 func (x *SessionSummary) Reset() {
 	*x = SessionSummary{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5673,7 +5986,7 @@ func (x *SessionSummary) String() string {
 func (*SessionSummary) ProtoMessage() {}
 
 func (x *SessionSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[37]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5787,14 +6100,14 @@ func (b0 SessionSummary_builder) Build() *SessionSummary {
 // SessionStatsResult contains active-session counts and token totals.
 type SessionStatsResult struct {
 	state                 protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Statistics *SessionStatistics     `protobuf:"bytes,1,opt,name=statistics,proto3"`
+	xxx_hidden_Statistics *SessionStatistics     `protobuf:"bytes,1,opt,name=statistics"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
 
 func (x *SessionStatsResult) Reset() {
 	*x = SessionStatsResult{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5806,7 +6119,7 @@ func (x *SessionStatsResult) String() string {
 func (*SessionStatsResult) ProtoMessage() {}
 
 func (x *SessionStatsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[38]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5857,14 +6170,14 @@ func (b0 SessionStatsResult_builder) Build() *SessionStatsResult {
 // SessionStatistics contains counts and complete normalized token totals.
 type SessionStatistics struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_UserMessages   int64                  `protobuf:"varint,1,opt,name=user_messages,json=userMessages,proto3,oneof"`
-	xxx_hidden_ModelResponses int64                  `protobuf:"varint,2,opt,name=model_responses,json=modelResponses,proto3,oneof"`
-	xxx_hidden_ToolCalls      int64                  `protobuf:"varint,3,opt,name=tool_calls,json=toolCalls,proto3,oneof"`
-	xxx_hidden_ToolResults    int64                  `protobuf:"varint,4,opt,name=tool_results,json=toolResults,proto3,oneof"`
-	xxx_hidden_TotalMessages  int64                  `protobuf:"varint,5,opt,name=total_messages,json=totalMessages,proto3,oneof"`
-	xxx_hidden_Tokens         *TokenUsage            `protobuf:"bytes,6,opt,name=tokens,proto3"`
-	xxx_hidden_EstimatedCost  *EstimatedCost         `protobuf:"bytes,7,opt,name=estimated_cost,json=estimatedCost,proto3"`
-	xxx_hidden_CostBreakdown  *[]*ProviderModelCost  `protobuf:"bytes,8,rep,name=cost_breakdown,json=costBreakdown,proto3"`
+	xxx_hidden_UserMessages   int64                  `protobuf:"varint,1,opt,name=user_messages,json=userMessages"`
+	xxx_hidden_ModelResponses int64                  `protobuf:"varint,2,opt,name=model_responses,json=modelResponses"`
+	xxx_hidden_ToolCalls      int64                  `protobuf:"varint,3,opt,name=tool_calls,json=toolCalls"`
+	xxx_hidden_ToolResults    int64                  `protobuf:"varint,4,opt,name=tool_results,json=toolResults"`
+	xxx_hidden_TotalMessages  int64                  `protobuf:"varint,5,opt,name=total_messages,json=totalMessages"`
+	xxx_hidden_Tokens         *TokenUsage            `protobuf:"bytes,6,opt,name=tokens"`
+	xxx_hidden_EstimatedCost  *EstimatedCost         `protobuf:"bytes,7,opt,name=estimated_cost,json=estimatedCost"`
+	xxx_hidden_CostBreakdown  *[]*ProviderModelCost  `protobuf:"bytes,8,rep,name=cost_breakdown,json=costBreakdown"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -5873,7 +6186,7 @@ type SessionStatistics struct {
 
 func (x *SessionStatistics) Reset() {
 	*x = SessionStatistics{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5885,7 +6198,7 @@ func (x *SessionStatistics) String() string {
 func (*SessionStatistics) ProtoMessage() {}
 
 func (x *SessionStatistics) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[39]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6127,11 +6440,11 @@ func (b0 SessionStatistics_builder) Build() *SessionStatistics {
 // EstimatedCost contains calculated USD cost for disjoint token buckets.
 type EstimatedCost struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Input       float64                `protobuf:"fixed64,1,opt,name=input,proto3,oneof"`
-	xxx_hidden_Output      float64                `protobuf:"fixed64,2,opt,name=output,proto3,oneof"`
-	xxx_hidden_CacheRead   float64                `protobuf:"fixed64,3,opt,name=cache_read,json=cacheRead,proto3,oneof"`
-	xxx_hidden_CacheWrite  float64                `protobuf:"fixed64,4,opt,name=cache_write,json=cacheWrite,proto3,oneof"`
-	xxx_hidden_Total       float64                `protobuf:"fixed64,5,opt,name=total,proto3,oneof"`
+	xxx_hidden_Input       float64                `protobuf:"fixed64,1,opt,name=input"`
+	xxx_hidden_Output      float64                `protobuf:"fixed64,2,opt,name=output"`
+	xxx_hidden_CacheRead   float64                `protobuf:"fixed64,3,opt,name=cache_read,json=cacheRead"`
+	xxx_hidden_CacheWrite  float64                `protobuf:"fixed64,4,opt,name=cache_write,json=cacheWrite"`
+	xxx_hidden_Total       float64                `protobuf:"fixed64,5,opt,name=total"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -6140,7 +6453,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6152,7 +6465,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[40]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6328,9 +6641,9 @@ func (b0 EstimatedCost_builder) Build() *EstimatedCost {
 // ProviderModelCost groups persisted cost by configured provider and requested model.
 type ProviderModelCost struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId    *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3,oneof"`
-	xxx_hidden_ModelId       *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3,oneof"`
-	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,3,opt,name=estimated_cost,json=estimatedCost,proto3"`
+	xxx_hidden_ProviderId    *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId       *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,3,opt,name=estimated_cost,json=estimatedCost"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -6339,7 +6652,7 @@ type ProviderModelCost struct {
 
 func (x *ProviderModelCost) Reset() {
 	*x = ProviderModelCost{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6351,7 +6664,7 @@ func (x *ProviderModelCost) String() string {
 func (*ProviderModelCost) ProtoMessage() {}
 
 func (x *ProviderModelCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[41]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6468,12 +6781,12 @@ func (b0 ProviderModelCost_builder) Build() *ProviderModelCost {
 // TokenUsage contains disjoint normalized token buckets.
 type TokenUsage struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InputTokens      int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3,oneof"`
-	xxx_hidden_OutputTokens     int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens,proto3,oneof"`
-	xxx_hidden_CacheReadTokens  int64                  `protobuf:"varint,3,opt,name=cache_read_tokens,json=cacheReadTokens,proto3,oneof"`
-	xxx_hidden_CacheWriteTokens int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens,proto3,oneof"`
-	xxx_hidden_ReasoningTokens  int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens,proto3,oneof"`
-	xxx_hidden_TotalTokens      int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens,proto3,oneof"`
+	xxx_hidden_InputTokens      int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens"`
+	xxx_hidden_OutputTokens     int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens"`
+	xxx_hidden_CacheReadTokens  int64                  `protobuf:"varint,3,opt,name=cache_read_tokens,json=cacheReadTokens"`
+	xxx_hidden_CacheWriteTokens int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens"`
+	xxx_hidden_ReasoningTokens  int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens"`
+	xxx_hidden_TotalTokens      int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -6482,7 +6795,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6494,7 +6807,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[42]
+	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6697,156 +7010,10 @@ func (b0 TokenUsage_builder) Build() *TokenUsage {
 	return m0
 }
 
-// CommandRejected describes a command that was not executed.
-type CommandRejected struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Command     CommandType            `protobuf:"varint,1,opt,name=command,proto3,enum=glyph.programmatic.v1.CommandType,oneof"`
-	xxx_hidden_Code        RejectionCode          `protobuf:"varint,2,opt,name=code,proto3,enum=glyph.programmatic.v1.RejectionCode,oneof"`
-	xxx_hidden_Message     *string                `protobuf:"bytes,3,opt,name=message,proto3,oneof"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *CommandRejected) Reset() {
-	*x = CommandRejected{}
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CommandRejected) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CommandRejected) ProtoMessage() {}
-
-func (x *CommandRejected) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_programmatic_proto_msgTypes[43]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *CommandRejected) GetCommand() CommandType {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
-			return x.xxx_hidden_Command
-		}
-	}
-	return CommandType_COMMAND_TYPE_UNSPECIFIED
-}
-
-func (x *CommandRejected) GetCode() RejectionCode {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
-			return x.xxx_hidden_Code
-		}
-	}
-	return RejectionCode_REJECTION_CODE_UNSPECIFIED
-}
-
-func (x *CommandRejected) GetMessage() string {
-	if x != nil {
-		if x.xxx_hidden_Message != nil {
-			return *x.xxx_hidden_Message
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *CommandRejected) SetCommand(v CommandType) {
-	x.xxx_hidden_Command = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
-}
-
-func (x *CommandRejected) SetCode(v RejectionCode) {
-	x.xxx_hidden_Code = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
-}
-
-func (x *CommandRejected) SetMessage(v string) {
-	x.xxx_hidden_Message = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
-}
-
-func (x *CommandRejected) HasCommand() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *CommandRejected) HasCode() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *CommandRejected) HasMessage() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *CommandRejected) ClearCommand() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Command = CommandType_COMMAND_TYPE_UNSPECIFIED
-}
-
-func (x *CommandRejected) ClearCode() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Code = RejectionCode_REJECTION_CODE_UNSPECIFIED
-}
-
-func (x *CommandRejected) ClearMessage() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Message = nil
-}
-
-type CommandRejected_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The rejected command type.
-	Command *CommandType
-	// The stable rejection code.
-	Code *RejectionCode
-	// The safe rejection message.
-	Message *string
-}
-
-func (b0 CommandRejected_builder) Build() *CommandRejected {
-	m0 := &CommandRejected{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Command != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
-		x.xxx_hidden_Command = *b.Command
-	}
-	if b.Code != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
-		x.xxx_hidden_Code = *b.Code
-	}
-	if b.Message != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_Message = b.Message
-	}
-	return m0
-}
-
 // SessionTreeResult contains the complete active-session tree.
 type SessionTreeResult struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Tree *SessionTree           `protobuf:"bytes,1,opt,name=tree,proto3"`
+	xxx_hidden_Tree *SessionTree           `protobuf:"bytes,1,opt,name=tree"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -6916,11 +7083,11 @@ func (b0 SessionTreeResult_builder) Build() *SessionTreeResult {
 // SessionTreeNavigationResult reports one committed or canceled navigation.
 type SessionTreeNavigationResult struct {
 	state                   protoimpl.MessageState      `protogen:"opaque.v1"`
-	xxx_hidden_Status       SessionTreeNavigationStatus `protobuf:"varint,1,opt,name=status,proto3,enum=glyph.programmatic.v1.SessionTreeNavigationStatus,oneof"`
-	xxx_hidden_Tree         *SessionTree                `protobuf:"bytes,2,opt,name=tree,proto3"`
-	xxx_hidden_ActiveBranch *[]*SessionEntry            `protobuf:"bytes,3,rep,name=active_branch,json=activeBranch,proto3"`
-	xxx_hidden_NextInput    *string                     `protobuf:"bytes,4,opt,name=next_input,json=nextInput,proto3,oneof"`
-	xxx_hidden_Issues       *[]*OperationIssue          `protobuf:"bytes,5,rep,name=issues,proto3"`
+	xxx_hidden_Status       SessionTreeNavigationStatus `protobuf:"varint,1,opt,name=status,enum=glyph.programmatic.v1.SessionTreeNavigationStatus"`
+	xxx_hidden_Tree         *SessionTree                `protobuf:"bytes,2,opt,name=tree"`
+	xxx_hidden_ActiveBranch *[]*SessionEntry            `protobuf:"bytes,3,rep,name=active_branch,json=activeBranch"`
+	xxx_hidden_NextInput    *string                     `protobuf:"bytes,4,opt,name=next_input,json=nextInput"`
+	xxx_hidden_Issues       *[]*OperationIssue          `protobuf:"bytes,5,rep,name=issues"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -7086,11 +7253,11 @@ func (b0 SessionTreeNavigationResult_builder) Build() *SessionTreeNavigationResu
 	return m0
 }
 
-// SessionTree contains every persisted conversation entry and the optional active leaf.
+// SessionTree contains every persisted conversation entry and the active leaf.
 type SessionTree struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Entries      *[]*SessionTreeEntry   `protobuf:"bytes,1,rep,name=entries,proto3"`
-	xxx_hidden_ActiveLeafId *string                `protobuf:"bytes,2,opt,name=active_leaf_id,json=activeLeafId,proto3,oneof"`
+	xxx_hidden_Entries      *[]*SessionTreeEntry   `protobuf:"bytes,1,rep,name=entries"`
+	xxx_hidden_ActiveLeafId *string                `protobuf:"bytes,2,opt,name=active_leaf_id,json=activeLeafId"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -7186,10 +7353,10 @@ func (b0 SessionTree_builder) Build() *SessionTree {
 // SessionTreeEntry contains one entry, its parent relation, and label state.
 type SessionTreeEntry struct {
 	state                  protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Id          *string                  `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
-	xxx_hidden_ParentId    *string                  `protobuf:"bytes,2,opt,name=parent_id,json=parentId,proto3,oneof"`
-	xxx_hidden_CreatedTime *timestamppb.Timestamp   `protobuf:"bytes,3,opt,name=created_time,json=createdTime,proto3"`
-	xxx_hidden_Label       *string                  `protobuf:"bytes,4,opt,name=label,proto3,oneof"`
+	xxx_hidden_Id          *string                  `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_ParentId    *string                  `protobuf:"bytes,2,opt,name=parent_id,json=parentId"`
+	xxx_hidden_CreatedTime *timestamppb.Timestamp   `protobuf:"bytes,3,opt,name=created_time,json=createdTime"`
+	xxx_hidden_Label       *string                  `protobuf:"bytes,4,opt,name=label"`
 	xxx_hidden_Entry       isSessionTreeEntry_Entry `protobuf_oneof:"entry"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -7590,23 +7757,23 @@ type isSessionTreeEntry_Entry interface {
 }
 
 type sessionTreeEntry_User struct {
-	User *UserMessage `protobuf:"bytes,5,opt,name=user,proto3,oneof"`
+	User *UserMessage `protobuf:"bytes,5,opt,name=user,oneof"`
 }
 
 type sessionTreeEntry_Model struct {
-	Model *ModelResponse `protobuf:"bytes,6,opt,name=model,proto3,oneof"`
+	Model *ModelResponse `protobuf:"bytes,6,opt,name=model,oneof"`
 }
 
 type sessionTreeEntry_ToolResult struct {
-	ToolResult *ToolResult `protobuf:"bytes,7,opt,name=tool_result,json=toolResult,proto3,oneof"`
+	ToolResult *ToolResult `protobuf:"bytes,7,opt,name=tool_result,json=toolResult,oneof"`
 }
 
 type sessionTreeEntry_Extension struct {
-	Extension *ExtensionEntry `protobuf:"bytes,8,opt,name=extension,proto3,oneof"`
+	Extension *ExtensionEntry `protobuf:"bytes,8,opt,name=extension,oneof"`
 }
 
 type sessionTreeEntry_BranchSummary struct {
-	BranchSummary *BranchSummary `protobuf:"bytes,9,opt,name=branch_summary,json=branchSummary,proto3,oneof"`
+	BranchSummary *BranchSummary `protobuf:"bytes,9,opt,name=branch_summary,json=branchSummary,oneof"`
 }
 
 func (*sessionTreeEntry_User) isSessionTreeEntry_Entry() {}
@@ -7622,8 +7789,8 @@ func (*sessionTreeEntry_BranchSummary) isSessionTreeEntry_Entry() {}
 // ExtensionEntry identifies one opaque extension entry without private payload bytes.
 type ExtensionEntry struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ExtensionId *string                `protobuf:"bytes,1,opt,name=extension_id,json=extensionId,proto3,oneof"`
-	xxx_hidden_EntryType   *string                `protobuf:"bytes,2,opt,name=entry_type,json=entryType,proto3,oneof"`
+	xxx_hidden_ExtensionId *string                `protobuf:"bytes,1,opt,name=extension_id,json=extensionId"`
+	xxx_hidden_EntryType   *string                `protobuf:"bytes,2,opt,name=entry_type,json=entryType"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -7736,14 +7903,14 @@ func (b0 ExtensionEntry_builder) Build() *ExtensionEntry {
 // BranchSummary contains one persisted abandoned-branch summary.
 type BranchSummary struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Summary         *string                `protobuf:"bytes,1,opt,name=summary,proto3,oneof"`
-	xxx_hidden_FirstEntryId    *string                `protobuf:"bytes,2,opt,name=first_entry_id,json=firstEntryId,proto3,oneof"`
-	xxx_hidden_LastEntryId     *string                `protobuf:"bytes,3,opt,name=last_entry_id,json=lastEntryId,proto3,oneof"`
-	xxx_hidden_ProviderId      *string                `protobuf:"bytes,4,opt,name=provider_id,json=providerId,proto3,oneof"`
-	xxx_hidden_ModelId         *string                `protobuf:"bytes,5,opt,name=model_id,json=modelId,proto3,oneof"`
-	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,6,opt,name=reasoning_choice,json=reasoningChoice,proto3,enum=glyph.programmatic.v1.ReasoningChoice,oneof"`
-	xxx_hidden_Usage           *TokenUsage            `protobuf:"bytes,7,opt,name=usage,proto3"`
-	xxx_hidden_EstimatedCost   *EstimatedCost         `protobuf:"bytes,8,opt,name=estimated_cost,json=estimatedCost,proto3"`
+	xxx_hidden_Summary         *string                `protobuf:"bytes,1,opt,name=summary"`
+	xxx_hidden_FirstEntryId    *string                `protobuf:"bytes,2,opt,name=first_entry_id,json=firstEntryId"`
+	xxx_hidden_LastEntryId     *string                `protobuf:"bytes,3,opt,name=last_entry_id,json=lastEntryId"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,4,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,5,opt,name=model_id,json=modelId"`
+	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,6,opt,name=reasoning_choice,json=reasoningChoice,enum=glyph.programmatic.v1.ReasoningChoice"`
+	xxx_hidden_Usage           *TokenUsage            `protobuf:"bytes,7,opt,name=usage"`
+	xxx_hidden_EstimatedCost   *EstimatedCost         `protobuf:"bytes,8,opt,name=estimated_cost,json=estimatedCost"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -8037,10 +8204,10 @@ func (b0 BranchSummary_builder) Build() *BranchSummary {
 // OperationIssue reports one safe nonterminal handler or observer issue.
 type OperationIssue struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Code        OperationIssueCode     `protobuf:"varint,1,opt,name=code,proto3,enum=glyph.programmatic.v1.OperationIssueCode,oneof"`
-	xxx_hidden_ExtensionId *string                `protobuf:"bytes,2,opt,name=extension_id,json=extensionId,proto3,oneof"`
-	xxx_hidden_HandlerId   *string                `protobuf:"bytes,3,opt,name=handler_id,json=handlerId,proto3,oneof"`
-	xxx_hidden_Message     *string                `protobuf:"bytes,4,opt,name=message,proto3,oneof"`
+	xxx_hidden_Code        OperationIssueCode     `protobuf:"varint,1,opt,name=code,enum=glyph.programmatic.v1.OperationIssueCode"`
+	xxx_hidden_ExtensionId *string                `protobuf:"bytes,2,opt,name=extension_id,json=extensionId"`
+	xxx_hidden_HandlerId   *string                `protobuf:"bytes,3,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,4,opt,name=message"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -8218,7 +8385,7 @@ func (b0 OperationIssue_builder) Build() *OperationIssue {
 // SessionEntriesResult contains ordered detailed active-session entries.
 type SessionEntriesResult struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Entries *[]*SessionEntry       `protobuf:"bytes,1,rep,name=entries,proto3"`
+	xxx_hidden_Entries *[]*SessionEntry       `protobuf:"bytes,1,rep,name=entries"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -8279,10 +8446,10 @@ func (b0 SessionEntriesResult_builder) Build() *SessionEntriesResult {
 // SessionEntry contains stable metadata and one public terminal payload.
 type SessionEntry struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
-	xxx_hidden_CreatedTime   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_time,json=createdTime,proto3"`
+	xxx_hidden_Id            *string                `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_CreatedTime   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_time,json=createdTime"`
 	xxx_hidden_Entry         isSessionEntry_Entry   `protobuf_oneof:"entry"`
-	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,6,opt,name=estimated_cost,json=estimatedCost,proto3"`
+	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,6,opt,name=estimated_cost,json=estimatedCost"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -8603,19 +8770,19 @@ type isSessionEntry_Entry interface {
 }
 
 type sessionEntry_User struct {
-	User *UserMessage `protobuf:"bytes,3,opt,name=user,proto3,oneof"`
+	User *UserMessage `protobuf:"bytes,3,opt,name=user,oneof"`
 }
 
 type sessionEntry_Model struct {
-	Model *ModelResponse `protobuf:"bytes,4,opt,name=model,proto3,oneof"`
+	Model *ModelResponse `protobuf:"bytes,4,opt,name=model,oneof"`
 }
 
 type sessionEntry_ToolResult struct {
-	ToolResult *ToolResult `protobuf:"bytes,5,opt,name=tool_result,json=toolResult,proto3,oneof"`
+	ToolResult *ToolResult `protobuf:"bytes,5,opt,name=tool_result,json=toolResult,oneof"`
 }
 
 type sessionEntry_BranchSummary struct {
-	BranchSummary *BranchSummary `protobuf:"bytes,7,opt,name=branch_summary,json=branchSummary,proto3,oneof"`
+	BranchSummary *BranchSummary `protobuf:"bytes,7,opt,name=branch_summary,json=branchSummary,oneof"`
 }
 
 func (*sessionEntry_User) isSessionEntry_Entry() {}
@@ -8827,15 +8994,15 @@ type isHistoryEntry_Entry interface {
 }
 
 type historyEntry_User struct {
-	User *UserMessage `protobuf:"bytes,1,opt,name=user,proto3,oneof"`
+	User *UserMessage `protobuf:"bytes,1,opt,name=user,oneof"`
 }
 
 type historyEntry_Model struct {
-	Model *ModelResponse `protobuf:"bytes,2,opt,name=model,proto3,oneof"`
+	Model *ModelResponse `protobuf:"bytes,2,opt,name=model,oneof"`
 }
 
 type historyEntry_ToolResult struct {
-	ToolResult *ToolResult `protobuf:"bytes,3,opt,name=tool_result,json=toolResult,proto3,oneof"`
+	ToolResult *ToolResult `protobuf:"bytes,3,opt,name=tool_result,json=toolResult,oneof"`
 }
 
 func (*historyEntry_User) isHistoryEntry_Entry() {}
@@ -8847,7 +9014,7 @@ func (*historyEntry_ToolResult) isHistoryEntry_Entry() {}
 // UserMessage carries one user history item.
 type UserMessage struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Content *[]*UserContent        `protobuf:"bytes,2,rep,name=content,proto3"`
+	xxx_hidden_Content *[]*UserContent        `protobuf:"bytes,1,rep,name=content"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -9064,11 +9231,11 @@ type isUserContent_Content interface {
 }
 
 type userContent_Text struct {
-	Text string `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
 }
 
 type userContent_Image struct {
-	Image *UserImage `protobuf:"bytes,2,opt,name=image,proto3,oneof"`
+	Image *UserImage `protobuf:"bytes,2,opt,name=image,oneof"`
 }
 
 func (*userContent_Text) isUserContent_Content() {}
@@ -9078,8 +9245,8 @@ func (*userContent_Image) isUserContent_Content() {}
 // UserImage carries exact binary image data and its media type.
 type UserImage struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType,proto3,oneof"`
-	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
+	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType"`
+	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -9192,8 +9359,8 @@ func (b0 UserImage_builder) Build() *UserImage {
 // AgentEvent carries one correlated agent lifecycle event.
 type AgentEvent struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Type        AgentEventType         `protobuf:"varint,1,opt,name=type,proto3,enum=glyph.programmatic.v1.AgentEventType,oneof"`
-	xxx_hidden_RunId       *string                `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3,oneof"`
+	xxx_hidden_Type        AgentEventType         `protobuf:"varint,1,opt,name=type,enum=glyph.programmatic.v1.AgentEventType"`
+	xxx_hidden_RunId       *string                `protobuf:"bytes,2,opt,name=run_id,json=runId"`
 	xxx_hidden_Payload     isAgentEvent_Payload   `protobuf_oneof:"payload"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -9687,39 +9854,39 @@ type isAgentEvent_Payload interface {
 }
 
 type agentEvent_ModelContent struct {
-	ModelContent *ModelContent `protobuf:"bytes,3,opt,name=model_content,json=modelContent,proto3,oneof"`
+	ModelContent *ModelContent `protobuf:"bytes,3,opt,name=model_content,json=modelContent,oneof"`
 }
 
 type agentEvent_ToolCallPreview struct {
-	ToolCallPreview *ToolCallPreview `protobuf:"bytes,4,opt,name=tool_call_preview,json=toolCallPreview,proto3,oneof"`
+	ToolCallPreview *ToolCallPreview `protobuf:"bytes,4,opt,name=tool_call_preview,json=toolCallPreview,oneof"`
 }
 
 type agentEvent_FinalToolCall struct {
-	FinalToolCall *FinalToolCall `protobuf:"bytes,5,opt,name=final_tool_call,json=finalToolCall,proto3,oneof"`
+	FinalToolCall *FinalToolCall `protobuf:"bytes,5,opt,name=final_tool_call,json=finalToolCall,oneof"`
 }
 
 type agentEvent_ToolExecution struct {
-	ToolExecution *ToolExecution `protobuf:"bytes,6,opt,name=tool_execution,json=toolExecution,proto3,oneof"`
+	ToolExecution *ToolExecution `protobuf:"bytes,6,opt,name=tool_execution,json=toolExecution,oneof"`
 }
 
 type agentEvent_ToolProgress struct {
-	ToolProgress *ToolProgress `protobuf:"bytes,7,opt,name=tool_progress,json=toolProgress,proto3,oneof"`
+	ToolProgress *ToolProgress `protobuf:"bytes,7,opt,name=tool_progress,json=toolProgress,oneof"`
 }
 
 type agentEvent_ToolResult struct {
-	ToolResult *ToolResult `protobuf:"bytes,8,opt,name=tool_result,json=toolResult,proto3,oneof"`
+	ToolResult *ToolResult `protobuf:"bytes,8,opt,name=tool_result,json=toolResult,oneof"`
 }
 
 type agentEvent_ModelResponse struct {
-	ModelResponse *ModelResponse `protobuf:"bytes,9,opt,name=model_response,json=modelResponse,proto3,oneof"`
+	ModelResponse *ModelResponse `protobuf:"bytes,9,opt,name=model_response,json=modelResponse,oneof"`
 }
 
 type agentEvent_Turn struct {
-	Turn *TurnSummary `protobuf:"bytes,10,opt,name=turn,proto3,oneof"`
+	Turn *TurnSummary `protobuf:"bytes,10,opt,name=turn,oneof"`
 }
 
 type agentEvent_Agent struct {
-	Agent *AgentSummary `protobuf:"bytes,11,opt,name=agent,proto3,oneof"`
+	Agent *AgentSummary `protobuf:"bytes,11,opt,name=agent,oneof"`
 }
 
 func (*agentEvent_ModelContent) isAgentEvent_Payload() {}
@@ -9743,9 +9910,9 @@ func (*agentEvent_Agent) isAgentEvent_Payload() {}
 // ModelContent carries one typed model content transition.
 type ModelContent struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Kind        ModelContentKind       `protobuf:"varint,1,opt,name=kind,proto3,enum=glyph.programmatic.v1.ModelContentKind,oneof"`
-	xxx_hidden_Position    int32                  `protobuf:"varint,2,opt,name=position,proto3,oneof"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,3,opt,name=text,proto3,oneof"`
+	xxx_hidden_Kind        ModelContentKind       `protobuf:"varint,1,opt,name=kind,enum=glyph.programmatic.v1.ModelContentKind"`
+	xxx_hidden_Position    int64                  `protobuf:"varint,2,opt,name=position"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,3,opt,name=text"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -9786,7 +9953,7 @@ func (x *ModelContent) GetKind() ModelContentKind {
 	return ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED
 }
 
-func (x *ModelContent) GetPosition() int32 {
+func (x *ModelContent) GetPosition() int64 {
 	if x != nil {
 		return x.xxx_hidden_Position
 	}
@@ -9808,7 +9975,7 @@ func (x *ModelContent) SetKind(v ModelContentKind) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
-func (x *ModelContent) SetPosition(v int32) {
+func (x *ModelContent) SetPosition(v int64) {
 	x.xxx_hidden_Position = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
@@ -9860,7 +10027,7 @@ type ModelContent_builder struct {
 	// The semantic content kind.
 	Kind *ModelContentKind
 	// The zero-based position in the model response.
-	Position *int32
+	Position *int64
 	// The text carried by the transition.
 	Text *string
 }
@@ -9887,11 +10054,11 @@ func (b0 ModelContent_builder) Build() *ModelContent {
 // ToolCallPreview carries transient function-call state.
 type ToolCallPreview struct {
 	state                  protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                  `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof"`
-	xxx_hidden_Name        *string                  `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
-	xxx_hidden_Position    int32                    `protobuf:"varint,3,opt,name=position,proto3,oneof"`
-	xxx_hidden_Provisional bool                     `protobuf:"varint,4,opt,name=provisional,proto3,oneof"`
-	xxx_hidden_Fields      *[]*ToolCallPreviewField `protobuf:"bytes,5,rep,name=fields,proto3"`
+	xxx_hidden_CallId      *string                  `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_Name        *string                  `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Position    int64                    `protobuf:"varint,3,opt,name=position"`
+	xxx_hidden_Provisional bool                     `protobuf:"varint,4,opt,name=provisional"`
+	xxx_hidden_Fields      *[]*ToolCallPreviewField `protobuf:"bytes,5,rep,name=fields"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -9943,7 +10110,7 @@ func (x *ToolCallPreview) GetName() string {
 	return ""
 }
 
-func (x *ToolCallPreview) GetPosition() int32 {
+func (x *ToolCallPreview) GetPosition() int64 {
 	if x != nil {
 		return x.xxx_hidden_Position
 	}
@@ -9976,7 +10143,7 @@ func (x *ToolCallPreview) SetName(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
-func (x *ToolCallPreview) SetPosition(v int32) {
+func (x *ToolCallPreview) SetPosition(v int64) {
 	x.xxx_hidden_Position = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
@@ -10046,7 +10213,7 @@ type ToolCallPreview_builder struct {
 	// The current tool name.
 	Name *string
 	// The zero-based position in the model response.
-	Position *int32
+	Position *int64
 	// Whether the preview can still change.
 	Provisional *bool
 	// The currently decoded argument fields.
@@ -10080,7 +10247,7 @@ func (b0 ToolCallPreview_builder) Build() *ToolCallPreview {
 // ToolCallPreviewField carries one decoded value or scalar prefix.
 type ToolCallPreviewField struct {
 	state                  protoimpl.MessageState         `protogen:"opaque.v1"`
-	xxx_hidden_Name        *string                        `protobuf:"bytes,1,opt,name=name,proto3,oneof"`
+	xxx_hidden_Name        *string                        `protobuf:"bytes,1,opt,name=name"`
 	xxx_hidden_Content     isToolCallPreviewField_Content `protobuf_oneof:"content"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -10272,11 +10439,11 @@ type isToolCallPreviewField_Content interface {
 }
 
 type toolCallPreviewField_Value struct {
-	Value *structpb.Value `protobuf:"bytes,2,opt,name=value,proto3,oneof"`
+	Value *structpb.Value `protobuf:"bytes,2,opt,name=value,oneof"`
 }
 
 type toolCallPreviewField_Prefix struct {
-	Prefix string `protobuf:"bytes,3,opt,name=prefix,proto3,oneof"`
+	Prefix string `protobuf:"bytes,3,opt,name=prefix,oneof"`
 }
 
 func (*toolCallPreviewField_Value) isToolCallPreviewField_Content() {}
@@ -10286,10 +10453,10 @@ func (*toolCallPreviewField_Prefix) isToolCallPreviewField_Content() {}
 // FinalToolCall carries a completed function call.
 type FinalToolCall struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
-	xxx_hidden_Position    int32                  `protobuf:"varint,3,opt,name=position,proto3,oneof"`
-	xxx_hidden_Arguments   *structpb.Struct       `protobuf:"bytes,4,opt,name=arguments,proto3"`
+	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Position    int64                  `protobuf:"varint,3,opt,name=position"`
+	xxx_hidden_Arguments   *structpb.Struct       `protobuf:"bytes,4,opt,name=arguments"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -10341,7 +10508,7 @@ func (x *FinalToolCall) GetName() string {
 	return ""
 }
 
-func (x *FinalToolCall) GetPosition() int32 {
+func (x *FinalToolCall) GetPosition() int64 {
 	if x != nil {
 		return x.xxx_hidden_Position
 	}
@@ -10365,7 +10532,7 @@ func (x *FinalToolCall) SetName(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *FinalToolCall) SetPosition(v int32) {
+func (x *FinalToolCall) SetPosition(v int64) {
 	x.xxx_hidden_Position = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
@@ -10429,7 +10596,7 @@ type FinalToolCall_builder struct {
 	// The finalized tool name.
 	Name *string
 	// The zero-based position in the model response.
-	Position *int32
+	Position *int64
 	// The decoded tool arguments.
 	Arguments *structpb.Struct
 }
@@ -10457,8 +10624,8 @@ func (b0 FinalToolCall_builder) Build() *FinalToolCall {
 // ToolExecution identifies a tool execution transition.
 type ToolExecution struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof"`
-	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3,oneof"`
+	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -10571,8 +10738,8 @@ func (b0 ToolExecution_builder) Build() *ToolExecution {
 // ToolProgress carries one tool progress fragment.
 type ToolProgress struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Channel     ProgressChannel        `protobuf:"varint,1,opt,name=channel,proto3,enum=glyph.programmatic.v1.ProgressChannel,oneof"`
-	xxx_hidden_Content     *string                `protobuf:"bytes,2,opt,name=content,proto3,oneof"`
+	xxx_hidden_Channel     ProgressChannel        `protobuf:"varint,1,opt,name=channel,enum=glyph.programmatic.v1.ProgressChannel"`
+	xxx_hidden_Content     *string                `protobuf:"bytes,2,opt,name=content"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -10684,10 +10851,10 @@ func (b0 ToolProgress_builder) Build() *ToolProgress {
 // ToolResult carries the terminal result of one tool call.
 type ToolResult struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof"`
-	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3,oneof"`
-	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents,proto3"`
-	xxx_hidden_IsError     bool                   `protobuf:"varint,4,opt,name=is_error,json=isError,proto3,oneof"`
+	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
+	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
+	xxx_hidden_IsError     bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -11002,11 +11169,11 @@ type isToolResultContent_Content interface {
 }
 
 type toolResultContent_Text struct {
-	Text string `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
 }
 
 type toolResultContent_Image struct {
-	Image *ToolResultImage `protobuf:"bytes,2,opt,name=image,proto3,oneof"`
+	Image *ToolResultImage `protobuf:"bytes,2,opt,name=image,oneof"`
 }
 
 func (*toolResultContent_Text) isToolResultContent_Content() {}
@@ -11016,8 +11183,8 @@ func (*toolResultContent_Image) isToolResultContent_Content() {}
 // ToolResultImage carries binary image data and its media type.
 type ToolResultImage struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType,proto3,oneof"`
-	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
+	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType"`
+	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -11130,16 +11297,16 @@ func (b0 ToolResultImage_builder) Build() *ToolResultImage {
 // ModelResponse carries a finalized model response.
 type ModelResponse struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Text          *string                `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
-	xxx_hidden_Outcome       ModelOutcome           `protobuf:"varint,2,opt,name=outcome,proto3,enum=glyph.programmatic.v1.ModelOutcome,oneof"`
-	xxx_hidden_ErrorMessage  *string                `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3,oneof"`
-	xxx_hidden_Provider      *string                `protobuf:"bytes,4,opt,name=provider,proto3,oneof"`
-	xxx_hidden_Model         *string                `protobuf:"bytes,5,opt,name=model,proto3,oneof"`
-	xxx_hidden_ResponseModel *string                `protobuf:"bytes,6,opt,name=response_model,json=responseModel,proto3,oneof"`
-	xxx_hidden_ResponseId    *string                `protobuf:"bytes,7,opt,name=response_id,json=responseId,proto3,oneof"`
-	xxx_hidden_Usage         *ModelUsage            `protobuf:"bytes,8,opt,name=usage,proto3"`
-	xxx_hidden_Diagnostics   *[]*ModelDiagnostic    `protobuf:"bytes,9,rep,name=diagnostics,proto3"`
-	xxx_hidden_Content       *[]*ModelResponseItem  `protobuf:"bytes,10,rep,name=content,proto3"`
+	xxx_hidden_Text          *string                `protobuf:"bytes,1,opt,name=text"`
+	xxx_hidden_Outcome       ModelOutcome           `protobuf:"varint,2,opt,name=outcome,enum=glyph.programmatic.v1.ModelOutcome"`
+	xxx_hidden_ErrorMessage  *string                `protobuf:"bytes,3,opt,name=error_message,json=errorMessage"`
+	xxx_hidden_Provider      *string                `protobuf:"bytes,4,opt,name=provider"`
+	xxx_hidden_Model         *string                `protobuf:"bytes,5,opt,name=model"`
+	xxx_hidden_ResponseModel *string                `protobuf:"bytes,6,opt,name=response_model,json=responseModel"`
+	xxx_hidden_ResponseId    *string                `protobuf:"bytes,7,opt,name=response_id,json=responseId"`
+	xxx_hidden_Usage         *ModelUsage            `protobuf:"bytes,8,opt,name=usage"`
+	xxx_hidden_Diagnostics   *[]*ModelDiagnostic    `protobuf:"bytes,9,rep,name=diagnostics"`
+	xxx_hidden_Content       *[]*ModelResponseItem  `protobuf:"bytes,10,rep,name=content"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -11709,19 +11876,19 @@ type isModelResponseItem_Content interface {
 }
 
 type modelResponseItem_Text struct {
-	Text *FinalText `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+	Text *FinalText `protobuf:"bytes,1,opt,name=text,oneof"`
 }
 
 type modelResponseItem_Refusal struct {
-	Refusal *FinalText `protobuf:"bytes,2,opt,name=refusal,proto3,oneof"`
+	Refusal *FinalText `protobuf:"bytes,2,opt,name=refusal,oneof"`
 }
 
 type modelResponseItem_Reasoning struct {
-	Reasoning *FinalText `protobuf:"bytes,3,opt,name=reasoning,proto3,oneof"`
+	Reasoning *FinalText `protobuf:"bytes,3,opt,name=reasoning,oneof"`
 }
 
 type modelResponseItem_ToolCall struct {
-	ToolCall *FinalToolCall `protobuf:"bytes,4,opt,name=tool_call,json=toolCall,proto3,oneof"`
+	ToolCall *FinalToolCall `protobuf:"bytes,4,opt,name=tool_call,json=toolCall,oneof"`
 }
 
 func (*modelResponseItem_Text) isModelResponseItem_Content() {}
@@ -11735,7 +11902,7 @@ func (*modelResponseItem_ToolCall) isModelResponseItem_Content() {}
 // FinalText carries one finalized text block.
 type FinalText struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -11815,12 +11982,12 @@ func (b0 FinalText_builder) Build() *FinalText {
 // ModelUsage carries provider-reported token accounting.
 type ModelUsage struct {
 	state                        protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InputTokens       int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3,oneof"`
-	xxx_hidden_OutputTokens      int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens,proto3,oneof"`
-	xxx_hidden_CachedInputTokens int64                  `protobuf:"varint,3,opt,name=cached_input_tokens,json=cachedInputTokens,proto3,oneof"`
-	xxx_hidden_CacheWriteTokens  int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens,proto3,oneof"`
-	xxx_hidden_ReasoningTokens   int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens,proto3,oneof"`
-	xxx_hidden_TotalTokens       int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens,proto3,oneof"`
+	xxx_hidden_InputTokens       int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens"`
+	xxx_hidden_OutputTokens      int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens"`
+	xxx_hidden_CachedInputTokens int64                  `protobuf:"varint,3,opt,name=cached_input_tokens,json=cachedInputTokens"`
+	xxx_hidden_CacheWriteTokens  int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens"`
+	xxx_hidden_ReasoningTokens   int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens"`
+	xxx_hidden_TotalTokens       int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens"`
 	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
 	XXX_presence                 [1]uint32
 	unknownFields                protoimpl.UnknownFields
@@ -12047,8 +12214,8 @@ func (b0 ModelUsage_builder) Build() *ModelUsage {
 // ModelDiagnostic carries one safe provider diagnostic.
 type ModelDiagnostic struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Code        *string                `protobuf:"bytes,1,opt,name=code,proto3,oneof"`
-	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message,proto3,oneof"`
+	xxx_hidden_Code        *string                `protobuf:"bytes,1,opt,name=code"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -12161,8 +12328,8 @@ func (b0 ModelDiagnostic_builder) Build() *ModelDiagnostic {
 // TurnSummary carries the finalized response and tool results for one turn.
 type TurnSummary struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Response    *ModelResponse         `protobuf:"bytes,1,opt,name=response,proto3"`
-	xxx_hidden_ToolResults *[]*ToolResult         `protobuf:"bytes,2,rep,name=tool_results,json=toolResults,proto3"`
+	xxx_hidden_Response    *ModelResponse         `protobuf:"bytes,1,opt,name=response"`
+	xxx_hidden_ToolResults *[]*ToolResult         `protobuf:"bytes,2,rep,name=tool_results,json=toolResults"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -12248,8 +12415,8 @@ func (b0 TurnSummary_builder) Build() *TurnSummary {
 // AgentSummary carries the terminal outcome of one agent run.
 type AgentSummary struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Outcome      RunOutcome             `protobuf:"varint,1,opt,name=outcome,proto3,enum=glyph.programmatic.v1.RunOutcome,oneof"`
-	xxx_hidden_ErrorMessage *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3,oneof"`
+	xxx_hidden_Outcome      RunOutcome             `protobuf:"varint,1,opt,name=outcome,enum=glyph.programmatic.v1.RunOutcome"`
+	xxx_hidden_ErrorMessage *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
 	unknownFields           protoimpl.UnknownFields
@@ -12362,310 +12529,241 @@ var File_api_programmatic_v1_programmatic_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\n" +
-	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb9\f\n" +
-	"\vOpenRequest\x12*\n" +
-	"\x0ecorrelation_id\x18\x01 \x01(\tH\x01R\rcorrelationId\x88\x01\x01\x12G\n" +
-	"\fuser_request\x18\x02 \x01(\v2\".glyph.programmatic.v1.UserRequestH\x00R\vuserRequest\x124\n" +
-	"\x05abort\x18\x03 \x01(\v2\x1c.glyph.programmatic.v1.AbortH\x00R\x05abort\x12H\n" +
-	"\rget_run_state\x18\x04 \x01(\v2\".glyph.programmatic.v1.GetRunStateH\x00R\vgetRunState\x12G\n" +
-	"\fget_messages\x18\x05 \x01(\v2\".glyph.programmatic.v1.GetMessagesH\x00R\vgetMessages\x12A\n" +
+	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a api/operation/v1/operation.proto\"\x81\x01\n" +
+	"\vOpenRequest\x12!\n" +
+	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12D\n" +
+	"\arequest\x18\x02 \x01(\v2(.glyph.programmatic.v1.ControllerRequestH\x00R\arequestB\t\n" +
+	"\acontent\"\x89\f\n" +
+	"\x11ControllerRequest\x12G\n" +
+	"\fuser_request\x18\x01 \x01(\v2\".glyph.programmatic.v1.UserRequestH\x00R\vuserRequest\x12=\n" +
+	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelOperationH\x00R\x06cancel\x12H\n" +
+	"\rget_run_state\x18\x03 \x01(\v2\".glyph.programmatic.v1.GetRunStateH\x00R\vgetRunState\x12G\n" +
+	"\fget_messages\x18\x04 \x01(\v2\".glyph.programmatic.v1.GetMessagesH\x00R\vgetMessages\x12A\n" +
 	"\n" +
-	"get_models\x18\x06 \x01(\v2 .glyph.programmatic.v1.GetModelsH\x00R\tgetModels\x12G\n" +
-	"\fselect_model\x18\a \x01(\v2\".glyph.programmatic.v1.SelectModelH\x00R\vselectModel\x12f\n" +
-	"\x17select_reasoning_choice\x18\b \x01(\v2,.glyph.programmatic.v1.SelectReasoningChoiceH\x00R\x15selectReasoningChoice\x12M\n" +
-	"\x0ecreate_session\x18\t \x01(\v2$.glyph.programmatic.v1.CreateSessionH\x00R\rcreateSession\x12J\n" +
-	"\rlist_sessions\x18\n" +
-	" \x01(\v2#.glyph.programmatic.v1.ListSessionsH\x00R\flistSessions\x12M\n" +
-	"\x0eresume_session\x18\v \x01(\v2$.glyph.programmatic.v1.ResumeSessionH\x00R\rresumeSession\x12Q\n" +
-	"\x10set_session_name\x18\f \x01(\v2%.glyph.programmatic.v1.SetSessionNameH\x00R\x0esetSessionName\x12Q\n" +
-	"\x10get_session_info\x18\r \x01(\v2%.glyph.programmatic.v1.GetSessionInfoH\x00R\x0egetSessionInfo\x12Z\n" +
-	"\x13get_session_entries\x18\x0e \x01(\v2(.glyph.programmatic.v1.GetSessionEntriesH\x00R\x11getSessionEntries\x12T\n" +
-	"\x11get_session_stats\x18\x0f \x01(\v2&.glyph.programmatic.v1.GetSessionStatsH\x00R\x0fgetSessionStats\x12Q\n" +
-	"\x10get_session_tree\x18\x10 \x01(\v2%.glyph.programmatic.v1.GetSessionTreeH\x00R\x0egetSessionTree\x12`\n" +
-	"\x15navigate_session_tree\x18\x11 \x01(\v2*.glyph.programmatic.v1.NavigateSessionTreeH\x00R\x13navigateSessionTree\x12G\n" +
-	"\ffork_session\x18\x12 \x01(\v2\".glyph.programmatic.v1.ForkSessionH\x00R\vforkSession\x12J\n" +
-	"\rclone_session\x18\x13 \x01(\v2#.glyph.programmatic.v1.CloneSessionH\x00R\fcloneSession\x12N\n" +
-	"\x0fset_entry_label\x18\x14 \x01(\v2$.glyph.programmatic.v1.SetEntryLabelH\x00R\rsetEntryLabelB\t\n" +
-	"\acommandB\x11\n" +
-	"\x0f_correlation_id\"/\n" +
-	"\vUserRequest\x12\x17\n" +
-	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x88\x01\x01B\a\n" +
-	"\x05_text\"\a\n" +
-	"\x05Abort\"\r\n" +
+	"get_models\x18\x05 \x01(\v2 .glyph.programmatic.v1.GetModelsH\x00R\tgetModels\x12G\n" +
+	"\fselect_model\x18\x06 \x01(\v2\".glyph.programmatic.v1.SelectModelH\x00R\vselectModel\x12f\n" +
+	"\x17select_reasoning_choice\x18\a \x01(\v2,.glyph.programmatic.v1.SelectReasoningChoiceH\x00R\x15selectReasoningChoice\x12M\n" +
+	"\x0ecreate_session\x18\b \x01(\v2$.glyph.programmatic.v1.CreateSessionH\x00R\rcreateSession\x12J\n" +
+	"\rlist_sessions\x18\t \x01(\v2#.glyph.programmatic.v1.ListSessionsH\x00R\flistSessions\x12M\n" +
+	"\x0eresume_session\x18\n" +
+	" \x01(\v2$.glyph.programmatic.v1.ResumeSessionH\x00R\rresumeSession\x12Q\n" +
+	"\x10set_session_name\x18\v \x01(\v2%.glyph.programmatic.v1.SetSessionNameH\x00R\x0esetSessionName\x12Q\n" +
+	"\x10get_session_info\x18\f \x01(\v2%.glyph.programmatic.v1.GetSessionInfoH\x00R\x0egetSessionInfo\x12Z\n" +
+	"\x13get_session_entries\x18\r \x01(\v2(.glyph.programmatic.v1.GetSessionEntriesH\x00R\x11getSessionEntries\x12T\n" +
+	"\x11get_session_stats\x18\x0e \x01(\v2&.glyph.programmatic.v1.GetSessionStatsH\x00R\x0fgetSessionStats\x12Q\n" +
+	"\x10get_session_tree\x18\x0f \x01(\v2%.glyph.programmatic.v1.GetSessionTreeH\x00R\x0egetSessionTree\x12`\n" +
+	"\x15navigate_session_tree\x18\x10 \x01(\v2*.glyph.programmatic.v1.NavigateSessionTreeH\x00R\x13navigateSessionTree\x12G\n" +
+	"\ffork_session\x18\x11 \x01(\v2\".glyph.programmatic.v1.ForkSessionH\x00R\vforkSession\x12J\n" +
+	"\rclone_session\x18\x12 \x01(\v2#.glyph.programmatic.v1.CloneSessionH\x00R\fcloneSession\x12N\n" +
+	"\x0fset_entry_label\x18\x13 \x01(\v2$.glyph.programmatic.v1.SetEntryLabelH\x00R\rsetEntryLabelB\t\n" +
+	"\arequest\"!\n" +
+	"\vUserRequest\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\r\n" +
 	"\vGetRunState\"\r\n" +
 	"\vGetMessages\"\v\n" +
-	"\tGetModels\"p\n" +
-	"\vSelectModel\x12$\n" +
-	"\vprovider_id\x18\x01 \x01(\tH\x00R\n" +
-	"providerId\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x02 \x01(\tH\x01R\amodelId\x88\x01\x01B\x0e\n" +
-	"\f_provider_idB\v\n" +
-	"\t_model_id\"g\n" +
-	"\x15SelectReasoningChoice\x12C\n" +
-	"\x06choice\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceH\x00R\x06choice\x88\x01\x01B\t\n" +
-	"\a_choice\"\x0f\n" +
+	"\tGetModels\"I\n" +
+	"\vSelectModel\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\"W\n" +
+	"\x15SelectReasoningChoice\x12>\n" +
+	"\x06choice\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\x06choice\"\x0f\n" +
 	"\rCreateSession\"\x0e\n" +
-	"\fListSessions\"B\n" +
-	"\rResumeSession\x12\"\n" +
+	"\fListSessions\".\n" +
+	"\rResumeSession\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tH\x00R\tsessionId\x88\x01\x01B\r\n" +
-	"\v_session_id\"2\n" +
-	"\x0eSetSessionName\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
-	"\x05_name\"\x10\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"$\n" +
+	"\x0eSetSessionName\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x10\n" +
 	"\x0eGetSessionInfo\"\x13\n" +
 	"\x11GetSessionEntries\"\x11\n" +
 	"\x0fGetSessionStats\"\x10\n" +
-	"\x0eGetSessionTree\"\xec\x01\n" +
-	"\x13NavigateSessionTree\x12+\n" +
-	"\x0ftarget_entry_id\x18\x01 \x01(\tH\x00R\rtargetEntryId\x88\x01\x01\x12J\n" +
-	"\fsummary_mode\x18\x02 \x01(\x0e2\".glyph.programmatic.v1.SummaryModeH\x01R\vsummaryMode\x88\x01\x01\x12&\n" +
-	"\fcustom_focus\x18\x03 \x01(\tH\x02R\vcustomFocus\x88\x01\x01B\x12\n" +
-	"\x10_target_entry_idB\x0f\n" +
-	"\r_summary_modeB\x0f\n" +
-	"\r_custom_focus\"N\n" +
-	"\vForkSession\x12+\n" +
-	"\x0ftarget_entry_id\x18\x01 \x01(\tH\x00R\rtargetEntryId\x88\x01\x01B\x12\n" +
-	"\x10_target_entry_id\"\x0e\n" +
-	"\fCloneSession\"u\n" +
-	"\rSetEntryLabel\x12+\n" +
-	"\x0ftarget_entry_id\x18\x01 \x01(\tH\x00R\rtargetEntryId\x88\x01\x01\x12\x19\n" +
-	"\x05label\x18\x02 \x01(\tH\x01R\x05label\x88\x01\x01B\x12\n" +
-	"\x10_target_entry_idB\b\n" +
-	"\x06_label\"\xf3\x01\n" +
-	"\fOpenResponse\x12*\n" +
-	"\x0ecorrelation_id\x18\x01 \x01(\tH\x01R\rcorrelationId\x88\x01\x01\x12S\n" +
-	"\x10command_response\x18\x02 \x01(\v2&.glyph.programmatic.v1.CommandResponseH\x00R\x0fcommandResponse\x12D\n" +
-	"\vagent_event\x18\x03 \x01(\v2!.glyph.programmatic.v1.AgentEventH\x00R\n" +
-	"agentEventB\t\n" +
-	"\acontentB\x11\n" +
-	"\x0f_correlation_id\"\xa9\n" +
+	"\x0eGetSessionTree\"\xa7\x01\n" +
+	"\x13NavigateSessionTree\x12&\n" +
+	"\x0ftarget_entry_id\x18\x01 \x01(\tR\rtargetEntryId\x12E\n" +
+	"\fsummary_mode\x18\x02 \x01(\x0e2\".glyph.programmatic.v1.SummaryModeR\vsummaryMode\x12!\n" +
+	"\fcustom_focus\x18\x03 \x01(\tR\vcustomFocus\"5\n" +
+	"\vForkSession\x12&\n" +
+	"\x0ftarget_entry_id\x18\x01 \x01(\tR\rtargetEntryId\"\x0e\n" +
+	"\fCloneSession\"M\n" +
+	"\rSetEntryLabel\x12&\n" +
+	"\x0ftarget_entry_id\x18\x01 \x01(\tR\rtargetEntryId\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\"\xb3\x01\n" +
+	"\fOpenResponse\x12!\n" +
+	"\foperation_id\x18\x01 \x01(\tR\voperationId\x128\n" +
+	"\x05event\x18\x02 \x01(\v2 .glyph.programmatic.v1.HostEventH\x00R\x05event\x12;\n" +
+	"\x05close\x18\x03 \x01(\v2#.glyph.operation.v1.CloseConnectionH\x00R\x05closeB\t\n" +
+	"\acontent\"\xc0\x03\n" +
+	"\tHostEvent\x12:\n" +
+	"\baccepted\x18\x01 \x01(\v2\x1c.glyph.operation.v1.AcceptedH\x00R\baccepted\x127\n" +
+	"\arunning\x18\x02 \x01(\v2\x1b.glyph.operation.v1.RunningH\x00R\arunning\x12A\n" +
+	"\bprogress\x18\x03 \x01(\v2#.glyph.programmatic.v1.HostProgressH\x00R\bprogress\x12D\n" +
+	"\tcompleted\x18\x04 \x01(\v2$.glyph.programmatic.v1.HostCompletedH\x00R\tcompleted\x12:\n" +
+	"\bcanceled\x18\x05 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
+	"\x06failed\x18\x06 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
+	"\brejected\x18\a \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
+	"\x05event\"`\n" +
+	"\fHostProgress\x12D\n" +
+	"\vagent_event\x18\x01 \x01(\v2!.glyph.programmatic.v1.AgentEventH\x00R\n" +
+	"agentEventB\n" +
 	"\n" +
-	"\x0fCommandResponse\x12`\n" +
-	"\x15user_request_accepted\x18\x01 \x01(\v2*.glyph.programmatic.v1.UserRequestAcceptedH\x00R\x13userRequestAccepted\x12P\n" +
-	"\x0fabort_completed\x18\x02 \x01(\v2%.glyph.programmatic.v1.AbortCompletedH\x00R\x0eabortCompleted\x12D\n" +
+	"\bprogress\"\xc1\t\n" +
+	"\rHostCompleted\x12P\n" +
+	"\fuser_request\x18\x01 \x01(\v2+.glyph.programmatic.v1.UserRequestCompletedH\x00R\vuserRequest\x12=\n" +
+	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancel\x12D\n" +
 	"\trun_state\x18\x03 \x01(\v2%.glyph.programmatic.v1.RunStateResultH\x00R\brunState\x12C\n" +
-	"\bmessages\x18\x04 \x01(\v2%.glyph.programmatic.v1.MessagesResultH\x00R\bmessages\x12D\n" +
-	"\brejected\x18\x05 \x01(\v2&.glyph.programmatic.v1.CommandRejectedH\x00R\brejected\x12=\n" +
-	"\x06models\x18\x06 \x01(\v2#.glyph.programmatic.v1.ModelsResultH\x00R\x06models\x12V\n" +
-	"\x0fmodel_selection\x18\a \x01(\v2+.glyph.programmatic.v1.ModelSelectionResultH\x00R\x0emodelSelection\x12M\n" +
-	"\fsession_info\x18\b \x01(\v2(.glyph.programmatic.v1.SessionInfoResultH\x00R\vsessionInfo\x12C\n" +
-	"\bsessions\x18\t \x01(\v2%.glyph.programmatic.v1.SessionsResultH\x00R\bsessions\x12V\n" +
-	"\x0fsession_entries\x18\n" +
-	" \x01(\v2+.glyph.programmatic.v1.SessionEntriesResultH\x00R\x0esessionEntries\x12P\n" +
-	"\rsession_stats\x18\v \x01(\v2).glyph.programmatic.v1.SessionStatsResultH\x00R\fsessionStats\x12M\n" +
-	"\fsession_tree\x18\f \x01(\v2(.glyph.programmatic.v1.SessionTreeResultH\x00R\vsessionTree\x12l\n" +
-	"\x17session_tree_navigation\x18\r \x01(\v22.glyph.programmatic.v1.SessionTreeNavigationResultH\x00R\x15sessionTreeNavigation\x12M\n" +
-	"\ffork_session\x18\x0e \x01(\v2(.glyph.programmatic.v1.ForkSessionResultH\x00R\vforkSession\x12P\n" +
-	"\rclone_session\x18\x0f \x01(\v2).glyph.programmatic.v1.CloneSessionResultH\x00R\fcloneSession\x12T\n" +
-	"\x0fset_entry_label\x18\x10 \x01(\v2*.glyph.programmatic.v1.SetEntryLabelResultH\x00R\rsetEntryLabelB\b\n" +
-	"\x06result\"\xc8\x01\n" +
+	"\bmessages\x18\x04 \x01(\v2%.glyph.programmatic.v1.MessagesResultH\x00R\bmessages\x12=\n" +
+	"\x06models\x18\x05 \x01(\v2#.glyph.programmatic.v1.ModelsResultH\x00R\x06models\x12V\n" +
+	"\x0fmodel_selection\x18\x06 \x01(\v2+.glyph.programmatic.v1.ModelSelectionResultH\x00R\x0emodelSelection\x12M\n" +
+	"\fsession_info\x18\a \x01(\v2(.glyph.programmatic.v1.SessionInfoResultH\x00R\vsessionInfo\x12C\n" +
+	"\bsessions\x18\b \x01(\v2%.glyph.programmatic.v1.SessionsResultH\x00R\bsessions\x12V\n" +
+	"\x0fsession_entries\x18\t \x01(\v2+.glyph.programmatic.v1.SessionEntriesResultH\x00R\x0esessionEntries\x12P\n" +
+	"\rsession_stats\x18\n" +
+	" \x01(\v2).glyph.programmatic.v1.SessionStatsResultH\x00R\fsessionStats\x12M\n" +
+	"\fsession_tree\x18\v \x01(\v2(.glyph.programmatic.v1.SessionTreeResultH\x00R\vsessionTree\x12l\n" +
+	"\x17session_tree_navigation\x18\f \x01(\v22.glyph.programmatic.v1.SessionTreeNavigationResultH\x00R\x15sessionTreeNavigation\x12M\n" +
+	"\ffork_session\x18\r \x01(\v2(.glyph.programmatic.v1.ForkSessionResultH\x00R\vforkSession\x12P\n" +
+	"\rclone_session\x18\x0e \x01(\v2).glyph.programmatic.v1.CloneSessionResultH\x00R\fcloneSession\x12T\n" +
+	"\x0fset_entry_label\x18\x0f \x01(\v2*.glyph.programmatic.v1.SetEntryLabelResultH\x00R\rsetEntryLabelB\v\n" +
+	"\tcompleted\"\xb4\x01\n" +
 	"\x11ForkSessionResult\x126\n" +
 	"\x04info\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionInfoR\x04info\x12H\n" +
-	"\ractive_branch\x18\x02 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\factiveBranch\x12\"\n" +
+	"\ractive_branch\x18\x02 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\factiveBranch\x12\x1d\n" +
 	"\n" +
-	"next_input\x18\x03 \x01(\tH\x00R\tnextInput\x88\x01\x01B\r\n" +
-	"\v_next_input\"\x96\x01\n" +
+	"next_input\x18\x03 \x01(\tR\tnextInput\"\x96\x01\n" +
 	"\x12CloneSessionResult\x126\n" +
 	"\x04info\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionInfoR\x04info\x12H\n" +
 	"\ractive_branch\x18\x02 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\factiveBranch\"M\n" +
 	"\x13SetEntryLabelResult\x126\n" +
-	"\x04tree\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionTreeR\x04tree\"\x15\n" +
-	"\x13UserRequestAccepted\"\x10\n" +
-	"\x0eAbortCompleted\"\xa9\x01\n" +
-	"\x0eRunStateResult\x12:\n" +
-	"\x05state\x18\x01 \x01(\x0e2\x1f.glyph.programmatic.v1.RunStateH\x00R\x05state\x88\x01\x01\x127\n" +
-	"\x15active_correlation_id\x18\x02 \x01(\tH\x01R\x13activeCorrelationId\x88\x01\x01B\b\n" +
-	"\x06_stateB\x18\n" +
-	"\x16_active_correlation_id\"O\n" +
+	"\x04tree\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionTreeR\x04tree\"\x16\n" +
+	"\x14UserRequestCompleted\"w\n" +
+	"\x0eRunStateResult\x125\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1f.glyph.programmatic.v1.RunStateR\x05state\x12.\n" +
+	"\x13active_operation_id\x18\x02 \x01(\tR\x11activeOperationId\"O\n" +
 	"\x0eMessagesResult\x12=\n" +
 	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.HistoryEntryR\aentries\"\xa0\x01\n" +
 	"\fModelsResult\x12>\n" +
 	"\x06models\x18\x01 \x03(\v2&.glyph.programmatic.v1.ConfiguredModelR\x06models\x12P\n" +
-	"\x10active_selection\x18\x02 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\x0factiveSelection\"\x83\x03\n" +
-	"\x0fConfiguredModel\x12$\n" +
-	"\vprovider_id\x18\x01 \x01(\tH\x00R\n" +
-	"providerId\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x02 \x01(\tH\x01R\amodelId\x88\x01\x01\x12J\n" +
+	"\x10active_selection\x18\x02 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\x0factiveSelection\"\xb0\x02\n" +
+	"\x0fConfiguredModel\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12J\n" +
 	"\treasoning\x18\x03 \x01(\v2,.glyph.programmatic.v1.ReasoningCapabilitiesR\treasoning\x12O\n" +
-	"\x10input_modalities\x18\x04 \x03(\x0e2$.glyph.programmatic.v1.InputModalityR\x0finputModalities\x12*\n" +
-	"\x0econtext_window\x18\x05 \x01(\x03H\x02R\rcontextWindow\x88\x01\x01\x12\"\n" +
+	"\x10input_modalities\x18\x04 \x03(\x0e2$.glyph.programmatic.v1.InputModalityR\x0finputModalities\x12%\n" +
+	"\x0econtext_window\x18\x05 \x01(\x03R\rcontextWindow\x12\x1d\n" +
 	"\n" +
-	"max_tokens\x18\x06 \x01(\x03H\x03R\tmaxTokens\x88\x01\x01B\x0e\n" +
-	"\f_provider_idB\v\n" +
-	"\t_model_idB\x11\n" +
-	"\x0f_context_windowB\r\n" +
-	"\v_max_tokens\"\xf1\x01\n" +
-	"\x15ReasoningCapabilities\x12!\n" +
-	"\tsupported\x18\x01 \x01(\bH\x00R\tsupported\x88\x01\x01\x12@\n" +
-	"\achoices\x18\x02 \x03(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\achoices\x12R\n" +
-	"\x0edefault_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceH\x01R\rdefaultChoice\x88\x01\x01B\f\n" +
-	"\n" +
-	"_supportedB\x11\n" +
-	"\x0f_default_choice\"\xe0\x01\n" +
-	"\x0eModelSelection\x12$\n" +
-	"\vprovider_id\x18\x01 \x01(\tH\x00R\n" +
-	"providerId\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x02 \x01(\tH\x01R\amodelId\x88\x01\x01\x12V\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceH\x02R\x0freasoningChoice\x88\x01\x01B\x0e\n" +
-	"\f_provider_idB\v\n" +
-	"\t_model_idB\x13\n" +
-	"\x11_reasoning_choice\"[\n" +
+	"max_tokens\x18\x06 \x01(\x03R\tmaxTokens\"\xc6\x01\n" +
+	"\x15ReasoningCapabilities\x12\x1c\n" +
+	"\tsupported\x18\x01 \x01(\bR\tsupported\x12@\n" +
+	"\achoices\x18\x02 \x03(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\achoices\x12M\n" +
+	"\x0edefault_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\rdefaultChoice\"\x9f\x01\n" +
+	"\x0eModelSelection\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12Q\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\x0freasoningChoice\"[\n" +
 	"\x14ModelSelectionResult\x12C\n" +
 	"\tselection\x18\x01 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\tselection\"K\n" +
 	"\x11SessionInfoResult\x126\n" +
 	"\x04info\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionInfoR\x04info\"S\n" +
 	"\x0eSessionsResult\x12A\n" +
-	"\bsessions\x18\x01 \x03(\v2%.glyph.programmatic.v1.SessionSummaryR\bsessions\"\xc8\x02\n" +
-	"\vSessionInfo\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tH\x00R\x02id\x88\x01\x01\x12\x17\n" +
-	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x120\n" +
-	"\x11working_directory\x18\x03 \x01(\tH\x02R\x10workingDirectory\x88\x01\x01\x12&\n" +
-	"\fstorage_path\x18\x04 \x01(\tH\x03R\vstoragePath\x88\x01\x01\x12=\n" +
+	"\bsessions\x18\x01 \x03(\v2%.glyph.programmatic.v1.SessionSummaryR\bsessions\"\xfd\x01\n" +
+	"\vSessionInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x11working_directory\x18\x03 \x01(\tR\x10workingDirectory\x12!\n" +
+	"\fstorage_path\x18\x04 \x01(\tR\vstoragePath\x12=\n" +
 	"\fcreated_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x12;\n" +
 	"\vupdate_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"updateTimeB\x05\n" +
-	"\x03_idB\a\n" +
-	"\x05_nameB\x14\n" +
-	"\x12_working_directoryB\x0f\n" +
-	"\r_storage_path\"\xc8\x01\n" +
+	"updateTime\"\x97\x01\n" +
 	"\x0eSessionSummary\x126\n" +
-	"\x04info\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionInfoR\x04info\x12+\n" +
-	"\x0ffirst_user_text\x18\x02 \x01(\tH\x00R\rfirstUserText\x88\x01\x01\x12*\n" +
-	"\x0etotal_messages\x18\x03 \x01(\x03H\x01R\rtotalMessages\x88\x01\x01B\x12\n" +
-	"\x10_first_user_textB\x11\n" +
-	"\x0f_total_messages\"^\n" +
+	"\x04info\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionInfoR\x04info\x12&\n" +
+	"\x0ffirst_user_text\x18\x02 \x01(\tR\rfirstUserText\x12%\n" +
+	"\x0etotal_messages\x18\x03 \x01(\x03R\rtotalMessages\"^\n" +
 	"\x12SessionStatsResult\x12H\n" +
 	"\n" +
 	"statistics\x18\x01 \x01(\v2(.glyph.programmatic.v1.SessionStatisticsR\n" +
-	"statistics\"\x95\x04\n" +
-	"\x11SessionStatistics\x12(\n" +
-	"\ruser_messages\x18\x01 \x01(\x03H\x00R\fuserMessages\x88\x01\x01\x12,\n" +
-	"\x0fmodel_responses\x18\x02 \x01(\x03H\x01R\x0emodelResponses\x88\x01\x01\x12\"\n" +
+	"statistics\"\xa3\x03\n" +
+	"\x11SessionStatistics\x12#\n" +
+	"\ruser_messages\x18\x01 \x01(\x03R\fuserMessages\x12'\n" +
+	"\x0fmodel_responses\x18\x02 \x01(\x03R\x0emodelResponses\x12\x1d\n" +
 	"\n" +
-	"tool_calls\x18\x03 \x01(\x03H\x02R\ttoolCalls\x88\x01\x01\x12&\n" +
-	"\ftool_results\x18\x04 \x01(\x03H\x03R\vtoolResults\x88\x01\x01\x12*\n" +
-	"\x0etotal_messages\x18\x05 \x01(\x03H\x04R\rtotalMessages\x88\x01\x01\x129\n" +
+	"tool_calls\x18\x03 \x01(\x03R\ttoolCalls\x12!\n" +
+	"\ftool_results\x18\x04 \x01(\x03R\vtoolResults\x12%\n" +
+	"\x0etotal_messages\x18\x05 \x01(\x03R\rtotalMessages\x129\n" +
 	"\x06tokens\x18\x06 \x01(\v2!.glyph.programmatic.v1.TokenUsageR\x06tokens\x12K\n" +
 	"\x0eestimated_cost\x18\a \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCost\x12O\n" +
-	"\x0ecost_breakdown\x18\b \x03(\v2(.glyph.programmatic.v1.ProviderModelCostR\rcostBreakdownB\x10\n" +
-	"\x0e_user_messagesB\x12\n" +
-	"\x10_model_responsesB\r\n" +
-	"\v_tool_callsB\x0f\n" +
-	"\r_tool_resultsB\x11\n" +
-	"\x0f_total_messages\"\xea\x01\n" +
-	"\rEstimatedCost\x12\x19\n" +
-	"\x05input\x18\x01 \x01(\x01H\x00R\x05input\x88\x01\x01\x12\x1b\n" +
-	"\x06output\x18\x02 \x01(\x01H\x01R\x06output\x88\x01\x01\x12\"\n" +
+	"\x0ecost_breakdown\x18\b \x03(\v2(.glyph.programmatic.v1.ProviderModelCostR\rcostBreakdown\"\x93\x01\n" +
+	"\rEstimatedCost\x12\x14\n" +
+	"\x05input\x18\x01 \x01(\x01R\x05input\x12\x16\n" +
+	"\x06output\x18\x02 \x01(\x01R\x06output\x12\x1d\n" +
 	"\n" +
-	"cache_read\x18\x03 \x01(\x01H\x02R\tcacheRead\x88\x01\x01\x12$\n" +
-	"\vcache_write\x18\x04 \x01(\x01H\x03R\n" +
-	"cacheWrite\x88\x01\x01\x12\x19\n" +
-	"\x05total\x18\x05 \x01(\x01H\x04R\x05total\x88\x01\x01B\b\n" +
-	"\x06_inputB\t\n" +
-	"\a_outputB\r\n" +
-	"\v_cache_readB\x0e\n" +
-	"\f_cache_writeB\b\n" +
-	"\x06_total\"\xc3\x01\n" +
-	"\x11ProviderModelCost\x12$\n" +
-	"\vprovider_id\x18\x01 \x01(\tH\x00R\n" +
-	"providerId\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x02 \x01(\tH\x01R\amodelId\x88\x01\x01\x12K\n" +
-	"\x0eestimated_cost\x18\x03 \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCostB\x0e\n" +
-	"\f_provider_idB\v\n" +
-	"\t_model_id\"\x90\x03\n" +
+	"cache_read\x18\x03 \x01(\x01R\tcacheRead\x12\x1f\n" +
+	"\vcache_write\x18\x04 \x01(\x01R\n" +
+	"cacheWrite\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x01R\x05total\"\x9c\x01\n" +
+	"\x11ProviderModelCost\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12K\n" +
+	"\x0eestimated_cost\x18\x03 \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCost\"\xfc\x01\n" +
 	"\n" +
-	"TokenUsage\x12&\n" +
-	"\finput_tokens\x18\x01 \x01(\x03H\x00R\vinputTokens\x88\x01\x01\x12(\n" +
-	"\routput_tokens\x18\x02 \x01(\x03H\x01R\foutputTokens\x88\x01\x01\x12/\n" +
-	"\x11cache_read_tokens\x18\x03 \x01(\x03H\x02R\x0fcacheReadTokens\x88\x01\x01\x121\n" +
-	"\x12cache_write_tokens\x18\x04 \x01(\x03H\x03R\x10cacheWriteTokens\x88\x01\x01\x12.\n" +
-	"\x10reasoning_tokens\x18\x05 \x01(\x03H\x04R\x0freasoningTokens\x88\x01\x01\x12&\n" +
-	"\ftotal_tokens\x18\x06 \x01(\x03H\x05R\vtotalTokens\x88\x01\x01B\x0f\n" +
-	"\r_input_tokensB\x10\n" +
-	"\x0e_output_tokensB\x14\n" +
-	"\x12_cache_read_tokensB\x15\n" +
-	"\x13_cache_write_tokensB\x13\n" +
-	"\x11_reasoning_tokensB\x0f\n" +
-	"\r_total_tokens\"\xd3\x01\n" +
-	"\x0fCommandRejected\x12A\n" +
-	"\acommand\x18\x01 \x01(\x0e2\".glyph.programmatic.v1.CommandTypeH\x00R\acommand\x88\x01\x01\x12=\n" +
-	"\x04code\x18\x02 \x01(\x0e2$.glyph.programmatic.v1.RejectionCodeH\x01R\x04code\x88\x01\x01\x12\x1d\n" +
-	"\amessage\x18\x03 \x01(\tH\x02R\amessage\x88\x01\x01B\n" +
-	"\n" +
-	"\b_commandB\a\n" +
-	"\x05_codeB\n" +
-	"\n" +
-	"\b_message\"K\n" +
+	"TokenUsage\x12!\n" +
+	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
+	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12*\n" +
+	"\x11cache_read_tokens\x18\x03 \x01(\x03R\x0fcacheReadTokens\x12,\n" +
+	"\x12cache_write_tokens\x18\x04 \x01(\x03R\x10cacheWriteTokens\x12)\n" +
+	"\x10reasoning_tokens\x18\x05 \x01(\x03R\x0freasoningTokens\x12!\n" +
+	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"K\n" +
 	"\x11SessionTreeResult\x126\n" +
-	"\x04tree\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionTreeR\x04tree\"\xed\x02\n" +
-	"\x1bSessionTreeNavigationResult\x12O\n" +
-	"\x06status\x18\x01 \x01(\x0e22.glyph.programmatic.v1.SessionTreeNavigationStatusH\x00R\x06status\x88\x01\x01\x126\n" +
+	"\x04tree\x18\x01 \x01(\v2\".glyph.programmatic.v1.SessionTreeR\x04tree\"\xc9\x02\n" +
+	"\x1bSessionTreeNavigationResult\x12J\n" +
+	"\x06status\x18\x01 \x01(\x0e22.glyph.programmatic.v1.SessionTreeNavigationStatusR\x06status\x126\n" +
 	"\x04tree\x18\x02 \x01(\v2\".glyph.programmatic.v1.SessionTreeR\x04tree\x12H\n" +
-	"\ractive_branch\x18\x03 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\factiveBranch\x12\"\n" +
+	"\ractive_branch\x18\x03 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\factiveBranch\x12\x1d\n" +
 	"\n" +
-	"next_input\x18\x04 \x01(\tH\x01R\tnextInput\x88\x01\x01\x12=\n" +
-	"\x06issues\x18\x05 \x03(\v2%.glyph.programmatic.v1.OperationIssueR\x06issuesB\t\n" +
-	"\a_statusB\r\n" +
-	"\v_next_input\"\x8e\x01\n" +
+	"next_input\x18\x04 \x01(\tR\tnextInput\x12=\n" +
+	"\x06issues\x18\x05 \x03(\v2%.glyph.programmatic.v1.OperationIssueR\x06issues\"v\n" +
 	"\vSessionTree\x12A\n" +
-	"\aentries\x18\x01 \x03(\v2'.glyph.programmatic.v1.SessionTreeEntryR\aentries\x12)\n" +
-	"\x0eactive_leaf_id\x18\x02 \x01(\tH\x00R\factiveLeafId\x88\x01\x01B\x11\n" +
-	"\x0f_active_leaf_id\"\x9f\x04\n" +
-	"\x10SessionTreeEntry\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tH\x01R\x02id\x88\x01\x01\x12 \n" +
-	"\tparent_id\x18\x02 \x01(\tH\x02R\bparentId\x88\x01\x01\x12=\n" +
-	"\fcreated_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x12\x19\n" +
-	"\x05label\x18\x04 \x01(\tH\x03R\x05label\x88\x01\x01\x128\n" +
+	"\aentries\x18\x01 \x03(\v2'.glyph.programmatic.v1.SessionTreeEntryR\aentries\x12$\n" +
+	"\x0eactive_leaf_id\x18\x02 \x01(\tR\factiveLeafId\"\xf1\x03\n" +
+	"\x10SessionTreeEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tparent_id\x18\x02 \x01(\tR\bparentId\x12=\n" +
+	"\fcreated_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x12\x14\n" +
+	"\x05label\x18\x04 \x01(\tR\x05label\x128\n" +
 	"\x04user\x18\x05 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
 	"\x05model\x18\x06 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05model\x12D\n" +
 	"\vtool_result\x18\a \x01(\v2!.glyph.programmatic.v1.ToolResultH\x00R\n" +
 	"toolResult\x12E\n" +
 	"\textension\x18\b \x01(\v2%.glyph.programmatic.v1.ExtensionEntryH\x00R\textension\x12M\n" +
 	"\x0ebranch_summary\x18\t \x01(\v2$.glyph.programmatic.v1.BranchSummaryH\x00R\rbranchSummaryB\a\n" +
-	"\x05entryB\x05\n" +
-	"\x03_idB\f\n" +
+	"\x05entry\"R\n" +
+	"\x0eExtensionEntry\x12!\n" +
+	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
-	"_parent_idB\b\n" +
-	"\x06_label\"|\n" +
-	"\x0eExtensionEntry\x12&\n" +
-	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"entry_type\x18\x02 \x01(\tH\x01R\tentryType\x88\x01\x01B\x0f\n" +
-	"\r_extension_idB\r\n" +
-	"\v_entry_type\"\x89\x04\n" +
-	"\rBranchSummary\x12\x1d\n" +
-	"\asummary\x18\x01 \x01(\tH\x00R\asummary\x88\x01\x01\x12)\n" +
-	"\x0efirst_entry_id\x18\x02 \x01(\tH\x01R\ffirstEntryId\x88\x01\x01\x12'\n" +
-	"\rlast_entry_id\x18\x03 \x01(\tH\x02R\vlastEntryId\x88\x01\x01\x12$\n" +
-	"\vprovider_id\x18\x04 \x01(\tH\x03R\n" +
-	"providerId\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x05 \x01(\tH\x04R\amodelId\x88\x01\x01\x12V\n" +
-	"\x10reasoning_choice\x18\x06 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceH\x05R\x0freasoningChoice\x88\x01\x01\x127\n" +
+	"entry_type\x18\x02 \x01(\tR\tentryType\"\x88\x03\n" +
+	"\rBranchSummary\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12$\n" +
+	"\x0efirst_entry_id\x18\x02 \x01(\tR\ffirstEntryId\x12\"\n" +
+	"\rlast_entry_id\x18\x03 \x01(\tR\vlastEntryId\x12\x1f\n" +
+	"\vprovider_id\x18\x04 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x05 \x01(\tR\amodelId\x12Q\n" +
+	"\x10reasoning_choice\x18\x06 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\x0freasoningChoice\x127\n" +
 	"\x05usage\x18\a \x01(\v2!.glyph.programmatic.v1.TokenUsageR\x05usage\x12K\n" +
-	"\x0eestimated_cost\x18\b \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCostB\n" +
+	"\x0eestimated_cost\x18\b \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCost\"\xab\x01\n" +
+	"\x0eOperationIssue\x12=\n" +
+	"\x04code\x18\x01 \x01(\x0e2).glyph.programmatic.v1.OperationIssueCodeR\x04code\x12!\n" +
+	"\fextension_id\x18\x02 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
-	"\b_summaryB\x11\n" +
-	"\x0f_first_entry_idB\x10\n" +
-	"\x0e_last_entry_idB\x0e\n" +
-	"\f_provider_idB\v\n" +
-	"\t_model_idB\x13\n" +
-	"\x11_reasoning_choice\"\xf4\x01\n" +
-	"\x0eOperationIssue\x12B\n" +
-	"\x04code\x18\x01 \x01(\x0e2).glyph.programmatic.v1.OperationIssueCodeH\x00R\x04code\x88\x01\x01\x12&\n" +
-	"\fextension_id\x18\x02 \x01(\tH\x01R\vextensionId\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"handler_id\x18\x03 \x01(\tH\x02R\thandlerId\x88\x01\x01\x12\x1d\n" +
-	"\amessage\x18\x04 \x01(\tH\x03R\amessage\x88\x01\x01B\a\n" +
-	"\x05_codeB\x0f\n" +
-	"\r_extension_idB\r\n" +
-	"\v_handler_idB\n" +
-	"\n" +
-	"\b_message\"U\n" +
+	"handler_id\x18\x03 \x01(\tR\thandlerId\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"U\n" +
 	"\x14SessionEntriesResult\x12=\n" +
-	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\aentries\"\xcc\x03\n" +
-	"\fSessionEntry\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tH\x01R\x02id\x88\x01\x01\x12=\n" +
+	"\aentries\x18\x01 \x03(\v2#.glyph.programmatic.v1.SessionEntryR\aentries\"\xc0\x03\n" +
+	"\fSessionEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12=\n" +
 	"\fcreated_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vcreatedTime\x128\n" +
 	"\x04user\x18\x03 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
 	"\x05model\x18\x04 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05model\x12D\n" +
@@ -12673,30 +12771,27 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"toolResult\x12M\n" +
 	"\x0ebranch_summary\x18\a \x01(\v2$.glyph.programmatic.v1.BranchSummaryH\x00R\rbranchSummary\x12K\n" +
 	"\x0eestimated_cost\x18\x06 \x01(\v2$.glyph.programmatic.v1.EstimatedCostR\restimatedCostB\a\n" +
-	"\x05entryB\x05\n" +
-	"\x03_id\"\xd5\x01\n" +
+	"\x05entry\"\xd5\x01\n" +
 	"\fHistoryEntry\x128\n" +
 	"\x04user\x18\x01 \x01(\v2\".glyph.programmatic.v1.UserMessageH\x00R\x04user\x12<\n" +
 	"\x05model\x18\x02 \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\x05model\x12D\n" +
 	"\vtool_result\x18\x03 \x01(\v2!.glyph.programmatic.v1.ToolResultH\x00R\n" +
 	"toolResultB\a\n" +
-	"\x05entry\"W\n" +
+	"\x05entry\"K\n" +
 	"\vUserMessage\x12<\n" +
-	"\acontent\x18\x02 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontentJ\x04\b\x01\x10\x02R\x04text\"h\n" +
+	"\acontent\x18\x01 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontent\"h\n" +
 	"\vUserContent\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x128\n" +
 	"\x05image\x18\x02 \x01(\v2 .glyph.programmatic.v1.UserImageH\x00R\x05imageB\t\n" +
-	"\acontent\"`\n" +
-	"\tUserImage\x12\"\n" +
+	"\acontent\">\n" +
+	"\tUserImage\x12\x1d\n" +
 	"\n" +
-	"media_type\x18\x01 \x01(\tH\x00R\tmediaType\x88\x01\x01\x12\x17\n" +
-	"\x04data\x18\x02 \x01(\fH\x01R\x04data\x88\x01\x01B\r\n" +
-	"\v_media_typeB\a\n" +
-	"\x05_data\"\xa0\x06\n" +
+	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"\x82\x06\n" +
 	"\n" +
-	"AgentEvent\x12>\n" +
-	"\x04type\x18\x01 \x01(\x0e2%.glyph.programmatic.v1.AgentEventTypeH\x01R\x04type\x88\x01\x01\x12\x1a\n" +
-	"\x06run_id\x18\x02 \x01(\tH\x02R\x05runId\x88\x01\x01\x12J\n" +
+	"AgentEvent\x129\n" +
+	"\x04type\x18\x01 \x01(\x0e2%.glyph.programmatic.v1.AgentEventTypeR\x04type\x12\x15\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12J\n" +
 	"\rmodel_content\x18\x03 \x01(\v2#.glyph.programmatic.v1.ModelContentH\x00R\fmodelContent\x12T\n" +
 	"\x11tool_call_preview\x18\x04 \x01(\v2&.glyph.programmatic.v1.ToolCallPreviewH\x00R\x0ftoolCallPreview\x12N\n" +
 	"\x0ffinal_tool_call\x18\x05 \x01(\v2$.glyph.programmatic.v1.FinalToolCallH\x00R\rfinalToolCall\x12M\n" +
@@ -12708,175 +12803,85 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x04turn\x18\n" +
 	" \x01(\v2\".glyph.programmatic.v1.TurnSummaryH\x00R\x04turn\x12;\n" +
 	"\x05agent\x18\v \x01(\v2#.glyph.programmatic.v1.AgentSummaryH\x00R\x05agentB\t\n" +
-	"\apayloadB\a\n" +
-	"\x05_typeB\t\n" +
-	"\a_run_id\"\xa9\x01\n" +
-	"\fModelContent\x12@\n" +
-	"\x04kind\x18\x01 \x01(\x0e2'.glyph.programmatic.v1.ModelContentKindH\x00R\x04kind\x88\x01\x01\x12\x1f\n" +
-	"\bposition\x18\x02 \x01(\x05H\x01R\bposition\x88\x01\x01\x12\x17\n" +
-	"\x04text\x18\x03 \x01(\tH\x02R\x04text\x88\x01\x01B\a\n" +
-	"\x05_kindB\v\n" +
-	"\t_positionB\a\n" +
-	"\x05_text\"\x87\x02\n" +
-	"\x0fToolCallPreview\x12\x1c\n" +
-	"\acall_id\x18\x01 \x01(\tH\x00R\x06callId\x88\x01\x01\x12\x17\n" +
-	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x1f\n" +
-	"\bposition\x18\x03 \x01(\x05H\x02R\bposition\x88\x01\x01\x12%\n" +
-	"\vprovisional\x18\x04 \x01(\bH\x03R\vprovisional\x88\x01\x01\x12C\n" +
-	"\x06fields\x18\x05 \x03(\v2+.glyph.programmatic.v1.ToolCallPreviewFieldR\x06fieldsB\n" +
-	"\n" +
-	"\b_call_idB\a\n" +
-	"\x05_nameB\v\n" +
-	"\t_positionB\x0e\n" +
-	"\f_provisional\"\x8d\x01\n" +
-	"\x14ToolCallPreviewField\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x01R\x04name\x88\x01\x01\x12.\n" +
+	"\apayload\"{\n" +
+	"\fModelContent\x12;\n" +
+	"\x04kind\x18\x01 \x01(\x0e2'.glyph.programmatic.v1.ModelContentKindR\x04kind\x12\x1a\n" +
+	"\bposition\x18\x02 \x01(\x03R\bposition\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\"\xc1\x01\n" +
+	"\x0fToolCallPreview\x12\x17\n" +
+	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bposition\x18\x03 \x01(\x03R\bposition\x12 \n" +
+	"\vprovisional\x18\x04 \x01(\bR\vprovisional\x12C\n" +
+	"\x06fields\x18\x05 \x03(\v2+.glyph.programmatic.v1.ToolCallPreviewFieldR\x06fields\"\x7f\n" +
+	"\x14ToolCallPreviewField\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueH\x00R\x05value\x12\x18\n" +
 	"\x06prefix\x18\x03 \x01(\tH\x00R\x06prefixB\t\n" +
-	"\acontentB\a\n" +
-	"\x05_name\"\xc0\x01\n" +
-	"\rFinalToolCall\x12\x1c\n" +
-	"\acall_id\x18\x01 \x01(\tH\x00R\x06callId\x88\x01\x01\x12\x17\n" +
-	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x1f\n" +
-	"\bposition\x18\x03 \x01(\x05H\x02R\bposition\x88\x01\x01\x125\n" +
-	"\targuments\x18\x04 \x01(\v2\x17.google.protobuf.StructR\targumentsB\n" +
+	"\acontent\"\x8f\x01\n" +
+	"\rFinalToolCall\x12\x17\n" +
+	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bposition\x18\x03 \x01(\x03R\bposition\x125\n" +
+	"\targuments\x18\x04 \x01(\v2\x17.google.protobuf.StructR\targuments\"E\n" +
+	"\rToolExecution\x12\x17\n" +
+	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
+	"\ttool_name\x18\x02 \x01(\tR\btoolName\"j\n" +
+	"\fToolProgress\x12@\n" +
+	"\achannel\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ProgressChannelR\achannel\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\xa3\x01\n" +
 	"\n" +
-	"\b_call_idB\a\n" +
-	"\x05_nameB\v\n" +
-	"\t_position\"i\n" +
-	"\rToolExecution\x12\x1c\n" +
-	"\acall_id\x18\x01 \x01(\tH\x00R\x06callId\x88\x01\x01\x12 \n" +
-	"\ttool_name\x18\x02 \x01(\tH\x01R\btoolName\x88\x01\x01B\n" +
-	"\n" +
-	"\b_call_idB\f\n" +
-	"\n" +
-	"_tool_name\"\x8c\x01\n" +
-	"\fToolProgress\x12E\n" +
-	"\achannel\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ProgressChannelH\x00R\achannel\x88\x01\x01\x12\x1d\n" +
-	"\acontent\x18\x02 \x01(\tH\x01R\acontent\x88\x01\x01B\n" +
-	"\n" +
-	"\b_channelB\n" +
-	"\n" +
-	"\b_content\"\xd9\x01\n" +
-	"\n" +
-	"ToolResult\x12\x1c\n" +
-	"\acall_id\x18\x01 \x01(\tH\x00R\x06callId\x88\x01\x01\x12 \n" +
-	"\ttool_name\x18\x02 \x01(\tH\x01R\btoolName\x88\x01\x01\x12D\n" +
-	"\bcontents\x18\x03 \x03(\v2(.glyph.programmatic.v1.ToolResultContentR\bcontents\x12\x1e\n" +
-	"\bis_error\x18\x04 \x01(\bH\x02R\aisError\x88\x01\x01B\n" +
-	"\n" +
-	"\b_call_idB\f\n" +
-	"\n" +
-	"_tool_nameB\v\n" +
-	"\t_is_error\"t\n" +
+	"ToolResult\x12\x17\n" +
+	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
+	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12D\n" +
+	"\bcontents\x18\x03 \x03(\v2(.glyph.programmatic.v1.ToolResultContentR\bcontents\x12\x19\n" +
+	"\bis_error\x18\x04 \x01(\bR\aisError\"t\n" +
 	"\x11ToolResultContent\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12>\n" +
 	"\x05image\x18\x02 \x01(\v2&.glyph.programmatic.v1.ToolResultImageH\x00R\x05imageB\t\n" +
-	"\acontent\"f\n" +
-	"\x0fToolResultImage\x12\"\n" +
+	"\acontent\"D\n" +
+	"\x0fToolResultImage\x12\x1d\n" +
 	"\n" +
-	"media_type\x18\x01 \x01(\tH\x00R\tmediaType\x88\x01\x01\x12\x17\n" +
-	"\x04data\x18\x02 \x01(\fH\x01R\x04data\x88\x01\x01B\r\n" +
-	"\v_media_typeB\a\n" +
-	"\x05_data\"\xcc\x04\n" +
-	"\rModelResponse\x12\x17\n" +
-	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x88\x01\x01\x12B\n" +
-	"\aoutcome\x18\x02 \x01(\x0e2#.glyph.programmatic.v1.ModelOutcomeH\x01R\aoutcome\x88\x01\x01\x12(\n" +
-	"\rerror_message\x18\x03 \x01(\tH\x02R\ferrorMessage\x88\x01\x01\x12\x1f\n" +
-	"\bprovider\x18\x04 \x01(\tH\x03R\bprovider\x88\x01\x01\x12\x19\n" +
-	"\x05model\x18\x05 \x01(\tH\x04R\x05model\x88\x01\x01\x12*\n" +
-	"\x0eresponse_model\x18\x06 \x01(\tH\x05R\rresponseModel\x88\x01\x01\x12$\n" +
-	"\vresponse_id\x18\a \x01(\tH\x06R\n" +
-	"responseId\x88\x01\x01\x127\n" +
+	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"\xc8\x03\n" +
+	"\rModelResponse\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12=\n" +
+	"\aoutcome\x18\x02 \x01(\x0e2#.glyph.programmatic.v1.ModelOutcomeR\aoutcome\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x1a\n" +
+	"\bprovider\x18\x04 \x01(\tR\bprovider\x12\x14\n" +
+	"\x05model\x18\x05 \x01(\tR\x05model\x12%\n" +
+	"\x0eresponse_model\x18\x06 \x01(\tR\rresponseModel\x12\x1f\n" +
+	"\vresponse_id\x18\a \x01(\tR\n" +
+	"responseId\x127\n" +
 	"\x05usage\x18\b \x01(\v2!.glyph.programmatic.v1.ModelUsageR\x05usage\x12H\n" +
 	"\vdiagnostics\x18\t \x03(\v2&.glyph.programmatic.v1.ModelDiagnosticR\vdiagnostics\x12B\n" +
 	"\acontent\x18\n" +
-	" \x03(\v2(.glyph.programmatic.v1.ModelResponseItemR\acontentB\a\n" +
-	"\x05_textB\n" +
-	"\n" +
-	"\b_outcomeB\x10\n" +
-	"\x0e_error_messageB\v\n" +
-	"\t_providerB\b\n" +
-	"\x06_modelB\x11\n" +
-	"\x0f_response_modelB\x0e\n" +
-	"\f_response_id\"\x9b\x02\n" +
+	" \x03(\v2(.glyph.programmatic.v1.ModelResponseItemR\acontent\"\x9b\x02\n" +
 	"\x11ModelResponseItem\x126\n" +
 	"\x04text\x18\x01 \x01(\v2 .glyph.programmatic.v1.FinalTextH\x00R\x04text\x12<\n" +
 	"\arefusal\x18\x02 \x01(\v2 .glyph.programmatic.v1.FinalTextH\x00R\arefusal\x12@\n" +
 	"\treasoning\x18\x03 \x01(\v2 .glyph.programmatic.v1.FinalTextH\x00R\treasoning\x12C\n" +
 	"\ttool_call\x18\x04 \x01(\v2$.glyph.programmatic.v1.FinalToolCallH\x00R\btoolCallB\t\n" +
-	"\acontent\"-\n" +
-	"\tFinalText\x12\x17\n" +
-	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x88\x01\x01B\a\n" +
-	"\x05_text\"\x96\x03\n" +
+	"\acontent\"\x1f\n" +
+	"\tFinalText\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\x80\x02\n" +
 	"\n" +
-	"ModelUsage\x12&\n" +
-	"\finput_tokens\x18\x01 \x01(\x03H\x00R\vinputTokens\x88\x01\x01\x12(\n" +
-	"\routput_tokens\x18\x02 \x01(\x03H\x01R\foutputTokens\x88\x01\x01\x123\n" +
-	"\x13cached_input_tokens\x18\x03 \x01(\x03H\x02R\x11cachedInputTokens\x88\x01\x01\x121\n" +
-	"\x12cache_write_tokens\x18\x04 \x01(\x03H\x03R\x10cacheWriteTokens\x88\x01\x01\x12.\n" +
-	"\x10reasoning_tokens\x18\x05 \x01(\x03H\x04R\x0freasoningTokens\x88\x01\x01\x12&\n" +
-	"\ftotal_tokens\x18\x06 \x01(\x03H\x05R\vtotalTokens\x88\x01\x01B\x0f\n" +
-	"\r_input_tokensB\x10\n" +
-	"\x0e_output_tokensB\x16\n" +
-	"\x14_cached_input_tokensB\x15\n" +
-	"\x13_cache_write_tokensB\x13\n" +
-	"\x11_reasoning_tokensB\x0f\n" +
-	"\r_total_tokens\"^\n" +
-	"\x0fModelDiagnostic\x12\x17\n" +
-	"\x04code\x18\x01 \x01(\tH\x00R\x04code\x88\x01\x01\x12\x1d\n" +
-	"\amessage\x18\x02 \x01(\tH\x01R\amessage\x88\x01\x01B\a\n" +
-	"\x05_codeB\n" +
-	"\n" +
-	"\b_message\"\x95\x01\n" +
+	"ModelUsage\x12!\n" +
+	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
+	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12.\n" +
+	"\x13cached_input_tokens\x18\x03 \x01(\x03R\x11cachedInputTokens\x12,\n" +
+	"\x12cache_write_tokens\x18\x04 \x01(\x03R\x10cacheWriteTokens\x12)\n" +
+	"\x10reasoning_tokens\x18\x05 \x01(\x03R\x0freasoningTokens\x12!\n" +
+	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"?\n" +
+	"\x0fModelDiagnostic\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x95\x01\n" +
 	"\vTurnSummary\x12@\n" +
 	"\bresponse\x18\x01 \x01(\v2$.glyph.programmatic.v1.ModelResponseR\bresponse\x12D\n" +
-	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"\x98\x01\n" +
-	"\fAgentSummary\x12@\n" +
-	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeH\x00R\aoutcome\x88\x01\x01\x12(\n" +
-	"\rerror_message\x18\x02 \x01(\tH\x01R\ferrorMessage\x88\x01\x01B\n" +
-	"\n" +
-	"\b_outcomeB\x10\n" +
-	"\x0e_error_message*\xa5\x05\n" +
-	"\vCommandType\x12\x1c\n" +
-	"\x18COMMAND_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19COMMAND_TYPE_USER_REQUEST\x10\x01\x12\x16\n" +
-	"\x12COMMAND_TYPE_ABORT\x10\x02\x12\x1e\n" +
-	"\x1aCOMMAND_TYPE_GET_RUN_STATE\x10\x03\x12\x1d\n" +
-	"\x19COMMAND_TYPE_GET_MESSAGES\x10\x04\x12\x1b\n" +
-	"\x17COMMAND_TYPE_GET_MODELS\x10\x05\x12\x1d\n" +
-	"\x19COMMAND_TYPE_SELECT_MODEL\x10\x06\x12(\n" +
-	"$COMMAND_TYPE_SELECT_REASONING_CHOICE\x10\a\x12\x1f\n" +
-	"\x1bCOMMAND_TYPE_CREATE_SESSION\x10\b\x12\x1e\n" +
-	"\x1aCOMMAND_TYPE_LIST_SESSIONS\x10\t\x12\x1f\n" +
-	"\x1bCOMMAND_TYPE_RESUME_SESSION\x10\n" +
-	"\x12!\n" +
-	"\x1dCOMMAND_TYPE_SET_SESSION_NAME\x10\v\x12!\n" +
-	"\x1dCOMMAND_TYPE_GET_SESSION_INFO\x10\f\x12$\n" +
-	" COMMAND_TYPE_GET_SESSION_ENTRIES\x10\r\x12\"\n" +
-	"\x1eCOMMAND_TYPE_GET_SESSION_STATS\x10\x0e\x12!\n" +
-	"\x1dCOMMAND_TYPE_GET_SESSION_TREE\x10\x0f\x12&\n" +
-	"\"COMMAND_TYPE_NAVIGATE_SESSION_TREE\x10\x10\x12\x1d\n" +
-	"\x19COMMAND_TYPE_FORK_SESSION\x10\x11\x12\x1e\n" +
-	"\x1aCOMMAND_TYPE_CLONE_SESSION\x10\x12\x12 \n" +
-	"\x1cCOMMAND_TYPE_SET_ENTRY_LABEL\x10\x13*\xb8\x04\n" +
-	"\rRejectionCode\x12\x1e\n" +
-	"\x1aREJECTION_CODE_UNSPECIFIED\x10\x00\x12#\n" +
-	"\x1fREJECTION_CODE_INVALID_ARGUMENT\x10\x01\x12\x17\n" +
-	"\x13REJECTION_CODE_BUSY\x10\x02\x12 \n" +
-	"\x1cREJECTION_CODE_NO_ACTIVE_RUN\x10\x03\x12%\n" +
-	"!REJECTION_CODE_CORRELATION_IN_USE\x10\x04\x12\x1b\n" +
-	"\x17REJECTION_CODE_INTERNAL\x10\x05\x12\x1c\n" +
-	"\x18REJECTION_CODE_NOT_FOUND\x10\x06\x12(\n" +
-	"$REJECTION_CODE_REASONING_UNSUPPORTED\x10\a\x12)\n" +
-	"%REJECTION_CODE_CREDENTIAL_UNAVAILABLE\x10\b\x12&\n" +
-	"\"REJECTION_CODE_SESSION_UNAVAILABLE\x10\t\x12*\n" +
-	"&REJECTION_CODE_PERSISTENCE_UNAVAILABLE\x10\n" +
-	"\x12$\n" +
-	" REJECTION_CODE_MODEL_UNAVAILABLE\x10\v\x12\x1f\n" +
-	"\x1bREJECTION_CODE_MODEL_FAILED\x10\f\x12+\n" +
-	"'REJECTION_CODE_EXTENSION_INVALID_RESULT\x10\r\x12(\n" +
-	"$REJECTION_CODE_EXTENSION_UNAVAILABLE\x10\x0e*\x93\x01\n" +
+	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"p\n" +
+	"\fAgentSummary\x12;\n" +
+	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\x93\x01\n" +
 	"\vSummaryMode\x12\x1c\n" +
 	"\x18SUMMARY_MODE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17SUMMARY_MODE_NO_SUMMARY\x10\x01\x12\x1a\n" +
@@ -12908,7 +12913,7 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\bRunState\x12\x19\n" +
 	"\x15RUN_STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRUN_STATE_IDLE\x10\x01\x12\x15\n" +
-	"\x11RUN_STATE_RUNNING\x10\x02*\xa9\x05\n" +
+	"\x11RUN_STATE_RUNNING\x10\x02*\x85\x05\n" +
 	"\x0eAgentEventType\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_AGENT_START\x10\x01\x12\x1f\n" +
@@ -12927,8 +12932,7 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"#AGENT_EVENT_TYPE_TOOL_EXECUTION_END\x10\r\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_TOOL_RESULT\x10\x0e\x12\x1d\n" +
 	"\x19AGENT_EVENT_TYPE_TURN_END\x10\x0f\x12\x1e\n" +
-	"\x1aAGENT_EVENT_TYPE_AGENT_END\x10\x10\x12\"\n" +
-	"\x1eAGENT_EVENT_TYPE_AGENT_SETTLED\x10\x11*\x95\x01\n" +
+	"\x1aAGENT_EVENT_TYPE_AGENT_END\x10\x10*\x95\x01\n" +
 	"\x10ModelContentKind\x12\"\n" +
 	"\x1eMODEL_CONTENT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MODEL_CONTENT_KIND_TEXT\x10\x01\x12 \n" +
@@ -12953,232 +12957,244 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x13RUN_OUTCOME_ABORTED\x10\x02\x12\x16\n" +
 	"\x12RUN_OUTCOME_FAILED\x10\x032q\n" +
 	"\x1aProgrammaticControlService\x12S\n" +
-	"\x04Open\x12\".glyph.programmatic.v1.OpenRequest\x1a#.glyph.programmatic.v1.OpenResponse(\x010\x01B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\x06proto3"
+	"\x04Open\x12\".glyph.programmatic.v1.OpenRequest\x1a#.glyph.programmatic.v1.OpenResponse(\x010\x01B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
-var file_api_programmatic_v1_programmatic_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
+var file_api_programmatic_v1_programmatic_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
 var file_api_programmatic_v1_programmatic_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
 var file_api_programmatic_v1_programmatic_proto_goTypes = []any{
-	(CommandType)(0),                    // 0: glyph.programmatic.v1.CommandType
-	(RejectionCode)(0),                  // 1: glyph.programmatic.v1.RejectionCode
-	(SummaryMode)(0),                    // 2: glyph.programmatic.v1.SummaryMode
-	(SessionTreeNavigationStatus)(0),    // 3: glyph.programmatic.v1.SessionTreeNavigationStatus
-	(OperationIssueCode)(0),             // 4: glyph.programmatic.v1.OperationIssueCode
-	(InputModality)(0),                  // 5: glyph.programmatic.v1.InputModality
-	(ReasoningChoice)(0),                // 6: glyph.programmatic.v1.ReasoningChoice
-	(RunState)(0),                       // 7: glyph.programmatic.v1.RunState
-	(AgentEventType)(0),                 // 8: glyph.programmatic.v1.AgentEventType
-	(ModelContentKind)(0),               // 9: glyph.programmatic.v1.ModelContentKind
-	(ProgressChannel)(0),                // 10: glyph.programmatic.v1.ProgressChannel
-	(ModelOutcome)(0),                   // 11: glyph.programmatic.v1.ModelOutcome
-	(RunOutcome)(0),                     // 12: glyph.programmatic.v1.RunOutcome
-	(*OpenRequest)(nil),                 // 13: glyph.programmatic.v1.OpenRequest
-	(*UserRequest)(nil),                 // 14: glyph.programmatic.v1.UserRequest
-	(*Abort)(nil),                       // 15: glyph.programmatic.v1.Abort
-	(*GetRunState)(nil),                 // 16: glyph.programmatic.v1.GetRunState
-	(*GetMessages)(nil),                 // 17: glyph.programmatic.v1.GetMessages
-	(*GetModels)(nil),                   // 18: glyph.programmatic.v1.GetModels
-	(*SelectModel)(nil),                 // 19: glyph.programmatic.v1.SelectModel
-	(*SelectReasoningChoice)(nil),       // 20: glyph.programmatic.v1.SelectReasoningChoice
-	(*CreateSession)(nil),               // 21: glyph.programmatic.v1.CreateSession
-	(*ListSessions)(nil),                // 22: glyph.programmatic.v1.ListSessions
-	(*ResumeSession)(nil),               // 23: glyph.programmatic.v1.ResumeSession
-	(*SetSessionName)(nil),              // 24: glyph.programmatic.v1.SetSessionName
-	(*GetSessionInfo)(nil),              // 25: glyph.programmatic.v1.GetSessionInfo
-	(*GetSessionEntries)(nil),           // 26: glyph.programmatic.v1.GetSessionEntries
-	(*GetSessionStats)(nil),             // 27: glyph.programmatic.v1.GetSessionStats
-	(*GetSessionTree)(nil),              // 28: glyph.programmatic.v1.GetSessionTree
-	(*NavigateSessionTree)(nil),         // 29: glyph.programmatic.v1.NavigateSessionTree
-	(*ForkSession)(nil),                 // 30: glyph.programmatic.v1.ForkSession
-	(*CloneSession)(nil),                // 31: glyph.programmatic.v1.CloneSession
-	(*SetEntryLabel)(nil),               // 32: glyph.programmatic.v1.SetEntryLabel
-	(*OpenResponse)(nil),                // 33: glyph.programmatic.v1.OpenResponse
-	(*CommandResponse)(nil),             // 34: glyph.programmatic.v1.CommandResponse
+	(SummaryMode)(0),                    // 0: glyph.programmatic.v1.SummaryMode
+	(SessionTreeNavigationStatus)(0),    // 1: glyph.programmatic.v1.SessionTreeNavigationStatus
+	(OperationIssueCode)(0),             // 2: glyph.programmatic.v1.OperationIssueCode
+	(InputModality)(0),                  // 3: glyph.programmatic.v1.InputModality
+	(ReasoningChoice)(0),                // 4: glyph.programmatic.v1.ReasoningChoice
+	(RunState)(0),                       // 5: glyph.programmatic.v1.RunState
+	(AgentEventType)(0),                 // 6: glyph.programmatic.v1.AgentEventType
+	(ModelContentKind)(0),               // 7: glyph.programmatic.v1.ModelContentKind
+	(ProgressChannel)(0),                // 8: glyph.programmatic.v1.ProgressChannel
+	(ModelOutcome)(0),                   // 9: glyph.programmatic.v1.ModelOutcome
+	(RunOutcome)(0),                     // 10: glyph.programmatic.v1.RunOutcome
+	(*OpenRequest)(nil),                 // 11: glyph.programmatic.v1.OpenRequest
+	(*ControllerRequest)(nil),           // 12: glyph.programmatic.v1.ControllerRequest
+	(*UserRequest)(nil),                 // 13: glyph.programmatic.v1.UserRequest
+	(*GetRunState)(nil),                 // 14: glyph.programmatic.v1.GetRunState
+	(*GetMessages)(nil),                 // 15: glyph.programmatic.v1.GetMessages
+	(*GetModels)(nil),                   // 16: glyph.programmatic.v1.GetModels
+	(*SelectModel)(nil),                 // 17: glyph.programmatic.v1.SelectModel
+	(*SelectReasoningChoice)(nil),       // 18: glyph.programmatic.v1.SelectReasoningChoice
+	(*CreateSession)(nil),               // 19: glyph.programmatic.v1.CreateSession
+	(*ListSessions)(nil),                // 20: glyph.programmatic.v1.ListSessions
+	(*ResumeSession)(nil),               // 21: glyph.programmatic.v1.ResumeSession
+	(*SetSessionName)(nil),              // 22: glyph.programmatic.v1.SetSessionName
+	(*GetSessionInfo)(nil),              // 23: glyph.programmatic.v1.GetSessionInfo
+	(*GetSessionEntries)(nil),           // 24: glyph.programmatic.v1.GetSessionEntries
+	(*GetSessionStats)(nil),             // 25: glyph.programmatic.v1.GetSessionStats
+	(*GetSessionTree)(nil),              // 26: glyph.programmatic.v1.GetSessionTree
+	(*NavigateSessionTree)(nil),         // 27: glyph.programmatic.v1.NavigateSessionTree
+	(*ForkSession)(nil),                 // 28: glyph.programmatic.v1.ForkSession
+	(*CloneSession)(nil),                // 29: glyph.programmatic.v1.CloneSession
+	(*SetEntryLabel)(nil),               // 30: glyph.programmatic.v1.SetEntryLabel
+	(*OpenResponse)(nil),                // 31: glyph.programmatic.v1.OpenResponse
+	(*HostEvent)(nil),                   // 32: glyph.programmatic.v1.HostEvent
+	(*HostProgress)(nil),                // 33: glyph.programmatic.v1.HostProgress
+	(*HostCompleted)(nil),               // 34: glyph.programmatic.v1.HostCompleted
 	(*ForkSessionResult)(nil),           // 35: glyph.programmatic.v1.ForkSessionResult
 	(*CloneSessionResult)(nil),          // 36: glyph.programmatic.v1.CloneSessionResult
 	(*SetEntryLabelResult)(nil),         // 37: glyph.programmatic.v1.SetEntryLabelResult
-	(*UserRequestAccepted)(nil),         // 38: glyph.programmatic.v1.UserRequestAccepted
-	(*AbortCompleted)(nil),              // 39: glyph.programmatic.v1.AbortCompleted
-	(*RunStateResult)(nil),              // 40: glyph.programmatic.v1.RunStateResult
-	(*MessagesResult)(nil),              // 41: glyph.programmatic.v1.MessagesResult
-	(*ModelsResult)(nil),                // 42: glyph.programmatic.v1.ModelsResult
-	(*ConfiguredModel)(nil),             // 43: glyph.programmatic.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil),       // 44: glyph.programmatic.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),              // 45: glyph.programmatic.v1.ModelSelection
-	(*ModelSelectionResult)(nil),        // 46: glyph.programmatic.v1.ModelSelectionResult
-	(*SessionInfoResult)(nil),           // 47: glyph.programmatic.v1.SessionInfoResult
-	(*SessionsResult)(nil),              // 48: glyph.programmatic.v1.SessionsResult
-	(*SessionInfo)(nil),                 // 49: glyph.programmatic.v1.SessionInfo
-	(*SessionSummary)(nil),              // 50: glyph.programmatic.v1.SessionSummary
-	(*SessionStatsResult)(nil),          // 51: glyph.programmatic.v1.SessionStatsResult
-	(*SessionStatistics)(nil),           // 52: glyph.programmatic.v1.SessionStatistics
-	(*EstimatedCost)(nil),               // 53: glyph.programmatic.v1.EstimatedCost
-	(*ProviderModelCost)(nil),           // 54: glyph.programmatic.v1.ProviderModelCost
-	(*TokenUsage)(nil),                  // 55: glyph.programmatic.v1.TokenUsage
-	(*CommandRejected)(nil),             // 56: glyph.programmatic.v1.CommandRejected
-	(*SessionTreeResult)(nil),           // 57: glyph.programmatic.v1.SessionTreeResult
-	(*SessionTreeNavigationResult)(nil), // 58: glyph.programmatic.v1.SessionTreeNavigationResult
-	(*SessionTree)(nil),                 // 59: glyph.programmatic.v1.SessionTree
-	(*SessionTreeEntry)(nil),            // 60: glyph.programmatic.v1.SessionTreeEntry
-	(*ExtensionEntry)(nil),              // 61: glyph.programmatic.v1.ExtensionEntry
-	(*BranchSummary)(nil),               // 62: glyph.programmatic.v1.BranchSummary
-	(*OperationIssue)(nil),              // 63: glyph.programmatic.v1.OperationIssue
-	(*SessionEntriesResult)(nil),        // 64: glyph.programmatic.v1.SessionEntriesResult
-	(*SessionEntry)(nil),                // 65: glyph.programmatic.v1.SessionEntry
-	(*HistoryEntry)(nil),                // 66: glyph.programmatic.v1.HistoryEntry
-	(*UserMessage)(nil),                 // 67: glyph.programmatic.v1.UserMessage
-	(*UserContent)(nil),                 // 68: glyph.programmatic.v1.UserContent
-	(*UserImage)(nil),                   // 69: glyph.programmatic.v1.UserImage
-	(*AgentEvent)(nil),                  // 70: glyph.programmatic.v1.AgentEvent
-	(*ModelContent)(nil),                // 71: glyph.programmatic.v1.ModelContent
-	(*ToolCallPreview)(nil),             // 72: glyph.programmatic.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil),        // 73: glyph.programmatic.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),               // 74: glyph.programmatic.v1.FinalToolCall
-	(*ToolExecution)(nil),               // 75: glyph.programmatic.v1.ToolExecution
-	(*ToolProgress)(nil),                // 76: glyph.programmatic.v1.ToolProgress
-	(*ToolResult)(nil),                  // 77: glyph.programmatic.v1.ToolResult
-	(*ToolResultContent)(nil),           // 78: glyph.programmatic.v1.ToolResultContent
-	(*ToolResultImage)(nil),             // 79: glyph.programmatic.v1.ToolResultImage
-	(*ModelResponse)(nil),               // 80: glyph.programmatic.v1.ModelResponse
-	(*ModelResponseItem)(nil),           // 81: glyph.programmatic.v1.ModelResponseItem
-	(*FinalText)(nil),                   // 82: glyph.programmatic.v1.FinalText
-	(*ModelUsage)(nil),                  // 83: glyph.programmatic.v1.ModelUsage
-	(*ModelDiagnostic)(nil),             // 84: glyph.programmatic.v1.ModelDiagnostic
-	(*TurnSummary)(nil),                 // 85: glyph.programmatic.v1.TurnSummary
-	(*AgentSummary)(nil),                // 86: glyph.programmatic.v1.AgentSummary
-	(*timestamppb.Timestamp)(nil),       // 87: google.protobuf.Timestamp
-	(*structpb.Value)(nil),              // 88: google.protobuf.Value
-	(*structpb.Struct)(nil),             // 89: google.protobuf.Struct
+	(*UserRequestCompleted)(nil),        // 38: glyph.programmatic.v1.UserRequestCompleted
+	(*RunStateResult)(nil),              // 39: glyph.programmatic.v1.RunStateResult
+	(*MessagesResult)(nil),              // 40: glyph.programmatic.v1.MessagesResult
+	(*ModelsResult)(nil),                // 41: glyph.programmatic.v1.ModelsResult
+	(*ConfiguredModel)(nil),             // 42: glyph.programmatic.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil),       // 43: glyph.programmatic.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),              // 44: glyph.programmatic.v1.ModelSelection
+	(*ModelSelectionResult)(nil),        // 45: glyph.programmatic.v1.ModelSelectionResult
+	(*SessionInfoResult)(nil),           // 46: glyph.programmatic.v1.SessionInfoResult
+	(*SessionsResult)(nil),              // 47: glyph.programmatic.v1.SessionsResult
+	(*SessionInfo)(nil),                 // 48: glyph.programmatic.v1.SessionInfo
+	(*SessionSummary)(nil),              // 49: glyph.programmatic.v1.SessionSummary
+	(*SessionStatsResult)(nil),          // 50: glyph.programmatic.v1.SessionStatsResult
+	(*SessionStatistics)(nil),           // 51: glyph.programmatic.v1.SessionStatistics
+	(*EstimatedCost)(nil),               // 52: glyph.programmatic.v1.EstimatedCost
+	(*ProviderModelCost)(nil),           // 53: glyph.programmatic.v1.ProviderModelCost
+	(*TokenUsage)(nil),                  // 54: glyph.programmatic.v1.TokenUsage
+	(*SessionTreeResult)(nil),           // 55: glyph.programmatic.v1.SessionTreeResult
+	(*SessionTreeNavigationResult)(nil), // 56: glyph.programmatic.v1.SessionTreeNavigationResult
+	(*SessionTree)(nil),                 // 57: glyph.programmatic.v1.SessionTree
+	(*SessionTreeEntry)(nil),            // 58: glyph.programmatic.v1.SessionTreeEntry
+	(*ExtensionEntry)(nil),              // 59: glyph.programmatic.v1.ExtensionEntry
+	(*BranchSummary)(nil),               // 60: glyph.programmatic.v1.BranchSummary
+	(*OperationIssue)(nil),              // 61: glyph.programmatic.v1.OperationIssue
+	(*SessionEntriesResult)(nil),        // 62: glyph.programmatic.v1.SessionEntriesResult
+	(*SessionEntry)(nil),                // 63: glyph.programmatic.v1.SessionEntry
+	(*HistoryEntry)(nil),                // 64: glyph.programmatic.v1.HistoryEntry
+	(*UserMessage)(nil),                 // 65: glyph.programmatic.v1.UserMessage
+	(*UserContent)(nil),                 // 66: glyph.programmatic.v1.UserContent
+	(*UserImage)(nil),                   // 67: glyph.programmatic.v1.UserImage
+	(*AgentEvent)(nil),                  // 68: glyph.programmatic.v1.AgentEvent
+	(*ModelContent)(nil),                // 69: glyph.programmatic.v1.ModelContent
+	(*ToolCallPreview)(nil),             // 70: glyph.programmatic.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil),        // 71: glyph.programmatic.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),               // 72: glyph.programmatic.v1.FinalToolCall
+	(*ToolExecution)(nil),               // 73: glyph.programmatic.v1.ToolExecution
+	(*ToolProgress)(nil),                // 74: glyph.programmatic.v1.ToolProgress
+	(*ToolResult)(nil),                  // 75: glyph.programmatic.v1.ToolResult
+	(*ToolResultContent)(nil),           // 76: glyph.programmatic.v1.ToolResultContent
+	(*ToolResultImage)(nil),             // 77: glyph.programmatic.v1.ToolResultImage
+	(*ModelResponse)(nil),               // 78: glyph.programmatic.v1.ModelResponse
+	(*ModelResponseItem)(nil),           // 79: glyph.programmatic.v1.ModelResponseItem
+	(*FinalText)(nil),                   // 80: glyph.programmatic.v1.FinalText
+	(*ModelUsage)(nil),                  // 81: glyph.programmatic.v1.ModelUsage
+	(*ModelDiagnostic)(nil),             // 82: glyph.programmatic.v1.ModelDiagnostic
+	(*TurnSummary)(nil),                 // 83: glyph.programmatic.v1.TurnSummary
+	(*AgentSummary)(nil),                // 84: glyph.programmatic.v1.AgentSummary
+	(*v1.CancelOperation)(nil),          // 85: glyph.operation.v1.CancelOperation
+	(*v1.CloseConnection)(nil),          // 86: glyph.operation.v1.CloseConnection
+	(*v1.Accepted)(nil),                 // 87: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),                  // 88: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),                 // 89: glyph.operation.v1.Canceled
+	(*v1.Failed)(nil),                   // 90: glyph.operation.v1.Failed
+	(*v1.Rejected)(nil),                 // 91: glyph.operation.v1.Rejected
+	(*v1.CancelCompleted)(nil),          // 92: glyph.operation.v1.CancelCompleted
+	(*timestamppb.Timestamp)(nil),       // 93: google.protobuf.Timestamp
+	(*structpb.Value)(nil),              // 94: google.protobuf.Value
+	(*structpb.Struct)(nil),             // 95: google.protobuf.Struct
 }
 var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
-	14,  // 0: glyph.programmatic.v1.OpenRequest.user_request:type_name -> glyph.programmatic.v1.UserRequest
-	15,  // 1: glyph.programmatic.v1.OpenRequest.abort:type_name -> glyph.programmatic.v1.Abort
-	16,  // 2: glyph.programmatic.v1.OpenRequest.get_run_state:type_name -> glyph.programmatic.v1.GetRunState
-	17,  // 3: glyph.programmatic.v1.OpenRequest.get_messages:type_name -> glyph.programmatic.v1.GetMessages
-	18,  // 4: glyph.programmatic.v1.OpenRequest.get_models:type_name -> glyph.programmatic.v1.GetModels
-	19,  // 5: glyph.programmatic.v1.OpenRequest.select_model:type_name -> glyph.programmatic.v1.SelectModel
-	20,  // 6: glyph.programmatic.v1.OpenRequest.select_reasoning_choice:type_name -> glyph.programmatic.v1.SelectReasoningChoice
-	21,  // 7: glyph.programmatic.v1.OpenRequest.create_session:type_name -> glyph.programmatic.v1.CreateSession
-	22,  // 8: glyph.programmatic.v1.OpenRequest.list_sessions:type_name -> glyph.programmatic.v1.ListSessions
-	23,  // 9: glyph.programmatic.v1.OpenRequest.resume_session:type_name -> glyph.programmatic.v1.ResumeSession
-	24,  // 10: glyph.programmatic.v1.OpenRequest.set_session_name:type_name -> glyph.programmatic.v1.SetSessionName
-	25,  // 11: glyph.programmatic.v1.OpenRequest.get_session_info:type_name -> glyph.programmatic.v1.GetSessionInfo
-	26,  // 12: glyph.programmatic.v1.OpenRequest.get_session_entries:type_name -> glyph.programmatic.v1.GetSessionEntries
-	27,  // 13: glyph.programmatic.v1.OpenRequest.get_session_stats:type_name -> glyph.programmatic.v1.GetSessionStats
-	28,  // 14: glyph.programmatic.v1.OpenRequest.get_session_tree:type_name -> glyph.programmatic.v1.GetSessionTree
-	29,  // 15: glyph.programmatic.v1.OpenRequest.navigate_session_tree:type_name -> glyph.programmatic.v1.NavigateSessionTree
-	30,  // 16: glyph.programmatic.v1.OpenRequest.fork_session:type_name -> glyph.programmatic.v1.ForkSession
-	31,  // 17: glyph.programmatic.v1.OpenRequest.clone_session:type_name -> glyph.programmatic.v1.CloneSession
-	32,  // 18: glyph.programmatic.v1.OpenRequest.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabel
-	6,   // 19: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	2,   // 20: glyph.programmatic.v1.NavigateSessionTree.summary_mode:type_name -> glyph.programmatic.v1.SummaryMode
-	34,  // 21: glyph.programmatic.v1.OpenResponse.command_response:type_name -> glyph.programmatic.v1.CommandResponse
-	70,  // 22: glyph.programmatic.v1.OpenResponse.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
-	38,  // 23: glyph.programmatic.v1.CommandResponse.user_request_accepted:type_name -> glyph.programmatic.v1.UserRequestAccepted
-	39,  // 24: glyph.programmatic.v1.CommandResponse.abort_completed:type_name -> glyph.programmatic.v1.AbortCompleted
-	40,  // 25: glyph.programmatic.v1.CommandResponse.run_state:type_name -> glyph.programmatic.v1.RunStateResult
-	41,  // 26: glyph.programmatic.v1.CommandResponse.messages:type_name -> glyph.programmatic.v1.MessagesResult
-	56,  // 27: glyph.programmatic.v1.CommandResponse.rejected:type_name -> glyph.programmatic.v1.CommandRejected
-	42,  // 28: glyph.programmatic.v1.CommandResponse.models:type_name -> glyph.programmatic.v1.ModelsResult
-	46,  // 29: glyph.programmatic.v1.CommandResponse.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
-	47,  // 30: glyph.programmatic.v1.CommandResponse.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
-	48,  // 31: glyph.programmatic.v1.CommandResponse.sessions:type_name -> glyph.programmatic.v1.SessionsResult
-	64,  // 32: glyph.programmatic.v1.CommandResponse.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
-	51,  // 33: glyph.programmatic.v1.CommandResponse.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
-	57,  // 34: glyph.programmatic.v1.CommandResponse.session_tree:type_name -> glyph.programmatic.v1.SessionTreeResult
-	58,  // 35: glyph.programmatic.v1.CommandResponse.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationResult
-	35,  // 36: glyph.programmatic.v1.CommandResponse.fork_session:type_name -> glyph.programmatic.v1.ForkSessionResult
-	36,  // 37: glyph.programmatic.v1.CommandResponse.clone_session:type_name -> glyph.programmatic.v1.CloneSessionResult
-	37,  // 38: glyph.programmatic.v1.CommandResponse.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabelResult
-	49,  // 39: glyph.programmatic.v1.ForkSessionResult.info:type_name -> glyph.programmatic.v1.SessionInfo
-	65,  // 40: glyph.programmatic.v1.ForkSessionResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
-	49,  // 41: glyph.programmatic.v1.CloneSessionResult.info:type_name -> glyph.programmatic.v1.SessionInfo
-	65,  // 42: glyph.programmatic.v1.CloneSessionResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
-	59,  // 43: glyph.programmatic.v1.SetEntryLabelResult.tree:type_name -> glyph.programmatic.v1.SessionTree
-	7,   // 44: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
-	66,  // 45: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
-	43,  // 46: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
-	45,  // 47: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
-	44,  // 48: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
-	5,   // 49: glyph.programmatic.v1.ConfiguredModel.input_modalities:type_name -> glyph.programmatic.v1.InputModality
-	6,   // 50: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
-	6,   // 51: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	6,   // 52: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	45,  // 53: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
-	49,  // 54: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
-	50,  // 55: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
-	87,  // 56: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
-	87,  // 57: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
-	49,  // 58: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
-	52,  // 59: glyph.programmatic.v1.SessionStatsResult.statistics:type_name -> glyph.programmatic.v1.SessionStatistics
-	55,  // 60: glyph.programmatic.v1.SessionStatistics.tokens:type_name -> glyph.programmatic.v1.TokenUsage
-	53,  // 61: glyph.programmatic.v1.SessionStatistics.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	54,  // 62: glyph.programmatic.v1.SessionStatistics.cost_breakdown:type_name -> glyph.programmatic.v1.ProviderModelCost
-	53,  // 63: glyph.programmatic.v1.ProviderModelCost.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	0,   // 64: glyph.programmatic.v1.CommandRejected.command:type_name -> glyph.programmatic.v1.CommandType
-	1,   // 65: glyph.programmatic.v1.CommandRejected.code:type_name -> glyph.programmatic.v1.RejectionCode
-	59,  // 66: glyph.programmatic.v1.SessionTreeResult.tree:type_name -> glyph.programmatic.v1.SessionTree
-	3,   // 67: glyph.programmatic.v1.SessionTreeNavigationResult.status:type_name -> glyph.programmatic.v1.SessionTreeNavigationStatus
-	59,  // 68: glyph.programmatic.v1.SessionTreeNavigationResult.tree:type_name -> glyph.programmatic.v1.SessionTree
-	65,  // 69: glyph.programmatic.v1.SessionTreeNavigationResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
-	63,  // 70: glyph.programmatic.v1.SessionTreeNavigationResult.issues:type_name -> glyph.programmatic.v1.OperationIssue
-	60,  // 71: glyph.programmatic.v1.SessionTree.entries:type_name -> glyph.programmatic.v1.SessionTreeEntry
-	87,  // 72: glyph.programmatic.v1.SessionTreeEntry.created_time:type_name -> google.protobuf.Timestamp
-	67,  // 73: glyph.programmatic.v1.SessionTreeEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	80,  // 74: glyph.programmatic.v1.SessionTreeEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 75: glyph.programmatic.v1.SessionTreeEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	61,  // 76: glyph.programmatic.v1.SessionTreeEntry.extension:type_name -> glyph.programmatic.v1.ExtensionEntry
-	62,  // 77: glyph.programmatic.v1.SessionTreeEntry.branch_summary:type_name -> glyph.programmatic.v1.BranchSummary
-	6,   // 78: glyph.programmatic.v1.BranchSummary.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	55,  // 79: glyph.programmatic.v1.BranchSummary.usage:type_name -> glyph.programmatic.v1.TokenUsage
-	53,  // 80: glyph.programmatic.v1.BranchSummary.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	4,   // 81: glyph.programmatic.v1.OperationIssue.code:type_name -> glyph.programmatic.v1.OperationIssueCode
-	65,  // 82: glyph.programmatic.v1.SessionEntriesResult.entries:type_name -> glyph.programmatic.v1.SessionEntry
-	87,  // 83: glyph.programmatic.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
-	67,  // 84: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	80,  // 85: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 86: glyph.programmatic.v1.SessionEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	62,  // 87: glyph.programmatic.v1.SessionEntry.branch_summary:type_name -> glyph.programmatic.v1.BranchSummary
-	53,  // 88: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
-	67,  // 89: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
-	80,  // 90: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 91: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	68,  // 92: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
-	69,  // 93: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
-	8,   // 94: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
-	71,  // 95: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
-	72,  // 96: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
-	74,  // 97: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	75,  // 98: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
-	76,  // 99: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
-	77,  // 100: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	80,  // 101: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
-	85,  // 102: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
-	86,  // 103: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	9,   // 104: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	73,  // 105: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	88,  // 106: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	89,  // 107: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	10,  // 108: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	78,  // 109: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	79,  // 110: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	11,  // 111: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	83,  // 112: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	84,  // 113: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	81,  // 114: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	82,  // 115: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	82,  // 116: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	82,  // 117: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	74,  // 118: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	80,  // 119: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	77,  // 120: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	12,  // 121: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	13,  // 122: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
-	33,  // 123: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
-	123, // [123:124] is the sub-list for method output_type
-	122, // [122:123] is the sub-list for method input_type
-	122, // [122:122] is the sub-list for extension type_name
-	122, // [122:122] is the sub-list for extension extendee
-	0,   // [0:122] is the sub-list for field type_name
+	12,  // 0: glyph.programmatic.v1.OpenRequest.request:type_name -> glyph.programmatic.v1.ControllerRequest
+	13,  // 1: glyph.programmatic.v1.ControllerRequest.user_request:type_name -> glyph.programmatic.v1.UserRequest
+	85,  // 2: glyph.programmatic.v1.ControllerRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	14,  // 3: glyph.programmatic.v1.ControllerRequest.get_run_state:type_name -> glyph.programmatic.v1.GetRunState
+	15,  // 4: glyph.programmatic.v1.ControllerRequest.get_messages:type_name -> glyph.programmatic.v1.GetMessages
+	16,  // 5: glyph.programmatic.v1.ControllerRequest.get_models:type_name -> glyph.programmatic.v1.GetModels
+	17,  // 6: glyph.programmatic.v1.ControllerRequest.select_model:type_name -> glyph.programmatic.v1.SelectModel
+	18,  // 7: glyph.programmatic.v1.ControllerRequest.select_reasoning_choice:type_name -> glyph.programmatic.v1.SelectReasoningChoice
+	19,  // 8: glyph.programmatic.v1.ControllerRequest.create_session:type_name -> glyph.programmatic.v1.CreateSession
+	20,  // 9: glyph.programmatic.v1.ControllerRequest.list_sessions:type_name -> glyph.programmatic.v1.ListSessions
+	21,  // 10: glyph.programmatic.v1.ControllerRequest.resume_session:type_name -> glyph.programmatic.v1.ResumeSession
+	22,  // 11: glyph.programmatic.v1.ControllerRequest.set_session_name:type_name -> glyph.programmatic.v1.SetSessionName
+	23,  // 12: glyph.programmatic.v1.ControllerRequest.get_session_info:type_name -> glyph.programmatic.v1.GetSessionInfo
+	24,  // 13: glyph.programmatic.v1.ControllerRequest.get_session_entries:type_name -> glyph.programmatic.v1.GetSessionEntries
+	25,  // 14: glyph.programmatic.v1.ControllerRequest.get_session_stats:type_name -> glyph.programmatic.v1.GetSessionStats
+	26,  // 15: glyph.programmatic.v1.ControllerRequest.get_session_tree:type_name -> glyph.programmatic.v1.GetSessionTree
+	27,  // 16: glyph.programmatic.v1.ControllerRequest.navigate_session_tree:type_name -> glyph.programmatic.v1.NavigateSessionTree
+	28,  // 17: glyph.programmatic.v1.ControllerRequest.fork_session:type_name -> glyph.programmatic.v1.ForkSession
+	29,  // 18: glyph.programmatic.v1.ControllerRequest.clone_session:type_name -> glyph.programmatic.v1.CloneSession
+	30,  // 19: glyph.programmatic.v1.ControllerRequest.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabel
+	4,   // 20: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	0,   // 21: glyph.programmatic.v1.NavigateSessionTree.summary_mode:type_name -> glyph.programmatic.v1.SummaryMode
+	32,  // 22: glyph.programmatic.v1.OpenResponse.event:type_name -> glyph.programmatic.v1.HostEvent
+	86,  // 23: glyph.programmatic.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
+	87,  // 24: glyph.programmatic.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	88,  // 25: glyph.programmatic.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	33,  // 26: glyph.programmatic.v1.HostEvent.progress:type_name -> glyph.programmatic.v1.HostProgress
+	34,  // 27: glyph.programmatic.v1.HostEvent.completed:type_name -> glyph.programmatic.v1.HostCompleted
+	89,  // 28: glyph.programmatic.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	90,  // 29: glyph.programmatic.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	91,  // 30: glyph.programmatic.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	68,  // 31: glyph.programmatic.v1.HostProgress.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
+	38,  // 32: glyph.programmatic.v1.HostCompleted.user_request:type_name -> glyph.programmatic.v1.UserRequestCompleted
+	92,  // 33: glyph.programmatic.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	39,  // 34: glyph.programmatic.v1.HostCompleted.run_state:type_name -> glyph.programmatic.v1.RunStateResult
+	40,  // 35: glyph.programmatic.v1.HostCompleted.messages:type_name -> glyph.programmatic.v1.MessagesResult
+	41,  // 36: glyph.programmatic.v1.HostCompleted.models:type_name -> glyph.programmatic.v1.ModelsResult
+	45,  // 37: glyph.programmatic.v1.HostCompleted.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
+	46,  // 38: glyph.programmatic.v1.HostCompleted.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
+	47,  // 39: glyph.programmatic.v1.HostCompleted.sessions:type_name -> glyph.programmatic.v1.SessionsResult
+	62,  // 40: glyph.programmatic.v1.HostCompleted.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
+	50,  // 41: glyph.programmatic.v1.HostCompleted.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
+	55,  // 42: glyph.programmatic.v1.HostCompleted.session_tree:type_name -> glyph.programmatic.v1.SessionTreeResult
+	56,  // 43: glyph.programmatic.v1.HostCompleted.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationResult
+	35,  // 44: glyph.programmatic.v1.HostCompleted.fork_session:type_name -> glyph.programmatic.v1.ForkSessionResult
+	36,  // 45: glyph.programmatic.v1.HostCompleted.clone_session:type_name -> glyph.programmatic.v1.CloneSessionResult
+	37,  // 46: glyph.programmatic.v1.HostCompleted.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabelResult
+	48,  // 47: glyph.programmatic.v1.ForkSessionResult.info:type_name -> glyph.programmatic.v1.SessionInfo
+	63,  // 48: glyph.programmatic.v1.ForkSessionResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
+	48,  // 49: glyph.programmatic.v1.CloneSessionResult.info:type_name -> glyph.programmatic.v1.SessionInfo
+	63,  // 50: glyph.programmatic.v1.CloneSessionResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
+	57,  // 51: glyph.programmatic.v1.SetEntryLabelResult.tree:type_name -> glyph.programmatic.v1.SessionTree
+	5,   // 52: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
+	64,  // 53: glyph.programmatic.v1.MessagesResult.entries:type_name -> glyph.programmatic.v1.HistoryEntry
+	42,  // 54: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
+	44,  // 55: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
+	43,  // 56: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
+	3,   // 57: glyph.programmatic.v1.ConfiguredModel.input_modalities:type_name -> glyph.programmatic.v1.InputModality
+	4,   // 58: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
+	4,   // 59: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	4,   // 60: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	44,  // 61: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
+	48,  // 62: glyph.programmatic.v1.SessionInfoResult.info:type_name -> glyph.programmatic.v1.SessionInfo
+	49,  // 63: glyph.programmatic.v1.SessionsResult.sessions:type_name -> glyph.programmatic.v1.SessionSummary
+	93,  // 64: glyph.programmatic.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
+	93,  // 65: glyph.programmatic.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
+	48,  // 66: glyph.programmatic.v1.SessionSummary.info:type_name -> glyph.programmatic.v1.SessionInfo
+	51,  // 67: glyph.programmatic.v1.SessionStatsResult.statistics:type_name -> glyph.programmatic.v1.SessionStatistics
+	54,  // 68: glyph.programmatic.v1.SessionStatistics.tokens:type_name -> glyph.programmatic.v1.TokenUsage
+	52,  // 69: glyph.programmatic.v1.SessionStatistics.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	53,  // 70: glyph.programmatic.v1.SessionStatistics.cost_breakdown:type_name -> glyph.programmatic.v1.ProviderModelCost
+	52,  // 71: glyph.programmatic.v1.ProviderModelCost.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	57,  // 72: glyph.programmatic.v1.SessionTreeResult.tree:type_name -> glyph.programmatic.v1.SessionTree
+	1,   // 73: glyph.programmatic.v1.SessionTreeNavigationResult.status:type_name -> glyph.programmatic.v1.SessionTreeNavigationStatus
+	57,  // 74: glyph.programmatic.v1.SessionTreeNavigationResult.tree:type_name -> glyph.programmatic.v1.SessionTree
+	63,  // 75: glyph.programmatic.v1.SessionTreeNavigationResult.active_branch:type_name -> glyph.programmatic.v1.SessionEntry
+	61,  // 76: glyph.programmatic.v1.SessionTreeNavigationResult.issues:type_name -> glyph.programmatic.v1.OperationIssue
+	58,  // 77: glyph.programmatic.v1.SessionTree.entries:type_name -> glyph.programmatic.v1.SessionTreeEntry
+	93,  // 78: glyph.programmatic.v1.SessionTreeEntry.created_time:type_name -> google.protobuf.Timestamp
+	65,  // 79: glyph.programmatic.v1.SessionTreeEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	78,  // 80: glyph.programmatic.v1.SessionTreeEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	75,  // 81: glyph.programmatic.v1.SessionTreeEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	59,  // 82: glyph.programmatic.v1.SessionTreeEntry.extension:type_name -> glyph.programmatic.v1.ExtensionEntry
+	60,  // 83: glyph.programmatic.v1.SessionTreeEntry.branch_summary:type_name -> glyph.programmatic.v1.BranchSummary
+	4,   // 84: glyph.programmatic.v1.BranchSummary.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	54,  // 85: glyph.programmatic.v1.BranchSummary.usage:type_name -> glyph.programmatic.v1.TokenUsage
+	52,  // 86: glyph.programmatic.v1.BranchSummary.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	2,   // 87: glyph.programmatic.v1.OperationIssue.code:type_name -> glyph.programmatic.v1.OperationIssueCode
+	63,  // 88: glyph.programmatic.v1.SessionEntriesResult.entries:type_name -> glyph.programmatic.v1.SessionEntry
+	93,  // 89: glyph.programmatic.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
+	65,  // 90: glyph.programmatic.v1.SessionEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	78,  // 91: glyph.programmatic.v1.SessionEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	75,  // 92: glyph.programmatic.v1.SessionEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	60,  // 93: glyph.programmatic.v1.SessionEntry.branch_summary:type_name -> glyph.programmatic.v1.BranchSummary
+	52,  // 94: glyph.programmatic.v1.SessionEntry.estimated_cost:type_name -> glyph.programmatic.v1.EstimatedCost
+	65,  // 95: glyph.programmatic.v1.HistoryEntry.user:type_name -> glyph.programmatic.v1.UserMessage
+	78,  // 96: glyph.programmatic.v1.HistoryEntry.model:type_name -> glyph.programmatic.v1.ModelResponse
+	75,  // 97: glyph.programmatic.v1.HistoryEntry.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	66,  // 98: glyph.programmatic.v1.UserMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	67,  // 99: glyph.programmatic.v1.UserContent.image:type_name -> glyph.programmatic.v1.UserImage
+	6,   // 100: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
+	69,  // 101: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
+	70,  // 102: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
+	72,  // 103: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	73,  // 104: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
+	74,  // 105: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
+	75,  // 106: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	78,  // 107: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
+	83,  // 108: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
+	84,  // 109: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
+	7,   // 110: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	71,  // 111: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	94,  // 112: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	95,  // 113: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
+	8,   // 114: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	76,  // 115: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	77,  // 116: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	9,   // 117: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	81,  // 118: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	82,  // 119: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	79,  // 120: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	80,  // 121: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	80,  // 122: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	80,  // 123: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	72,  // 124: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	78,  // 125: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	75,  // 126: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	10,  // 127: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	11,  // 128: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
+	31,  // 129: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
+	129, // [129:130] is the sub-list for method output_type
+	128, // [128:129] is the sub-list for method input_type
+	128, // [128:128] is the sub-list for extension type_name
+	128, // [128:128] is the sub-list for extension extendee
+	0,   // [0:128] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_programmatic_proto_init() }
@@ -13187,70 +13203,62 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		return
 	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[0].OneofWrappers = []any{
-		(*openRequest_UserRequest)(nil),
-		(*openRequest_Abort)(nil),
-		(*openRequest_GetRunState)(nil),
-		(*openRequest_GetMessages)(nil),
-		(*openRequest_GetModels)(nil),
-		(*openRequest_SelectModel)(nil),
-		(*openRequest_SelectReasoningChoice)(nil),
-		(*openRequest_CreateSession)(nil),
-		(*openRequest_ListSessions)(nil),
-		(*openRequest_ResumeSession)(nil),
-		(*openRequest_SetSessionName)(nil),
-		(*openRequest_GetSessionInfo)(nil),
-		(*openRequest_GetSessionEntries)(nil),
-		(*openRequest_GetSessionStats)(nil),
-		(*openRequest_GetSessionTree)(nil),
-		(*openRequest_NavigateSessionTree)(nil),
-		(*openRequest_ForkSession)(nil),
-		(*openRequest_CloneSession)(nil),
-		(*openRequest_SetEntryLabel)(nil),
+		(*openRequest_Request)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[1].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[6].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[7].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[10].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[11].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[16].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[17].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[19].OneofWrappers = []any{}
+	file_api_programmatic_v1_programmatic_proto_msgTypes[1].OneofWrappers = []any{
+		(*controllerRequest_UserRequest)(nil),
+		(*controllerRequest_Cancel)(nil),
+		(*controllerRequest_GetRunState)(nil),
+		(*controllerRequest_GetMessages)(nil),
+		(*controllerRequest_GetModels)(nil),
+		(*controllerRequest_SelectModel)(nil),
+		(*controllerRequest_SelectReasoningChoice)(nil),
+		(*controllerRequest_CreateSession)(nil),
+		(*controllerRequest_ListSessions)(nil),
+		(*controllerRequest_ResumeSession)(nil),
+		(*controllerRequest_SetSessionName)(nil),
+		(*controllerRequest_GetSessionInfo)(nil),
+		(*controllerRequest_GetSessionEntries)(nil),
+		(*controllerRequest_GetSessionStats)(nil),
+		(*controllerRequest_GetSessionTree)(nil),
+		(*controllerRequest_NavigateSessionTree)(nil),
+		(*controllerRequest_ForkSession)(nil),
+		(*controllerRequest_CloneSession)(nil),
+		(*controllerRequest_SetEntryLabel)(nil),
+	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[20].OneofWrappers = []any{
-		(*openResponse_CommandResponse)(nil),
-		(*openResponse_AgentEvent)(nil),
+		(*openResponse_Event)(nil),
+		(*openResponse_Close)(nil),
 	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[21].OneofWrappers = []any{
-		(*commandResponse_UserRequestAccepted)(nil),
-		(*commandResponse_AbortCompleted)(nil),
-		(*commandResponse_RunState)(nil),
-		(*commandResponse_Messages)(nil),
-		(*commandResponse_Rejected)(nil),
-		(*commandResponse_Models)(nil),
-		(*commandResponse_ModelSelection)(nil),
-		(*commandResponse_SessionInfo)(nil),
-		(*commandResponse_Sessions)(nil),
-		(*commandResponse_SessionEntries)(nil),
-		(*commandResponse_SessionStats)(nil),
-		(*commandResponse_SessionTree)(nil),
-		(*commandResponse_SessionTreeNavigation)(nil),
-		(*commandResponse_ForkSession)(nil),
-		(*commandResponse_CloneSession)(nil),
-		(*commandResponse_SetEntryLabel)(nil),
+		(*hostEvent_Accepted)(nil),
+		(*hostEvent_Running)(nil),
+		(*hostEvent_Progress)(nil),
+		(*hostEvent_Completed)(nil),
+		(*hostEvent_Canceled)(nil),
+		(*hostEvent_Failed)(nil),
+		(*hostEvent_Rejected)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[22].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[27].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[30].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[31].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[32].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[36].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[37].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[39].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[40].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[41].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[42].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[43].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[45].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[46].OneofWrappers = []any{}
+	file_api_programmatic_v1_programmatic_proto_msgTypes[22].OneofWrappers = []any{
+		(*hostProgress_AgentEvent)(nil),
+	}
+	file_api_programmatic_v1_programmatic_proto_msgTypes[23].OneofWrappers = []any{
+		(*hostCompleted_UserRequest)(nil),
+		(*hostCompleted_Cancel)(nil),
+		(*hostCompleted_RunState)(nil),
+		(*hostCompleted_Messages)(nil),
+		(*hostCompleted_Models)(nil),
+		(*hostCompleted_ModelSelection)(nil),
+		(*hostCompleted_SessionInfo)(nil),
+		(*hostCompleted_Sessions)(nil),
+		(*hostCompleted_SessionEntries)(nil),
+		(*hostCompleted_SessionStats)(nil),
+		(*hostCompleted_SessionTree)(nil),
+		(*hostCompleted_SessionTreeNavigation)(nil),
+		(*hostCompleted_ForkSession)(nil),
+		(*hostCompleted_CloneSession)(nil),
+		(*hostCompleted_SetEntryLabel)(nil),
+	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[47].OneofWrappers = []any{
 		(*sessionTreeEntry_User)(nil),
 		(*sessionTreeEntry_Model)(nil),
@@ -13258,9 +13266,6 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*sessionTreeEntry_Extension)(nil),
 		(*sessionTreeEntry_BranchSummary)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[48].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[49].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[50].OneofWrappers = []any{}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[52].OneofWrappers = []any{
 		(*sessionEntry_User)(nil),
 		(*sessionEntry_Model)(nil),
@@ -13276,7 +13281,6 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*userContent_Text)(nil),
 		(*userContent_Image)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[56].OneofWrappers = []any{}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[57].OneofWrappers = []any{
 		(*agentEvent_ModelContent)(nil),
 		(*agentEvent_ToolCallPreview)(nil),
@@ -13288,38 +13292,26 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*agentEvent_Turn)(nil),
 		(*agentEvent_Agent)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[58].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[59].OneofWrappers = []any{}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[60].OneofWrappers = []any{
 		(*toolCallPreviewField_Value)(nil),
 		(*toolCallPreviewField_Prefix)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[61].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[62].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[63].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[64].OneofWrappers = []any{}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[65].OneofWrappers = []any{
 		(*toolResultContent_Text)(nil),
 		(*toolResultContent_Image)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[66].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[67].OneofWrappers = []any{}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[68].OneofWrappers = []any{
 		(*modelResponseItem_Text)(nil),
 		(*modelResponseItem_Refusal)(nil),
 		(*modelResponseItem_Reasoning)(nil),
 		(*modelResponseItem_ToolCall)(nil),
 	}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[69].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[70].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[71].OneofWrappers = []any{}
-	file_api_programmatic_v1_programmatic_proto_msgTypes[73].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_programmatic_proto_rawDesc), len(file_api_programmatic_v1_programmatic_proto_rawDesc)),
-			NumEnums:      13,
+			NumEnums:      11,
 			NumMessages:   74,
 			NumExtensions: 0,
 			NumServices:   1,

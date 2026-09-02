@@ -4,8 +4,6 @@ import (
 	"errors"
 
 	"github.com/samber/mo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -14,17 +12,24 @@ import (
 
 var errNilOpenRequest = errors.New("received a nil Programmatic Control request")
 
+// mapOpenRequest validates the operation envelope and maps one non-cancellation request.
 func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	if request == nil {
 		return Command{}, errNilOpenRequest
 	}
-	correlationID := request.GetCorrelationId()
-	if correlationID == "" {
-		return Command{}, status.Error(codes.InvalidArgument, "correlation ID is required")
+	operationID := request.GetOperationId()
+	if operationID == "" {
+		return Command{}, Reject(RejectionCodeInvalidArgument)
 	}
-
+	var payload *programmaticv1.ControllerRequest
+	switch request.WhichContent() {
+	case programmaticv1.OpenRequest_Request_case:
+		payload = request.GetRequest()
+	case programmaticv1.OpenRequest_Content_not_set_case:
+		return Command{}, Reject(RejectionCodeInvalidArgument)
+	}
 	command := Command{
-		CorrelationID:   correlationID,
+		OperationID:     operationID,
 		Kind:            CommandUnspecified,
 		UserText:        mo.None[string](),
 		ProviderID:      mo.None[model.ProviderID](),
@@ -37,93 +42,103 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		CustomFocus:     mo.None[string](),
 		EntryLabel:      mo.None[string](),
 	}
-	if mapSessionRequest(request, &command) {
+	if mapSessionRequest(payload, &command) {
+		if !command.Valid() {
+			return command, Reject(RejectionCodeInvalidArgument)
+		}
 		return command, nil
 	}
-	return mapStandardRequest(request, command)
+	return mapStandardRequest(payload, command)
 }
 
 // mapStandardRequest validates non-session protobuf variants and their required fields.
-func mapStandardRequest(request *programmaticv1.OpenRequest, command Command) (Command, error) {
-	switch request.WhichCommand() {
-	case programmaticv1.OpenRequest_UserRequest_case:
+//
+//nolint:gocyclo // The switch exhaustively maps the closed Programmatic request union.
+func mapStandardRequest(request *programmaticv1.ControllerRequest, command Command) (Command, error) {
+	switch request.WhichRequest() {
+	case programmaticv1.ControllerRequest_UserRequest_case:
 		userRequest := request.GetUserRequest()
-		if !userRequest.HasText() {
-			return Command{}, status.Error(codes.InvalidArgument, "user request text is required")
+		if !userRequest.HasText() || userRequest.GetText() == "" {
+			return Command{}, Reject(RejectionCodeInvalidArgument)
 		}
 		command.Kind = CommandUserRequest
 		command.UserText = mo.Some(userRequest.GetText())
-	case programmaticv1.OpenRequest_Abort_case:
-		command.Kind = CommandAbort
-	case programmaticv1.OpenRequest_GetRunState_case:
+	case programmaticv1.ControllerRequest_GetRunState_case:
 		command.Kind = CommandGetRunState
-	case programmaticv1.OpenRequest_GetMessages_case:
+	case programmaticv1.ControllerRequest_GetMessages_case:
 		command.Kind = CommandGetMessages
-	case programmaticv1.OpenRequest_GetModels_case:
+	case programmaticv1.ControllerRequest_GetModels_case:
 		command.Kind = CommandGetModels
-	case programmaticv1.OpenRequest_SelectModel_case:
+	case programmaticv1.ControllerRequest_SelectModel_case:
 		selection := request.GetSelectModel()
-		if !selection.HasProviderId() || !selection.HasModelId() {
-			return Command{}, status.Error(codes.InvalidArgument, "provider ID and model ID are required")
+		if !selection.HasProviderId() || selection.GetProviderId() == "" ||
+			!selection.HasModelId() || selection.GetModelId() == "" {
+			return Command{}, Reject(RejectionCodeInvalidArgument)
 		}
 		command.Kind = CommandSelectModel
 		command.ProviderID = mo.Some(model.ProviderID(selection.GetProviderId()))
 		command.ModelID = mo.Some(model.ID(selection.GetModelId()))
-	case programmaticv1.OpenRequest_SelectReasoningChoice_case:
+	case programmaticv1.ControllerRequest_SelectReasoningChoice_case:
 		selection := request.GetSelectReasoningChoice()
-		if !selection.HasChoice() {
-			return Command{}, status.Error(codes.InvalidArgument, "reasoning choice is required")
+		if !selection.HasChoice() ||
+			selection.GetChoice() == programmaticv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
+			return Command{}, Reject(RejectionCodeInvalidArgument)
 		}
 		command.Kind = CommandSelectReasoningChoice
 		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(selection.GetChoice()))
-	case programmaticv1.OpenRequest_CreateSession_case,
-		programmaticv1.OpenRequest_ListSessions_case,
-		programmaticv1.OpenRequest_ResumeSession_case,
-		programmaticv1.OpenRequest_SetSessionName_case,
-		programmaticv1.OpenRequest_GetSessionInfo_case,
-		programmaticv1.OpenRequest_GetSessionEntries_case,
-		programmaticv1.OpenRequest_GetSessionStats_case,
-		programmaticv1.OpenRequest_GetSessionTree_case,
-		programmaticv1.OpenRequest_NavigateSessionTree_case,
-		programmaticv1.OpenRequest_ForkSession_case,
-		programmaticv1.OpenRequest_CloneSession_case,
-		programmaticv1.OpenRequest_SetEntryLabel_case:
-		return Command{}, status.Error(codes.Internal, "session command was not mapped")
-	case programmaticv1.OpenRequest_Command_not_set_case:
+	case programmaticv1.ControllerRequest_Cancel_case:
+		return Command{}, errors.New("map Programmatic request: cancellation is controller-owned")
+	case programmaticv1.ControllerRequest_CreateSession_case,
+		programmaticv1.ControllerRequest_ListSessions_case,
+		programmaticv1.ControllerRequest_ResumeSession_case,
+		programmaticv1.ControllerRequest_SetSessionName_case,
+		programmaticv1.ControllerRequest_GetSessionInfo_case,
+		programmaticv1.ControllerRequest_GetSessionEntries_case,
+		programmaticv1.ControllerRequest_GetSessionStats_case,
+		programmaticv1.ControllerRequest_GetSessionTree_case,
+		programmaticv1.ControllerRequest_NavigateSessionTree_case,
+		programmaticv1.ControllerRequest_ForkSession_case,
+		programmaticv1.ControllerRequest_CloneSession_case,
+		programmaticv1.ControllerRequest_SetEntryLabel_case:
+		return Command{}, errors.New("map Programmatic request: session request was not mapped")
+	case programmaticv1.ControllerRequest_Request_not_set_case:
+		return Command{}, Reject(RejectionCodeInvalidArgument)
+	default:
+		return Command{}, Reject(RejectionCodeInvalidArgument)
 	}
 	return command, nil
 }
 
 // mapSessionRequest preserves optional lifecycle arguments while mapping the protobuf oneof.
 //
-//nolint:gocyclo // The switch maps every closed session command kind explicitly.
-func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bool {
-	switch request.WhichCommand() {
-	case programmaticv1.OpenRequest_CreateSession_case:
+//nolint:gocyclo // The switch maps every closed session operation kind explicitly.
+func mapSessionRequest(request *programmaticv1.ControllerRequest, command *Command) bool {
+	switch request.WhichRequest() {
+	case programmaticv1.ControllerRequest_CreateSession_case:
 		command.Kind = CommandCreateSession
-	case programmaticv1.OpenRequest_ListSessions_case:
+	case programmaticv1.ControllerRequest_ListSessions_case:
 		command.Kind = CommandListSessions
-	case programmaticv1.OpenRequest_ResumeSession_case:
+	case programmaticv1.ControllerRequest_ResumeSession_case:
 		resume := request.GetResumeSession()
 		command.Kind = CommandResumeSession
 		if resume.HasSessionId() {
 			command.SessionID = mo.Some(session.ID(resume.GetSessionId()))
 		}
-	case programmaticv1.OpenRequest_SetSessionName_case:
+	case programmaticv1.ControllerRequest_SetSessionName_case:
 		name := request.GetSetSessionName()
 		command.Kind = CommandSetSessionName
 		if name.HasName() {
 			command.SessionName = mo.Some(name.GetName())
 		}
-	case programmaticv1.OpenRequest_GetSessionInfo_case:
+	case programmaticv1.ControllerRequest_GetSessionInfo_case:
 		command.Kind = CommandGetSessionInfo
-	case programmaticv1.OpenRequest_GetSessionEntries_case:
+	case programmaticv1.ControllerRequest_GetSessionEntries_case:
 		command.Kind = CommandGetSessionEntries
-	case programmaticv1.OpenRequest_GetSessionStats_case:
+	case programmaticv1.ControllerRequest_GetSessionStats_case:
 		command.Kind = CommandGetSessionStats
-	case programmaticv1.OpenRequest_GetSessionTree_case:
+	case programmaticv1.ControllerRequest_GetSessionTree_case:
 		command.Kind = CommandGetSessionTree
-	case programmaticv1.OpenRequest_NavigateSessionTree_case:
+	case programmaticv1.ControllerRequest_NavigateSessionTree_case:
 		navigate := request.GetNavigateSessionTree()
 		command.Kind = CommandNavigateSessionTree
 		if navigate.HasTargetEntryId() {
@@ -133,15 +148,15 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		if navigate.HasCustomFocus() {
 			command.CustomFocus = mo.Some(navigate.GetCustomFocus())
 		}
-	case programmaticv1.OpenRequest_ForkSession_case:
+	case programmaticv1.ControllerRequest_ForkSession_case:
 		fork := request.GetForkSession()
 		command.Kind = CommandForkSession
 		if fork.HasTargetEntryId() {
 			command.TargetEntryID = mo.Some(fork.GetTargetEntryId())
 		}
-	case programmaticv1.OpenRequest_CloneSession_case:
+	case programmaticv1.ControllerRequest_CloneSession_case:
 		command.Kind = CommandCloneSession
-	case programmaticv1.OpenRequest_SetEntryLabel_case:
+	case programmaticv1.ControllerRequest_SetEntryLabel_case:
 		label := request.GetSetEntryLabel()
 		command.Kind = CommandSetEntryLabel
 		if label.HasTargetEntryId() {
@@ -150,11 +165,11 @@ func mapSessionRequest(request *programmaticv1.OpenRequest, command *Command) bo
 		if label.HasLabel() {
 			command.EntryLabel = mo.Some(label.GetLabel())
 		}
-	case programmaticv1.OpenRequest_Command_not_set_case,
-		programmaticv1.OpenRequest_UserRequest_case, programmaticv1.OpenRequest_Abort_case,
-		programmaticv1.OpenRequest_GetRunState_case, programmaticv1.OpenRequest_GetMessages_case,
-		programmaticv1.OpenRequest_GetModels_case, programmaticv1.OpenRequest_SelectModel_case,
-		programmaticv1.OpenRequest_SelectReasoningChoice_case:
+	case programmaticv1.ControllerRequest_Request_not_set_case,
+		programmaticv1.ControllerRequest_UserRequest_case, programmaticv1.ControllerRequest_Cancel_case,
+		programmaticv1.ControllerRequest_GetRunState_case, programmaticv1.ControllerRequest_GetMessages_case,
+		programmaticv1.ControllerRequest_GetModels_case, programmaticv1.ControllerRequest_SelectModel_case,
+		programmaticv1.ControllerRequest_SelectReasoningChoice_case:
 		return false
 	default:
 		return false
@@ -178,6 +193,7 @@ func mapRequestSummaryMode(mode programmaticv1.SummaryMode) SummaryMode {
 	}
 }
 
+// mapRequestReasoningChoice maps one public reasoning choice.
 func mapRequestReasoningChoice(choice programmaticv1.ReasoningChoice) model.ReasoningChoice {
 	switch choice {
 	case programmaticv1.ReasoningChoice_REASONING_CHOICE_OFF:

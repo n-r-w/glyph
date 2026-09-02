@@ -29,6 +29,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 
+	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -149,6 +150,7 @@ type runtimeFailureTransport struct {
 	release  <-chan struct{}
 }
 
+// RoundTrip returns the configured provider response after optional test synchronization.
 func (transport runtimeFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	if transport.requests.Add(1) != 1 {
 		return nil, errors.New("runtime failure transport received a dependent provider request")
@@ -218,48 +220,29 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 	require.NoError(t, os.WriteFile(paths.CredentialsFile, []byte(payload), 0o600))
 }
 
-// userRequest builds a generated user-request frame.
-func userRequest(correlationID, text string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active UserRequest field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId: new(correlationID),
-		UserRequest: programmaticv1.UserRequest_builder{
-			Text: new(text),
-		}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+// userRequest builds one user-request operation frame.
+func userRequest(operationID, text string) *programmaticv1.OpenRequest {
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		payload := new(programmaticv1.UserRequest)
+		payload.SetText(text)
+		request.SetUserRequest(payload)
+	})
 }
 
-// abortRequest builds a generated abort frame.
-func abortRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active Abort field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  new(correlationID),
-		Abort:          programmaticv1.Abort_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+// cancelRequest builds one targeted cancellation operation frame.
+func cancelRequest(operationID, targetOperationID string) *programmaticv1.OpenRequest {
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		payload := new(operationv1.CancelOperation)
+		payload.SetTargetOperationId(targetOperationID)
+		request.SetCancel(payload)
+	})
 }
 
-// runStateRequest builds a generated run-state frame.
-func runStateRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetRunState field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  new(correlationID),
-		GetRunState:    programmaticv1.GetRunState_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+// runStateRequest builds one run-state operation frame.
+func runStateRequest(operationID string) *programmaticv1.OpenRequest {
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		request.SetGetRunState(new(programmaticv1.GetRunState))
+	})
 }
 
 // programmaticModelCatalogSettings defines exact text-only and text-and-image catalog fixtures.
@@ -281,52 +264,120 @@ func programmaticModelCatalogSettings() string {
 `
 }
 
-// getModelsRequest builds a generated model-catalog frame.
-func getModelsRequest(correlationID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active GetModels field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId:  new(correlationID),
-		GetModels:      programmaticv1.GetModels_builder{}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+// getModelsRequest builds one model-catalog operation frame.
+func getModelsRequest(operationID string) *programmaticv1.OpenRequest {
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		request.SetGetModels(new(programmaticv1.GetModels))
+	})
 }
 
-// selectModelRequest builds a generated model-selection frame.
-func selectModelRequest(correlationID, providerID, modelID string) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectModel field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId: new(correlationID),
-		SelectModel: programmaticv1.SelectModel_builder{
-			ProviderId: new(providerID),
-			ModelId:    new(modelID),
-		}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+// selectModelRequest builds one model-selection operation frame.
+func selectModelRequest(operationID, providerID, modelID string) *programmaticv1.OpenRequest {
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		payload := new(programmaticv1.SelectModel)
+		payload.SetProviderId(providerID)
+		payload.SetModelId(modelID)
+		request.SetSelectModel(payload)
+	})
 }
 
-// selectReasoningRequest builds a generated reasoning-selection frame.
+// programmaticRequest returns the mutable nested request payload used by fixtures.
+func programmaticRequest(request *programmaticv1.OpenRequest) *programmaticv1.ControllerRequest {
+	if !request.HasRequest() {
+		request.SetRequest(new(programmaticv1.ControllerRequest))
+	}
+	return request.GetRequest()
+}
+
+// sendProgrammaticOperation sends one request and waits for its terminal lifecycle event.
+func sendProgrammaticOperation(
+	t *testing.T,
+	fixture *programmaticFixture,
+	operationID string,
+	configure func(*programmaticv1.OpenRequest),
+) *programmaticv1.HostCompleted {
+	t.Helper()
+	request := new(programmaticv1.OpenRequest)
+	request.SetOperationId(operationID)
+	request.SetRequest(new(programmaticv1.ControllerRequest))
+	configure(request)
+	return completeProgrammaticRequest(t, fixture, request)
+}
+
+// sendProgrammaticFailure sends one request and returns its Failed machine code.
+func sendProgrammaticFailure(
+	t *testing.T,
+	fixture *programmaticFixture,
+	operationID string,
+	configure func(*programmaticv1.OpenRequest),
+) string {
+	t.Helper()
+	request := new(programmaticv1.OpenRequest)
+	request.SetOperationId(operationID)
+	request.SetRequest(new(programmaticv1.ControllerRequest))
+	configure(request)
+	require.NoError(t, fixture.stream.Send(request))
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetOperationId() == operationID && response.GetEvent().HasFailed() {
+			return response.GetEvent().GetFailed().GetCode()
+		}
+	}
+}
+
+// completeProgrammaticRequest sends an initialized request and waits for completion.
+func completeProgrammaticRequest(
+	t *testing.T,
+	fixture *programmaticFixture,
+	request *programmaticv1.OpenRequest,
+) *programmaticv1.HostCompleted {
+	t.Helper()
+	require.NoError(t, fixture.stream.Send(request))
+	operationID := request.GetOperationId()
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetOperationId() != operationID || !response.HasEvent() {
+			continue
+		}
+		event := response.GetEvent()
+		if event.HasCompleted() {
+			return event.GetCompleted()
+		}
+		if event.HasRejected() {
+			require.FailNow(t, "Programmatic operation was rejected", "code: %s", event.GetRejected().GetCode())
+		}
+		if event.HasFailed() {
+			require.FailNow(t, "Programmatic operation failed", "code: %s", event.GetFailed().GetCode())
+		}
+		if event.HasCanceled() {
+			require.FailNow(t, "Programmatic operation was canceled")
+		}
+	}
+}
+
+// selectReasoningRequest builds a reasoning-selection operation request.
 func selectReasoningRequest(
-	correlationID string,
+	operationID string,
 	choice programmaticv1.ReasoningChoice,
 ) *programmaticv1.OpenRequest {
-	//nolint:exhaustruct_v5 // programmaticv1.OpenRequest_builder sets only the active SelectReasoningChoice field.
-	return programmaticv1.OpenRequest_builder{
-		CorrelationId: new(correlationID),
-		SelectReasoningChoice: programmaticv1.SelectReasoningChoice_builder{
-			Choice: choice.Enum(),
-		}.Build(),
-		CreateSession:  nil,
-		ListSessions:   nil,
-		ResumeSession:  nil,
-		SetSessionName: nil,
-		GetSessionInfo: nil, GetSessionTree: nil, NavigateSessionTree: nil,
-	}.Build()
+	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
+		payload := new(programmaticv1.SelectReasoningChoice)
+		payload.SetChoice(choice)
+		request.SetSelectReasoningChoice(payload)
+	})
+}
+
+// testProgrammaticRequest creates one initialized operation request envelope.
+func testProgrammaticRequest(
+	operationID string,
+	configure func(*programmaticv1.ControllerRequest),
+) *programmaticv1.OpenRequest {
+	request := new(programmaticv1.OpenRequest)
+	request.SetOperationId(operationID)
+	payload := new(programmaticv1.ControllerRequest)
+	configure(payload)
+	request.SetRequest(payload)
+	return request
 }

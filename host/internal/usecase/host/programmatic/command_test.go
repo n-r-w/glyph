@@ -11,9 +11,9 @@ import (
 )
 
 // testProgrammaticCommand creates a payload-free command for lifecycle tests.
-func testProgrammaticCommand(correlationID string, kind controller.CommandKind) controller.Command {
+func testProgrammaticCommand(operationID string, kind controller.CommandKind) controller.Command {
 	return controller.Command{
-		CorrelationID:   correlationID,
+		OperationID:     operationID,
 		Kind:            kind,
 		UserText:        mo.None[string](),
 		ProviderID:      mo.None[model.ProviderID](),
@@ -29,9 +29,9 @@ func testProgrammaticCommand(correlationID string, kind controller.CommandKind) 
 }
 
 // testProgrammaticUserCommand creates one user request command with no unrelated payload.
-func testProgrammaticUserCommand(correlationID, text string) controller.Command {
+func testProgrammaticUserCommand(operationID, text string) controller.Command {
 	return controller.Command{
-		CorrelationID:   correlationID,
+		OperationID:     operationID,
 		Kind:            controller.CommandUserRequest,
 		UserText:        mo.Some(text),
 		ProviderID:      mo.None[model.ProviderID](),

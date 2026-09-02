@@ -70,7 +70,7 @@ func runHeadlessWithPaths(
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate)
+	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {

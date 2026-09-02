@@ -22,7 +22,7 @@ func TestDeliveryStopsCleanlyWhenOwnerStreamEnds(t *testing.T) {
 	t.Parallel()
 
 	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
 	defer active.cancel()
 	close(active.streamDone)
 
@@ -34,7 +34,7 @@ func TestDeliveryReturnsIndependentContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
 	defer active.cancel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -42,12 +42,12 @@ func TestDeliveryReturnsIndependentContextCancellation(t *testing.T) {
 	require.ErrorIs(t, delivery.emit(ctx, active, controller.AgentEvent{}), context.Canceled)
 }
 
-// TestDeliveryRejectsMismatchedRun verifies events cannot cross active correlations.
+// TestDeliveryRejectsMismatchedRun verifies events cannot cross active operations.
 func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 	t.Parallel()
 
 	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "correlation", "active")
+	active := newTestActiveRun(t.Context(), delivery, "operation", "active")
 	require.True(t, delivery.reserve(active))
 
 	err := delivery.DeliverAgent(
@@ -76,7 +76,7 @@ func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
 	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
 	require.True(t, delivery.reserve(active))
 
 	err := delivery.DeliverAgent(t.Context(), testEmptyRunEvent(run.EventMessageEnd, "run"))

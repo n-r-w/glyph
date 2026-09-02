@@ -50,7 +50,7 @@ func testAgentEvent(
 	agentSummary mo.Option[controller.AgentSummary],
 ) controller.AgentEvent {
 	return controller.AgentEvent{
-		Type: eventType, CorrelationID: "", RunID: "", ModelContent: modelContent,
+		Type: eventType, OperationID: "", RunID: "", ModelContent: modelContent,
 		ToolCallPreview: toolCallPreview, FinalToolCall: finalToolCall, ToolExecution: toolExecution,
 		ToolProgress: toolProgress, ToolResult: toolResult, ModelResponse: modelResponse,
 		Turn: turn, Agent: agentSummary,
@@ -76,7 +76,7 @@ func testEmptyRunEvent(kind run.EventType, runID string) run.Event {
 }
 
 // testEmptyAgentEvent creates a delivery event without a variant payload.
-func testEmptyAgentEvent(kind controller.AgentEventType, correlationID string, runID string) controller.AgentEvent {
+func testEmptyAgentEvent(kind controller.AgentEventType, operationID string, runID string) controller.AgentEvent {
 	event := testAgentEvent(
 		kind,
 		mo.None[controller.ModelContent](),
@@ -89,7 +89,7 @@ func testEmptyAgentEvent(kind controller.AgentEventType, correlationID string, r
 		mo.None[controller.TurnSummary](),
 		mo.None[controller.AgentSummary](),
 	)
-	event.CorrelationID = correlationID
+	event.OperationID = operationID
 	event.RunID = runID
 	return event
 }
@@ -613,7 +613,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			delivery := NewDelivery()
-			active := newTestActiveRun(t.Context(), delivery, "correlation", "run")
+			active := newTestActiveRun(t.Context(), delivery, "operation", "run")
 
 			// Assert reservation and delivery preserve the expected event mapping.
 			require.True(t, delivery.reserve(active))
@@ -621,7 +621,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 			go func() { delivered <- delivery.DeliverAgent(t.Context(), test.event) }()
 
 			expected := test.expected
-			expected.CorrelationID = "correlation"
+			expected.OperationID = "operation"
 			expected.RunID = "run"
 			assert.Equal(t, expected, <-active.Events())
 			require.NoError(t, <-delivered)

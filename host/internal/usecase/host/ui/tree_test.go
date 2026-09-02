@@ -56,6 +56,7 @@ func TestApplyCommittedNavigationSendsExactInput(t *testing.T) {
 	authenticator := NewMockAuthenticator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
+	expectSessionMutationGate(control, 1)
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
 	committed := sessionnavigation.Result{
@@ -101,6 +102,7 @@ func TestApplyCanceledNavigationSendsStateFreeResult(t *testing.T) {
 	authenticator := NewMockAuthenticator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
+	expectSessionMutationGate(control, 1)
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
 		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
 		NextInput: mo.None[string](), Issues: []sessionnavigation.OperationIssue{{
@@ -219,6 +221,7 @@ func TestApplyNavigationFailuresSendsClosedCodes(t *testing.T) {
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
 			if _, present := test.target.Get(); present {
+				expectSessionMutationGate(control, 1)
 				control.EXPECT().
 					Navigate(gomock.Any(), gomock.Any()).
 					Return(sessionnavigation.Result{}, test.navigationErr)

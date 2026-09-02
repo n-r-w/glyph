@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/grpc"
-
 	"github.com/stretchr/testify/require"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
@@ -118,30 +116,26 @@ func (testSuite *ProgrammaticAppSuite) TestSessionUsageAvailabilitySurvivesResta
 				require.NoError(t, err)
 				waitProgrammaticSettled(t, fixture)
 			} else {
-				request := new(programmaticv1.OpenRequest)
-				request.SetCorrelationId("persist-empty")
-				request.SetSetSessionName(
-					programmaticv1.SetSessionName_builder{Name: new("empty cost session")}.Build(),
-				)
-				require.NoError(t, fixture.stream.Send(request))
-				_, err := fixture.stream.Recv()
-				require.NoError(t, err)
+				sendProgrammaticOperation(t, fixture, "persist-empty", func(request *programmaticv1.OpenRequest) {
+					programmaticRequest(request).SetSetSessionName(
+						programmaticv1.SetSessionName_builder{Name: new("empty cost session")}.Build(),
+					)
+				})
 			}
-			before := requestProgrammaticStatistics(t, fixture.stream, "before")
-			info := requestProgrammaticInfo(t, fixture.stream, "info")
+			before := requestProgrammaticStatistics(t, fixture, "before")
+			info := requestProgrammaticInfo(t, fixture, "info")
 			fixture.closeOwner(t)
 			restarted := startProgrammaticFixture(t, paths)
 			defer restarted.closeOwner(t)
-			request := new(programmaticv1.OpenRequest)
-			request.SetCorrelationId("resume")
-			request.SetResumeSession(programmaticv1.ResumeSession_builder{SessionId: new(info.GetId())}.Build())
-			require.NoError(t, restarted.stream.Send(request))
-			resumeResponse, err := restarted.stream.Recv()
-			require.NoError(t, err)
-			after := requestProgrammaticStatistics(t, restarted.stream, "after")
+			resumeInfo := sendProgrammaticOperation(t, restarted, "resume", func(request *programmaticv1.OpenRequest) {
+				programmaticRequest(request).SetResumeSession(
+					programmaticv1.ResumeSession_builder{SessionId: new(info.GetId())}.Build(),
+				)
+			}).GetSessionInfo().GetInfo()
+			after := requestProgrammaticStatistics(t, restarted, "after")
 
 			// Assert identity and every accounting field survive JSONL reopen and Host reconstruction.
-			assertProgrammaticSessionInfoEqual(t, info, resumeResponse.GetCommandResponse().GetSessionInfo().GetInfo())
+			assertProgrammaticSessionInfoEqual(t, info, resumeInfo)
 			assertProgrammaticStatisticsObservation(t, test.expected, before)
 			assertProgrammaticStatisticsObservation(t, test.expected, after)
 		})
@@ -195,40 +189,35 @@ func observeProgrammaticCost(cost *programmaticv1.EstimatedCost) costObservation
 	}
 }
 
+// requestProgrammaticStatistics requests and returns active-session statistics.
 func requestProgrammaticStatistics(
 	t *testing.T,
-	stream grpc.BidiStreamingClient[programmaticv1.OpenRequest, programmaticv1.OpenResponse],
-	correlationID string,
+	fixture *programmaticFixture,
+	operationID string,
 ) *programmaticv1.SessionStatistics {
 	t.Helper()
-	request := new(programmaticv1.OpenRequest)
-	request.SetCorrelationId(correlationID)
-	request.SetGetSessionStats(new(programmaticv1.GetSessionStats))
-	require.NoError(t, stream.Send(request))
-	response, err := stream.Recv()
-	require.NoError(t, err)
-	return response.GetCommandResponse().GetSessionStats().GetStatistics()
+	return sendProgrammaticOperation(t, fixture, operationID, func(request *programmaticv1.OpenRequest) {
+		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
+	}).GetSessionStats().GetStatistics()
 }
 
+// requestProgrammaticInfo requests and returns active-session information.
 func requestProgrammaticInfo(
 	t *testing.T,
-	stream grpc.BidiStreamingClient[programmaticv1.OpenRequest, programmaticv1.OpenResponse],
-	correlationID string,
+	fixture *programmaticFixture,
+	operationID string,
 ) *programmaticv1.SessionInfo {
 	t.Helper()
-	request := new(programmaticv1.OpenRequest)
-	request.SetCorrelationId(correlationID)
-	request.SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
-	require.NoError(t, stream.Send(request))
-	response, err := stream.Recv()
-	require.NoError(t, err)
-	return response.GetCommandResponse().GetSessionInfo().GetInfo()
+	return sendProgrammaticOperation(t, fixture, operationID, func(request *programmaticv1.OpenRequest) {
+		programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
+	}).GetSessionInfo().GetInfo()
 }
 
 type usageCodexTransport struct {
 	usageJSON string
 }
 
+// RoundTrip returns a deterministic provider response with token usage.
 func (transport usageCodexTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	usageField := ""
 	if transport.usageJSON != "" {

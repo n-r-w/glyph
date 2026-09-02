@@ -14,6 +14,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -31,7 +32,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	mapped, err := mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "information",
+		OperationID:       "information",
 		Kind:              ResponseSessionInfo,
 		State:             mo.None[RunStateResult](),
 		Messages:          nil,
@@ -49,7 +50,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	wireInfo := mapped.GetCommandResponse().GetSessionInfo().GetInfo()
+	wireInfo := mapped.GetSessionInfo().GetInfo()
 	assert.Equal(t, "stored", wireInfo.GetId())
 	assert.False(t, wireInfo.HasName())
 	assert.False(t, wireInfo.HasStoragePath())
@@ -57,7 +58,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	mapped, err = mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "list",
+		OperationID:       "list",
 		Kind:              ResponseSessions,
 		State:             mo.None[RunStateResult](),
 		Messages:          nil,
@@ -71,7 +72,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 		Replacement:       mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
-	rows := mapped.GetCommandResponse().GetSessions().GetSessions()
+	rows := mapped.GetSessions().GetSessions()
 	require.Len(t, rows, 1)
 	assert.Equal(t, "first", rows[0].GetFirstUserText())
 	assert.Equal(t, int64(2), rows[0].GetTotalMessages())
@@ -175,11 +176,11 @@ func TestProgrammaticImageDataPresence(t *testing.T) {
 func TestMapResponsePreservesEveryResult(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one response for each command result and full history content.
+	// Arrange one response for each operation result and full history content.
 	tests := map[string]Response{
 		"accepted": {
-			CorrelationID:     "accepted",
-			Kind:              ResponseUserRequestAccepted,
+			OperationID:       "accepted",
+			Kind:              ResponseUserRequestCompleted,
 			State:             mo.None[RunStateResult](),
 			Messages:          nil,
 			Models:            mo.None[ModelsResult](),
@@ -194,8 +195,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Replacement:       mo.None[SessionReplacement](),
 		},
 		"aborted": {
-			CorrelationID:     "aborted",
-			Kind:              ResponseAbortCompleted,
+			OperationID:       "aborted",
+			Kind:              ResponseCancelCompleted,
 			State:             mo.None[RunStateResult](),
 			Messages:          nil,
 			Models:            mo.None[ModelsResult](),
@@ -208,13 +209,14 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			SessionTree:       mo.None[SessionTree](),
 			TreeNavigation:    mo.None[TreeNavigationResult](),
 			Replacement:       mo.None[SessionReplacement](),
+			CancelTargetState: mo.Some(operation.TerminalStateCanceled),
 		},
 		"state": {
-			CorrelationID: "state",
-			Kind:          ResponseRunState,
+			OperationID: "state",
+			Kind:        ResponseRunState,
 			State: mo.Some(RunStateResult{
-				State:               RunStateRunning,
-				ActiveCorrelationID: mo.Some("active"),
+				State:             RunStateRunning,
+				ActiveOperationID: mo.Some("active"),
 			}),
 			Messages:          nil,
 			Models:            mo.None[ModelsResult](),
@@ -229,8 +231,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Replacement:       mo.None[SessionReplacement](),
 		},
 		"messages": {
-			CorrelationID: "messages",
-			Kind:          ResponseMessages,
+			OperationID: "messages",
+			Kind:        ResponseMessages,
 			Messages: []HistoryEntry{
 				{
 					Kind: HistoryEntryUser, User: mo.Some(model.Message{Content: []model.InputContent{
@@ -270,29 +272,9 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			TreeNavigation:    mo.None[TreeNavigationResult](),
 			Replacement:       mo.None[SessionReplacement](),
 		},
-		"rejected": {
-			CorrelationID: "rejected",
-			Kind:          ResponseRejected,
-			Rejection: mo.Some(Rejection{
-				Command: CommandUnspecified,
-				Code:    RejectionInvalidArgument,
-				Message: "invalid",
-			}),
-			State:             mo.None[RunStateResult](),
-			Messages:          nil,
-			Models:            mo.None[ModelsResult](),
-			Selection:         mo.None[model.Selection](),
-			SessionInfo:       mo.None[session.Info](),
-			SessionEntries:    nil,
-			SessionStatistics: mo.None[session.Statistics](),
-			Sessions:          nil,
-			SessionTree:       mo.None[SessionTree](),
-			TreeNavigation:    mo.None[TreeNavigationResult](),
-			Replacement:       mo.None[SessionReplacement](),
-		},
 		"models": {
-			CorrelationID: "models",
-			Kind:          ResponseModels,
+			OperationID: "models",
+			Kind:        ResponseModels,
 			Models: mo.Some(ModelsResult{
 				Models: []model.Descriptor{{
 					Provider:      "provider",
@@ -342,8 +324,8 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			Replacement:       mo.None[SessionReplacement](),
 		},
 		"model selection": {
-			CorrelationID: "selection",
-			Kind:          ResponseModelSelection,
+			OperationID: "selection",
+			Kind:        ResponseModelSelection,
 			Selection: mo.Some(model.Selection{
 				Provider:        "provider",
 				Model:           "model",
@@ -370,19 +352,18 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 			// Act by mapping the internal response to protobuf.
 			got, err := mapResponse(response)
 
-			// Assert correlation, selected oneof, nested content, and field presence.
+			// Assert operation, selected oneof, nested content, and field presence.
 			require.NoError(t, err)
-			assert.Equal(t, response.CorrelationID, got.GetCorrelationId())
-			wire := got.GetCommandResponse()
+			wire := got
 			require.NotNil(t, wire)
 			switch response.Kind {
-			case ResponseUserRequestAccepted:
-				assert.True(t, wire.HasUserRequestAccepted())
-			case ResponseAbortCompleted:
-				assert.True(t, wire.HasAbortCompleted())
+			case ResponseUserRequestCompleted:
+				assert.True(t, wire.HasUserRequest())
+			case ResponseCancelCompleted:
+				assert.True(t, wire.HasCancel())
 			case ResponseRunState:
 				assert.Equal(t, programmaticv1.RunState_RUN_STATE_RUNNING, wire.GetRunState().GetState())
-				assert.Equal(t, "active", wire.GetRunState().GetActiveCorrelationId())
+				assert.Equal(t, "active", wire.GetRunState().GetActiveOperationId())
 			case ResponseMessages:
 				entries := wire.GetMessages().GetEntries()
 				require.Len(t, entries, 3)
@@ -394,11 +375,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assertModelResponse(t, modelEntry, true)
 				assertToolResult(t, entries[2].GetToolResult())
 			case ResponseRejected:
-				rejected := wire.GetRejected()
-				assert.True(t, rejected.HasCommand())
-				assert.Equal(t, programmaticv1.CommandType_COMMAND_TYPE_UNSPECIFIED, rejected.GetCommand())
-				assert.Equal(t, programmaticv1.RejectionCode_REJECTION_CODE_INVALID_ARGUMENT, rejected.GetCode())
-				assert.Equal(t, "invalid", rejected.GetMessage())
+				require.Fail(t, "rejections are not completed payloads")
 			case ResponseModels:
 				models := wire.GetModels()
 				require.Len(t, models.GetModels(), 2)
@@ -467,7 +444,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 	mapped, err := mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "absent",
+		OperationID:       "absent",
 		Kind:              ResponseMessages,
 		Messages: []HistoryEntry{{
 			Kind: HistoryEntryModel,
@@ -496,7 +473,7 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		Replacement:    mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
-	modelResponse := mapped.GetCommandResponse().GetMessages().GetEntries()[0].GetModel()
+	modelResponse := mapped.GetMessages().GetEntries()[0].GetModel()
 	assert.False(t, modelResponse.HasErrorMessage())
 	assert.False(t, modelResponse.HasProvider())
 	assert.False(t, modelResponse.HasModel())
@@ -507,11 +484,11 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 	mapped, err = mapResponse(Response{
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		CorrelationID:     "idle",
+		OperationID:       "idle",
 		Kind:              ResponseRunState,
 		State: mo.Some(RunStateResult{
-			State:               RunStateIdle,
-			ActiveCorrelationID: mo.None[string](),
+			State:             RunStateIdle,
+			ActiveOperationID: mo.None[string](),
 		}),
 		Messages:       nil,
 		Models:         mo.None[ModelsResult](),
@@ -524,5 +501,5 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 		Replacement:    mo.None[SessionReplacement](),
 	})
 	require.NoError(t, err)
-	assert.False(t, mapped.GetCommandResponse().GetRunState().HasActiveCorrelationId())
+	assert.False(t, mapped.GetRunState().HasActiveOperationId())
 }
