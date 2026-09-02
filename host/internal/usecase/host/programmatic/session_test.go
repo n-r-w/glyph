@@ -160,7 +160,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 			sessionName:     mo.None[string](),
 			operationErr:    os.ErrNotExist,
 			expected:        controller.RejectionNotFound,
-			expectedMessage: "session was not found",
+			expectedMessage: "session was not found: file does not exist",
 		},
 		{
 			name:        "unavailable session",
@@ -239,7 +239,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 
 			// Assert the failure maps to the established rejection code and exact safe message without an operation.
 			assert.Equal(t, test.expected, response.Rejection.MustGet().Code)
-			assert.Equal(t, test.expectedMessage, response.Rejection.MustGet().Message)
+			assert.Equal(t, test.expectedMessage, response.Rejection.MustGet().Cause.Error())
 		})
 	}
 }
@@ -280,7 +280,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	require.Equal(t, controller.ResponseRejected, response.Kind)
 	require.True(t, response.Rejection.IsPresent())
 	require.Equal(t, controller.RejectionInternal, response.Rejection.MustGet().Code)
-	require.Contains(t, response.Rejection.MustGet().Message, "invalid payload fields for kind 2")
+	require.ErrorContains(t, response.Rejection.MustGet().Cause, "invalid payload fields for kind 2")
 	require.Nil(t, response.SessionEntries)
 }
 

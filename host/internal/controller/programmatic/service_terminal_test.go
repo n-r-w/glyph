@@ -5,6 +5,7 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -16,6 +17,123 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
+
+// TestFailureCodeForCommandEnforcesClosedSets verifies allowed codes survive and unsupported codes become INTERNAL.
+func TestFailureCodeForCommandEnforcesClosedSets(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		command  CommandKind
+		proposed string
+		expected string
+	}{
+		{
+			name:     "run rejects model category",
+			command:  CommandUserRequest,
+			proposed: FailureCodeModelFailed,
+			expected: FailureCodeInternal,
+		},
+		{
+			name:     "internal query rejects model category",
+			command:  CommandGetModels,
+			proposed: FailureCodeModelFailed,
+			expected: FailureCodeInternal,
+		},
+		{
+			name:     "model selection accepts credential category",
+			command:  CommandSelectModel,
+			proposed: FailureCodeCredentialUnavailable,
+			expected: FailureCodeCredentialUnavailable,
+		},
+		{
+			name:     "model selection rejects model category",
+			command:  CommandSelectModel,
+			proposed: FailureCodeModelFailed,
+			expected: FailureCodeInternal,
+		},
+		{
+			name:     "session accepts persistence category",
+			command:  CommandResumeSession,
+			proposed: FailureCodePersistenceUnavailable,
+			expected: FailureCodePersistenceUnavailable,
+		},
+		{
+			name:     "session rejects model category",
+			command:  CommandResumeSession,
+			proposed: FailureCodeModelFailed,
+			expected: FailureCodeInternal,
+		},
+		{
+			name:     "navigation accepts model category",
+			command:  CommandNavigateSessionTree,
+			proposed: FailureCodeModelFailed,
+			expected: FailureCodeModelFailed,
+		},
+		{
+			name:     "navigation rejects unknown category",
+			command:  CommandNavigateSessionTree,
+			proposed: "UNKNOWN",
+			expected: FailureCodeInternal,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act by applying the command's closed failure set.
+			actual := failureCodeForCommand(test.command, test.proposed)
+
+			// Assert the public category is allowed for the command.
+			require.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+// TestErrorMappingsPreserveStatusTextAndCause verifies local status mapping does not remove source errors.
+func TestErrorMappingsPreserveStatusTextAndCause(t *testing.T) {
+	t.Parallel()
+
+	deliveryCause := fmt.Errorf("enqueue response: %w", operation.ErrQueueFull)
+	transportCause := errors.New("socket write failed")
+	receiveCause := errors.New("invalid wire payload")
+	tests := []struct {
+		name         string
+		cause        error
+		mapError     func(error) error
+		expectedCode codes.Code
+		expectedText string
+	}{
+		{
+			name:         "delivery queue",
+			cause:        deliveryCause,
+			mapError:     mapDeliveryError,
+			expectedCode: codes.ResourceExhausted,
+			expectedText: "programmatic delivery queue is full: enqueue response: operation queue is full",
+		},
+		{
+			name: "transport", cause: transportCause, mapError: mapTransportError,
+			expectedCode: codes.Unavailable, expectedText: "programmatic transport failed: socket write failed",
+		},
+		{
+			name: "receive", cause: receiveCause, mapError: mapReceiveError,
+			expectedCode: codes.InvalidArgument, expectedText: "receive Programmatic request: invalid wire payload",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act by mapping one local source failure to its public gRPC status.
+			mapped := test.mapError(test.cause)
+
+			// Assert the status, complete source text, and original cause are preserved together.
+			require.Equal(t, test.expectedCode, status.Code(mapped))
+			require.Equal(t, test.expectedText, status.Convert(mapped).Message())
+			require.ErrorIs(t, mapped, test.cause)
+		})
+	}
+}
 
 // TestControllerHalfCloseCancelsAndJoinsOwnedWork verifies clean drain and joining.
 func TestControllerHalfCloseCancelsAndJoinsOwnedWork(t *testing.T) {

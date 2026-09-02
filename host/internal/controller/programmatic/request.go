@@ -19,14 +19,17 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	}
 	operationID := request.GetOperationId()
 	if operationID == "" {
-		return Command{}, Reject(RejectionCodeInvalidArgument)
+		return Command{}, Reject(
+			RejectionCodeInvalidArgument,
+			errors.New("programmatic operation identifier is required"),
+		)
 	}
 	var payload *programmaticv1.ControllerRequest
 	switch request.WhichContent() {
 	case programmaticv1.OpenRequest_Request_case:
 		payload = request.GetRequest()
 	case programmaticv1.OpenRequest_Content_not_set_case:
-		return Command{}, Reject(RejectionCodeInvalidArgument)
+		return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("programmatic operation request is required"))
 	}
 	command := Command{
 		OperationID:     operationID,
@@ -44,7 +47,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	}
 	if mapSessionRequest(payload, &command) {
 		if !command.Valid() {
-			return command, Reject(RejectionCodeInvalidArgument)
+			return command, Reject(RejectionCodeInvalidArgument, errors.New("programmatic session request is invalid"))
 		}
 		return command, nil
 	}
@@ -59,7 +62,10 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 	case programmaticv1.ControllerRequest_UserRequest_case:
 		userRequest := request.GetUserRequest()
 		if !userRequest.HasText() || userRequest.GetText() == "" {
-			return Command{}, Reject(RejectionCodeInvalidArgument)
+			return Command{}, Reject(
+				RejectionCodeInvalidArgument,
+				errors.New("programmatic user request text is required"),
+			)
 		}
 		command.Kind = CommandUserRequest
 		command.UserText = mo.Some(userRequest.GetText())
@@ -73,7 +79,10 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		selection := request.GetSelectModel()
 		if !selection.HasProviderId() || selection.GetProviderId() == "" ||
 			!selection.HasModelId() || selection.GetModelId() == "" {
-			return Command{}, Reject(RejectionCodeInvalidArgument)
+			return Command{}, Reject(
+				RejectionCodeInvalidArgument,
+				errors.New("programmatic model selection is incomplete"),
+			)
 		}
 		command.Kind = CommandSelectModel
 		command.ProviderID = mo.Some(model.ProviderID(selection.GetProviderId()))
@@ -82,7 +91,10 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		selection := request.GetSelectReasoningChoice()
 		if !selection.HasChoice() ||
 			selection.GetChoice() == programmaticv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
-			return Command{}, Reject(RejectionCodeInvalidArgument)
+			return Command{}, Reject(
+				RejectionCodeInvalidArgument,
+				errors.New("programmatic reasoning choice is required"),
+			)
 		}
 		command.Kind = CommandSelectReasoningChoice
 		command.ReasoningChoice = mo.Some(mapRequestReasoningChoice(selection.GetChoice()))
@@ -102,9 +114,9 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		programmaticv1.ControllerRequest_SetEntryLabel_case:
 		return Command{}, errors.New("map Programmatic request: session request was not mapped")
 	case programmaticv1.ControllerRequest_Request_not_set_case:
-		return Command{}, Reject(RejectionCodeInvalidArgument)
+		return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("programmatic request kind is required"))
 	default:
-		return Command{}, Reject(RejectionCodeInvalidArgument)
+		return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("programmatic request kind is unknown"))
 	}
 	return command, nil
 }

@@ -164,8 +164,8 @@ type Rejection struct {
 	Command CommandKind
 	// Code classifies why the operation was rejected.
 	Code RejectionCode
-	// Message contains user-visible rejection details.
-	Message string
+	// Cause preserves the complete rejection error chain.
+	Cause error
 }
 
 // RunState identifies whether Agent Core can accept a user request.

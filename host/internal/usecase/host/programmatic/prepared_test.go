@@ -179,12 +179,16 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 	// Arrange a mutation that returns an independent classified failure after owner cancellation.
 	control := NewMockSessionControl(gomock.NewController(t))
 	started := make(chan struct{})
+	domainCause := errors.New("disk sync failed")
 	control.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().SetName(gomock.Any(), "failed name").DoAndReturn(
 		func(ctx context.Context, _ string) (session.Info, error) {
 			close(started)
 			<-ctx.Done()
-			return session.Info{}, fmt.Errorf("store name: %w", session.ErrPersistenceUnavailable)
+			return session.Info{}, fmt.Errorf(
+				"store name: %w",
+				errors.Join(session.ErrPersistenceUnavailable, domainCause),
+			)
 		},
 	)
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -204,9 +208,10 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 	cancel()
 	outcome := <-outcomeResult
 
-	// Assert the independent failure keeps its terminal state and classified code.
+	// Assert the independent failure keeps its terminal state, classified code, and wrapped domain cause.
 	require.Equal(t, operation.TerminalStateFailed, outcome.State())
 	require.Equal(t, controller.FailureCodePersistenceUnavailable, outcome.Code())
+	require.ErrorIs(t, outcome.Err(), domainCause)
 }
 
 // TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin verifies failed progress cannot deadlock owner joining.

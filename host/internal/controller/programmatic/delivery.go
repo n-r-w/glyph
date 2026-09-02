@@ -77,12 +77,14 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 	case operation.TerminalStateCanceled:
 		event.SetCanceled(new(operationv1.Canceled))
 	case operation.TerminalStateFailed:
-		code := outcome.Code()
-		if code == "" {
-			code = FailureCodeInternal
+		failureErr := outcome.Err()
+		if failureErr == nil || failureErr.Error() == "" {
+			return nil, d.failed(errors.New("map Programmatic failure: complete error text is required"))
 		}
+		code := failureCodeForCommand(d.registry.kind(id), outcome.Code())
 		failed := new(operationv1.Failed)
 		failed.SetCode(code)
+		failed.SetMessage(failureErr.Error())
 		event.SetFailed(failed)
 		slog.Error("Programmatic operation failed",
 			"operation_id", id,
@@ -103,6 +105,37 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 	}
 	d.registry.finish(id, outcome.State())
 	return acknowledgement, nil
+}
+
+// failureCodeForCommand restricts a proposed failure code to the command's documented closed set.
+func failureCodeForCommand(command CommandKind, proposed string) string {
+	switch command {
+	case CommandSelectModel, CommandSelectReasoningChoice:
+		if proposed == FailureCodeCredentialUnavailable {
+			return proposed
+		}
+	case CommandCreateSession, CommandListSessions, CommandResumeSession, CommandSetSessionName,
+		CommandForkSession, CommandCloneSession, CommandSetEntryLabel:
+		if proposed == FailureCodeSessionUnavailable || proposed == FailureCodePersistenceUnavailable {
+			return proposed
+		}
+	case CommandNavigateSessionTree:
+		switch proposed {
+		case FailureCodeSessionUnavailable, FailureCodePersistenceUnavailable, FailureCodeModelUnavailable,
+			FailureCodeCredentialUnavailable, FailureCodeModelFailed, FailureCodeExtensionInvalidResult,
+			FailureCodeExtensionUnavailable, FailureCodeInternal:
+			return proposed
+		default:
+			return FailureCodeInternal
+		}
+	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
+		CommandGetModels, CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats,
+		CommandGetSessionTree:
+		return FailureCodeInternal
+	default:
+		return FailureCodeInternal
+	}
+	return FailureCodeInternal
 }
 
 // completionMatches verifies the completed payload for one tracked request kind.
@@ -148,9 +181,13 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 }
 
 // reject queues one per-request rejection without creating an operation.
-func (d *streamDelivery) reject(id, code string) error {
+func (d *streamDelivery) reject(id, code string, cause error) error {
+	if code == "" || cause == nil || cause.Error() == "" {
+		return d.failed(errors.New("map Programmatic rejection: code and complete error text are required"))
+	}
 	rejected := new(operationv1.Rejected)
 	rejected.SetCode(code)
+	rejected.SetMessage(cause.Error())
 	event := new(programmaticv1.HostEvent)
 	event.SetRejected(rejected)
 	return d.enqueue(id, event)

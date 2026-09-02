@@ -39,11 +39,13 @@ const (
 type RejectionError struct {
 	// code is the public machine-readable rejection code.
 	code string
+	// cause is the complete rejection reason.
+	cause error
 }
 
-// Error describes the rejected machine code for internal diagnostics.
+// Error returns the complete rejection cause text.
 func (e *RejectionError) Error() string {
-	return "Programmatic operation rejected with code " + e.code
+	return e.cause.Error()
 }
 
 // Code returns the public machine code.
@@ -51,9 +53,14 @@ func (e *RejectionError) Code() string {
 	return e.code
 }
 
+// Unwrap returns the original rejection cause.
+func (e *RejectionError) Unwrap() error {
+	return e.cause
+}
+
 // Reject creates one closed Programmatic rejection.
-func Reject(code string) error {
-	return &RejectionError{code: code}
+func Reject(code string, cause error) error {
+	return &RejectionError{code: code, cause: cause}
 }
 
 // rejectionCode extracts a closed rejection code.

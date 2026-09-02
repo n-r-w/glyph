@@ -164,6 +164,7 @@ func (b0 Running_builder) Build() *Running {
 type Rejected struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Code        *string                `protobuf:"bytes,1,opt,name=code"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -205,9 +206,24 @@ func (x *Rejected) GetCode() string {
 	return ""
 }
 
+func (x *Rejected) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *Rejected) SetCode(v string) {
 	x.xxx_hidden_Code = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *Rejected) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *Rejected) HasCode() bool {
@@ -217,9 +233,21 @@ func (x *Rejected) HasCode() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *Rejected) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
 func (x *Rejected) ClearCode() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Code = nil
+}
+
+func (x *Rejected) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
 }
 
 type Rejected_builder struct {
@@ -227,6 +255,8 @@ type Rejected_builder struct {
 
 	// The machine-readable rejection code.
 	Code *string
+	// The complete rejection error text.
+	Message *string
 }
 
 func (b0 Rejected_builder) Build() *Rejected {
@@ -234,8 +264,12 @@ func (b0 Rejected_builder) Build() *Rejected {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Code != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_Code = b.Code
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Message = b.Message
 	}
 	return m0
 }
@@ -288,6 +322,7 @@ func (b0 Canceled_builder) Build() *Canceled {
 type Failed struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Code        *string                `protobuf:"bytes,1,opt,name=code"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -329,9 +364,24 @@ func (x *Failed) GetCode() string {
 	return ""
 }
 
+func (x *Failed) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *Failed) SetCode(v string) {
 	x.xxx_hidden_Code = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *Failed) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *Failed) HasCode() bool {
@@ -341,9 +391,21 @@ func (x *Failed) HasCode() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *Failed) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
 func (x *Failed) ClearCode() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Code = nil
+}
+
+func (x *Failed) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
 }
 
 type Failed_builder struct {
@@ -351,6 +413,8 @@ type Failed_builder struct {
 
 	// The machine-readable failure code.
 	Code *string
+	// The complete failure error text.
+	Message *string
 }
 
 func (b0 Failed_builder) Build() *Failed {
@@ -358,8 +422,12 @@ func (b0 Failed_builder) Build() *Failed {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Code != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_Code = b.Code
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Message = b.Message
 	}
 	return m0
 }
@@ -574,13 +642,15 @@ const file_api_operation_v1_operation_proto_rawDesc = "" +
 	" api/operation/v1/operation.proto\x12\x12glyph.operation.v1\"\n" +
 	"\n" +
 	"\bAccepted\"\t\n" +
-	"\aRunning\"\x1e\n" +
+	"\aRunning\"8\n" +
 	"\bRejected\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\"\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\n" +
 	"\n" +
-	"\bCanceled\"\x1c\n" +
+	"\bCanceled\"6\n" +
 	"\x06Failed\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\"A\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"A\n" +
 	"\x0fCancelOperation\x12.\n" +
 	"\x13target_operation_id\x18\x01 \x01(\tR\x11targetOperationId\"W\n" +
 	"\x0fCancelCompleted\x12D\n" +

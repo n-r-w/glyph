@@ -282,7 +282,7 @@ func (s *Service) receive(
 				operationID = request.GetOperationId()
 			}
 			if code, rejected := rejectionCode(mapErr); rejected {
-				if rejectErr := delivery.reject(operationID, code); rejectErr != nil {
+				if rejectErr := delivery.reject(operationID, code, mapErr); rejectErr != nil {
 					return rejectErr
 				}
 				continue
@@ -311,7 +311,7 @@ func (s *Service) receive(
 			code, perRequest = RejectionCodeOperationIDInUse, true
 		}
 		if perRequest {
-			if rejectErr := delivery.reject(command.OperationID, code); rejectErr != nil {
+			if rejectErr := delivery.reject(command.OperationID, code, err); rejectErr != nil {
 				return rejectErr
 			}
 			continue
@@ -331,13 +331,20 @@ func (s *Service) prepareCancellation(
 	cancelRequest := request.GetRequest().GetCancel()
 	if operationID == "" || cancelRequest == nil || !cancelRequest.HasTargetOperationId() ||
 		cancelRequest.GetTargetOperationId() == "" {
-		return delivery.reject(operationID, RejectionCodeInvalidArgument)
+		return delivery.reject(
+			operationID,
+			RejectionCodeInvalidArgument,
+			errors.New("programmatic cancellation requires operation and target identifiers"),
+		)
 	}
 	targetID := cancelRequest.GetTargetOperationId()
 	err := owner.Start(operationID, func() (operation.Prepared[AgentEvent, Response], error) {
 		target, active := registry.active(targetID)
 		if !active {
-			return nil, Reject(RejectionCodeTargetNotActive)
+			return nil, Reject(
+				RejectionCodeTargetNotActive,
+				fmt.Errorf("programmatic target operation %q is not active", targetID),
+			)
 		}
 		ownedTarget := registry.add(operationID, CommandCancel)
 		prepared := &cancellationPrepared{owner: owner, targetID: targetID, target: target}
@@ -347,18 +354,50 @@ func (s *Service) prepareCancellation(
 		}, nil
 	})
 	if errors.Is(err, operation.ErrIdentifierInUse) {
-		return delivery.reject(operationID, RejectionCodeOperationIDInUse)
+		return delivery.reject(operationID, RejectionCodeOperationIDInUse, err)
 	}
 	if code, rejected := rejectionCode(err); rejected {
-		return delivery.reject(operationID, code)
+		return delivery.reject(operationID, code, err)
 	}
 	return err
+}
+
+// causedStatusError preserves a Go cause while exposing an intended gRPC status.
+type causedStatusError struct {
+	// status contains the public gRPC code and complete message.
+	status *status.Status
+	// cause is the original mapped error.
+	cause error
+}
+
+// Error returns the standard gRPC error text.
+func (e *causedStatusError) Error() string {
+	return e.status.Err().Error()
+}
+
+// GRPCStatus returns the public status used by gRPC.
+func (e *causedStatusError) GRPCStatus() *status.Status {
+	return e.status
+}
+
+// Unwrap returns the original mapped error.
+func (e *causedStatusError) Unwrap() error {
+	return e.cause
+}
+
+// newCausedStatusError constructs a status error without removing its source cause.
+func newCausedStatusError(code codes.Code, message string, cause error) error {
+	return &causedStatusError{status: status.New(code, message), cause: cause}
 }
 
 // mapDeliveryError maps local bounded delivery failures to stream status.
 func mapDeliveryError(err error) error {
 	if errors.Is(err, operation.ErrQueueFull) {
-		return status.Error(codes.ResourceExhausted, "Programmatic delivery queue is full")
+		return newCausedStatusError(
+			codes.ResourceExhausted,
+			fmt.Sprintf("programmatic delivery queue is full: %v", err),
+			err,
+		)
 	}
 	return mapTransportError(err)
 }
@@ -371,7 +410,11 @@ func mapTransportError(err error) error {
 	if _, present := status.FromError(err); present {
 		return err
 	}
-	return status.Error(codes.Unavailable, fmt.Sprintf("Programmatic transport failed: %v", err))
+	return newCausedStatusError(
+		codes.Unavailable,
+		fmt.Sprintf("programmatic transport failed: %v", err),
+		err,
+	)
 }
 
 // isReceiveTransportFailure identifies stream termination caused by the receive transport.
@@ -399,5 +442,9 @@ func mapReceiveError(err error) error {
 	if _, present := status.FromError(err); present {
 		return err
 	}
-	return status.Error(codes.InvalidArgument, fmt.Sprintf("receive Programmatic request: %v", err))
+	return newCausedStatusError(
+		codes.InvalidArgument,
+		fmt.Sprintf("receive Programmatic request: %v", err),
+		err,
+	)
 }

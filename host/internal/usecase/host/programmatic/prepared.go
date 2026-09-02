@@ -39,7 +39,10 @@ func (s *Service) Prepare(
 	if isSessionMutation(command.Kind) {
 		reservation, acquired := s.sessionControl.TryAcquire()
 		if !acquired {
-			return nil, controller.Reject(controller.RejectionCodeBusy)
+			return nil, controller.Reject(
+				controller.RejectionCodeBusy,
+				errors.New("another Programmatic session mutation is active"),
+			)
 		}
 		release = reservation
 	}
@@ -79,7 +82,7 @@ func (p *commandPrepared) Run(
 	if rejection, present := response.Rejection.Get(); present {
 		return operation.Failed[controller.Response](
 			failureCodeForRejection(rejection.Code),
-			errors.New(rejection.Message),
+			rejection.Cause,
 		)
 	}
 	if isCanceledNavigation(response) && errors.Is(ctx.Err(), context.Canceled) {
@@ -145,7 +148,10 @@ func (s *Service) validateSelection(command controller.Command) error {
 		provider, providerPresent := command.ProviderID.Get()
 		modelID, modelPresent := command.ModelID.Get()
 		if !providerPresent || !modelPresent {
-			return controller.Reject(controller.RejectionCodeInvalidArgument)
+			return controller.Reject(
+				controller.RejectionCodeInvalidArgument,
+				errors.New("programmatic model selection is incomplete"),
+			)
 		}
 		descriptors := s.modelCatalog.Models()
 		for index := range descriptors {
@@ -154,12 +160,18 @@ func (s *Service) validateSelection(command controller.Command) error {
 				return nil
 			}
 		}
-		return controller.Reject(controller.RejectionCodeNotFound)
+		return controller.Reject(
+			controller.RejectionCodeNotFound,
+			errors.New("programmatic model selection was not found"),
+		)
 	}
 	if command.Kind == controller.CommandSelectReasoningChoice {
 		choice, present := command.ReasoningChoice.Get()
 		if !present {
-			return controller.Reject(controller.RejectionCodeInvalidArgument)
+			return controller.Reject(
+				controller.RejectionCodeInvalidArgument,
+				errors.New("programmatic reasoning choice is required"),
+			)
 		}
 		selection := s.modelCatalog.ActiveSelection()
 		descriptors := s.modelCatalog.Models()
@@ -169,10 +181,16 @@ func (s *Service) validateSelection(command controller.Command) error {
 				if slices.Contains(descriptor.ReasoningCapabilities.Choices, choice) {
 					return nil
 				}
-				return controller.Reject(controller.RejectionCodeReasoningUnsupported)
+				return controller.Reject(
+					controller.RejectionCodeReasoningUnsupported,
+					errors.New("programmatic reasoning choice is not supported"),
+				)
 			}
 		}
-		return controller.Reject(controller.RejectionCodeNotFound)
+		return controller.Reject(
+			controller.RejectionCodeNotFound,
+			errors.New("active Programmatic model selection was not found"),
+		)
 	}
 	return nil
 }
@@ -199,24 +217,28 @@ func isSessionMutation(kind controller.CommandKind) bool {
 func mapPreparationRejection(response controller.Response) error {
 	rejection, present := response.Rejection.Get()
 	if !present {
-		return controller.Reject(controller.RejectionCodeInvalidArgument)
+		return controller.Reject(
+			controller.RejectionCodeInvalidArgument,
+			errors.New("programmatic preparation rejection is absent"),
+		)
 	}
+	cause := rejection.Cause
 	switch rejection.Code {
 	case controller.RejectionBusy:
-		return controller.Reject(controller.RejectionCodeBusy)
+		return controller.Reject(controller.RejectionCodeBusy, cause)
 	case controller.RejectionNotFound:
-		return controller.Reject(controller.RejectionCodeNotFound)
+		return controller.Reject(controller.RejectionCodeNotFound, cause)
 	case controller.RejectionReasoningUnsupported:
-		return controller.Reject(controller.RejectionCodeReasoningUnsupported)
+		return controller.Reject(controller.RejectionCodeReasoningUnsupported, cause)
 	case controller.RejectionInvalidArgument, controller.RejectionOperationIDInUse,
 		controller.RejectionUnspecified,
 		controller.RejectionInternal, controller.RejectionCredentialUnavailable,
 		controller.RejectionSessionUnavailable, controller.RejectionPersistenceUnavailable,
 		controller.RejectionModelUnavailable, controller.RejectionModelFailed,
 		controller.RejectionExtensionInvalidResult, controller.RejectionExtensionUnavailable:
-		return controller.Reject(controller.RejectionCodeInvalidArgument)
+		return controller.Reject(controller.RejectionCodeInvalidArgument, cause)
 	default:
-		return controller.Reject(controller.RejectionCodeInvalidArgument)
+		return controller.Reject(controller.RejectionCodeInvalidArgument, cause)
 	}
 }
 

@@ -38,6 +38,8 @@ type Event[P, R any] struct {
 	Result R
 	// Code contains a machine code for EventFailed or EventRejected.
 	Code string
+	// Message contains complete error text for EventFailed or EventRejected.
+	Message string
 }
 
 // trackedState identifies the latest valid nonterminal event.
@@ -129,7 +131,7 @@ func (t *Tracker[P, R]) Handle(event Event[P, R]) error {
 		return fmt.Errorf("handle operation event %q: identifier is not tracked", event.ID)
 	}
 
-	next, terminal, err := validateEvent(tracked.state, event.Kind, event.Code)
+	next, terminal, err := validateEvent(tracked.state, event.Kind, event.Code, event.Message)
 	if err != nil {
 		return fmt.Errorf("handle operation event %q: %w", event.ID, err)
 	}
@@ -147,15 +149,15 @@ func (t *Tracker[P, R]) Handle(event Event[P, R]) error {
 }
 
 // validateEvent checks one lifecycle transition.
-func validateEvent(state trackedState, kind EventKind, code string) (trackedState, bool, error) {
+func validateEvent(state trackedState, kind EventKind, code, message string) (trackedState, bool, error) {
 	switch state {
 	case trackedPending:
 		switch kind {
 		case EventAccepted:
 			return trackedAccepted, false, nil
 		case EventRejected:
-			if code == "" {
-				return state, false, errors.New("rejected event requires a code")
+			if err := validateErrorFields("rejected", code, message); err != nil {
+				return state, false, err
 			}
 			return state, true, nil
 		case EventRunning, EventProgress, EventCompleted, EventCanceled, EventFailed:
@@ -175,8 +177,8 @@ func validateEvent(state trackedState, kind EventKind, code string) (trackedStat
 		case EventCompleted, EventCanceled:
 			return trackedRunning, true, nil
 		case EventFailed:
-			if code == "" {
-				return state, false, errors.New("failed event requires a code")
+			if err := validateErrorFields("failed", code, message); err != nil {
+				return state, false, err
 			}
 			return trackedRunning, true, nil
 		case EventAccepted, EventRunning, EventRejected:
@@ -187,6 +189,17 @@ func validateEvent(state trackedState, kind EventKind, code string) (trackedStat
 	default:
 		return state, false, fmt.Errorf("unknown tracker state %d", state)
 	}
+}
+
+// validateErrorFields checks the required public error fields.
+func validateErrorFields(event, code, message string) error {
+	if code == "" {
+		return fmt.Errorf("%s event requires a code", event)
+	}
+	if message == "" {
+		return fmt.Errorf("%s event requires a message", event)
+	}
+	return nil
 }
 
 // Close stops tracking and closes all inbound queues.

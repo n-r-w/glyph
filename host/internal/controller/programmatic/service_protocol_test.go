@@ -339,26 +339,38 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 	})
 
 	// Act by collecting the duplicate, malformed, and failed events.
-	codes := make(map[string]string)
-	failedCode := ""
-	for len(codes) < 2 || failedCode == "" {
+	type publicError struct {
+		code    string
+		message string
+	}
+	rejections := make(map[string]publicError)
+	failedError := publicError{}
+	for len(rejections) < 2 || failedError.code == "" {
 		select {
 		case response := <-stream.responses:
 			if response.GetEvent().HasRejected() {
-				codes[response.GetOperationId()] = response.GetEvent().GetRejected().GetCode()
+				rejected := response.GetEvent().GetRejected()
+				rejections[response.GetOperationId()] = publicError{
+					code: rejected.GetCode(), message: rejected.GetMessage(),
+				}
 			}
 			if response.GetOperationId() == "failed" && response.GetEvent().HasFailed() {
-				failedCode = response.GetEvent().GetFailed().GetCode()
+				failed := response.GetEvent().GetFailed()
+				failedError = publicError{code: failed.GetCode(), message: failed.GetMessage()}
 			}
 		case <-time.After(time.Second):
 			require.FailNow(t, "per-request lifecycle evidence was not delivered")
 		}
 	}
 
-	// Assert exact rejection and failure mappings, then close cleanly.
-	assert.Equal(t, RejectionCodeOperationIDInUse, codes["active"])
-	assert.Equal(t, RejectionCodeInvalidArgument, codes["malformed"])
-	assert.Equal(t, "MODEL_FAILED", failedCode)
+	// Assert exact rejection and closed failure mappings with complete error text, then close cleanly.
+	assert.Equal(t, publicError{
+		code: RejectionCodeOperationIDInUse, message: operation.ErrIdentifierInUse.Error(),
+	}, rejections["active"])
+	assert.Equal(t, publicError{
+		code: RejectionCodeInvalidArgument, message: "programmatic request kind is required",
+	}, rejections["malformed"])
+	assert.Equal(t, publicError{code: FailureCodeInternal, message: "model failed"}, failedError)
 	close(releaseActive)
 	stream.closeSend()
 	require.NoError(t, <-result)

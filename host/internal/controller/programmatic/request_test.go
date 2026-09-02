@@ -3,6 +3,7 @@
 package programmatic
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -204,4 +205,22 @@ func TestMapOpenRequestRejectsMalformedInput(t *testing.T) {
 	code, rejected := rejectionCode(err)
 	require.True(t, rejected)
 	assert.Equal(t, RejectionCodeInvalidArgument, code)
+}
+
+// TestRejectPreservesCategoryAndOriginalCause verifies classified preparation failures remain inspectable.
+func TestRejectPreservesCategoryAndOriginalCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one identifiable preparation failure.
+	cause := errors.New("catalog lookup failed")
+
+	// Act by classifying the rejection.
+	err := Reject(RejectionCodeNotFound, cause)
+
+	// Assert both the concrete category and original cause remain available.
+	var rejection *RejectionError
+	require.ErrorAs(t, err, &rejection)
+	assert.Equal(t, RejectionCodeNotFound, rejection.Code())
+	assert.Equal(t, cause.Error(), err.Error())
+	require.ErrorIs(t, err, cause)
 }

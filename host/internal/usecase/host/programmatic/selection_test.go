@@ -400,7 +400,7 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 			s.Nil(operation)
 			s.Equal(controller.ResponseRejected, response.Kind)
 			s.Equal(test.code, response.Rejection.OrEmpty().Code)
-			s.Contains(response.Rejection.OrEmpty().Message, test.err.Error())
+			s.ErrorContains(response.Rejection.OrEmpty().Cause, test.err.Error())
 		})
 	}
 }

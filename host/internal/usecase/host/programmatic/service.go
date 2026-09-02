@@ -80,7 +80,7 @@ func (s *Service) handle(
 
 	userText, present := command.UserText.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, "user text is required"), nil, nil
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("user text is required")), nil, nil
 	}
 	runContext, cancel := context.WithCancel(ctx)
 	preparedRun := &activeRun{
@@ -105,7 +105,7 @@ func (s *Service) handle(
 		close(preparedRun.events)
 		close(preparedRun.streamDone)
 		close(preparedRun.done)
-		return s.rejection(command, controller.RejectionBusy, "a run is active"), nil, nil
+		return s.rejection(command, controller.RejectionBusy, errors.New("a run is active")), nil, nil
 	}
 
 	return emptyResponse(command.OperationID, controller.ResponseUserRequestCompleted), preparedRun, nil
@@ -134,7 +134,11 @@ func (s *Service) handleImmediate(
 	case controller.CommandSelectReasoningChoice:
 		return s.selectReasoningChoice(command), true, nil
 	case controller.CommandUnspecified, controller.CommandCancel:
-		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("invalid command payload"),
+		), true, nil
 	case controller.CommandUserRequest:
 		return controller.Response{}, false, nil
 	case controller.CommandCreateSession, controller.CommandListSessions, controller.CommandResumeSession,
@@ -143,7 +147,11 @@ func (s *Service) handleImmediate(
 		controller.CommandForkSession, controller.CommandCloneSession, controller.CommandSetEntryLabel:
 		return controller.Response{}, false, nil
 	default:
-		return s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload"), true, nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("invalid command payload"),
+		), true, nil
 	}
 }
 
@@ -239,7 +247,11 @@ func (s *Service) selectModel(ctx context.Context, command controller.Command) (
 	providerID, hasProvider := command.ProviderID.Get()
 	modelID, hasModel := command.ModelID.Get()
 	if !hasProvider || !hasModel {
-		return s.rejection(command, controller.RejectionInvalidArgument, "provider and model are required"), nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("provider and model are required"),
+		), nil
 	}
 	selection, err := s.modelCatalog.SelectModel(ctx, providerID, modelID)
 	if err != nil {
@@ -257,7 +269,7 @@ func (s *Service) selectModel(ctx context.Context, command controller.Command) (
 func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
 	reasoningChoice, present := command.ReasoningChoice.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, "reasoning choice is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("reasoning choice is required"))
 	}
 	selection, err := s.modelCatalog.SelectReasoningChoice(reasoningChoice)
 	if err != nil {
@@ -272,7 +284,7 @@ func (s *Service) selectReasoningChoice(command controller.Command) controller.R
 func (s *Service) selectionRejected(command controller.Command, err error) controller.Response {
 	var selectionFailure SelectionFailure
 	if !errors.As(err, &selectionFailure) {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("model selection failed: %v", err))
+		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("model selection failed: %w", err))
 	}
 	code := controller.RejectionInternal
 	switch SelectionCode(selectionFailure.SelectionCode()) {
@@ -284,7 +296,7 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 		code = controller.RejectionCredentialUnavailable
 	default:
 	}
-	return s.rejection(command, code, selectionFailure.Error())
+	return s.rejection(command, code, err)
 }
 
 // createSession returns replacement information only after the shared gate and active state commit succeed.
@@ -311,7 +323,7 @@ func (s *Service) listSessions(ctx context.Context, command controller.Command) 
 func (s *Service) resumeSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	id, present := command.SessionID.Get()
 	if !present || id == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "session ID is required"), nil
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("session ID is required")), nil
 	}
 	replacement, err := s.sessionControl.Resume(ctx, id)
 	if err != nil {
@@ -324,7 +336,11 @@ func (s *Service) resumeSession(ctx context.Context, command controller.Command)
 func (s *Service) setSessionName(ctx context.Context, command controller.Command) (controller.Response, error) {
 	name, present := command.SessionName.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required"), nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("session name is required"),
+		), nil
 	}
 	info, err := s.sessionControl.SetName(ctx, name)
 	if err != nil {
@@ -337,7 +353,7 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 func (s *Service) forkSession(ctx context.Context, command controller.Command) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required"), nil
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("target entry ID is required")), nil
 	}
 	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
 	if err != nil {
@@ -348,7 +364,7 @@ func (s *Service) forkSession(ctx context.Context, command controller.Command) (
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
-			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
+			fmt.Errorf("session entries are unavailable: %w", mapErr),
 		), nil
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseForkSession)
@@ -369,7 +385,7 @@ func (s *Service) cloneSession(ctx context.Context, command controller.Command) 
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
-			fmt.Sprintf("Session entries are unavailable: %v", mapErr),
+			fmt.Errorf("session entries are unavailable: %w", mapErr),
 		), nil
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseCloneSession)
@@ -384,7 +400,11 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 	targetID, targetPresent := command.TargetEntryID.Get()
 	label, labelPresent := command.EntryLabel.Get()
 	if !targetPresent || targetID == "" || !labelPresent {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID and label are required"), nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("target entry ID and label are required"),
+		), nil
 	}
 	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
 	if err != nil {
@@ -395,7 +415,7 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
-			fmt.Sprintf("Session tree is unavailable: %v", err),
+			fmt.Errorf("session tree is unavailable: %w", err),
 		), nil
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSetEntryLabel)
@@ -407,14 +427,18 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
-		return s.rejection(command, controller.RejectionInvalidArgument, "target entry ID is required"), nil
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("target entry ID is required")), nil
 	}
 	mode, validMode := summaryModeFromProgrammatic(command.SummaryMode)
 	focus := strings.TrimSpace(command.CustomFocus.OrEmpty())
 	invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
 		mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus != ""
 	if !validMode || invalidFocus {
-		return s.rejection(command, controller.RejectionInvalidArgument, "invalid summary mode or custom focus"), nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("invalid summary mode or custom focus"),
+		), nil
 	}
 	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
@@ -446,7 +470,7 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
-			fmt.Sprintf("Session tree is unavailable: %v", mapErr),
+			fmt.Errorf("session tree is unavailable: %w", mapErr),
 		), nil
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
@@ -464,7 +488,7 @@ func (s *Service) sessionEntries(command controller.Command) controller.Response
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
-			fmt.Sprintf("Session entries are unavailable: %v", err),
+			fmt.Errorf("session entries are unavailable: %w", err),
 		)
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSessionEntries)
@@ -488,31 +512,31 @@ func (s *Service) sessionOperationError(
 func (s *Service) sessionRejection(command controller.Command, err error) controller.Response {
 	switch {
 	case errors.Is(err, session.ErrBusy):
-		return s.rejection(command, controller.RejectionBusy, "another operation is active")
+		return s.rejection(command, controller.RejectionBusy, err)
 	case errors.Is(err, session.ErrInvalidName):
-		return s.rejection(command, controller.RejectionInvalidArgument, "session name is required")
+		return s.rejection(command, controller.RejectionInvalidArgument, err)
 	case errors.Is(err, session.ErrInvalidForkTarget):
-		return s.rejection(command, controller.RejectionInvalidArgument, err.Error())
+		return s.rejection(command, controller.RejectionInvalidArgument, err)
 	case errors.Is(err, session.ErrEntryNotFound):
-		return s.rejection(command, controller.RejectionNotFound, "session tree entry was not found")
+		return s.rejection(command, controller.RejectionNotFound, err)
 	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
-		return s.rejection(command, controller.RejectionModelUnavailable, err.Error())
+		return s.rejection(command, controller.RejectionModelUnavailable, err)
 	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
-		return s.rejection(command, controller.RejectionCredentialUnavailable, err.Error())
+		return s.rejection(command, controller.RejectionCredentialUnavailable, err)
 	case errors.Is(err, sessionnavigation.ErrModelFailed):
-		return s.rejection(command, controller.RejectionModelFailed, err.Error())
+		return s.rejection(command, controller.RejectionModelFailed, err)
 	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
-		return s.rejection(command, controller.RejectionExtensionInvalidResult, err.Error())
+		return s.rejection(command, controller.RejectionExtensionInvalidResult, err)
 	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
-		return s.rejection(command, controller.RejectionExtensionUnavailable, err.Error())
+		return s.rejection(command, controller.RejectionExtensionUnavailable, err)
 	case errors.Is(err, session.ErrPersistenceUnavailable):
-		return s.rejection(command, controller.RejectionPersistenceUnavailable, err.Error())
+		return s.rejection(command, controller.RejectionPersistenceUnavailable, err)
 	case errors.Is(err, session.ErrUnavailable):
-		return s.rejection(command, controller.RejectionSessionUnavailable, err.Error())
+		return s.rejection(command, controller.RejectionSessionUnavailable, err)
 	case errors.Is(err, os.ErrNotExist):
-		return s.rejection(command, controller.RejectionNotFound, "session was not found")
+		return s.rejection(command, controller.RejectionNotFound, fmt.Errorf("session was not found: %w", err))
 	default:
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("session operation failed: %v", err))
+		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("session operation failed: %w", err))
 	}
 }
 
@@ -520,7 +544,7 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 func (s *Service) sessionTree(command controller.Command) controller.Response {
 	tree, err := mapSessionTree(s.sessionControl.Tree())
 	if err != nil {
-		return s.rejection(command, controller.RejectionInternal, fmt.Sprintf("Session tree is unavailable: %v", err))
+		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("session tree is unavailable: %w", err))
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSessionTree)
 	response.SessionTree = mo.Some(tree)
@@ -563,16 +587,16 @@ func (s *Service) preflight(
 		return nil, nil, ErrOperationIDRequired
 	}
 	if !command.Valid() {
-		response := s.rejection(command, controller.RejectionInvalidArgument, "invalid command payload")
+		response := s.rejection(command, controller.RejectionInvalidArgument, errors.New("invalid command payload"))
 		return nil, &response, nil
 	}
 	active := s.delivery.activeSnapshot()
 	if active != nil && active.operationID == command.OperationID {
-		response := s.rejection(command, controller.RejectionOperationIDInUse, "operation ID is active")
+		response := s.rejection(command, controller.RejectionOperationIDInUse, errors.New("operation ID is active"))
 		return active, &response, nil
 	}
 	if command.Kind == controller.CommandUserRequest && active != nil {
-		response := s.rejection(command, controller.RejectionBusy, "a run is active")
+		response := s.rejection(command, controller.RejectionBusy, errors.New("a run is active"))
 		return active, &response, nil
 	}
 	return active, nil, nil
@@ -647,7 +671,7 @@ func (s *Service) runPreparationRejected(
 	prepareErr error,
 ) (controller.Response, *activeRun, error) {
 	if errors.Is(prepareErr, session.ErrBusy) {
-		return s.rejection(command, controller.RejectionBusy, "another operation is active"), nil, nil
+		return s.rejection(command, controller.RejectionBusy, prepareErr), nil, nil
 	}
 	return controller.Response{}, nil, fmt.Errorf("prepare Host run: %w", prepareErr)
 }
@@ -656,9 +680,9 @@ func (s *Service) runPreparationRejected(
 func (s *Service) rejection(
 	command controller.Command,
 	code controller.RejectionCode,
-	message string,
+	cause error,
 ) controller.Response {
 	response := emptyResponse(command.OperationID, controller.ResponseRejected)
-	response.Rejection = mo.Some(controller.Rejection{Command: command.Kind, Code: code, Message: message})
+	response.Rejection = mo.Some(controller.Rejection{Command: command.Kind, Code: code, Cause: cause})
 	return response
 }

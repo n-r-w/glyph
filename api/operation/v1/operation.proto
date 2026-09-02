@@ -14,6 +14,8 @@ message Running {}
 message Rejected {
   // The machine-readable rejection code.
   string code = 1;
+  // The complete rejection error text.
+  string message = 2;
 }
 
 // Canceled reports that an operation stopped because it was canceled.
@@ -23,6 +25,8 @@ message Canceled {}
 message Failed {
   // The machine-readable failure code.
   string code = 1;
+  // The complete failure error text.
+  string message = 2;
 }
 
 // CancelOperation requests cancellation of an active operation.
