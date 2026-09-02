@@ -88,6 +88,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 6. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task itest`.
 7. ALL non integration tests MUST use `//go:build !integration` and run through `task test`.
 8. MUST NEVER test mutable content (like prompts), ONLY logic.
+9. MUST NEVER test logs.
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
 1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
