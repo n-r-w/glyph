@@ -82,14 +82,18 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
-2. Use `go.uber.org/mock` for mocks. Custom mocks are FORBIDDEN. Use `//go:generate go tool mockgen ...` to generate mocks
-3. Use `github.com/stretchr/testify` and `testify/suite`
-4. Use `t.Parallel()` if possible
-5. Each test MUST have a function comment describing scenario and descriptive `Arrange`, `Act`, and `Assert` comments, e.g.: `// Arrange test dependencies`.
-6. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task itest`.
-7. ALL non integration tests MUST use `//go:build !integration` and run through `task test`.
-8. MUST NEVER test mutable content (like prompts), ONLY logic.
-9. MUST NEVER test logs.
+2. Use `github.com/stretchr/testify` and `testify/suite`
+3. Use `t.Parallel()` if possible
+4. Each test MUST have a function comment describing scenario and descriptive `Arrange`, `Act`, and `Assert` comments, e.g.: `// Arrange test dependencies`.
+5. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task itest`.
+6. ALL non integration tests MUST use `//go:build !integration` and run through `task test`.
+7. MUST NEVER test mutable content (like prompts), ONLY logic.
+8. MUST NEVER test logs.
+
+### Mocking
+1. Use `go.uber.org/mock` and `//go:generate go tool mockgen ...` to generate.
+2. MUST NOT create custom mocks, ONLY mockgen-generated.
+3. MUST NOT create interfaces or production abstractions solely for tests or mocking. Mocks MUST target interfaces consumed by PRODUCTION CODE.
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
 1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
