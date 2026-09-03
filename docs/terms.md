@@ -29,6 +29,9 @@
 - `original extension input`: The immutable value produced when one extension-point operation starts, before any extension handler transforms it.
 - `current extension value`: The value produced by preceding handlers of the same extension-point operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
+- `extension runtime management`: Discovery, process startup, operation invocation, runtime availability, monitoring, cancellation, and shutdown for extension processes.
+- `capability orchestration`: Glyph Host policy, ordering, validation, and state for one extension capability such as tools or session handlers.
+- `contract source split`: Movement of declarations between protobuf source files without changing their protobuf package, fully qualified names, field numbers, enum values, or service behavior.
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
