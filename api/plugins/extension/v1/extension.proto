@@ -89,4 +89,3 @@ message RegisterResponse {
   // The complete ordered session-tree handler catalog.
   repeated HandlerDescriptor handlers = 2;
 }
-

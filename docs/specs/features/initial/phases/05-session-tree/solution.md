@@ -124,7 +124,7 @@ A response is rejected when it has no terminal outcome, has an aborted or failed
 
 ### Extension contract
 
-PHS-05 is the first non-tool extension capability. Runtime ownership moves from `host/internal/usecase/host/tools` to `host/internal/usecase/host/extensions`. The new service implements the existing Agent Core tool-runtime consumer interface and the session-tree handler runner. No forwarding package or compatibility alias remains.
+PHS-05 was the first non-tool extension capability. At that time, runtime ownership moved from `host/internal/usecase/host/tools` to `host/internal/usecase/host/extensions`. The new service implemented the existing Agent Core tool-runtime consumer interface and the session-tree handler runner. No forwarding package or compatibility alias remained. The [PHS-05.1 technical solution](../05.1-extension-boundary-cleanup/solution.md) supersedes this package ownership and defines the current owners.
 
 - APC-09: `ExtensionService.Register` replaces `ListTools` and returns tool descriptors plus ordered handler descriptors.
 - APC-10: Each handler descriptor contains a nonempty ID and one closed handler kind. PHS-05 kinds are `SESSION_BEFORE_TREE_REQUEST`, `SESSION_BEFORE_TREE_RESULT`, and `SESSION_TREE`.
@@ -149,7 +149,7 @@ Both public client contracts add these semantic commands:
 
 The summary-mode enum has `NO_SUMMARY`, `SUMMARIZE`, and `SUMMARIZE_WITH_CUSTOM_PROMPT`. The custom-focus field must be nonempty only for `SUMMARIZE_WITH_CUSTOM_PROMPT`.
 
-`api/plugins/ui/v1/ui.proto` adds Host frames and UI commands for these operations. `api/programmatic/v1/programmatic.proto` adds correlated commands and command results with the same semantic fields. Neither contract contains editor, terminal, widget, keybinding, or rendering fields.
+PHS-05 added Host frames and UI commands, and correlated Programmatic Control commands and results, for these operations. Their declarations now reside in `api/plugins/ui/v1/session.proto` and `api/programmatic/v1/session.proto`. Neither contract contains editor, terminal, widget, keybinding, or rendering fields.
 
 Session-replacement frames and committed navigation results carry active-branch transcript entries. Their `SessionEntry` payload supports user messages, model responses, tool results, and branch summaries so a client can restore the complete visible branch without fetching the full tree. Full-tree data is returned by `GetSessionTree` and the committed navigation result. Extension payload bytes remain private in PHS-05. Clients receive only extension ID and entry type for opaque extension entries.
 
@@ -191,7 +191,7 @@ Final verification runs `go fix -diff ./...`, reviews the proposed fixes, runs `
 - CMP-12: `host/internal/usecase/host/sessions`, `sessioncontrol`, and new `sessiontree` implement tree state and orchestration.
 - CMP-13: `host/internal/infra/persistence/sessions` implements JSONL format version 2.
 - CMP-14: `host/internal/usecase/host/providers` adds model requests without active-selection mutation.
-- CMP-15: `host/internal/usecase/host/extensions`, extension runtime infrastructure, extension SDK, and extension protobuf implement handler registration and dispatch.
+- CMP-15: PHS-05 implemented handler registration and dispatch in `host/internal/usecase/host/extensions`, extension runtime infrastructure, the extension SDK, and extension protobuf. The [PHS-05.1 technical solution](../05.1-extension-boundary-cleanup/solution.md) supersedes this package ownership and defines the current owners.
 - CMP-16: UI and Programmatic Control protobuf, controllers, mappings, generated packages, and tests add tree operations.
 - CMP-17: The standard TUI presentation model, controller, selector, rendering, and tests add tree interaction.
 

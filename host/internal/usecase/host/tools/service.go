@@ -125,10 +125,9 @@ func (s *Service) Conflicts(registrations []startup.AcceptedRegistration) []star
 			owners[descriptor.Name] = append(owners[descriptor.Name], registration.ID)
 		}
 	}
-	const minimumConflictOwners = 2
 	issues := make([]startup.Issue, 0)
 	for name, pluginIDs := range owners {
-		if len(pluginIDs) < minimumConflictOwners {
+		if len(pluginIDs) < 2 { //nolint:mnd // A conflict needs at least two owners.
 			continue
 		}
 		slices.Sort(pluginIDs)
@@ -170,8 +169,15 @@ func (s *Service) Tools() []tool.Descriptor {
 	}
 	s.mutex.RUnlock()
 	result := make([]tool.Descriptor, 0, len(owners))
+	// Keep every tool from one extension on the same availability decision within this snapshot.
+	availability := make(map[string]bool)
 	for _, accepted := range owners {
-		if s.runtime.ToolRuntimeAvailable(accepted.extensionID) {
+		available, checked := availability[accepted.extensionID]
+		if !checked {
+			available = s.runtime.ToolRuntimeAvailable(accepted.extensionID)
+			availability[accepted.extensionID] = available
+		}
+		if available {
 			result = append(result, accepted.descriptor)
 		}
 	}

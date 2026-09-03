@@ -356,4 +356,3 @@ message EstimatedCost {
   // Total cost across all buckets.
   double total = 5;
 }
-

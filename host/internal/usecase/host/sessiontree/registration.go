@@ -71,8 +71,18 @@ func (s *Service) handlersFor(kind HandlerKind) []Handler {
 	registered := slices.Clone(s.handlers)
 	s.mutex.RUnlock()
 	handlers := make([]Handler, 0, len(registered))
+	// Keep every selected handler from one extension on the same availability decision within this snapshot.
+	availability := make(map[string]bool)
 	for _, candidate := range registered {
-		if candidate.Kind == kind && s.runtime.HandlerRuntimeAvailable(candidate.Handler.ExtensionID) {
+		if candidate.Kind != kind {
+			continue
+		}
+		available, checked := availability[candidate.Handler.ExtensionID]
+		if !checked {
+			available = s.runtime.HandlerRuntimeAvailable(candidate.Handler.ExtensionID)
+			availability[candidate.Handler.ExtensionID] = available
+		}
+		if available {
 			handlers = append(handlers, candidate.Handler)
 		}
 	}

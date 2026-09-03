@@ -242,7 +242,7 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	require.NoError(t, err)
 	accepted := []startup.AcceptedRegistration{{ID: "extension", Path: "/extension", Tools: descriptors, Handlers: nil}}
 	service.Commit(accepted)
-	runtime.EXPECT().ToolRuntimeAvailable("extension").Return(true).Times(4)
+	runtime.EXPECT().ToolRuntimeAvailable("extension").Return(true).Times(3)
 	runtime.EXPECT().
 		ExecuteTool(t.Context(), "extension", "read", []byte(`{"path":"file"}`), gomock.Any()).
 		Return(tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil)
@@ -267,6 +267,43 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	assert.Equal(t, "read", result.ToolName)
 	assert.Equal(t, tool.TextContents("content"), result.Contents)
 	assert.Equal(t, []string{"read", "write"}, []string{listed[0].Name, listed[1].Name})
+}
+
+// TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot verifies one owner cannot contribute a partial tool list.
+func TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two accepted tools from one extension and availability that changes after its first check.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	service := New(runtime)
+	registration := startup.PendingRegistration{
+		ID:       "extension",
+		Path:     "/extension",
+		Tools:    []startup.RawToolDescriptor{rawDescriptor("write", "Write."), rawDescriptor("read", "Read.")},
+		Handlers: nil,
+	}
+	descriptors, err := service.ValidateLocal(registration)
+	require.NoError(t, err)
+	service.Commit([]startup.AcceptedRegistration{{
+		ID:       "extension",
+		Path:     "/extension",
+		Tools:    descriptors,
+		Handlers: nil,
+	}})
+	availabilityCalls := 0
+	runtime.EXPECT().ToolRuntimeAvailable("extension").AnyTimes().DoAndReturn(func(string) bool {
+		availabilityCalls++
+		return availabilityCalls == 1
+	})
+
+	// Act by taking one tool snapshot.
+	listed := service.Tools()
+
+	// Assert the first availability decision applies to both sorted tools.
+	require.Len(t, listed, 2)
+	assert.Equal(t, []string{"read", "write"}, []string{listed[0].Name, listed[1].Name})
+	assert.Equal(t, 1, availabilityCalls)
 }
 
 // TestServiceReturnsUnavailableResult verifies missing and unavailable owners remain model-visible errors.

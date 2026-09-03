@@ -93,3 +93,37 @@ func TestServiceKeepsAcceptedHandlerOrder(t *testing.T) {
 		{ExtensionID: "second", HandlerID: "request-b"},
 	}, handlers)
 }
+
+// TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot verifies one owner cannot contribute a partial handler list.
+func TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two request handlers from one extension and availability that changes after its first check.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	service := New(nil, nil, runtime)
+	service.CommitHandlers([]startup.AcceptedRegistration{{
+		ID:    "extension",
+		Path:  "/extension",
+		Tools: nil,
+		Handlers: []startup.AcceptedHandler{
+			{ID: "request-a", Kind: startup.RawHandlerKindSessionBeforeTreeRequest},
+			{ID: "request-b", Kind: startup.RawHandlerKindSessionBeforeTreeRequest},
+		},
+	}})
+	availabilityCalls := 0
+	runtime.EXPECT().HandlerRuntimeAvailable("extension").AnyTimes().DoAndReturn(func(string) bool {
+		availabilityCalls++
+		return availabilityCalls == 1
+	})
+
+	// Act by taking one request-handler snapshot.
+	handlers := service.handlersFor(HandlerKindRequest)
+
+	// Assert the first availability decision applies to both handlers in registration order.
+	assert.Equal(t, []Handler{
+		{ExtensionID: "extension", HandlerID: "request-a"},
+		{ExtensionID: "extension", HandlerID: "request-b"},
+	}, handlers)
+	assert.Equal(t, 1, availabilityCalls)
+}

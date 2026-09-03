@@ -42,8 +42,6 @@ var (
 
 // runtimeState contains one extension process and its availability state.
 type runtimeState struct {
-	// path is the extension executable path.
-	path string
 	// runtime owns the extension process connection.
 	runtime ExtensionRuntime
 	// available reports whether the runtime accepts operations.
@@ -136,7 +134,6 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 		registration.Path = candidate.Path
 		s.mutex.Lock()
 		s.runtimes[candidate.ID] = &runtimeState{
-			path:             candidate.Path,
 			runtime:          runtime,
 			available:        false,
 			activeExecutions: 0,

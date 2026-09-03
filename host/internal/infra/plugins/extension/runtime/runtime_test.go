@@ -291,7 +291,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	assert.Contains(t, bashProgress, tool.ProgressChannelStdout)
 	assert.Contains(t, bashProgress, tool.ProgressChannelStderr)
 
-	// Act: submit arguments outside the cached descriptor schema.
+	// Act: submit invalid arguments that the bundled tool rejects.
 	invalidResult, err := runtime.Execute(t.Context(), "read", []byte(`{}`), discardProgress)
 
 	// Assert: reject them as a terminal tool error without making the process unavailable.
@@ -1179,14 +1179,6 @@ func (operation *protocolRegisterOperation) Run(
 	}.Build()
 
 	switch operation.service.mode {
-	case "empty-name":
-		descriptor.SetName("")
-	case "empty-description":
-		descriptor.SetDescription("")
-	case "invalid-schema-json":
-		descriptor.SetInputSchemaJson([]byte(`{"type":`))
-	case "duplicate-name":
-		response.SetTools(append(response.GetTools(), descriptor))
 	case "handler", "handler-error", "handle-rejection", "handle-failure", "wait-handle-release":
 		response.SetHandlers([]*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
