@@ -6,7 +6,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ### Blocking contract operation processing
 
-Status: In Progress
+Status: Completed
 
 Execution position: After PHS-05 and before PHS-07.
 
