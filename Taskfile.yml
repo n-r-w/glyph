@@ -20,9 +20,23 @@ tasks:
       - go tool golangci-lint run --config ./.golangci.yml --build-tags=integration
       - go tool ifaceguard --config ifaceguard.cfg
       - go tool govulncheck ./...
+      - task: lint-external-plugins
+
+  lint-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
+    cmds:
+      - $(cd ../.. && go tool -n golangci-lint) run --config ../../.golangci.yml --build-tags=integration ./...
 
   test:
     desc: "Run unit tests"
+    cmds:
+      - go test -race ./...
+      - task: test-external-plugins
+
+  test-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
     cmds:
       - go test -race ./...
 
@@ -31,14 +45,35 @@ tasks:
     cmds:
       # Integration tests start real plugin, terminal, and shell subprocesses. Run packages and tests serially.
       - go test -race -tags=integration -p 1 -parallel 1 ./...
+      - task: itest-external-plugins
+
+  itest-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
+    cmds:
+      - go test -race -tags=integration -p 1 -parallel 1 .
 
   fix:
     desc: "Run go fix the codebase"
     cmds:
       - go fix ./...
+      - task: fix-external-plugins
+
+  fix-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
+    cmds:
+      - go fix ./...
 
   fix_dry_run:
     desc: "Show go fix changes without modifying files"
+    cmds:
+      - go fix -diff ./...
+      - task: fix-dry-run-external-plugins
+
+  fix-dry-run-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
     cmds:
       - go fix -diff ./...
 
@@ -47,6 +82,14 @@ tasks:
     cmds:
       - go fmt ./...
       - go tool golangci-lint fmt --config .golangci.yml ./...
+      - task: fmt-external-plugins
+
+  fmt-external-plugins:
+    internal: true
+    dir: testdata/external-plugins
+    cmds:
+      - go fmt ./...
+      - $(cd ../.. && go tool -n golangci-lint) fmt --config ../../.golangci.yml ./...
 
   vet:
     desc: "Run go vet"

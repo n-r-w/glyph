@@ -147,6 +147,11 @@ linters:
           - gochecknoglobals
         path: ^cmd/glyph/main\.go$
         text: "^(version|commit|date|builtBy) is a global variable"
+      # The external fixture must resolve the public SDK from this checkout.
+      - linters:
+          - gomoddirectives
+        path: ^testdata/external-plugins/go\.mod$
+        text: "local replacement are not allowed: github.com/n-r-w/glyph"
 
 issues:
   max-issues-per-linter: 0
