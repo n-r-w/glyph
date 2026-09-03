@@ -44,13 +44,24 @@ func TestMalformedInitializationIsRejectedBeforeAcceptance(t *testing.T) {
 	}.Build()))
 	accepted, err := stream.Recv()
 	require.NoError(t, err)
+	running, err := stream.Recv()
+	require.NoError(t, err)
+	failed, err := stream.Recv()
+	require.NoError(t, err)
 
-	// Assert malformed input has one classified rejection and no accepted lifecycle.
+	// Assert rejection and accepted failure retain exact categories and complete source text.
 	assert.Equal(t, "invalid", rejected.GetOperationId())
 	assert.Equal(t, "INVALID_ARGUMENT", rejected.GetEvent().GetRejected().GetCode())
-	assert.NotEmpty(t, rejected.GetEvent().GetRejected().GetMessage())
+	assert.Equal(t, "map TUI initialization: selected UI ID is required",
+		rejected.GetEvent().GetRejected().GetMessage())
 	assert.Equal(t, "valid", accepted.GetOperationId())
 	assert.NotNil(t, accepted.GetEvent().GetAccepted())
+	assert.Equal(t, "valid", running.GetOperationId())
+	assert.NotNil(t, running.GetEvent().GetRunning())
+	assert.Equal(t, "valid", failed.GetOperationId())
+	assert.Equal(t, "INTERNAL", failed.GetEvent().GetFailed().GetCode())
+	assert.Equal(t, "open TUI terminal: stop after valid initialization",
+		failed.GetEvent().GetFailed().GetMessage())
 	require.NoError(t, stream.CloseSend())
 }
 

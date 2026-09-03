@@ -221,6 +221,91 @@ func TestBlockedInitializationSupportsSeparateCancellation(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
+// TestActiveInitializationCleanupWaitsForRelease verifies public close paths join UI-owned startup work.
+func TestActiveInitializationCleanupWaitsForRelease(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		trigger func(context.CancelFunc, uiv1.UIService_OpenClient) error
+	}{
+		{
+			name: "peer CloseConnection",
+			trigger: func(_ context.CancelFunc, stream uiv1.UIService_OpenClient) error {
+				closeRequest := new(uiv1.OpenRequest)
+				closeRequest.SetClose(new(operationv1.CloseConnection))
+				if sendErr := stream.Send(closeRequest); sendErr != nil {
+					return sendErr
+				}
+				return stream.CloseSend()
+			},
+		},
+		{
+			name: "stream context loss",
+			trigger: func(cancel context.CancelFunc, _ uiv1.UIService_OpenClient) error {
+				cancel()
+				return nil
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange active initialization with separately observable Run, Release, and cleanup stages.
+			controller := gomock.NewController(t)
+			service := NewMockService(controller)
+			prepared := NewMockInitializeOperation(controller)
+			runStarted := make(chan struct{})
+			runStopped := make(chan struct{})
+			releaseStarted := make(chan struct{})
+			releaseGate := make(chan struct{})
+			releaseFinished := make(chan struct{})
+			cleanupFinished := make(chan struct{})
+			service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(prepared, nil)
+			prepared.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*uiv1.Initialized, error) {
+				close(runStarted)
+				<-ctx.Done()
+				close(runStopped)
+				return nil, context.Cause(ctx)
+			})
+			prepared.EXPECT().Release().Do(func() {
+				close(releaseStarted)
+				<-releaseGate
+				close(releaseFinished)
+			})
+			service.EXPECT().Close().DoAndReturn(func() error {
+				close(cleanupFinished)
+				return nil
+			})
+			client := TestClient(t, service)
+			streamContext, cancel := context.WithCancel(t.Context())
+			stream, err := client.Open(streamContext)
+			require.NoError(t, err)
+			sendIntegrationInitialization(t, stream)
+			for range 2 {
+				_, err = stream.Recv()
+				require.NoError(t, err)
+			}
+			<-runStarted
+
+			// Act through the selected public connection-close path.
+			require.NoError(t, test.trigger(cancel, stream))
+			<-runStopped
+			<-releaseStarted
+
+			// Assert connection cleanup cannot finish before Release returns.
+			select {
+			case <-cleanupFinished:
+				t.Fatal("connection cleanup finished before initialization Release")
+			default:
+			}
+			close(releaseGate)
+			<-releaseFinished
+			<-cleanupFinished
+		})
+	}
+}
+
 // newBlockedConnectionMockService configures a service that does not consume connection events.
 func newBlockedConnectionMockService(t *testing.T) *MockService {
 	t.Helper()
