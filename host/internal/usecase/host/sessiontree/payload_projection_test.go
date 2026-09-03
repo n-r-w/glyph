@@ -24,38 +24,45 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
-	handlers := NewMockHandlerRunner(controller)
+	handlers := NewMockRuntime(controller)
+	service := New(active, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inspect"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
 	models.EXPECT().ActiveSelection().Return(selection)
-	handlers.EXPECT().Handlers(HandlerKindRequest).Return([]Handler{handler})
-	handlers.EXPECT().HandleRequest(gomock.Any(), handler, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ Handler, invocation RequestHandlerInvocation) (RequestHandlerAction, error) {
-			for _, entry := range invocation.Original.Preparation.AbandonedPath {
-				if extension, present := entry.Extension.Get(); present {
-					assert.Equal(t, "extension", extension.ExtensionID)
-					assert.Equal(t, "state", extension.EntryType)
-					assert.Empty(t, extension.Data)
-				}
+	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
+	handlers.EXPECT().HandleHandler(
+		gomock.Any(), handler.ExtensionID, handler.HandlerID, gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_, _ string,
+		request HandlerRequest,
+	) (HandlerResponse, error) {
+		invocation := request.Request.OrEmpty()
+		for _, entry := range invocation.Original.Preparation.AbandonedPath {
+			if extension, present := entry.Extension.Get(); present {
+				assert.Equal(t, "extension", extension.ExtensionID)
+				assert.Equal(t, "state", extension.EntryType)
+				assert.Empty(t, extension.Data)
 			}
-			return RequestHandlerAction{
+		}
+		return HandlerResponse{
+			Request: mo.Some(RequestHandlerAction{
 				Cancel: false, RequestAction: RequestActionPreserve,
 				Request: mo.None[HandlerNavigationRequest](), ResultAction: ResultActionPreserve,
 				Result: mo.None[HandlerBranchSummaryResult](),
-			}, nil
-		},
-	)
+			}),
+			Result: mo.None[ResultHandlerAction](), Observer: mo.None[ObserverAction](),
+		}, nil
+	})
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 		BranchSummary: mo.None[BranchSummaryDraft](),
 	}).Return(committed, nil)
-	handlers.EXPECT().Handlers(HandlerKindObserver).Return(nil)
-	service := New(active, models, handlers)
 
 	// Act by navigating away from the entry that owns opaque extension data.
 	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{

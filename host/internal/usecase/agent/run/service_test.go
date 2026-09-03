@@ -10,7 +10,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/hooks"
 
 	"go.uber.org/mock/gomock"
 
@@ -32,7 +31,6 @@ func newTestService(
 	descriptor model.Descriptor,
 	choice model.ReasoningChoice,
 	provider ModelProvider,
-	hookRunner hooks.ContextRunner,
 	tools ToolRuntime,
 	events EventSink,
 ) *Service {
@@ -41,7 +39,7 @@ func newTestService(
 	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
 		Model: descriptor, ReasoningChoice: choice, Provider: provider,
 	}).AnyTimes()
-	return New(instructions, runtime, hookRunner, tools, events, newMockHistoryStore(t))
+	return New(instructions, runtime, tools, events, newMockHistoryStore(t))
 }
 
 func newMockHistoryStore(t *testing.T) *MockHistoryStore {

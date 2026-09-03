@@ -13,7 +13,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/hooks"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
@@ -26,8 +25,6 @@ const (
 
 // Config contains provider-owned Codex configuration.
 type Config struct {
-	// Hooks applies configured provider request and response hooks.
-	Hooks hooks.ProviderRunner
 	// Models lists configured Codex models.
 	Models []model.ID
 	// ReasoningCompatibilityKeys contains replay contracts by model.
@@ -60,8 +57,6 @@ type modelConfig struct {
 
 // Driver owns Codex OAuth credentials and Responses translation.
 type Driver struct {
-	// hooks applies configured provider hooks.
-	hooks hooks.ProviderRunner
 	// models contains provider wire metadata by model.
 	models map[model.ID]modelConfig
 	// credentials loads and stores Codex OAuth credentials.
@@ -92,8 +87,7 @@ func newDriver(config Config, credentials Credentials, interaction Interaction, 
 		}
 	})
 	return &Driver{
-		hooks: config.Hooks, models: models,
-		credentials: credentials, interaction: interaction, options: options,
+		models: models, credentials: credentials, interaction: interaction, options: options,
 	}
 }
 

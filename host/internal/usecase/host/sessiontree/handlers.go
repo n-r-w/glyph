@@ -30,8 +30,8 @@ func (s *Service) runRequestHandlers(
 	current := cloneHandlerState(original)
 	currentResult := mo.None[HandlerBranchSummaryResult]()
 	var issues []sessionnavigation.OperationIssue
-	for _, handler := range s.handlers.Handlers(HandlerKindRequest) {
-		action, err := s.handlers.HandleRequest(ctx, handler, RequestHandlerInvocation{
+	for _, handler := range s.handlersFor(HandlerKindRequest) {
+		action, err := s.invokeRequestHandler(ctx, handler, RequestHandlerInvocation{
 			Original: cloneHandlerState(original), Current: cloneHandlerState(current), CurrentResult: currentResult,
 		})
 		if err != nil {
@@ -142,8 +142,8 @@ func (s *Service) runResultHandlers(
 		return result, issues, false, nil
 	}
 	currentResult := originalResult
-	for _, handler := range s.handlers.Handlers(HandlerKindResult) {
-		action, err := s.handlers.HandleResult(ctx, handler, ResultHandlerInvocation{
+	for _, handler := range s.handlersFor(HandlerKindResult) {
+		action, err := s.invokeResultHandler(ctx, handler, ResultHandlerInvocation{
 			Original: cloneHandlerState(original), Current: cloneHandlerState(current),
 			OriginalResult: originalResult, CurrentResult: currentResult,
 		})
@@ -213,8 +213,8 @@ func (s *Service) runObservers(
 		CommittedActiveLeafID:   committed.ActiveLeafID(),
 		CreatedSummary:          committedSummary(committed, summaryCreated),
 	}
-	for _, handler := range s.handlers.Handlers(HandlerKindObserver) {
-		if err := s.handlers.Observe(observerContext, handler, invocation); err != nil {
+	for _, handler := range s.handlersFor(HandlerKindObserver) {
+		if err := s.invokeObserver(observerContext, handler, invocation); err != nil {
 			issues = append(
 				issues,
 				operationIssue(sessionnavigation.OperationIssueObserverError, handler, observerErrorMessage),

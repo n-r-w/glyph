@@ -7,7 +7,8 @@ import (
 
 	"github.com/samber/mo"
 
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -24,18 +25,18 @@ func (err ordinaryHandlerError) Error() string { return err.message }
 func (r *Runtime) Handle(
 	ctx context.Context,
 	handlerID string,
-	request extensionservice.HandlerRequest,
-) (extensionservice.HandlerResponse, error) {
+	request sessiontree.HandlerRequest,
+) (sessiontree.HandlerResponse, error) {
 	mapped, err := mapHandleRequest(handlerID, request)
 	if err != nil {
-		return extensionservice.HandlerResponse{}, err
+		return sessiontree.HandlerResponse{}, err
 	}
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(mapped)
 	operationID := r.operationID()
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
-		return extensionservice.HandlerResponse{}, r.handlerOperationError(ctx, handlerID, err)
+		return sessiontree.HandlerResponse{}, r.handlerOperationError(ctx, handlerID, err)
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
@@ -46,7 +47,7 @@ func (r *Runtime) Handle(
 		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
 			r.Close()
 		}
-		return extensionservice.HandlerResponse{}, errors.Join(
+		return sessiontree.HandlerResponse{}, errors.Join(
 			r.handlerOperationError(ctx, handlerID, err),
 			cancellationErr,
 		)
@@ -54,9 +55,9 @@ func (r *Runtime) Handle(
 	mappedResponse, err := mapHandleResponse(request, completed.GetHandle())
 	if err != nil {
 		if handlerErr, ok := errors.AsType[ordinaryHandlerError](err); ok {
-			return extensionservice.HandlerResponse{}, handlerErr
+			return sessiontree.HandlerResponse{}, handlerErr
 		}
-		return extensionservice.HandlerResponse{}, r.protocolViolation(err)
+		return sessiontree.HandlerResponse{}, r.protocolViolation(err)
 	}
 	return mappedResponse, nil
 }
@@ -72,14 +73,14 @@ func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, e
 	r.Close()
 	return fmt.Errorf(
 		"%w: handle extension handler %q: %w",
-		extensionservice.ErrExtensionUnavailable,
+		extensionruntime.ErrExtensionUnavailable,
 		handlerID,
 		err,
 	)
 }
 
 // mapHandleRequest maps the closed internal request variants to protobuf payloads.
-func mapHandleRequest(handlerID string, request extensionservice.HandlerRequest) (*extensionpb.HandleRequest, error) {
+func mapHandleRequest(handlerID string, request sessiontree.HandlerRequest) (*extensionpb.HandleRequest, error) {
 	//nolint:exhaustruct_v5 // The request builder sets only the active handler payload.
 	builder := extensionpb.HandleRequest_builder{HandlerId: new(handlerID)}
 	kind, valid := request.Kind()
@@ -87,8 +88,8 @@ func mapHandleRequest(handlerID string, request extensionservice.HandlerRequest)
 		return nil, fmt.Errorf("handler %q request has no single payload", handlerID)
 	}
 	switch kind {
-	case extensionservice.HandlerKindSessionBeforeTreeRequest:
-		invocation, _ := request.SessionBeforeTreeRequest.Get()
+	case sessiontree.HandlerKindRequest:
+		invocation, _ := request.Request.Get()
 		originalPreparation, mapErr := mapPreparation(invocation.Original)
 		if mapErr != nil {
 			return nil, mapErr
@@ -104,8 +105,8 @@ func mapHandleRequest(handlerID string, request extensionservice.HandlerRequest)
 			CurrentPreparation:  currentPreparation,
 			CurrentResult:       mapOptionalSummaryResult(invocation.CurrentResult),
 		}.Build()
-	case extensionservice.HandlerKindSessionBeforeTreeResult:
-		invocation, _ := request.SessionBeforeTreeResult.Get()
+	case sessiontree.HandlerKindResult:
+		invocation, _ := request.Result.Get()
 		originalPreparation, mapErr := mapPreparation(invocation.Original)
 		if mapErr != nil {
 			return nil, mapErr
@@ -122,8 +123,8 @@ func mapHandleRequest(handlerID string, request extensionservice.HandlerRequest)
 			OriginalResult:      mapSummaryResult(invocation.OriginalResult),
 			CurrentResult:       mapSummaryResult(invocation.CurrentResult),
 		}.Build()
-	case extensionservice.HandlerKindSessionTree:
-		invocation, _ := request.SessionTree.Get()
+	case sessiontree.HandlerKindObserver:
+		invocation, _ := request.Observer.Get()
 		builder.SessionTree = mapSessionTreeInvocation(invocation)
 	default:
 		return nil, fmt.Errorf("handler %q has unsupported request kind %d", handlerID, kind)
@@ -133,82 +134,82 @@ func mapHandleRequest(handlerID string, request extensionservice.HandlerRequest)
 
 // mapHandleResponse maps and validates the response variant for the invoked handler kind.
 func mapHandleResponse(
-	request extensionservice.HandlerRequest,
+	request sessiontree.HandlerRequest,
 	response *extensionpb.HandleResponse,
-) (extensionservice.HandlerResponse, error) {
+) (sessiontree.HandlerResponse, error) {
 	if response == nil {
-		return extensionservice.HandlerResponse{}, errors.New("handler response is missing")
+		return sessiontree.HandlerResponse{}, errors.New("handler response is missing")
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return extensionservice.HandlerResponse{}, ordinaryHandlerError{message: handlerErr.GetMessage()}
+		return sessiontree.HandlerResponse{}, ordinaryHandlerError{message: handlerErr.GetMessage()}
 	}
 	kind, valid := request.Kind()
 	if !valid {
-		return extensionservice.HandlerResponse{}, errors.New("handler request has no single payload")
+		return sessiontree.HandlerResponse{}, errors.New("handler request has no single payload")
 	}
 	switch kind {
-	case extensionservice.HandlerKindSessionBeforeTreeRequest:
+	case sessiontree.HandlerKindRequest:
 		action := response.GetSessionBeforeTreeRequest()
 		if action == nil {
-			return extensionservice.HandlerResponse{}, errors.New("request handler returned another action kind")
+			return sessiontree.HandlerResponse{}, errors.New("request handler returned another action kind")
 		}
 		return mapRequestAction(action), nil
-	case extensionservice.HandlerKindSessionBeforeTreeResult:
+	case sessiontree.HandlerKindResult:
 		action := response.GetSessionBeforeTreeResult()
 		if action == nil {
-			return extensionservice.HandlerResponse{}, errors.New("result handler returned another action kind")
+			return sessiontree.HandlerResponse{}, errors.New("result handler returned another action kind")
 		}
 		return mapResultAction(action), nil
-	case extensionservice.HandlerKindSessionTree:
+	case sessiontree.HandlerKindObserver:
 		if response.GetSessionTree() == nil {
-			return extensionservice.HandlerResponse{}, errors.New("session-tree observer returned another action kind")
+			return sessiontree.HandlerResponse{}, errors.New("session-tree observer returned another action kind")
 		}
-		return extensionservice.HandlerResponse{
-			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestAction](),
-			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultAction](),
-			SessionTree:              mo.Some(extensionservice.SessionTreeAction{}),
+		return sessiontree.HandlerResponse{
+			Request:  mo.None[sessiontree.RequestHandlerAction](),
+			Result:   mo.None[sessiontree.ResultHandlerAction](),
+			Observer: mo.Some(sessiontree.ObserverAction{}),
 		}, nil
 	default:
-		return extensionservice.HandlerResponse{}, fmt.Errorf("unsupported request kind %d", kind)
+		return sessiontree.HandlerResponse{}, fmt.Errorf("unsupported request kind %d", kind)
 	}
 }
 
 // mapRequestAction maps one request-handler action without applying composition rules.
-func mapRequestAction(action *extensionpb.SessionBeforeTreeRequestAction) extensionservice.HandlerResponse {
-	request := mo.None[extensionservice.NavigationRequest]()
+func mapRequestAction(action *extensionpb.SessionBeforeTreeRequestAction) sessiontree.HandlerResponse {
+	request := mo.None[sessiontree.HandlerNavigationRequest]()
 	if action.GetRequest() != nil {
 		request = mo.Some(mapNavigationRequestFromProto(action.GetRequest()))
 	}
-	return extensionservice.HandlerResponse{
-		SessionBeforeTreeRequest: mo.Some(extensionservice.SessionBeforeTreeRequestAction{
+	return sessiontree.HandlerResponse{
+		Request: mo.Some(sessiontree.RequestHandlerAction{
 			Cancel: action.GetCancel(), RequestAction: mapRequestActionKind(action.GetRequestAction()),
 			Request: request, ResultAction: mapResultActionKind(action.GetResultAction()),
 			Result: mapOptionalSummaryResultFromProto(action.GetResult()),
 		}),
-		SessionBeforeTreeResult: mo.None[extensionservice.SessionBeforeTreeResultAction](),
-		SessionTree:             mo.None[extensionservice.SessionTreeAction](),
+		Result:   mo.None[sessiontree.ResultHandlerAction](),
+		Observer: mo.None[sessiontree.ObserverAction](),
 	}
 }
 
 // mapResultAction maps one result-handler action without applying composition rules.
-func mapResultAction(action *extensionpb.SessionBeforeTreeResultAction) extensionservice.HandlerResponse {
-	return extensionservice.HandlerResponse{
-		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestAction](),
-		SessionBeforeTreeResult: mo.Some(extensionservice.SessionBeforeTreeResultAction{
+func mapResultAction(action *extensionpb.SessionBeforeTreeResultAction) sessiontree.HandlerResponse {
+	return sessiontree.HandlerResponse{
+		Request: mo.None[sessiontree.RequestHandlerAction](),
+		Result: mo.Some(sessiontree.ResultHandlerAction{
 			Cancel: action.GetCancel(), ResultAction: mapResultActionKind(action.GetResultAction()),
 			Result: mapOptionalSummaryResultFromProto(action.GetResult()),
 		}),
-		SessionTree: mo.None[extensionservice.SessionTreeAction](),
+		Observer: mo.None[sessiontree.ObserverAction](),
 	}
 }
 
 // mapRequestActionKind maps known actions and leaves invalid values for composition validation.
-func mapRequestActionKind(action extensionpb.RequestAction) extensionservice.RequestAction {
+func mapRequestActionKind(action extensionpb.RequestAction) sessiontree.RequestAction {
 	switch action {
 	case extensionpb.RequestAction_REQUEST_ACTION_PRESERVE:
-		return extensionservice.RequestActionPreserve
+		return sessiontree.RequestActionPreserve
 	case extensionpb.RequestAction_REQUEST_ACTION_REPLACE:
-		return extensionservice.RequestActionReplace
+		return sessiontree.RequestActionReplace
 	case extensionpb.RequestAction_REQUEST_ACTION_UNSPECIFIED:
 		return 0
 	default:
@@ -217,14 +218,14 @@ func mapRequestActionKind(action extensionpb.RequestAction) extensionservice.Req
 }
 
 // mapResultActionKind maps known actions and leaves invalid values for composition validation.
-func mapResultActionKind(action extensionpb.ResultAction) extensionservice.ResultAction {
+func mapResultActionKind(action extensionpb.ResultAction) sessiontree.ResultAction {
 	switch action {
 	case extensionpb.ResultAction_RESULT_ACTION_PRESERVE:
-		return extensionservice.ResultActionPreserve
+		return sessiontree.ResultActionPreserve
 	case extensionpb.ResultAction_RESULT_ACTION_REPLACE:
-		return extensionservice.ResultActionReplace
+		return sessiontree.ResultActionReplace
 	case extensionpb.ResultAction_RESULT_ACTION_CLEAR:
-		return extensionservice.ResultActionClear
+		return sessiontree.ResultActionClear
 	case extensionpb.ResultAction_RESULT_ACTION_UNSPECIFIED:
 		return 0
 	default:

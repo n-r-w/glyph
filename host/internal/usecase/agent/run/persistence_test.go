@@ -13,8 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -73,7 +71,7 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 		observed = append(observed, event.Type)
 		return nil
 	}).Times(2)
-	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by starting a run whose first durable user entry fails.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
@@ -150,7 +148,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 					return agent.ToolResult{}, toolErr
 				},
 			)
-			service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by running until persistence blocks the ToolResult boundary.
 			result, err := service.Run(t.Context(), Request{RunID: "combined-tool-failure", UserText: "write"})
@@ -224,7 +222,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 		observed = append(observed, event.Type)
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running through one completed tool invocation whose result cannot become durable.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
@@ -286,7 +284,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 		observed = append(observed, event.Type)
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by completing a provider response that cannot become durable.
 	result, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os/exec"
 
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 )
 
 // Factory starts SDK-backed extension runtimes.
 type Factory struct{}
 
-var _ extensionservice.RuntimeFactory = (*Factory)(nil)
+var _ extensionruntime.RuntimeFactory = (*Factory)(nil)
 
 // NewFactory creates an extension runtime factory.
 func NewFactory() *Factory { return &Factory{} }
@@ -19,8 +19,8 @@ func NewFactory() *Factory { return &Factory{} }
 // Start launches one candidate with the Host working directory and environment.
 func (f *Factory) Start(
 	ctx context.Context,
-	candidate extensionservice.Candidate,
-) (extensionservice.ExtensionRuntime, error) {
+	candidate extensionruntime.Candidate,
+) (extensionruntime.ExtensionRuntime, error) {
 	//nolint:gosec // The catalog contains trusted local extension executables.
 	command := exec.CommandContext(context.WithoutCancel(ctx), candidate.Path)
 	runtime, err := Start(ctx, command)

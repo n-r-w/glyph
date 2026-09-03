@@ -13,8 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -65,7 +63,7 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 			}).AnyTimes()
 			service := newTestService(
 				t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
-				provider, hookrunner.New(nil, nil, nil), tools, events,
+				provider, tools, events,
 			)
 
 			// Act by finalizing the provider cancellation.
@@ -168,7 +166,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 				}
 				return nil
 			}).AnyTimes()
-			service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by running the canceled provider through terminal finalization.
 			result, err := service.Run(t.Context(), Request{RunID: "cancellation-terminal-failure", UserText: "cancel"})
@@ -242,7 +240,6 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 			testModelDescriptor,
 			model.ReasoningChoiceHigh,
 			provider,
-			hookrunner.New(nil, nil, nil),
 			tools,
 			events,
 		)
@@ -301,7 +298,6 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 			testModelDescriptor,
 			model.ReasoningChoiceHigh,
 			provider,
-			hookrunner.New(nil, nil, nil),
 			tools,
 			events,
 		)
@@ -404,7 +400,6 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 				testModelDescriptor,
 				model.ReasoningChoiceHigh,
 				provider,
-				hookrunner.New(nil, nil, nil),
 				tools,
 				events,
 			)

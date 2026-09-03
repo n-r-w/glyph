@@ -14,8 +14,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +24,6 @@ import (
 func testConfig() Config {
 	return Config{
 		ReasoningCompatibilityKeys: nil,
-		Hooks:                      testProviderHookRunner(),
 		Models: []model.ID{
 			"gpt-request", "gpt-test", "gpt-selected", "gpt-unknown", "model", "gpt-5.6-luna",
 		},
@@ -50,10 +47,6 @@ func testModelDescriptor(modelID string) model.Descriptor {
 			},
 		}, Pricing: mo.None[model.Pricing](),
 	}
-}
-
-func testProviderHookRunner() internalhooks.ProviderRunner {
-	return hookrunner.New(nil, nil, nil)
 }
 
 // testProviderOptions points both SDK and token HTTP calls at one test server.

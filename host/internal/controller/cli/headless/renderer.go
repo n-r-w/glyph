@@ -9,10 +9,10 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -34,7 +34,7 @@ func NewRenderer(stdout, stderr io.Writer) *Renderer {
 }
 
 // ReportRuntimeFailure renders one classified post-start extension failure.
-func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeFailure) error {
+func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure extension.RuntimeFailure) error {
 	message, err := failure.Message()
 	if err != nil {
 		return fmt.Errorf("format extension runtime failure: %w", err)
@@ -147,7 +147,7 @@ func (r *Renderer) DeliverSettled(_ context.Context, _ string) error {
 }
 
 // ReportIssue writes one isolated extension startup failure.
-func (r *Renderer) ReportIssue(_ context.Context, issue extensionservice.Issue) error {
+func (r *Renderer) ReportIssue(_ context.Context, issue startup.Issue) error {
 	identity := strings.Join(issue.PluginIDs, ",")
 	if identity == "" {
 		identity = "unknown"
@@ -159,7 +159,7 @@ func (r *Renderer) ReportIssue(_ context.Context, issue extensionservice.Issue) 
 }
 
 // ReportSummary writes one informational headless startup summary.
-func (r *Renderer) ReportSummary(_ context.Context, report extensionservice.LoadReport) error {
+func (r *Renderer) ReportSummary(_ context.Context, report startup.LoadReport) error {
 	if err := writePrefixed(r.stderr, "[info] ", "headless"); err != nil {
 		return err
 	}

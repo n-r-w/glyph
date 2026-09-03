@@ -24,7 +24,9 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -102,7 +104,7 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	startupContext, cancelStartup := context.WithCancel(t.Context())
 
 	// Act: start the runtime and cancel only its startup context.
-	runtime, err := NewFactory().Start(startupContext, extensionservice.Candidate{
+	runtime, err := NewFactory().Start(startupContext, extensionruntime.Candidate{
 		ID:   "test",
 		Path: scriptPath,
 	})
@@ -342,52 +344,6 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	requireRuntimeStopped(t, runtime)
 }
 
-// TestCompileToolSchemaAcceptsJSONCompatibleArguments verifies nested and optional schema values.
-func TestCompileToolSchemaAcceptsJSONCompatibleArguments(t *testing.T) {
-	t.Parallel()
-
-	// Arrange: define an object schema with nested and optional values.
-	schema, err := compileToolSchema([]byte(`{
-		"type":"object",
-		"properties":{
-			"text":{"type":"string"},
-			"number":{"type":"number"},
-			"enabled":{"type":"boolean"},
-			"nullable":{"type":["string","null"]},
-			"items":{"type":"array","items":{}},
-			"nested":{"type":"object"},
-			"optional":{"type":"string"}
-		},
-		"required":["text","number","enabled","nullable","items","nested"],
-		"additionalProperties":false
-	}`))
-	require.NoError(t, err)
-
-	// Act: validate one complete argument object.
-	validErr := validateArguments(schema, []byte(`{
-		"text":"value","number":12.5,"enabled":true,"nullable":null,
-		"items":[1,"two",false,null,{"child":3}],"nested":{"child":[true]}
-	}`))
-
-	// Assert: accept complete input and reject missing required values.
-	require.NoError(t, validErr)
-	require.Error(t, validateArguments(schema, []byte(`{"text":"value"}`)))
-}
-
-// TestCompileToolSchemaRejectsNonObjectRoot keeps provider tool arguments object-shaped.
-func TestCompileToolSchemaRejectsNonObjectRoot(t *testing.T) {
-	t.Parallel()
-
-	// Arrange: define a schema with an array root.
-	schemaJSON := []byte(`{"type":"array","items":{"type":"string"}}`)
-
-	// Act: compile the invalid tool schema.
-	_, err := compileToolSchema(schemaJSON)
-
-	// Assert: reject the non-object root with its schema rule.
-	require.ErrorContains(t, err, "root type must be object")
-}
-
 // TestMapResultContentsPreservesOrderedTextAndImage verifies exact typed transport mapping.
 func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 	t.Parallel()
@@ -472,40 +428,6 @@ func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
 
 	// Assert: reject the empty image payload.
 	require.ErrorContains(t, err, "result image 0 is invalid")
-}
-
-// TestRuntimeValidatesCachedSchemaBeforeExtensionOperation verifies validation prevents invalid stream work.
-func TestRuntimeValidatesCachedSchemaBeforeExtensionOperation(t *testing.T) {
-	t.Parallel()
-
-	// Arrange: start a counting extension and complete registration.
-	countPath := filepath.Join(t.TempDir(), "executions")
-	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRuntimeHelperProcess$")
-	command.Env = append(os.Environ(), runtimeHelperEnvironment+"=default", runtimeCountEnvironment+"="+countPath)
-	runtime, err := Start(t.Context(), command)
-	require.NoError(t, err)
-	t.Cleanup(runtime.Close)
-	_, err = runtime.Register(t.Context())
-	require.NoError(t, err)
-
-	// Act: execute unknown, schema-invalid, and valid tool requests.
-	unknown, err := runtime.Execute(t.Context(), "missing", []byte(`{}`), discardProgress)
-	require.NoError(t, err)
-	require.True(t, unknown.IsError)
-	invalid, err := runtime.Execute(t.Context(), "read", []byte(`{}`), discardProgress)
-	require.NoError(t, err)
-	require.True(t, invalid.IsError)
-	_, statErr := os.Stat(countPath)
-	require.ErrorIs(t, statErr, os.ErrNotExist)
-
-	valid, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
-	require.NoError(t, err)
-	require.False(t, valid.IsError)
-	count, err := os.ReadFile(countPath)
-
-	// Assert: only the valid request reaches the extension operation.
-	require.NoError(t, err)
-	require.Equal(t, "1\n", string(count))
 }
 
 // TestRuntimePropagatesActiveCancellation verifies cancellation of an active Execute operation.
@@ -605,10 +527,10 @@ func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
-			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Request: mo.None[sessiontree.RequestHandlerInvocation](),
+			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
+			Observer: mo.Some(sessiontree.TreeObserverInvocation{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
@@ -703,10 +625,10 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
-			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Request: mo.None[sessiontree.RequestHandlerInvocation](),
+			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
+			Observer: mo.Some(sessiontree.TreeObserverInvocation{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
@@ -757,10 +679,10 @@ func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T)
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
-			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Request: mo.None[sessiontree.RequestHandlerInvocation](),
+			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
+			Observer: mo.Some(sessiontree.TreeObserverInvocation{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
@@ -878,7 +800,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			// Assert: reject the violating connection and expose the exact protocol cause.
 			assert.Equal(t, tool.Result{Contents: nil, IsError: false}, result)
 			require.Error(t, err)
-			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, "extension protocol violation")
 			if mode == "duplicate-result" {
 				require.ErrorContains(t, err, "completed event")
@@ -904,10 +826,10 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 			return err
 		},
 		"mismatched Handle action": func(t *testing.T, runtime *Runtime) error {
-			request := extensionservice.HandlerRequest{
-				SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-				SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-				SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+			request := sessiontree.HandlerRequest{
+				Request: mo.None[sessiontree.RequestHandlerInvocation](),
+				Result:  mo.None[sessiontree.ResultHandlerInvocation](),
+				Observer: mo.Some(sessiontree.TreeObserverInvocation{
 					SessionID: "session", TargetEntryID: "target",
 					PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
 					CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[session.Entry](),
@@ -933,7 +855,7 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 
 			// Assert: fail and join the connection without waiting for peer EOF.
 			require.Error(t, err)
-			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 			require.ErrorContains(t, err, "extension protocol violation")
 			requireRuntimeStopped(t, runtime)
@@ -958,7 +880,7 @@ func TestRuntimeKeepsHandlerErrorsAsCompletedData(t *testing.T) {
 	// Assert: return complete ordinary data errors while the runtime remains available.
 	for _, handleErr := range []error{firstErr, secondErr} {
 		require.EqualError(t, handleErr, "complete handler error text")
-		require.NotErrorIs(t, handleErr, extensionservice.ErrExtensionUnavailable)
+		require.NotErrorIs(t, handleErr, extensionruntime.ErrExtensionUnavailable)
 	}
 	select {
 	case <-runtime.Done():
@@ -1010,7 +932,7 @@ func TestRuntimeRejectsPeerErrorLifecycleViolations(t *testing.T) {
 			// Assert: retain all local and peer context once, classify unavailability, and stop the runtime.
 			require.Error(t, err)
 			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, `execute extension tool "read"`)
 			require.ErrorContains(t, err, "extension protocol violation")
 			require.ErrorContains(t, err, testCase.localFragment)
@@ -1063,7 +985,7 @@ func TestRuntimeRejectsUnsupportedPeerCategories(t *testing.T) {
 
 			// Assert: preserve every context layer once, then stop the unavailable runtime.
 			require.Error(t, err)
-			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 			for _, fragment := range testCase.fragments {
 				require.ErrorContains(t, err, fragment)
@@ -1071,35 +993,6 @@ func TestRuntimeRejectsUnsupportedPeerCategories(t *testing.T) {
 			require.ErrorContains(t, err, testCase.message)
 			assert.Equal(t, 1, strings.Count(err.Error(), "UNSUPPORTED"), name)
 			assert.Equal(t, 1, strings.Count(err.Error(), testCase.message), name)
-			requireRuntimeStopped(t, runtime)
-		})
-	}
-}
-
-// TestRuntimeRejectsInvalidCatalogs verifies complete-catalog validation before tools enter Host state.
-func TestRuntimeRejectsInvalidCatalogs(t *testing.T) {
-	t.Parallel()
-
-	testCases := []string{
-		"empty-name",
-		"empty-description",
-		"invalid-schema-json",
-		"duplicate-name",
-	}
-	for _, mode := range testCases {
-		t.Run(mode, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange: start a real helper process with one invalid complete catalog.
-			runtime := startHelperRuntime(t, mode)
-
-			// Act: request catalog validation and caching.
-			registration, err := runtime.Register(t.Context())
-
-			// Assert: reject the complete catalog and stop only its owning process.
-			assert.Empty(t, registration)
-			require.Error(t, err)
-			require.ErrorContains(t, err, "validate extension registration")
 			requireRuntimeStopped(t, runtime)
 		})
 	}
@@ -1121,7 +1014,7 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	})
 	// Assert: preserve the callback cause and keep later execution available.
 	require.ErrorIs(t, err, deliveryErr)
-	require.NotErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+	require.NotErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 	assertRuntimeRunning(t, runtime)
 
 	result, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
@@ -1145,7 +1038,7 @@ func TestRuntimeClassifiesTransportFailure(t *testing.T) {
 	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
 
 	// Assert: classify unavailability and stop the failed runtime.
-	require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+	require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 	requireRuntimeStopped(t, runtime)
 }
 
@@ -1190,18 +1083,18 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 	runtime := startHelperRuntime(t, "handler")
 	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, []extensionservice.HandlerDescriptor{{
-		ID: "observer", Kind: extensionservice.HandlerKindSessionTree,
+	require.Equal(t, []startup.RawHandlerDescriptor{{
+		Present: true, ID: "observer", Kind: startup.RawHandlerKindSessionTree,
 	}}, registration.Handlers)
-	invocation := extensionservice.SessionTreeInvocation{
+	invocation := sessiontree.TreeObserverInvocation{
 		SessionID: "session", TargetEntryID: "target", PrecedingActiveLeafID: mo.None[string](),
 		NavigationDestinationID: mo.None[string](), CommittedActiveLeafID: mo.None[string](),
 		CreatedSummary: mo.None[session.Entry](),
 	}
-	request := extensionservice.HandlerRequest{
-		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-		SessionTree:              mo.Some(invocation),
+	request := sessiontree.HandlerRequest{
+		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
+		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
+		Observer: mo.Some(invocation),
 	}
 
 	// Act: invoke the registered handler operation.
@@ -1209,10 +1102,10 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 
 	// Assert: preserve the typed observer acknowledgement.
 	require.NoError(t, err)
-	assert.Equal(t, extensionservice.HandlerResponse{
-		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestAction](),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultAction](),
-		SessionTree:              mo.Some(extensionservice.SessionTreeAction{}),
+	assert.Equal(t, sessiontree.HandlerResponse{
+		Request:  mo.None[sessiontree.RequestHandlerAction](),
+		Result:   mo.None[sessiontree.ResultHandlerAction](),
+		Observer: mo.Some(sessiontree.ObserverAction{}),
 	}, response)
 }
 

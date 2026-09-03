@@ -9,13 +9,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // mapNavigationRequest maps navigation behavior and configured summary model selection.
-func mapNavigationRequest(request extensionservice.NavigationRequest) *extensionpb.SessionTreeNavigationRequest {
+func mapNavigationRequest(request sessiontree.HandlerNavigationRequest) *extensionpb.SessionTreeNavigationRequest {
 	builder := extensionpb.SessionTreeNavigationRequest_builder{
 		TargetEntryId: new(request.Navigation.TargetEntryID),
 		SummaryMode:   new(mapSummaryMode(request.Navigation.SummaryMode)),
@@ -31,7 +31,7 @@ func mapNavigationRequest(request extensionservice.NavigationRequest) *extension
 // mapNavigationRequestFromProto maps a handler-provided replacement request.
 func mapNavigationRequestFromProto(
 	request *extensionpb.SessionTreeNavigationRequest,
-) extensionservice.NavigationRequest {
+) sessiontree.HandlerNavigationRequest {
 	customFocus := mo.None[string]()
 	if request.HasCustomFocus() {
 		customFocus = mo.Some(request.GetCustomFocus())
@@ -44,7 +44,7 @@ func mapNavigationRequestFromProto(
 			ReasoningChoice: model.ReasoningChoice(selection.GetReasoningChoice()),
 		}
 	}
-	return extensionservice.NavigationRequest{
+	return sessiontree.HandlerNavigationRequest{
 		Navigation: sessionnavigation.Request{
 			TargetEntryID: request.GetTargetEntryId(),
 			SummaryMode:   mapSummaryModeFromProto(request.GetSummaryMode()),
@@ -93,7 +93,7 @@ func mapModelSelection(selection model.Selection) *extensionpb.ModelSelection {
 }
 
 // mapPreparation maps immutable Host-computed navigation context.
-func mapPreparation(state extensionservice.NavigationState) (*extensionpb.SessionTreePreparation, error) {
+func mapPreparation(state sessiontree.HandlerNavigationState) (*extensionpb.SessionTreePreparation, error) {
 	entries, err := mapSessionEntries(state.Preparation.AbandonedPath)
 	if err != nil {
 		return nil, err
@@ -255,7 +255,9 @@ func mapToolResultContentsToProto(contents []tool.ResultContent) []*extensionpb.
 }
 
 // mapOptionalSummaryResult maps summary-result presence.
-func mapOptionalSummaryResult(result mo.Option[extensionservice.BranchSummaryResult]) *extensionpb.BranchSummaryResult {
+func mapOptionalSummaryResult(
+	result mo.Option[sessiontree.HandlerBranchSummaryResult],
+) *extensionpb.BranchSummaryResult {
 	value, ok := result.Get()
 	if !ok {
 		return nil
@@ -264,7 +266,7 @@ func mapOptionalSummaryResult(result mo.Option[extensionservice.BranchSummaryRes
 }
 
 // mapSummaryResult maps extension-produced summary text and optional usage.
-func mapSummaryResult(result extensionservice.BranchSummaryResult) *extensionpb.BranchSummaryResult {
+func mapSummaryResult(result sessiontree.HandlerBranchSummaryResult) *extensionpb.BranchSummaryResult {
 	builder := extensionpb.BranchSummaryResult_builder{Summary: new(result.Summary), Usage: nil}
 	if usage, ok := result.Usage.Get(); ok {
 		builder.Usage = mapTokenUsage(usage)
@@ -275,15 +277,15 @@ func mapSummaryResult(result extensionservice.BranchSummaryResult) *extensionpb.
 // mapOptionalSummaryResultFromProto maps summary-result presence from protobuf.
 func mapOptionalSummaryResultFromProto(
 	result *extensionpb.BranchSummaryResult,
-) mo.Option[extensionservice.BranchSummaryResult] {
+) mo.Option[sessiontree.HandlerBranchSummaryResult] {
 	if result == nil {
-		return mo.None[extensionservice.BranchSummaryResult]()
+		return mo.None[sessiontree.HandlerBranchSummaryResult]()
 	}
 	usage := mo.None[session.TokenUsage]()
 	if result.GetUsage() != nil {
 		usage = mo.Some(mapTokenUsageFromProto(result.GetUsage()))
 	}
-	return mo.Some(extensionservice.BranchSummaryResult{Summary: result.GetSummary(), Usage: usage})
+	return mo.Some(sessiontree.HandlerBranchSummaryResult{Summary: result.GetSummary(), Usage: usage})
 }
 
 // mapTokenUsage maps all normalized usage buckets.
@@ -305,7 +307,7 @@ func mapTokenUsageFromProto(usage *extensionpb.TokenUsage) session.TokenUsage {
 }
 
 // mapSessionTreeInvocation maps committed navigation and optional complete summary data.
-func mapSessionTreeInvocation(invocation extensionservice.SessionTreeInvocation) *extensionpb.SessionTreeInvocation {
+func mapSessionTreeInvocation(invocation sessiontree.TreeObserverInvocation) *extensionpb.SessionTreeInvocation {
 	builder := extensionpb.SessionTreeInvocation_builder{
 		SessionId: new(invocation.SessionID), TargetEntryId: new(invocation.TargetEntryID),
 		PrecedingActiveLeafId: nil, NavigationDestinationId: nil,

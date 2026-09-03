@@ -182,16 +182,72 @@ type ResultHandlerAction struct {
 	Result mo.Option[HandlerBranchSummaryResult]
 }
 
-// HandlerRunner snapshots ordered handlers and invokes them through the extension subsystem.
-type HandlerRunner interface {
-	// Handlers returns an ordered snapshot for one extension point.
-	Handlers(HandlerKind) []Handler
-	// HandleRequest invokes one request handler.
-	HandleRequest(context.Context, Handler, RequestHandlerInvocation) (RequestHandlerAction, error)
-	// HandleResult invokes one result handler.
-	HandleResult(context.Context, Handler, ResultHandlerInvocation) (ResultHandlerAction, error)
-	// Observe invokes one post-commit observer.
-	Observe(context.Context, Handler, TreeObserverInvocation) error
+// ObserverAction acknowledges one committed-navigation observation.
+type ObserverAction struct{}
+
+// HandlerRequest is one typed session-tree handler payload.
+type HandlerRequest struct {
+	// Request contains a request-handler invocation when present.
+	Request mo.Option[RequestHandlerInvocation]
+	// Result contains a result-handler invocation when present.
+	Result mo.Option[ResultHandlerInvocation]
+	// Observer contains a committed-navigation observer invocation when present.
+	Observer mo.Option[TreeObserverInvocation]
+}
+
+// Kind returns the single request kind and whether exactly one payload is present.
+func (request HandlerRequest) Kind() (HandlerKind, bool) {
+	kind := HandlerKind(0)
+	count := 0
+	if request.Request.IsSome() {
+		kind, count = HandlerKindRequest, count+1
+	}
+	if request.Result.IsSome() {
+		kind, count = HandlerKindResult, count+1
+	}
+	if request.Observer.IsSome() {
+		kind, count = HandlerKindObserver, count+1
+	}
+	return kind, count == 1
+}
+
+// HandlerResponse is one typed session-tree handler action.
+type HandlerResponse struct {
+	// Request contains a request-handler action when present.
+	Request mo.Option[RequestHandlerAction]
+	// Result contains a result-handler action when present.
+	Result mo.Option[ResultHandlerAction]
+	// Observer contains an observer acknowledgement when present.
+	Observer mo.Option[ObserverAction]
+}
+
+// Kind returns the single response kind and whether exactly one action is present.
+func (response HandlerResponse) Kind() (HandlerKind, bool) {
+	kind := HandlerKind(0)
+	count := 0
+	if response.Request.IsSome() {
+		kind, count = HandlerKindRequest, count+1
+	}
+	if response.Result.IsSome() {
+		kind, count = HandlerKindResult, count+1
+	}
+	if response.Observer.IsSome() {
+		kind, count = HandlerKindObserver, count+1
+	}
+	return kind, count == 1
+}
+
+// Runtime supplies availability and low-level invocation for one accepted handler.
+type Runtime interface {
+	// HandlerRuntimeAvailable reports whether one accepted extension can handle operations.
+	HandlerRuntimeAvailable(extensionID string) bool
+	// HandleHandler invokes one handler on its owning extension runtime.
+	HandleHandler(
+		ctx context.Context,
+		extensionID string,
+		handlerID string,
+		request HandlerRequest,
+	) (HandlerResponse, error)
 }
 
 // ModelRequester supplies active selection, checks availability, and executes model requests.

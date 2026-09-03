@@ -11,7 +11,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/hooks"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -36,8 +35,6 @@ type Service struct {
 	instructions string
 	// runtime provides the current immutable model selection.
 	runtime ModelRuntime
-	// hooks transforms request-local history before provider dispatch.
-	hooks hooks.ContextRunner
 	// tools provides the active tool catalog and execution.
 	tools ToolRuntime
 	// events receives ordered Agent Core lifecycle events.
@@ -55,7 +52,6 @@ type Service struct {
 func New(
 	instructions string,
 	runtime ModelRuntime,
-	hookRunner hooks.ContextRunner,
 	tools ToolRuntime,
 	events EventSink,
 	historyStore HistoryStore,
@@ -63,7 +59,6 @@ func New(
 	return &Service{
 		instructions: instructions,
 		runtime:      runtime,
-		hooks:        hookRunner,
 		tools:        tools,
 		events:       events,
 		historyStore: historyStore,
@@ -186,11 +181,6 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		}, false, err
 	}
 
-	projectedContext, hookErr := s.hooks.TransformContext(ctx, hooks.Context{History: s.ProjectHistory()})
-	if hookErr != nil {
-		return s.finalizeProviderError(ctx, runID, internalHookFailureResponse(hooks.StageContext, hookErr), hookErr)
-	}
-
 	var deliveryErr error
 	var response model.Response
 	tools := s.tools.Tools()
@@ -199,7 +189,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		Instructions:    s.instructions,
 		Model:           snapshot.Model,
 		ReasoningChoice: snapshot.ReasoningChoice,
-		History:         projectedContext.History,
+		History:         s.ProjectHistory(),
 		Tools:           tools,
 	}, func(streamEvent StreamEvent) error {
 		var terminal model.Response
@@ -293,24 +283,6 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 		}, false, err
 	}
 	return s.applyOutcome(ctx, runID, response)
-}
-
-// internalHookFailureResponse creates one provider-neutral hook failure.
-func internalHookFailureResponse(stage hooks.Stage, failure error) model.Response {
-	return model.Response{
-		Content:       nil,
-		Outcome:       mo.Some(model.OutcomeFailed),
-		ErrorMessage:  mo.Some(failure.Error()),
-		Provider:      mo.None[model.ProviderID](),
-		Model:         mo.None[model.ID](),
-		ResponseModel: mo.None[model.ID](),
-		ResponseID:    mo.None[string](),
-		Usage:         mo.None[model.Usage](),
-		Diagnostics: []model.Diagnostic{{
-			Code:    "internal_hook_failed",
-			Message: string(stage),
-		}},
-	}
 }
 
 // mergeTerminalResponse validates and completes one terminal response with streamed content.

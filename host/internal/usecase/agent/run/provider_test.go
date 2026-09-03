@@ -10,8 +10,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -101,7 +99,6 @@ func TestServiceRunStop(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)

@@ -1,0 +1,89 @@
+edition = "2023";
+
+package glyph.plugins.ui.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
+
+// AuthenticationCompleted acknowledges completed authentication.
+message AuthenticationCompleted {}
+
+// ConfiguredModel describes one selectable model and its reasoning choices.
+message ConfiguredModel {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The model reasoning capabilities.
+  ReasoningCapabilities reasoning = 3;
+}
+
+// ReasoningCapabilities describes one model reasoning contract.
+message ReasoningCapabilities {
+  // Whether the model can produce reasoning.
+  bool supported = 1;
+  // The effective choices in configured order.
+  repeated ReasoningChoice choices = 2;
+  // The model default choice.
+  ReasoningChoice default_choice = 3;
+}
+
+// ModelSelection identifies the Host-confirmed active selection.
+message ModelSelection {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The active reasoning choice.
+  ReasoningChoice reasoning_choice = 3;
+}
+
+// ModelSelectionChanged confirms one selection committed by the Host.
+message ModelSelectionChanged {
+  // The committed model selection.
+  ModelSelection selection = 1;
+}
+
+// ReasoningChoice identifies a configured model reasoning choice.
+enum ReasoningChoice {
+  // No reasoning choice was provided.
+  REASONING_CHOICE_UNSPECIFIED = 0;
+  // Reasoning is disabled.
+  REASONING_CHOICE_OFF = 1;
+  // Reasoning is enabled with the provider default.
+  REASONING_CHOICE_ON = 2;
+  // Minimal reasoning is enabled.
+  REASONING_CHOICE_MINIMAL = 3;
+  // Low reasoning is enabled.
+  REASONING_CHOICE_LOW = 4;
+  // Medium reasoning is enabled.
+  REASONING_CHOICE_MEDIUM = 5;
+  // High reasoning is enabled.
+  REASONING_CHOICE_HIGH = 6;
+  // Extra-high reasoning is enabled.
+  REASONING_CHOICE_XHIGH = 7;
+  // Maximum reasoning is enabled.
+  REASONING_CHOICE_MAX = 8;
+}
+
+// AuthorizationRequest presents one browser OAuth URL.
+message AuthorizationRequest {
+  // The browser URL used to start authorization.
+  string url = 1;
+}
+
+// RetryAuthenticationCommand starts OAuth after an authentication failure.
+message RetryAuthenticationCommand {}
+
+// SelectModelCommand requests one configured provider and model.
+message SelectModelCommand {
+  // The configured provider instance identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+}
+
+// SelectReasoningChoiceCommand requests one reasoning choice for the active model.
+message SelectReasoningChoiceCommand {
+  // The requested reasoning choice.
+  ReasoningChoice choice = 1;
+}

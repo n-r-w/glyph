@@ -101,9 +101,9 @@ Follow-up issues:
 
 ## PHS-05.1: Extension boundary cleanup
 
-Status: Planned
+Status: Completed
 
-Remove unused prototype hooks, separate implemented extension runtime management from capability orchestration, and split oversized public protobuf sources without changing public behavior.
+Removed unused prototype hooks, separated implemented extension runtime management from capability orchestration, and split oversized public protobuf sources without changing public behavior.
 
 Documents:
 - [Ticket](specs/features/initial/phases/05.1-extension-boundary-cleanup/ticket.md)

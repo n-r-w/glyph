@@ -11,6 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -35,7 +36,7 @@ func NewDelivery(channel Channel) *Delivery {
 }
 
 // ReportRuntimeFailure sends one classified post-start extension failure.
-func (d *Delivery) ReportRuntimeFailure(_ context.Context, failure tool.RuntimeFailure) error {
+func (d *Delivery) ReportRuntimeFailure(_ context.Context, failure extension.RuntimeFailure) error {
 	message, err := failure.Message()
 	if err != nil {
 		return fmt.Errorf("format extension runtime failure: %w", err)

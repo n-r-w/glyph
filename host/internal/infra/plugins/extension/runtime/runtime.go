@@ -4,25 +4,21 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
 	"strconv"
-	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
-	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -37,14 +33,9 @@ type Runtime struct {
 	connection *extensionsdk.Connection
 	// nextOperationID allocates extension-local Host operation identifiers.
 	nextOperationID atomic.Uint64
-
-	// catalogMutex protects schemas during catalog access.
-	catalogMutex sync.RWMutex
-	// schemas contains compiled input schemas by tool name.
-	schemas map[string]*jsonschema.Schema
 }
 
-var _ extensionservice.ExtensionRuntime = (*Runtime)(nil)
+var _ extensionruntime.ExtensionRuntime = (*Runtime)(nil)
 
 // Start connects to one extension process command.
 func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
@@ -62,40 +53,32 @@ func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
 		client:          client,
 		connection:      connection,
 		nextOperationID: atomic.Uint64{},
-		catalogMutex:    sync.RWMutex{},
-		schemas:         make(map[string]*jsonschema.Schema),
 	}, nil
 }
 
-// Register validates and caches the complete extension registration.
-func (r *Runtime) Register(ctx context.Context) (extensionservice.Registration, error) {
+// Register invokes registration and maps the raw protocol payload.
+func (r *Runtime) Register(ctx context.Context) (startup.PendingRegistration, error) {
 	request := new(extensionpb.HostRequest)
 	request.SetRegister(new(extensionpb.RegisterRequest))
 	started, err := r.connection.Start(ctx, r.operationID(), request)
 	if err != nil {
 		r.Close()
-		return extensionservice.Registration{}, fmt.Errorf("start extension registration: %w", err)
+		return startup.PendingRegistration{}, fmt.Errorf("start extension registration: %w", err)
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
 		r.Close()
-		return extensionservice.Registration{}, fmt.Errorf("register extension: %w", err)
+		return startup.PendingRegistration{}, fmt.Errorf("register extension: %w", err)
 	}
-	response := completed.GetRegister()
-	registration, schemas, err := validateRegistration(response)
+	registration, err := mapRegistration(completed.GetRegister())
 	if err != nil {
 		r.Close()
-		return extensionservice.Registration{}, fmt.Errorf("validate extension registration: %w", err)
+		return startup.PendingRegistration{}, fmt.Errorf("validate extension registration: %w", err)
 	}
-
-	// The validated registration and compiled schemas remain fixed for this process lifetime.
-	r.catalogMutex.Lock()
-	r.schemas = schemas
-	r.catalogMutex.Unlock()
 	return registration, nil
 }
 
-// Execute validates arguments and waits synchronously for one operation on the shared Extension connection.
+// Execute waits synchronously for one tool operation on the shared Extension connection.
 func (r *Runtime) Execute(
 	ctx context.Context,
 	toolName string,
@@ -104,20 +87,6 @@ func (r *Runtime) Execute(
 ) (tool.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return tool.Result{}, fmt.Errorf("execute extension tool %q: %w", toolName, err)
-	}
-
-	schema, ok := r.toolSchema(toolName)
-	if !ok {
-		return tool.Result{
-			Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", toolName)),
-			IsError:  true,
-		}, nil
-	}
-	if validationErr := validateArguments(schema, argumentsJSON); validationErr != nil {
-		return tool.Result{
-			Contents: tool.TextContents(fmt.Sprintf("invalid arguments for tool %q: %v", toolName, validationErr)),
-			IsError:  true,
-		}, nil
 	}
 
 	request := new(extensionpb.HostRequest)
@@ -239,14 +208,6 @@ func isConnectionFailure(err error) bool {
 	return hasStatus
 }
 
-// toolSchema returns the compiled schema cached during complete-catalog validation.
-func (r *Runtime) toolSchema(toolName string) (*jsonschema.Schema, bool) {
-	r.catalogMutex.RLock()
-	defer r.catalogMutex.RUnlock()
-	schema, ok := r.schemas[toolName]
-	return schema, ok
-}
-
 // executionError preserves cancellation while treating other stream failures as process unavailability.
 func (r *Runtime) executionError(ctx context.Context, toolName string, err error) error {
 	if isExtensionTerminalError(err) {
@@ -264,7 +225,7 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 	r.Close()
 	return fmt.Errorf(
 		"%w: execute extension tool %q: %w",
-		extensionservice.ErrExtensionUnavailable,
+		extensionruntime.ErrExtensionUnavailable,
 		toolName,
 		err,
 	)
@@ -275,7 +236,7 @@ func toolExecutionProtocolViolation(r *Runtime, toolName string, err error) erro
 	r.Close()
 	return fmt.Errorf(
 		"%w: execute extension tool %q: extension protocol violation: %w",
-		extensionservice.ErrExtensionUnavailable,
+		extensionruntime.ErrExtensionUnavailable,
 		toolName,
 		err,
 	)
@@ -287,255 +248,113 @@ func (r *Runtime) protocolViolation(cause error) error {
 	r.client.Close()
 	return fmt.Errorf(
 		"%w: extension protocol violation: %w",
-		extensionservice.ErrExtensionUnavailable,
+		extensionruntime.ErrExtensionUnavailable,
 		connectionErr,
 	)
 }
 
-// validateRegistration validates tool transport data and maps ordered handler descriptors.
-func validateRegistration(
-	response *extensionpb.RegisterResponse,
-) (extensionservice.Registration, map[string]*jsonschema.Schema, error) {
+// mapRegistration maps raw tool and handler protocol payloads without applying Host capability policy.
+func mapRegistration(response *extensionpb.RegisterResponse) (startup.PendingRegistration, error) {
 	if response == nil {
-		return extensionservice.Registration{}, nil, errors.New("registration response is missing")
+		return startup.PendingRegistration{}, errors.New("registration response is missing")
 	}
-
-	tools := make([]tool.Descriptor, 0, len(response.GetTools()))
-	schemas := make(map[string]*jsonschema.Schema, len(response.GetTools()))
-	for index, descriptor := range response.GetTools() {
-		if descriptor == nil {
-			return extensionservice.Registration{}, nil, fmt.Errorf("descriptor %d is missing", index)
-		}
-		name := descriptor.GetName()
-		if name == "" {
-			return extensionservice.Registration{}, nil, fmt.Errorf("descriptor %d has an empty name", index)
-		}
-		if descriptor.GetDescription() == "" {
-			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q has an empty description", name)
-		}
-		if _, duplicate := schemas[name]; duplicate {
-			return extensionservice.Registration{}, nil, fmt.Errorf("tool name %q is duplicated", name)
-		}
-
-		schema, err := compileToolSchema(descriptor.GetInputSchemaJson())
-		if err != nil {
-			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q input schema: %w", name, err)
-		}
-		constraint, err := mapConstrainedSampling(descriptor, descriptor.GetInputSchemaJson())
-		if err != nil {
-			return extensionservice.Registration{}, nil, fmt.Errorf("tool %q constrained sampling: %w", name, err)
-		}
-		tools = append(tools, tool.Descriptor{
-			Name: name, Description: descriptor.GetDescription(),
-			InputSchemaJSON: bytes.Clone(descriptor.GetInputSchemaJson()), ConstrainedSampling: constraint,
-		})
-		schemas[name] = schema
+	tools := make([]startup.RawToolDescriptor, 0, len(response.GetTools()))
+	for _, descriptor := range response.GetTools() {
+		tools = append(tools, mapToolDescriptor(descriptor))
 	}
-
-	handlers := make([]extensionservice.HandlerDescriptor, 0, len(response.GetHandlers()))
+	handlers := make([]startup.RawHandlerDescriptor, 0, len(response.GetHandlers()))
 	for _, handler := range response.GetHandlers() {
 		if handler == nil {
-			handlers = append(handlers, extensionservice.HandlerDescriptor{})
+			handlers = append(
+				handlers,
+				startup.RawHandlerDescriptor{Present: false, ID: "", Kind: startup.RawHandlerKindUnspecified},
+			)
 			continue
 		}
-		handlers = append(handlers, extensionservice.HandlerDescriptor{
-			ID:   handler.GetId(),
-			Kind: mapHandlerKind(handler.GetKind()),
-		})
+		handlers = append(
+			handlers,
+			startup.RawHandlerDescriptor{
+				Present: true,
+				ID:      handler.GetId(),
+				Kind:    mapRawHandlerKind(handler.GetKind()),
+			},
+		)
 	}
-	return extensionservice.Registration{Tools: tools, Handlers: handlers}, schemas, nil
+	return startup.PendingRegistration{ID: "", Path: "", Tools: tools, Handlers: handlers}, nil
 }
 
-// mapHandlerKind maps known public kinds and leaves other values invalid for Host validation.
-func mapHandlerKind(kind extensionpb.HandlerKind) extensionservice.HandlerKind {
+// mapRawHandlerKind maps supported public kinds and maps other values to the invalid zero kind.
+func mapRawHandlerKind(kind extensionpb.HandlerKind) startup.RawHandlerKind {
 	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST:
-		return extensionservice.HandlerKindSessionBeforeTreeRequest
+		return startup.RawHandlerKindSessionBeforeTreeRequest
 	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT:
-		return extensionservice.HandlerKindSessionBeforeTreeResult
+		return startup.RawHandlerKindSessionBeforeTreeResult
 	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
-		return extensionservice.HandlerKindSessionTree
+		return startup.RawHandlerKindSessionTree
 	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED:
-		return 0
+		return startup.RawHandlerKindUnspecified
 	default:
-		return 0
+		return startup.RawHandlerKindUnspecified
 	}
 }
 
-// mapConstrainedSampling validates the public constraint and preserves its presence.
-func mapConstrainedSampling(
-	descriptor *extensionpb.ToolDescriptor,
-	schemaJSON []byte,
-) (mo.Option[tool.ConstrainedSampling], error) {
-	constraint := descriptor.GetConstrainedSampling()
-	if constraint == nil {
-		return mo.None[tool.ConstrainedSampling](), nil
+// mapToolDescriptor maps one optional public descriptor without validating tool policy.
+func mapToolDescriptor(descriptor *extensionpb.ToolDescriptor) startup.RawToolDescriptor {
+	if descriptor == nil {
+		return startup.RawToolDescriptor{
+			Present:             false,
+			Name:                "",
+			Description:         "",
+			InputSchemaJSON:     nil,
+			ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
+		}
 	}
-	var mapped tool.ConstrainedSampling
-	var err error
+	return startup.RawToolDescriptor{
+		Present:             true,
+		Name:                descriptor.GetName(),
+		Description:         descriptor.GetDescription(),
+		InputSchemaJSON:     bytes.Clone(descriptor.GetInputSchemaJson()),
+		ConstrainedSampling: mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
+	}
+}
+
+// mapRawConstrainedSampling preserves the selected protocol configuration and invalid values.
+func mapRawConstrainedSampling(constraint *extensionpb.ConstrainedSampling) mo.Option[startup.RawConstrainedSampling] {
+	if constraint == nil {
+		return mo.None[startup.RawConstrainedSampling]()
+	}
+	raw := startup.RawConstrainedSampling{
+		Kind:                 startup.RawConstrainedSamplingMissing,
+		JSONSchemaPresent:    false,
+		JSONSchemaStrictness: startup.RawJSONSchemaStrictnessUnspecified,
+		Grammar:              startup.RawGrammar{Present: false, Lark: mo.None[string](), Regex: mo.None[string]()},
+	}
 	switch constraint.WhichConfig() {
 	case extensionpb.ConstrainedSampling_JsonSchema_case:
-		mapped, err = mapJSONSchemaSampling(constraint.GetJsonSchema())
+		raw.Kind = startup.RawConstrainedSamplingJSONSchema
+		config := constraint.GetJsonSchema()
+		if config != nil {
+			raw.JSONSchemaPresent = true
+			raw.JSONSchemaStrictness = startup.RawJSONSchemaStrictness(config.GetStrictness())
+		}
 	case extensionpb.ConstrainedSampling_Grammar_case:
-		mapped, err = mapGrammarSampling(constraint.GetGrammar(), schemaJSON)
+		raw.Kind = startup.RawConstrainedSamplingGrammar
+		config := constraint.GetGrammar()
+		if config != nil {
+			raw.Grammar.Present = true
+			if config.HasLark() {
+				raw.Grammar.Lark = mo.Some(config.GetLark())
+			}
+			if config.HasRegex() {
+				raw.Grammar.Regex = mo.Some(config.GetRegex())
+			}
+		}
 	case extensionpb.ConstrainedSampling_Config_not_set_case:
-		err = errors.New("config is missing")
 	default:
-		err = errors.New("config is invalid")
+		raw.Kind = startup.RawConstrainedSamplingInvalid
 	}
-	if err != nil {
-		return mo.None[tool.ConstrainedSampling](), err
-	}
-	return mo.Some(mapped), nil
-}
-
-// mapJSONSchemaSampling converts the closed public strictness enum.
-func mapJSONSchemaSampling(
-	config *extensionpb.JsonSchemaConstrainedSampling,
-) (tool.ConstrainedSampling, error) {
-	if config == nil {
-		return tool.ConstrainedSampling{}, errors.New("JSON Schema config is missing")
-	}
-	var strictness tool.JSONSchemaStrictness
-	switch config.GetStrictness() {
-	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_PREFER:
-		strictness = tool.JSONSchemaStrictPrefer
-	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE:
-		strictness = tool.JSONSchemaStrictRequire
-	case extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_UNSPECIFIED:
-		return tool.ConstrainedSampling{}, errors.New("JSON Schema strictness is unspecified")
-	default:
-		return tool.ConstrainedSampling{}, errors.New("JSON Schema strictness is invalid")
-	}
-	return tool.ConstrainedSampling{
-		Kind:                 tool.ConstrainedSamplingJSONSchema,
-		JSONSchemaStrictness: mo.Some(strictness),
-		Grammar:              mo.None[tool.GrammarVariants](),
-		GrammarInputProperty: mo.None[string](),
-	}, nil
-}
-
-// mapGrammarSampling validates grammar variants and retains the schema input property.
-func mapGrammarSampling(
-	config *extensionpb.GrammarConstrainedSampling,
-	schemaJSON []byte,
-) (tool.ConstrainedSampling, error) {
-	if config == nil {
-		return tool.ConstrainedSampling{}, errors.New("grammar config is missing")
-	}
-	lark := mo.None[string]()
-	if config.HasLark() {
-		lark = mo.Some(config.GetLark())
-	}
-	regex := mo.None[string]()
-	if config.HasRegex() {
-		regex = mo.Some(config.GetRegex())
-	}
-	larkValue, hasLark := lark.Get()
-	regexValue, hasRegex := regex.Get()
-	if (!hasLark || strings.TrimSpace(larkValue) == "") && (!hasRegex || strings.TrimSpace(regexValue) == "") {
-		return tool.ConstrainedSampling{}, errors.New("grammar requires at least one nonempty grammar variant")
-	}
-	var schema struct {
-		Properties map[string]jsontext.Value `json:"properties"`
-		Required   []string                  `json:"required"`
-	}
-	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
-		return tool.ConstrainedSampling{}, fmt.Errorf("parse grammar schema: %w", err)
-	}
-	if len(schema.Properties) != 1 || len(schema.Required) != 1 || schema.Required[0] == "" {
-		return tool.ConstrainedSampling{}, errors.New("grammar schema must have exactly one required string property")
-	}
-	if err := validateGrammarInputProperty(schema.Properties, schema.Required[0]); err != nil {
-		return tool.ConstrainedSampling{}, err
-	}
-	return tool.ConstrainedSampling{
-		Kind:                 tool.ConstrainedSamplingGrammar,
-		JSONSchemaStrictness: mo.None[tool.JSONSchemaStrictness](),
-		Grammar:              mo.Some(tool.GrammarVariants{Lark: lark, Regex: regex}),
-		GrammarInputProperty: mo.Some(schema.Required[0]),
-	}, nil
-}
-
-// validateGrammarInputProperty enforces the direct single-string input contract.
-func validateGrammarInputProperty(properties map[string]jsontext.Value, required string) error {
-	const rule = "grammar schema must have exactly one required string property"
-
-	propertyJSON, exists := properties[required]
-	if !exists {
-		return errors.New(rule)
-	}
-	var property struct {
-		Type jsontext.Value `json:"type"`
-	}
-	if err := json.Unmarshal(propertyJSON, &property); err != nil {
-		// Keep parser diagnostics with the grammar rule that the property violates.
-		return fmt.Errorf("%s: parse property JSON: %w", rule, err)
-	}
-	if len(property.Type) == 0 {
-		return errors.New(rule)
-	}
-	var propertyType string
-	if err := json.Unmarshal(property.Type, &propertyType); err != nil {
-		// Keep parser diagnostics with the grammar rule that the property type violates.
-		return fmt.Errorf("%s: parse property type JSON: %w", rule, err)
-	}
-	if propertyType != "string" {
-		return errors.New(rule)
-	}
-	return nil
-}
-
-// compileToolSchema compiles a Draft 2020-12 object schema for tool arguments.
-func compileToolSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
-	const schemaLocation = "glyph://extension/input-schema.json"
-
-	var root struct {
-		Type jsontext.Value `json:"type"`
-	}
-	if err := json.Unmarshal(schemaJSON, &root); err != nil {
-		return nil, fmt.Errorf("parse JSON Schema: %w", err)
-	}
-	if len(root.Type) == 0 {
-		return nil, errors.New("schema root type must be object")
-	}
-	var rootType string
-	if err := json.Unmarshal(root.Type, &rootType); err != nil {
-		// Keep parser diagnostics with the schema root rule that the type violates.
-		return nil, fmt.Errorf("schema root type must be object: parse root type JSON: %w", err)
-	}
-	if rootType != "object" {
-		return nil, errors.New("schema root type must be object")
-	}
-
-	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaJSON))
-	if err != nil {
-		return nil, fmt.Errorf("parse JSON Schema: %w", err)
-	}
-	compiler := jsonschema.NewCompiler()
-	compiler.DefaultDraft(jsonschema.Draft2020)
-	registerErr := compiler.AddResource(schemaLocation, document)
-	if registerErr != nil {
-		return nil, fmt.Errorf("register JSON Schema: %w", registerErr)
-	}
-	schema, err := compiler.Compile(schemaLocation)
-	if err != nil {
-		return nil, fmt.Errorf("compile JSON Schema: %w", err)
-	}
-	return schema, nil
-}
-
-// validateArguments parses one JSON value and applies its cached schema.
-func validateArguments(schema *jsonschema.Schema, argumentsJSON []byte) error {
-	arguments, err := jsonschema.UnmarshalJSON(bytes.NewReader(argumentsJSON))
-	if err != nil {
-		return fmt.Errorf("parse arguments JSON: %w", err)
-	}
-	validationErr := schema.Validate(arguments)
-	if validationErr != nil {
-		return fmt.Errorf("validate arguments JSON: %w", validationErr)
-	}
-	return nil
+	return mo.Some(raw)
 }
 
 // mapResultContents converts ordered extension result blocks into domain values.

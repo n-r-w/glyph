@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 
 	openai "github.com/openai/openai-go/v3"
@@ -108,13 +107,7 @@ func (s *Driver) executeRequest(
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
 	}
-	hookedTransport := &hookTransport{
-		base:     baseTransport,
-		runner:   s.hooks,
-		provider: request.Model.Provider,
-		model:    request.Model.Model,
-	}
-	errorTransport := newErrorCaptureTransport(hookedTransport)
+	errorTransport := newErrorCaptureTransport(baseTransport)
 	httpClient := &http.Client{
 		Transport:     errorTransport,
 		CheckRedirect: s.options.httpClient.CheckRedirect,
@@ -421,11 +414,6 @@ func (s *Driver) streamError(
 ) (model.Response, error) {
 	if ctx.Err() != nil {
 		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
-	}
-	if hookFailure, ok := errors.AsType[internalhooks.HookError](streamErr); ok {
-		response := hookFailureResponse(hookFailure)
-		response.ErrorMessage = mo.Some(streamErr.Error())
-		return response, streamErr
 	}
 	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
 		if apiError.StatusCode == http.StatusUnauthorized {

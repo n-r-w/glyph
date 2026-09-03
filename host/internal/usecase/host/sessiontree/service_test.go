@@ -55,20 +55,18 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelRequester(controller)
-			handlers := NewMockHandlerRunner(controller)
+			handlers := NewMockRuntime(controller)
+			service := New(active, models, handlers)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
 			models.EXPECT().ActiveSelection().Return(model.Selection{})
-			handlers.EXPECT().Handlers(HandlerKindRequest).Return(nil)
 			committed := tree
 			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: test.expectedLeaf,
 				BranchSummary: mo.None[BranchSummaryDraft](),
 			}).Return(committed, nil)
-			handlers.EXPECT().Handlers(HandlerKindObserver).Return(nil)
-			service := New(active, models, handlers)
 
 			// Act by navigating to the selected tree entry.
 			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
@@ -94,9 +92,9 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
-	handlers := NewMockHandlerRunner(controller)
-	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
+	handlers := NewMockRuntime(controller)
 	service := New(active, models, handlers)
+	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 
 	// Act by selecting an unknown entry.
 	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
@@ -116,10 +114,10 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
-	handlers := NewMockHandlerRunner(controller)
+	handlers := NewMockRuntime(controller)
+	service := New(active, models, handlers)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	service := New(active, models, handlers)
 
 	// Act after cancellation.
 	_, err := service.NavigateTree(ctx, sessionnavigation.Request{

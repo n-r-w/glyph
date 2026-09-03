@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 )
 
 // testStreamEvent creates a content stream event with no tool or terminal payload.
@@ -279,7 +278,6 @@ func TestServiceStateIsolatesNestedToolPreviewValues(t *testing.T) {
 		model.Descriptor{},
 		model.ReasoningChoiceOff,
 		nil,
-		hookrunner.New(nil, nil, nil),
 		nil,
 		nil,
 	)
@@ -316,7 +314,6 @@ func TestServiceTerminalStreamEventClearsToolCallPreview(t *testing.T) {
 		model.Descriptor{},
 		model.ReasoningChoiceOff,
 		nil,
-		hookrunner.New(nil, nil, nil),
 		nil,
 		nil,
 	)

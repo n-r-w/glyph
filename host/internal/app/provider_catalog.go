@@ -10,8 +10,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	internalhooks "github.com/n-r-w/glyph/host/internal/hooks"
-
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	credentialstore "github.com/n-r-w/glyph/host/internal/infra/persistence/credentials"
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
@@ -27,7 +25,6 @@ func newProviderCatalog(
 	configured settingstore.Settings,
 	paths persistence.Paths,
 	interaction codex.Interaction,
-	hookRunner internalhooks.ProviderRunner,
 ) (*providers.Catalog, error) {
 	providerIDs := slices.Collect(maps.Keys(configured.Providers))
 	slices.Sort(providerIDs)
@@ -47,7 +44,7 @@ func newProviderCatalog(
 				compatibilityKeys[modelID] = configuredModel.Reasoning.CompatibilityKey
 			}
 			provider := codex.New(codex.Config{
-				Hooks: hookRunner, Models: modelIDs, ReasoningCompatibilityKeys: compatibilityKeys,
+				Models: modelIDs, ReasoningCompatibilityKeys: compatibilityKeys,
 			}, credentials, interaction)
 			for modelIndex := range providerConfig.Models {
 				configuredModel := &providerConfig.Models[modelIndex]

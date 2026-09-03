@@ -1,0 +1,360 @@
+edition = "2023";
+
+package glyph.plugins.ui.v1;
+
+import "google/protobuf/timestamp.proto";
+import "api/plugins/ui/v1/agent.proto";
+import "api/plugins/ui/v1/model.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
+
+// SessionInfo contains lifecycle information for one session.
+message SessionInfo {
+  // The opaque session identifier.
+  string id = 1;
+  // The user-assigned name when present.
+  string name = 2;
+  // The canonical project working directory.
+  string working_directory = 3;
+  // The persisted JSONL path when present.
+  string storage_path = 4;
+  // The session creation time.
+  google.protobuf.Timestamp created_time = 5;
+  // The most recent stored update time.
+  google.protobuf.Timestamp update_time = 6;
+}
+
+// SessionSummary contains one stored session selector row.
+message SessionSummary {
+  // The session lifecycle information.
+  SessionInfo info = 1;
+  // The first public user text when present.
+  string first_user_text = 2;
+  // The number of stored public messages.
+  int64 total_messages = 3;
+}
+
+// SessionList carries ordered stored-session summaries.
+message SessionList {
+  // The stored sessions in Host list order.
+  repeated SessionSummary sessions = 1;
+}
+
+// SessionChanged replaces the active session identity and transcript.
+message SessionChanged {
+  // The replacement active-session information.
+  SessionInfo info = 1;
+  // The complete replacement transcript in stored order.
+  repeated SessionEntry entries = 2;
+}
+
+// SessionForked contains the replacement session and exact editable input.
+message SessionForked {
+  // The replacement active session.
+  SessionChanged session = 1;
+  // The exact selected user text.
+  string next_input = 2;
+}
+
+// SessionCloned contains the replacement active session.
+message SessionCloned {
+  // The replacement active session.
+  SessionChanged session = 1;
+}
+
+// EntryLabelSet contains the committed active-session tree.
+message EntryLabelSet {
+  // The committed tree after the label mutation.
+  SessionTree tree = 1;
+}
+
+// SessionTreeResult contains the complete active-session tree.
+message SessionTreeResult {
+  // The committed active-session tree.
+  SessionTree tree = 1;
+}
+
+// SessionTreeNavigationResult reports one committed or canceled navigation.
+message SessionTreeNavigationResult {
+  // The navigation terminal status.
+  SessionTreeNavigationStatus status = 1;
+  // The committed tree. It is absent for canceled navigation.
+  SessionTree tree = 2;
+  // The committed active-branch transcript.
+  repeated SessionEntry active_branch = 3;
+  // The exact editable user input when the selected target is a user message.
+  string next_input = 4;
+  // Safe ordered operation issues.
+  repeated OperationIssue issues = 5;
+}
+
+// SessionTree contains every persisted conversation entry and the active leaf.
+message SessionTree {
+  // Entries in persistence order.
+  repeated SessionTreeEntry entries = 1;
+  // The active leaf when the tree is not at its implicit root.
+  string active_leaf_id = 2;
+}
+
+// SessionTreeEntry contains one entry, its parent relation, and label state.
+message SessionTreeEntry {
+  // The persisted entry identifier.
+  string id = 1;
+  // The parent entry identifier. Absence identifies a root entry.
+  string parent_id = 2;
+  // The persisted entry timestamp.
+  google.protobuf.Timestamp created_time = 3;
+  // The current label. An empty value means no label.
+  string label = 4;
+  // The entry payload.
+  oneof entry {
+    UserMessage user = 5;
+    ModelResponse model = 6;
+    ToolResult tool_result = 7;
+    ExtensionEntry extension = 8;
+    BranchSummary branch_summary = 9;
+  }
+}
+
+// ExtensionEntry identifies one opaque extension entry without private payload bytes.
+message ExtensionEntry {
+  // The configured extension identifier.
+  string extension_id = 1;
+  // The extension-defined entry type.
+  string entry_type = 2;
+}
+
+// BranchSummary contains one persisted abandoned-branch summary.
+message BranchSummary {
+  // The summary text.
+  string summary = 1;
+  // The first summarized abandoned-path entry identifier.
+  string first_entry_id = 2;
+  // The last summarized abandoned-path entry identifier.
+  string last_entry_id = 3;
+  // The configured provider identifier.
+  string provider_id = 4;
+  // The configured model identifier.
+  string model_id = 5;
+  // The reasoning choice used for the summary.
+  ReasoningChoice reasoning_choice = 6;
+  // Normalized usage when reported by the provider.
+  TokenUsage usage = 7;
+  // Persisted estimated cost when available.
+  EstimatedCost estimated_cost = 8;
+}
+
+// OperationIssue reports one safe nonterminal handler or observer issue.
+message OperationIssue {
+  // The stable issue code.
+  OperationIssueCode code = 1;
+  // The configured extension identifier when applicable.
+  string extension_id = 2;
+  // The registered handler identifier when applicable.
+  string handler_id = 3;
+  // The safe issue message.
+  string message = 4;
+}
+
+// SessionEntry contains one restored public terminal payload.
+message SessionEntry {
+  // The persisted entry identifier.
+  string id = 1;
+  // The persisted entry timestamp.
+  google.protobuf.Timestamp created_time = 2;
+  // The entry payload.
+  oneof entry {
+    UserMessage user = 3;
+    ModelResponse model = 4;
+    ToolResult tool_result = 5;
+    BranchSummary branch_summary = 6;
+  }
+}
+
+// ToolResult carries one restored terminal tool result.
+message ToolResult {
+  // The provider-assigned tool call identifier.
+  string call_id = 1;
+  // The executed tool name.
+  string tool_name = 2;
+  // The ordered result content blocks.
+  repeated ToolResultContent contents = 3;
+  // Whether tool execution failed.
+  bool is_error = 4;
+}
+
+// UserMessage carries ordered provider-neutral user content.
+message UserMessage {
+  // The ordered user content.
+  repeated UserContent content = 1;
+}
+
+// UserContent carries one ordered user content item.
+message UserContent {
+  // The content payload.
+  oneof content {
+    string text = 1;
+    UserImage image = 2;
+  }
+}
+
+// UserImage carries exact binary image data and its media type.
+message UserImage {
+  // The image media type.
+  string media_type = 1;
+  // The exact binary image data.
+  bytes data = 2;
+}
+
+// SessionInformation carries active-session information.
+message SessionInformation {
+  // The active-session information.
+  SessionInfo info = 1;
+  // The active-session counts and token totals.
+  SessionStatistics statistics = 2;
+}
+
+// SessionStatistics contains counts and complete normalized token totals.
+message SessionStatistics {
+  // The number of stored user entries.
+  int64 user_messages = 1;
+  // The number of stored terminal model entries, including failures.
+  int64 model_responses = 2;
+  // The number of finalized tool calls inside model entries.
+  int64 tool_calls = 3;
+  // The number of stored tool-result entries.
+  int64 tool_results = 4;
+  // User messages plus model responses plus tool results.
+  int64 total_messages = 5;
+  // Tokens is absent when any stored model response has no usage.
+  TokenUsage tokens = 6;
+  // Estimated cost is absent when any stored model response has no persisted cost.
+  EstimatedCost estimated_cost = 7;
+  // Cost breakdown is ordered by provider identifier and then model identifier.
+  repeated ProviderModelCost cost_breakdown = 8;
+}
+
+// EstimatedCost contains calculated USD cost for disjoint token buckets.
+message EstimatedCost {
+  // Uncached input cost.
+  double input = 1;
+  // Output cost, including reasoning cost.
+  double output = 2;
+  // Cache-read cost.
+  double cache_read = 3;
+  // Cache-write cost.
+  double cache_write = 4;
+  // The sum of all four cost buckets.
+  double total = 5;
+}
+
+// ProviderModelCost groups persisted cost by configured provider and requested model.
+message ProviderModelCost {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The requested model identifier.
+  string model_id = 2;
+  // Estimated cost is absent when any response in this group has no persisted cost.
+  EstimatedCost estimated_cost = 3;
+}
+
+// TokenUsage contains disjoint normalized token buckets.
+message TokenUsage {
+  // Uncached input tokens.
+  int64 input_tokens = 1;
+  // Output tokens, including reasoning tokens.
+  int64 output_tokens = 2;
+  // Cached input tokens.
+  int64 cache_read_tokens = 3;
+  // Cache creation input tokens.
+  int64 cache_write_tokens = 4;
+  // Reasoning tokens are a subset of output tokens.
+  int64 reasoning_tokens = 5;
+  // The sum of input, output, cache-read, and cache-write tokens.
+  int64 total_tokens = 6;
+}
+
+// CreateSessionCommand requests a new empty active session.
+message CreateSessionCommand {}
+
+// ListSessionsCommand requests stored sessions for the active project.
+message ListSessionsCommand {}
+
+// ResumeSessionCommand requests active-session replacement by opaque identifier.
+message ResumeSessionCommand {
+  // The opaque stored session identifier.
+  string session_id = 1;
+}
+
+// SetSessionNameCommand requests a persisted active-session name.
+message SetSessionNameCommand {
+  // The requested session name before Host normalization.
+  string name = 1;
+}
+
+// GetSessionInfoCommand requests active-session information.
+message GetSessionInfoCommand {}
+
+// GetSessionTreeCommand requests the complete active-session tree.
+message GetSessionTreeCommand {}
+
+// NavigateSessionTreeCommand requests one session-tree navigation.
+message NavigateSessionTreeCommand {
+  // The selected tree entry identifier.
+  string target_entry_id = 1;
+  // The requested branch-summary behavior.
+  SummaryMode summary_mode = 2;
+  // The custom summary focus. It is valid only for custom-prompt mode.
+  string custom_focus = 3;
+}
+
+// ForkSessionCommand creates a replacement session before one selected user message.
+message ForkSessionCommand {
+  // The selected user-message entry identifier.
+  string target_entry_id = 1;
+}
+
+// CloneSessionCommand creates a replacement session from the complete active branch.
+message CloneSessionCommand {}
+
+// SetEntryLabelCommand changes or clears one persisted entry label.
+message SetEntryLabelCommand {
+  // The target tree entry identifier.
+  string target_entry_id = 1;
+  // The new label. An empty value clears the label.
+  string label = 2;
+}
+
+// SummaryMode identifies branch-summary behavior for tree navigation.
+enum SummaryMode {
+  // No summary mode was provided.
+  SUMMARY_MODE_UNSPECIFIED = 0;
+  // Navigation creates no branch summary.
+  SUMMARY_MODE_NO_SUMMARY = 1;
+  // Navigation uses the built-in branch summarizer.
+  SUMMARY_MODE_SUMMARIZE = 2;
+  // Navigation uses the built-in summarizer with a custom focus.
+  SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT = 3;
+}
+
+// SessionTreeNavigationStatus identifies a tree-navigation terminal result.
+enum SessionTreeNavigationStatus {
+  // No terminal status was provided.
+  SESSION_TREE_NAVIGATION_STATUS_UNSPECIFIED = 0;
+  // Navigation committed.
+  SESSION_TREE_NAVIGATION_STATUS_COMMITTED = 1;
+  // Navigation was canceled before commit.
+  SESSION_TREE_NAVIGATION_STATUS_CANCELED = 2;
+}
+
+// OperationIssueCode identifies one safe nonterminal issue.
+enum OperationIssueCode {
+  // No issue code was provided.
+  OPERATION_ISSUE_CODE_UNSPECIFIED = 0;
+  // An extension handler returned an ordinary error.
+  OPERATION_ISSUE_CODE_HANDLER_ERROR = 1;
+  // An extension handler returned an invalid action.
+  OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
+  // A post-commit observer returned an error.
+  OPERATION_ISSUE_CODE_OBSERVER_ERROR = 3;
+}

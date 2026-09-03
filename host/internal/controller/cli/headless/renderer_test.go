@@ -16,9 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
 // rendererTextDeltaEvent creates one visible model text delta.
@@ -86,9 +87,9 @@ func TestRendererReportsRuntimeFailure(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
 
-	err := renderer.ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
+	err := renderer.ReportRuntimeFailure(t.Context(), extension.RuntimeFailure{
 		PluginID:  "crashed-plugin",
-		Condition: tool.RuntimeUnavailableProcessExited,
+		Condition: extension.RuntimeUnavailableProcessExited,
 	})
 
 	require.NoError(t, err)
@@ -407,14 +408,14 @@ func TestRendererWritesStartupInformationAndFailures(t *testing.T) {
 
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
-	issue := extensionservice.Issue{
+	issue := startup.Issue{
 		PluginIDs: []string{"broken"},
 		Path:      "/plugins/broken",
 		Err:       errors.New("handshake failed"),
 	}
-	report := extensionservice.LoadReport{
-		Issues: []extensionservice.Issue{issue},
-		Extensions: []extensionservice.LoadedExtension{
+	report := startup.LoadReport{
+		Issues: []startup.Issue{issue},
+		Extensions: []startup.AcceptedRegistration{
 			{
 				Path: "",
 				ID:   "tools",
@@ -456,7 +457,7 @@ func TestRendererReportsEmptyExtensionCatalogAsInformation(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
 
-	require.NoError(t, renderer.ReportSummary(t.Context(), extensionservice.LoadReport{}))
+	require.NoError(t, renderer.ReportSummary(t.Context(), startup.LoadReport{}))
 
 	assert.Equal(t, "[info] headless\n[info] extensions: none\n", stderr.String())
 }

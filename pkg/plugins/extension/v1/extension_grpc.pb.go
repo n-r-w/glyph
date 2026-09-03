@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v0.14.1-v0.16.6-bufbuild-protocompile-easyp
-// source: api/plugins/extension/v1/tool.proto
+// source: api/plugins/extension/v1/extension.proto
 
 package extensionv1
 
@@ -117,5 +117,5 @@ var ExtensionService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "api/plugins/extension/v1/tool.proto",
+	Metadata: "api/plugins/extension/v1/extension.proto",
 }

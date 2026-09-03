@@ -1,0 +1,95 @@
+edition = "2023";
+
+package glyph.programmatic.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
+
+// GetModels requests the configured model catalogue and active selection.
+message GetModels {}
+// SelectModel selects one configured provider and model.
+message SelectModel {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+}
+// SelectReasoningChoice selects the active model reasoning choice.
+message SelectReasoningChoice {
+  // The requested reasoning choice.
+  ReasoningChoice choice = 1;
+}
+// ModelsResult contains the configured model catalogue and active selection.
+message ModelsResult {
+  // The configured models in catalogue order.
+  repeated ConfiguredModel models = 1;
+  // The active model selection.
+  ModelSelection active_selection = 2;
+}
+// ConfiguredModel describes one configured provider model.
+message ConfiguredModel {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The model reasoning capabilities.
+  ReasoningCapabilities reasoning = 3;
+  // The ordered input modalities accepted by the model.
+  repeated InputModality input_modalities = 4;
+  // The maximum combined input and generated-output token capacity.
+  int64 context_window = 5;
+  // The maximum generated-output token count.
+  int64 max_tokens = 6;
+}
+// ReasoningCapabilities describes one model reasoning contract.
+message ReasoningCapabilities {
+  // Whether the model can produce reasoning.
+  bool supported = 1;
+  // The effective choices in configured order.
+  repeated ReasoningChoice choices = 2;
+  // The model default choice.
+  ReasoningChoice default_choice = 3;
+}
+// ModelSelection identifies the active provider, model, and reasoning choice.
+message ModelSelection {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The active reasoning choice.
+  ReasoningChoice reasoning_choice = 3;
+}
+// ModelSelectionResult contains the committed model selection.
+message ModelSelectionResult {
+  // The committed model selection.
+  ModelSelection selection = 1;
+}
+// InputModality identifies one model input content kind.
+enum InputModality {
+  // No input modality was provided.
+  INPUT_MODALITY_UNSPECIFIED = 0;
+  // Text input.
+  INPUT_MODALITY_TEXT = 1;
+  // Image input.
+  INPUT_MODALITY_IMAGE = 2;
+}
+// ReasoningChoice identifies provider-neutral reasoning behavior.
+enum ReasoningChoice {
+  // No reasoning choice was provided.
+  REASONING_CHOICE_UNSPECIFIED = 0;
+  // Reasoning effort is disabled.
+  REASONING_CHOICE_OFF = 1;
+  // Reasoning is enabled with the provider default.
+  REASONING_CHOICE_ON = 2;
+  // Minimal reasoning effort.
+  REASONING_CHOICE_MINIMAL = 3;
+  // Low reasoning effort.
+  REASONING_CHOICE_LOW = 4;
+  // Medium reasoning effort.
+  REASONING_CHOICE_MEDIUM = 5;
+  // High reasoning effort.
+  REASONING_CHOICE_HIGH = 6;
+  // Extra-high reasoning effort.
+  REASONING_CHOICE_XHIGH = 7;
+  // Maximum reasoning effort.
+  REASONING_CHOICE_MAX = 8;
+}

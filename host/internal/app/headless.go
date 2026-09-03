@@ -10,8 +10,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
@@ -22,8 +20,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
 // runHeadlessWithPaths preserves the accepted one-shot Host composition.
@@ -40,7 +39,8 @@ func runHeadlessWithPaths(
 	}
 
 	renderer := headless.NewRenderer(stdout, stderr)
-	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
+	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
+	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
 		extensions.Close()
@@ -50,7 +50,7 @@ func runHeadlessWithPaths(
 		extensions.Close()
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
-	startupService := startup.New(extensions.Load)
+	startupService := startup.New(extensions, tools, sessionServices.tree)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, renderer)
@@ -59,8 +59,7 @@ func runHeadlessWithPaths(
 	}
 	extensions.Activate(ctx)
 
-	hookRunner := hookrunner.New(nil, nil, nil)
-	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
+	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New())
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
@@ -68,7 +67,7 @@ func runHeadlessWithPaths(
 	sessionServices.modelRequester.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	controller := headless.New(coordinator)

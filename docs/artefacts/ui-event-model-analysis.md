@@ -52,7 +52,7 @@ The analysis examined:
 - Agent Core event production and Host event dispatch in `host/internal/usecase/agent/run` and `host/internal/usecase/host/events`.
 - UI Plugin Contract event and operation messages in `api/plugins/ui/v1`.
 - Programmatic Control event and operation messages in `api/programmatic/v1`.
-- Extension operations and session-tree handlers in `api/plugins/extension/v1`, `host/internal/usecase/host/extensions`, and `host/internal/usecase/host/sessiontree`.
+- Extension operations and implemented ownership in `api/plugins/extension/v1`, `host/internal/usecase/host/extensionruntime`, `host/internal/usecase/host/tools`, `host/internal/usecase/host/sessiontree`, and `host/internal/usecase/host/startup`.
 - Target requirements and planned phases in `docs/specs/features/initial/prd.md`, `architecture.md`, `delivery-plan.md`, and the PHS-07, PHS-10, PHS-13, and PHS-14 tickets.
 - Pi feature evidence in `docs/artefacts/pi-extension-surface.md`.
 

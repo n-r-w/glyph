@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
 // Service coordinates navigation preparation, branch summarization, and atomic session commit.
@@ -18,15 +20,33 @@ type Service struct {
 	active ActiveSession
 	// modelRequester supplies selection state and executes model requests.
 	modelRequester ModelRequester
-	// handlers supplies ordered extension handlers for navigation.
-	handlers HandlerRunner
+	// runtime supplies availability and low-level handler invocation.
+	runtime Runtime
+	// mutex protects accepted handler registrations.
+	mutex sync.RWMutex
+	// handlers contains accepted handlers in startup registration order.
+	handlers []registeredHandler
 }
 
-var _ sessioncontrol.Navigator = (*Service)(nil)
+var (
+	_ sessioncontrol.Navigator = (*Service)(nil)
+	_ startup.HandlerRegistrar = (*Service)(nil)
+)
+
+// registeredHandler identifies one accepted handler and its extension point.
+type registeredHandler struct {
+	// Handler identifies the owning extension and extension-local handler.
+	Handler Handler
+	// Kind identifies the accepted session-tree extension point.
+	Kind HandlerKind
+}
 
 // New creates an internal session-tree navigation service.
-func New(active ActiveSession, modelRequester ModelRequester, handlers HandlerRunner) *Service {
-	return &Service{active: active, modelRequester: modelRequester, handlers: handlers}
+func New(active ActiveSession, modelRequester ModelRequester, runtime Runtime) *Service {
+	return &Service{
+		active: active, modelRequester: modelRequester, runtime: runtime,
+		mutex: sync.RWMutex{}, handlers: nil,
+	}
 }
 
 // NavigateTree composes extension handlers around one atomic navigation commit.

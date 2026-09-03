@@ -15,9 +15,7 @@ import (
 
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
-
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 
@@ -32,8 +30,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
@@ -51,9 +50,9 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("load Glyph settings: %w", err)
 	}
 
-	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), func(
+	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), func(
 		reportContext context.Context,
-		failure tool.RuntimeFailure,
+		failure extension.RuntimeFailure,
 	) error {
 		message, runtimeErr := failure.Message()
 		slog.ErrorContext(reportContext, message,
@@ -62,6 +61,7 @@ func runProgrammaticWithPaths(
 		)
 		return nil
 	})
+	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
 		extensions.Close()
@@ -77,7 +77,7 @@ func runProgrammaticWithPaths(
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}
 	defer closeExtensions()
-	startupService := startup.New(extensions.Load)
+	startupService := startup.New(extensions, tools, sessionServices.tree)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}); err != nil {
@@ -85,8 +85,7 @@ func runProgrammaticWithPaths(
 	}
 	extensions.Activate(ctx)
 
-	hookRunner := hookrunner.New(nil, nil, nil)
-	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New(), hookRunner)
+	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New())
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
@@ -95,7 +94,7 @@ func runProgrammaticWithPaths(
 	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	session := hostprogrammatic.New(

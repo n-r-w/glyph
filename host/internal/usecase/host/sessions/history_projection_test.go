@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/hooks/runner"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -186,7 +185,7 @@ func (s *ServiceSuite) TestNextProviderRequestPreservesCompleteRestartedToolHist
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := agentrun.New("instructions", runtime, runner.New(nil, nil, nil), tools, events, restarted)
+	service := agentrun.New("instructions", runtime, tools, events, restarted)
 
 	_, err = service.Run(s.T().Context(), agentrun.Request{RunID: "next", UserText: "second"})
 	s.Require().ErrorIs(err, providerErr)

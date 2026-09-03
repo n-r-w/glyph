@@ -234,8 +234,8 @@ None.
 - REF-08: `host/internal/usecase/host/programmatic/service.go` - current Programmatic Control use case.
 - REF-09: `host/internal/usecase/host/ui/session.go` - current UI Host session loop.
 - REF-10: `host/internal/infra/persistence/paths.go` - current Glyph data paths and permissions.
-- REF-11: `api/programmatic/v1/programmatic.proto` - Programmatic Control transport contract.
-- REF-12: `api/plugins/ui/v1/ui.proto` - UI plugin transport contract.
+- REF-11: `api/programmatic/v1` - Programmatic Control contract sources.
+- REF-12: `api/plugins/ui/v1` - UI Plugin Contract sources.
 - REF-13: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/session-format.md` - Pi JSONL session reference.
 - REF-14: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/rpc.md` - Pi session statistics reference.
 - REF-15: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js` - Pi append and discovery behavior used for feature comparison.

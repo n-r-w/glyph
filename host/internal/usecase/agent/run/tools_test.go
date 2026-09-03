@@ -12,8 +12,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -144,7 +142,6 @@ func TestServiceRunToolUse(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)
@@ -278,7 +275,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	}, nil)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	service := New(
-		testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, newMockHistoryStore(t),
+		testInstructions, runtime, tools, events, newMockHistoryStore(t),
 	)
 	result := make(chan error, 1)
 
@@ -368,7 +365,6 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)
@@ -426,7 +422,6 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)

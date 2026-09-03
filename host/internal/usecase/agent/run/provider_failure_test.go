@@ -14,8 +14,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -65,7 +63,6 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)
@@ -110,7 +107,6 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)
@@ -180,7 +176,6 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 		testModelDescriptor,
 		model.ReasoningChoiceHigh,
 		provider,
-		hookrunner.New(nil, nil, nil),
 		tools,
 		events,
 	)
@@ -273,7 +268,7 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 	}).AnyTimes()
 	service := newTestService(
 		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
-		provider, hookrunner.New(nil, nil, nil), tools, events,
+		provider, tools, events,
 	)
 
 	// Act by running through the joined provider and recorded delivery failure.
@@ -329,7 +324,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 		}
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, hookrunner.New(nil, nil, nil), tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running the combined provider and persistence failure.
 	result, err := service.Run(t.Context(), Request{RunID: "combined-failure", UserText: "hello"})
@@ -384,7 +379,6 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			testModelDescriptor,
 			model.ReasoningChoiceHigh,
 			provider,
-			hookrunner.New(nil, nil, nil),
 			tools,
 			events,
 		)
@@ -438,7 +432,7 @@ func TestServiceRunRejectsUnknownTerminalOutcome(t *testing.T) {
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	service := newTestService(
 		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
-		provider, hookrunner.New(nil, nil, nil), tools, events,
+		provider, tools, events,
 	)
 
 	_, err := service.Run(t.Context(), Request{RunID: "run-unknown-outcome", UserText: "hi"})

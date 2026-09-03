@@ -1,0 +1,359 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+import "api/plugins/extension/v1/tool.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// HandlerDescriptor registers one session-tree handler.
+message HandlerDescriptor {
+  // The extension-local handler identifier.
+  string id = 1;
+  // The closed handler kind.
+  HandlerKind kind = 2;
+}
+
+// HandlerKind identifies one session-tree extension point.
+enum HandlerKind {
+  // No handler kind was provided.
+  HANDLER_KIND_UNSPECIFIED = 0;
+  // The handler transforms a navigation request and optional summary result.
+  HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST = 1;
+  // The handler transforms a completed branch-summary result.
+  HANDLER_KIND_SESSION_BEFORE_TREE_RESULT = 2;
+  // The handler observes committed tree navigation.
+  HANDLER_KIND_SESSION_TREE = 3;
+}
+
+// HandleRequest invokes one registered handler with its typed payload.
+message HandleRequest {
+  // The registered extension-local handler identifier.
+  string handler_id = 1;
+  // The payload allowed for the registered handler kind.
+  oneof payload {
+    SessionBeforeTreeRequestInvocation session_before_tree_request = 2;
+    SessionBeforeTreeResultInvocation session_before_tree_result = 3;
+    SessionTreeInvocation session_tree = 4;
+  }
+}
+
+// HandleResponse returns one typed action or ordinary handler error.
+message HandleResponse {
+  // The action or ordinary failure returned by the registered handler.
+  oneof outcome {
+    SessionBeforeTreeRequestAction session_before_tree_request = 1;
+    SessionBeforeTreeResultAction session_before_tree_result = 2;
+    SessionTreeAction session_tree = 3;
+    HandlerError error = 4;
+  }
+}
+
+// HandlerError reports one ordinary handler failure without invalidating the extension runtime.
+message HandlerError {
+  // The safe handler failure message.
+  string message = 1;
+}
+
+// SessionBeforeTreeRequestInvocation carries immutable original and current navigation state.
+message SessionBeforeTreeRequestInvocation {
+  // The immutable original navigation request.
+  SessionTreeNavigationRequest original_request = 1;
+  // The immutable preparation for the original request.
+  SessionTreePreparation original_preparation = 2;
+  // The navigation request produced by preceding handlers.
+  SessionTreeNavigationRequest current_request = 3;
+  // The preparation for the current request.
+  SessionTreePreparation current_preparation = 4;
+  // The summary result produced by preceding handlers, when present.
+  BranchSummaryResult current_result = 5;
+}
+
+// SessionBeforeTreeResultInvocation carries immutable original state and the current summary result.
+message SessionBeforeTreeResultInvocation {
+  // The immutable original navigation request.
+  SessionTreeNavigationRequest original_request = 1;
+  // The immutable preparation for the original request.
+  SessionTreePreparation original_preparation = 2;
+  // The final navigation request after request handlers.
+  SessionTreeNavigationRequest current_request = 3;
+  // The preparation for the final navigation request.
+  SessionTreePreparation current_preparation = 4;
+  // The immutable result that entered result handling.
+  BranchSummaryResult original_result = 5;
+  // The result produced by preceding result handlers.
+  BranchSummaryResult current_result = 6;
+}
+
+// SessionTreeInvocation reports one committed tree navigation.
+message SessionTreeInvocation {
+  // The active session identifier.
+  string session_id = 1;
+  // The user-selected target entry identifier.
+  string target_entry_id = 2;
+  // The source active leaf before navigation, when present.
+  string preceding_active_leaf_id = 3;
+  // The committed navigation destination, when present.
+  string navigation_destination_id = 4;
+  // The committed active leaf, when present.
+  string committed_active_leaf_id = 5;
+  // The complete created branch summary, when present.
+  CommittedBranchSummary created_summary = 6;
+}
+
+// SessionBeforeTreeRequestAction changes request-handler state or cancels navigation.
+message SessionBeforeTreeRequestAction {
+  // Whether navigation is canceled.
+  bool cancel = 1;
+  // The request action.
+  RequestAction request_action = 2;
+  // The replacement request required by REQUEST_ACTION_REPLACE.
+  SessionTreeNavigationRequest request = 3;
+  // The result action.
+  ResultAction result_action = 4;
+  // The replacement result required by RESULT_ACTION_REPLACE.
+  BranchSummaryResult result = 5;
+}
+
+// SessionBeforeTreeResultAction changes the summary result or cancels navigation.
+message SessionBeforeTreeResultAction {
+  // Whether navigation is canceled.
+  bool cancel = 1;
+  // The result action.
+  ResultAction result_action = 2;
+  // The replacement result required by RESULT_ACTION_REPLACE.
+  BranchSummaryResult result = 3;
+}
+
+// SessionTreeAction acknowledges one committed navigation event.
+message SessionTreeAction {}
+
+// RequestAction identifies how one request handler changes the current request.
+enum RequestAction {
+  // No request action was provided.
+  REQUEST_ACTION_UNSPECIFIED = 0;
+  // Preserve the current request.
+  REQUEST_ACTION_PRESERVE = 1;
+  // Replace the current request.
+  REQUEST_ACTION_REPLACE = 2;
+}
+
+// ResultAction identifies how one handler changes an optional summary result.
+enum ResultAction {
+  // No result action was provided.
+  RESULT_ACTION_UNSPECIFIED = 0;
+  // Preserve the current result.
+  RESULT_ACTION_PRESERVE = 1;
+  // Replace or set the current result.
+  RESULT_ACTION_REPLACE = 2;
+  // Clear the current result.
+  RESULT_ACTION_CLEAR = 3;
+}
+
+// SessionTreeNavigationRequest contains one requested navigation and summary model selection.
+message SessionTreeNavigationRequest {
+  // The user-selected target entry identifier.
+  string target_entry_id = 1;
+  // The requested summary behavior.
+  SummaryMode summary_mode = 2;
+  // The custom summary focus, when requested.
+  string custom_focus = 3;
+  // The configured model used for branch summarization.
+  ModelSelection summary_model = 4;
+}
+
+// SummaryMode identifies branch summarization behavior.
+enum SummaryMode {
+  // No summary mode was provided.
+  SUMMARY_MODE_UNSPECIFIED = 0;
+  // Navigate without branch summarization.
+  SUMMARY_MODE_NO_SUMMARY = 1;
+  // Summarize the abandoned branch.
+  SUMMARY_MODE_SUMMARIZE = 2;
+  // Summarize the abandoned branch with custom focus.
+  SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT = 3;
+}
+
+// ModelSelection identifies one configured provider, model, and reasoning choice.
+message ModelSelection {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifier.
+  string model_id = 2;
+  // The configured reasoning choice.
+  string reasoning_choice = 3;
+}
+
+// SessionTreePreparation contains Host-computed context for one navigation request.
+message SessionTreePreparation {
+  // The active session identifier.
+  string session_id = 1;
+  // The source active leaf before navigation, when present.
+  string preceding_active_leaf_id = 2;
+  // The selected conversation destination, when present.
+  string navigation_destination_id = 3;
+  // The last common ancestor, when present.
+  string common_ancestor_id = 4;
+  // The abandoned active-branch entries in root-first order.
+  repeated SessionTreeEntry abandoned_entries = 5;
+}
+
+// SessionTreeEntry contains one provider-neutral abandoned-branch entry.
+message SessionTreeEntry {
+  // The session entry identifier.
+  string id = 1;
+  // The model-visible or opaque entry projection.
+  oneof content {
+    SessionTreeUserMessage user = 2;
+    SessionTreeModelResponse model = 3;
+    SessionTreeToolResult tool_result = 4;
+    SessionTreeBranchSummary branch_summary = 5;
+    SessionTreeExtensionEntry extension = 6;
+  }
+}
+
+// SessionTreeUserMessage contains one user message.
+message SessionTreeUserMessage {
+  // The ordered user content blocks.
+  repeated SessionTreeUserContent content = 1;
+}
+
+// SessionTreeUserContent contains one text or image input block.
+message SessionTreeUserContent {
+  // The user content payload.
+  oneof content {
+    string text = 1;
+    SessionTreeImage image = 2;
+  }
+}
+
+// SessionTreeImage contains one encoded image.
+message SessionTreeImage {
+  // The image media type.
+  string media_type = 1;
+  // The encoded image bytes.
+  bytes data = 2;
+}
+
+// SessionTreeModelResponse contains provider-neutral model output.
+message SessionTreeModelResponse {
+  // The ordered model-visible response blocks.
+  repeated SessionTreeModelContent content = 1;
+}
+
+// SessionTreeModelContent contains one finalized model response block.
+message SessionTreeModelContent {
+  // The semantic content kind.
+  SessionTreeModelContentKind kind = 1;
+  // The finalized text for text, refusal, or reasoning content.
+  string text = 2;
+  // The finalized tool call for tool-call content.
+  SessionTreeToolCall tool_call = 3;
+}
+
+// SessionTreeModelContentKind identifies provider-neutral model content.
+enum SessionTreeModelContentKind {
+  // No model content kind was provided.
+  SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED = 0;
+  // Public model response text.
+  SESSION_TREE_MODEL_CONTENT_KIND_TEXT = 1;
+  // Model refusal text.
+  SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL = 2;
+  // Model reasoning text.
+  SESSION_TREE_MODEL_CONTENT_KIND_REASONING = 3;
+  // A model-requested tool call.
+  SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL = 4;
+}
+
+// SessionTreeToolCall contains one provider-neutral tool request.
+message SessionTreeToolCall {
+  // The tool call identifier.
+  string id = 1;
+  // The requested tool name.
+  string name = 2;
+  // The JSON-encoded tool arguments.
+  bytes arguments_json = 3;
+}
+
+// SessionTreeToolResult contains one terminal tool result.
+message SessionTreeToolResult {
+  // The source tool call identifier.
+  string call_id = 1;
+  // The source tool name.
+  string tool_name = 2;
+  // The ordered terminal result blocks.
+  repeated ToolResultContent contents = 3;
+  // Whether tool execution ended with an error.
+  bool is_error = 4;
+}
+
+// SessionTreeBranchSummary contains one prior persisted summary.
+message SessionTreeBranchSummary {
+  // The persisted summary text.
+  string summary = 1;
+}
+
+// SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.
+message SessionTreeExtensionEntry {
+  // The extension identifier.
+  string extension_id = 1;
+  // The extension-owned entry type.
+  string entry_type = 2;
+}
+
+// BranchSummaryResult contains extension-produced summary output.
+message BranchSummaryResult {
+  // The nonempty summary text.
+  string summary = 1;
+  // Normalized provider usage, when reported.
+  TokenUsage usage = 2;
+}
+
+// TokenUsage contains normalized token accounting.
+message TokenUsage {
+  // Input tokens excluding cache buckets.
+  int64 input_tokens = 1;
+  // Output tokens excluding reasoning tokens.
+  int64 output_tokens = 2;
+  // Cache-read input tokens.
+  int64 cache_read_tokens = 3;
+  // Cache-write input tokens.
+  int64 cache_write_tokens = 4;
+  // Reasoning output tokens.
+  int64 reasoning_tokens = 5;
+  // Total tokens across all buckets.
+  int64 total_tokens = 6;
+}
+
+// CommittedBranchSummary contains the complete Host-committed summary entry.
+message CommittedBranchSummary {
+  // The committed session entry identifier.
+  string entry_id = 1;
+  // The persisted summary text.
+  string summary = 2;
+  // The first abandoned entry identifier.
+  string first_entry_id = 3;
+  // The last abandoned entry identifier.
+  string last_entry_id = 4;
+  // The configured model used to produce the summary.
+  ModelSelection summary_model = 5;
+  // Normalized provider usage, when reported.
+  TokenUsage usage = 6;
+  // Persisted estimated cost, when calculable.
+  EstimatedCost estimated_cost = 7;
+}
+
+// EstimatedCost contains persisted USD cost buckets.
+message EstimatedCost {
+  // Uncached input-token cost.
+  double input = 1;
+  // Output-token cost.
+  double output = 2;
+  // Cache-read token cost.
+  double cache_read = 3;
+  // Cache-write token cost.
+  double cache_write = 4;
+  // Total cost across all buckets.
+  double total = 5;
+}
+

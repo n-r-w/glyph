@@ -222,8 +222,8 @@ None.
 - REF-07: `host/internal/infra/providers/openai/compatible/chat.go` - Chat Completions request, history, and stream mapping.
 - REF-08: `host/internal/infra/providers/openai/compatible/responses.go` - Responses reasoning and encrypted context mapping.
 - REF-08.1: `host/internal/infra/providers/openai/compatible/reasoning.go` - private Chat Completions format parsing, request mapping, OpenRouter detail assembly, and replay.
-- REF-09: `api/programmatic/v1/programmatic.proto` - Programmatic Control model-selection contract.
-- REF-10: `api/plugins/ui/v1/ui.proto` - UI plugin model-selection and model-content contract.
+- REF-09: `api/programmatic/v1/model.proto` - Programmatic Control model-selection contract.
+- REF-10: `api/plugins/ui/v1` - UI plugin model-selection and model-content contract sources.
 - REF-11: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js` - Pi same-model reasoning replay and cross-model visible-text fallback reference.
 - REF-12: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js` - Pi OpenAI Responses reasoning effort and encrypted-content reference.
 - REF-13: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js` - Pi OpenRouter request mapping and `reasoning_details` replay comparison.

@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	extensions "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +41,7 @@ func (m *MockReporter) EXPECT() *MockReporterMockRecorder {
 }
 
 // ReportIssue mocks base method.
-func (m *MockReporter) ReportIssue(ctx context.Context, issue extensions.Issue) error {
+func (m *MockReporter) ReportIssue(ctx context.Context, issue Issue) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportIssue", ctx, issue)
 	ret0, _ := ret[0].(error)
@@ -56,7 +55,7 @@ func (mr *MockReporterMockRecorder) ReportIssue(ctx, issue any) *gomock.Call {
 }
 
 // ReportSummary mocks base method.
-func (m *MockReporter) ReportSummary(ctx context.Context, report extensions.LoadReport) error {
+func (m *MockReporter) ReportSummary(ctx context.Context, report LoadReport) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportSummary", ctx, report)
 	ret0, _ := ret[0].(error)

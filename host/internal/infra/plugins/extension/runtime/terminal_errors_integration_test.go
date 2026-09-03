@@ -11,7 +11,8 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
@@ -73,7 +74,7 @@ func TestRuntimeKeepsExecuteRejectionAndFailureAvailable(t *testing.T) {
 			// Assert: preserve the wrapper, category, full Host context, source text, and runtime availability.
 			assertRuntimeTerminalError(t, terminalErr, testCase.rejection, testCase.code, testCase.sourceText)
 			require.ErrorContains(t, terminalErr, `execute extension tool "read"`)
-			require.NotErrorIs(t, terminalErr, extensionservice.ErrExtensionUnavailable)
+			require.NotErrorIs(t, terminalErr, extensionruntime.ErrExtensionUnavailable)
 			require.NoError(t, laterErr)
 			assert.Equal(t, tool.TextContents("done"), later.Contents)
 		})
@@ -115,9 +116,9 @@ func TestRuntimeKeepsHandleRejectionAndFailureAvailable(t *testing.T) {
 			// Assert: preserve the wrapper, category, full Host context, source text, and runtime availability.
 			assertRuntimeTerminalError(t, terminalErr, testCase.rejection, testCase.code, testCase.sourceText)
 			require.ErrorContains(t, terminalErr, `handle extension handler "observer"`)
-			require.NotErrorIs(t, terminalErr, extensionservice.ErrExtensionUnavailable)
+			require.NotErrorIs(t, terminalErr, extensionruntime.ErrExtensionUnavailable)
 			require.NoError(t, laterErr)
-			assert.True(t, later.SessionTree.IsPresent())
+			assert.True(t, later.Observer.IsPresent())
 		})
 	}
 }
@@ -183,11 +184,11 @@ func assertRuntimeTerminalError(
 }
 
 // validSessionTreeHandlerRequest returns one valid observer invocation.
-func validSessionTreeHandlerRequest() extensionservice.HandlerRequest {
-	return extensionservice.HandlerRequest{
-		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-		SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+func validSessionTreeHandlerRequest() sessiontree.HandlerRequest {
+	return sessiontree.HandlerRequest{
+		Request: mo.None[sessiontree.RequestHandlerInvocation](),
+		Result:  mo.None[sessiontree.ResultHandlerInvocation](),
+		Observer: mo.Some(sessiontree.TreeObserverInvocation{
 			SessionID: "session", TargetEntryID: "target",
 			PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
 			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[session.Entry](),

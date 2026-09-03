@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -73,9 +74,9 @@ func TestDeliveryReportsRuntimeFailure(t *testing.T) {
 		return nil
 	})
 
-	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), tool.RuntimeFailure{
+	err := NewDelivery(channel).ReportRuntimeFailure(t.Context(), extension.RuntimeFailure{
 		PluginID:  "crashed-plugin",
-		Condition: tool.RuntimeUnavailableProcessExited,
+		Condition: extension.RuntimeUnavailableProcessExited,
 	})
 
 	require.NoError(t, err)

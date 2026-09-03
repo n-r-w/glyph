@@ -90,5 +90,5 @@ No additional technical design is selected by this ticket. Contract shapes and p
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
-- REF-03: [UI plugin process contract](../../../../../../api/plugins/ui/v1/ui.proto) - UI plugin process contract.
+- REF-03: [UI Plugin Contract sources](../../../../../../api/plugins/ui/v1) - UI plugin process contract.
 - REF-04: [UI event-model analysis](../../../../../artefacts/ui-event-model-analysis.md) - unresolved event and UI ownership questions that must be resolved before this phase receives a technical solution.

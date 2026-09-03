@@ -22,7 +22,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -256,7 +255,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		tools := agentrun.NewMockToolRuntime(mockController)
 		tools.EXPECT().Tools().Return(nil).AnyTimes()
 		agentCore := agentrun.New(
-			"instructions", runtime, hookrunner.New(nil, nil, nil), tools, eventSink, historyStore,
+			"instructions", runtime, tools, eventSink, historyStore,
 		)
 		coordinator := NewMockCoordinator(mockController)
 		coordinator.EXPECT().PrepareRun().Return("run-progress-failure", nil)

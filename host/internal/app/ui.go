@@ -15,7 +15,6 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	"github.com/n-r-w/glyph/host/internal/infra/browser"
 	uilogging "github.com/n-r-w/glyph/host/internal/infra/logging"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
@@ -30,8 +29,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -87,14 +87,15 @@ func runUIWithPaths(
 	}
 
 	delivery := hostui.NewDelivery(channel)
-	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
+	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
+	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
 		selection.Runtime.Close()
 		extensions.Close()
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
-	startupService := startup.New(extensions.Load)
+	startupService := startup.New(extensions, tools, sessionServices.tree)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	})
@@ -104,9 +105,8 @@ func runUIWithPaths(
 		return fmt.Errorf("start UI Host extensions: %w", err)
 	}
 
-	hookRunner := hookrunner.New(nil, nil, nil)
 	interaction := interactions.NewUI(delivery.PresentAuthorizationURL, browser.New())
-	providerCatalog, err := newProviderCatalog(configured, paths, interaction, hookRunner)
+	providerCatalog, err := newProviderCatalog(configured, paths, interaction)
 	if err != nil {
 		selection.Runtime.Close()
 		extensions.Close()
@@ -116,7 +116,7 @@ func runUIWithPaths(
 	sessionServices.modelRequester.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, hookRunner, extensions, dispatcher, sessionServices.active,
+		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	session := hostui.NewSession(
@@ -147,7 +147,7 @@ func runUIWithPaths(
 }
 
 // mapUIExtensionLoadReport maps extension startup state to the UI-owned initialization input.
-func mapUIExtensionLoadReport(report extensionservice.LoadReport) hostui.ExtensionLoadReport {
+func mapUIExtensionLoadReport(report startup.LoadReport) hostui.ExtensionLoadReport {
 	issues := make([]hostui.ExtensionLoadIssue, len(report.Issues))
 	for index := range report.Issues {
 		issues[index] = hostui.ExtensionLoadIssue{

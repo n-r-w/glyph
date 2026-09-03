@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	hookrunner "github.com/n-r-w/glyph/host/internal/hooks/runner"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
 
@@ -143,7 +142,7 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	}
 
 	// Act by building the shared Host provider catalog.
-	catalog, err := newProviderCatalog(configured, paths, interactions.New(), hookrunner.New(nil, nil, nil))
+	catalog, err := newProviderCatalog(configured, paths, interactions.New())
 
 	// Assert every configured model, order, and default selection are exact.
 	require.NoError(t, err)

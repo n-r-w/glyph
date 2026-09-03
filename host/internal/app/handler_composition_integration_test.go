@@ -16,14 +16,16 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -71,21 +73,27 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	writeHandlerFixtureScript(t, extensionDirectory, "01-supply", handlerFixtureSupplyMode, "")
 	observerPath := filepath.Join(t.TempDir(), "observed")
 	writeHandlerFixtureScript(t, extensionDirectory, "02-refine", handlerFixtureRefineMode, observerPath)
-	extensions := extensionservice.New(catalog.New(), extensionruntime.NewFactory(), func(
+	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), func(
 		context.Context,
-		tool.RuntimeFailure,
+		extension.RuntimeFailure,
 	) error {
 		return nil
 	})
 	t.Cleanup(extensions.Close)
-	report, err := extensions.Load(t.Context(), extensionservice.Directory{Path: extensionDirectory, Explicit: true})
+	controller := gomock.NewController(t)
+	active := sessiontree.NewMockActiveSession(controller)
+	models := sessiontree.NewMockModelRequester(controller)
+	service := sessiontree.New(active, models, extensions)
+	tools := toolservice.New(extensions)
+	startupService := startup.New(extensions, tools, service)
+	report, err := startupService.Load(
+		t.Context(),
+		startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
+	)
 	require.NoError(t, err)
 	require.Empty(t, report.Issues)
 	extensions.Activate(t.Context())
 
-	controller := gomock.NewController(t)
-	active := sessiontree.NewMockActiveSession(controller)
-	models := sessiontree.NewMockModelRequester(controller)
 	tree := grpcNavigationTree(t)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
@@ -102,7 +110,6 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 			CommonAncestorID: mo.Some("root"), Selection: selection, Usage: mo.None[session.TokenUsage](),
 		}),
 	}).Return(committed, nil)
-	service := sessiontree.New(active, models, extensions)
 
 	// Act: through request supply, result refinement, atomic commit, and observer delivery.
 	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{

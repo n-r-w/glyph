@@ -118,7 +118,7 @@ No additional technical design is selected by this ticket. Contract shapes and p
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
-- REF-03: [prototype tool process contract](../../../../../../api/plugins/extension/v1/tool.proto) - prototype tool process contract.
+- REF-03: [Extension Contract sources](../../../../../../api/plugins/extension/v1) - public extension process contract that contains the prototype tool declarations.
 - REF-04: [`read.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/tools/read.ts) - reference partial text and image reads.
 - REF-05: [`write.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/tools/write.ts) - reference complete-file writes and parent-directory creation.
 - REF-06: [`edit.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/tools/edit.ts) - reference ordered multi-replacement behavior.

@@ -12,8 +12,8 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -27,7 +27,7 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 		Provider: model.ProviderID("provider"), Model: model.ID("model"),
 		ReasoningChoice: model.ReasoningChoice("medium"),
 	}
-	request := extensionservice.NavigationRequest{
+	request := sessiontree.HandlerNavigationRequest{
 		Navigation: sessionnavigation.Request{
 			TargetEntryID: "target", SummaryMode: sessionnavigation.SummaryModeSummarize,
 			CustomFocus: mo.None[string](),
@@ -44,25 +44,25 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 		}),
 		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
-	state := extensionservice.NavigationState{
+	state := sessiontree.HandlerNavigationState{
 		SessionID: "session", PrecedingActiveLeafID: mo.Some("leaf"), Request: request,
 		Preparation: session.NavigationPreparation{
 			DestinationID: mo.Some("destination"), NextInput: mo.None[string](),
 			CommonAncestorID: mo.Some("common"), AbandonedPath: []session.Entry{entry},
 		},
 	}
-	invocation := extensionservice.SessionBeforeTreeRequestInvocation{
+	invocation := sessiontree.RequestHandlerInvocation{
 		Original: state, Current: state,
-		CurrentResult: mo.Some(extensionservice.BranchSummaryResult{
+		CurrentResult: mo.Some(sessiontree.HandlerBranchSummaryResult{
 			Summary: "ready", Usage: mo.None[session.TokenUsage](),
 		}),
 	}
 
 	// Act by mapping the typed Host invocation to protobuf.
-	mapped, err := mapHandleRequest("handler", extensionservice.HandlerRequest{
-		SessionBeforeTreeRequest: mo.Some(invocation),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-		SessionTree:              mo.None[extensionservice.SessionTreeInvocation](),
+	mapped, err := mapHandleRequest("handler", sessiontree.HandlerRequest{
+		Request:  mo.Some(invocation),
+		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
+		Observer: mo.None[sessiontree.TreeObserverInvocation](),
 	})
 
 	// Assert identity, configured model, Host preparation, handler order payload, and opaque extension projection.
@@ -86,7 +86,7 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an observer invocation and one typed ordinary handler failure.
-	request := extensionservice.SessionTreeInvocation{
+	request := sessiontree.TreeObserverInvocation{
 		SessionID: "session", TargetEntryID: "target", PrecedingActiveLeafID: mo.None[string](),
 		NavigationDestinationID: mo.None[string](), CommittedActiveLeafID: mo.None[string](),
 		CreatedSummary: mo.None[session.Entry](),
@@ -97,10 +97,10 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 	}.Build()
 
 	// Act by mapping the typed ordinary failure.
-	mapped, err := mapHandleResponse(extensionservice.HandlerRequest{
-		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-		SessionTree:              mo.Some(request),
+	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
+		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
+		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
+		Observer: mo.Some(request),
 	}, response)
 
 	// Assert no action is returned and the safe handler failure is preserved.
@@ -113,10 +113,10 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a request-handler invocation and an observer-only response.
-	request := extensionservice.SessionBeforeTreeRequestInvocation{
-		Original: extensionservice.NavigationState{
+	request := sessiontree.RequestHandlerInvocation{
+		Original: sessiontree.HandlerNavigationState{
 			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
-			Request: extensionservice.NavigationRequest{
+			Request: sessiontree.HandlerNavigationRequest{
 				Navigation: sessionnavigation.Request{
 					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
 				},
@@ -129,9 +129,9 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 				CommonAncestorID: mo.None[string](), AbandonedPath: nil,
 			},
 		},
-		Current: extensionservice.NavigationState{
+		Current: sessiontree.HandlerNavigationState{
 			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
-			Request: extensionservice.NavigationRequest{
+			Request: sessiontree.HandlerNavigationRequest{
 				Navigation: sessionnavigation.Request{
 					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
 				},
@@ -144,7 +144,7 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 				CommonAncestorID: mo.None[string](), AbandonedPath: nil,
 			},
 		},
-		CurrentResult: mo.None[extensionservice.BranchSummaryResult](),
+		CurrentResult: mo.None[sessiontree.HandlerBranchSummaryResult](),
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	response := extensionpb.HandleResponse_builder{
@@ -152,10 +152,10 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	}.Build()
 
 	// Act by validating the response against the invoked kind.
-	mapped, err := mapHandleResponse(extensionservice.HandlerRequest{
-		SessionBeforeTreeRequest: mo.Some(request),
-		SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
-		SessionTree:              mo.None[extensionservice.SessionTreeInvocation](),
+	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
+		Request:  mo.Some(request),
+		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
+		Observer: mo.None[sessiontree.TreeObserverInvocation](),
 	}, response)
 
 	// Assert the protocol mismatch is rejected without an action.

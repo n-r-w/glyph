@@ -14,7 +14,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/infra/persistence/sessionfilesystem"
 	sessionstore "github.com/n-r-w/glyph/host/internal/infra/persistence/sessions"
 	"github.com/n-r-w/glyph/host/internal/infra/sessionruntime"
-	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
@@ -34,6 +33,8 @@ type sessionComposition struct {
 	pricing *pricingCatalogBinding
 	// modelRequester binds model requests after provider construction.
 	modelRequester *modelRequesterBinding
+	// tree owns session-tree handler registrations and navigation policy.
+	tree *sessiontree.Service
 }
 
 // modelRequesterBinding preserves storage-first startup while binding model requests once.
@@ -110,7 +111,7 @@ func (b *pricingCatalogBinding) Pricing(providerID model.ProviderID, modelID mod
 func newSessionComposition(
 	ctx context.Context,
 	paths persistence.Paths,
-	extensions *extensionservice.Service,
+	handlerRuntime sessiontree.Runtime,
 ) (sessionComposition, error) {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
@@ -132,15 +133,13 @@ func newSessionComposition(
 		return sessionComposition{}, initializeErr
 	}
 	gate := operationgate.New()
+	tree := sessiontree.New(active, modelRequester, handlerRuntime)
 	return sessionComposition{
-		active: active,
-		control: sessioncontrol.New(
-			active,
-			sessiontree.New(active, modelRequester, extensions),
-			gate.TryAcquire,
-		),
+		active:         active,
+		control:        sessioncontrol.New(active, tree, gate.TryAcquire),
 		gate:           gate,
 		pricing:        pricing,
 		modelRequester: modelRequester,
+		tree:           tree,
 	}, nil
 }

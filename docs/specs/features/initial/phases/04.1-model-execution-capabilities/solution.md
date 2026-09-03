@@ -117,5 +117,5 @@ None.
 - REF-06: `host/internal/infra/persistence/settings/service.go` - strict settings decoding and validation.
 - REF-07: `host/internal/usecase/host/providers/catalog.go` - Host catalogue validation and slice copying.
 - REF-08: `host/internal/app/app.go` - PHS-04.1 built-in provider composition path.
-- REF-09: `api/programmatic/v1/programmatic.proto` - Programmatic Control model catalogue contract.
+- REF-09: `api/programmatic/v1/model.proto` - Programmatic Control model catalogue contract.
 - REF-10: `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/types.d.ts` - Pi model input type used only for feature comparison.
