@@ -64,10 +64,13 @@ func Connect(ctx context.Context, command *exec.Cmd) (*Client, error) {
 	if command == nil {
 		return nil, errors.New("connect UI plugin: command is required")
 	}
+	// stderr preserves the caller-owned destination while go-plugin takes ownership of the command pipe.
+	stderr := command.Stderr
+	command.Stderr = nil
 	process := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: handshakeConfig(), Plugins: nil, VersionedPlugins: pluginSets(nil), Cmd: command,
 		Reattach: nil, RunnerFunc: nil, SecureConfig: nil, TLSConfig: nil, Managed: false, MinPort: 0, MaxPort: 0,
-		StartTimeout: startTimeout, Stderr: nil, SyncStdout: nil, SyncStderr: nil,
+		StartTimeout: startTimeout, Stderr: stderr, SyncStdout: nil, SyncStderr: nil,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC}, Logger: hclog.NewNullLogger(),
 		PluginLogBufferSize: 0, AutoMTLS: false, GRPCDialOptions: nil, GRPCBrokerMultiplex: false,
 		SkipHostEnv: false, UnixSocketConfig: nil,

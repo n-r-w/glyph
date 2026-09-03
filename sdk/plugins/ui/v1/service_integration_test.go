@@ -3,6 +3,7 @@
 package uiv1
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -672,14 +674,19 @@ func TestServiceCleanupPreservesRunAndCloseCauses(t *testing.T) {
 	require.ErrorContains(t, err, closeCause.Error())
 }
 
-const uiSDKIntegrationMode = "GLYPH_UI_SDK_INTEGRATION_MODE"
+const (
+	// uiSDKIntegrationMode selects the integration child process behavior.
+	uiSDKIntegrationMode = "GLYPH_UI_SDK_INTEGRATION_MODE"
+	// uiSDKStderrDiagnostic is the complete child failure text expected at the caller boundary.
+	uiSDKStderrDiagnostic = "glyph UI SDK child startup diagnostic\n"
+)
 
 // TestSDKIntegrationHelperProcess serves the UI SDK from the test subprocess.
 func TestSDKIntegrationHelperProcess(t *testing.T) {
 	t.Parallel()
-	// Arrange the generated service mock selected by the subprocess protocol mode.
-	// Act by serving the current or unsupported handshake from the subprocess.
-	// Assert the subprocess exposes only the protocol selected by its mode.
+	// Arrange the generated service mock selected by the subprocess mode.
+	// Act by serving a handshake or emitting the selected startup failure.
+	// Assert the subprocess exposes only the behavior selected by its mode.
 
 	controller := gomock.NewController(t)
 	service := NewMockService(controller)
@@ -695,6 +702,9 @@ func TestSDKIntegrationHelperProcess(t *testing.T) {
 			},
 			GRPCServer: plugin.DefaultGRPCServer, Logger: nil, Test: nil,
 		})
+	case "stderr-failure":
+		_, _ = fmt.Fprint(os.Stderr, uiSDKStderrDiagnostic)
+		os.Exit(23)
 	}
 }
 
@@ -720,6 +730,42 @@ func TestConnectNegotiatesRequiredProtocol(t *testing.T) {
 
 	// Assert negotiation selects only the required protocol value.
 	assert.Equal(t, ProtocolVersion, client.NegotiatedVersion())
+}
+
+// TestConnectPreservesChildStderr verifies startup failure output crosses the public SDK process boundary.
+func TestConnectPreservesChildStderr(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one direct go-plugin failure to capture its complete startup error.
+	causeCommand := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKIntegrationHelperProcess$")
+	causeCommand.Env = append(os.Environ(), uiSDKIntegrationMode+"=stderr-failure")
+	causeProcess := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig: handshakeConfig(), Plugins: nil, VersionedPlugins: pluginSets(nil), Cmd: causeCommand,
+		Reattach: nil, RunnerFunc: nil, SecureConfig: nil, TLSConfig: nil, Managed: false, MinPort: 0, MaxPort: 0,
+		StartTimeout: startTimeout, Stderr: nil, SyncStdout: nil, SyncStderr: nil,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC}, Logger: hclog.NewNullLogger(),
+		PluginLogBufferSize: 0, AutoMTLS: false, GRPCDialOptions: nil, GRPCBrokerMultiplex: false,
+		SkipHostEnv: false, UnixSocketConfig: nil,
+	})
+	_, originalCause := causeProcess.Client()
+	causeProcess.Kill()
+	require.Error(t, originalCause)
+
+	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKIntegrationHelperProcess$")
+	command.Env = append(os.Environ(), uiSDKIntegrationMode+"=stderr-failure")
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+
+	// Act by connecting while the child writes its diagnostic and exits unsuccessfully.
+	client, err := Connect(t.Context(), command)
+
+	// Assert the public error and its wrapped cause retain the complete go-plugin error.
+	require.EqualError(t, err, "connect UI plugin process: "+originalCause.Error())
+	unwrapped := errors.Unwrap(err)
+	require.Error(t, unwrapped)
+	require.EqualError(t, unwrapped, originalCause.Error())
+	assert.Nil(t, client)
+	assert.Equal(t, uiSDKStderrDiagnostic, stderr.String())
 }
 
 // TestConnectRejectsUnsupportedProtocol verifies no compatibility negotiation path exists.
