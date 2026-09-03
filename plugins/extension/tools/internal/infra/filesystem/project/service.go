@@ -93,6 +93,18 @@ func (s *Service) ReadFile(
 		return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, err)
 	}
 	cleanPath := filepath.Clean(path)
+	// fileInfo prevents reads from blocking on pipes, devices, directories, and other nonregular paths.
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		return readtool.Content{}, fmt.Errorf(
+			"read project file %q: path is not a regular project file: type %s",
+			path,
+			fileInfo.Mode().Type(),
+		)
+	}
 	file, err := os.Open(cleanPath)
 	if err != nil {
 		return readtool.Content{}, fmt.Errorf("read project file %q: %w", path, err)

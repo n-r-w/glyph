@@ -23,6 +23,11 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+const (
+	// serverTestTimeout bounds controlled stream and operation coordination.
+	serverTestTimeout = 5 * time.Second
+)
+
 // TestServerKeepsRegistrationUnreadyUntilCompletedDelivery verifies pipelined work is rejected before startup delivery.
 func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
 	t.Parallel()
@@ -88,6 +93,268 @@ func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
 	require.NotNil(t, rejection)
 	assert.Equal(t, rejectionCodeNotReady, rejection.GetCode())
 	assert.Zero(t, executePreparations.Load())
+}
+
+// TestServerProcessesCancellationWhileTargetRunIsBlocked verifies receipt, joining, and all target-state mappings.
+func TestServerProcessesCancellationWhileTargetRunIsBlocked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: define every terminal outcome that can win the target cancellation race.
+	testCases := map[string]struct {
+		outcome       func(context.Context) (*extensionpb.ToolResult, error)
+		expectedState operationpb.TerminalState
+	}{
+		"completed": {
+			outcome: func(context.Context) (*extensionpb.ToolResult, error) {
+				return extensionpb.ToolResult_builder{
+					IsError: new(false), Contents: validTextContents("completed"),
+				}.Build(), nil
+			},
+			expectedState: operationpb.TerminalState_TERMINAL_STATE_COMPLETED,
+		},
+		"canceled": {
+			outcome:       func(ctx context.Context) (*extensionpb.ToolResult, error) { return nil, ctx.Err() },
+			expectedState: operationpb.TerminalState_TERMINAL_STATE_CANCELED,
+		},
+		"failed": {
+			outcome: func(context.Context) (*extensionpb.ToolResult, error) {
+				return nil, Fail(failureCodeInternal, errors.New("target failed"))
+			},
+			expectedState: operationpb.TerminalState_TERMINAL_STATE_FAILED,
+		},
+	}
+
+	// Act: run each outcome through a blocked target and a later cancellation request.
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Assert: require exact state mapping and target-before-cancellation terminal order.
+			testServerCancellationState(t, testCase.outcome, testCase.expectedState)
+		})
+	}
+}
+
+// testServerCancellationState runs one blocked target through cancellation and checks stream terminal order.
+func testServerCancellationState(
+	t *testing.T,
+	outcome func(context.Context) (*extensionpb.ToolResult, error),
+	expectedState operationpb.TerminalState,
+) {
+	t.Helper()
+
+	// Arrange: keep one accepted Execute in Run while Recv supplies its cancellation request.
+	controller := gomock.NewController(t)
+	service := NewMockService(controller)
+	target := NewMockExecuteOperation(controller)
+	stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+	runStarted := make(chan struct{})
+	signalRunStarted := sync.OnceFunc(func() { close(runStarted) })
+	t.Cleanup(signalRunStarted)
+	releaseStarted := make(chan struct{})
+	allowRelease := make(chan struct{})
+	openRelease := sync.OnceFunc(func() { close(allowRelease) })
+	t.Cleanup(openRelease)
+	cancelCompleted := make(chan struct{})
+	signalCancelCompleted := sync.OnceFunc(func() { close(cancelCompleted) })
+	t.Cleanup(signalCancelCompleted)
+	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(target, nil)
+	target.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ *ProgressReporter) (*extensionpb.ToolResult, error) {
+			signalRunStarted()
+			if !waitForSignal(t, ctx.Done(), "target Run did not observe cancellation") {
+				return nil, errors.New("target Run cancellation wait failed")
+			}
+			return outcome(ctx)
+		},
+	)
+	target.EXPECT().Release().Do(func() {
+		close(releaseStarted)
+		waitForSignal(t, allowRelease, "target Release gate remained closed")
+	})
+	stream.EXPECT().Context().AnyTimes().Return(t.Context())
+	gomock.InOrder(
+		stream.EXPECT().Recv().Return(openExecuteRequest("target"), nil),
+		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+			if !waitForSignal(t, runStarted, "target Run did not start before cancellation receipt") {
+				return nil, errors.New("target Run start wait failed")
+			}
+			return openCancelRequest("cancel", "target"), nil
+		}),
+		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+			if !waitForSignal(t, cancelCompleted, "cancellation terminal event was not delivered") {
+				return nil, errors.New("cancellation terminal wait failed")
+			}
+			return nil, io.EOF
+		}),
+	)
+	responses := make([]*extensionpb.OpenResponse, 0, 7)
+	var cancelAcceptedBeforeRelease atomic.Bool
+	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(response *extensionpb.OpenResponse) error {
+		responses = append(responses, response)
+		if response.GetOperationId() == "cancel" && response.GetEvent().GetAccepted() != nil {
+			select {
+			case <-releaseStarted:
+			default:
+				cancelAcceptedBeforeRelease.Store(true)
+			}
+		}
+		if response.GetOperationId() == "cancel" && response.GetEvent().GetCompleted() != nil {
+			signalCancelCompleted()
+		}
+		return nil
+	})
+	server := newServer(service)
+	server.ready = true
+	result := make(chan error, 1)
+
+	// Act: run the stream until target Release blocks after observing targeted cancellation.
+	go func() { result <- server.Open(stream) }()
+	requireSignal(t, releaseStarted, "target release did not start after cancellation receipt")
+
+	// Assert: cancellation admission was received before target release and completion waits for release.
+	assert.True(t, cancelAcceptedBeforeRelease.Load())
+	select {
+	case <-cancelCompleted:
+		require.FailNow(t, "cancellation completed before target release finished")
+	default:
+	}
+	openRelease()
+	require.NoError(t, requireServerResult(t, result, "server did not finish after target release"))
+	assertCancellationTerminalOrder(t, responses, expectedState)
+}
+
+// assertCancellationTerminalOrder checks target state and target-before-cancellation terminal delivery.
+func assertCancellationTerminalOrder(
+	t *testing.T,
+	responses []*extensionpb.OpenResponse,
+	expectedState operationpb.TerminalState,
+) {
+	t.Helper()
+	targetTerminalIndex := -1
+	cancelTerminalIndex := -1
+	for index, response := range responses {
+		switch response.GetOperationId() {
+		case "target":
+			if extensionEventTerminalState(response.GetEvent()) == expectedState {
+				targetTerminalIndex = index
+			}
+		case "cancel":
+			completed := response.GetEvent().GetCompleted().GetCancel()
+			if completed != nil {
+				cancelTerminalIndex = index
+				assert.Equal(t, expectedState, completed.GetTargetState())
+			}
+		}
+	}
+	assert.NotEqual(t, -1, targetTerminalIndex)
+	assert.Greater(t, cancelTerminalIndex, targetTerminalIndex)
+}
+
+// extensionEventTerminalState maps one target terminal event to its shared protobuf state.
+func extensionEventTerminalState(event *extensionpb.ExtensionEvent) operationpb.TerminalState {
+	switch {
+	case event.GetCompleted() != nil:
+		return operationpb.TerminalState_TERMINAL_STATE_COMPLETED
+	case event.GetCanceled() != nil:
+		return operationpb.TerminalState_TERMINAL_STATE_CANCELED
+	case event.GetFailed() != nil:
+		return operationpb.TerminalState_TERMINAL_STATE_FAILED
+	default:
+		return operationpb.TerminalState_TERMINAL_STATE_UNSPECIFIED
+	}
+}
+
+// TestServerClosureJoinsActiveWork verifies requested close and transport loss wait for owned cleanup.
+func TestServerClosureJoinsActiveWork(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		receiveClosure func() (*extensionpb.OpenRequest, error)
+		expectedCode   codes.Code
+	}{
+		"requested close": {
+			receiveClosure: func() (*extensionpb.OpenRequest, error) {
+				return extensionpb.OpenRequest_builder{
+					OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
+				}.Build(), nil
+			},
+			expectedCode: codes.OK,
+		},
+		"transport loss": {
+			receiveClosure: func() (*extensionpb.OpenRequest, error) {
+				return nil, status.Error(codes.Unavailable, "extension transport lost")
+			},
+			expectedCode: codes.Unavailable,
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange: keep one accepted Execute active until connection cleanup cancels it.
+			controller := gomock.NewController(t)
+			service := NewMockService(controller)
+			target := NewMockExecuteOperation(controller)
+			stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+			runStarted := make(chan struct{})
+			signalRunStarted := sync.OnceFunc(func() { close(runStarted) })
+			t.Cleanup(signalRunStarted)
+			releaseStarted := make(chan struct{})
+			allowRelease := make(chan struct{})
+			openRelease := sync.OnceFunc(func() { close(allowRelease) })
+			t.Cleanup(openRelease)
+			service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(target, nil)
+			target.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, _ *ProgressReporter) (*extensionpb.ToolResult, error) {
+					signalRunStarted()
+					if !waitForSignal(t, ctx.Done(), "target Run did not observe connection cleanup") {
+						return nil, errors.New("target connection cleanup wait failed")
+					}
+					return nil, ctx.Err()
+				},
+			)
+			target.EXPECT().Release().Do(func() {
+				close(releaseStarted)
+				waitForSignal(t, allowRelease, "target connection cleanup Release gate remained closed")
+			})
+			stream.EXPECT().Context().AnyTimes().Return(t.Context())
+			receiveCalls := []any{
+				stream.EXPECT().Recv().Return(openExecuteRequest("target"), nil),
+				stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+					if !waitForSignal(t, runStarted, "target Run did not start before connection cleanup") {
+						return nil, errors.New("target Run start wait failed")
+					}
+					return testCase.receiveClosure()
+				}),
+			}
+			if testCase.expectedCode == codes.OK {
+				receiveCalls = append(receiveCalls, stream.EXPECT().Recv().Return(nil, io.EOF))
+			}
+			gomock.InOrder(receiveCalls...)
+			stream.EXPECT().Send(gomock.Any()).AnyTimes().Return(nil)
+			server := newServer(service)
+			server.ready = true
+			result := make(chan error, 1)
+
+			// Act: close or fail the stream after target Run starts.
+			go func() { result <- server.Open(stream) }()
+			requireSignal(t, releaseStarted, "target release did not start during connection cleanup")
+
+			// Assert: Open does not return before owned Release finishes.
+			select {
+			case <-result:
+				require.FailNow(t, "Open returned before active release finished")
+			default:
+			}
+			openRelease()
+			err := requireServerResult(t, result, "server did not finish after connection cleanup")
+			assert.Equal(t, testCase.expectedCode, status.Code(err))
+			if testCase.expectedCode != codes.OK {
+				assert.ErrorContains(t, err, "extension transport lost")
+			}
+		})
+	}
 }
 
 // TestServerRejectsRequestAfterClose verifies CloseConnection stops admission but not stream receipt.
@@ -304,6 +571,75 @@ func TestConnectionStopsOnWriterSendFailure(t *testing.T) {
 	assert.ErrorContains(t, err, "Host request send failed")
 }
 
+// TestConnectionCloseJoinsTransportCleanup verifies Host shutdown waits for controlled transport cleanup.
+func TestConnectionCloseJoinsTransportCleanup(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: open a Host connection with one tracked operation and a controlled transport loss.
+	controller := gomock.NewController(t)
+	service := NewMockExtensionServiceClient(controller)
+	stream := NewMockExtensionService_OpenClient[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+	service.EXPECT().Open(gomock.Any()).Return(stream, nil)
+	receiveEntered := make(chan struct{})
+	loseTransport := make(chan struct{})
+	stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenResponse, error) {
+		close(receiveEntered)
+		<-loseTransport
+		return nil, status.Error(codes.Unavailable, "controlled Host transport loss")
+	})
+	requestSent := make(chan struct{})
+	stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(*extensionpb.OpenRequest) error {
+		close(requestSent)
+		return nil
+	})
+	cleanupStarted := make(chan struct{})
+	allowCleanup := make(chan struct{})
+	openCleanup := sync.OnceFunc(func() { close(allowCleanup) })
+	t.Cleanup(openCleanup)
+	stream.EXPECT().CloseSend().DoAndReturn(func() error {
+		close(cleanupStarted)
+		<-allowCleanup
+		return nil
+	})
+	client := &Client{
+		process: nil, service: service, done: nil, version: ProtocolVersion, closeOnce: sync.Once{},
+	}
+	connection, err := client.Open(t.Context())
+	require.NoError(t, err)
+	requireSignal(t, receiveEntered, "Host receive did not start")
+	request := new(extensionpb.HostRequest)
+	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new("tool"), ArgumentsJson: []byte(`{}`),
+	}.Build())
+	started, err := connection.Start(t.Context(), "execute", request)
+	require.NoError(t, err)
+	requireSignal(t, requestSent, "Host request was not sent before transport loss")
+
+	// Act: fail transport, observe the operation error, and start Host shutdown.
+	close(loseTransport)
+	waitResult := make(chan error, 1)
+	go func() {
+		_, operationErr := started.Wait(t.Context(), nil)
+		waitResult <- operationErr
+	}()
+	waitErr := requireServerResult(t, waitResult, "tracked operation did not observe Host transport loss")
+	assert.Equal(t, codes.Unavailable, status.Code(waitErr))
+	closeResult := make(chan error, 1)
+	go func() { closeResult <- connection.Close() }()
+	requireSignal(t, cleanupStarted, "Host transport cleanup did not start")
+
+	// Assert: shutdown cannot return before controlled transport cleanup finishes.
+	select {
+	case closeErr := <-closeResult:
+		require.FailNowf(t, "Host shutdown returned before transport cleanup finished", "error: %v", closeErr)
+	default:
+	}
+	openCleanup()
+	closeErr := requireServerResult(t, closeResult, "Host shutdown did not finish after transport cleanup")
+	assert.Equal(t, codes.Unavailable, status.Code(closeErr))
+	assert.ErrorContains(t, closeErr, "controlled Host transport loss")
+}
+
 // TestConnectionFailPreservesValidationCause verifies Host payload rejection fails and joins the connection.
 func TestConnectionFailPreservesValidationCause(t *testing.T) {
 	t.Parallel()
@@ -403,6 +739,40 @@ func TestServerMapsPlainReceiveErrors(t *testing.T) {
 	}
 }
 
+// waitForSignal waits from any test goroutine and records a direct failure when the signal is missing.
+func waitForSignal(t *testing.T, signal <-chan struct{}, failure string) bool {
+	t.Helper()
+	select {
+	case <-signal:
+		return true
+	case <-time.After(serverTestTimeout):
+		assert.Fail(t, failure)
+		return false
+	}
+}
+
+// requireSignal waits for one controlled server signal or fails with the supplied reason.
+func requireSignal(t *testing.T, signal <-chan struct{}, failure string) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(serverTestTimeout):
+		require.FailNow(t, failure)
+	}
+}
+
+// requireServerResult waits for server completion or fails with the supplied reason.
+func requireServerResult(t *testing.T, result <-chan error, failure string) error {
+	t.Helper()
+	select {
+	case err := <-result:
+		return err
+	case <-time.After(serverTestTimeout):
+		require.FailNow(t, failure)
+		return nil
+	}
+}
+
 // openRegisterRequest constructs one Register stream message.
 func openRegisterRequest(id string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
@@ -414,6 +784,13 @@ func openRegisterRequest(id string) *extensionpb.OpenRequest {
 func openExecuteRequest(id string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{ToolName: new("tool"), ArgumentsJson: []byte(`{}`)}.Build())
+	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+}
+
+// openCancelRequest constructs one targeted cancellation stream message.
+func openCancelRequest(id string, targetID string) *extensionpb.OpenRequest {
+	request := new(extensionpb.HostRequest)
+	request.SetCancel(operationpb.CancelOperation_builder{TargetOperationId: new(targetID)}.Build())
 	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
 }
 

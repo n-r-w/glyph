@@ -43,6 +43,9 @@ func (r *Runtime) Handle(
 		if ctx.Err() != nil {
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
+		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
+			r.Close()
+		}
 		return extensionservice.HandlerResponse{}, errors.Join(
 			r.handlerOperationError(ctx, handlerID, err),
 			cancellationErr,

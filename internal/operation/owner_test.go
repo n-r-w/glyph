@@ -444,6 +444,58 @@ func TestOwnerCompletedOutcomeWinsCancellation(t *testing.T) {
 	owner.Wait()
 }
 
+// TestOwnerFailedOutcomeWinsCancellation tests the scenario where committed failure remains terminal after cancellation.
+func TestOwnerFailedOutcomeWinsCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange work that observes cancellation but returns a failed outcome.
+	controller := gomock.NewController(t)
+	delivery := NewMockDelivery[string, string](controller)
+	prepared := NewMockPrepared[string, string](controller)
+	runStarted := make(chan struct{})
+	allowFailure := make(chan struct{})
+	failureCause := errors.New("target work failed")
+	delivery.EXPECT().Accepted("target").Return(resolvedAcknowledgement(nil), nil)
+	delivery.EXPECT().Running("target").Return(nil)
+	delivery.EXPECT().Terminal("target", gomock.Any()).DoAndReturn(
+		func(_ string, outcome Outcome[string]) (*Acknowledgement, error) {
+			require.Equal(t, TerminalStateFailed, outcome.State())
+			require.Equal(t, "INTERNAL", outcome.Code())
+			require.ErrorIs(t, outcome.Err(), failureCause)
+			return resolvedAcknowledgement(nil), nil
+		},
+	)
+	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ Reporter[string]) Outcome[string] {
+			close(runStarted)
+			<-ctx.Done()
+			<-allowFailure
+			return Failed[string]("INTERNAL", failureCause)
+		},
+	)
+	prepared.EXPECT().Release()
+	owner := NewOwner(t.Context(), delivery)
+	require.NoError(t, owner.Start("target", preparedBy(prepared)))
+	<-runStarted
+	canceled := observeCancellation(owner, "target")
+	result := make(chan TerminalState, 1)
+	errResult := make(chan error, 1)
+
+	// Act by canceling while work commits its failed outcome.
+	go func() {
+		state, err := owner.CancelAndWait(t.Context(), "target")
+		result <- state
+		errResult <- err
+	}()
+	<-canceled
+	close(allowFailure)
+
+	// Assert the failed outcome wins and is returned by cancellation joining.
+	require.Equal(t, TerminalStateFailed, <-result)
+	require.NoError(t, <-errResult)
+	owner.Wait()
+}
+
 // observeCancellation wraps one owned cancellation function with a deterministic signal.
 func observeCancellation[P, R any](owner *Owner[P, R], id string) <-chan struct{} {
 	owner.mutex.Lock()

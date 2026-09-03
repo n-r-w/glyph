@@ -143,6 +143,9 @@ func (r *Runtime) Execute(
 		if ctx.Err() != nil || !isExtensionTerminalError(err) {
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
+		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
+			r.Close()
+		}
 		var primaryErr error
 		switch {
 		case ctx.Err() != nil:
@@ -184,21 +187,15 @@ func (r *Runtime) operationID() string {
 	return "host-extension-" + strconv.FormatUint(r.nextOperationID.Add(1), 10)
 }
 
-// cancelOperation starts cancellation and observes its later result without blocking the current caller.
+// cancelOperation starts cancellation and joins the target through the cancellation terminal result.
 func (r *Runtime) cancelOperation(ctx context.Context, targetID string) error {
 	cancellation, err := r.connection.Cancel(ctx, r.operationID(), targetID)
 	if err != nil {
 		return fmt.Errorf("start cancellation for extension operation %q: %w", targetID, err)
 	}
-	go func() {
-		_, waitErr := cancellation.Wait(r.context)
-		if waitErr != nil && !isBenignCancellationError(waitErr) {
-			slog.ErrorContext(r.context, "Extension cancellation operation failed",
-				slog.String("target_operation_id", targetID),
-				slog.Any("error", waitErr),
-			)
-		}
-	}()
+	if _, err = cancellation.Wait(ctx); err != nil {
+		return fmt.Errorf("wait for cancellation of extension operation %q: %w", targetID, err)
+	}
 	return nil
 }
 
@@ -222,6 +219,15 @@ func isExtensionTerminalError(err error) bool {
 	var failure *extensionsdk.FailureError
 	var canceled *extensionsdk.CanceledError
 	return errors.As(err, &rejection) || errors.As(err, &failure) || errors.As(err, &canceled)
+}
+
+// isConnectionFailure reports a gRPC connection status independently from caller cancellation.
+func isConnectionFailure(err error) bool {
+	if err == nil || isExtensionTerminalError(err) {
+		return false
+	}
+	_, hasStatus := status.FromError(err)
+	return hasStatus
 }
 
 // toolSchema returns the compiled schema cached during complete-catalog validation.

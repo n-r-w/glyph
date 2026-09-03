@@ -5,9 +5,12 @@ package runtime
 import (
 	"context"
 	"errors"
+	"os"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	operationpb "github.com/n-r-w/glyph/pkg/operation/v1"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -85,6 +88,34 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 
 	completed := toolCompletedEvent()
 	switch s.mode {
+	case "cancel-transport-error", "cancel-unknown-transport-error":
+		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {
+			return err
+		}
+		cancellation, receiveErr := stream.Recv()
+		if receiveErr != nil {
+			return receiveErr
+		}
+		if cancellation.GetRequest().GetCancel() == nil {
+			return errors.New("expected cancellation request")
+		}
+		if s.mode == "cancel-unknown-transport-error" {
+			return status.Error(codes.Unknown, "unknown cancellation transport failed")
+		}
+		return status.Error(codes.Unavailable, "cancellation transport failed")
+	case "cancel-handle-transport-error", "cancel-handle-unknown-transport-error":
+		writeSignalFile(os.Getenv(runtimeStartedEnvironment))
+		cancellation, receiveErr := stream.Recv()
+		if receiveErr != nil {
+			return receiveErr
+		}
+		if cancellation.GetRequest().GetCancel() == nil {
+			return errors.New("expected cancellation request")
+		}
+		if s.mode == "cancel-handle-unknown-transport-error" {
+			return status.Error(codes.Unknown, "unknown cancellation transport failed")
+		}
+		return status.Error(codes.Unavailable, "cancellation transport failed")
 	case "missing-result":
 		return nil
 	case "duplicate-result":
@@ -207,7 +238,8 @@ func registerCompletedEvent(mode string) *extensionpb.ExtensionEvent {
 		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
 	}.Build()}
 	var handlers []*extensionpb.HandlerDescriptor
-	if mode == "mismatched-handler" {
+	if mode == "mismatched-handler" || mode == "cancel-handle-transport-error" ||
+		mode == "cancel-handle-unknown-transport-error" {
 		tools = nil
 		handlers = []*extensionpb.HandlerDescriptor{extensionpb.HandlerDescriptor_builder{
 			Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),

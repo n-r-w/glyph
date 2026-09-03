@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -34,6 +33,12 @@ const (
 	runtimeHelperEnvironment = "GLYPH_EXTENSION_RUNTIME_HELPER"
 	// runtimeCountEnvironment provides the path used to count remote executions.
 	runtimeCountEnvironment = "GLYPH_EXTENSION_RUNTIME_COUNT"
+	// runtimeStartedEnvironment provides the path used to signal operation execution.
+	runtimeStartedEnvironment = "GLYPH_EXTENSION_RUNTIME_STARTED"
+	// runtimeReleaseEnvironment provides the path used to signal admission release.
+	runtimeReleaseEnvironment = "GLYPH_EXTENSION_RUNTIME_RELEASE"
+	// runtimeReleaseGateEnvironment provides the path that permits admission release to finish.
+	runtimeReleaseGateEnvironment = "GLYPH_EXTENSION_RUNTIME_RELEASE_GATE"
 	// processOperationTimeout bounds real child-process coordination.
 	processOperationTimeout = 10 * time.Second
 )
@@ -44,6 +49,12 @@ type protocolService struct {
 	mode string
 	// countPath records admitted tool executions when configured.
 	countPath string
+	// startedPath signals that selected operation work started.
+	startedPath string
+	// releasePath signals that selected operation release started.
+	releasePath string
+	// releaseGatePath names the file that permits selected operation release to finish.
+	releaseGatePath string
 }
 
 // protocolRegisterOperation returns one mode-specific registration.
@@ -53,7 +64,10 @@ type protocolRegisterOperation struct {
 }
 
 // protocolHandleOperation returns one observer action.
-type protocolHandleOperation struct{}
+type protocolHandleOperation struct {
+	// service owns the selected fixture mode and release coordination.
+	service *protocolService
+}
 
 // protocolExecuteOperation runs one mode-specific tool operation.
 type protocolExecuteOperation struct {
@@ -66,14 +80,6 @@ type executionOutcome struct {
 	// result contains the synchronous Host tool result.
 	result tool.Result
 	// err contains the synchronous Host execution error.
-	err error
-}
-
-// fifoOpenOutcome reports when the production read operation has opened its blocking FIFO.
-type fifoOpenOutcome struct {
-	// file is the FIFO writer opened after the extension begins reading.
-	file *os.File
-	// err contains the FIFO open failure.
 	err error
 }
 
@@ -132,7 +138,13 @@ func TestRuntimeHelperProcess(t *testing.T) {
 		serveAdversarialExtension(mode)
 		return
 	}
-	fixture := &protocolService{mode: mode, countPath: os.Getenv(runtimeCountEnvironment)}
+	fixture := &protocolService{
+		mode:            mode,
+		countPath:       os.Getenv(runtimeCountEnvironment),
+		startedPath:     os.Getenv(runtimeStartedEnvironment),
+		releasePath:     os.Getenv(runtimeReleaseEnvironment),
+		releaseGatePath: os.Getenv(runtimeReleaseGateEnvironment),
+	}
 	extensionsdk.Serve(newProtocolMockService(t, fixture))
 
 	// Assert: go-plugin owns child-process lifetime after the selected server starts.
@@ -159,7 +171,7 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 			}
 			handler := extensionsdk.NewMockHandleOperation(controller)
 			handler.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
-			handler.EXPECT().Release()
+			handler.EXPECT().Release().Do(prepared.Release)
 			return handler, nil
 		},
 	).AnyTimes()
@@ -171,7 +183,7 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 			}
 			execution := extensionsdk.NewMockExecuteOperation(controller)
 			execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(prepared.Run)
-			execution.EXPECT().Release()
+			execution.EXPECT().Release().Do(prepared.Release)
 			return execution, nil
 		},
 	).AnyTimes()
@@ -182,7 +194,8 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 func isAdversarialMode(mode string) bool {
 	switch mode {
 	case "missing-result", "duplicate-result", "event-after-result", "empty-event",
-		"empty-result", "mismatched-handler":
+		"empty-result", "mismatched-handler", "cancel-transport-error", "cancel-handle-transport-error",
+		"cancel-unknown-transport-error", "cancel-handle-unknown-transport-error":
 		return true
 	default:
 		return false
@@ -274,55 +287,41 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	assert.NotEmpty(t, invalidResult.Contents[0].Text)
 	assertRuntimeRunning(t, runtime)
 
-	// Arrange: a FIFO keeps the production read operation active until the Host cancels its stream.
-	fifoPath := filepath.Join(projectDirectory, "blocking-input")
-	require.NoError(t, syscall.Mkfifo(fifoPath, 0o600))
+	// Arrange: a long-running bundled bash process stays active until its operation context is canceled.
 	ctx, cancel := context.WithCancel(t.Context())
 	executionChannel := make(chan executionOutcome, 1)
+	started := make(chan struct{})
 	go func() {
 		executionResult, executionErr := runtime.Execute(
 			ctx,
-			"read",
-			[]byte(`{"path":"blocking-input"}`),
-			discardProgress,
+			"bash",
+			[]byte(`{"command":"printf started; while :; do sleep 1; done"}`),
+			func(progress tool.Progress) error {
+				if progress.Channel == tool.ProgressChannelStdout && strings.Contains(progress.Content, "started") {
+					close(started)
+				}
+				return nil
+			},
 		)
-		executionChannel <- executionOutcome{
-			result: executionResult,
-			err:    executionErr,
-		}
+		executionChannel <- executionOutcome{result: executionResult, err: executionErr}
 	}()
 
-	// Act: opening the writer proves glyph-tools reached the blocking read before cancellation.
-	fifoChannel := make(chan fifoOpenOutcome, 1)
-	go func() {
-		fifo, fifoErr := os.OpenFile(fifoPath, os.O_WRONLY, 0o600)
-		fifoChannel <- fifoOpenOutcome{
-			file: fifo,
-			err:  fifoErr,
-		}
-	}()
-	var fifo *os.File
+	// Act: wait for real process output before canceling the bundled bash operation.
 	select {
-	case openOutcome := <-fifoChannel:
-		require.NoError(t, openOutcome.err)
-		fifo = openOutcome.file
+	case <-started:
 	case <-time.After(processOperationTimeout):
-		require.FailNow(t, "glyph-tools did not start the blocking read")
+		require.FailNow(t, "glyph-tools did not start the blocking bash process")
 	}
 	cancel()
 
-	// Assert: active cancellation crosses the real process boundary without stopping the runtime.
+	// Assert: active cancellation joins the real bundled process without stopping the extension runtime.
 	select {
 	case execution := <-executionChannel:
-		assert.Equal(t, tool.Result{
-			Contents: nil,
-			IsError:  false,
-		}, execution.result)
+		assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
 		require.ErrorIs(t, execution.err, context.Canceled)
 	case <-time.After(processOperationTimeout):
-		require.FailNow(t, "glyph-tools did not return after cancellation")
+		require.FailNow(t, "glyph-tools did not stop the blocking bash process after cancellation")
 	}
-	require.NoError(t, fifo.Close())
 	assertRuntimeRunning(t, runtime)
 
 	// Act: stop the extension process through the Host runtime adapter.
@@ -532,6 +531,309 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 		IsError:  false,
 	}, execution.result)
 	assertRuntimeRunning(t, runtime)
+}
+
+// TestRuntimeExecuteCancellationWaitsForRelease verifies synchronous Execute joins remote cleanup.
+func TestRuntimeExecuteCancellationWaitsForRelease(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: block the remote operation release after its work observes cancellation.
+	coordinationDir := t.TempDir()
+	releasePath := filepath.Join(coordinationDir, "release-started")
+	releaseGatePath := filepath.Join(coordinationDir, "release-gate")
+	runtime := startReleaseGatedHelperRuntime(t, "wait-release", "", releasePath, releaseGatePath)
+	t.Cleanup(func() { _ = os.WriteFile(releaseGatePath, nil, 0o600) })
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	started := make(chan struct{})
+	outcome := make(chan executionOutcome, 1)
+	go func() {
+		result, executeErr := runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
+			close(started)
+			return nil
+		})
+		outcome <- executionOutcome{result: result, err: executeErr}
+	}()
+	<-started
+
+	// Act: cancel after Run starts and wait until Release is blocked by the fixture gate.
+	cancel()
+	require.Eventually(t, func() bool { return pathExists(releasePath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Assert: Execute cannot return until target Release finishes.
+	select {
+	case execution := <-outcome:
+		require.FailNowf(t, "Execute returned before target release finished", "error: %v", execution.err)
+	default:
+	}
+	require.NoError(t, os.WriteFile(releaseGatePath, nil, 0o600))
+	execution := <-outcome
+	require.ErrorIs(t, execution.err, context.Canceled)
+}
+
+// TestRuntimeHandleCancellationWaitsForRelease verifies synchronous Handle joins remote cleanup.
+func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: expose a handler whose Release remains blocked after cancellation.
+	coordinationDir := t.TempDir()
+	startedPath := filepath.Join(coordinationDir, "run-started")
+	releasePath := filepath.Join(coordinationDir, "release-started")
+	releaseGatePath := filepath.Join(coordinationDir, "release-gate")
+	runtime := startReleaseGatedHelperRuntime(
+		t,
+		"wait-handle-release",
+		startedPath,
+		releasePath,
+		releaseGatePath,
+	)
+	t.Cleanup(func() { _ = os.WriteFile(releaseGatePath, nil, 0o600) })
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	outcome := make(chan error, 1)
+	go func() {
+		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
+			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
+			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
+			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+				SessionID:               "session",
+				TargetEntryID:           "target",
+				PrecedingActiveLeafID:   mo.None[string](),
+				NavigationDestinationID: mo.None[string](),
+				CommittedActiveLeafID:   mo.None[string](),
+				CreatedSummary:          mo.None[session.Entry](),
+			}),
+		})
+		outcome <- handleErr
+	}()
+	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Act: cancel after Run starts and wait until Release is blocked by the fixture gate.
+	cancel()
+	require.Eventually(t, func() bool { return pathExists(releasePath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Assert: Handle cannot return until target Release finishes.
+	select {
+	case handleErr := <-outcome:
+		require.FailNowf(t, "Handle returned before target release finished", "error: %v", handleErr)
+	default:
+	}
+	require.NoError(t, os.WriteFile(releaseGatePath, nil, 0o600))
+	require.ErrorIs(t, <-outcome, context.Canceled)
+}
+
+// TestRuntimeCancellationPreservesPrimaryAndTransportErrors verifies independent causes survive synchronous joining.
+func TestRuntimeCancellationPreservesPrimaryAndTransportErrors(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: use a peer that drops the stream after it receives the cancellation request.
+	runtime := startHelperRuntime(t, "cancel-transport-error")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+
+	// Act: cancel from the first progress callback so the target and transport errors race.
+	_, err = runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
+		cancel()
+		return nil
+	})
+
+	// Assert: preserve both causes and finish failed-process cleanup before Execute returns.
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, codes.Unavailable, status.Code(err))
+	require.ErrorContains(t, err, "cancellation transport failed")
+	select {
+	case <-runtime.Done():
+	default:
+		require.FailNow(t, "Execute returned before failed runtime process cleanup")
+	}
+}
+
+// TestRuntimeExecuteCancellationPreservesUnknownTransportFailure verifies explicit Unknown remains connection-fatal.
+func TestRuntimeExecuteCancellationPreservesUnknownTransportFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: use a peer that returns explicit gRPC Unknown after it receives cancellation.
+	runtime := startHelperRuntime(t, "cancel-unknown-transport-error")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+
+	// Act: cancel from progress while the peer fails the cancellation transport.
+	_, err = runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
+		cancel()
+		return nil
+	})
+
+	// Assert: preserve caller and gRPC causes and finish process cleanup before return.
+	require.ErrorIs(t, err, context.Canceled)
+	transportStatus, hasStatus := status.FromError(err)
+	require.True(t, hasStatus)
+	assert.Equal(t, codes.Unknown, transportStatus.Code())
+	require.ErrorContains(t, err, "unknown cancellation transport failed")
+	select {
+	case <-runtime.Done():
+	default:
+		require.FailNow(t, "Execute returned before Unknown-failed runtime process cleanup")
+	}
+}
+
+// TestRuntimeHandleCancellationPreservesTransportFailure verifies independent Handler failure cleanup.
+func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: start a handler peer that reports transport loss after receiving cancellation.
+	startedPath := filepath.Join(t.TempDir(), "handle-started")
+	runtime := startReleaseGatedHelperRuntime(t, "cancel-handle-transport-error", startedPath, "", "")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	outcome := make(chan error, 1)
+	go func() {
+		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
+			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
+			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
+			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+				SessionID:               "session",
+				TargetEntryID:           "target",
+				PrecedingActiveLeafID:   mo.None[string](),
+				NavigationDestinationID: mo.None[string](),
+				CommittedActiveLeafID:   mo.None[string](),
+				CreatedSummary:          mo.None[session.Entry](),
+			}),
+		})
+		outcome <- handleErr
+	}()
+	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Act: cancel after the peer accepted and started the Handle operation.
+	cancel()
+	var handleErr error
+	select {
+	case handleErr = <-outcome:
+	case <-time.After(processOperationTimeout):
+		require.FailNow(t, "Handle did not settle after cancellation transport failure")
+	}
+
+	// Assert: preserve both causes and finish failed-process cleanup before Handle returns.
+	require.ErrorIs(t, handleErr, context.Canceled)
+	assert.Equal(t, codes.Unavailable, status.Code(handleErr))
+	require.ErrorContains(t, handleErr, "cancellation transport failed")
+	select {
+	case <-runtime.Done():
+	default:
+		require.FailNow(t, "Handle returned before failed runtime process cleanup")
+	}
+}
+
+// TestRuntimeHandleCancellationPreservesUnknownTransportFailure verifies explicit Unknown cleanup for Handle.
+func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: start a handler peer that returns explicit gRPC Unknown after cancellation.
+	startedPath := filepath.Join(t.TempDir(), "handle-started")
+	runtime := startReleaseGatedHelperRuntime(
+		t,
+		"cancel-handle-unknown-transport-error",
+		startedPath,
+		"",
+		"",
+	)
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	outcome := make(chan error, 1)
+	go func() {
+		_, handleErr := runtime.Handle(ctx, "observer", extensionservice.HandlerRequest{
+			SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
+			SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
+			SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+				SessionID:               "session",
+				TargetEntryID:           "target",
+				PrecedingActiveLeafID:   mo.None[string](),
+				NavigationDestinationID: mo.None[string](),
+				CommittedActiveLeafID:   mo.None[string](),
+				CreatedSummary:          mo.None[session.Entry](),
+			}),
+		})
+		outcome <- handleErr
+	}()
+	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Act: cancel after the peer accepted and started Handle.
+	cancel()
+	var handleErr error
+	select {
+	case handleErr = <-outcome:
+	case <-time.After(processOperationTimeout):
+		require.FailNow(t, "Handle did not settle after Unknown cancellation transport failure")
+	}
+
+	// Assert: preserve caller and gRPC causes and finish process cleanup before return.
+	require.ErrorIs(t, handleErr, context.Canceled)
+	transportStatus, hasStatus := status.FromError(handleErr)
+	require.True(t, hasStatus)
+	assert.Equal(t, codes.Unknown, transportStatus.Code())
+	require.ErrorContains(t, handleErr, "unknown cancellation transport failed")
+	select {
+	case <-runtime.Done():
+	default:
+		require.FailNow(t, "Handle returned before Unknown-failed runtime process cleanup")
+	}
+}
+
+// TestRuntimeCloseWaitsForActiveRelease verifies requested Host closure joins remote operation cleanup.
+func TestRuntimeCloseWaitsForActiveRelease(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: run one remote operation whose Release waits for a parent-controlled gate.
+	coordinationDir := t.TempDir()
+	releasePath := filepath.Join(coordinationDir, "release-started")
+	releaseGatePath := filepath.Join(coordinationDir, "release-gate")
+	runtime := startReleaseGatedHelperRuntime(t, "wait-release", "", releasePath, releaseGatePath)
+	t.Cleanup(func() { _ = os.WriteFile(releaseGatePath, nil, 0o600) })
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	started := make(chan struct{})
+	executeOutcome := make(chan error, 1)
+	go func() {
+		_, executeErr := runtime.Execute(
+			t.Context(),
+			"read",
+			[]byte(`{"path":"notes.txt"}`),
+			func(tool.Progress) error {
+				close(started)
+				return nil
+			},
+		)
+		executeOutcome <- executeErr
+	}()
+	<-started
+	closeDone := make(chan struct{})
+
+	// Act: request closure while Execute remains active.
+	go func() {
+		runtime.Close()
+		close(closeDone)
+	}()
+	require.Eventually(t, func() bool { return pathExists(releasePath) }, processOperationTimeout, 10*time.Millisecond)
+
+	// Assert: close and the synchronous operation remain joined until Release finishes.
+	select {
+	case <-closeDone:
+		require.FailNow(t, "Runtime.Close returned before active release finished")
+	default:
+	}
+	select {
+	case <-executeOutcome:
+		require.FailNow(t, "Execute returned before close joined active release")
+	default:
+	}
+	require.NoError(t, os.WriteFile(releaseGatePath, nil, 0o600))
+	<-closeDone
+	require.Error(t, <-executeOutcome)
 }
 
 // TestRuntimeRejectsExecutionProtocolViolations verifies every terminal-stream invariant from Extension Contract v1.
@@ -781,13 +1083,14 @@ func (s *protocolService) PrepareHandle(
 	_ context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
-	if s.mode != "handler" || request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+	if (s.mode != "handler" && s.mode != "wait-handle-release") ||
+		request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected handler request"))
 	}
 	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected observer payload"))
 	}
-	return &protocolHandleOperation{}, nil
+	return &protocolHandleOperation{service: s}, nil
 }
 
 // PrepareExecute records and admits one fixture tool execution.
@@ -832,7 +1135,7 @@ func (operation *protocolRegisterOperation) Run(
 		descriptor.SetInputSchemaJson([]byte(`{"type":`))
 	case "duplicate-name":
 		response.SetTools(append(response.GetTools(), descriptor))
-	case "handler":
+	case "handler", "wait-handle-release":
 		response.SetHandlers([]*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
 				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
@@ -847,16 +1150,23 @@ func (operation *protocolRegisterOperation) Release() {}
 
 // Run returns the typed observer acknowledgement.
 func (operation *protocolHandleOperation) Run(
-	context.Context,
+	ctx context.Context,
 ) (*extensionpb.HandleResponse, error) {
+	if operation.service.mode == "wait-handle-release" {
+		writeSignalFile(operation.service.startedPath)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build(), nil
 }
 
-// Release has no fixture handler reservation to free.
-func (operation *protocolHandleOperation) Release() {}
+// Release frees the fixture handler admission.
+func (operation *protocolHandleOperation) Release() {
+	operation.service.waitForReleaseGate()
+}
 
 // Run emits the selected fixture tool behavior.
 func (operation *protocolExecuteOperation) Run(
@@ -875,7 +1185,7 @@ func (operation *protocolExecuteOperation) Run(
 	}.Build()
 
 	switch operation.service.mode {
-	case "wait":
+	case "wait", "wait-release":
 		if err := reporter.Report(ctx, progress); err != nil {
 			return nil, err
 		}
@@ -892,19 +1202,64 @@ func (operation *protocolExecuteOperation) Run(
 	}
 }
 
-// Release has no fixture execution reservation to free.
-func (operation *protocolExecuteOperation) Release() {}
+// Release frees the fixture execution admission.
+func (operation *protocolExecuteOperation) Release() {
+	operation.service.waitForReleaseGate()
+}
 
 // startHelperRuntime starts this test binary as a real extension process.
 func startHelperRuntime(t *testing.T, mode string) *Runtime {
 	t.Helper()
 
+	return startReleaseGatedHelperRuntime(t, mode, "", "", "")
+}
+
+// startReleaseGatedHelperRuntime starts one child fixture with optional file coordination.
+func startReleaseGatedHelperRuntime(
+	t *testing.T,
+	mode string,
+	startedPath string,
+	releasePath string,
+	releaseGatePath string,
+) *Runtime {
+	t.Helper()
+
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRuntimeHelperProcess$")
-	command.Env = append(os.Environ(), runtimeHelperEnvironment+"="+mode)
+	command.Env = append(
+		os.Environ(),
+		runtimeHelperEnvironment+"="+mode,
+		runtimeStartedEnvironment+"="+startedPath,
+		runtimeReleaseEnvironment+"="+releasePath,
+		runtimeReleaseGateEnvironment+"="+releaseGatePath,
+	)
 	runtime, err := Start(t.Context(), command)
 	require.NoError(t, err)
 	t.Cleanup(runtime.Close)
 	return runtime
+}
+
+// waitForReleaseGate signals Release entry and waits until the parent permits completion.
+func (s *protocolService) waitForReleaseGate() {
+	if s.releaseGatePath == "" {
+		return
+	}
+	writeSignalFile(s.releasePath)
+	for !pathExists(s.releaseGatePath) {
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// writeSignalFile creates one empty child-process coordination file.
+func writeSignalFile(path string) {
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		panic(fmt.Errorf("write coordination file %q: %w", path, err))
+	}
+}
+
+// pathExists reports whether one coordination path exists.
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // buildGlyphTools builds the production extension executable for the real-process test.
