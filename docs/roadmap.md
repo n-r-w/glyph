@@ -8,7 +8,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 Status: Completed
 
-Execution position: After PHS-05 and before PHS-07.
+Execution position: After PHS-05 and before PHS-05.1.
 
 Define one asynchronous operation lifecycle for the UI Plugin Contract, Extension Contract, and Programmatic Control, and remove the obsolete UI startup-capability and Host terminal-recovery paths.
 
@@ -99,6 +99,15 @@ Documents:
 Follow-up issues:
 - [Reliable branch summarization](specs/issues/reliable-branch-summarization/problem.md): Completed
 
+## PHS-05.1: Extension boundary cleanup
+
+Status: Planned
+
+Remove unused prototype hooks, separate implemented extension runtime management from capability orchestration, and split oversized public protobuf sources without changing public behavior.
+
+Documents:
+- [Ticket](specs/features/initial/phases/05.1-extension-boundary-cleanup/ticket.md)
+
 ## PHS-07: Extension context and lifecycle
 
 Status: Planned
@@ -112,7 +121,7 @@ Documents:
 
 Status: Planned
 
-Add extensible context compaction and Host-owned retry decision coordination.
+Add extensible context compaction, Host-owned retry decision coordination, and the provider-neutral Host model-execution boundary.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)
@@ -121,7 +130,7 @@ Documents:
 
 Status: Planned
 
-Add ordered model-facing middleware and final input validation against model modalities.
+Add ordered model-facing middleware through provider-neutral Host boundaries and final input validation against model modalities.
 
 Documents:
 - [Ticket](specs/features/initial/phases/08-prompt-context-input-provider-middleware/ticket.md)
@@ -139,7 +148,7 @@ Documents:
 
 Status: Planned
 
-Add extension-defined user actions, interactions, notifications, and extension events.
+Add extension-defined user actions, interactions, notifications, extension events, and client-neutral provider authentication.
 
 Documents:
 - [Ticket](specs/features/initial/phases/10-commands-interaction-notifications-events/ticket.md)

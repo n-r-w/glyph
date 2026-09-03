@@ -77,6 +77,8 @@ Out of scope:
 - FRQ-04.5: Host shall validate the final decision before scheduling a delay or repeating the request. When handlers preserve the initial decision, Host shall apply the configured built-in policy.
 - FRQ-04.6: Agent Core shall consume one logical model execution result and shall depend on no retry policy, extension handler, plugin transport, or delay scheduler.
 - FRQ-04.7: Agent Core shall declare its minimal logical model-execution interface in `host/internal/usecase/agent/run`. A Host model-execution adapter shall implement retry coordination and provider dispatch through that interface.
+- FRQ-04.7.1: The Host model-execution use case shall declare its smallest provider-execution interface at the consumption site. The interface shall carry provider-neutral requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
+- FRQ-04.7.2: The implemented in-process OpenAI provider adapters shall implement the provider-execution interface until PHS-12 replaces them with extension-runtime adapters. The Host model-execution and retry-coordination packages shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
 - FRQ-04.8: After retry coordination ends, Host shall return one provider-neutral logical model-execution result to Agent Core. A failed result shall contain a closed Glyph category and complete error text that preserves the terminal provider, retry-handler, validation, delay, and delivery causes that contributed to that result.
 - FRQ-04.9: Retryability, retry decision, and terminal Glyph category shall remain separate values. A retry decision shall not replace or remove the source error.
 - FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
@@ -87,7 +89,7 @@ Out of scope:
 ### Non-Functional Requirements
 
 - NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
-- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, and TUI packages. This requirement applies to changes that cross those boundaries.
+- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. Host model execution and retry coordination must remain independent of concrete provider packages.
 
 ### Deliverables
 
@@ -111,6 +113,7 @@ Out of scope:
 - ACC-04.2: A retry handler changes one failure from no-retry to retry with a different delay and attempt limit, and Host applies the validated final decision.
 - ACC-04.3: Retry cancellation ends that logical model execution without scheduling another attempt. An invalid retry action preserves the preceding decision for later handlers.
 - ACC-04.4: `host/internal/usecase/agent/run` invokes a consumer-owned logical model-execution interface and imports no retry policy, extension handler, plugin transport, or delay scheduler.
+- ACC-04.4.1: Host model execution invokes a consumer-owned provider-execution interface whose in-process implementations have compile-time interface assertions. Host model execution and retry coordination import no concrete OpenAI provider package, and Agent Core and PHS-07 configured-model request callers remain unchanged when the provider implementation is replaced.
 - ACC-04.5: Retry exhaustion, retry cancellation, retry-handler failure, and a non-retryable provider failure each produce their defined terminal category and complete error text through every applicable Glyph client interface.
 - ACC-05: Retrying a failed model request repeats no completed tool, adds no intermediate attempt to session messages or model context, and persists only the terminal model outcome.
 - ACC-06: Abort cancels an in-progress provider request or pending retry delay and leaves the agent idle.
@@ -124,6 +127,7 @@ The ticket uses the same original-and-current composition rule for compaction an
 - RSK-01: Provider token accounting may be absent or approximate. Define one Host compaction-budget calculation based on the selected model descriptor and available usage data.
 - RSK-02: An extension can return a boundary that corrupts model-visible tool history. Host validates the final boundary against the active branch before persistence.
 - RSK-03: An extension can select a long delay or high attempt limit. Retry events expose the final decision and general abort cancels the request or pending delay.
+- RSK-04: Coupling retry coordination to an in-process OpenAI adapter would make PHS-12 replace Host orchestration together with provider transport. FRQ-04.7.1 and FRQ-04.7.2 keep provider replacement behind the Host model-execution boundary.
 
 ## Assumptions
 

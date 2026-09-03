@@ -50,7 +50,7 @@ Out of scope:
 
 - DEP-01: [PHS-05](../05-session-tree/ticket.md) must meet all acceptance criteria.
 - DEP-02: [PHS-04.1](../04.1-model-execution-capabilities/ticket.md) must meet all acceptance criteria.
-- DEP-03: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/solution.md) must be implemented and pass its defined verification before this phase changes the Extension Contract.
+- DEP-03: [PHS-05.1](../05.1-extension-boundary-cleanup/ticket.md) must meet all acceptance criteria before this phase adds Extension Contract capabilities.
 
 ## Requirements
 
@@ -62,6 +62,7 @@ Out of scope:
 
 - FRQ-01: Add extension context identity, runtime generation, active session identity, cancellation, cwd, model catalogue inspection, provider catalogue inspection, and configured-model requests for extension-owned behavior.
 - FRQ-01.1: A configured-model request shall use an explicitly selected configured model, shall not change the active conversation model or reasoning choice, and shall expose no provider credential or provider reasoning context to the extension.
+- FRQ-01.2: The Host use case that consumes a configured-model request shall declare its smallest provider-neutral model-request interface at the consumption site. It shall import no concrete provider package. Application composition shall bind the implemented in-process provider catalogue through that interface until PHS-06 replaces the implementation behind it.
 - FRQ-02: Deliver agent, turn, message, tool-execution, model-selection, and reasoning-selection events to registered extension handlers.
 - FRQ-02.1: Add extension context operations that request an active conversation model change or active reasoning-choice change through Host without exposing provider credentials.
 - FRQ-02.2: Every client- or extension-initiated model or reasoning change shall create an immutable original target selection and an equal current target selection before commit.
@@ -76,7 +77,7 @@ Out of scope:
 ### Non-Functional Requirements
 
 - NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
-- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, and TUI packages. This requirement applies to changes that cross those boundaries.
+- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. The extension-context use case shall also import no concrete provider package.
 
 ### Deliverables
 
@@ -89,6 +90,7 @@ Out of scope:
 - ACC-02: Session replacement creates a new context and every operation through the preceding context fails.
 - ACC-03: Extension entries attach to the active branch and survive restart.
 - ACC-04: An extension uses an explicitly selected configured model without changing the active conversation model or reasoning choice and without receiving provider credentials or provider reasoning context.
+- ACC-04.1: The extension-context model-request use case depends only on its consumer-owned provider-neutral interface. Its production implementation has a compile-time interface assertion, and the use case imports no OpenAI Codex, OpenAI-compatible, provider SDK, plugin transport, or provider credential package.
 - ACC-05: An extension changes the active conversation model and reasoning choice, and the next model request uses the committed selection without clearing session history.
 - ACC-06: Two selection handlers receive the same original target selection, while the second receives the current selection returned by the first.
 - ACC-07: Handler rejection, an invalid replacement, unavailable credentials, or an unsupported reasoning choice preserves the active provider, model, and reasoning choice, emits no selection event, and returns the same Glyph category and complete error text through UI Plugin Contract and Programmatic Control.
@@ -103,6 +105,7 @@ The ticket uses one Host-owned selection path for Glyph clients and extensions. 
 - RSK-01: Long-lived requests could use a context after session replacement. Host validates runtime generation and session identity for every context operation.
 - RSK-02: A model request could expose provider-owned authentication or replay data to an extension. Host resolves credentials and provider reasoning context without returning either to the extension.
 - RSK-03: Selection can change while a model request streams. Each in-progress request retains its immutable selection snapshot, and the committed change affects the next model request.
+- RSK-04: Binding configured-model requests directly to the concrete provider catalogue would force PHS-06 and PHS-12 to change the extension-context use case. FRQ-01.2 keeps that replacement behind a consumer-owned interface.
 
 ## Assumptions
 
@@ -120,6 +123,7 @@ No additional technical design is selected by this ticket. Contract shapes and p
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
-- REF-03: [prototype extension process boundary](../../../../../../api/plugins/extension/v1/tool.proto) - prototype extension process boundary.
+- REF-03: [extension process boundary](../../../../../../api/plugins/extension/v1) - public Extension Contract sources after PHS-05.1.
 - REF-04: [model execution capabilities](../04.1-model-execution-capabilities/ticket.md) - provider-neutral descriptor metadata used during selection validation.
 - REF-05: [target architecture](../../architecture.md) - Host selection ownership and extension composition.
+- REF-06: [extension boundary cleanup](../05.1-extension-boundary-cleanup/ticket.md) - required runtime and capability ownership baseline.

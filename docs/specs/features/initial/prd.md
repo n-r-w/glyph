@@ -201,6 +201,8 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The Glyph host shall contain no concrete provider authentication, API request serialization, response decoding, streaming, usage mapping, failure classification, or provider reasoning context replay implementation.
 - Each provider implementation shall own its authentication behavior, including API-key resolution, OAuth login, token refresh, and conversion of credentials into request authorization.
 - The Glyph host shall provide provider implementations with generic credential storage and interaction through a Glyph client.
+- A Glyph client shall be able to start or retry authentication for one configured provider through a Host-owned provider authentication operation. The operation shall expose no provider-specific command or progress type through UI Plugin Contract or Programmatic Control.
+- Each interactive step of provider authentication shall use the same interface-neutral interaction contract available to extensions. Equivalent authentication rejection, cancellation, interaction-delivery failure, and terminal failure shall expose the same Glyph category and complete error text through UI Plugin Contract and Programmatic Control.
 - Credential storage operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads, writes, and identifier conflicts. This namespace shall not be a sandbox or a security boundary against trusted extensions.
 - Host-provided credential storage shall persist credentials in the local credential file.
 - When two or more active extensions register the same provider identifier, the Glyph host shall reject every provider registration in that duplicate group. Load order shall select no winner.
@@ -242,7 +244,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The programmatic control contract shall not depend on the standard TUI or a selected transport technology.
 - The current `glyph` application's headless composition shall expose the programmatic control contract through bidirectional gRPC over a Unix socket.
 - The `glyph` application shall host the Programmatic Control transport in its own process and shall not create a separate Host daemon.
-- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model selection and adaptive reasoning control, queue modes, compaction, retry control, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
+- Programmatic control shall cover user requests, queued steering and follow-up messages, abort, state and message queries, model selection and adaptive reasoning control, provider authentication, queue modes, compaction, retry control, session statistics, session creation and switching, forking, cloning, tree navigation, session entries and naming, command discovery, execution events, interaction requests, and notifications.
 - Queue mode `all` shall deliver every queued `steer` or `followUp` message at its defined delivery point; `one-at-a-time` shall deliver one queued message at each respective point.
 - A headless agent shall execute its available tools itself.
 

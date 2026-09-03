@@ -52,7 +52,8 @@ Out of scope:
 - FRQ-01.2: After input handlers finish, Host shall validate every final text and image content kind against the selected model descriptor's `input` modalities before Agent Core or a provider driver receives the input.
 - FRQ-01.3: A final image for a text-only model shall fail input processing without starting an agent run or provider request.
 - FRQ-01.4: Agent Core shall declare a minimal consumer-owned interface in `host/internal/usecase/agent/run` for obtaining effective provider-neutral model context. A Host adapter shall implement extension dispatch through that interface without exposing handler count, handler order, plugin processes, protobuf, gRPC, or extension failure mapping to Agent Core.
-- FRQ-01.5: Agent Core shall not import `host/internal/hooks`. Host shall own any adapter from Agent Core's effective-context interface to extension middleware.
+- FRQ-01.5: Agent Core shall not regain the generic Host hook dependency removed by PHS-05.1. Host shall own the adapter from Agent Core's effective-context interface to extension middleware.
+- FRQ-01.6: Provider middleware coordination shall use the Host model-execution and provider-execution boundaries introduced by PHS-06. Provider middleware coordination shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
 - FRQ-02: Apply transformations sequentially. Each handler shall receive the immutable original input and the current value returned by preceding handlers and shall be able to preserve the current value or replace it with a value derived from either input.
 - FRQ-03: Continue later handlers and the core operation after an ordinary handler error while reporting that error. The next handler shall receive the same current value that the failed handler received.
 - FRQ-03.1: A reported handler error shall contain its closed Glyph category and complete error text while later handlers and the parent operation continue under FRQ-03.
@@ -60,7 +61,7 @@ Out of scope:
 ### Non-Functional Requirements
 
 - NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
-- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, and TUI packages. This requirement applies to changes that cross those boundaries.
+- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. Provider middleware coordination must remain independent of concrete provider packages.
 
 ### Deliverables
 
@@ -76,7 +77,8 @@ Out of scope:
 - ACC-03.1: A text-and-image model accepts final text and image input, while a text-only model rejects final image input before Agent Core or a provider request starts.
 - ACC-04: Two transforming handlers observe registration order, and the second can inspect the immutable original input while preserving or discarding the first handler's current value.
 - ACC-05: After an earlier ordinary handler error, the next handler receives the unchanged original input and the same current value that the failed handler received, while the error report retains its Glyph category and complete error text.
-- ACC-06: `host/internal/usecase/agent/run` obtains effective context through its own minimal interface, imports no `host/internal/hooks` package, and receives no plugin or transport type.
+- ACC-06: `host/internal/usecase/agent/run` obtains effective context through its own minimal interface, retains no generic Host hook dependency, and receives no plugin or transport type.
+- ACC-06.1: Provider middleware coordination invokes the PHS-06 Host model-execution and provider-execution boundaries and imports no concrete OpenAI provider package. Replacing an in-process provider adapter with an extension-runtime adapter changes no middleware, Agent Core, or PHS-07 configured-model request caller.
 
 ## Overengineering and Overspecification Considerations
 
@@ -86,6 +88,7 @@ The ticket uses one Host middleware path for every model-facing transformation a
 
 - RSK-01: Persisting transformed provider context would violate the request-local contract. Tests must compare persisted entries with the outbound provider request.
 - RSK-02: Validating modalities before input handlers finish can reject an image that an extension would remove or fully handle. Host validates only the final handler result.
+- RSK-03: Implementing provider middleware inside concrete OpenAI adapters would require PHS-12 to move middleware policy with provider transport. FRQ-01.6 keeps middleware coordination in Host.
 
 ## Assumptions
 
@@ -103,6 +106,7 @@ No additional technical design is selected by this ticket. Contract shapes and p
 
 - REF-01: [target product requirements](../../prd.md) - target product requirements.
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
-- REF-03: [prototype internal hook types](../../../../../../host/internal/hooks/hooks.go) - prototype-only hook types that Agent Core must stop importing.
+- REF-03: [extension boundary cleanup](../05.1-extension-boundary-cleanup/ticket.md) - removal of prototype hooks before public middleware is added.
 - REF-04: [model execution capabilities](../04.1-model-execution-capabilities/ticket.md) - input modality ownership.
 - REF-05: [target architecture](../../architecture.md) - Host dispatch and Agent Core consumer-owned interfaces.
+- REF-06: [context compaction and retry control](../06-context-compaction-retry-control/ticket.md) - Host model-execution and provider-execution boundaries.

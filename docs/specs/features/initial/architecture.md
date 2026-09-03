@@ -15,6 +15,7 @@
 - CNS-08: Glyph requires no backward compatibility with prototype contracts or earlier target-contract revisions.
 - CNS-09: This architecture assigns package paths only to implemented components. The owning phase Technical Solution shall select package placement before implementing a new component.
 - CNS-10: The standard TUI owns terminal initialization, modes, and cleanup. Host does not inspect, snapshot, reset, or restore terminal state and does not restart a terminated TUI.
+- CNS-11: Extension runtime management owns process mechanics and runtime availability. The Host use case that consumes an extension capability owns that capability's policy, handler ordering, validation, state transitions, and public error meaning.
 
 ## Key definitions and abbreviations
 
@@ -44,7 +45,7 @@
 - SOL-02: Agent Core runs one provider-neutral loop. It asks Host adapters for effective context, model execution, and tool execution, then applies terminal results to the active run.
 - SOL-03: Every transforming extension point starts with equal original and current values. Each handler receives the immutable original value and the current value from preceding handlers. Invalid actions and ordinary handler errors preserve the received current value for later handlers.
 - SOL-04: For a replaceable extension operation, built-in behavior runs only when its handlers end without an extension-provided result. Observers, transformers, and gates have no result-based fallback. Host validates every final result before state commit, persistence, or infrastructure dispatch.
-- SOL-05: Host owns extension ordering, process lifecycle, transport mapping, model selection, retry policy coordination, compaction, branch summarization, and session persistence. Agent Core receives only the minimum provider-neutral contracts required by its loop.
+- SOL-05: Each Host capability use case owns its extension-handler ordering and final validation. Extension runtime management owns process lifecycle, transport mapping, availability, and low-level invocation without owning capability policy. Agent Core receives only the minimum provider-neutral contracts required by its loop.
 
 ## Components
 
@@ -52,10 +53,10 @@
 - CMP-02: Client and command controllers. `host/internal/controller/ui`, `host/internal/controller/programmatic`, and `host/internal/controller/cli/headless` map external input to consumer-owned Host commands and map Host results to UI, Programmatic Control, or one-shot output contracts.
 - CMP-03: Host operation orchestration. `host/internal/usecase/host` owns run admission, model selection, session commands, extension coordination, client delivery, environment reload, and operation gates. Each Host use case calls Agent Core and infrastructure through interfaces declared by that Host use case.
 - CMP-04: Agent Core. `host/internal/usecase/agent/run` owns the run state machine, model and tool loop, ordered agent events, cancellation, and terminal run outcome. Its interfaces describe effective context, logical model execution, tools, history, and event delivery.
-- CMP-05: Extension subsystem. The logical Host extension component owns extension registration, deterministic handler ordering, extension contexts, transforming operation state, extension events, commands, resources, provider registrations, and runtime availability. `host/internal/infra/plugins/extension` owns implemented discovery, process startup, gRPC mapping, and process shutdown.
-- CMP-06: Model subsystem. `host/internal/usecase/host/providers` owns the implemented provider catalogue, provider-neutral model descriptors, active model selection, reasoning choice, credential preflight, and atomic selection commit. The logical Host model-execution component owns provider dispatch, provider middleware, retry decisions, and terminal model-call results.
+- CMP-05: Extension runtime management. The logical Host runtime component owns extension discovery, process startup, registration state, runtime generation, availability, low-level operation invocation, monitoring, cancellation, and shutdown. It implements consumer-owned invocation interfaces and owns no tool, session, selection, model-execution, command, resource, or client-delivery policy. `host/internal/infra/plugins/extension` owns implemented process startup, gRPC mapping, and process shutdown.
+- CMP-06: Model subsystem. `host/internal/usecase/host/providers` owns the implemented provider catalogue, provider-neutral model descriptors, active model selection, reasoning choice, credential preflight, and atomic selection commit. The logical Host provider-authentication component owns the client-neutral operation that starts or retries authentication for one configured provider. The logical Host model-execution component owns provider dispatch, provider middleware, retry decisions, and terminal model-call results.
 - CMP-07: Session subsystem. `host/internal/domain/session` owns session and entry models. `host/internal/usecase/host/sessions` and `host/internal/usecase/host/sessioncontrol` own implemented active-session operations. Logical Host session components own tree navigation, branch summarization, and context compaction.
-- CMP-08: Tool subsystem. `host/internal/usecase/host/extensions` owns the active tool registry, tool-to-extension routing, tool middleware coordination, extension runtime availability, and model-visible terminal tool results. Agent Core sees only its consumer-owned tool interface.
+- CMP-08: Tool subsystem. The Host tool capability use case owns the active tool registry, tool conflict policy, tool middleware coordination, tool-result semantics, and tool-to-runtime ownership. It invokes extension processes through its consumer-owned runtime interface. Agent Core sees only its consumer-owned tool interface.
 - CMP-09: Bundled provider extensions. The OpenAI Codex and OpenAI-compatible provider implementations run as ordinary extension processes and own authentication, wire request serialization, response streaming, retryable failure classification, usage mapping, and provider reasoning context replay. Host contains no concrete provider implementation.
 - CMP-10: Persistence subsystem. `host/internal/infra/persistence` owns settings loading, credentials, session storage, filesystem paths, file permissions, and atomic adapter operations. Persistence packages implement use-case-owned interfaces and contain no Host orchestration.
 - CMP-11: Programmatic Control transport. `api/programmatic/v1`, `pkg/programmatic/v1`, `host/internal/controller/programmatic`, and `host/internal/infra/programmatic/socket` expose Host commands and events through bidirectional gRPC over a Unix socket inside `glyph`.
@@ -171,14 +172,15 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - APC-04: Agent Core declares history and event interfaces in `host/internal/usecase/agent/run`. Host session and event adapters implement persistence and client delivery.
 - APC-05: Every controller package declares the smallest Host interface and method types needed by that controller. Host use cases implement those interfaces.
 - APC-06: Every Host use case declares each outbound dependency interface at its use site, including interfaces for Agent Core, repositories, providers, plugin runtimes, clocks, identifiers, and client delivery. Agent Core or infrastructure packages implement those interfaces.
-- APC-07: `host/internal/hooks` is not an Agent Core dependency in the target architecture. Extension dispatch contracts belong to Host, while Agent Core depends only on APC-01 through APC-04.
+- APC-07: PHS-05.1 removes `host/internal/hooks`. Extension dispatch contracts belong to Host, while Agent Core depends only on APC-01 through APC-04 and does not regain a generic Host hook dependency.
 
 ## Contracts
 
-- APC-08: Programmatic Control is a Host-owned command, acceptance, correlated event, interaction, notification, model catalogue, selection, session, compaction, retry, and queue-control contract. Its supported transport is bidirectional gRPC over a Unix socket.
-- APC-09: The UI Plugin Contract is Host-owned. It carries initialization, client commands, semantic events, interactions, and notifications. It exposes no terminal-ownership field or startup-capability RPC because Host makes no terminal-ownership decision. Successful plugin protocol startup establishes UI compatibility. The contract grants no agent orchestration authority.
+- APC-08: Programmatic Control is a Host-owned command, acceptance, correlated event, interaction, notification, model catalogue, selection, provider authentication, session, compaction, retry, and queue-control contract. Its supported transport is bidirectional gRPC over a Unix socket.
+- APC-09: The UI Plugin Contract is Host-owned. It carries initialization, client commands, semantic events, interactions, notifications, and provider-neutral authentication operations. It exposes no provider-specific authentication command or progress type, terminal-ownership field, or startup-capability RPC. Successful plugin protocol startup establishes UI compatibility. The contract grants no agent orchestration authority.
 - APC-10: The Extension Contract is Host-owned. It carries registration, extension contexts, ordered handler requests and results, provider-neutral model access, session operations, tools, resources, commands, events, interactions, notifications, and provider registration and execution for bundled and separately delivered providers.
 - APC-11: The model-provider contract is declared by the Host model-execution consumer. It carries provider-neutral model requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
+- APC-11.1: PHS-06 establishes the Host model-execution consumer and its provider-neutral provider interface. In-process provider adapters implement that interface until PHS-12 replaces them with extension-runtime adapters without changing the Agent Core or Host capability callers.
 - APC-12: The settings contract owns configured provider instances and model metadata. Unknown fields, unknown modalities, duplicate modalities, empty modality lists, modality lists without `text`, nonpositive limits, and `maxTokens` greater than `contextWindow` fail settings loading.
 - EVC-01: Agent lifecycle events originate from Agent Core. Host adds client correlation and delivers them to the active Glyph client and registered extension observers.
 - EVC-02: `session_before_tree` is the transforming extension point before tree navigation. `session_tree` is emitted only after navigation and any `BranchSummaryEntry` persistence commit.
@@ -271,7 +273,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 
 ## Architecture Risks
 
-- RSK-01: Host orchestration packages can grow into one dependency hub. Keep separate use cases for model execution, extensions, sessions, tools, and clients, with consumer-owned interfaces between them.
+- RSK-01: Host orchestration packages can grow into one dependency hub. Keep extension runtime management separate from model execution, sessions, tools, selection, commands, resources, and client delivery. Each capability use case owns its policy and calls runtime management through a consumer-owned interface.
 - RSK-02: A public extension contract can leak Host or provider implementation types. Contract review must reject protobuf fields derived from Host `internal` structs or provider SDK types. Credential and provider reasoning fields are valid only in provider-scoped operations for the owning provider implementation; non-provider extension operations cannot carry them.
 - RSK-03: A final extension result can violate session or provider invariants. Host validates the final result immediately before the owning atomic commit or infrastructure call.
 - RSK-04: Concurrent model selection and an active model stream can mix state. Each logical model execution uses one immutable selection snapshot, and selection changes affect only later executions.
@@ -305,3 +307,4 @@ None.
 - REF-05: `host/internal/usecase/agent/run` is the current Agent Core package group.
 - REF-06: `host/internal/usecase/host` is the current Host use-case package group.
 - REF-07: `api`, `pkg`, and `sdk` contain the current public process contracts and plugin SDKs.
+- REF-08: `docs/specs/features/initial/phases/05.1-extension-boundary-cleanup/ticket.md` defines the cleanup that establishes CNS-11 before PHS-07.

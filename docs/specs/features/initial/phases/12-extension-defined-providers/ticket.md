@@ -65,6 +65,7 @@ Out of scope:
 - FRQ-03: Host shall provide provider implementations with generic credential storage and client interaction.
 - FRQ-03.1: Credential operations shall use the registered provider identity as their namespace to prevent accidental cross-provider reads and writes. This namespace shall not claim to isolate credentials from trusted extensions running with the user's operating-system permissions.
 - FRQ-04: Integrate every registered provider with the Host model catalogue, model selection, extension model requests, provider middleware, retry coordination, and Agent Core model execution.
+- FRQ-04.1: Replace the in-process provider implementations behind the provider-neutral Host model-execution interface established by PHS-06. Provider migration shall not change the Agent Core logical model-execution interface, PHS-07 configured-model request callers, retry coordination, or PHS-08 middleware coordination.
 - FRQ-05: A provider identifier shall belong to at most one active provider registration. When two or more active extensions register the same provider identifier, Host shall reject every registration in that duplicate group and load order shall select no winner.
 
 ### Non-Functional Requirements
@@ -90,6 +91,7 @@ Out of scope:
 - ACC-08: A bundled provider extension registers one complete model descriptor with explicit `input`, `contextWindow`, `maxTokens`, and `toolCapabilities`. The Host catalogue preserves the exact complete descriptor, while Programmatic Control exposes exact `input`, `contextWindow`, `maxTokens`, and reasoning values without exposing `toolCapabilities`. Host neither reconstructs nor overwrites registered descriptor values from settings-defined built-in model metadata.
 - ACC-09: Bundled provider extensions load descriptor values from declarative extension-owned model catalogue data. Executable provider code contains no model-identifier capability branch or model-specific capability table.
 - ACC-09.1: Equivalent failures from a bundled provider and a separately delivered provider retain their bounded source text and produce the same provider-neutral classification at the Host boundary.
+- ACC-10: Replacing the in-process provider adapters with extension-runtime adapters requires no change to Agent Core, configured-model request callers, retry coordination, or provider middleware coordination.
 
 ## Overengineering and Overspecification Considerations
 
@@ -100,6 +102,7 @@ The ticket replaces two provider execution paths with one extension contract. It
 - RSK-01: A provider implementation can accidentally address another provider's credential record. Host namespaces credential operations by the registered provider identity. This is an API ownership rule, not a sandbox or malicious-extension security boundary.
 - RSK-02: Load-order conflict resolution can replace a provider without user intent. Host rejects every provider registration in a duplicate identifier group instead of selecting one.
 - RSK-03: Failure of a bundled provider extension can leave Glyph without an available model. Host shall report that provider as unavailable and preserve other extension runtimes.
+- RSK-04: Redesigning Host model execution during provider migration would repeat PHS-06 and PHS-08 work. FRQ-04.1 restricts this phase to replacing provider registration and execution adapters behind the established Host boundary.
 
 ## Assumptions
 
@@ -119,3 +122,5 @@ No additional technical design is selected by this ticket. Contract shapes, prov
 - REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
 - REF-03: [model execution capabilities](../04.1-model-execution-capabilities/ticket.md) - provider-neutral model descriptor requirements.
 - REF-04: [PHS-03 technical solution](../03-providers-models-runtime-selection/solution.md) - provider behavior that the bundled provider extensions must retain.
+- REF-05: [context compaction and retry control](../06-context-compaction-retry-control/ticket.md) - owner of the Host model-execution and provider-execution boundaries.
+- REF-06: [provider middleware](../08-prompt-context-input-provider-middleware/ticket.md) - middleware coordination that remains unchanged during provider migration.
