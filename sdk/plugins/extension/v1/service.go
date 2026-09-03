@@ -25,7 +25,7 @@ const (
 	failureCodeInternal = "INTERNAL"
 )
 
-//go:generate go tool mockgen -source=service.go -destination=interfaces_mock.go -package=extensionv1
+//go:generate go tool mockgen -source=service.go -destination=interfaces_mock_test.go -package=extensionv1
 
 // Service prepares extension-owned operations for asynchronous execution.
 type Service interface {

@@ -24,6 +24,7 @@ import (
 	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -140,8 +141,8 @@ func TestGRPCHandlerFixture(t *testing.T) {
 func newHandlerMockService(t *testing.T, fixture *grpcHandlerFixture) extensionsdk.Service {
 	t.Helper()
 	controller := gomock.NewController(t)
-	service := extensionsdk.NewMockService(controller)
-	registration := extensionsdk.NewMockRegisterOperation(controller)
+	service := pluginmock.NewMockExtensionService(controller)
+	registration := pluginmock.NewMockExtensionRegisterOperation(controller)
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil).AnyTimes()
 	registration.EXPECT().Run(gomock.Any()).DoAndReturn(
 		func(context.Context) (*extensionpb.RegisterResponse, error) {
@@ -151,7 +152,7 @@ func newHandlerMockService(t *testing.T, fixture *grpcHandlerFixture) extensions
 	registration.EXPECT().Release().AnyTimes()
 	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request *extensionpb.HandleRequest) (extensionsdk.HandleOperation, error) {
-			handler := extensionsdk.NewMockHandleOperation(controller)
+			handler := pluginmock.NewMockExtensionHandleOperation(controller)
 			prepared := &handlerFixtureHandleOperation{fixture: fixture, request: request}
 			handler.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
 			handler.EXPECT().Release()

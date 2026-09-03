@@ -25,6 +25,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
+	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -158,14 +159,14 @@ func TestRuntimeHelperProcess(t *testing.T) {
 func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk.Service {
 	t.Helper()
 	controller := gomock.NewController(t)
-	service := extensionsdk.NewMockService(controller)
+	service := pluginmock.NewMockExtensionService(controller)
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, request *extensionpb.RegisterRequest) (extensionsdk.RegisterOperation, error) {
 			prepared, err := fixture.PrepareRegister(ctx, request)
 			if err != nil {
 				return nil, err
 			}
-			registration := extensionsdk.NewMockRegisterOperation(controller)
+			registration := pluginmock.NewMockExtensionRegisterOperation(controller)
 			registration.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
 			registration.EXPECT().Release().Do(prepared.Release)
 			return registration, nil
@@ -177,7 +178,7 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 			if err != nil {
 				return nil, err
 			}
-			handler := extensionsdk.NewMockHandleOperation(controller)
+			handler := pluginmock.NewMockExtensionHandleOperation(controller)
 			handler.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
 			handler.EXPECT().Release().Do(prepared.Release)
 			return handler, nil
@@ -189,7 +190,7 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 			if err != nil {
 				return nil, err
 			}
-			execution := extensionsdk.NewMockExecuteOperation(controller)
+			execution := pluginmock.NewMockExtensionExecuteOperation(controller)
 			execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(prepared.Run)
 			execution.EXPECT().Release().Do(prepared.Release)
 			return execution, nil
