@@ -4,9 +4,11 @@ package extensionv1
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hashicorp/go-plugin"
@@ -108,7 +110,37 @@ func TestConnectAndServe(t *testing.T) {
 	// Assert: preserve the typed observer acknowledgement.
 	require.NotNil(t, handleCompleted.GetHandle().GetSessionTree())
 
-	// Act: execute a tool and collect ordered progress.
+	// Act: request an unknown tool through the public operation API.
+	rejectedRequest := new(extensionpb.HostRequest)
+	rejectedRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new("unknown"), ArgumentsJson: []byte(`{}`),
+	}.Build())
+	rejectedOperation, err := connection.Start(t.Context(), "rejected", rejectedRequest)
+	require.NoError(t, err)
+	_, rejectedErr := rejectedOperation.Wait(t.Context(), nil)
+
+	// Assert: preserve the exact rejected category and complete text.
+	var rejection *RejectionError
+	require.ErrorAs(t, rejectedErr, &rejection)
+	assert.Equal(t, rejectionCodeInvalidArgument, rejection.Code())
+	require.EqualError(t, rejectedErr, assert.AnError.Error())
+
+	// Act: execute accepted work that fails through the public operation API.
+	failedRequest := new(extensionpb.HostRequest)
+	failedRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new("contract"), ArgumentsJson: []byte(`{}`),
+	}.Build())
+	failedOperation, err := connection.Start(t.Context(), "failed", failedRequest)
+	require.NoError(t, err)
+	_, failedErr := failedOperation.Wait(t.Context(), nil)
+
+	// Assert: preserve INTERNAL and complete failure text.
+	var failure *FailureError
+	require.ErrorAs(t, failedErr, &failure)
+	assert.Equal(t, failureCodeInternal, failure.Code())
+	require.EqualError(t, failedErr, "complete operation failure text")
+
+	// Act: execute another tool operation and collect ordered progress.
 	executeRequest := new(extensionpb.HostRequest)
 	executeRequest.SetExecute(extensionpb.ExecuteRequest_builder{
 		ToolName: new("contract"), ArgumentsJson: []byte(`{}`),
@@ -125,6 +157,7 @@ func TestConnectAndServe(t *testing.T) {
 
 	// Assert: preserve progress and ordered text and image result data.
 	assert.Equal(t, []string{"started"}, progress)
+	assert.True(t, result.GetIsError())
 	require.Len(t, result.GetContents(), 2)
 	assert.Equal(t, "done", result.GetContents()[0].GetText())
 	assert.Equal(t, "image/png", result.GetContents()[1].GetImage().GetMediaType())
@@ -184,8 +217,12 @@ func newContractService(t *testing.T) Service {
 			return execution, nil
 		},
 	).AnyTimes()
+	var executionCalls atomic.Int64
 	execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, reporter *ProgressReporter) (*extensionpb.ToolResult, error) {
+			if executionCalls.Add(1) == 1 {
+				return nil, Fail(failureCodeInternal, errors.New("complete operation failure text"))
+			}
 			if err := reporter.Report(ctx, extensionpb.ToolProgress_builder{
 				Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS), Content: new("started"),
 			}.Build()); err != nil {
@@ -219,7 +256,7 @@ func contractRegistration() *extensionpb.RegisterResponse {
 // contractToolResult returns ordered text and image result data.
 func contractToolResult() *extensionpb.ToolResult {
 	return extensionpb.ToolResult_builder{
-		IsError: new(false),
+		IsError: new(true),
 		Contents: []*extensionpb.ToolResultContent{
 			//nolint:exhaustruct_v5 // The content builder sets only text.
 			extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),

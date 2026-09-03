@@ -79,6 +79,41 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		return err
 	}
 	id := execute.GetOperationId()
+	switch s.mode {
+	case "failure-before-accepted":
+		if err = stream.Send(extensionResponse(id, failedExtensionEvent(
+			"INTERNAL", "complete failure before Accepted text",
+		))); err != nil {
+			return err
+		}
+		<-stream.Context().Done()
+		return context.Cause(stream.Context())
+	case "unknown-operation-rejection":
+		if err = stream.Send(extensionResponse("unknown", rejectedExtensionEvent(
+			"BUSY", "complete unknown operation rejection text",
+		))); err != nil {
+			return err
+		}
+		<-stream.Context().Done()
+		return context.Cause(stream.Context())
+	case "unknown-operation-failure":
+		if err = stream.Send(extensionResponse("unknown", failedExtensionEvent(
+			"INTERNAL", "complete unknown operation failure text",
+		))); err != nil {
+			return err
+		}
+		<-stream.Context().Done()
+		return context.Cause(stream.Context())
+	}
+	if s.mode == "unsupported-rejection" {
+		if err = stream.Send(extensionResponse(id, rejectedExtensionEvent(
+			"UNSUPPORTED", "complete peer rejection text",
+		))); err != nil {
+			return err
+		}
+		<-stream.Context().Done()
+		return context.Cause(stream.Context())
+	}
 	if err = stream.Send(extensionResponse(id, acceptedExtensionEvent())); err != nil {
 		return err
 	}
@@ -88,6 +123,14 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 
 	completed := toolCompletedEvent()
 	switch s.mode {
+	case "unsupported-failure":
+		if err = stream.Send(extensionResponse(id, failedExtensionEvent(
+			"UNSUPPORTED", "complete peer failure text",
+		))); err != nil {
+			return err
+		}
+		<-stream.Context().Done()
+		return context.Cause(stream.Context())
 	case "cancel-transport-error", "cancel-unknown-transport-error":
 		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {
 			return err
@@ -228,6 +271,20 @@ func acceptedExtensionEvent() *extensionpb.ExtensionEvent {
 func runningExtensionEvent() *extensionpb.ExtensionEvent {
 	event := new(extensionpb.ExtensionEvent)
 	event.SetRunning(new(operationpb.Running))
+	return event
+}
+
+// rejectedExtensionEvent returns a peer rejection with the selected category and complete text.
+func rejectedExtensionEvent(code string, message string) *extensionpb.ExtensionEvent {
+	event := new(extensionpb.ExtensionEvent)
+	event.SetRejected(operationpb.Rejected_builder{Code: new(code), Message: new(message)}.Build())
+	return event
+}
+
+// failedExtensionEvent returns a peer failure with the selected category and complete text.
+func failedExtensionEvent(code string, message string) *extensionpb.ExtensionEvent {
+	event := new(extensionpb.ExtensionEvent)
+	event.SetFailed(operationpb.Failed_builder{Code: new(code), Message: new(message)}.Build())
 	return event
 }
 

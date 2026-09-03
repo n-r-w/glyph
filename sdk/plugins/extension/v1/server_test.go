@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,6 +41,9 @@ func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
 	stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
 	completedSendStarted := make(chan struct{})
 	allowCompletedSend := make(chan struct{})
+	executeRejected := make(chan struct{})
+	registerCompleted := make(chan struct{})
+	laterCompleted := make(chan struct{})
 	var closeCompleted sync.Once
 	registration := extensionpb.RegisterResponse_builder{Tools: nil, Handlers: nil}.Build()
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(register, nil)
@@ -66,15 +70,27 @@ func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
 		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
 			time.Sleep(50 * time.Millisecond)
 			closeCompleted.Do(func() { close(allowCompletedSend) })
+			<-registerCompleted
+			<-executeRejected
+			return openExecuteRequest("later"), nil
+		}),
+		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+			<-laterCompleted
 			return nil, io.EOF
 		}),
 	)
 	responses := make([]*extensionpb.OpenResponse, 0, 4)
 	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(response *extensionpb.OpenResponse) error {
 		responses = append(responses, response)
-		if response.GetOperationId() == "register" && response.GetEvent().GetCompleted() != nil {
+		switch {
+		case response.GetOperationId() == "register" && response.GetEvent().GetCompleted() != nil:
 			close(completedSendStarted)
 			<-allowCompletedSend
+			close(registerCompleted)
+		case response.GetOperationId() == "execute" && response.GetEvent().GetRejected() != nil:
+			close(executeRejected)
+		case response.GetOperationId() == "later" && response.GetEvent().GetCompleted() != nil:
+			close(laterCompleted)
 		}
 		return nil
 	})
@@ -84,15 +100,11 @@ func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
 
 	// Assert: Execute is rejected as NOT_READY before registration Completed is delivered.
 	require.NoError(t, err)
-	var rejection *operationpb.Rejected
-	for _, response := range responses {
-		if response.GetOperationId() == "execute" {
-			rejection = response.GetEvent().GetRejected()
-		}
-	}
-	require.NotNil(t, rejection)
-	assert.Equal(t, rejectionCodeNotReady, rejection.GetCode())
-	assert.Zero(t, executePreparations.Load())
+	assertExactRejectionWithoutLifecycle(
+		t, responses, "execute", rejectionCodeNotReady, "extension registration is not complete",
+	)
+	assert.Equal(t, int64(1), executePreparations.Load())
+	assertCompletedResponse(t, responses, "later")
 }
 
 // TestServerProcessesCancellationWhileTargetRunIsBlocked verifies receipt, joining, and all target-state mappings.
@@ -399,31 +411,151 @@ func TestOperationOutcomePreservesClassifiedCancellation(t *testing.T) {
 	assert.ErrorContains(t, outcome.Err(), "cleanup failed")
 }
 
+// TestValidateRejectionCodeUsesRequestSpecificClosedSets verifies every Extension request category set.
+func TestValidateRejectionCodeUsesRequestSpecificClosedSets(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: define every supported category and the exact allowed set for each request kind.
+	allCodes := []string{
+		rejectionCodeInvalidArgument,
+		rejectionCodeOperationIDInUse,
+		rejectionCodeBusy,
+		rejectionCodeNotReady,
+		rejectionCodeTargetNotActive,
+		"UNSUPPORTED",
+	}
+	allowed := map[requestKind]map[string]bool{
+		requestRegister: {
+			rejectionCodeInvalidArgument: true, rejectionCodeOperationIDInUse: true,
+			rejectionCodeBusy: true, rejectionCodeNotReady: true,
+		},
+		requestHandle: {
+			rejectionCodeInvalidArgument: true, rejectionCodeOperationIDInUse: true,
+			rejectionCodeBusy: true, rejectionCodeNotReady: true,
+		},
+		requestExecute: {
+			rejectionCodeInvalidArgument: true, rejectionCodeOperationIDInUse: true,
+			rejectionCodeBusy: true, rejectionCodeNotReady: true,
+		},
+		requestCancel: {
+			rejectionCodeInvalidArgument: true, rejectionCodeOperationIDInUse: true,
+			rejectionCodeTargetNotActive: true,
+		},
+	}
+
+	for kind, allowedCodes := range allowed {
+		for _, code := range allCodes {
+			// Act: validate one category at the request-specific boundary.
+			err := validateRejectionCode(kind, code)
+
+			// Assert: accept only the documented closed-set members.
+			if allowedCodes[code] {
+				assert.NoError(t, err, "kind %d code %s", kind, code)
+			} else {
+				assert.Error(t, err, "kind %d code %s", kind, code)
+			}
+		}
+	}
+}
+
+// TestPublicErrorWrappersPreserveCauses verifies public classified errors retain exact text and cause identity.
+func TestPublicErrorWrappersPreserveCauses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: create distinct local causes for both public classified error types.
+	rejectionCause := errors.New("complete rejection cause")
+	failureCause := errors.New("complete failure cause")
+
+	// Act: wrap each cause through the public SDK helpers.
+	rejection := Reject(rejectionCodeBusy, rejectionCause)
+	failure := Fail(failureCodeInternal, failureCause)
+
+	// Assert: preserve exact text, category, concrete type, and original cause.
+	var rejectionError *RejectionError
+	require.ErrorAs(t, rejection, &rejectionError)
+	assert.Equal(t, rejectionCodeBusy, rejectionError.Code())
+	assert.EqualError(t, rejection, rejectionCause.Error())
+	assert.ErrorIs(t, rejection, rejectionCause)
+	var failureError *FailureError
+	require.ErrorAs(t, failure, &failureError)
+	assert.Equal(t, failureCodeInternal, failureError.Code())
+	assert.EqualError(t, failure, failureCause.Error())
+	assert.ErrorIs(t, failure, failureCause)
+}
+
 // TestMapExtensionEventRejectsInvalidCodesAndCancelStates verifies authoritative Host event validation.
 func TestMapExtensionEventRejectsInvalidCodesAndCancelStates(t *testing.T) {
 	t.Parallel()
 
 	// Arrange: create unsupported peer codes and invalid cancellation completion states.
 	testCases := map[string]struct {
-		kind  requestKind
-		event *extensionpb.ExtensionEvent
+		kind              requestKind
+		event             *extensionpb.ExtensionEvent
+		expectedFragments []string
+		category          string
+		message           string
 	}{
-		"rejection code": {kind: requestExecute, event: rejectedEvent("UNKNOWN", "bad rejection")},
-		"failure code":   {kind: requestExecute, event: failedEvent("UNKNOWN", "bad failure")},
-		"missing cancel state": {kind: requestCancel, event: cancelCompletedEvent(
-			operationpb.CancelCompleted_builder{}.Build(),
-		)},
-		"unspecified cancel state": {kind: requestCancel, event: cancelCompletedEvent(
-			operationpb.CancelCompleted_builder{
+		"Register rejection code": {
+			kind:  requestRegister,
+			event: rejectedEvent(rejectionCodeTargetNotActive, "complete Register rejection text"),
+			expectedFragments: []string{
+				`unsupported extension rejection code "TARGET_NOT_ACTIVE"`,
+				"for request kind", "peer rejection text", "complete Register rejection text",
+			},
+			category: rejectionCodeTargetNotActive, message: "complete Register rejection text",
+		},
+		"Handle rejection code": {
+			kind:  requestHandle,
+			event: rejectedEvent(rejectionCodeTargetNotActive, "complete Handle rejection text"),
+			expectedFragments: []string{
+				`unsupported extension rejection code "TARGET_NOT_ACTIVE"`,
+				"for request kind", "peer rejection text", "complete Handle rejection text",
+			},
+			category: rejectionCodeTargetNotActive, message: "complete Handle rejection text",
+		},
+		"Execute rejection code": {
+			kind: requestExecute, event: rejectedEvent("UNSUPPORTED", "complete Execute rejection text"),
+			expectedFragments: []string{
+				`unsupported extension rejection code "UNSUPPORTED"`,
+				"for request kind", "peer rejection text", "complete Execute rejection text",
+			},
+			category: "UNSUPPORTED", message: "complete Execute rejection text",
+		},
+		"Cancel rejection code": {
+			kind: requestCancel, event: rejectedEvent(rejectionCodeBusy, "complete Cancel rejection text"),
+			expectedFragments: []string{
+				`unsupported extension rejection code "BUSY"`,
+				"for request kind", "peer rejection text", "complete Cancel rejection text",
+			},
+			category: rejectionCodeBusy, message: "complete Cancel rejection text",
+		},
+		"failure code": {
+			kind: requestExecute, event: failedEvent("UNSUPPORTED", "complete failure text"),
+			expectedFragments: []string{
+				`unsupported extension failure code "UNSUPPORTED"`,
+				"peer failure text", "complete failure text",
+			},
+			category: "UNSUPPORTED", message: "complete failure text",
+		},
+		"missing cancel state": {
+			kind: requestCancel, event: cancelCompletedEvent(operationpb.CancelCompleted_builder{}.Build()),
+			expectedFragments: nil, category: "", message: "",
+		},
+		"unspecified cancel state": {
+			kind: requestCancel, event: cancelCompletedEvent(operationpb.CancelCompleted_builder{
 				TargetState: new(operationpb.TerminalState_TERMINAL_STATE_UNSPECIFIED),
-			}.Build(),
-		)},
-		"unspecified progress channel": {kind: requestExecute, event: progressEvent(
-			extensionpb.ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED,
-		)},
-		"unknown progress channel": {kind: requestExecute, event: progressEvent(
-			extensionpb.ProgressChannel(99),
-		)},
+			}.Build()),
+			expectedFragments: nil, category: "", message: "",
+		},
+		"unspecified progress channel": {
+			kind:              requestExecute,
+			event:             progressEvent(extensionpb.ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED),
+			expectedFragments: nil, category: "", message: "",
+		},
+		"unknown progress channel": {
+			kind: requestExecute, event: progressEvent(extensionpb.ProgressChannel(99)),
+			expectedFragments: nil, category: "", message: "",
+		},
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -431,9 +563,19 @@ func TestMapExtensionEventRejectsInvalidCodesAndCancelStates(t *testing.T) {
 
 			// Act: map the peer event before Tracker.Handle.
 			_, _, err := mapExtensionEvent("operation", testCase.kind, testCase.event)
+			if len(testCase.expectedFragments) > 0 {
+				err = peerErrorPayloadContext(err, testCase.event, false)
+			}
 
-			// Assert: reject the invalid closed-set value.
+			// Assert: reject the invalid value with every local and peer context layer exactly once.
 			require.Error(t, err)
+			for _, fragment := range testCase.expectedFragments {
+				require.ErrorContains(t, err, fragment)
+			}
+			if testCase.category != "" {
+				assert.Equal(t, 1, strings.Count(err.Error(), testCase.category))
+				assert.Equal(t, 1, strings.Count(err.Error(), testCase.message))
+			}
 		})
 	}
 }
@@ -444,23 +586,40 @@ func TestServerRejectsUnsupportedLocalCodes(t *testing.T) {
 
 	// Arrange: configure unsupported preparation and execution failure codes.
 	testCases := map[string]struct {
-		prepare func(*MockService, *MockExecuteOperation, chan struct{})
+		prepare           func(*MockService, *MockExecuteOperation, chan struct{})
+		expectedFragments []string
 	}{
-		"rejection": {prepare: func(service *MockService, _ *MockExecuteOperation, _ chan struct{}) {
-			service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(
-				nil, Reject("UNKNOWN", errors.New("unsupported rejection cause")),
-			)
-		}},
-		"failure": {prepare: func(service *MockService, execute *MockExecuteOperation, ran chan struct{}) {
-			service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
-			execute.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(context.Context, *ProgressReporter) (*extensionpb.ToolResult, error) {
-					close(ran)
-					return nil, Fail("UNKNOWN", errors.New("unsupported failure cause"))
-				},
-			)
-			execute.EXPECT().Release()
-		}},
+		"rejection": {
+			prepare: func(service *MockService, _ *MockExecuteOperation, _ chan struct{}) {
+				service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(
+					nil, Reject("UNKNOWN", fmt.Errorf("unsupported rejection cause: %w", assert.AnError)),
+				)
+			},
+			expectedFragments: []string{
+				`unsupported extension rejection code "UNKNOWN"`,
+				"for request kind 4",
+				"unsupported rejection cause",
+				assert.AnError.Error(),
+			},
+		},
+		"failure": {
+			prepare: func(service *MockService, execute *MockExecuteOperation, ran chan struct{}) {
+				service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
+				execute.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(context.Context, *ProgressReporter) (*extensionpb.ToolResult, error) {
+						close(ran)
+						return nil, Fail("UNKNOWN", fmt.Errorf("unsupported failure cause: %w", assert.AnError))
+					},
+				)
+				execute.EXPECT().Release()
+			},
+			expectedFragments: []string{
+				"map extension terminal",
+				`unsupported extension failure code "UNKNOWN"`,
+				"unsupported failure cause",
+				assert.AnError.Error(),
+			},
+		},
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -487,8 +646,11 @@ func TestServerRejectsUnsupportedLocalCodes(t *testing.T) {
 			err := server.Open(stream)
 
 			// Assert: fail the stream as Internal and preserve complete cause text.
-			assert.Equal(t, codes.Internal, status.Code(err))
-			assert.ErrorContains(t, err, "unsupported")
+			require.Equal(t, codes.Internal, status.Code(err))
+			for _, fragment := range testCase.expectedFragments {
+				require.ErrorContains(t, err, fragment)
+			}
+			require.ErrorIs(t, err, assert.AnError)
 		})
 	}
 }
@@ -782,8 +944,28 @@ func openRegisterRequest(id string) *extensionpb.OpenRequest {
 
 // openExecuteRequest constructs one Execute stream message.
 func openExecuteRequest(id string) *extensionpb.OpenRequest {
+	return openExecuteRequestWith(id, "tool", []byte(`{}`))
+}
+
+// openExecuteRequestWith constructs an Execute stream message with selected payload fields.
+func openExecuteRequestWith(id string, toolName string, arguments []byte) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
-	request.SetExecute(extensionpb.ExecuteRequest_builder{ToolName: new("tool"), ArgumentsJson: []byte(`{}`)}.Build())
+	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new(toolName), ArgumentsJson: arguments,
+	}.Build())
+	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+}
+
+// openHandleRequest constructs one session-tree Handle stream message.
+func openHandleRequest(id string, handlerID string) *extensionpb.OpenRequest {
+	request := new(extensionpb.HostRequest)
+	request.SetHandle(extensionpb.HandleRequest_builder{
+		HandlerId: new(handlerID), SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
+		SessionTree: extensionpb.SessionTreeInvocation_builder{
+			SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
+			NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
+		}.Build(),
+	}.Build())
 	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
 }
 

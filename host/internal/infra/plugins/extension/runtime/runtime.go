@@ -140,10 +140,11 @@ func (r *Runtime) Execute(
 	})
 	if err != nil {
 		var cancellationErr error
-		if ctx.Err() != nil || !isExtensionTerminalError(err) {
+		connectionFailed := isConnectionFailure(err)
+		if shouldCancelFailedExecution(ctx.Err(), progressDeliveryErr, err) {
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
-		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
+		if connectionFailed || isConnectionFailure(cancellationErr) {
 			r.Close()
 		}
 		var primaryErr error
@@ -197,6 +198,14 @@ func (r *Runtime) cancelOperation(ctx context.Context, targetID string) error {
 		return fmt.Errorf("wait for cancellation of extension operation %q: %w", targetID, err)
 	}
 	return nil
+}
+
+// shouldCancelFailedExecution reports whether usable connection work can still require cancellation.
+func shouldCancelFailedExecution(ctxErr, progressDeliveryErr, operationErr error) bool {
+	if isConnectionFailure(operationErr) {
+		return false
+	}
+	return ctxErr != nil || progressDeliveryErr != nil || !isExtensionTerminalError(operationErr)
 }
 
 // isBenignCancellationError reports expected cancellation settlement during target or connection shutdown.

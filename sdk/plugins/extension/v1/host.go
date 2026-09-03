@@ -331,18 +331,19 @@ func (c *Connection) handleResponse(response *extensionpb.OpenResponse) error {
 	kind, known := c.kinds[id]
 	c.mutex.Unlock()
 	if !known {
-		return fmt.Errorf(
+		cause := fmt.Errorf(
 			"extension response references unknown operation %q with %s event",
 			id,
 			extensionEventName(response.GetEvent()),
 		)
+		return peerErrorPayloadContext(cause, response.GetEvent(), true)
 	}
 	event, terminal, err := mapExtensionEvent(id, kind, response.GetEvent())
 	if err != nil {
-		return err
+		return peerErrorPayloadContext(err, response.GetEvent(), false)
 	}
 	if trackerErr := c.tracker.Handle(event); trackerErr != nil {
-		return trackerErr
+		return peerErrorPayloadContext(trackerErr, response.GetEvent(), true)
 	}
 	if terminal {
 		c.mutex.Lock()
@@ -350,6 +351,43 @@ func (c *Connection) handleResponse(response *extensionpb.OpenResponse) error {
 		c.mutex.Unlock()
 	}
 	return nil
+}
+
+// peerErrorPayloadContext adds peer text and adds its category when the local cause does not already render it.
+func peerErrorPayloadContext(cause error, event *extensionpb.ExtensionEvent, includeCategory bool) error {
+	switch event.WhichEvent() {
+	case extensionpb.ExtensionEvent_Rejected_case:
+		rejected := event.GetRejected()
+		if includeCategory {
+			return fmt.Errorf(
+				"%w: peer rejection category %q: peer rejection text: %s",
+				cause,
+				rejected.GetCode(),
+				rejected.GetMessage(),
+			)
+		}
+		return fmt.Errorf("%w: peer rejection text: %s", cause, rejected.GetMessage())
+	case extensionpb.ExtensionEvent_Failed_case:
+		failed := event.GetFailed()
+		if includeCategory {
+			return fmt.Errorf(
+				"%w: peer failure category %q: peer failure text: %s",
+				cause,
+				failed.GetCode(),
+				failed.GetMessage(),
+			)
+		}
+		return fmt.Errorf("%w: peer failure text: %s", cause, failed.GetMessage())
+	case extensionpb.ExtensionEvent_Event_not_set_case,
+		extensionpb.ExtensionEvent_Accepted_case,
+		extensionpb.ExtensionEvent_Running_case,
+		extensionpb.ExtensionEvent_Progress_case,
+		extensionpb.ExtensionEvent_Completed_case,
+		extensionpb.ExtensionEvent_Canceled_case:
+		return cause
+	default:
+		return cause
+	}
 }
 
 // extensionEventName returns the stable event name used in protocol failure text.

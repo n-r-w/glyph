@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -55,6 +56,8 @@ type protocolService struct {
 	releasePath string
 	// releaseGatePath names the file that permits selected operation release to finish.
 	releaseGatePath string
+	// attempts counts selected rejection or failure fixture invocations.
+	attempts atomic.Int64
 }
 
 // protocolRegisterOperation returns one mode-specific registration.
@@ -144,6 +147,7 @@ func TestRuntimeHelperProcess(t *testing.T) {
 		startedPath:     os.Getenv(runtimeStartedEnvironment),
 		releasePath:     os.Getenv(runtimeReleaseEnvironment),
 		releaseGatePath: os.Getenv(runtimeReleaseGateEnvironment),
+		attempts:        atomic.Int64{},
 	}
 	extensionsdk.Serve(newProtocolMockService(t, fixture))
 
@@ -155,14 +159,18 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 	t.Helper()
 	controller := gomock.NewController(t)
 	service := extensionsdk.NewMockService(controller)
-	registration := extensionsdk.NewMockRegisterOperation(controller)
-	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil).AnyTimes()
-	registration.EXPECT().Run(gomock.Any()).DoAndReturn(
-		func(context.Context) (*extensionpb.RegisterResponse, error) {
-			return (&protocolRegisterOperation{service: fixture}).Run(t.Context())
+	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, request *extensionpb.RegisterRequest) (extensionsdk.RegisterOperation, error) {
+			prepared, err := fixture.PrepareRegister(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			registration := extensionsdk.NewMockRegisterOperation(controller)
+			registration.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
+			registration.EXPECT().Release().Do(prepared.Release)
+			return registration, nil
 		},
 	).AnyTimes()
-	registration.EXPECT().Release().AnyTimes()
 	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, request *extensionpb.HandleRequest) (extensionsdk.HandleOperation, error) {
 			prepared, err := fixture.PrepareHandle(ctx, request)
@@ -194,7 +202,9 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 func isAdversarialMode(mode string) bool {
 	switch mode {
 	case "missing-result", "duplicate-result", "event-after-result", "empty-event",
-		"empty-result", "mismatched-handler", "cancel-transport-error", "cancel-handle-transport-error",
+		"empty-result", "mismatched-handler", "unsupported-rejection", "unsupported-failure",
+		"failure-before-accepted", "unknown-operation-rejection", "unknown-operation-failure",
+		"cancel-transport-error", "cancel-handle-transport-error",
 		"cancel-unknown-transport-error", "cancel-handle-unknown-transport-error":
 		return true
 	default:
@@ -930,6 +940,141 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 	}
 }
 
+// TestRuntimeKeepsHandlerErrorsAsCompletedData verifies ordinary handler errors do not stop the runtime.
+func TestRuntimeKeepsHandlerErrorsAsCompletedData(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: start an SDK extension that completes Handle with HandlerError data.
+	runtime := startHelperRuntime(t, "handler-error")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	request := validSessionTreeHandlerRequest()
+
+	// Act: invoke the handler twice through the local gRPC boundary.
+	_, firstErr := runtime.Handle(t.Context(), "observer", request)
+	_, secondErr := runtime.Handle(t.Context(), "observer", request)
+
+	// Assert: return complete ordinary data errors while the runtime remains available.
+	for _, handleErr := range []error{firstErr, secondErr} {
+		require.EqualError(t, handleErr, "complete handler error text")
+		require.NotErrorIs(t, handleErr, extensionservice.ErrExtensionUnavailable)
+	}
+	select {
+	case <-runtime.Done():
+		assert.Fail(t, "runtime stopped after completed HandlerError data")
+	default:
+	}
+}
+
+// TestRuntimeRejectsPeerErrorLifecycleViolations verifies peer error payloads survive later protocol validation.
+func TestRuntimeRejectsPeerErrorLifecycleViolations(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: define valid peer errors that violate lifecycle or operation ownership.
+	testCases := map[string]struct {
+		mode          string
+		category      string
+		message       string
+		localFragment string
+		peerContext   string
+	}{
+		"Failed before Accepted": {
+			mode: "failure-before-accepted", category: "INTERNAL",
+			message: "complete failure before Accepted text", localFragment: "cannot precede Accepted",
+			peerContext: `peer failure category "INTERNAL"`,
+		},
+		"Rejected for unknown operation": {
+			mode: "unknown-operation-rejection", category: "BUSY",
+			message: "complete unknown operation rejection text", localFragment: `unknown operation "unknown"`,
+			peerContext: `peer rejection category "BUSY"`,
+		},
+		"Failed for unknown operation": {
+			mode: "unknown-operation-failure", category: "INTERNAL",
+			message: "complete unknown operation failure text", localFragment: `unknown operation "unknown"`,
+			peerContext: `peer failure category "INTERNAL"`,
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			runtime := startHelperRuntime(t, testCase.mode)
+			_, err := runtime.Register(t.Context())
+			require.NoError(t, err)
+
+			// Act: execute work against the peer lifecycle violation.
+			_, err = runtime.Execute(
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+			)
+
+			// Assert: retain all local and peer context once, classify unavailability, and stop the runtime.
+			require.Error(t, err)
+			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorContains(t, err, `execute extension tool "read"`)
+			require.ErrorContains(t, err, "extension protocol violation")
+			require.ErrorContains(t, err, testCase.localFragment)
+			require.ErrorContains(t, err, testCase.peerContext)
+			require.ErrorContains(t, err, testCase.message)
+			assert.Equal(t, 1, strings.Count(err.Error(), testCase.category))
+			assert.Equal(t, 1, strings.Count(err.Error(), testCase.message))
+			requireRuntimeStopped(t, runtime)
+		})
+	}
+}
+
+// TestRuntimeRejectsUnsupportedPeerCategories verifies invalid peer categories retain text and stop the runtime.
+func TestRuntimeRejectsUnsupportedPeerCategories(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: define direct peers and every required local and peer error context layer.
+	testCases := map[string]struct {
+		mode      string
+		message   string
+		fragments []string
+	}{
+		"rejection": {
+			mode: "unsupported-rejection", message: "complete peer rejection text",
+			fragments: []string{
+				`execute extension tool "read"`, "extension protocol violation",
+				`unsupported extension rejection code "UNSUPPORTED"`, "for request kind 4",
+				"peer rejection text",
+			},
+		},
+		"failure": {
+			mode: "unsupported-failure", message: "complete peer failure text",
+			fragments: []string{
+				`execute extension tool "read"`, "extension protocol violation",
+				`unsupported extension failure code "UNSUPPORTED"`, "peer failure text",
+			},
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			runtime := startHelperRuntime(t, testCase.mode)
+			_, err := runtime.Register(t.Context())
+			require.NoError(t, err)
+
+			// Act: execute work against the malformed direct peer.
+			_, err = runtime.Execute(
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+			)
+
+			// Assert: preserve every context layer once, then stop the unavailable runtime.
+			require.Error(t, err)
+			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+			for _, fragment := range testCase.fragments {
+				require.ErrorContains(t, err, fragment)
+			}
+			require.ErrorContains(t, err, testCase.message)
+			assert.Equal(t, 1, strings.Count(err.Error(), "UNSUPPORTED"), name)
+			assert.Equal(t, 1, strings.Count(err.Error(), testCase.message), name)
+			requireRuntimeStopped(t, runtime)
+		})
+	}
+}
+
 // TestRuntimeRejectsInvalidCatalogs verifies complete-catalog validation before tools enter Host state.
 func TestRuntimeRejectsInvalidCatalogs(t *testing.T) {
 	t.Parallel()
@@ -1075,6 +1220,9 @@ func (s *protocolService) PrepareRegister(
 	context.Context,
 	*extensionpb.RegisterRequest,
 ) (extensionsdk.RegisterOperation, error) {
+	if s.mode == "register-rejection" {
+		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("complete Register rejection source"))
+	}
 	return &protocolRegisterOperation{service: s}, nil
 }
 
@@ -1083,12 +1231,16 @@ func (s *protocolService) PrepareHandle(
 	_ context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
-	if (s.mode != "handler" && s.mode != "wait-handle-release") ||
+	if (s.mode != "handler" && s.mode != "handler-error" && s.mode != "handle-rejection" &&
+		s.mode != "handle-failure" && s.mode != "wait-handle-release") ||
 		request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected handler request"))
 	}
 	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected observer payload"))
+	}
+	if s.mode == "handle-rejection" && s.attempts.Add(1) == 1 {
+		return nil, extensionsdk.Reject("BUSY", errors.New("complete Handle rejection source"))
 	}
 	return &protocolHandleOperation{service: s}, nil
 }
@@ -1098,6 +1250,9 @@ func (s *protocolService) PrepareExecute(
 	context.Context,
 	*extensionpb.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
+	if s.mode == "execute-rejection" && s.attempts.Add(1) == 1 {
+		return nil, extensionsdk.Reject("BUSY", errors.New("complete Execute rejection source"))
+	}
 	if s.countPath != "" {
 		file, err := os.OpenFile(s.countPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
@@ -1118,6 +1273,9 @@ func (s *protocolService) PrepareExecute(
 func (operation *protocolRegisterOperation) Run(
 	context.Context,
 ) (*extensionpb.RegisterResponse, error) {
+	if operation.service.mode == "register-failure" {
+		return nil, extensionsdk.Fail("INTERNAL", errors.New("complete Register failure source"))
+	}
 	descriptor := extensionpb.ToolDescriptor_builder{
 		Name: new("read"), Description: new("Read a project file."),
 		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
@@ -1135,7 +1293,7 @@ func (operation *protocolRegisterOperation) Run(
 		descriptor.SetInputSchemaJson([]byte(`{"type":`))
 	case "duplicate-name":
 		response.SetTools(append(response.GetTools(), descriptor))
-	case "handler", "wait-handle-release":
+	case "handler", "handler-error", "handle-rejection", "handle-failure", "wait-handle-release":
 		response.SetHandlers([]*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
 				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
@@ -1156,6 +1314,15 @@ func (operation *protocolHandleOperation) Run(
 		writeSignalFile(operation.service.startedPath)
 		<-ctx.Done()
 		return nil, ctx.Err()
+	}
+	if operation.service.mode == "handle-failure" && operation.service.attempts.Add(1) == 1 {
+		return nil, extensionsdk.Fail("INTERNAL", errors.New("complete Handle failure source"))
+	}
+	if operation.service.mode == "handler-error" {
+		return extensionpb.HandleResponse_builder{
+			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
+			Error: extensionpb.HandlerError_builder{Message: new("complete handler error text")}.Build(),
+		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
@@ -1185,6 +1352,14 @@ func (operation *protocolExecuteOperation) Run(
 	}.Build()
 
 	switch operation.service.mode {
+	case "execute-failure":
+		if operation.service.attempts.Add(1) == 1 {
+			return nil, extensionsdk.Fail("INTERNAL", errors.New("complete Execute failure source"))
+		}
+		if err := reporter.Report(ctx, progress); err != nil {
+			return nil, err
+		}
+		return result, nil
 	case "wait", "wait-release":
 		if err := reporter.Report(ctx, progress); err != nil {
 			return nil, err
