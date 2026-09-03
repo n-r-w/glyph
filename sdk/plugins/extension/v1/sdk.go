@@ -70,6 +70,9 @@ func Connect(ctx context.Context, command *exec.Cmd) (*Client, error) {
 		return nil, errors.New("connect extension: command is required")
 	}
 
+	// stderr preserves the caller-owned destination while go-plugin takes ownership of the command pipe.
+	stderr := command.Stderr
+	command.Stderr = nil
 	process := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig:     handshakeConfig(),
 		Plugins:             nil,
@@ -83,7 +86,7 @@ func Connect(ctx context.Context, command *exec.Cmd) (*Client, error) {
 		MinPort:             0,
 		MaxPort:             0,
 		StartTimeout:        startTimeout,
-		Stderr:              nil,
+		Stderr:              stderr,
 		SyncStdout:          nil,
 		SyncStderr:          nil,
 		AllowedProtocols:    []plugin.Protocol{plugin.ProtocolGRPC},

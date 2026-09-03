@@ -3,14 +3,17 @@
 package extensionv1
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,17 +22,21 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// sdkHelperEnvironment selects the child-process SDK fixture behavior.
-const sdkHelperEnvironment = "GLYPH_EXTENSION_SDK_HELPER"
+const (
+	// sdkHelperEnvironment selects the child-process SDK fixture behavior.
+	sdkHelperEnvironment = "GLYPH_EXTENSION_SDK_HELPER"
+	// sdkStderrDiagnostic is the complete child failure text expected at the caller boundary.
+	sdkStderrDiagnostic = "glyph extension SDK child startup diagnostic\n"
+)
 
 // TestSDKHelperProcess runs the extension server only in the child process created by the SDK test.
 func TestSDKHelperProcess(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: select the child-process protocol mode from its isolated environment.
+	// Arrange: select the child-process behavior from its isolated environment.
 	service := newContractService(t)
 
-	// Act: serve the selected protocol version.
+	// Act: serve the selected protocol version or emit the selected startup failure.
 	switch os.Getenv(sdkHelperEnvironment) {
 	case "serve":
 		Serve(service)
@@ -50,6 +57,9 @@ func TestSDKHelperProcess(t *testing.T) {
 			Logger:     nil,
 			Test:       nil,
 		})
+	case "stderr-failure":
+		_, _ = fmt.Fprint(os.Stderr, sdkStderrDiagnostic)
+		os.Exit(23)
 	}
 
 	// Assert: go-plugin owns child-process termination after Serve returns.
@@ -266,6 +276,59 @@ func contractToolResult() *extensionpb.ToolResult {
 			}.Build()}.Build(),
 		},
 	}.Build()
+}
+
+// TestConnectPreservesChildStderr verifies startup failure output crosses the public SDK process boundary.
+func TestConnectPreservesChildStderr(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: capture the complete startup error from a direct go-plugin failure.
+	causeCommand := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
+	causeCommand.Env = append(os.Environ(), sdkHelperEnvironment+"=stderr-failure")
+	causeProcess := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:     handshakeConfig(),
+		Plugins:             nil,
+		VersionedPlugins:    pluginSets(nil),
+		Cmd:                 causeCommand,
+		Reattach:            nil,
+		RunnerFunc:          nil,
+		SecureConfig:        nil,
+		TLSConfig:           nil,
+		Managed:             false,
+		MinPort:             0,
+		MaxPort:             0,
+		StartTimeout:        startTimeout,
+		Stderr:              nil,
+		SyncStdout:          nil,
+		SyncStderr:          nil,
+		AllowedProtocols:    []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:              hclog.NewNullLogger(),
+		PluginLogBufferSize: 0,
+		AutoMTLS:            false,
+		GRPCDialOptions:     nil,
+		GRPCBrokerMultiplex: false,
+		SkipHostEnv:         false,
+		UnixSocketConfig:    nil,
+	})
+	_, originalCause := causeProcess.Client()
+	causeProcess.Kill()
+	require.Error(t, originalCause)
+
+	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
+	command.Env = append(os.Environ(), sdkHelperEnvironment+"=stderr-failure")
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+
+	// Act: connect while the child writes its diagnostic and exits unsuccessfully.
+	client, err := Connect(t.Context(), command)
+
+	// Assert: preserve every diagnostic byte and the complete wrapped go-plugin cause.
+	require.EqualError(t, err, "connect extension process: "+originalCause.Error())
+	unwrapped := errors.Unwrap(err)
+	require.Error(t, unwrapped)
+	require.EqualError(t, unwrapped, originalCause.Error())
+	assert.Nil(t, client)
+	assert.Equal(t, sdkStderrDiagnostic, stderr.String())
 }
 
 // TestConnectRejectsVersionMismatch verifies no compatibility path outside protocol version 1.
