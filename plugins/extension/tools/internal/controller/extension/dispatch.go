@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -8,93 +9,81 @@ import (
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// Execute validates and executes one standard tool call.
-func (s *Service) Execute(
-	request *extensionv1.ExecuteRequest,
-	stream extensionv1.ExtensionService_ExecuteServer,
-) error {
-	schema, exists := s.schemas[request.GetToolName()]
-	if !exists {
-		return sendResult(stream, fmt.Sprintf("unknown tool %q", request.GetToolName()), true)
-	}
-	arguments, err := validateArguments(schema, request.GetArgumentsJson())
-	if err != nil {
-		return sendResult(stream, fmt.Sprintf("invalid %s arguments: %v", request.GetToolName(), err), true)
-	}
-
-	switch request.GetToolName() {
+// execute dispatches one prepared standard tool call.
+func (s *Service) execute(
+	ctx context.Context,
+	toolName string,
+	arguments []byte,
+	report func(context.Context, *extensionv1.ToolProgress) error,
+) (*extensionv1.ToolResult, error) {
+	switch toolName {
 	case readToolName:
-		return s.executeRead(arguments, stream)
+		return s.executeRead(ctx, arguments)
 	case writeToolName:
-		return s.executeWrite(arguments, stream)
+		return s.executeWrite(ctx, arguments)
 	case editToolName:
-		return s.executeEdit(arguments, stream)
+		return s.executeEdit(ctx, arguments)
 	case grepToolName:
-		return s.executeGrep(arguments, stream)
+		return s.executeGrep(ctx, arguments)
 	case findToolName:
-		return s.executeFind(arguments, stream)
+		return s.executeFind(ctx, arguments)
 	case listToolName:
-		return s.executeList(arguments, stream)
+		return s.executeList(ctx, arguments)
 	case bashToolName:
-		return s.executeBash(arguments, stream)
+		return s.executeBash(ctx, arguments, report)
 	default:
-		return sendResult(stream, fmt.Sprintf("unknown tool %q", request.GetToolName()), true)
+		return textResult(fmt.Sprintf("unknown tool %q", toolName), true), nil
 	}
 }
 
 // executeRead decodes and executes read.
-func (s *Service) executeRead(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+func (s *Service) executeRead(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
 	var input readArguments
 	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode read arguments: %v", err), true)
+		return textResult(fmt.Sprintf("decode read arguments: %v", err), true), nil
 	}
-	result, err := s.readTool.Read(stream.Context(), input.Path, input.Offset, input.Limit)
+	result, err := s.readTool.Read(ctx, input.Path, input.Offset, input.Limit)
 	if err != nil {
-		return operationResult(stream, "", err)
+		return operationResult("", err)
 	}
 	if image, ok := result.Image.Get(); ok {
-		return sendImageResult(stream, image.MediaType, image.Data)
+		return imageResult(image.MediaType, image.Data), nil
 	}
 	text, present := result.Text.Get()
 	if !present {
-		return operationResult(stream, "", errors.New("read result has no payload"))
+		return operationResult("", errors.New("read result has no payload"))
 	}
-	return operationResult(stream, text, nil)
+	return operationResult(text, nil)
 }
 
 // executeWrite decodes and executes write.
-func (s *Service) executeWrite(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	return executeDecoded(arguments, stream, "write", func(input writeArguments) (string, error) {
-		return mutationResult(input.Path, "wrote file ", s.writeTool.Write(stream.Context(), input.Path, input.Content))
+func (s *Service) executeWrite(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
+	return executeDecoded(arguments, "write", func(input writeArguments) (string, error) {
+		return mutationResult(input.Path, "wrote file ", s.writeTool.Write(ctx, input.Path, input.Content))
 	})
 }
 
 // executeEdit decodes and executes edit.
-func (s *Service) executeEdit(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	return executeDecoded(arguments, stream, "edit", func(input editArguments) (string, error) {
-		return mutationResult(
-			input.Path,
-			"replaced text in ",
-			s.editTool.Edit(stream.Context(), input.Path, input.Edits),
-		)
+func (s *Service) executeEdit(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
+	return executeDecoded(arguments, "edit", func(input editArguments) (string, error) {
+		return mutationResult(input.Path, "replaced text in ", s.editTool.Edit(ctx, input.Path, input.Edits))
 	})
 }
 
 // executeGrep decodes and executes grep.
-func (s *Service) executeGrep(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	return executeDecoded(arguments, stream, "grep", func(input grepArguments) (string, error) {
-		return s.searchTool.Grep(stream.Context(), GrepArguments(input))
+func (s *Service) executeGrep(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
+	return executeDecoded(arguments, "grep", func(input grepArguments) (string, error) {
+		return s.searchTool.Grep(ctx, GrepArguments(input))
 	})
 }
 
 // executeFind decodes and executes find.
-func (s *Service) executeFind(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
-	return executeDecoded(arguments, stream, "find", func(input findArguments) (string, error) {
-		return s.searchTool.Find(stream.Context(), FindArguments(input))
+func (s *Service) executeFind(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
+	return executeDecoded(arguments, "find", func(input findArguments) (string, error) {
+		return s.searchTool.Find(ctx, FindArguments(input))
 	})
 }
 
-// executeList decodes and executes ls.
 // mutationResult converts a file mutation result to user-facing operation output.
 func mutationResult(path, successPrefix string, err error) (string, error) {
 	if err != nil {
@@ -103,26 +92,26 @@ func mutationResult(path, successPrefix string, err error) (string, error) {
 	return successPrefix + path, nil
 }
 
-// executeDecoded decodes typed arguments, executes one operation, and sends its terminal result.
+// executeDecoded decodes typed arguments and executes one operation.
 func executeDecoded[T any](
 	arguments []byte,
-	stream extensionv1.ExtensionService_ExecuteServer,
-	operation string,
+	operationName string,
 	execute func(T) (string, error),
-) error {
+) (*extensionv1.ToolResult, error) {
 	var input T
 	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode %s arguments: %v", operation, err), true)
+		return textResult(fmt.Sprintf("decode %s arguments: %v", operationName, err), true), nil
 	}
 	result, err := execute(input)
-	return operationResult(stream, result, err)
+	return operationResult(result, err)
 }
 
-func (s *Service) executeList(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+// executeList decodes and executes ls.
+func (s *Service) executeList(ctx context.Context, arguments []byte) (*extensionv1.ToolResult, error) {
 	var input listArguments
 	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode ls arguments: %v", err), true)
+		return textResult(fmt.Sprintf("decode ls arguments: %v", err), true), nil
 	}
-	result, err := s.searchTool.List(stream.Context(), ListArguments(input))
-	return operationResult(stream, result, err)
+	result, err := s.searchTool.List(ctx, ListArguments(input))
+	return operationResult(result, err)
 }

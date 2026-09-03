@@ -8,10 +8,12 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
+	"log/slog"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -27,8 +29,14 @@ import (
 
 // Runtime owns one extension process connection.
 type Runtime struct {
+	// context carries runtime values into asynchronous cancellation and shutdown diagnostics.
+	context context.Context
 	// client owns the extension process connection.
 	client *extensionsdk.Client
+	// connection owns the asynchronous operation stream.
+	connection *extensionsdk.Connection
+	// nextOperationID allocates extension-local Host operation identifiers.
+	nextOperationID atomic.Uint64
 
 	// catalogMutex protects schemas during catalog access.
 	catalogMutex sync.RWMutex
@@ -44,21 +52,36 @@ func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("start extension runtime: %w", err)
 	}
+	connection, err := client.Open(ctx)
+	if err != nil {
+		client.Close()
+		return nil, fmt.Errorf("start extension operation stream: %w", err)
+	}
 	return &Runtime{
-		client:       client,
-		catalogMutex: sync.RWMutex{},
-		schemas:      make(map[string]*jsonschema.Schema),
+		context:         context.WithoutCancel(ctx),
+		client:          client,
+		connection:      connection,
+		nextOperationID: atomic.Uint64{},
+		catalogMutex:    sync.RWMutex{},
+		schemas:         make(map[string]*jsonschema.Schema),
 	}, nil
 }
 
 // Register validates and caches the complete extension registration.
 func (r *Runtime) Register(ctx context.Context) (extensionservice.Registration, error) {
-	response, err := r.client.Service().Register(ctx, &extensionpb.RegisterRequest{})
+	request := new(extensionpb.HostRequest)
+	request.SetRegister(new(extensionpb.RegisterRequest))
+	started, err := r.connection.Start(ctx, r.operationID(), request)
+	if err != nil {
+		r.Close()
+		return extensionservice.Registration{}, fmt.Errorf("start extension registration: %w", err)
+	}
+	completed, err := started.Wait(ctx, nil)
 	if err != nil {
 		r.Close()
 		return extensionservice.Registration{}, fmt.Errorf("register extension: %w", err)
 	}
-
+	response := completed.GetRegister()
 	registration, schemas, err := validateRegistration(response)
 	if err != nil {
 		r.Close()
@@ -72,7 +95,7 @@ func (r *Runtime) Register(ctx context.Context) (extensionservice.Registration, 
 	return registration, nil
 }
 
-// Execute validates arguments and consumes one finite extension execution stream.
+// Execute validates arguments and waits synchronously for one operation on the shared Extension connection.
 func (r *Runtime) Execute(
 	ctx context.Context,
 	toolName string,
@@ -97,81 +120,108 @@ func (r *Runtime) Execute(
 		}, nil
 	}
 
-	// A child context lets progress-delivery failure stop the active RPC without changing runtime availability.
-	executionContext, cancel := context.WithCancel(ctx)
-	defer cancel()
-	stream, err := r.client.Service().Execute(executionContext, extensionpb.ExecuteRequest_builder{
-		ToolName:      new(toolName),
-		ArgumentsJson: argumentsJSON,
+	request := new(extensionpb.HostRequest)
+	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new(toolName), ArgumentsJson: argumentsJSON,
 	}.Build())
+	operationID := r.operationID()
+	started, err := r.connection.Start(ctx, operationID, request)
 	if err != nil {
 		return tool.Result{}, r.executionError(ctx, toolName, err)
 	}
-
-	return r.consumeStream(ctx, toolName, stream, handleProgress, cancel)
-}
-
-// consumeStream enforces progress ordering and exactly one terminal result before clean completion.
-func (r *Runtime) consumeStream(
-	ctx context.Context,
-	toolName string,
-	stream extensionpb.ExtensionService_ExecuteClient,
-	handleProgress tool.ProgressHandler,
-	cancel context.CancelFunc,
-) (tool.Result, error) {
-	var terminalResult *tool.Result
-	for {
-		event, receiveErr := stream.Recv()
-		if errors.Is(receiveErr, io.EOF) {
-			if terminalResult == nil {
-				return tool.Result{}, r.protocolViolation("stream completed without a terminal result")
-			}
-			return *terminalResult, nil
+	var progressDeliveryErr error
+	completed, err := started.Wait(ctx, func(progress *extensionpb.ToolProgress) error {
+		mapped, mapErr := mapProgress(progress)
+		if mapErr != nil {
+			return mapErr
 		}
-		if receiveErr != nil {
-			return tool.Result{}, r.executionError(ctx, toolName, receiveErr)
+		progressDeliveryErr = handleProgress(mapped)
+		return progressDeliveryErr
+	})
+	if err != nil {
+		var cancellationErr error
+		if ctx.Err() != nil || !isExtensionTerminalError(err) {
+			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
-
-		switch event.WhichContent() {
-		case extensionpb.ExecuteResponse_Progress_case:
-			if terminalResult != nil {
-				return tool.Result{}, r.protocolViolation("event received after terminal result")
-			}
-			progress, progressErr := mapProgress(event.GetProgress())
-			if progressErr != nil {
-				return tool.Result{}, r.protocolViolation(progressErr.Error())
-			}
-			deliveryErr := handleProgress(progress)
-			if deliveryErr != nil {
-				cancel()
-				return tool.Result{}, fmt.Errorf("deliver extension progress: %w", deliveryErr)
-			}
-		case extensionpb.ExecuteResponse_Result_case:
-			if terminalResult != nil {
-				return tool.Result{}, r.protocolViolation("second terminal result received")
-			}
-			if event.GetResult() == nil {
-				return tool.Result{}, r.protocolViolation("terminal result payload is missing")
-			}
-			contents, mapErr := mapResultContents(event.GetResult().GetContents())
-			if mapErr != nil {
-				return tool.Result{}, r.protocolViolation(mapErr.Error())
-			}
-			terminalResult = &tool.Result{Contents: contents, IsError: event.GetResult().GetIsError()}
-		case extensionpb.ExecuteResponse_Content_not_set_case:
-			return tool.Result{}, r.protocolViolation("event contains neither progress nor result")
+		var primaryErr error
+		switch {
+		case ctx.Err() != nil:
+			primaryErr = fmt.Errorf("execute extension tool %q: %w", toolName, ctx.Err())
+		case progressDeliveryErr != nil:
+			primaryErr = fmt.Errorf("deliver extension progress: %w", progressDeliveryErr)
 		default:
-			return tool.Result{}, r.protocolViolation("event content is invalid")
+			primaryErr = r.executionError(ctx, toolName, err)
 		}
+		return tool.Result{}, errors.Join(primaryErr, cancellationErr)
 	}
+	result := completed.GetTool()
+	if result == nil {
+		return tool.Result{}, r.protocolViolation(errors.New("tool completion payload is missing"))
+	}
+	contents, err := mapResultContents(result.GetContents())
+	if err != nil {
+		return tool.Result{}, r.protocolViolation(err)
+	}
+	return tool.Result{Contents: contents, IsError: result.GetIsError()}, nil
 }
 
 // Done closes when the extension process terminates.
 func (r *Runtime) Done() <-chan struct{} { return r.client.Done() }
 
-// Close stops the extension process and waits for cleanup.
+// Close stops the extension stream and process and waits for cleanup.
 func (r *Runtime) Close() {
+	if err := r.connection.Close(); err != nil && !isBenignCancellationError(err) {
+		slog.ErrorContext(r.context, "Close Extension operation stream",
+			slog.String("peer_kind", "extension"),
+			slog.Any("error", err),
+		)
+	}
 	r.client.Close()
+}
+
+// operationID allocates one connection-local operation identifier.
+func (r *Runtime) operationID() string {
+	return "host-extension-" + strconv.FormatUint(r.nextOperationID.Add(1), 10)
+}
+
+// cancelOperation starts cancellation and observes its later result without blocking the current caller.
+func (r *Runtime) cancelOperation(ctx context.Context, targetID string) error {
+	cancellation, err := r.connection.Cancel(ctx, r.operationID(), targetID)
+	if err != nil {
+		return fmt.Errorf("start cancellation for extension operation %q: %w", targetID, err)
+	}
+	go func() {
+		_, waitErr := cancellation.Wait(r.context)
+		if waitErr != nil && !isBenignCancellationError(waitErr) {
+			slog.ErrorContext(r.context, "Extension cancellation operation failed",
+				slog.String("target_operation_id", targetID),
+				slog.Any("error", waitErr),
+			)
+		}
+	}()
+	return nil
+}
+
+// isBenignCancellationError reports expected cancellation settlement during target or connection shutdown.
+func isBenignCancellationError(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	if _, ok := errors.AsType[*extensionsdk.CanceledError](err); ok {
+		return true
+	}
+	if rejected, ok := errors.AsType[*extensionsdk.RejectionError](err); ok {
+		return rejected.Code() == "TARGET_NOT_ACTIVE"
+	}
+	return false
+}
+
+// isExtensionTerminalError reports an operation terminal outcome that leaves the stream usable.
+func isExtensionTerminalError(err error) bool {
+	var rejection *extensionsdk.RejectionError
+	var failure *extensionsdk.FailureError
+	var canceled *extensionsdk.CanceledError
+	return errors.As(err, &rejection) || errors.As(err, &failure) || errors.As(err, &canceled)
 }
 
 // toolSchema returns the compiled schema cached during complete-catalog validation.
@@ -184,11 +234,17 @@ func (r *Runtime) toolSchema(toolName string) (*jsonschema.Schema, bool) {
 
 // executionError preserves cancellation while treating other stream failures as process unavailability.
 func (r *Runtime) executionError(ctx context.Context, toolName string, err error) error {
+	if isExtensionTerminalError(err) {
+		return fmt.Errorf("execute extension tool %q: %w", toolName, err)
+	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return fmt.Errorf("execute extension tool %q: %w", toolName, ctxErr)
 	}
 	if status.Code(err) == codes.Canceled {
 		return fmt.Errorf("execute extension tool %q: %w", toolName, context.Canceled)
+	}
+	if status.Code(err) == codes.FailedPrecondition {
+		return toolExecutionProtocolViolation(r, toolName, err)
 	}
 	r.Close()
 	return fmt.Errorf(
@@ -199,13 +255,25 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 	)
 }
 
-// protocolViolation stops the extension because later calls cannot trust its stream behavior.
-func (r *Runtime) protocolViolation(reason string) error {
+// toolExecutionProtocolViolation stops the invalid stream and preserves the operation context.
+func toolExecutionProtocolViolation(r *Runtime, toolName string, err error) error {
 	r.Close()
 	return fmt.Errorf(
-		"%w: extension protocol violation: %s",
+		"%w: execute extension tool %q: extension protocol violation: %w",
 		extensionservice.ErrExtensionUnavailable,
-		reason,
+		toolName,
+		err,
+	)
+}
+
+// protocolViolation fails and joins the shared connection after Host payload validation rejects peer data.
+func (r *Runtime) protocolViolation(cause error) error {
+	connectionErr := r.connection.Fail(cause)
+	r.client.Close()
+	return fmt.Errorf(
+		"%w: extension protocol violation: %w",
+		extensionservice.ErrExtensionUnavailable,
+		connectionErr,
 	)
 }
 

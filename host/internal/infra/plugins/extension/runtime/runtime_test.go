@@ -18,6 +18,7 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -29,34 +30,58 @@ import (
 )
 
 const (
+	// runtimeHelperEnvironment selects the child-process fixture behavior.
 	runtimeHelperEnvironment = "GLYPH_EXTENSION_RUNTIME_HELPER"
-	runtimeCountEnvironment  = "GLYPH_EXTENSION_RUNTIME_COUNT"
-	processOperationTimeout  = 10 * time.Second
+	// runtimeCountEnvironment provides the path used to count remote executions.
+	runtimeCountEnvironment = "GLYPH_EXTENSION_RUNTIME_COUNT"
+	// processOperationTimeout bounds real child-process coordination.
+	processOperationTimeout = 10 * time.Second
 )
 
-// protocolService emits selected contract behaviors from a real helper process.
+// protocolService prepares selected operations in a real helper process.
 type protocolService struct {
-	extensionpb.UnimplementedExtensionServiceServer
-	mode      string
+	// mode selects the fixture behavior.
+	mode string
+	// countPath records admitted tool executions when configured.
 	countPath string
+}
+
+// protocolRegisterOperation returns one mode-specific registration.
+type protocolRegisterOperation struct {
+	// service owns the selected fixture mode.
+	service *protocolService
+}
+
+// protocolHandleOperation returns one observer action.
+type protocolHandleOperation struct{}
+
+// protocolExecuteOperation runs one mode-specific tool operation.
+type protocolExecuteOperation struct {
+	// service owns the selected fixture mode and counter path.
+	service *protocolService
 }
 
 // executionOutcome carries a concurrent execution result back to the test goroutine.
 type executionOutcome struct {
+	// result contains the synchronous Host tool result.
 	result tool.Result
-	err    error
+	// err contains the synchronous Host execution error.
+	err error
 }
 
 // fifoOpenOutcome reports when the production read operation has opened its blocking FIFO.
 type fifoOpenOutcome struct {
+	// file is the FIFO writer opened after the extension begins reading.
 	file *os.File
-	err  error
+	// err contains the FIFO open failure.
+	err error
 }
 
 // TestFactoryRuntimeSurvivesStartupContextCancellation verifies explicit Host shutdown owns process lifetime.
 func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: create one executable extension candidate and cancelable startup context.
 	scriptPath := filepath.Join(t.TempDir(), "glyph-test-extension")
 	script := fmt.Sprintf(
 		"#!/bin/sh\n%s=default exec %q -test.run=^TestRuntimeHelperProcess$\n",
@@ -65,6 +90,8 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	)
 	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o700))
 	startupContext, cancelStartup := context.WithCancel(t.Context())
+
+	// Act: start the runtime and cancel only its startup context.
 	runtime, err := NewFactory().Start(startupContext, extensionservice.Candidate{
 		ID:   "test",
 		Path: scriptPath,
@@ -72,6 +99,7 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 	cancelStartup()
 
+	// Assert: keep the process usable until explicit Host shutdown.
 	select {
 	case <-runtime.Done():
 		require.Fail(t, "extension process stopped before explicit Host shutdown")
@@ -93,15 +121,72 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 func TestRuntimeHelperProcess(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: read the isolated child-process mode.
 	mode := os.Getenv(runtimeHelperEnvironment)
 	if mode == "" {
 		return
 	}
-	extensionsdk.Serve(&protocolService{
-		UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
-		mode:                                mode,
-		countPath:                           os.Getenv(runtimeCountEnvironment),
-	})
+
+	// Act: use a direct generated server only for adversarial public-protocol sequences.
+	if isAdversarialMode(mode) {
+		serveAdversarialExtension(mode)
+		return
+	}
+	fixture := &protocolService{mode: mode, countPath: os.Getenv(runtimeCountEnvironment)}
+	extensionsdk.Serve(newProtocolMockService(t, fixture))
+
+	// Assert: go-plugin owns child-process lifetime after the selected server starts.
+}
+
+// newProtocolMockService creates generated SDK mocks for one valid child-process fixture.
+func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk.Service {
+	t.Helper()
+	controller := gomock.NewController(t)
+	service := extensionsdk.NewMockService(controller)
+	registration := extensionsdk.NewMockRegisterOperation(controller)
+	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil).AnyTimes()
+	registration.EXPECT().Run(gomock.Any()).DoAndReturn(
+		func(context.Context) (*extensionpb.RegisterResponse, error) {
+			return (&protocolRegisterOperation{service: fixture}).Run(t.Context())
+		},
+	).AnyTimes()
+	registration.EXPECT().Release().AnyTimes()
+	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, request *extensionpb.HandleRequest) (extensionsdk.HandleOperation, error) {
+			prepared, err := fixture.PrepareHandle(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			handler := extensionsdk.NewMockHandleOperation(controller)
+			handler.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
+			handler.EXPECT().Release()
+			return handler, nil
+		},
+	).AnyTimes()
+	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, request *extensionpb.ExecuteRequest) (extensionsdk.ExecuteOperation, error) {
+			prepared, err := fixture.PrepareExecute(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			execution := extensionsdk.NewMockExecuteOperation(controller)
+			execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(prepared.Run)
+			execution.EXPECT().Release()
+			return execution, nil
+		},
+	).AnyTimes()
+	return service
+}
+
+// isAdversarialMode reports whether one helper mode bypasses the SDK to violate the public protocol.
+func isAdversarialMode(mode string) bool {
+	switch mode {
+	case "missing-result", "duplicate-result", "event-after-result", "empty-event",
+		"empty-result", "mismatched-handler":
+		return true
+	default:
+		return false
+	}
 }
 
 // TestRuntimeWithRealGlyphTools verifies the production process handshake, read descriptor, execution, validation,
@@ -130,7 +215,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	assert.NotEmpty(t, registration.Tools[0].Description)
 	assert.NotEmpty(t, registration.Tools[0].InputSchemaJSON)
 
-	// Act: read a relative project file through the real finite execution stream.
+	// Act: read a relative project file through the real Execute operation.
 	result, err := runtime.Execute(
 		t.Context(),
 		"read",
@@ -251,6 +336,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 func TestCompileToolSchemaAcceptsJSONCompatibleArguments(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: define an object schema with nested and optional values.
 	schema, err := compileToolSchema([]byte(`{
 		"type":"object",
 		"properties":{
@@ -266,10 +352,15 @@ func TestCompileToolSchemaAcceptsJSONCompatibleArguments(t *testing.T) {
 		"additionalProperties":false
 	}`))
 	require.NoError(t, err)
-	require.NoError(t, validateArguments(schema, []byte(`{
+
+	// Act: validate one complete argument object.
+	validErr := validateArguments(schema, []byte(`{
 		"text":"value","number":12.5,"enabled":true,"nullable":null,
 		"items":[1,"two",false,null,{"child":3}],"nested":{"child":[true]}
-	}`)))
+	}`))
+
+	// Assert: accept complete input and reject missing required values.
+	require.NoError(t, validErr)
 	require.Error(t, validateArguments(schema, []byte(`{"text":"value"}`)))
 }
 
@@ -277,7 +368,13 @@ func TestCompileToolSchemaAcceptsJSONCompatibleArguments(t *testing.T) {
 func TestCompileToolSchemaRejectsNonObjectRoot(t *testing.T) {
 	t.Parallel()
 
-	_, err := compileToolSchema([]byte(`{"type":"array","items":{"type":"string"}}`))
+	// Arrange: define a schema with an array root.
+	schemaJSON := []byte(`{"type":"array","items":{"type":"string"}}`)
+
+	// Act: compile the invalid tool schema.
+	_, err := compileToolSchema(schemaJSON)
+
+	// Assert: reject the non-object root with its schema rule.
 	require.ErrorContains(t, err, "root type must be object")
 }
 
@@ -285,7 +382,8 @@ func TestCompileToolSchemaRejectsNonObjectRoot(t *testing.T) {
 func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 	t.Parallel()
 
-	contents, err := mapResultContents([]*extensionpb.ToolResultContent{
+	// Arrange: create ordered text, image, and text result blocks.
+	source := []*extensionpb.ToolResultContent{
 		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
 		extensionpb.ToolResultContent_builder{
 			Text: new("first"),
@@ -301,7 +399,12 @@ func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 		extensionpb.ToolResultContent_builder{
 			Text: new("last"),
 		}.Build(),
-	})
+	}
+
+	// Act: map the protobuf result blocks.
+	contents, err := mapResultContents(source)
+
+	// Assert: preserve block order, kinds, and payloads.
 	require.NoError(t, err)
 	assert.Equal(t, []tool.ResultContent{
 		{
@@ -329,7 +432,13 @@ func TestMapResultContentsPreservesOrderedTextAndImage(t *testing.T) {
 func TestMapResultContentsRejectsEmptyResult(t *testing.T) {
 	t.Parallel()
 
-	_, err := mapResultContents(nil)
+	// Arrange: use an empty terminal content list.
+	var source []*extensionpb.ToolResultContent
+
+	// Act: map the empty result.
+	_, err := mapResultContents(source)
+
+	// Assert: reject missing model-visible result data.
 	require.ErrorContains(t, err, "result contents are empty")
 }
 
@@ -337,7 +446,8 @@ func TestMapResultContentsRejectsEmptyResult(t *testing.T) {
 func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
 	t.Parallel()
 
-	_, err := mapResultContents([]*extensionpb.ToolResultContent{
+	// Arrange: create one image result without encoded bytes.
+	source := []*extensionpb.ToolResultContent{
 		//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Image field.
 		extensionpb.ToolResultContent_builder{
 			Image: extensionpb.ToolResultImage_builder{
@@ -345,13 +455,20 @@ func TestMapResultContentsRejectsEmptyImageData(t *testing.T) {
 				Data:      nil,
 			}.Build(),
 		}.Build(),
-	})
+	}
+
+	// Act: map the invalid image result.
+	_, err := mapResultContents(source)
+
+	// Assert: reject the empty image payload.
 	require.ErrorContains(t, err, "result image 0 is invalid")
 }
 
-func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
+// TestRuntimeValidatesCachedSchemaBeforeExtensionOperation verifies validation prevents invalid stream work.
+func TestRuntimeValidatesCachedSchemaBeforeExtensionOperation(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: start a counting extension and complete registration.
 	countPath := filepath.Join(t.TempDir(), "executions")
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRuntimeHelperProcess$")
 	command.Env = append(os.Environ(), runtimeHelperEnvironment+"=default", runtimeCountEnvironment+"="+countPath)
@@ -361,6 +478,7 @@ func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
 	_, err = runtime.Register(t.Context())
 	require.NoError(t, err)
 
+	// Act: execute unknown, schema-invalid, and valid tool requests.
 	unknown, err := runtime.Execute(t.Context(), "missing", []byte(`{}`), discardProgress)
 	require.NoError(t, err)
 	require.True(t, unknown.IsError)
@@ -374,11 +492,13 @@ func TestRuntimeValidatesCachedSchemaBeforeExtensionRPC(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, valid.IsError)
 	count, err := os.ReadFile(countPath)
+
+	// Assert: only the valid request reaches the extension operation.
 	require.NoError(t, err)
 	require.Equal(t, "1\n", string(count))
 }
 
-// TestRuntimePropagatesActiveCancellation verifies cancellation of an in-flight streamed execution.
+// TestRuntimePropagatesActiveCancellation verifies cancellation of an active Execute operation.
 func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 	t.Parallel()
 
@@ -427,21 +547,81 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			_, err := runtime.Register(t.Context())
 			require.NoError(t, err)
 
-			// Act: consume the malformed finite stream.
+			// Act: consume the malformed lifecycle sequence.
 			result, err := runtime.Execute(
-				t.Context(),
-				"read",
-				[]byte(`{"path":"notes.txt"}`),
-				discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
 			)
+			if (mode == "duplicate-result" || mode == "event-after-result") && err == nil {
+				// A valid terminal event can reach its caller before the later connection violation is observed.
+				require.Len(t, result.Contents, 1)
+				text, present := result.Contents[0].Text.Get()
+				assert.True(t, present)
+				assert.Equal(t, "done", text)
+				result, err = runtime.Execute(
+					t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				)
+			}
 
-			// Assert: fail the call, stop the violating process, and return no terminal payload.
-			assert.Equal(t, tool.Result{
-				Contents: nil,
-				IsError:  false,
-			}, result)
+			// Assert: reject the violating connection and expose the exact protocol cause.
+			assert.Equal(t, tool.Result{Contents: nil, IsError: false}, result)
 			require.Error(t, err)
 			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			require.ErrorContains(t, err, "extension protocol violation")
+			if mode == "duplicate-result" {
+				require.ErrorContains(t, err, "completed event")
+			}
+			if mode == "event-after-result" {
+				require.ErrorContains(t, err, "progress event")
+			}
+			requireRuntimeStopped(t, runtime)
+		})
+	}
+}
+
+// TestRuntimeRejectsMalformedCompletedPayloads verifies Host payload validation fails the shared connection.
+func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: define malformed Execute and Handle completion scenarios.
+	testCases := map[string]func(*testing.T, *Runtime) error{
+		"empty Execute result": func(t *testing.T, runtime *Runtime) error {
+			_, err := runtime.Execute(
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+			)
+			return err
+		},
+		"mismatched Handle action": func(t *testing.T, runtime *Runtime) error {
+			request := extensionservice.HandlerRequest{
+				SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestInvocation](),
+				SessionBeforeTreeResult:  mo.None[extensionservice.SessionBeforeTreeResultInvocation](),
+				SessionTree: mo.Some(extensionservice.SessionTreeInvocation{
+					SessionID: "session", TargetEntryID: "target",
+					PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
+					CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[session.Entry](),
+				}),
+			}
+			_, err := runtime.Handle(t.Context(), "observer", request)
+			return err
+		},
+	}
+	modes := map[string]string{
+		"empty Execute result":     "empty-result",
+		"mismatched Handle action": "mismatched-handler",
+	}
+	for name, invoke := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			runtime := startHelperRuntime(t, modes[name])
+			_, err := runtime.Register(t.Context())
+			require.NoError(t, err)
+
+			// Act: consume the malformed completed payload.
+			err = invoke(t, runtime)
+
+			// Assert: fail and join the connection without waiting for peer EOF.
+			require.Error(t, err)
+			require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
+			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 			require.ErrorContains(t, err, "extension protocol violation")
 			requireRuntimeStopped(t, runtime)
 		})
@@ -481,14 +661,17 @@ func TestRuntimeRejectsInvalidCatalogs(t *testing.T) {
 func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: start a healthy extension that reports progress.
 	runtime := startHelperRuntime(t, "progress")
 	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 	deliveryErr := errors.New("event consumer failed")
 
+	// Act: fail the Host progress callback.
 	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 		return deliveryErr
 	})
+	// Assert: preserve the callback cause and keep later execution available.
 	require.ErrorIs(t, err, deliveryErr)
 	require.NotErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
 	assertRuntimeRunning(t, runtime)
@@ -505,12 +688,15 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 func TestRuntimeClassifiesTransportFailure(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: start an extension that exits during Execute.
 	runtime := startHelperRuntime(t, "transport-error")
 	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 
+	// Act: execute work across the failing transport.
 	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
 
+	// Assert: classify unavailability and stop the failed runtime.
 	require.ErrorIs(t, err, extensionservice.ErrExtensionUnavailable)
 	requireRuntimeStopped(t, runtime)
 }
@@ -525,7 +711,7 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 	require.NoError(t, err)
 	progress := make([]tool.Progress, 0, 1)
 
-	// Act: consume the valid streamed execution.
+	// Act: wait for the valid Execute operation and collect progress.
 	result, err := runtime.Execute(
 		t.Context(),
 		"read",
@@ -548,11 +734,11 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 	}, result)
 }
 
-// TestRuntimeHandleInvokesUnarySessionTreeObserver verifies typed observer dispatch over real gRPC.
-func TestRuntimeHandleInvokesUnarySessionTreeObserver(t *testing.T) {
+// TestRuntimeHandleInvokesSessionTreeObserverOperation verifies typed observer dispatch over the operation stream.
+func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a real helper extension with one registered observer.
+	// Arrange: start a real helper extension with one registered observer.
 	runtime := startHelperRuntime(t, "handler")
 	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
@@ -570,10 +756,10 @@ func TestRuntimeHandleInvokesUnarySessionTreeObserver(t *testing.T) {
 		SessionTree:              mo.Some(invocation),
 	}
 
-	// Act by invoking the registered unary handler.
+	// Act: invoke the registered handler operation.
 	response, err := runtime.Handle(t.Context(), "observer", request)
 
-	// Assert the typed observer acknowledgement.
+	// Assert: preserve the typed observer acknowledgement.
 	require.NoError(t, err)
 	assert.Equal(t, extensionservice.HandlerResponse{
 		SessionBeforeTreeRequest: mo.None[extensionservice.SessionBeforeTreeRequestAction](),
@@ -582,23 +768,62 @@ func TestRuntimeHandleInvokesUnarySessionTreeObserver(t *testing.T) {
 	}, response)
 }
 
-// Register returns a valid or deliberately invalid catalog selected by the helper mode.
-func (s *protocolService) Register(
+// PrepareRegister admits one mode-specific registration operation.
+func (s *protocolService) PrepareRegister(
+	context.Context,
+	*extensionpb.RegisterRequest,
+) (extensionsdk.RegisterOperation, error) {
+	return &protocolRegisterOperation{service: s}, nil
+}
+
+// PrepareHandle validates and admits the fixture observer invocation.
+func (s *protocolService) PrepareHandle(
 	_ context.Context,
-	_ *extensionpb.RegisterRequest,
+	request *extensionpb.HandleRequest,
+) (extensionsdk.HandleOperation, error) {
+	if s.mode != "handler" || request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected handler request"))
+	}
+	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
+		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected observer payload"))
+	}
+	return &protocolHandleOperation{}, nil
+}
+
+// PrepareExecute records and admits one fixture tool execution.
+func (s *protocolService) PrepareExecute(
+	context.Context,
+	*extensionpb.ExecuteRequest,
+) (extensionsdk.ExecuteOperation, error) {
+	if s.countPath != "" {
+		file, err := os.OpenFile(s.countPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = file.WriteString("1\n"); err != nil {
+			_ = file.Close()
+			return nil, err
+		}
+		if err = file.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return &protocolExecuteOperation{service: s}, nil
+}
+
+// Run returns a valid or deliberately invalid catalog selected by the helper mode.
+func (operation *protocolRegisterOperation) Run(
+	context.Context,
 ) (*extensionpb.RegisterResponse, error) {
 	descriptor := extensionpb.ToolDescriptor_builder{
-		Name:                new("read"),
-		Description:         new("Read a project file."),
-		InputSchemaJson:     []byte(validSchemaJSON),
-		ConstrainedSampling: nil,
+		Name: new("read"), Description: new("Read a project file."),
+		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
 	}.Build()
 	response := extensionpb.RegisterResponse_builder{
-		Tools:    []*extensionpb.ToolDescriptor{descriptor},
-		Handlers: nil,
+		Tools: []*extensionpb.ToolDescriptor{descriptor}, Handlers: nil,
 	}.Build()
 
-	switch s.mode {
+	switch operation.service.mode {
 	case "empty-name":
 		descriptor.SetName("")
 	case "empty-description":
@@ -617,91 +842,58 @@ func (s *protocolService) Register(
 	return response, nil
 }
 
-// Handle validates the helper observer request and returns its typed acknowledgement.
-func (s *protocolService) Handle(
-	_ context.Context,
-	request *extensionpb.HandleRequest,
+// Release has no fixture registration reservation to free.
+func (operation *protocolRegisterOperation) Release() {}
+
+// Run returns the typed observer acknowledgement.
+func (operation *protocolHandleOperation) Run(
+	context.Context,
 ) (*extensionpb.HandleResponse, error) {
-	if s.mode != "handler" || request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
-		return nil, status.Error(codes.InvalidArgument, "unexpected handler request")
-	}
-	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
-		return nil, status.Error(codes.InvalidArgument, "unexpected observer payload")
-	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build(), nil
 }
 
-// Execute emits one behavior selected by the helper mode.
-func (s *protocolService) Execute(
-	_ *extensionpb.ExecuteRequest,
-	stream extensionpb.ExtensionService_ExecuteServer,
-) error {
-	if s.countPath != "" {
-		file, err := os.OpenFile(s.countPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-		if err != nil {
-			return err
-		}
-		if _, err = file.WriteString("1\n"); err != nil {
-			_ = file.Close()
-			return err
-		}
-		if err = file.Close(); err != nil {
-			return err
-		}
-	}
-	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Progress field.
-	progress := extensionpb.ExecuteResponse_builder{
-		Progress: extensionpb.ToolProgress_builder{
-			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
-			Content: new("working"),
-		}.Build(),
+// Release has no fixture handler reservation to free.
+func (operation *protocolHandleOperation) Release() {}
+
+// Run emits the selected fixture tool behavior.
+func (operation *protocolExecuteOperation) Run(
+	ctx context.Context,
+	reporter *extensionsdk.ProgressReporter,
+) (*extensionpb.ToolResult, error) {
+	progress := extensionpb.ToolProgress_builder{
+		Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS), Content: new("working"),
 	}.Build()
-	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Result field.
-	result := extensionpb.ExecuteResponse_builder{
-		Result: extensionpb.ToolResult_builder{
-			Contents: []*extensionpb.ToolResultContent{
-				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
-				extensionpb.ToolResultContent_builder{
-					Text: new("done"),
-				}.Build(),
-			},
-			IsError: new(false),
-		}.Build(),
+	result := extensionpb.ToolResult_builder{
+		Contents: []*extensionpb.ToolResultContent{
+			//nolint:exhaustruct_v5 // The content builder sets only text.
+			extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),
+		},
+		IsError: new(false),
 	}.Build()
 
-	switch s.mode {
-	case "missing-result":
-		return nil
-	case "duplicate-result":
-		if err := stream.Send(result); err != nil {
-			return err
-		}
-		return stream.Send(result)
-	case "event-after-result":
-		if err := stream.Send(result); err != nil {
-			return err
-		}
-		return stream.Send(progress)
-	case "empty-event":
-		return stream.Send(&extensionpb.ExecuteResponse{})
+	switch operation.service.mode {
 	case "wait":
-		if err := stream.Send(progress); err != nil {
-			return err
+		if err := reporter.Report(ctx, progress); err != nil {
+			return nil, err
 		}
-		<-stream.Context().Done()
-		return status.FromContextError(stream.Context().Err()).Err()
+		<-ctx.Done()
+		return nil, ctx.Err()
 	case "transport-error":
-		return status.Error(codes.Unavailable, "transport failed")
+		os.Exit(2)
+		return nil, errors.New("extension process did not exit")
 	default:
-		if err := stream.Send(progress); err != nil {
-			return err
+		if err := reporter.Report(ctx, progress); err != nil {
+			return nil, err
 		}
-		return stream.Send(result)
+		return result, nil
 	}
 }
+
+// Release has no fixture execution reservation to free.
+func (operation *protocolExecuteOperation) Release() {}
 
 // startHelperRuntime starts this test binary as a real extension process.
 func startHelperRuntime(t *testing.T, mode string) *Runtime {

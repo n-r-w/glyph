@@ -27,10 +27,14 @@ type serviceContextKey struct{}
 
 // ServiceSuite shares catalog, runtime factory, and mock lifecycle setup across service scenarios.
 type ServiceSuite struct {
+	// Suite provides Testify suite lifecycle and assertions.
 	suite.Suite
+	// controller owns mocks created for the current suite test.
 	controller *gomock.Controller
-	catalog    *MockCatalog
-	factory    *MockRuntimeFactory
+	// catalog discovers extension candidates for the current suite test.
+	catalog *MockCatalog
+	// factory starts extension runtimes for the current suite test.
+	factory *MockRuntimeFactory
 }
 
 // SetupTest creates isolated service dependencies for each lifecycle scenario.
@@ -43,6 +47,8 @@ func (s *ServiceSuite) SetupTest() {
 // TestServiceLoadIsolatesCollisions removes every conflicting extension while retaining unaffected tools.
 func (s *ServiceSuite) TestServiceLoadIsolatesCollisions() {
 	t := s.T()
+
+	// Arrange: configure two conflicting registrations and one unaffected registration.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -80,8 +86,10 @@ func (s *ServiceSuite) TestServiceLoadIsolatesCollisions() {
 	second.EXPECT().Close()
 	service := New(catalog, factory, discardRuntimeFailure)
 
+	// Act: load the discovered extensions.
 	report, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 
+	// Assert: retain only the unaffected tool and report both collisions.
 	require.NoError(t, err)
 	require.Len(t, report.Issues, 1)
 	assert.Equal(t, []string{"first", "second"}, report.Issues[0].PluginIDs)
@@ -96,6 +104,8 @@ func (s *ServiceSuite) TestServiceLoadIsolatesCollisions() {
 // TestServiceLoadReportsMultipleExtensionsInIDOrder preserves per-extension tool ownership.
 func (s *ServiceSuite) TestServiceLoadReportsMultipleExtensionsInIDOrder() {
 	t := s.T()
+
+	// Arrange: configure two successful extensions discovered out of ID order.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -118,8 +128,10 @@ func (s *ServiceSuite) TestServiceLoadReportsMultipleExtensionsInIDOrder() {
 		Return(Registration{Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil}, nil)
 	service := New(catalog, factory, discardRuntimeFailure)
 
+	// Act: load both successful extensions.
 	report, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 
+	// Assert: return both extensions in ID order.
 	require.NoError(t, err)
 	assert.Equal(t, []LoadedExtension{
 		{ID: "first", Path: "/first", Tools: []tool.Descriptor{testDescriptor("read")}, Handlers: nil},
@@ -206,7 +218,7 @@ func (s *ServiceSuite) TestServiceRejectsInvalidHandlerRegistration() {
 	}
 }
 
-// TestServiceHandleDispatchesTypedPayload verifies unary dispatch uses the registered ID and kind.
+// TestServiceHandleDispatchesTypedPayload verifies handler operations use the registered ID and kind.
 func (s *ServiceSuite) TestServiceHandleDispatchesTypedPayload() {
 	t := s.T()
 
@@ -351,6 +363,8 @@ func (s *ServiceSuite) TestServiceHandleDisablesKindMismatch() {
 func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	t := s.T()
 
+	// Arrange: configure one registered tool runtime that returns unavailability.
+
 	controller := s.controller
 	catalog := s.catalog
 	factory := s.factory
@@ -371,7 +385,9 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 	runtime.EXPECT().Close()
 
 	call := model.ToolCall{ID: "call-read", Name: "read", Arguments: map[string]any{}}
+	// Act: execute the failing tool call.
 	_, err := service.Execute(t.Context(), call, discardProgress)
+	// Assert: remove the failed runtime and return unavailable data to a later call.
 	require.Error(t, err)
 	assert.Empty(t, service.Tools())
 
@@ -384,6 +400,8 @@ func (s *ServiceSuite) TestServiceExecuteRemovesFailedRuntime() {
 // TestServiceExecutePreservesRuntimeOnProgressDeliveryFailure keeps a healthy owner registered.
 func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailure() {
 	t := s.T()
+
+	// Arrange: configure one healthy runtime whose progress callback fails.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -428,7 +446,9 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 			"nested":  map[string]any{"value": 3.5},
 		},
 	}
+	// Act: execute the tool with the failing progress callback.
 	_, err := service.Execute(t.Context(), call, func(tool.Progress) error { return deliveryErr })
+	// Assert: preserve the callback cause and keep the runtime registered.
 	require.ErrorIs(t, err, deliveryErr)
 	assert.Equal(t, []tool.Descriptor{testDescriptor("bash")}, service.Tools())
 
@@ -452,6 +472,8 @@ func (s *ServiceSuite) TestServiceExecutePreservesRuntimeOnProgressDeliveryFailu
 // TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensions verifies post-start failure isolation.
 func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensions() {
 	t := s.T()
+
+	// Arrange: configure one exiting idle runtime and one healthy runtime.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -492,6 +514,7 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	})
 	_, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
+	// Act: activate exit observation.
 	service.Activate(activationContext)
 	cancelActivation()
 
@@ -504,6 +527,7 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 	assert.Equal(t, []tool.RuntimeFailure{{
 		PluginID: "crashed-plugin", Condition: tool.RuntimeUnavailableProcessExited,
 	}}, failures)
+	// Assert: report one failure and retain the healthy tool.
 	assert.Equal(t, []tool.Descriptor{testDescriptor("bash")}, service.Tools())
 	healthy.EXPECT().Execute(t.Context(), "bash", []byte(`{}`), gomock.Any()).Return(
 		tool.Result{Contents: tool.TextContents("ok"), IsError: false}, nil,
@@ -522,6 +546,8 @@ func (s *ServiceSuite) TestServiceReportsIdleRuntimeExitOnceAndKeepsOtherExtensi
 // TestServiceKeepsActiveUnavailabilityOnTheToolResult verifies crash reporting has one presentation owner.
 func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 	t := s.T()
+
+	// Arrange: configure an active runtime that becomes unavailable during execution.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -554,6 +580,7 @@ func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 	})
 	_, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
+	// Act: activate observation and execute its tool.
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
@@ -568,6 +595,7 @@ func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 	<-closed
 	close(allowResult)
 
+	// Assert: return active unavailability once and remove the failed runtime.
 	require.ErrorIs(t, <-execution, ErrExtensionUnavailable)
 	select {
 	case failure := <-failures:
@@ -585,19 +613,20 @@ func (s *ServiceSuite) TestServiceKeepsActiveUnavailabilityOnTheToolResult() {
 	assert.Empty(t, service.Tools())
 }
 
-// TestServiceReportsActiveUnavailabilityBeforeDoneObservationOnce verifies RPC-first crash ownership.
+// TestServiceReportsActiveUnavailabilityBeforeDoneObservationOnce verifies operation-first crash ownership.
 func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservationOnce() {
 	synctest.Test(s.T(), func(t *testing.T) {
+		// Arrange: configure active unavailability before process-exit observation.
 		controller := s.controller
 		catalog := s.catalog
 		factory := s.factory
 		runtime := NewMockExtensionRuntime(controller)
 		done := make(chan struct{})
 		catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
-			Candidates: []Candidate{{ID: "rpc-first-plugin", Path: "/plugins/rpc-first"}}, Issues: nil,
+			Candidates: []Candidate{{ID: "operation-first-plugin", Path: "/plugins/operation-first"}}, Issues: nil,
 		}, nil)
 		factory.EXPECT().
-			Start(t.Context(), Candidate{ID: "rpc-first-plugin", Path: "/plugins/rpc-first"}).
+			Start(t.Context(), Candidate{ID: "operation-first-plugin", Path: "/plugins/operation-first"}).
 			Return(runtime, nil)
 		runtime.EXPECT().
 			Register(t.Context()).
@@ -619,12 +648,14 @@ func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservati
 		require.NoError(t, err)
 		service.Activate(t.Context())
 
+		// Act: execute through the failing runtime before publishing its exit.
 		_, executeErr := service.Execute(t.Context(), model.ToolCall{
 			ID: "call", Name: "read", Arguments: map[string]any{},
 		}, discardProgress)
+		// Assert: report the active failure once and remove the runtime.
 		require.ErrorIs(t, executeErr, ErrExtensionUnavailable)
 		assert.Equal(t, []tool.RuntimeFailure{{
-			PluginID: "rpc-first-plugin", Condition: tool.RuntimeUnavailableProcessExited,
+			PluginID: "operation-first-plugin", Condition: tool.RuntimeUnavailableProcessExited,
 		}}, failures)
 
 		close(done)
@@ -638,6 +669,8 @@ func (s *ServiceSuite) TestServiceReportsActiveUnavailabilityBeforeDoneObservati
 // TestServiceReportsExitAfterSuccessfulActiveExecution verifies deferred crash ownership.
 func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 	t := s.T()
+
+	// Arrange: configure a runtime that exits after returning a successful active result.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -672,6 +705,7 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 	})
 	_, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
+	// Act: activate observation and execute its tool.
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
@@ -686,6 +720,7 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 	<-closed
 	close(allowResult)
 
+	// Assert: return success before reporting the later process exit.
 	require.NoError(t, <-execution)
 	assert.Equal(t, tool.RuntimeFailure{
 		PluginID: "successful-plugin", Condition: tool.RuntimeUnavailableProcessExited,
@@ -696,6 +731,8 @@ func (s *ServiceSuite) TestServiceReportsExitAfterSuccessfulActiveExecution() {
 // TestServicePlannedCloseDoesNotReportRuntimeFailure verifies active shutdown remains silent.
 func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 	t := s.T()
+
+	// Arrange: configure one active runtime under planned service shutdown.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -727,6 +764,7 @@ func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 	})
 	_, err := service.Load(t.Context(), Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
+	// Act: activate observation, start execution, and close the service.
 	service.Activate(t.Context())
 	execution := make(chan error, 1)
 	go func() {
@@ -740,6 +778,7 @@ func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 	service.Close()
 	close(allowResult)
 
+	// Assert: observe execution failure without a runtime failure report or retained tool.
 	require.ErrorIs(t, <-execution, ErrExtensionUnavailable)
 	assert.Empty(t, failures)
 	assert.Empty(t, service.Tools())
@@ -748,6 +787,8 @@ func (s *ServiceSuite) TestServicePlannedCloseDoesNotReportRuntimeFailure() {
 // TestServiceRemovesToolsWhenRuntimeExits handles an idle process crash without a restart.
 func (s *ServiceSuite) TestServiceRemovesToolsWhenRuntimeExits() {
 	t := s.T()
+
+	// Arrange: configure one registered runtime that exits while idle.
 
 	controller := s.controller
 	catalog := s.catalog
@@ -766,11 +807,13 @@ func (s *ServiceSuite) TestServiceRemovesToolsWhenRuntimeExits() {
 	runtime.EXPECT().Close().Do(func() { close(closed) })
 	service := New(catalog, factory, discardRuntimeFailure)
 	require.Empty(t, mustLoad(t, service))
+	// Act: activate process-exit observation.
 	service.Activate(t.Context())
 
 	close(done)
 	<-closed
 
+	// Assert: remove the exited runtime tools from the catalog.
 	assert.Empty(t, service.Tools())
 }
 
@@ -784,8 +827,13 @@ func mustLoad(t *testing.T, service *Service) []Issue {
 
 // TestServiceSuite runs isolated tool service lifecycle scenarios.
 func TestServiceSuite(t *testing.T) {
+	// Arrange: construct the Extension service suite with per-test mock setup.
 	t.Parallel()
+
+	// Act: run all service lifecycle scenarios.
 	suite.Run(t, new(ServiceSuite))
+
+	// Assert: each suite method verifies its expected catalog, result, error, and runtime state.
 }
 
 // testDescriptor creates a complete descriptor for registry behavior tests.

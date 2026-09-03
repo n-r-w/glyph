@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/samber/mo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	extensionservice "github.com/n-r-w/glyph/host/internal/usecase/host/extensions"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -22,7 +20,7 @@ type ordinaryHandlerError struct {
 // Error returns the safe extension-provided failure text.
 func (err ordinaryHandlerError) Error() string { return err.message }
 
-// Handle maps one typed Host invocation to the unary extension handler contract.
+// Handle maps one typed Host invocation to the extension operation stream.
 func (r *Runtime) Handle(
 	ctx context.Context,
 	handlerID string,
@@ -32,32 +30,49 @@ func (r *Runtime) Handle(
 	if err != nil {
 		return extensionservice.HandlerResponse{}, err
 	}
-	response, err := r.client.Service().Handle(ctx, mapped)
+	hostRequest := new(extensionpb.HostRequest)
+	hostRequest.SetHandle(mapped)
+	operationID := r.operationID()
+	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return extensionservice.HandlerResponse{}, fmt.Errorf("handle extension handler %q: %w", handlerID, ctxErr)
+		return extensionservice.HandlerResponse{}, r.handlerOperationError(ctx, handlerID, err)
+	}
+	completed, err := started.Wait(ctx, nil)
+	if err != nil {
+		var cancellationErr error
+		if ctx.Err() != nil {
+			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
-		if status.Code(err) == codes.Canceled {
-			return extensionservice.HandlerResponse{}, fmt.Errorf(
-				"handle extension handler %q: %w", handlerID, context.Canceled,
-			)
-		}
-		r.Close()
-		return extensionservice.HandlerResponse{}, fmt.Errorf(
-			"%w: handle extension handler %q: %w",
-			extensionservice.ErrExtensionUnavailable,
-			handlerID,
-			err,
+		return extensionservice.HandlerResponse{}, errors.Join(
+			r.handlerOperationError(ctx, handlerID, err),
+			cancellationErr,
 		)
 	}
-	mappedResponse, err := mapHandleResponse(request, response)
+	mappedResponse, err := mapHandleResponse(request, completed.GetHandle())
 	if err != nil {
 		if handlerErr, ok := errors.AsType[ordinaryHandlerError](err); ok {
 			return extensionservice.HandlerResponse{}, handlerErr
 		}
-		return extensionservice.HandlerResponse{}, r.protocolViolation(err.Error())
+		return extensionservice.HandlerResponse{}, r.protocolViolation(err)
 	}
 	return mappedResponse, nil
+}
+
+// handlerOperationError preserves operation errors and classifies stream failures as unavailability.
+func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("handle extension handler %q: %w", handlerID, ctxErr)
+	}
+	if isExtensionTerminalError(err) {
+		return fmt.Errorf("handle extension handler %q: %w", handlerID, err)
+	}
+	r.Close()
+	return fmt.Errorf(
+		"%w: handle extension handler %q: %w",
+		extensionservice.ErrExtensionUnavailable,
+		handlerID,
+		err,
+	)
 }
 
 // mapHandleRequest maps the closed internal request variants to protobuf payloads.

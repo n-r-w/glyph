@@ -19,23 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ExtensionService_Register_FullMethodName = "/glyph.plugins.extension.v1.ExtensionService/Register"
-	ExtensionService_Handle_FullMethodName   = "/glyph.plugins.extension.v1.ExtensionService/Handle"
-	ExtensionService_Execute_FullMethodName  = "/glyph.plugins.extension.v1.ExtensionService/Execute"
+	ExtensionService_Open_FullMethodName = "/glyph.plugins.extension.v1.ExtensionService/Open"
 )
 
 // ExtensionServiceClient is the client API for ExtensionService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// ExtensionService exposes startup registration, unary handlers, and streamed tool execution.
+// ExtensionService exposes one bidirectional extension operation stream.
 type ExtensionServiceClient interface {
-	// Register returns the complete registration owned by the extension process.
-	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
-	// Handle invokes one registered session-tree handler.
-	Handle(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error)
-	// Execute emits progress followed by exactly one terminal result.
-	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecuteResponse], error)
+	// Open exchanges Host requests with extension lifecycle events.
+	Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error)
 }
 
 type extensionServiceClient struct {
@@ -46,57 +40,27 @@ func NewExtensionServiceClient(cc grpc.ClientConnInterface) ExtensionServiceClie
 	return &extensionServiceClient{cc}
 }
 
-func (c *extensionServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+func (c *extensionServiceClient) Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RegisterResponse)
-	err := c.cc.Invoke(ctx, ExtensionService_Register_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ExtensionService_ServiceDesc.Streams[0], ExtensionService_Open_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *extensionServiceClient) Handle(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(HandleResponse)
-	err := c.cc.Invoke(ctx, ExtensionService_Handle_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *extensionServiceClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecuteResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ExtensionService_ServiceDesc.Streams[0], ExtensionService_Execute_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[ExecuteRequest, ExecuteResponse]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &grpc.GenericClientStream[OpenRequest, OpenResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ExtensionService_ExecuteClient = grpc.ServerStreamingClient[ExecuteResponse]
+type ExtensionService_OpenClient = grpc.BidiStreamingClient[OpenRequest, OpenResponse]
 
 // ExtensionServiceServer is the server API for ExtensionService service.
 // All implementations must embed UnimplementedExtensionServiceServer
 // for forward compatibility.
 //
-// ExtensionService exposes startup registration, unary handlers, and streamed tool execution.
+// ExtensionService exposes one bidirectional extension operation stream.
 type ExtensionServiceServer interface {
-	// Register returns the complete registration owned by the extension process.
-	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
-	// Handle invokes one registered session-tree handler.
-	Handle(context.Context, *HandleRequest) (*HandleResponse, error)
-	// Execute emits progress followed by exactly one terminal result.
-	Execute(*ExecuteRequest, grpc.ServerStreamingServer[ExecuteResponse]) error
+	// Open exchanges Host requests with extension lifecycle events.
+	Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error
 	mustEmbedUnimplementedExtensionServiceServer()
 }
 
@@ -107,14 +71,8 @@ type ExtensionServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedExtensionServiceServer struct{}
 
-func (UnimplementedExtensionServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Register not implemented")
-}
-func (UnimplementedExtensionServiceServer) Handle(context.Context, *HandleRequest) (*HandleResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Handle not implemented")
-}
-func (UnimplementedExtensionServiceServer) Execute(*ExecuteRequest, grpc.ServerStreamingServer[ExecuteResponse]) error {
-	return status.Error(codes.Unimplemented, "method Execute not implemented")
+func (UnimplementedExtensionServiceServer) Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error {
+	return status.Error(codes.Unimplemented, "method Open not implemented")
 }
 func (UnimplementedExtensionServiceServer) mustEmbedUnimplementedExtensionServiceServer() {}
 func (UnimplementedExtensionServiceServer) testEmbeddedByValue()                          {}
@@ -137,52 +95,12 @@ func RegisterExtensionServiceServer(s grpc.ServiceRegistrar, srv ExtensionServic
 	s.RegisterService(&ExtensionService_ServiceDesc, srv)
 }
 
-func _ExtensionService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ExtensionServiceServer).Register(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ExtensionService_Register_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ExtensionServiceServer).Register(ctx, req.(*RegisterRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ExtensionService_Handle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HandleRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ExtensionServiceServer).Handle(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ExtensionService_Handle_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ExtensionServiceServer).Handle(ctx, req.(*HandleRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ExtensionService_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ExecuteRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ExtensionServiceServer).Execute(m, &grpc.GenericServerStream[ExecuteRequest, ExecuteResponse]{ServerStream: stream})
+func _ExtensionService_Open_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ExtensionServiceServer).Open(&grpc.GenericServerStream[OpenRequest, OpenResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ExtensionService_ExecuteServer = grpc.ServerStreamingServer[ExecuteResponse]
+type ExtensionService_OpenServer = grpc.BidiStreamingServer[OpenRequest, OpenResponse]
 
 // ExtensionService_ServiceDesc is the grpc.ServiceDesc for ExtensionService service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -190,21 +108,13 @@ type ExtensionService_ExecuteServer = grpc.ServerStreamingServer[ExecuteResponse
 var ExtensionService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "glyph.plugins.extension.v1.ExtensionService",
 	HandlerType: (*ExtensionServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Register",
-			Handler:    _ExtensionService_Register_Handler,
-		},
-		{
-			MethodName: "Handle",
-			Handler:    _ExtensionService_Handle_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Execute",
-			Handler:       _ExtensionService_Execute_Handler,
+			StreamName:    "Open",
+			Handler:       _ExtensionService_Open_Handler,
 			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "api/plugins/extension/v1/tool.proto",

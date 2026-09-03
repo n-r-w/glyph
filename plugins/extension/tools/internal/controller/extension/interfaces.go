@@ -5,16 +5,10 @@ import (
 
 	"github.com/samber/mo"
 
-	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	"github.com/n-r-w/glyph/plugins/extension/tools/internal/core/textbudget"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extension
-
-// ResultSender delivers one terminal extension response.
-type ResultSender interface {
-	Send(*extensionv1.ExecuteResponse) error
-}
 
 // ReadImage contains image bytes detected from file content.
 type ReadImage struct {

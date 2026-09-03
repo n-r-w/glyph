@@ -1,16 +1,9 @@
 package extension
 
-import (
-	"context"
+import extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 
-	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
-)
-
-// Register returns the complete standard tool catalog without session-tree handlers.
-func (s *Service) Register(
-	_ context.Context,
-	_ *extensionv1.RegisterRequest,
-) (*extensionv1.RegisterResponse, error) {
+// standardRegistration returns the complete standard tool catalog without session-tree handlers.
+func standardRegistration() *extensionv1.RegisterResponse {
 	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{
 			extensionv1.ToolDescriptor_builder{
@@ -59,7 +52,7 @@ func (s *Service) Register(
 			}.Build(),
 		},
 		Handlers: nil,
-	}.Build(), nil
+	}.Build()
 }
 
 // strictPreferSampling requests strict schema generation while permitting provider fallback.

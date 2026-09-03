@@ -4,7 +4,6 @@ package extensionv1
 
 import (
 	"context"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -13,28 +12,25 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"go.uber.org/mock/gomock"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// sdkHelperEnvironment selects the child-process SDK fixture behavior.
 const sdkHelperEnvironment = "GLYPH_EXTENSION_SDK_HELPER"
-
-// contractService is the minimal real gRPC implementation used to verify SDK process wiring.
-type contractService struct {
-	extensionpb.UnimplementedExtensionServiceServer
-}
 
 // TestSDKHelperProcess runs the extension server only in the child process created by the SDK test.
 func TestSDKHelperProcess(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: select the child-process protocol mode from its isolated environment.
+	service := newContractService(t)
+
+	// Act: serve the selected protocol version.
 	switch os.Getenv(sdkHelperEnvironment) {
 	case "serve":
-		Serve(&contractService{
-			UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
-		})
+		Serve(service)
 	case "version-2":
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: handshakeConfig(),
@@ -44,9 +40,7 @@ func TestSDKHelperProcess(t *testing.T) {
 				2: {
 					pluginName: &grpcExtensionPlugin{
 						NetRPCUnsupportedPlugin: plugin.NetRPCUnsupportedPlugin{},
-						server: &contractService{
-							UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
-						},
+						server:                  newServer(service),
 					},
 				},
 			},
@@ -55,9 +49,11 @@ func TestSDKHelperProcess(t *testing.T) {
 			Test:       nil,
 		})
 	}
+
+	// Assert: go-plugin owns child-process termination after Serve returns.
 }
 
-// TestConnectAndServe verifies handshake negotiation, generated-contract access, streaming, and clean shutdown.
+// TestConnectAndServe verifies public SDK operations, progress, results, and clean shutdown.
 func TestConnectAndServe(t *testing.T) {
 	t.Parallel()
 
@@ -65,14 +61,24 @@ func TestConnectAndServe(t *testing.T) {
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
 	command.Env = append(os.Environ(), sdkHelperEnvironment+"=serve")
 
-	// Act: complete the real go-plugin handshake and call the generated contract.
+	// Act: complete the handshake and open the operation stream.
 	client, err := Connect(t.Context(), command)
 	require.NoError(t, err)
 	t.Cleanup(client.Close)
+	connection, err := client.Open(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, connection.Close()) })
 	assert.Equal(t, ProtocolVersion, client.NegotiatedVersion())
 
-	catalog, err := client.Service().Register(t.Context(), &extensionpb.RegisterRequest{})
+	registerRequest := new(extensionpb.HostRequest)
+	registerRequest.SetRegister(new(extensionpb.RegisterRequest))
+	registrationOperation, err := connection.Start(t.Context(), "register", registerRequest)
 	require.NoError(t, err)
+	registration, err := registrationOperation.Wait(t.Context(), nil)
+	require.NoError(t, err)
+	catalog := registration.GetRegister()
+
+	// Assert: registration preserves the complete public catalog.
 	require.Len(t, catalog.GetTools(), 1)
 	assert.Equal(t, "contract", catalog.GetTools()[0].GetName())
 	assert.Equal(
@@ -82,8 +88,11 @@ func TestConnectAndServe(t *testing.T) {
 	)
 	require.Len(t, catalog.GetHandlers(), 1)
 	assert.Equal(t, "observer", catalog.GetHandlers()[0].GetId())
-	//nolint:exhaustruct_v5 // The request builder sets only the observer payload.
-	handlerResponse, err := client.Service().Handle(t.Context(), extensionpb.HandleRequest_builder{
+
+	// Act: invoke the registered observer through a Handle operation.
+	handleRequest := new(extensionpb.HostRequest)
+	//nolint:exhaustruct_v5 // The request builder sets only the active observer payload.
+	handleRequest.SetHandle(extensionpb.HandleRequest_builder{
 		HandlerId: new("observer"),
 		SessionTree: extensionpb.SessionTreeInvocation_builder{
 			SessionId: new("session"), TargetEntryId: new("target"),
@@ -91,28 +100,41 @@ func TestConnectAndServe(t *testing.T) {
 			CommittedActiveLeafId: nil, CreatedSummary: nil,
 		}.Build(),
 	}.Build())
+	handleOperation, err := connection.Start(t.Context(), "handle", handleRequest)
 	require.NoError(t, err)
-	require.NotNil(t, handlerResponse.GetSessionTree())
+	handleCompleted, err := handleOperation.Wait(t.Context(), nil)
+	require.NoError(t, err)
 
-	stream, err := client.Service().Execute(t.Context(), extensionpb.ExecuteRequest_builder{
-		ToolName:      new("contract"),
-		ArgumentsJson: nil,
+	// Assert: preserve the typed observer acknowledgement.
+	require.NotNil(t, handleCompleted.GetHandle().GetSessionTree())
+
+	// Act: execute a tool and collect ordered progress.
+	executeRequest := new(extensionpb.HostRequest)
+	executeRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		ToolName: new("contract"), ArgumentsJson: []byte(`{}`),
 	}.Build())
+	executeOperation, err := connection.Start(t.Context(), "execute", executeRequest)
 	require.NoError(t, err)
-	progress, err := stream.Recv()
+	progress := make([]string, 0, 1)
+	executeCompleted, err := executeOperation.Wait(t.Context(), func(event *extensionpb.ToolProgress) error {
+		progress = append(progress, event.GetContent())
+		return nil
+	})
 	require.NoError(t, err)
-	assert.Equal(t, "started", progress.GetProgress().GetContent())
-	terminal, err := stream.Recv()
-	require.NoError(t, err)
-	require.Len(t, terminal.GetResult().GetContents(), 2)
-	assert.Equal(t, "done", terminal.GetResult().GetContents()[0].GetText())
-	assert.Equal(t, "image/png", terminal.GetResult().GetContents()[1].GetImage().GetMediaType())
-	assert.Equal(t, []byte{0, 1, 2, 3}, terminal.GetResult().GetContents()[1].GetImage().GetData())
-	_, err = stream.Recv()
-	require.ErrorIs(t, err, io.EOF)
+	result := executeCompleted.GetTool()
 
-	// Assert: closing waits until go-plugin observes child-process termination and closes the lifecycle signal.
+	// Assert: preserve progress and ordered text and image result data.
+	assert.Equal(t, []string{"started"}, progress)
+	require.Len(t, result.GetContents(), 2)
+	assert.Equal(t, "done", result.GetContents()[0].GetText())
+	assert.Equal(t, "image/png", result.GetContents()[1].GetImage().GetMediaType())
+	assert.Equal(t, []byte{0, 1, 2, 3}, result.GetContents()[1].GetImage().GetData())
+
+	// Act: request normal stream closure and stop the process.
+	require.NoError(t, connection.Close())
 	client.Close()
+
+	// Assert: closing waits for go-plugin process termination.
 	assert.True(t, client.Exited())
 	select {
 	case <-client.Done():
@@ -121,105 +143,116 @@ func TestConnectAndServe(t *testing.T) {
 	}
 }
 
-// Register returns one descriptor to prove generated unary contract access.
-func (s *contractService) Register(
-	_ context.Context,
-	_ *extensionpb.RegisterRequest,
-) (*extensionpb.RegisterResponse, error) {
+// newContractService creates generated mocks for the valid public SDK fixture.
+func newContractService(t *testing.T) Service {
+	t.Helper()
+	controller := gomock.NewController(t)
+	service := NewMockService(controller)
+	registration := NewMockRegisterOperation(controller)
+	handler := NewMockHandleOperation(controller)
+	execution := NewMockExecuteOperation(controller)
+
+	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil).AnyTimes()
+	registration.EXPECT().Run(gomock.Any()).DoAndReturn(
+		func(context.Context) (*extensionpb.RegisterResponse, error) {
+			return contractRegistration(), nil
+		},
+	).AnyTimes()
+	registration.EXPECT().Release().AnyTimes()
+
+	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request *extensionpb.HandleRequest) (HandleOperation, error) {
+			if request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+				return nil, Reject("INVALID_ARGUMENT", assert.AnError)
+			}
+			return handler, nil
+		},
+	).AnyTimes()
+	handler.EXPECT().Run(gomock.Any()).Return(extensionpb.HandleResponse_builder{
+		SessionBeforeTreeRequest: nil,
+		SessionBeforeTreeResult:  nil,
+		SessionTree:              extensionpb.SessionTreeAction_builder{}.Build(),
+		Error:                    nil,
+	}.Build(), nil).AnyTimes()
+	handler.EXPECT().Release().AnyTimes()
+
+	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request *extensionpb.ExecuteRequest) (ExecuteOperation, error) {
+			if request.GetToolName() != "contract" {
+				return nil, Reject("INVALID_ARGUMENT", assert.AnError)
+			}
+			return execution, nil
+		},
+	).AnyTimes()
+	execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, reporter *ProgressReporter) (*extensionpb.ToolResult, error) {
+			if err := reporter.Report(ctx, extensionpb.ToolProgress_builder{
+				Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS), Content: new("started"),
+			}.Build()); err != nil {
+				return nil, err
+			}
+			return contractToolResult(), nil
+		},
+	).AnyTimes()
+	execution.EXPECT().Release().AnyTimes()
+	return service
+}
+
+// contractRegistration returns the valid public SDK fixture catalog.
+func contractRegistration() *extensionpb.RegisterResponse {
 	return extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
-			Name:            new("contract"),
-			Description:     new("Contract test tool."),
-			InputSchemaJson: []byte(`{}`),
-			//nolint:exhaustruct_v5 // extensionpb.ConstrainedSampling_builder sets only the active JsonSchema field.
+			Name: new("contract"), Description: new("Contract test tool."), InputSchemaJson: []byte(`{}`),
+			//nolint:exhaustruct_v5 // The builder sets only the active JSON Schema field.
 			ConstrainedSampling: extensionpb.ConstrainedSampling_builder{
 				JsonSchema: extensionpb.JsonSchemaConstrainedSampling_builder{
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
 				}.Build(),
 			}.Build(),
 		}.Build()},
-		Handlers: []*extensionpb.HandlerDescriptor{
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
-			}.Build(),
+		Handlers: []*extensionpb.HandlerDescriptor{extensionpb.HandlerDescriptor_builder{
+			Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+		}.Build()},
+	}.Build()
+}
+
+// contractToolResult returns ordered text and image result data.
+func contractToolResult() *extensionpb.ToolResult {
+	return extensionpb.ToolResult_builder{
+		IsError: new(false),
+		Contents: []*extensionpb.ToolResultContent{
+			//nolint:exhaustruct_v5 // The content builder sets only text.
+			extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),
+			//nolint:exhaustruct_v5 // The content builder sets only image.
+			extensionpb.ToolResultContent_builder{Image: extensionpb.ToolResultImage_builder{
+				MediaType: new("image/png"), Data: []byte{0, 1, 2, 3},
+			}.Build()}.Build(),
 		},
-	}.Build(), nil
+	}.Build()
 }
 
-// Handle acknowledges one typed observer invocation.
-func (s *contractService) Handle(
-	_ context.Context,
-	request *extensionpb.HandleRequest,
-) (*extensionpb.HandleResponse, error) {
-	if request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
-		return nil, status.Error(codes.InvalidArgument, "unexpected handler invocation")
-	}
-	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
-	return extensionpb.HandleResponse_builder{
-		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
-	}.Build(), nil
-}
-
-// Execute sends progress and one terminal result to prove generated streaming contract access.
-func (s *contractService) Execute(
-	_ *extensionpb.ExecuteRequest,
-	stream extensionpb.ExtensionService_ExecuteServer,
-) error {
-	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Progress field.
-	if err := stream.Send(extensionpb.ExecuteResponse_builder{
-		Progress: extensionpb.ToolProgress_builder{
-			Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS),
-			Content: new("started"),
-		}.Build(),
-	}.Build()); err != nil {
-		return err
-	}
-	//nolint:exhaustruct_v5 // extensionpb.ExecuteResponse_builder sets only the active Result field.
-	if err := stream.Send(extensionpb.ExecuteResponse_builder{
-		Result: extensionpb.ToolResult_builder{
-			Contents: []*extensionpb.ToolResultContent{
-				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Text field.
-				extensionpb.ToolResultContent_builder{
-					Text: new("done"),
-				}.Build(),
-				//nolint:exhaustruct_v5 // extensionpb.ToolResultContent_builder sets only the active Image field.
-				extensionpb.ToolResultContent_builder{
-					Image: extensionpb.ToolResultImage_builder{
-						MediaType: new("image/png"),
-						Data:      []byte{0, 1, 2, 3},
-					}.Build(),
-				}.Build(),
-			},
-			IsError: new(false),
-		}.Build(),
-	}.Build()); err != nil {
-		return err
-	}
-	return nil
-}
-
-// TestConnectRejectsVersionMismatch verifies that negotiation has no compatibility path outside protocol version 1.
+// TestConnectRejectsVersionMismatch verifies no compatibility path outside protocol version 1.
 func TestConnectRejectsVersionMismatch(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: configure a real child process that offers only extension protocol version 2.
+	// Arrange: configure a child process that offers only extension protocol version 2.
 	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSDKHelperProcess$")
 	command.Env = append(os.Environ(), sdkHelperEnvironment+"=version-2")
 
-	// Act: attempt the go-plugin handshake through the production SDK.
+	// Act: attempt the public SDK handshake.
 	client, err := Connect(t.Context(), command)
 
-	// Assert: reject the incompatible process and return no connected client.
+	// Assert: reject the incompatible process without fallback.
 	assert.Nil(t, client)
 	require.Error(t, err)
 	assert.Contains(t, strings.ToLower(err.Error()), "incompatible api version")
 }
 
-// TestConnectRejectsCanceledContext verifies that process startup does not ignore prior cancellation.
+// TestConnectRejectsCanceledContext verifies process startup respects prior cancellation.
 func TestConnectRejectsCanceledContext(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: cancel before any process may be started.
+	// Arrange: cancel before any process may start.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -227,7 +260,7 @@ func TestConnectRejectsCanceledContext(t *testing.T) {
 	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSDKHelperProcess$")
 	client, err := Connect(ctx, command)
 
-	// Assert: no client is returned and cancellation remains identifiable.
+	// Assert: return no client and preserve cancellation.
 	assert.Nil(t, client)
 	require.ErrorIs(t, err, context.Canceled)
 }

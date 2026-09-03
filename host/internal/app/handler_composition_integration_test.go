@@ -29,26 +29,43 @@ import (
 )
 
 const (
-	handlerFixtureModeEnvironment     = "GLYPH_HANDLER_FIXTURE_MODE"
+	// handlerFixtureModeEnvironment selects the child-process handler set.
+	handlerFixtureModeEnvironment = "GLYPH_HANDLER_FIXTURE_MODE"
+	// handlerFixtureObserverEnvironment provides the observer output path.
 	handlerFixtureObserverEnvironment = "GLYPH_HANDLER_FIXTURE_OBSERVER"
-	handlerFixtureSupplyMode          = "supply"
-	handlerFixtureRefineMode          = "refine"
+	// handlerFixtureSupplyMode selects the request-result supplying handler.
+	handlerFixtureSupplyMode = "supply"
+	// handlerFixtureRefineMode selects the result refiner and observer handlers.
+	handlerFixtureRefineMode = "refine"
 )
 
 // grpcHandlerFixture provides ordered request, result, and observer behavior from a child process.
 type grpcHandlerFixture struct {
-	extensionpb.UnimplementedExtensionServiceServer
 	// mode selects the registered handler set.
 	mode string
 	// observerPath records post-commit observation.
 	observerPath string
 }
 
+// handlerFixtureRegisterOperation returns the fixture registration.
+type handlerFixtureRegisterOperation struct {
+	// fixture owns the configured handler set.
+	fixture *grpcHandlerFixture
+}
+
+// handlerFixtureHandleOperation invokes one configured fixture handler.
+type handlerFixtureHandleOperation struct {
+	// fixture owns the configured handler behavior.
+	fixture *grpcHandlerFixture
+	// request contains the typed handler invocation.
+	request *extensionpb.HandleRequest
+}
+
 // TestSessionTreeComposesRealGRPCHandlers verifies two extension processes compose before and after one commit.
 func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	t.Parallel()
 
-	// Arrange two ordered real extension processes and one summarized navigation.
+	// Arrange: two ordered real extension processes and one summarized navigation.
 	extensionDirectory := t.TempDir()
 	writeHandlerFixtureScript(t, extensionDirectory, "01-supply", handlerFixtureSupplyMode, "")
 	observerPath := filepath.Join(t.TempDir(), "observed")
@@ -86,13 +103,13 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	}).Return(committed, nil)
 	service := sessiontree.New(active, models, extensions)
 
-	// Act through request supply, result refinement, atomic commit, and observer delivery.
+	// Act: through request supply, result refinement, atomic commit, and observer delivery.
 	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})
 
-	// Assert the refined result committed before the real observer recorded the event.
+	// Assert: the refined result committed before the real observer recorded the event.
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
 	assert.Empty(t, result.Issues)
@@ -105,23 +122,56 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 func TestGRPCHandlerFixture(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: read the child-process handler mode and observer path.
 	mode := os.Getenv(handlerFixtureModeEnvironment)
 	if mode == "" {
 		return
 	}
-	extensionsdk.Serve(&grpcHandlerFixture{
-		UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
-		mode:                                mode, observerPath: os.Getenv(handlerFixtureObserverEnvironment),
-	})
+	// Act: serve the valid handler fixture through generated SDK mocks.
+	fixture := &grpcHandlerFixture{
+		mode: mode, observerPath: os.Getenv(handlerFixtureObserverEnvironment),
+	}
+	extensionsdk.Serve(newHandlerMockService(t, fixture))
+
+	// Assert: go-plugin owns fixture lifetime after Serve starts.
 }
 
-// Register returns the ordered handler set owned by this fixture process.
-func (s *grpcHandlerFixture) Register(
+// newHandlerMockService creates generated SDK mocks for one valid handler fixture.
+func newHandlerMockService(t *testing.T, fixture *grpcHandlerFixture) extensionsdk.Service {
+	t.Helper()
+	controller := gomock.NewController(t)
+	service := extensionsdk.NewMockService(controller)
+	registration := extensionsdk.NewMockRegisterOperation(controller)
+	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil).AnyTimes()
+	registration.EXPECT().Run(gomock.Any()).DoAndReturn(
+		func(context.Context) (*extensionpb.RegisterResponse, error) {
+			return (&handlerFixtureRegisterOperation{fixture: fixture}).Run(t.Context())
+		},
+	).AnyTimes()
+	registration.EXPECT().Release().AnyTimes()
+	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request *extensionpb.HandleRequest) (extensionsdk.HandleOperation, error) {
+			handler := extensionsdk.NewMockHandleOperation(controller)
+			prepared := &handlerFixtureHandleOperation{fixture: fixture, request: request}
+			handler.EXPECT().Run(gomock.Any()).DoAndReturn(prepared.Run)
+			handler.EXPECT().Release()
+			return handler, nil
+		},
+	).AnyTimes()
+	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(
+		nil,
+		extensionsdk.Reject("INVALID_ARGUMENT", fmt.Errorf("handler fixture registers no tools")),
+	).AnyTimes()
+	return service
+}
+
+// Run returns the ordered handler set owned by this fixture process.
+func (operation *handlerFixtureRegisterOperation) Run(
 	context.Context,
-	*extensionpb.RegisterRequest,
 ) (*extensionpb.RegisterResponse, error) {
+	fixture := operation.fixture
 	var handlers []*extensionpb.HandlerDescriptor
-	switch s.mode {
+	switch fixture.mode {
 	case handlerFixtureSupplyMode:
 		handlers = []*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
@@ -138,16 +188,20 @@ func (s *grpcHandlerFixture) Register(
 			}.Build(),
 		}
 	default:
-		return nil, fmt.Errorf("unknown handler fixture mode %q", s.mode)
+		return nil, fmt.Errorf("unknown handler fixture mode %q", fixture.mode)
 	}
 	return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: handlers}.Build(), nil
 }
 
-// Handle returns the action owned by this fixture handler.
-func (s *grpcHandlerFixture) Handle(
+// Release has no fixture registration reservation to free.
+func (operation *handlerFixtureRegisterOperation) Release() {}
+
+// Run returns the action owned by this fixture handler.
+func (operation *handlerFixtureHandleOperation) Run(
 	_ context.Context,
-	request *extensionpb.HandleRequest,
 ) (*extensionpb.HandleResponse, error) {
+	request := operation.request
+	s := operation.fixture
 	switch request.GetHandlerId() {
 	case "supply":
 		return extensionpb.HandleResponse_builder{
@@ -184,6 +238,9 @@ func (s *grpcHandlerFixture) Handle(
 		return nil, fmt.Errorf("unknown handler %q", request.GetHandlerId())
 	}
 }
+
+// Release has no fixture handler reservation to free.
+func (operation *handlerFixtureHandleOperation) Release() {}
 
 // writeHandlerFixtureScript creates one catalog executable that starts the child test process.
 func writeHandlerFixtureScript(t *testing.T, directory, name, mode, observerPath string) {

@@ -2,16 +2,79 @@ edition = "2023";
 
 package glyph.plugins.extension.v1;
 
+import "api/operation/v1/operation.proto";
+
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
-// ExtensionService exposes startup registration, unary handlers, and streamed tool execution.
+// ExtensionService exposes one bidirectional extension operation stream.
 service ExtensionService {
-  // Register returns the complete registration owned by the extension process.
-  rpc Register(RegisterRequest) returns (RegisterResponse);
-  // Handle invokes one registered session-tree handler.
-  rpc Handle(HandleRequest) returns (HandleResponse);
-  // Execute emits progress followed by exactly one terminal result.
-  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+  // Open exchanges Host requests with extension lifecycle events.
+  rpc Open(stream OpenRequest) returns (stream OpenResponse);
+}
+
+// OpenRequest carries one Host operation request or close request.
+message OpenRequest {
+  // The operation identifier for operation requests.
+  string operation_id = 1;
+  // The stream content.
+  oneof content {
+    HostRequest request = 2;
+    glyph.operation.v1.CloseConnection close = 3;
+  }
+}
+
+// OpenResponse carries one extension operation lifecycle event.
+message OpenResponse {
+  // The operation identifier for lifecycle events.
+  string operation_id = 1;
+  // The stream content.
+  oneof content {
+    ExtensionEvent event = 2;
+  }
+}
+
+// HostRequest carries exactly one Host-initiated operation kind.
+message HostRequest {
+  // The operation request.
+  oneof request {
+    RegisterRequest register = 1;
+    HandleRequest handle = 2;
+    ExecuteRequest execute = 3;
+    glyph.operation.v1.CancelOperation cancel = 4;
+  }
+}
+
+// ExtensionEvent carries one lifecycle event for a Host-initiated operation.
+message ExtensionEvent {
+  // The lifecycle event.
+  oneof event {
+    glyph.operation.v1.Accepted accepted = 1;
+    glyph.operation.v1.Running running = 2;
+    ExtensionProgress progress = 3;
+    ExtensionCompleted completed = 4;
+    glyph.operation.v1.Canceled canceled = 5;
+    glyph.operation.v1.Failed failed = 6;
+    glyph.operation.v1.Rejected rejected = 7;
+  }
+}
+
+// ExtensionProgress carries one operation-specific progress payload.
+message ExtensionProgress {
+  // The progress payload.
+  oneof progress {
+    ToolProgress tool = 1;
+  }
+}
+
+// ExtensionCompleted carries one operation-specific completed payload.
+message ExtensionCompleted {
+  // The completed payload.
+  oneof completed {
+    RegisterResponse register = 1;
+    HandleResponse handle = 2;
+    ToolResult tool = 3;
+    glyph.operation.v1.CancelCompleted cancel = 4;
+  }
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.
@@ -429,15 +492,6 @@ message ExecuteRequest {
   bytes arguments_json = 2;
 }
 
-// ExecuteResponse carries progress or the terminal result.
-message ExecuteResponse {
-  // The progress or terminal payload.
-  oneof content {
-    ToolProgress progress = 1;
-    ToolResult result = 2;
-  }
-}
-
 // ToolProgress carries one ordered progress fragment.
 message ToolProgress {
   // The semantic channel of this progress fragment.
@@ -479,10 +533,8 @@ message ToolResultImage {
 
 // ToolResult is the terminal outcome of one tool call.
 message ToolResult {
-  reserved 1;
-  reserved content;
   // Whether the tool operation ended with an error.
-  bool is_error = 2;
+  bool is_error = 1;
   // The ordered terminal model-visible result blocks.
-  repeated ToolResultContent contents = 3;
+  repeated ToolResultContent contents = 2;
 }

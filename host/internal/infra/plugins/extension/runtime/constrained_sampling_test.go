@@ -37,7 +37,7 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange a complete Draft 2020-12 schema that reaches grammar decoding.
+			// Arrange: a complete Draft 2020-12 schema that reaches grammar decoding.
 			descriptor := constrainedProtoDescriptor(testCase.schemaJSON, grammarProtoConstraint())
 
 			// Act: validate the schema through the extension catalog boundary.
@@ -58,7 +58,7 @@ func TestValidateCatalogGrammarParserErrorsRetainContext(t *testing.T) {
 func TestValidateCatalogRootTypeParserErrorRetainsContext(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a complete schema whose root type is raw JSON but not a JSON string.
+	// Arrange: a complete schema whose root type is raw JSON but not a JSON string.
 	descriptor := constrainedProtoDescriptor(`{"type":{}}`, nil)
 
 	// Act: validate the schema through the extension catalog boundary.
@@ -97,7 +97,7 @@ func TestValidateCatalogMissingTypesRemainSemanticErrors(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange a complete schema whose applicable type field is absent.
+			// Arrange: a complete schema whose applicable type field is absent.
 			response := extensionpb.RegisterResponse_builder{
 				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}, Handlers: nil,
 			}.Build()
@@ -118,6 +118,7 @@ func TestValidateCatalogMissingTypesRemainSemanticErrors(t *testing.T) {
 func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 	t.Parallel()
 
+	// Arrange: enumerate absent, JSON Schema, grammar, and invalid sampling configurations.
 	testCases := map[string]struct {
 		descriptor    *extensionpb.ToolDescriptor
 		expected      mo.Option[tool.ConstrainedSampling]
@@ -314,9 +315,13 @@ func TestValidateCatalogMapsConstrainedSampling(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			// Act: validate and map the configured registration.
 			registration, _, err := validateRegistration(extensionpb.RegisterResponse_builder{
 				Tools: []*extensionpb.ToolDescriptor{testCase.descriptor}, Handlers: nil,
 			}.Build())
+
+			// Assert: preserve valid constraints and reject each invalid configuration.
 			if testCase.errorContains != "" {
 				require.ErrorContains(t, err, testCase.errorContains)
 				return
@@ -339,6 +344,7 @@ func grammarProtoConstraint() *extensionpb.ConstrainedSampling {
 	}.Build()
 }
 
+// constrainedProtoDescriptor constructs one tool descriptor for constrained-sampling validation.
 func constrainedProtoDescriptor(
 	schema string,
 	constraint *extensionpb.ConstrainedSampling,

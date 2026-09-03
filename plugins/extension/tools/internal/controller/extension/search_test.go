@@ -13,8 +13,11 @@ import (
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// TestServiceExecuteFindAndListDispatch verifies find and list operations preserve validated arguments.
 func TestServiceExecuteFindAndListDispatch(t *testing.T) {
 	t.Parallel()
+
+	// Arrange: expect normalized find and list arguments.
 	search := NewMockSearchTool(gomock.NewController(t))
 	search.EXPECT().
 		Find(gomock.Any(), FindArguments{Pattern: "**/*.go", Path: "src", Limit: mo.Some(uint(2))}).
@@ -27,6 +30,7 @@ func TestServiceExecuteFindAndListDispatch(t *testing.T) {
 		NewMockEditTool(gomock.NewController(t)),
 		search,
 	)
+	// Act: prepare and run both public search operations.
 	for _, request := range []*extensionv1.ExecuteRequest{
 		extensionv1.ExecuteRequest_builder{
 			ToolName: new("find"),
@@ -36,14 +40,19 @@ func TestServiceExecuteFindAndListDispatch(t *testing.T) {
 		}.Build(),
 		extensionv1.ExecuteRequest_builder{ToolName: new("ls"), ArgumentsJson: []byte(`{"path":"src","limit":2}`)}.Build(),
 	} {
-		events, err := receiveExecution(t, client, request)
+		result, err := runExecution(t, client, request)
+
+		// Assert: each operation returns successful ToolResult data.
 		require.NoError(t, err)
-		require.False(t, events[0].GetResult().GetIsError())
+		require.False(t, result.GetIsError())
 	}
 }
 
+// TestServiceRejectsInvalidSearchArgumentsBeforeDispatch verifies invalid search input never reaches tools.
 func TestServiceRejectsInvalidSearchArgumentsBeforeDispatch(t *testing.T) {
 	t.Parallel()
+
+	// Arrange: enumerate malformed grep, find, and list arguments.
 	cases := []struct {
 		name      string
 		tool      string
@@ -73,20 +82,24 @@ func TestServiceRejectsInvalidSearchArgumentsBeforeDispatch(t *testing.T) {
 				search,
 			)
 
-			events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+			// Act: prepare and run the invalid public operation.
+			result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
 				ToolName: new(testCase.tool), ArgumentsJson: []byte(testCase.arguments),
 			}.Build())
 
+			// Assert: return completed validation data without calling the search tool.
 			require.NoError(t, err)
-			require.Len(t, events, 1)
-			require.True(t, events[0].GetResult().GetIsError())
-			require.NotEmpty(t, events[0].GetResult().GetContents()[0].GetText())
+			require.True(t, result.GetIsError())
+			require.NotEmpty(t, result.GetContents()[0].GetText())
 		})
 	}
 }
 
+// TestServiceReturnsSearchOperationErrorsToModel verifies ordinary search errors remain completed tool data.
 func TestServiceReturnsSearchOperationErrorsToModel(t *testing.T) {
 	t.Parallel()
+
+	// Arrange: make each search method return one ordinary error.
 	search := NewMockSearchTool(gomock.NewController(t))
 	search.EXPECT().Grep(gomock.Any(), GrepArguments{
 		Pattern: "x", Path: "", Glob: "", IgnoreCase: false, Literal: false, Context: 0, Limit: mo.None[uint](),
@@ -113,22 +126,31 @@ func TestServiceReturnsSearchOperationErrorsToModel(t *testing.T) {
 		{tool: "ls", arguments: `{}`, want: "ls failed"},
 	}
 	for _, testCase := range cases {
-		events, err := receiveExecution(t, client, extensionv1.ExecuteRequest_builder{
+		// Act: prepare and run the failing public search operation.
+		result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
 			ToolName: new(testCase.tool), ArgumentsJson: []byte(testCase.arguments),
 		}.Build())
+
+		// Assert: preserve the ordinary error as completed ToolResult data.
 		require.NoError(t, err)
-		require.Len(t, events, 1)
-		require.True(t, events[0].GetResult().GetIsError())
-		require.Contains(t, events[0].GetResult().GetContents()[0].GetText(), testCase.want)
+		require.True(t, result.GetIsError())
+		require.Contains(t, result.GetContents()[0].GetText(), testCase.want)
 	}
 }
 
+// TestGrepSchemaUsesLimit verifies the public grep schema exposes limit and rejects maxResults.
 func TestGrepSchemaUsesLimit(t *testing.T) {
 	t.Parallel()
+
+	// Arrange: compile the public grep schema.
 	schema, err := compileSchema(grepToolName, grepInputSchemaJSON)
 	require.NoError(t, err)
+
+	// Act: validate the supported limit and removed matchLimit fields.
 	_, err = validateArguments(schema, []byte(`{"pattern":"a","limit":1}`))
 	require.NoError(t, err)
 	_, err = validateArguments(schema, []byte(`{"pattern":"a","matchLimit":1}`))
+
+	// Assert: accept limit and reject matchLimit.
 	require.Error(t, err)
 }

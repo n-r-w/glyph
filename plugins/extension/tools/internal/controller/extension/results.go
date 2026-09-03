@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"google.golang.org/grpc/status"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -25,15 +24,15 @@ func validateArguments(schema *jsonschema.Schema, source []byte) ([]byte, error)
 	return source, nil
 }
 
-// operationResult maps cancellation to gRPC and operation failures to terminal results.
-func operationResult(stream extensionv1.ExtensionService_ExecuteServer, content string, err error) error {
+// operationResult maps cancellation to lifecycle cancellation and ordinary errors to completed tool data.
+func operationResult(content string, err error) (*extensionv1.ToolResult, error) {
 	if err == nil {
-		return sendResult(stream, content, false)
+		return textResult(content, false), nil
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return status.FromContextError(err).Err()
+		return nil, err
 	}
-	return sendResult(stream, err.Error(), true)
+	return textResult(err.Error(), true), nil
 }
 
 // compileSchema compiles one immutable tool schema.
@@ -56,8 +55,12 @@ func compileSchema(name, source string) (*jsonschema.Schema, error) {
 	return schema, nil
 }
 
-// sendProgress emits one ordered progress event.
-func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress BashProgress) error {
+// reportProgress emits one ordered progress event.
+func reportProgress(
+	ctx context.Context,
+	report func(context.Context, *extensionv1.ToolProgress) error,
+	progress BashProgress,
+) error {
 	var channel extensionv1.ProgressChannel
 	switch progress.Channel {
 	case BashProgressStatus:
@@ -69,58 +72,27 @@ func sendProgress(stream extensionv1.ExtensionService_ExecuteServer, progress Ba
 	default:
 		return fmt.Errorf("unknown bash progress channel %d", progress.Channel)
 	}
-	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Progress field.
-	response := extensionv1.ExecuteResponse_builder{
-		Progress: extensionv1.ToolProgress_builder{
-			Channel: new(channel),
-			Content: new(progress.Content),
-		}.Build(),
-	}.Build()
-	if err := stream.Send(response); err != nil {
-		return fmt.Errorf("send tool progress: %w", err)
-	}
-	return nil
+	return report(ctx, extensionv1.ToolProgress_builder{
+		Channel: new(channel), Content: new(progress.Content),
+	}.Build())
 }
 
-// sendImageResult emits one typed image result.
-func sendImageResult(stream extensionv1.ExtensionService_ExecuteServer, mediaType string, data []byte) error {
-	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Result field.
-	response := extensionv1.ExecuteResponse_builder{
-		Result: extensionv1.ToolResult_builder{
-			Contents: []*extensionv1.ToolResultContent{
-				//nolint:exhaustruct_v5 // extensionv1.ToolResultContent_builder sets only the active Image field.
-				extensionv1.ToolResultContent_builder{
-					Image: extensionv1.ToolResultImage_builder{
-						MediaType: new(mediaType),
-						Data:      data,
-					}.Build(),
-				}.Build(),
-			},
-			IsError: new(false),
-		}.Build(),
+// imageResult constructs one typed image result.
+func imageResult(mediaType string, data []byte) *extensionv1.ToolResult {
+	//nolint:exhaustruct_v5 // The content builder sets only the active image field.
+	content := extensionv1.ToolResultContent_builder{
+		Image: extensionv1.ToolResultImage_builder{MediaType: new(mediaType), Data: data}.Build(),
 	}.Build()
-	if err := stream.Send(response); err != nil {
-		return fmt.Errorf("send terminal tool result: %w", err)
-	}
-	return nil
+	return extensionv1.ToolResult_builder{
+		IsError: new(false), Contents: []*extensionv1.ToolResultContent{content},
+	}.Build()
 }
 
-// sendResult emits the one terminal event required for every completed tool operation.
-func sendResult(stream ResultSender, content string, isError bool) error {
-	//nolint:exhaustruct_v5 // extensionv1.ExecuteResponse_builder sets only the active Result field.
-	response := extensionv1.ExecuteResponse_builder{
-		Result: extensionv1.ToolResult_builder{
-			Contents: []*extensionv1.ToolResultContent{
-				//nolint:exhaustruct_v5 // extensionv1.ToolResultContent_builder sets only the active Text field.
-				extensionv1.ToolResultContent_builder{
-					Text: new(content),
-				}.Build(),
-			},
-			IsError: new(isError),
-		}.Build(),
+// textResult constructs one terminal text result.
+func textResult(content string, isError bool) *extensionv1.ToolResult {
+	//nolint:exhaustruct_v5 // The content builder sets only the active text field.
+	resultContent := extensionv1.ToolResultContent_builder{Text: new(content)}.Build()
+	return extensionv1.ToolResult_builder{
+		IsError: new(isError), Contents: []*extensionv1.ToolResultContent{resultContent},
 	}.Build()
-	if err := stream.Send(response); err != nil {
-		return fmt.Errorf("send terminal tool result: %w", err)
-	}
-	return nil
 }

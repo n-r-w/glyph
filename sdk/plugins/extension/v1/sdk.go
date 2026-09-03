@@ -155,7 +155,8 @@ func (c *Client) Close() {
 }
 
 // Serve starts the go-plugin gRPC server for an extension implementation.
-func Serve(server extensionpb.ExtensionServiceServer) {
+func Serve(service Service) {
+	server := newServer(service)
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig:  handshakeConfig(),
 		TLSProvider:      nil,

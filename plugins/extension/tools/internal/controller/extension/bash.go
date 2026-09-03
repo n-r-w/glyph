@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"time"
 
 	"github.com/samber/mo"
@@ -17,28 +16,32 @@ import (
 )
 
 // executeBash decodes and executes bash while mapping progress channels.
-func (s *Service) executeBash(arguments []byte, stream extensionv1.ExtensionService_ExecuteServer) error {
+func (s *Service) executeBash(
+	ctx context.Context,
+	arguments []byte,
+	report func(context.Context, *extensionv1.ToolProgress) error,
+) (*extensionv1.ToolResult, error) {
 	var input bashArguments
 	if err := json.Unmarshal(arguments, &input); err != nil {
-		return sendResult(stream, fmt.Sprintf("decode bash arguments: %v", err), true)
+		return textResult(fmt.Sprintf("decode bash arguments: %v", err), true), nil
 	}
-	executionContext, stopTimeout, err := bashExecutionContext(stream.Context(), input.Timeout)
+	executionContext, stopTimeout, err := bashExecutionContext(ctx, input.Timeout)
 	if err != nil {
-		return sendResult(stream, err.Error(), true)
+		return textResult(err.Error(), true), nil
 	}
 	defer stopTimeout()
 	result, err := s.bashTool.Execute(executionContext, input.Command, func(progress BashProgress) error {
-		return sendProgress(stream, progress)
+		return reportProgress(ctx, report, progress)
 	})
 	if err != nil {
 		if result.Text != "" && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 			// Retain partial command output and expose the execution cause within the standard-tool budget.
 			result.Text = boundedBashResultText(result.Text + "\n\n" + err.Error())
-			return sendBashResult(stream, result, true)
+			return bashResult(result, true)
 		}
-		return operationResult(stream, "", err)
+		return operationResult("", err)
 	}
-	return sendBashResult(stream, result, result.ExitCode != 0)
+	return bashResult(result, result.ExitCode != 0)
 }
 
 // boundedBashResultText keeps the newest complete error context within the standard-tool limits.
@@ -61,23 +64,9 @@ func boundedBashResultText(content string) string {
 	return string(bounded)
 }
 
-// sendBashResult retains complete output only when its path reaches the caller.
-func sendBashResult(sender ResultSender, result BashResult, isError bool) error {
-	if err := sendResult(sender, result.Text, isError); err != nil {
-		return errors.Join(err, removeBashOutput(result.Truncation.FullOutputPath))
-	}
-	return nil
-}
-
-// removeBashOutput removes an undelivered complete-output file.
-func removeBashOutput(path string) error {
-	if path == "" {
-		return nil
-	}
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove undelivered bash output: %w", err)
-	}
-	return nil
+// bashResult returns bounded output and retains its complete-output file for the caller.
+func bashResult(result BashResult, isError bool) (*extensionv1.ToolResult, error) {
+	return textResult(result.Text, isError), nil
 }
 
 // bashExecutionContext cancels one command with a timeout-specific cause.
