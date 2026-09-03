@@ -26,6 +26,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 )
 
 // TestPreparedOwnerCancellationStopsSummaryNavigation verifies owner cancellation stops blocked summary work without commit.
@@ -276,7 +277,9 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		writerResult := make(chan error, 1)
 		go func() { writerResult <- writer.Run(t.Context()) }()
 		connectionErr := status.Error(codes.Unavailable, "send failed")
-		ownerDelivery := operation.NewMockDelivery[controller.AgentEvent, controller.Response](mockController)
+		ownerDelivery := operationmock.NewMockOperationDelivery[controller.AgentEvent, controller.Response](
+			mockController,
+		)
 		ownerDelivery.EXPECT().Accepted("progress-failure").DoAndReturn(
 			func(string) (*operation.Acknowledgement, error) {
 				return writer.EnqueueAcknowledged("accepted")

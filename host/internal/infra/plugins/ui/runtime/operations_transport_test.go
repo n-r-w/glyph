@@ -19,6 +19,7 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -63,7 +64,7 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 			started := make(chan struct{})
 			stopped := make(chan struct{})
 			released := make(chan struct{})
-			prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](controller)
+			prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
 			prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(
 				ctx context.Context,
 				reporter operation.Reporter[domainui.Frame],
@@ -149,7 +150,7 @@ func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 	source := errors.New("session persistence failed")
 	transportCause := status.Error(codes.Unavailable, "terminal transport failed")
 	released := make(chan struct{})
-	prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](controller)
+	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 		operation.Failed[domainui.Frame]("INTERNAL", source),
 	)
@@ -208,7 +209,7 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 	overflow := make(chan struct{})
 	stopped := make(chan struct{})
 	released := make(chan struct{})
-	prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](controller)
+	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(
 		ctx context.Context,
 		reporter operation.Reporter[domainui.Frame],

@@ -32,7 +32,7 @@ const (
 	TerminalStateFailed
 )
 
-//go:generate go tool mockgen -source=operation.go -destination=interfaces_mock.go -package=operation
+//go:generate go tool mockgen -source=operation.go -destination=interfaces_mock_test.go -package=operation
 
 // Prepared holds admitted operation work and its reservation.
 type Prepared[P, R any] interface {

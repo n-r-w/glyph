@@ -17,6 +17,8 @@ import (
 
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
+	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
@@ -28,8 +30,8 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 
 	// Arrange one SDK service and two prepared Host operations.
 	mockController := gomock.NewController(t)
-	firstPrepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](mockController)
-	secondPrepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](mockController)
+	firstPrepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
+	secondPrepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
 	firstPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
 			<-ctx.Done()
@@ -42,8 +44,8 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 	)
 	secondPrepared.EXPECT().Release()
 	secondResult := make(chan error, 1)
-	service := uisdk.NewMockService(mockController)
-	initializationOperation := uisdk.NewMockInitializeOperation(mockController)
+	service := pluginmock.NewMockUIService(mockController)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(mockController)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()
@@ -111,7 +113,7 @@ func TestChannelCancellationReportsActualTargetState(t *testing.T) {
 
 	// Arrange one target whose work stops only after its operation context is canceled.
 	mockController := gomock.NewController(t)
-	prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
 	runStarted := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
@@ -122,8 +124,8 @@ func TestChannelCancellationReportsActualTargetState(t *testing.T) {
 	)
 	prepared.EXPECT().Release()
 	resultChannel := make(chan *operationv1.CancelCompleted, 1)
-	service := uisdk.NewMockService(mockController)
-	initializationOperation := uisdk.NewMockInitializeOperation(mockController)
+	service := pluginmock.NewMockUIService(mockController)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(mockController)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()
@@ -173,14 +175,14 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 	// Arrange one malformed request followed by accepted work that fails with a classified cause.
 	mockController := gomock.NewController(t)
 	failureCause := errors.New("submit accepted but provider failed completely")
-	prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 		operation.Failed[domainui.Frame]("INTERNAL", failureCause),
 	)
 	prepared.EXPECT().Release()
 	result := make(chan error, 2)
-	service := uisdk.NewMockService(mockController)
-	initializationOperation := uisdk.NewMockInitializeOperation(mockController)
+	service := pluginmock.NewMockUIService(mockController)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(mockController)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()
@@ -239,7 +241,7 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	runStopped := make(chan struct{})
 	releaseGate := make(chan struct{})
 	releaseFinished := make(chan struct{})
-	prepared := operation.NewMockPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
 			close(runStarted)
@@ -252,8 +254,8 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 		<-releaseGate
 		close(releaseFinished)
 	})
-	service := uisdk.NewMockService(mockController)
-	initializationOperation := uisdk.NewMockInitializeOperation(mockController)
+	service := pluginmock.NewMockUIService(mockController)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(mockController)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()
@@ -302,8 +304,8 @@ func TestChannelDeliversIdleExtensionFailureThroughHostReceive(t *testing.T) {
 	// Arrange a real UI stream whose SDK service receives one production-mapped connection event.
 	mockController := gomock.NewController(t)
 	received := make(chan *uiv1.HostConnectionEvent, 1)
-	service := uisdk.NewMockService(mockController)
-	initializationOperation := uisdk.NewMockInitializeOperation(mockController)
+	service := pluginmock.NewMockUIService(mockController)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(mockController)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).Return(initializationOperation, nil)
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()

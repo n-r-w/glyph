@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -142,7 +143,7 @@ func TestControllerHalfCloseCancelsAndJoinsOwnedWork(t *testing.T) {
 	// Arrange work that exits only after connection closure cancels it.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operation.NewMockPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
 	joined := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
@@ -205,7 +206,7 @@ func TestHostClosureRejectsLateRequestAndJoinsOwnedWork(t *testing.T) {
 	// Arrange work that records when Host-requested closure has joined it.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operation.NewMockPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
 	joined := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {

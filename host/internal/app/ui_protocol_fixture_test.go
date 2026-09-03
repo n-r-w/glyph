@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
@@ -30,11 +31,11 @@ func TestUIPluginHelperProcess(t *testing.T) {
 }
 
 // newAppUIService configures deterministic initialization and Host behavior.
-func newAppUIService(t *testing.T) *uisdk.MockService {
+func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 	t.Helper()
 	controller := gomock.NewController(t)
-	service := uisdk.NewMockService(controller)
-	initializationOperation := uisdk.NewMockInitializeOperation(controller)
+	service := pluginmock.NewMockUIService(controller)
+	initializationOperation := pluginmock.NewMockUIInitializeOperation(controller)
 	service.EXPECT().PrepareInitialize(gomock.Any(), gomock.Any()).DoAndReturn(func(
 		_ context.Context,
 		initialization *uiv1.Initialization,

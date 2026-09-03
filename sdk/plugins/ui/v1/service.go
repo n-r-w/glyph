@@ -23,7 +23,7 @@ const (
 	unknownSDKOperationKind = "unknown"
 )
 
-//go:generate go tool mockgen -source=service.go -destination=interfaces_mock.go -package=uiv1
+//go:generate go tool mockgen -source=service.go -destination=interfaces_mock_test.go -package=uiv1
 
 // Service supplies UI-owned initialization and application behavior.
 type Service interface {
