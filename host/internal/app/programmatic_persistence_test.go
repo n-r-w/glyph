@@ -60,7 +60,7 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("secret replacement")}.Build())
 	})
 	require.NoError(t, os.Chmod(storagePath, 0o600))
-	failedAgainCode := sendProgrammaticFailure(t, fixture, "name-blocked", func(request *programmaticv1.OpenRequest) {
+	failedAgain := sendProgrammaticFailed(t, fixture, "name-blocked", func(request *programmaticv1.OpenRequest) {
 		programmaticRequest(
 			request,
 		).SetSetSessionName(programmaticv1.SetSessionName_builder{Name: new("must not persist")}.Build())
@@ -75,9 +75,10 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 		programmaticRequest(request).SetGetSessionStats(new(programmaticv1.GetSessionStats))
 	}).GetSessionStats().GetStatistics()
 
-	// Assert both mutations retain persistence classification without exposing error text.
+	// Assert both mutations retain persistence classification and the deterministic failure keeps complete text.
 	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedCode)
-	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedAgainCode)
+	assert.Equal(t, "PERSISTENCE_UNAVAILABLE", failedAgain.GetCode())
+	assert.Equal(t, "session persistence failed", failedAgain.GetMessage())
 	assert.Equal(t, initial.GetId(), info.GetId())
 	assert.Equal(t, "durable name", info.GetName())
 	require.Empty(t, entries)

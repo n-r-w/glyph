@@ -335,16 +335,35 @@ func sendProgrammaticFailure(
 	configure func(*programmaticv1.OpenRequest),
 ) string {
 	t.Helper()
+	return sendProgrammaticFailed(t, fixture, operationID, configure).GetCode()
+}
+
+// sendProgrammaticFailed sends one request and returns its Failed public lifecycle event after acceptance.
+func sendProgrammaticFailed(
+	t *testing.T,
+	fixture *programmaticFixture,
+	operationID string,
+	configure func(*programmaticv1.OpenRequest),
+) *operationv1.Failed {
+	t.Helper()
 	request := new(programmaticv1.OpenRequest)
 	request.SetOperationId(operationID)
 	request.SetRequest(new(programmaticv1.ControllerRequest))
 	configure(request)
 	require.NoError(t, fixture.stream.Send(request))
+	accepted := false
 	for {
 		response, err := fixture.stream.Recv()
 		require.NoError(t, err)
-		if response.GetOperationId() == operationID && response.GetEvent().HasFailed() {
-			return response.GetEvent().GetFailed().GetCode()
+		if response.GetOperationId() != operationID {
+			continue
+		}
+		if response.GetEvent().HasAccepted() {
+			accepted = true
+		}
+		if response.GetEvent().HasFailed() {
+			require.True(t, accepted)
+			return response.GetEvent().GetFailed()
 		}
 	}
 }

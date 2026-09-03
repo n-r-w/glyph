@@ -3,8 +3,11 @@
 package app
 
 import (
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
@@ -44,7 +47,76 @@ func (testSuite *ProgrammaticAppSuite) TestMalformedRequestIsRejectedWithoutClos
 	// Assert exact rejection mapping and continued stream use.
 	assert.True(t, rejected.GetEvent().HasRejected())
 	assert.Equal(t, "INVALID_ARGUMENT", rejected.GetEvent().GetRejected().GetCode())
+	assert.Equal(t, "programmatic operation identifier is required", rejected.GetEvent().GetRejected().GetMessage())
 	assert.True(t, state.HasRunState())
+}
+
+// TestClientDisconnectWaitsForActiveWork verifies transport-loss cleanup joins Host-owned work.
+func (testSuite *ProgrammaticAppSuite) TestClientDisconnectWaitsForActiveWork() {
+	t := testSuite.T()
+
+	// Arrange provider work that observes cancellation but cannot stop until the test permits it.
+	paths := testPaths(t, codexSettings(""))
+	writeProgrammaticCredentials(t, paths)
+	requests := new(atomic.Int32)
+	providerStarted := make(chan struct{}, 1)
+	providerCanceled := make(chan struct{}, 1)
+	allowProviderStop := make(chan struct{}, 1)
+	providerStopped := make(chan struct{}, 1)
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
+		func(request *http.Request) (*http.Response, error) {
+			if requests.Add(1) != 1 {
+				return nil, errors.New("unexpected dependent provider request")
+			}
+			providerStarted <- struct{}{}
+			<-request.Context().Done()
+			providerCanceled <- struct{}{}
+			<-allowProviderStop
+			providerStopped <- struct{}{}
+			return nil, request.Context().Err()
+		},
+	)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = transport
+	t.Cleanup(func() { http.DefaultTransport = previousTransport })
+	fixture := startProgrammaticFixture(t, paths)
+	t.Cleanup(func() {
+		select {
+		case allowProviderStop <- struct{}{}:
+		default:
+		}
+		fixture.cancel()
+		_ = fixture.connection.Close()
+	})
+	require.NoError(t, fixture.stream.Send(userRequest("disconnect-active", "wait for disconnect")))
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetOperationId() == "disconnect-active" && response.GetEvent().HasRunning() {
+			break
+		}
+	}
+	<-providerStarted
+
+	// Act by dropping the real client transport while Host work remains active.
+	require.NoError(t, fixture.connection.Close())
+	<-providerCanceled
+
+	// Assert process completion waits until provider work stops.
+	select {
+	case runErr := <-fixture.result:
+		require.Failf(t, "process returned before provider work stopped", "error: %v", runErr)
+	default:
+	}
+	allowProviderStop <- struct{}{}
+	<-providerStopped
+	runErr := <-fixture.result
+	require.Error(t, runErr)
+	assert.Equal(t, int32(1), requests.Load())
+	fixture.assertStdout(t)
+	_, err := os.Lstat(fixture.socketPath)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 // TestServeFailureReturnsNonzero verifies that an independent server failure changes the process result.
