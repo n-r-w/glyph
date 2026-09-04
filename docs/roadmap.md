@@ -115,7 +115,11 @@ Status: Planned
 Add session-bound extension contexts, configured-model requests, active-selection control, and lifecycle events.
 
 Documents:
+- [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)
+- [Terminology](specs/features/initial/phases/07-extension-context-lifecycle/terms.md)
+- [PRD](specs/features/initial/phases/07-extension-context-lifecycle/prd.md)
 - [Ticket](specs/features/initial/phases/07-extension-context-lifecycle/ticket.md)
+- [Technical Solution](specs/features/initial/phases/07-extension-context-lifecycle/solution.md)
 
 ## PHS-06: Context compaction and retry control
 

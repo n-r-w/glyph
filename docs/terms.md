@@ -33,6 +33,10 @@
 - `capability orchestration`: Glyph Host policy, ordering, validation, and state for one extension capability such as tools or session handlers.
 - `contract source split`: Movement of declarations between protobuf source files without changing their protobuf package, fully qualified names, field numbers, enum values, or service behavior.
 - `extension context`: Host-provided access to one extension runtime and its active session.
+- `configured-model request`: A model request made by an extension for extension-owned behavior through one configured model rather than the active conversation selection.
+- `extension lifecycle event`: A Host notification to an extension about agent, turn, message, tool-execution, model-selection, or reasoning-selection activity.
+- `original target selection`: The immutable model selection requested before active-selection handlers run.
+- `current target selection`: The target selection produced by preceding active-selection handlers and initialized from the original target selection.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
 - `branch summarization`: Creation of a summary for entries on the branch that the user leaves during session-tree navigation.
@@ -51,6 +55,7 @@
 - `active leaf`: The session-tree entry from which subsequent entries continue.
 - `navigation destination`: The session-tree position selected before an optional `BranchSummaryEntry` becomes the active leaf.
 - `model-visible extension message`: An extension-created session message associated with one session-tree branch and included in model context.
+- `client visibility`: The `visible` or `hidden` state delivered with a model-visible extension message to tell a Glyph client whether the message belongs in its ordinary conversation presentation.
 - `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.

@@ -1,111 +1,138 @@
-# Ticket: PHS-07 - Extension context and lifecycle
+# Ticket: PHS-07 Extension Context and Lifecycle
 
-Give extension processes session-bound access, configured-model requests, active-selection control, and lifecycle events without terminal dependencies.
+Implement one vertical slice that gives isolated extension processes UI-neutral access to session-bound Host capabilities through protobuf contracts.
 
 ## Key definitions and abbreviations
 
-- DEF-01: Extension context. Host access bound to one extension runtime generation and one active session.
-- DEF-02: Original target selection. The immutable provider, model, and reasoning selection requested before selection handlers run.
-- DEF-03: Current target selection. The selection returned by preceding selection handlers.
-- DEF-04: Model-visible extension message. An extension-created session message associated with one session-tree branch and included in model context.
+The [phase terminology](terms.md) identifies the terms used by this ticket. The [Domain Glossary](../../../../../terms.md) defines their meanings.
 
 ## Problem Statement
 
-- PRB-01: Extension processes receive tool calls but no session-bound context, configured-model request capability, or Agent Core lifecycle events. Stateful headless extensions cannot observe runs, use a configured model for extension-owned behavior, or persist branch-aware entries.
-- PRB-02: Selection lifecycle events alone would let extensions observe model and reasoning changes but would provide no operation for requesting or transforming the active conversation selection.
+The [Problem Statement](problem.md) defines the missing public extension access to session-bound Host capabilities and its effect on extension authors and Glyph clients.
 
 ## Target Picture
 
-- SOL-01: Give extension processes session-bound access, configured-model requests, active-selection operations, and lifecycle events without terminal dependencies.
+An extension can observe agent and selection lifecycles, use configured models, change active model selection, and persist branch-aware state through one session-bound context. The behavior is independent of standard TUI, Programmatic Control, and future UI plugins.
 
 ## Scenarios
 
-### SCN-01: Primary completion scenario
+### SCN-01: Session-bound extension behavior
 
-- Actor: extension author.
-- Pre-condition: DEP-01, DEP-02, and DEP-03 are met.
-- Trigger: the extension handles a lifecycle event in an active session.
-- Required behavior: the handler receives a session-bound context, can make a configured-model request without changing the active conversation model, and can persist an entry on the active branch.
-- Example input and expected output: Input: deliver `agent_start` to an extension in session `s1`, let it query one configured model, and append the result as a model-hidden entry. Expected output: the entry is stored on the active branch of `s1`, the active conversation model remains unchanged, and a context from a replaced session is rejected.
+- Actor: Extension author.
+- Pre-condition: One extension runtime and active session are available.
+- Trigger: The extension receives `agent_start`.
+- Required behavior: The handler receives an extension context, reads model and provider catalogues, makes a configured-model request, and appends the result to the active session without changing active model selection.
+- Example input and expected output: The extension sends ordered text messages to configured model `m1`, receives final text and visible reasoning content, and appends a model-visible extension message. The next agent model request includes that message, and the active provider, model, and reasoning choice remain unchanged.
 
-### SCN-02: Extension-controlled active selection
+### SCN-02: Composed active selection
 
-- Actor: extension author.
-- Pre-condition: DEP-01, DEP-02, and DEP-03 are met and two selection handlers are active.
-- Trigger: a Glyph client or extension requests another active model or reasoning choice.
-- Required behavior: handlers compose one target selection in registration order, Host validates the complete provider, model, reasoning, and authentication state, commits it atomically, and emits an event after commit.
-- Example input and expected output: Input: request model `m2`, let handler A select reasoning `low`, and let handler B preserve A's current selection. Expected output: both handlers receive the same immutable original selection, B receives A's current selection, and the next model request uses `m2` with `low` after one committed selection event.
+- Actor: Glyph client or extension.
+- Pre-condition: Two selection handlers are registered.
+- Trigger: The actor requests another model or reasoning choice.
+- Required behavior: Both handlers receive one original target selection. The second handler receives the current target selection returned by the first. Host validates and atomically commits the final target.
+- Example input and expected output: Handler A replaces reasoning with `low`, handler B preserves that target, and the next agent model request uses the committed provider, model, and `low` reasoning choice.
+
+### SCN-03: UI-neutral extension message
+
+- Actor: Glyph client.
+- Pre-condition: An extension has appended visible and hidden client-visibility messages.
+- Trigger: Host publishes `SessionEntryAdded`, or the client reads session state.
+- Required behavior: The client receives exact message text and client visibility through its protobuf contract. The ordinary transcript excludes the hidden message, while the complete session tree retains both messages.
+- Example input and expected output: Selecting either extension message returns its exact text as next input and uses its parent as the navigation destination without starting an agent run.
 
 ## Scope
 
 In scope:
 
-- ISP-01: The behavior and artifacts defined by FRQ-01 onward, DLV-01 onward, and ACC-01 onward.
+- Extension context and stale-context rejection.
+- Model and provider catalogue inspection.
+- Configured-model requests with ordered text history.
+- Agent, turn, message, tool-execution, model-selection, and reasoning-selection lifecycle events.
+- Composed active-selection handlers and atomic selection commit.
+- Model-hidden extension entries and model-visible extension messages.
+- Client visibility, client connection events, persistence, restart, and session-tree navigation.
+- Extension SDK, external process fixture, standard TUI, and Programmatic Control behavior required by the acceptance criteria.
 
 Out of scope:
 
-- OSP-01: No prompt, context, input, provider, tool, or TUI transformations.
+- Prompt, context, input, provider, and tool middleware.
+- Context compaction and retry control.
+- Extension commands, interactions, notifications, and provider implementations.
+- Extension-defined UI rendering.
+- Tools, images, and provider-specific options in configured-model requests.
 
 ## Dependencies and Preconditions
 
-- DEP-01: [PHS-05](../05-session-tree/ticket.md) must meet all acceptance criteria.
-- DEP-02: [PHS-04.1](../04.1-model-execution-capabilities/ticket.md) must meet all acceptance criteria.
-- DEP-03: [PHS-05.1](../05.1-extension-boundary-cleanup/ticket.md) must meet all acceptance criteria before this phase adds Extension Contract capabilities.
+- DEP-01: [PHS-04.1](../04.1-model-execution-capabilities/ticket.md) is complete and supplies provider-neutral model descriptors.
+- DEP-02: [PHS-05](../05-session-tree/ticket.md) is complete and supplies session-tree persistence, navigation, and branch summarization.
+- DEP-03: [PHS-05.1](../05.1-extension-boundary-cleanup/ticket.md) is complete and supplies separate extension runtime, tool, and session-tree capability owners.
+- DEP-04: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/solution.md) is complete and supplies the asynchronous operation lifecycle and public error transport.
 
 ## Requirements
 
 ### Goals
 
-- GOL-01: Give extension processes session-bound access, configured-model requests, active-selection control, and lifecycle events without terminal dependencies.
+- Implement every behavior in [PRD](prd.md) FRQ-01 through FRQ-12 as one extension-to-Host-to-client vertical slice.
 
 ### Functional Requirements
 
-- FRQ-01: Add extension context identity, runtime generation, active session identity, cancellation, cwd, model catalogue inspection, provider catalogue inspection, and configured-model requests for extension-owned behavior.
-- FRQ-01.1: A configured-model request shall use an explicitly selected configured model, shall not change the active conversation model or reasoning choice, and shall expose no provider credential or provider reasoning context to the extension.
-- FRQ-01.2: The Host use case that consumes a configured-model request shall declare its smallest provider-neutral model-request interface at the consumption site. It shall import no concrete provider package. Application composition shall bind the implemented in-process provider catalogue through that interface until PHS-06 replaces the implementation behind it.
-- FRQ-02: Deliver agent, turn, message, tool-execution, model-selection, and reasoning-selection events to registered extension handlers.
-- FRQ-02.1: Add extension context operations that request an active conversation model change or active reasoning-choice change through Host without exposing provider credentials.
-- FRQ-02.2: Every client- or extension-initiated model or reasoning change shall create an immutable original target selection and an equal current target selection before commit.
-- FRQ-02.3: Selection handlers shall run in registration order. Each handler shall receive the original and current target selections and shall preserve, replace, or reject the current selection. Rejection shall be terminal and shall stop later selection handlers.
-- FRQ-02.4: An invalid selection action or ordinary handler error shall be reported, shall preserve the selection received by that handler, and shall not stop later handlers or deactivate the extension.
-- FRQ-02.5: Host shall validate model existence, reasoning capability, and authentication against the final current selection before it atomically commits provider, model, and reasoning choice. The selected catalogue entry shall retain the `input`, `contextWindow`, and `maxTokens` descriptor values delivered by PHS-04.1.
-- FRQ-02.6: Rejection or validation failure shall preserve the active selection. Host shall emit model-selection or reasoning-selection events only after a successful commit.
-- FRQ-02.7: A selection rejection, handler error, or final selection-validation failure shall preserve the active selection and return its closed Glyph category and complete error text to the operation initiator.
-- FRQ-03: Add model-hidden and model-visible branch-aware session entry operations.
-- FRQ-03.1: Glyph clients shall present model-visible extension messages in the session tree. Selecting one shall use its parent as the navigation destination and shall return its exact text as editable next input without submitting that text automatically. The PHS-05 branch-summarization rules shall determine the committed active leaf.
+- The [PRD](prd.md) FRQ-01 through FRQ-12 are the normative functional requirements for this ticket.
 
 ### Non-Functional Requirements
 
-- NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
-- NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. The extension-context use case shall also import no concrete provider package.
+- NFQ-01: Focused behavior shall follow RED, GREEN, and REFACTOR. Implementation completion requires passing every verification command listed in this ticket.
+- NFQ-02: Agent Core shall remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, extension packages, UI packages, and TUI packages.
+- NFQ-03: Each Go interface shall belong to its consuming package. Every production implementation shall include a compile-time interface assertion after the import graph is checked for cycles.
+- NFQ-04: Extension-originated external error text shall be limited to 65,536 UTF-8 bytes at Extension Contract ingress. Only secrets shall be redacted, and later layers shall preserve the bounded text and every added cause.
 
-### Deliverables
+## Deliverables
 
-- DLV-01: Public extension context, configured-model request, active-selection, and lifecycle contract.
-- DLV-02: Reference extension that records configured-model results as model-hidden and model-visible lifecycle-derived branch state and composes one active-selection change with another extension.
+- DLV-01: Public Extension Contract and SDK for extension context, extension-initiated Host operations, selection handlers, and lifecycle observers.
+- DLV-02: Host extension-context, lifecycle, and model-selection capability use cases with the ownership boundaries defined by the [Technical Solution](solution.md).
+- DLV-03: Persisted model-hidden extension entries and model-visible extension messages with client visibility and session-tree navigation.
+- DLV-04: UI Plugin Contract, Programmatic Control, standard TUI, and headless delivery for committed extension messages, selection changes, lifecycle issues, and complete errors.
+- DLV-05: An external reference extension that exercises configured-model requests, both extension entry types, client visibility, lifecycle observation, selection composition, and stale-context rejection.
 
-### Acceptance Criteria
+## Acceptance Criteria
 
-- ACC-01: The reference extension works headlessly and through the standard TUI without changing its core behavior.
-- ACC-02: Session replacement creates a new context and every operation through the preceding context fails.
-- ACC-03: Extension entries attach to the active branch and survive restart.
-- ACC-04: An extension uses an explicitly selected configured model without changing the active conversation model or reasoning choice and without receiving provider credentials or provider reasoning context.
-- ACC-04.1: The extension-context model-request use case depends only on its consumer-owned provider-neutral interface. Its production implementation has a compile-time interface assertion, and the use case imports no OpenAI Codex, OpenAI-compatible, provider SDK, plugin transport, or provider credential package.
-- ACC-05: An extension changes the active conversation model and reasoning choice, and the next model request uses the committed selection without clearing session history.
-- ACC-06: Two selection handlers receive the same original target selection, while the second receives the current selection returned by the first.
-- ACC-07: Handler rejection, an invalid replacement, unavailable credentials, or an unsupported reasoning choice preserves the active provider, model, and reasoning choice, emits no selection event, and returns the same Glyph category and complete error text through UI Plugin Contract and Programmatic Control.
-- ACC-08: A model-visible extension message survives restart, appears through both Glyph client contracts, and returns its exact text and parent navigation destination when selected without starting an agent run. When branch summarization is enabled, the created `BranchSummaryEntry` becomes the active leaf.
+- ACC-01: The reference extension runs through headless composition, standard TUI, and Programmatic Control without changing extension behavior or importing a client package.
+- ACC-02: Active-session or extension-runtime replacement makes every operation through the preceding extension context fail with `STALE_CONTEXT` and complete error text. No stale operation commits session or selection state.
+- ACC-03: Model catalogue results contain every provider-neutral descriptor field defined by PHS-04.1 and active model selection. Provider catalogue results contain provider IDs and ordered model IDs. Neither result contains credential values, credential sources, endpoints, provider API configuration, or provider reasoning context.
+- ACC-04: A configured-model request accepts instructions and ordered `user` and `assistant` text messages, returns ordered terminal text, refusal, tool-call, and visible reasoning content with outcome, usage, and diagnostics, supplies no tools to the provider, and leaves active model selection unchanged.
+- ACC-05: Glyph client delivery precedes extension observer delivery for each Agent Core lifecycle event. Observers run in registration order before Agent Core processes the next event. An ordinary observer error reaches the Glyph client as `ExtensionIssue`, does not stop later observers, and does not deactivate the extension.
+- ACC-06: Two selection handlers receive the same original target selection, while the second receives the current target selection returned by the first. Preserve, replace, reject, invalid-action, ordinary-error, cancellation, and unavailable-runtime paths produce the outcomes defined by the PRD and Technical Solution.
+- ACC-07: Host validates provider-model existence, reasoning support, and credentials before one atomic selection commit. Failure preserves active model selection and emits no selection event. A successful commit emits events only for changed values, with reasoning selection before model selection when both change.
+- ACC-08: Both extension entry types attach to the active leaf, survive restart, and preserve exact extension ID, entry type, parent, timestamp, and payload. Only model-visible extension messages enter model context.
+- ACC-09: UI Plugin Contract and Programmatic Control receive exact model-visible extension message text and `visible` or `hidden` client visibility through session state and `SessionEntryAdded`. Standard TUI excludes hidden messages from its ordinary transcript but retains them in session-tree state.
+- ACC-10: A client delivery failure after extension-message persistence returns the committed entry and `DELIVERY_FAILED` issue to the extension. The committed session state is not rolled back.
+- ACC-11: Selecting a model-visible extension message with either client visibility uses its parent as the navigation destination and returns exact text as next input without starting Agent Core. Without a branch summary, the destination becomes the active leaf. With a branch summary, the new `BranchSummaryEntry` becomes the active leaf.
+- ACC-12: Extension Contract, UI Plugin Contract, Programmatic Control, and headless output preserve the operation's closed Glyph error category and complete error text. A machine-readable code never replaces error text.
+- ACC-13: One handler can start and await an extension-initiated Host operation over `ExtensionService.Open` without deadlock. Cancellation, duplicate operation IDs in one initiator namespace, stream close, and runtime exit terminate every owned operation through the shared operation lifecycle.
+- ACC-14: `extensioncontext`, `lifecycle`, and `modelselection` depend only on consumer-owned interfaces. Agent Core and these use cases import no concrete provider, plugin transport, client, or TUI package prohibited by NFQ-02 and NFQ-03.
+
+## Verification
+
+- RED: Add one focused behavioral test before each behavior change and observe its expected failure.
+- GREEN: Implement the minimum production change that makes the focused test pass.
+- REFACTOR: Improve the implementation without changing behavior and keep the focused tests passing.
+- `task generate` runs twice, and the second run produces no diff.
+- `task fmt` passes.
+- `task fix_dry_run` is reviewed, and accepted fixes are applied through `task fix` or manual changes.
+- `task lint` passes.
+- `task test` passes.
+- `task itest` passes.
+- `task test-coverage` passes.
 
 ## Overengineering and Overspecification Considerations
 
-The ticket uses one Host-owned selection path for Glyph clients and extensions. Ordered original-and-current handlers avoid a second extension-only selection model and undocumented last-call winner behavior. OSP-01 remains outside the ticket.
+The ticket reuses one bidirectional extension stream, the shared operation lifecycle, the implemented provider catalogue, session persistence, runtime manager, startup coordinator, and event dispatcher. It adds no callback service, second socket, generic capability bus, asynchronous lifecycle queue, compatibility layer, or later-phase middleware.
 
 ## Constraints and Risks
 
-- RSK-01: Long-lived requests could use a context after session replacement. Host validates runtime generation and session identity for every context operation.
-- RSK-02: A model request could expose provider-owned authentication or replay data to an extension. Host resolves credentials and provider reasoning context without returning either to the extension.
-- RSK-03: Selection can change while a model request streams. Each in-progress request retains its immutable selection snapshot, and the committed change affects the next model request.
-- RSK-04: Binding configured-model requests directly to the concrete provider catalogue would force PHS-06 and PHS-12 to change the extension-context use case. FRQ-01.2 keeps that replacement behind a consumer-owned interface.
+- A slow lifecycle observer delays later Agent Core events. The connected Glyph client receives the current event before observer execution, and general cancellation cancels observer work.
+- Nested operations can deadlock when a stream receive loop executes handlers directly. Both SDK peers must route operation execution away from their receive loops.
+- Session or selection commit can succeed before client delivery fails. The committed result and `DELIVERY_FAILED` issue expose both outcomes without rollback.
+- Three public protobuf contracts can drift in content, visibility, selection, or error mapping. Contract tests must compare their shared semantic values.
 
 ## Assumptions
 
@@ -117,13 +144,14 @@ None.
 
 ## Technical Supplement
 
-No additional technical design is selected by this ticket. Contract shapes and package placement require a phase-specific technical solution before implementation when the functional requirements change a public process boundary.
+The [Technical Solution](solution.md) defines protobuf source ownership, Host package ownership, operation and event order, persistence records, closed errors, and verification design.
 
 ## References
 
-- REF-01: [target product requirements](../../prd.md) - target product requirements.
-- REF-02: [ticket order and ownership](../../delivery-plan.md) - ticket order and ownership.
-- REF-03: [extension process boundary](../../../../../../api/plugins/extension/v1) - public Extension Contract sources after PHS-05.1.
-- REF-04: [model execution capabilities](../04.1-model-execution-capabilities/ticket.md) - provider-neutral descriptor metadata used during selection validation.
-- REF-05: [target architecture](../../architecture.md) - Host selection ownership and extension composition.
-- REF-06: [extension boundary cleanup](../05.1-extension-boundary-cleanup/ticket.md) - required runtime and capability ownership baseline.
+- [Problem Statement](problem.md) - observed problem and boundary.
+- [Phase terminology](terms.md) - terminology index.
+- [PRD](prd.md) - normative behavior and goals.
+- [Technical Solution](solution.md) - implementation design.
+- [Domain Glossary](../../../../../terms.md) - shared Glyph terminology.
+- [Target architecture](../../architecture.md) - process, state, and dependency ownership.
+- [Delivery plan](../../delivery-plan.md) - phase order and dependencies.
