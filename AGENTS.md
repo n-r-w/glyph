@@ -39,6 +39,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 5. `github.com/cenkalti/backoff/v7` for retry strategies
 6. `github.com/samber/lo` for slices/maps/strings/channels/functions (if no standard library functions available)
 7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
+8. `encoding/json/v2`
 
 ## Architecture Decisions
 1. NO BACKWARDS COMPATIBILITY AT ALL (code, proto, etc.). This is new project
