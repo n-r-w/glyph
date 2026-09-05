@@ -17,18 +17,19 @@ Give isolated extension processes UI-neutral access to the active session, confi
 - SCN-01: An extension receives `agent_start` with the current extension context, makes a configured-model request, and persists the result in the active session.
 - SCN-02: A Glyph client or extension requests a new model selection. Multiple extensions transform or reject the selection in order before Host commits it atomically.
 - SCN-03: A Glyph client receives extension messages and their client visibility through a protobuf contract independently of the selected UI.
+- SCN-04: After restart or session replacement, an extension reconstructs its state from persisted entries on the active branch through the public Extension Contract.
 
 ## Scope and Non-Scope
 
 In scope:
 
-- Extension context, configured model and provider catalogues, configured-model requests, lifecycle events, model selection, and extension entries.
+- Extension context, configured model and provider catalogues, configured-model requests, lifecycle events, model selection, extension entries, and public recovery of persisted extension state.
 
 Out of scope:
 
 - Prompt, context, input, provider, and tool middleware.
 - Context compaction and retry control.
-- Extension commands, interactions, notifications, and provider implementations.
+- Extension commands, command-initiated session control, interactions, notifications, and provider implementations.
 - UI-specific presentation.
 
 ## Requirements
@@ -57,6 +58,12 @@ Out of scope:
 - FRQ-08: An extension shall be able to append a model-hidden extension entry or model-visible extension message at the active leaf. Both entry types shall survive application restart.
   - Goal: Support durable extension state and durable model context.
   - Goal achievement: Full. Both entry types persist on the active session branch.
+- FRQ-08.1: An extension shall be able to obtain its persisted model-hidden entries and model-visible messages for the bound session's active branch through the public Extension Contract. The recovered data shall preserve exact payloads, entry IDs, extension IDs, entry types, parent relationships, and branch order.
+  - Goal: Reconstruct session-backed extension state without depending on Host storage internals.
+  - Goal achievement: Full. Recovery exposes the stored data and branch identity required by extension-owned state logic.
+- FRQ-08.2: Recovery shall work after application restart, active-session replacement, and branch navigation. A stale extension context shall fail recovery under FRQ-01. Recovery shall neither mutate stored entries nor present entries from an abandoned branch as active-branch state.
+  - Goal: Resume extension behavior from the selected conversation rather than obsolete in-memory state.
+  - Goal achievement: Full. Public recovery follows the bound session and selected branch. Environment reload reuses this capability in PHS-16.
 - FRQ-09: A model-hidden extension entry shall not enter model context. A model-visible extension message shall enter model context and shall have client visibility set to `visible` or `hidden`.
   - Goal: Separate model visibility from ordinary conversation presentation.
   - Goal achievement: Full. Each entry type has defined model-context behavior.

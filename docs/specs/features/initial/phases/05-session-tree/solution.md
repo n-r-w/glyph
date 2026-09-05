@@ -2,7 +2,7 @@
 
 ## Problem statement
 
-[The PHS-05 ticket](ticket.md) defines the problem, approved behavior, scope, and acceptance criteria.
+[The PHS-05 ticket](ticket.md) defines the implemented phase's behavior. The planned [PHS-05.2 ticket](../05.2-branch-summary-extension-control/ticket.md) owns changes to summary-model validation, result-source metadata, and handler error text before PHS-07. The implementation described below does not yet include those changes.
 
 ## Proposed solution
 

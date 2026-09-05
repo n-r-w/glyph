@@ -2,6 +2,8 @@
 
 Support branch-preserving session navigation.
 
+The planned [PHS-05.2](../05.2-branch-summary-extension-control/ticket.md) supersedes this phase's unconditional summary-model validation and model-only result attribution. It also owns complete error text for session-tree handlers before PHS-07 starts.
+
 ## Key definitions and abbreviations
 
 - DEF-01: Active leaf. The session-tree entry from which later entries continue.

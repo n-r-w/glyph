@@ -34,6 +34,14 @@ Let extensions expose user actions and request Host or client behavior.
 - Required behavior: Host invokes the selected provider authentication operation, routes each provider interaction through the active Glyph client, and returns the same semantic result through UI Plugin Contract and Programmatic Control.
 - Example input and expected output: Input: start Codex authentication through each Glyph client kind after stored authentication fails. Expected output: both clients receive the same interface-neutral interaction request and terminal authentication result without a Codex-specific UI message.
 
+### SCN-03: User-command session handoff
+
+- Actor: Glyph user.
+- Pre-condition: A session-aware extension command is registered and the active session contains work to continue separately.
+- Trigger: The user invokes the extension command through a Glyph client.
+- Required behavior: The command creates a replacement session through Host and carries selected context into that session through a newly bound extension context.
+- Example input and expected output: A `handoff` command takes the user's next goal and selected prior context. Host creates a new active session, retains the source session, and the command stores the context in the replacement session without using stale session-bound objects.
+
 ## Scope
 
 In scope:
@@ -43,6 +51,7 @@ In scope:
 Out of scope:
 
 - OSP-01: No resource contributions, provider registration, or TUI component contribution.
+- OSP-02: No automatic session creation or switching initiated by ordinary lifecycle handlers and no built-in child-agent or workflow semantics.
 
 ## Dependencies and Preconditions
 
@@ -65,6 +74,9 @@ Out of scope:
 - FRQ-02.5: Rejection, interaction-delivery failure, cancellation, and terminal authentication failure shall expose closed Glyph categories and complete error text with equal semantic meaning through UI Plugin Contract and Programmatic Control.
 - FRQ-03: Add non-persisted inter-extension events.
 - FRQ-04: Allow extension commands to use the configured-model request contract delivered by PHS-07 without changing the active conversation model or reasoning choice.
+- FRQ-05: During a user-invoked extension command, the extension shall be able to initiate and cancel session creation, resumption, forking, cloning, and tree navigation through the public Extension Contract. Host shall retain ownership of admission, cancellation, navigation, persistence, and client results.
+- FRQ-06: Session-control operations initiated by a command shall follow the Host operation rules used by Glyph clients. Rejection shall change no session state. Cancellation shall expose the actual terminal outcome without undoing a committed session transition. A command shall receive a newly bound extension context after session replacement; the preceding context shall remain stale.
+- FRQ-07: Session control shall work through both client kinds without the extension importing Host internals or using a second client connection to control Host.
 
 ### Non-Functional Requirements
 
@@ -77,6 +89,7 @@ Out of scope:
 - DLV-02: Interaction, notification, and extension-event contracts.
 - DLV-03: Reference command, interaction, notification, and model-query extensions.
 - DLV-04: Client-neutral provider authentication operation and migration of Codex authorization to the interface-neutral interaction contract.
+- DLV-05: Command-initiated session operations and a reference handoff command through the public Extension Contract.
 
 ### Acceptance Criteria
 
@@ -86,6 +99,9 @@ Out of scope:
 - ACC-04: An extension model request uses a configured model without changing the active conversation model.
 - ACC-05: UI Plugin Contract and Programmatic Control can each start or retry authentication for the same configured provider and receive equivalent interaction, cancellation, success, and failure semantics.
 - ACC-06: Codex authorization uses the interface-neutral interaction contract, and production code contains no `RetryAuthenticationCommand`, `AuthorizationRequest`, or Host interaction dependency on a concrete Codex package.
+- ACC-07: A real external extension command initiates creation, resumption, forking, cloning, and tree navigation through the Extension Contract. Each operation preserves its Host-defined session and branch semantics. The command works when invoked through either standard TUI or Programmatic Control.
+- ACC-08: The handoff scenario retains the source session and writes selected context only into the replacement session. The new extension context works; an operation through the preceding context returns `STALE_CONTEXT` with complete error text.
+- ACC-09: A command cancels an accepted session-control operation and observes its terminal outcome. A pre-commit cancellation changes no session state, and a committed transition is not undone. A busy rejection changes no session state and retains its category and complete error text.
 
 ## Overengineering and Overspecification Considerations
 
@@ -95,6 +111,7 @@ The ticket introduces only the public behavior needed by SCN-01 and the listed f
 
 - RSK-01: A client disconnect can leave an extension request pending. Host completes every pending interaction with a delivery error when the client connection closes.
 - RSK-02: Removing the UI-specific authentication command without a client-neutral replacement would prevent recovery after failed startup authentication. FRQ-02.2 requires the replacement operation before removal.
+- RSK-03: A command can retain a context for the session it replaced. FRQ-06 requires a fresh binding before post-switch work so that the command cannot append to the wrong session.
 
 ## Assumptions
 

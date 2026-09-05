@@ -39,8 +39,13 @@
 - Dependencies: PHS-05, Blocking contract operation processing
 - Ticket: [Ticket](phases/05.1-extension-boundary-cleanup/ticket.md)
 
+### PHS-05.2. Branch-summary extension control
+- Dependencies: PHS-05.1
+- Ticket: [Ticket](phases/05.2-branch-summary-extension-control/ticket.md)
+- Completion gate: PHS-07 implementation cannot start until every PHS-05.2 acceptance criterion passes.
+
 ### PHS-07. Extension context and lifecycle
-- Dependencies: PHS-05.1, PHS-04.1
+- Dependencies: PHS-05.2, PHS-04.1
 - Ticket: [Ticket](phases/07-extension-context-lifecycle/ticket.md)
 
 ### PHS-06. Context compaction and retry control

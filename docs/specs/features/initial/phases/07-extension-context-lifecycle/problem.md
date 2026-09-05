@@ -8,7 +8,7 @@ External extensions use the public Extension Contract. Their behavior must remai
 
 ## Observed Problem
 
-The public Extension Contract limits extensions to tool execution and session-tree handlers. An extension cannot identify the active session for its work, use a configured model for extension-owned behavior, add model-visible branch content with defined client visibility, observe the Agent Core lifecycle, or participate in active model-selection changes.
+The public Extension Contract limits extensions to tool execution and session-tree handlers. An extension cannot identify the active session for its work, use a configured model for extension-owned behavior, add model-visible branch content with defined client visibility, observe the Agent Core lifecycle, participate in active model-selection changes, or recover session-backed extension state after losing its in-memory state.
 
 ## Affected Audience
 
@@ -20,7 +20,7 @@ The problem affects extension authors and users who expect the same extension be
 - `host/internal/usecase/host/extensionruntime/service.go` tracks runtime availability and active operations but no runtime generation or active-session binding.
 - `host/internal/usecase/host/providers/catalog.go` and `host/internal/usecase/host/providers/request.go` already own configured-model inspection, active selection, credential checks, and model requests without active-selection mutation. The Extension Contract cannot access these operations.
 - `host/internal/usecase/agent/run/event.go` produces Agent Core lifecycle events. `host/internal/usecase/host/events/service.go` delivers them to the active client path but not to extension handlers.
-- `host/internal/usecase/host/sessions/service.go` can persist branch-aware extension entries. `host/internal/usecase/host/sessiontree/history.go` excludes every extension entry from model context, and the Extension Contract exposes no entry-creation operation.
+- `host/internal/usecase/host/sessions/service.go` can persist branch-aware extension entries. `host/internal/usecase/host/sessiontree/history.go` excludes every extension entry from model context, and the Extension Contract exposes no entry-creation or state-recovery operation. `SessionTreeExtensionEntry` in `api/plugins/extension/v1/session_tree.proto` carries entry identity metadata but omits the saved payload.
 - UI Plugin Contract and Programmatic Control already expose client-neutral model, reasoning, agent-event, and session-tree information. The Extension Contract does not expose the corresponding extension capabilities.
 
 ## Impact

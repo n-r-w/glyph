@@ -12,7 +12,7 @@ The [Problem Statement](problem.md) defines the missing public extension access 
 
 ## Target Picture
 
-An extension can observe agent and selection lifecycles, use configured models, change active model selection, and persist branch-aware state through one session-bound context. The behavior is independent of standard TUI, Programmatic Control, and future UI plugins.
+An extension can observe agent and selection lifecycles, use configured models, change active model selection, and persist and recover branch-aware state through one session-bound context. The behavior is independent of standard TUI, Programmatic Control, and future UI plugins.
 
 ## Scenarios
 
@@ -40,6 +40,14 @@ An extension can observe agent and selection lifecycles, use configured models, 
 - Required behavior: The client receives exact message text and client visibility through its protobuf contract. The ordinary transcript excludes the hidden message, while the complete session tree retains both messages.
 - Example input and expected output: Selecting either extension message returns its exact text as next input and uses its parent as the navigation destination without starting an agent run.
 
+### SCN-04: Recover extension state after restart
+
+- Actor: Extension author.
+- Pre-condition: The extension has stored a model-hidden checkpoint on one session branch and a different checkpoint on another branch.
+- Trigger: Glyph restarts and resumes one branch, or the user changes the active session or branch.
+- Required behavior: The extension obtains its persisted active-branch data through the public Extension Contract and reconstructs its state without reading Host files.
+- Example input and expected output: The resumed branch contains checkpoint `step=2`, while an abandoned branch contains `step=5`. The fresh extension reconstructs `step=2`, with the stored payload and entry identity intact.
+
 ## Scope
 
 In scope:
@@ -49,7 +57,7 @@ In scope:
 - Configured-model requests with ordered text history.
 - Agent, turn, message, tool-execution, model-selection, and reasoning-selection lifecycle events.
 - Composed active-selection handlers and atomic selection commit.
-- Model-hidden extension entries and model-visible extension messages.
+- Model-hidden extension entries, model-visible extension messages, and public recovery of persisted active-branch extension state.
 - Client visibility, client connection events, persistence, restart, and session-tree navigation.
 - Extension SDK, external process fixture, standard TUI, and Programmatic Control behavior required by the acceptance criteria.
 
@@ -57,7 +65,7 @@ Out of scope:
 
 - Prompt, context, input, provider, and tool middleware.
 - Context compaction and retry control.
-- Extension commands, interactions, notifications, and provider implementations.
+- Extension commands, command-initiated session control, interactions, notifications, and provider implementations.
 - Extension-defined UI rendering.
 - Tools, images, and provider-specific options in configured-model requests.
 
@@ -67,6 +75,7 @@ Out of scope:
 - DEP-02: [PHS-05](../05-session-tree/ticket.md) is complete and supplies session-tree persistence, navigation, and branch summarization.
 - DEP-03: [PHS-05.1](../05.1-extension-boundary-cleanup/ticket.md) is complete and supplies separate extension runtime, tool, and session-tree capability owners.
 - DEP-04: [Blocking contract operation processing](../../../../issues/blocking-contract-operation-processing/solution.md) is complete and supplies the asynchronous operation lifecycle and public error transport.
+- DEP-05: [PHS-05.2](../05.2-branch-summary-extension-control/ticket.md) must meet every acceptance criterion before PHS-07 implementation starts. It supplies independent branch-summary result sources and complete session-tree handler errors.
 
 ## Requirements
 
@@ -89,9 +98,9 @@ Out of scope:
 
 - DLV-01: Public Extension Contract and SDK for extension context, extension-initiated Host operations, selection handlers, and lifecycle observers.
 - DLV-02: Host extension-context, lifecycle, and model-selection capability use cases with the ownership boundaries defined by the [Technical Solution](solution.md).
-- DLV-03: Persisted model-hidden extension entries and model-visible extension messages with client visibility and session-tree navigation.
+- DLV-03: Persisted model-hidden extension entries and model-visible extension messages with client visibility, session-tree navigation, and public active-branch recovery.
 - DLV-04: UI Plugin Contract, Programmatic Control, standard TUI, and headless delivery for committed extension messages, selection changes, lifecycle issues, and complete errors.
-- DLV-05: An external reference extension that exercises configured-model requests, both extension entry types, client visibility, lifecycle observation, selection composition, and stale-context rejection.
+- DLV-05: An external reference extension that exercises configured-model requests, both extension entry types, persisted-state recovery, client visibility, lifecycle observation, selection composition, and stale-context rejection.
 
 ## Acceptance Criteria
 
@@ -103,6 +112,8 @@ Out of scope:
 - ACC-06: Two selection handlers receive the same original target selection, while the second receives the current target selection returned by the first. Preserve, replace, reject, invalid-action, ordinary-error, cancellation, and unavailable-runtime paths produce the outcomes defined by the PRD and Technical Solution.
 - ACC-07: Host validates provider-model existence, reasoning support, and credentials before one atomic selection commit. Failure preserves active model selection and emits no selection event. A successful commit emits events only for changed values, with reasoning selection before model selection when both change.
 - ACC-08: Both extension entry types attach to the active leaf, survive restart, and preserve exact extension ID, entry type, parent, timestamp, and payload. Only model-visible extension messages enter model context.
+- ACC-08.1: An external extension persists a model-hidden checkpoint and a model-visible message, loses all in-memory state, and recovers both through the public Extension Contract after restart and session resume. Exact payloads, entry IDs, extension IDs, entry types, parent relationships, and branch order match the stored entries. The extension imports no Host internal package and reads no Host session file.
+- ACC-08.2: After session replacement or branch navigation, recovered state belongs to the bound session's active branch. A checkpoint from an abandoned branch is not applied as active state. Recovery through a stale context returns `STALE_CONTEXT` with complete error text and changes no session data.
 - ACC-09: UI Plugin Contract and Programmatic Control receive exact model-visible extension message text and `visible` or `hidden` client visibility through session state and `SessionEntryAdded`. Standard TUI excludes hidden messages from its ordinary transcript but retains them in session-tree state.
 - ACC-10: A client delivery failure after extension-message persistence returns the committed entry and `DELIVERY_FAILED` issue to the extension. The committed session state is not rolled back.
 - ACC-11: Selecting a model-visible extension message with either client visibility uses its parent as the navigation destination and returns exact text as next input without starting Agent Core. Without a branch summary, the destination becomes the active leaf. With a branch summary, the new `BranchSummaryEntry` becomes the active leaf.
@@ -116,6 +127,7 @@ Out of scope:
 - RED: Add one focused behavioral test before each behavior change and observe its expected failure.
 - GREEN: Implement the minimum production change that makes the focused test pass.
 - REFACTOR: Improve the implementation without changing behavior and keep the focused tests passing.
+- The external extension recovery scenario covers restart, session replacement, branch navigation, exact payloads, and stale-context rejection through public contracts.
 - `task generate` runs twice, and the second run produces no diff.
 - `task fmt` passes.
 - `task fix_dry_run` is reviewed, and accepted fixes are applied through `task fix` or manual changes.

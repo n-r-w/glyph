@@ -21,7 +21,7 @@ Requirement coverage:
 | FRQ-03 | Configured models and providers |
 | FRQ-04 | Lifecycle observers |
 | FRQ-05, FRQ-06, FRQ-07 | Active model selection |
-| FRQ-08, FRQ-09, FRQ-10 | Extension entries and persistence; Glyph client contracts and client visibility |
+| FRQ-08, FRQ-08.1, FRQ-08.2, FRQ-09, FRQ-10 | Extension entries and persistence; Session-state recovery boundary; Glyph client contracts and client visibility |
 | FRQ-11 | Session-tree navigation |
 | FRQ-12 | Error semantics |
 
@@ -33,7 +33,7 @@ Requirement coverage:
 - Deliver each Agent Core event to the Glyph client before invoking lifecycle observers. Invoke observers synchronously in registration order before Agent Core proceeds to its next event.
 - Emit model-selection and reasoning-selection events only for values changed by a successful commit. Emit reasoning selection before model selection when both change.
 - Publish a committed extension message through a client-neutral `SessionEntryAdded` connection event. A post-commit delivery error does not roll back persistence.
-- Preserve the PHS-05 branch-summarization commit. A selected extension message uses its parent as the navigation destination, while a created `BranchSummaryEntry` becomes the active leaf.
+- Preserve the PHS-05 atomic branch-summarization commit with the result-source and handler-error behavior required by [PHS-05.2](../05.2-branch-summary-extension-control/ticket.md). A selected extension message uses its parent as the navigation destination, while a created `BranchSummaryEntry` becomes the active leaf.
 - Publish the navigation snapshot as operation progress before post-commit observers. Deliver later appends after that snapshot; terminal navigation completion does not replace client session state.
 
 ### Rejected alternatives
@@ -46,7 +46,7 @@ Requirement coverage:
 ### Extension Contract stream
 
 - `OpenRequest` continues to carry Host-initiated requests and extension operation events. `OpenResponse` continues to carry extension operation events and gains extension-initiated requests.
-- Extension-initiated requests cover model and provider catalogue queries, configured-model requests, model and reasoning selection, hidden-entry append, visible-message append, and cancellation.
+- Extension-initiated requests cover model and provider catalogue queries, configured-model requests, model and reasoning selection, hidden-entry append, visible-message append, and cancellation. Public session-state recovery is also required; its query or replay form remains the design decision recorded under Open Questions.
 - Host returns accepted, running, completed, canceled, failed, or rejected states through the shared operation lifecycle from `api/operation/v1`.
 - Cancellation targets an operation owned by the receiving peer. Stream close cancels and joins owned operations and pending initiated operations in both directions.
 - SDK receive loops validate and route envelopes without running handlers on the receive goroutine. A Host-initiated handler can start and await an extension-initiated Host operation on the same stream without deadlock.
@@ -73,7 +73,7 @@ Every protobuf enum has an `UNSPECIFIED` zero sentinel. Host rejects that sentin
 - Runtime or active-session replacement permanently invalidates the preceding context binding before operations can use the replacement state. Resuming the same durable session creates a new `context_id`, including after switching from session A to B and back to A. Durable session ID equality does not reactivate a preceding context. A stale operation commits no selection or session change.
 - The Extension SDK exposes cancellation through Go `context.Context`. It sends `CancelOperation` when the caller cancels. Cancellation is not serialized as an `ExtensionContext` field.
 
-The Extension SDK context provides typed methods for catalogue queries, configured-model requests, selection requests, and entry appends. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed.
+The Extension SDK context provides typed methods for catalogue queries, configured-model requests, selection requests, and entry appends, plus public access to session-state recovery under the boundary below. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed. Command-initiated creation, resumption, forking, cloning, and navigation belong to PHS-10, not PHS-07.
 
 ### Configured models and providers
 
@@ -127,6 +127,12 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 - Client delivery failure leaves persistence and in-memory state committed. The extension receives the committed result and a `DELIVERY_FAILED` issue.
 - Appends are permitted from session-tree request handlers, result handlers, and post-commit observers. Each append is a separate operation. A later navigation failure or cancellation does not roll back a committed append.
 - Host serializes each affected session commit with enqueue of its client update on the connection's ordered writer. Navigation snapshot publication and append publication use this same boundary. Host releases the boundary before invoking extension handlers or waiting for transport writes; it does not hold the boundary for the complete navigation operation.
+
+### Session-state recovery boundary
+
+[PRD](prd.md) FRQ-08.1 and FRQ-08.2 define the recovery behavior. Host supplies the persisted active-branch data through the public Extension Contract. The extension interprets its payloads and reconstructs its own state. Recovery reuses Host session ownership and extension-context validation; it adds no second store or state-reconstruction logic to Agent Core.
+
+The query or replay contract, its SDK entry point, and its error mapping must be resolved before PHS-07 implementation. PHS-16 reuses this public capability after replacing extension runtimes. This boundary does not select the transport shape.
 
 ### Glyph client contracts and client visibility
 
@@ -217,9 +223,10 @@ The Extension Contract transport limits extension-originated external error text
 - Add lifecycle tests for every event kind, client-first delivery, observer registration order, ordinary observer errors, runtime failure, and issue-delivery failure.
 - Add selection tests for original and current composition, preserve, replace, rejection, invalid action, atomic commit, concurrent selection, event order, no-op, and post-commit delivery failure. Retain the reasoning compatibility cases from `providers.fallbackReasoningChoice`, including nearest-effort selection and lower-effort tie resolution.
 - Add session domain and persistence tests for both extension record types, exact parent, restart, snapshot replacement, history projection, and failed writes.
+- Add public recovery tests for a restarted external extension, session replacement, branch navigation, exact stored payloads and entry identity, active-branch order, stale-context errors, and zero recovery-side session mutations. The fixture must reconstruct state without reading Host files.
 - Add UI Plugin Contract and Programmatic Control tests for extension messages, client visibility, `SessionEntryAdded`, hidden transcript filtering, selection events, issues, and equivalent error text and categories.
 - Add navigation tests for both client visibility values, exact next input, no-summary and branch-summary active leaves, and zero Agent Core calls. A post-commit observer appends a message and awaits completion; assert snapshot progress before `SessionEntryAdded`, then terminal navigation completion without another transcript replacement. The client retains the appended entry while the completion identifies the earlier navigation commit's active leaf. Also cover an overlapping append from another extension, pre-commit handler appends followed by navigation failure, and post-commit cancellation or delivery failure.
-- Add an external extension fixture that receives `agent_start`, makes a configured-model request, appends its result, transforms one selection, and receives `STALE_CONTEXT` after session replacement.
+- Add an external extension fixture that receives `agent_start`, makes a configured-model request, appends its result, recovers its saved state after restart, transforms one selection, and receives `STALE_CONTEXT` after session replacement.
 - Run `task generate` twice and require no diff from the second run. Then run `task fmt`, `task fix_dry_run`, accepted fixes, `task lint`, `task test`, `task itest`, and `task test-coverage`.
 
 Keep `docs/roadmap.md` at Planned until implementation and every verification item pass.
@@ -232,7 +239,12 @@ The Rejected alternatives section excludes the additional service, generic capab
 
 ## Open Questions
 
-None.
+### QST-01: Which public query or replay contract provides session-state recovery?
+
+- Required behavior is fixed by PRD FRQ-08.1 and FRQ-08.2. The contract must supply exact stored active-branch data through a valid extension context without Host-file access.
+- The selected query or replay shape must define its SDK entry point, completion and error semantics, and binding to the active session and branch.
+- Host session persistence and the planned extension operation stream provide the existing ownership boundaries. No additional store is required.
+- Resolve this technical design before PHS-07 implementation. PHS-16 must reuse the selected contract.
 
 ## References
 

@@ -108,11 +108,20 @@ Removed unused prototype hooks, separated implemented extension runtime manageme
 Documents:
 - [Ticket](specs/features/initial/phases/05.1-extension-boundary-cleanup/ticket.md)
 
+## PHS-05.2: Branch-summary extension control
+
+Status: Planned
+
+Complete extension summary replacement without an unused model dependency and preserve session-tree handler error causes. Every acceptance criterion must pass before PHS-07 implementation starts.
+
+Documents:
+- [Ticket](specs/features/initial/phases/05.2-branch-summary-extension-control/ticket.md)
+
 ## PHS-07: Extension context and lifecycle
 
 Status: Planned
 
-Add session-bound extension contexts, configured-model requests, active-selection control, and lifecycle events.
+Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)
@@ -152,7 +161,7 @@ Documents:
 
 Status: Planned
 
-Add extension-defined user actions, interactions, notifications, extension events, and client-neutral provider authentication.
+Add extension-defined user actions, command-initiated session control, interactions, notifications, extension events, and client-neutral provider authentication.
 
 Documents:
 - [Ticket](specs/features/initial/phases/10-commands-interaction-notifications-events/ticket.md)
