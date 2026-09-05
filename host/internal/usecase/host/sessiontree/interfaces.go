@@ -7,6 +7,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
@@ -185,6 +186,8 @@ type ObserverAction struct{}
 
 // HandlerRequest is one typed session-tree handler payload.
 type HandlerRequest struct {
+	// Context binds this invocation to one runtime and active-session incarnation.
+	Context extension.Context
 	// Request contains a request-handler invocation when present.
 	Request mo.Option[RequestHandlerInvocation]
 	// Result contains a result-handler invocation when present.
@@ -233,6 +236,12 @@ func (response HandlerResponse) Kind() (HandlerKind, bool) {
 		kind, count = HandlerKindObserver, count+1
 	}
 	return kind, count == 1
+}
+
+// ContextIssuer supplies the current session-bound identity for handler invocations.
+type ContextIssuer interface {
+	// IssueContext returns the issued runtime-to-active-session binding.
+	IssueContext(extensionID string) (extension.Context, error)
 }
 
 // Runtime supplies availability and low-level invocation for one accepted handler.

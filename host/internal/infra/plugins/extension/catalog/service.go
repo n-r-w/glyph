@@ -60,6 +60,8 @@ func (s *Service) Discover(
 			continue
 		}
 		candidate := extensionruntime.Candidate{
+			InstanceID: "",
+
 			ID: pluginid.Normalize(entry.Name()), Path: filepath.Join(directory.Path, entry.Name()),
 		}
 		if candidate.ID == "" {

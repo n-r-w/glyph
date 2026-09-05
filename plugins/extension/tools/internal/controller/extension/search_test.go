@@ -33,12 +33,17 @@ func TestServiceExecuteFindAndListDispatch(t *testing.T) {
 	// Act: prepare and run both public search operations.
 	for _, request := range []*extensionv1.ExecuteRequest{
 		extensionv1.ExecuteRequest_builder{
+			Context: nil,
+
 			ToolName: new("find"),
 			ArgumentsJson: []byte(
 				`{"pattern":"**/*.go","path":"src","limit":2}`,
 			),
 		}.Build(),
-		extensionv1.ExecuteRequest_builder{ToolName: new("ls"), ArgumentsJson: []byte(`{"path":"src","limit":2}`)}.Build(),
+		extensionv1.ExecuteRequest_builder{
+			Context:  nil,
+			ToolName: new("ls"), ArgumentsJson: []byte(`{"path":"src","limit":2}`),
+		}.Build(),
 	} {
 		result, err := runExecution(t, client, request)
 
@@ -84,6 +89,8 @@ func TestServiceRejectsInvalidSearchArgumentsBeforeDispatch(t *testing.T) {
 
 			// Act: prepare and run the invalid public operation.
 			result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+				Context: nil,
+
 				ToolName: new(testCase.tool), ArgumentsJson: []byte(testCase.arguments),
 			}.Build())
 
@@ -128,6 +135,8 @@ func TestServiceReturnsSearchOperationErrorsToModel(t *testing.T) {
 	for _, testCase := range cases {
 		// Act: prepare and run the failing public search operation.
 		result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+			Context: nil,
+
 			ToolName: new(testCase.tool), ArgumentsJson: []byte(testCase.arguments),
 		}.Build())
 

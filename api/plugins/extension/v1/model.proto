@@ -1,0 +1,129 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+import "api/plugins/extension/v1/context.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// ModelSelection identifies a provider, model, and reasoning choice for a request or result source.
+message ModelSelection {
+  // The provider identifier.
+  string provider_id = 1;
+  // The model identifier.
+  string model_id = 2;
+  // The reasoning choice.
+  string reasoning_choice = 3;
+}
+
+// GetModelsRequest reads configured provider-neutral descriptors and active selection.
+message GetModelsRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+}
+
+// GetModelsResult contains the complete configured model catalogue.
+message GetModelsResult {
+  // The configured descriptors in catalogue order.
+  repeated ModelDescriptor models = 1;
+  // The complete active selection.
+  ModelSelection active_selection = 2;
+}
+
+// GetProvidersRequest reads configured provider identifiers and model order.
+message GetProvidersRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+}
+
+// GetProvidersResult contains only provider-neutral provider projections.
+message GetProvidersResult {
+  // The configured providers in catalogue order.
+  repeated ProviderDescriptor providers = 1;
+}
+
+// ProviderDescriptor excludes provider configuration and credential information.
+message ProviderDescriptor {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The configured model identifiers in their original order.
+  repeated string model_ids = 2;
+}
+
+// ModelDescriptor contains every provider-neutral configured model capability.
+message ModelDescriptor {
+  // The configured provider identifier.
+  string provider_id = 1;
+  // The model identifier.
+  string model_id = 2;
+  // The accepted input kinds in configured order.
+  repeated InputModality input_modalities = 3;
+  // The combined input and generated-output token capacity.
+  int64 context_window = 4;
+  // The maximum generated-output token count.
+  int64 max_tokens = 5;
+  // The model reasoning controls.
+  ReasoningCapabilities reasoning = 6;
+  // The provider-neutral constrained tool capabilities.
+  ToolCapabilities tools = 7;
+  // The configured USD token rates, when present.
+  ModelPricing pricing = 8;
+}
+
+// InputModality identifies an accepted provider-neutral input kind.
+enum InputModality {
+  // No input kind was supplied.
+  INPUT_MODALITY_UNSPECIFIED = 0;
+  // Text input is accepted.
+  INPUT_MODALITY_TEXT = 1;
+  // Image input is accepted.
+  INPUT_MODALITY_IMAGE = 2;
+}
+
+// ReasoningCapabilities describes configured reasoning behavior.
+message ReasoningCapabilities {
+  // Whether reasoning controls are supported.
+  bool supported = 1;
+  // The supported reasoning choices in configured order.
+  repeated string choices = 2;
+  // The default reasoning choice.
+  string default_choice = 3;
+}
+
+// ToolCapabilities describes provider-neutral constrained generation support.
+message ToolCapabilities {
+  // Whether strict JSON Schema generation is supported.
+  bool strict_json_schema = 1;
+  // Whether Lark grammar generation is supported.
+  bool lark = 2;
+  // Whether regular expression grammar generation is supported.
+  bool regex = 3;
+}
+
+// ModelPricing contains USD rates per one million tokens.
+message ModelPricing {
+  // The uncached input rate.
+  double input = 1;
+  // The output rate.
+  double output = 2;
+  // The cached input read rate.
+  double cache_read = 3;
+  // The cache creation input rate.
+  double cache_write = 4;
+  // The ordered request-wide pricing overrides.
+  repeated PricingTier tiers = 5;
+}
+
+// PricingTier replaces all rates above an exclusive input threshold.
+message PricingTier {
+  // The exclusive input-token threshold.
+  int64 input_tokens_above = 1;
+  // The uncached input rate.
+  double input = 2;
+  // The output rate.
+  double output = 3;
+  // The cached input read rate.
+  double cache_read = 4;
+  // The cache creation input rate.
+  double cache_write = 5;
+}

@@ -20,58 +20,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// HandlerKind identifies one session-tree extension point.
-type HandlerKind int32
-
-const (
-	// No handler kind was provided.
-	HandlerKind_HANDLER_KIND_UNSPECIFIED HandlerKind = 0
-	// The handler transforms a navigation request and optional summary result.
-	HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST HandlerKind = 1
-	// The handler transforms a completed branch-summary result.
-	HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT HandlerKind = 2
-	// The handler observes committed tree navigation.
-	HandlerKind_HANDLER_KIND_SESSION_TREE HandlerKind = 3
-)
-
-// Enum value maps for HandlerKind.
-var (
-	HandlerKind_name = map[int32]string{
-		0: "HANDLER_KIND_UNSPECIFIED",
-		1: "HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST",
-		2: "HANDLER_KIND_SESSION_BEFORE_TREE_RESULT",
-		3: "HANDLER_KIND_SESSION_TREE",
-	}
-	HandlerKind_value = map[string]int32{
-		"HANDLER_KIND_UNSPECIFIED":                 0,
-		"HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST": 1,
-		"HANDLER_KIND_SESSION_BEFORE_TREE_RESULT":  2,
-		"HANDLER_KIND_SESSION_TREE":                3,
-	}
-)
-
-func (x HandlerKind) Enum() *HandlerKind {
-	p := new(HandlerKind)
-	*p = x
-	return p
-}
-
-func (x HandlerKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (HandlerKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[0].Descriptor()
-}
-
-func (HandlerKind) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[0]
-}
-
-func (x HandlerKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
 // RequestAction identifies how one request handler changes the current request.
 type RequestAction int32
 
@@ -109,11 +57,11 @@ func (x RequestAction) String() string {
 }
 
 func (RequestAction) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[1].Descriptor()
+	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[0].Descriptor()
 }
 
 func (RequestAction) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[1]
+	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[0]
 }
 
 func (x RequestAction) Number() protoreflect.EnumNumber {
@@ -161,11 +109,11 @@ func (x ResultAction) String() string {
 }
 
 func (ResultAction) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[2].Descriptor()
+	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[1].Descriptor()
 }
 
 func (ResultAction) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[2]
+	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[1]
 }
 
 func (x ResultAction) Number() protoreflect.EnumNumber {
@@ -213,11 +161,11 @@ func (x SummaryMode) String() string {
 }
 
 func (SummaryMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[3].Descriptor()
+	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[2].Descriptor()
 }
 
 func (SummaryMode) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[3]
+	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[2]
 }
 
 func (x SummaryMode) Number() protoreflect.EnumNumber {
@@ -269,134 +217,22 @@ func (x SessionTreeModelContentKind) String() string {
 }
 
 func (SessionTreeModelContentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[4].Descriptor()
+	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[3].Descriptor()
 }
 
 func (SessionTreeModelContentKind) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[4]
+	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[3]
 }
 
 func (x SessionTreeModelContentKind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// HandlerDescriptor registers one session-tree handler.
-type HandlerDescriptor struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
-	xxx_hidden_Kind        HandlerKind            `protobuf:"varint,2,opt,name=kind,enum=glyph.plugins.extension.v1.HandlerKind"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *HandlerDescriptor) Reset() {
-	*x = HandlerDescriptor{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *HandlerDescriptor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*HandlerDescriptor) ProtoMessage() {}
-
-func (x *HandlerDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *HandlerDescriptor) GetId() string {
-	if x != nil {
-		if x.xxx_hidden_Id != nil {
-			return *x.xxx_hidden_Id
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *HandlerDescriptor) GetKind() HandlerKind {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
-			return x.xxx_hidden_Kind
-		}
-	}
-	return HandlerKind_HANDLER_KIND_UNSPECIFIED
-}
-
-func (x *HandlerDescriptor) SetId(v string) {
-	x.xxx_hidden_Id = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *HandlerDescriptor) SetKind(v HandlerKind) {
-	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
-}
-
-func (x *HandlerDescriptor) HasId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *HandlerDescriptor) HasKind() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *HandlerDescriptor) ClearId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Id = nil
-}
-
-func (x *HandlerDescriptor) ClearKind() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Kind = HandlerKind_HANDLER_KIND_UNSPECIFIED
-}
-
-type HandlerDescriptor_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The extension-local handler identifier.
-	Id *string
-	// The closed handler kind.
-	Kind *HandlerKind
-}
-
-func (b0 HandlerDescriptor_builder) Build() *HandlerDescriptor {
-	m0 := &HandlerDescriptor{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_Id = b.Id
-	}
-	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_Kind = *b.Kind
-	}
-	return m0
-}
-
 // HandleRequest invokes one registered handler with its typed payload.
 type HandleRequest struct {
 	state                  protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_HandlerId   *string                 `protobuf:"bytes,1,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Context     *ExtensionContext       `protobuf:"bytes,5,opt,name=context"`
 	xxx_hidden_Payload     isHandleRequest_Payload `protobuf_oneof:"payload"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -406,7 +242,7 @@ type HandleRequest struct {
 
 func (x *HandleRequest) Reset() {
 	*x = HandleRequest{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -418,7 +254,7 @@ func (x *HandleRequest) String() string {
 func (*HandleRequest) ProtoMessage() {}
 
 func (x *HandleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,6 +273,13 @@ func (x *HandleRequest) GetHandlerId() string {
 		return ""
 	}
 	return ""
+}
+
+func (x *HandleRequest) GetContext() *ExtensionContext {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
 }
 
 func (x *HandleRequest) GetSessionBeforeTreeRequest() *SessionBeforeTreeRequestInvocation {
@@ -468,7 +311,11 @@ func (x *HandleRequest) GetSessionTree() *SessionTreeInvocation {
 
 func (x *HandleRequest) SetHandlerId(v string) {
 	x.xxx_hidden_HandlerId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *HandleRequest) SetContext(v *ExtensionContext) {
+	x.xxx_hidden_Context = v
 }
 
 func (x *HandleRequest) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestInvocation) {
@@ -500,6 +347,13 @@ func (x *HandleRequest) HasHandlerId() bool {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HandleRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
 }
 
 func (x *HandleRequest) HasPayload() bool {
@@ -536,6 +390,10 @@ func (x *HandleRequest) HasSessionTree() bool {
 func (x *HandleRequest) ClearHandlerId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_HandlerId = nil
+}
+
+func (x *HandleRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
 }
 
 func (x *HandleRequest) ClearPayload() {
@@ -586,6 +444,8 @@ type HandleRequest_builder struct {
 
 	// The registered extension-local handler identifier.
 	HandlerId *string
+	// The issued session-bound context for this invocation.
+	Context *ExtensionContext
 	// The payload allowed for the registered handler kind.
 
 	// Fields of oneof xxx_hidden_Payload:
@@ -600,9 +460,10 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.HandlerId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_HandlerId = b.HandlerId
 	}
+	x.xxx_hidden_Context = b.Context
 	if b.SessionBeforeTreeRequest != nil {
 		x.xxx_hidden_Payload = &handleRequest_SessionBeforeTreeRequest{b.SessionBeforeTreeRequest}
 	}
@@ -618,7 +479,7 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 type case_HandleRequest_Payload protoreflect.FieldNumber
 
 func (x case_HandleRequest_Payload) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[0].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -657,7 +518,7 @@ type HandleResponse struct {
 
 func (x *HandleResponse) Reset() {
 	*x = HandleResponse{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +530,7 @@ func (x *HandleResponse) String() string {
 func (*HandleResponse) ProtoMessage() {}
 
 func (x *HandleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +735,7 @@ func (b0 HandleResponse_builder) Build() *HandleResponse {
 type case_HandleResponse_Outcome protoreflect.FieldNumber
 
 func (x case_HandleResponse_Outcome) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[2].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -921,7 +782,7 @@ type HandlerError struct {
 
 func (x *HandlerError) Reset() {
 	*x = HandlerError{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +794,7 @@ func (x *HandlerError) String() string {
 func (*HandlerError) ProtoMessage() {}
 
 func (x *HandlerError) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1003,7 +864,7 @@ type SessionBeforeTreeRequestInvocation struct {
 
 func (x *SessionBeforeTreeRequestInvocation) Reset() {
 	*x = SessionBeforeTreeRequestInvocation{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1015,7 +876,7 @@ func (x *SessionBeforeTreeRequestInvocation) String() string {
 func (*SessionBeforeTreeRequestInvocation) ProtoMessage() {}
 
 func (x *SessionBeforeTreeRequestInvocation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1178,7 +1039,7 @@ type SessionBeforeTreeResultInvocation struct {
 
 func (x *SessionBeforeTreeResultInvocation) Reset() {
 	*x = SessionBeforeTreeResultInvocation{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1190,7 +1051,7 @@ func (x *SessionBeforeTreeResultInvocation) String() string {
 func (*SessionBeforeTreeResultInvocation) ProtoMessage() {}
 
 func (x *SessionBeforeTreeResultInvocation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1380,7 +1241,7 @@ type SessionTreeInvocation struct {
 
 func (x *SessionTreeInvocation) Reset() {
 	*x = SessionTreeInvocation{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1253,7 @@ func (x *SessionTreeInvocation) String() string {
 func (*SessionTreeInvocation) ProtoMessage() {}
 
 func (x *SessionTreeInvocation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1621,7 +1482,7 @@ type SessionBeforeTreeRequestAction struct {
 
 func (x *SessionBeforeTreeRequestAction) Reset() {
 	*x = SessionBeforeTreeRequestAction{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1633,7 +1494,7 @@ func (x *SessionBeforeTreeRequestAction) String() string {
 func (*SessionBeforeTreeRequestAction) ProtoMessage() {}
 
 func (x *SessionBeforeTreeRequestAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1814,7 +1675,7 @@ type SessionBeforeTreeResultAction struct {
 
 func (x *SessionBeforeTreeResultAction) Reset() {
 	*x = SessionBeforeTreeResultAction{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1826,7 +1687,7 @@ func (x *SessionBeforeTreeResultAction) String() string {
 func (*SessionBeforeTreeResultAction) ProtoMessage() {}
 
 func (x *SessionBeforeTreeResultAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1945,7 +1806,7 @@ type SessionTreeAction struct {
 
 func (x *SessionTreeAction) Reset() {
 	*x = SessionTreeAction{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1957,7 +1818,7 @@ func (x *SessionTreeAction) String() string {
 func (*SessionTreeAction) ProtoMessage() {}
 
 func (x *SessionTreeAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +1856,7 @@ type SessionTreeNavigationRequest struct {
 
 func (x *SessionTreeNavigationRequest) Reset() {
 	*x = SessionTreeNavigationRequest{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2007,7 +1868,7 @@ func (x *SessionTreeNavigationRequest) String() string {
 func (*SessionTreeNavigationRequest) ProtoMessage() {}
 
 func (x *SessionTreeNavigationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2153,154 +2014,6 @@ func (b0 SessionTreeNavigationRequest_builder) Build() *SessionTreeNavigationReq
 	return m0
 }
 
-// ModelSelection identifies a provider, model, and reasoning choice for a request or result source.
-type ModelSelection struct {
-	state                      protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
-	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
-	xxx_hidden_ReasoningChoice *string                `protobuf:"bytes,3,opt,name=reasoning_choice,json=reasoningChoice"`
-	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
-	XXX_presence               [1]uint32
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
-}
-
-func (x *ModelSelection) Reset() {
-	*x = ModelSelection{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelSelection) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelSelection) ProtoMessage() {}
-
-func (x *ModelSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *ModelSelection) GetProviderId() string {
-	if x != nil {
-		if x.xxx_hidden_ProviderId != nil {
-			return *x.xxx_hidden_ProviderId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *ModelSelection) GetModelId() string {
-	if x != nil {
-		if x.xxx_hidden_ModelId != nil {
-			return *x.xxx_hidden_ModelId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *ModelSelection) GetReasoningChoice() string {
-	if x != nil {
-		if x.xxx_hidden_ReasoningChoice != nil {
-			return *x.xxx_hidden_ReasoningChoice
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *ModelSelection) SetProviderId(v string) {
-	x.xxx_hidden_ProviderId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
-}
-
-func (x *ModelSelection) SetModelId(v string) {
-	x.xxx_hidden_ModelId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
-}
-
-func (x *ModelSelection) SetReasoningChoice(v string) {
-	x.xxx_hidden_ReasoningChoice = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
-}
-
-func (x *ModelSelection) HasProviderId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *ModelSelection) HasModelId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *ModelSelection) HasReasoningChoice() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *ModelSelection) ClearProviderId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_ProviderId = nil
-}
-
-func (x *ModelSelection) ClearModelId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_ModelId = nil
-}
-
-func (x *ModelSelection) ClearReasoningChoice() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_ReasoningChoice = nil
-}
-
-type ModelSelection_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The provider identifier.
-	ProviderId *string
-	// The model identifier.
-	ModelId *string
-	// The reasoning choice.
-	ReasoningChoice *string
-}
-
-func (b0 ModelSelection_builder) Build() *ModelSelection {
-	m0 := &ModelSelection{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.ProviderId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
-		x.xxx_hidden_ProviderId = b.ProviderId
-	}
-	if b.ModelId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
-		x.xxx_hidden_ModelId = b.ModelId
-	}
-	if b.ReasoningChoice != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_ReasoningChoice = b.ReasoningChoice
-	}
-	return m0
-}
-
 // SessionTreePreparation contains Host-computed context for one navigation request.
 type SessionTreePreparation struct {
 	state                              protoimpl.MessageState `protogen:"opaque.v1"`
@@ -2317,7 +2030,7 @@ type SessionTreePreparation struct {
 
 func (x *SessionTreePreparation) Reset() {
 	*x = SessionTreePreparation{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2329,7 +2042,7 @@ func (x *SessionTreePreparation) String() string {
 func (*SessionTreePreparation) ProtoMessage() {}
 
 func (x *SessionTreePreparation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2513,7 +2226,7 @@ type SessionTreeEntry struct {
 
 func (x *SessionTreeEntry) Reset() {
 	*x = SessionTreeEntry{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2525,7 +2238,7 @@ func (x *SessionTreeEntry) String() string {
 func (*SessionTreeEntry) ProtoMessage() {}
 
 func (x *SessionTreeEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2801,7 +2514,7 @@ func (b0 SessionTreeEntry_builder) Build() *SessionTreeEntry {
 type case_SessionTreeEntry_Content protoreflect.FieldNumber
 
 func (x case_SessionTreeEntry_Content) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[13].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[11].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2852,7 +2565,7 @@ type SessionTreeUserMessage struct {
 
 func (x *SessionTreeUserMessage) Reset() {
 	*x = SessionTreeUserMessage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2864,7 +2577,7 @@ func (x *SessionTreeUserMessage) String() string {
 func (*SessionTreeUserMessage) ProtoMessage() {}
 
 func (x *SessionTreeUserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2913,7 +2626,7 @@ type SessionTreeUserContent struct {
 
 func (x *SessionTreeUserContent) Reset() {
 	*x = SessionTreeUserContent{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2925,7 +2638,7 @@ func (x *SessionTreeUserContent) String() string {
 func (*SessionTreeUserContent) ProtoMessage() {}
 
 func (x *SessionTreeUserContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3050,7 +2763,7 @@ func (b0 SessionTreeUserContent_builder) Build() *SessionTreeUserContent {
 type case_SessionTreeUserContent_Content protoreflect.FieldNumber
 
 func (x case_SessionTreeUserContent_Content) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[15].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[13].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -3086,7 +2799,7 @@ type SessionTreeImage struct {
 
 func (x *SessionTreeImage) Reset() {
 	*x = SessionTreeImage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3098,7 +2811,7 @@ func (x *SessionTreeImage) String() string {
 func (*SessionTreeImage) ProtoMessage() {}
 
 func (x *SessionTreeImage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3197,7 +2910,7 @@ type SessionTreeModelResponse struct {
 
 func (x *SessionTreeModelResponse) Reset() {
 	*x = SessionTreeModelResponse{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3209,7 +2922,7 @@ func (x *SessionTreeModelResponse) String() string {
 func (*SessionTreeModelResponse) ProtoMessage() {}
 
 func (x *SessionTreeModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3262,7 +2975,7 @@ type SessionTreeModelContent struct {
 
 func (x *SessionTreeModelContent) Reset() {
 	*x = SessionTreeModelContent{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3274,7 +2987,7 @@ func (x *SessionTreeModelContent) String() string {
 func (*SessionTreeModelContent) ProtoMessage() {}
 
 func (x *SessionTreeModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3401,7 +3114,7 @@ type SessionTreeToolCall struct {
 
 func (x *SessionTreeToolCall) Reset() {
 	*x = SessionTreeToolCall{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3413,7 +3126,7 @@ func (x *SessionTreeToolCall) String() string {
 func (*SessionTreeToolCall) ProtoMessage() {}
 
 func (x *SessionTreeToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3550,7 +3263,7 @@ type SessionTreeToolResult struct {
 
 func (x *SessionTreeToolResult) Reset() {
 	*x = SessionTreeToolResult{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3562,7 +3275,7 @@ func (x *SessionTreeToolResult) String() string {
 func (*SessionTreeToolResult) ProtoMessage() {}
 
 func (x *SessionTreeToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3709,7 +3422,7 @@ type SessionTreeBranchSummary struct {
 
 func (x *SessionTreeBranchSummary) Reset() {
 	*x = SessionTreeBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3721,7 +3434,7 @@ func (x *SessionTreeBranchSummary) String() string {
 func (*SessionTreeBranchSummary) ProtoMessage() {}
 
 func (x *SessionTreeBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3790,7 +3503,7 @@ type SessionTreeExtensionEntry struct {
 
 func (x *SessionTreeExtensionEntry) Reset() {
 	*x = SessionTreeExtensionEntry{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3802,7 +3515,7 @@ func (x *SessionTreeExtensionEntry) String() string {
 func (*SessionTreeExtensionEntry) ProtoMessage() {}
 
 func (x *SessionTreeExtensionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3904,7 +3617,7 @@ type BranchSummaryResult struct {
 
 func (x *BranchSummaryResult) Reset() {
 	*x = BranchSummaryResult{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3916,7 +3629,7 @@ func (x *BranchSummaryResult) String() string {
 func (*BranchSummaryResult) ProtoMessage() {}
 
 func (x *BranchSummaryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4007,7 +3720,7 @@ type BranchSummarySource struct {
 
 func (x *BranchSummarySource) Reset() {
 	*x = BranchSummarySource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4019,7 +3732,7 @@ func (x *BranchSummarySource) String() string {
 func (*BranchSummarySource) ProtoMessage() {}
 
 func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4146,7 +3859,7 @@ func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
 type case_BranchSummarySource_Source protoreflect.FieldNumber
 
 func (x case_BranchSummarySource_Source) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[22].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4182,7 +3895,7 @@ type BranchSummaryModelSource struct {
 
 func (x *BranchSummaryModelSource) Reset() {
 	*x = BranchSummaryModelSource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4194,7 +3907,7 @@ func (x *BranchSummaryModelSource) String() string {
 func (*BranchSummaryModelSource) ProtoMessage() {}
 
 func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4284,7 +3997,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4296,7 +4009,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4516,7 +4229,7 @@ type CommittedBranchSummary struct {
 
 func (x *CommittedBranchSummary) Reset() {
 	*x = CommittedBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4528,7 +4241,7 @@ func (x *CommittedBranchSummary) String() string {
 func (*CommittedBranchSummary) ProtoMessage() {}
 
 func (x *CommittedBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4749,7 +4462,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4761,7 +4474,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4938,13 +4651,11 @@ var File_api_plugins_extension_v1_session_tree_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\n" +
-	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a#api/plugins/extension/v1/tool.proto\"`\n" +
-	"\x11HandlerDescriptor\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
-	"\x04kind\x18\x02 \x01(\x0e2'.glyph.plugins.extension.v1.HandlerKindR\x04kind\"\x90\x03\n" +
+	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a$api/plugins/extension/v1/model.proto\x1a#api/plugins/extension/v1/tool.proto\"\xd8\x03\n" +
 	"\rHandleRequest\x12\x1d\n" +
 	"\n" +
-	"handler_id\x18\x01 \x01(\tR\thandlerId\x12\x7f\n" +
+	"handler_id\x18\x01 \x01(\tR\thandlerId\x12F\n" +
+	"\acontext\x18\x05 \x01(\v2,.glyph.plugins.extension.v1.ExtensionContextR\acontext\x12\x7f\n" +
 	"\x1bsession_before_tree_request\x18\x02 \x01(\v2>.glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocationH\x00R\x18sessionBeforeTreeRequest\x12|\n" +
 	"\x1asession_before_tree_result\x18\x03 \x01(\v2=.glyph.plugins.extension.v1.SessionBeforeTreeResultInvocationH\x00R\x17sessionBeforeTreeResult\x12V\n" +
 	"\fsession_tree\x18\x04 \x01(\v21.glyph.plugins.extension.v1.SessionTreeInvocationH\x00R\vsessionTreeB\t\n" +
@@ -4993,12 +4704,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x0ftarget_entry_id\x18\x01 \x01(\tR\rtargetEntryId\x12J\n" +
 	"\fsummary_mode\x18\x02 \x01(\x0e2'.glyph.plugins.extension.v1.SummaryModeR\vsummaryMode\x12!\n" +
 	"\fcustom_focus\x18\x03 \x01(\tR\vcustomFocus\x12O\n" +
-	"\rsummary_model\x18\x04 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\fsummaryModel\"w\n" +
-	"\x0eModelSelection\x12\x1f\n" +
-	"\vprovider_id\x18\x01 \x01(\tR\n" +
-	"providerId\x12\x19\n" +
-	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12)\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\xb5\x02\n" +
+	"\rsummary_model\x18\x04 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\fsummaryModel\"\xb5\x02\n" +
 	"\x16SessionTreePreparation\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x127\n" +
@@ -5078,12 +4784,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"cache_read\x18\x03 \x01(\x01R\tcacheRead\x12\x1f\n" +
 	"\vcache_write\x18\x04 \x01(\x01R\n" +
 	"cacheWrite\x12\x14\n" +
-	"\x05total\x18\x05 \x01(\x01R\x05total*\xa5\x01\n" +
-	"\vHandlerKind\x12\x1c\n" +
-	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
-	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
-	"'HANDLER_KIND_SESSION_BEFORE_TREE_RESULT\x10\x02\x12\x1d\n" +
-	"\x19HANDLER_KIND_SESSION_TREE\x10\x03*h\n" +
+	"\x05total\x18\x05 \x01(\x01R\x05total*h\n" +
 	"\rRequestAction\x12\x1e\n" +
 	"\x1aREQUEST_ACTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REQUEST_ACTION_PRESERVE\x10\x01\x12\x1a\n" +
@@ -5105,92 +4806,91 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_REASONING\x10\x03\x12-\n" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
-	(HandlerKind)(0),                           // 0: glyph.plugins.extension.v1.HandlerKind
-	(RequestAction)(0),                         // 1: glyph.plugins.extension.v1.RequestAction
-	(ResultAction)(0),                          // 2: glyph.plugins.extension.v1.ResultAction
-	(SummaryMode)(0),                           // 3: glyph.plugins.extension.v1.SummaryMode
-	(SessionTreeModelContentKind)(0),           // 4: glyph.plugins.extension.v1.SessionTreeModelContentKind
-	(*HandlerDescriptor)(nil),                  // 5: glyph.plugins.extension.v1.HandlerDescriptor
-	(*HandleRequest)(nil),                      // 6: glyph.plugins.extension.v1.HandleRequest
-	(*HandleResponse)(nil),                     // 7: glyph.plugins.extension.v1.HandleResponse
-	(*HandlerError)(nil),                       // 8: glyph.plugins.extension.v1.HandlerError
-	(*SessionBeforeTreeRequestInvocation)(nil), // 9: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
-	(*SessionBeforeTreeResultInvocation)(nil),  // 10: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
-	(*SessionTreeInvocation)(nil),              // 11: glyph.plugins.extension.v1.SessionTreeInvocation
-	(*SessionBeforeTreeRequestAction)(nil),     // 12: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	(*SessionBeforeTreeResultAction)(nil),      // 13: glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	(*SessionTreeAction)(nil),                  // 14: glyph.plugins.extension.v1.SessionTreeAction
-	(*SessionTreeNavigationRequest)(nil),       // 15: glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	(*ModelSelection)(nil),                     // 16: glyph.plugins.extension.v1.ModelSelection
-	(*SessionTreePreparation)(nil),             // 17: glyph.plugins.extension.v1.SessionTreePreparation
-	(*SessionTreeEntry)(nil),                   // 18: glyph.plugins.extension.v1.SessionTreeEntry
-	(*SessionTreeUserMessage)(nil),             // 19: glyph.plugins.extension.v1.SessionTreeUserMessage
-	(*SessionTreeUserContent)(nil),             // 20: glyph.plugins.extension.v1.SessionTreeUserContent
-	(*SessionTreeImage)(nil),                   // 21: glyph.plugins.extension.v1.SessionTreeImage
-	(*SessionTreeModelResponse)(nil),           // 22: glyph.plugins.extension.v1.SessionTreeModelResponse
-	(*SessionTreeModelContent)(nil),            // 23: glyph.plugins.extension.v1.SessionTreeModelContent
-	(*SessionTreeToolCall)(nil),                // 24: glyph.plugins.extension.v1.SessionTreeToolCall
-	(*SessionTreeToolResult)(nil),              // 25: glyph.plugins.extension.v1.SessionTreeToolResult
-	(*SessionTreeBranchSummary)(nil),           // 26: glyph.plugins.extension.v1.SessionTreeBranchSummary
-	(*SessionTreeExtensionEntry)(nil),          // 27: glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	(*BranchSummaryResult)(nil),                // 28: glyph.plugins.extension.v1.BranchSummaryResult
-	(*BranchSummarySource)(nil),                // 29: glyph.plugins.extension.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),           // 30: glyph.plugins.extension.v1.BranchSummaryModelSource
-	(*TokenUsage)(nil),                         // 31: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),             // 32: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),                      // 33: glyph.plugins.extension.v1.EstimatedCost
-	(*ToolResultContent)(nil),                  // 34: glyph.plugins.extension.v1.ToolResultContent
+	(RequestAction)(0),                         // 0: glyph.plugins.extension.v1.RequestAction
+	(ResultAction)(0),                          // 1: glyph.plugins.extension.v1.ResultAction
+	(SummaryMode)(0),                           // 2: glyph.plugins.extension.v1.SummaryMode
+	(SessionTreeModelContentKind)(0),           // 3: glyph.plugins.extension.v1.SessionTreeModelContentKind
+	(*HandleRequest)(nil),                      // 4: glyph.plugins.extension.v1.HandleRequest
+	(*HandleResponse)(nil),                     // 5: glyph.plugins.extension.v1.HandleResponse
+	(*HandlerError)(nil),                       // 6: glyph.plugins.extension.v1.HandlerError
+	(*SessionBeforeTreeRequestInvocation)(nil), // 7: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
+	(*SessionBeforeTreeResultInvocation)(nil),  // 8: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
+	(*SessionTreeInvocation)(nil),              // 9: glyph.plugins.extension.v1.SessionTreeInvocation
+	(*SessionBeforeTreeRequestAction)(nil),     // 10: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	(*SessionBeforeTreeResultAction)(nil),      // 11: glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	(*SessionTreeAction)(nil),                  // 12: glyph.plugins.extension.v1.SessionTreeAction
+	(*SessionTreeNavigationRequest)(nil),       // 13: glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	(*SessionTreePreparation)(nil),             // 14: glyph.plugins.extension.v1.SessionTreePreparation
+	(*SessionTreeEntry)(nil),                   // 15: glyph.plugins.extension.v1.SessionTreeEntry
+	(*SessionTreeUserMessage)(nil),             // 16: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeUserContent)(nil),             // 17: glyph.plugins.extension.v1.SessionTreeUserContent
+	(*SessionTreeImage)(nil),                   // 18: glyph.plugins.extension.v1.SessionTreeImage
+	(*SessionTreeModelResponse)(nil),           // 19: glyph.plugins.extension.v1.SessionTreeModelResponse
+	(*SessionTreeModelContent)(nil),            // 20: glyph.plugins.extension.v1.SessionTreeModelContent
+	(*SessionTreeToolCall)(nil),                // 21: glyph.plugins.extension.v1.SessionTreeToolCall
+	(*SessionTreeToolResult)(nil),              // 22: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*SessionTreeBranchSummary)(nil),           // 23: glyph.plugins.extension.v1.SessionTreeBranchSummary
+	(*SessionTreeExtensionEntry)(nil),          // 24: glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	(*BranchSummaryResult)(nil),                // 25: glyph.plugins.extension.v1.BranchSummaryResult
+	(*BranchSummarySource)(nil),                // 26: glyph.plugins.extension.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),           // 27: glyph.plugins.extension.v1.BranchSummaryModelSource
+	(*TokenUsage)(nil),                         // 28: glyph.plugins.extension.v1.TokenUsage
+	(*CommittedBranchSummary)(nil),             // 29: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*EstimatedCost)(nil),                      // 30: glyph.plugins.extension.v1.EstimatedCost
+	(*ExtensionContext)(nil),                   // 31: glyph.plugins.extension.v1.ExtensionContext
+	(*ModelSelection)(nil),                     // 32: glyph.plugins.extension.v1.ModelSelection
+	(*ToolResultContent)(nil),                  // 33: glyph.plugins.extension.v1.ToolResultContent
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
-	0,  // 0: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
-	9,  // 1: glyph.plugins.extension.v1.HandleRequest.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
-	10, // 2: glyph.plugins.extension.v1.HandleRequest.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
-	11, // 3: glyph.plugins.extension.v1.HandleRequest.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeInvocation
-	12, // 4: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	13, // 5: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	14, // 6: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
-	8,  // 7: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	15, // 8: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	17, // 9: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	15, // 10: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	17, // 11: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	28, // 12: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	15, // 13: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	17, // 14: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	15, // 15: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	17, // 16: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	28, // 17: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	28, // 18: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	32, // 19: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
-	1,  // 20: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
-	15, // 21: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	2,  // 22: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	28, // 23: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	2,  // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	28, // 25: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	3,  // 26: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	16, // 27: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	18, // 28: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	19, // 29: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	22, // 30: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
-	25, // 31: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
-	26, // 32: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	27, // 33: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	20, // 34: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
-	21, // 35: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
-	23, // 36: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	4,  // 37: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
-	24, // 38: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	34, // 39: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	29, // 40: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	30, // 41: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	16, // 42: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	31, // 43: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	29, // 44: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	33, // 45: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	31, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
+	7,  // 1: glyph.plugins.extension.v1.HandleRequest.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
+	8,  // 2: glyph.plugins.extension.v1.HandleRequest.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
+	9,  // 3: glyph.plugins.extension.v1.HandleRequest.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeInvocation
+	10, // 4: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	11, // 5: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	12, // 6: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
+	6,  // 7: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
+	13, // 8: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 9: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	13, // 10: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 11: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	25, // 12: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	13, // 13: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 14: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	13, // 15: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 16: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	25, // 17: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	25, // 18: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	29, // 19: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	0,  // 20: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
+	13, // 21: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	1,  // 22: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	25, // 23: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	1,  // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	25, // 25: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	2,  // 26: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
+	32, // 27: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	15, // 28: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	16, // 29: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	19, // 30: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
+	22, // 31: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	23, // 32: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
+	24, // 33: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	17, // 34: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
+	18, // 35: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
+	20, // 36: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	3,  // 37: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
+	21, // 38: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	33, // 39: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	26, // 40: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	27, // 41: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	32, // 42: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	28, // 43: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	26, // 44: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	30, // 45: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
 	46, // [46:46] is the sub-list for method output_type
 	46, // [46:46] is the sub-list for method input_type
 	46, // [46:46] is the sub-list for extension type_name
@@ -5203,30 +4903,32 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 	if File_api_plugins_extension_v1_session_tree_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_context_proto_init()
+	file_api_plugins_extension_v1_model_proto_init()
 	file_api_plugins_extension_v1_tool_proto_init()
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[0].OneofWrappers = []any{
 		(*handleRequest_SessionBeforeTreeRequest)(nil),
 		(*handleRequest_SessionBeforeTreeResult)(nil),
 		(*handleRequest_SessionTree)(nil),
 	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[2].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
 		(*handleResponse_SessionBeforeTreeRequest)(nil),
 		(*handleResponse_SessionBeforeTreeResult)(nil),
 		(*handleResponse_SessionTree)(nil),
 		(*handleResponse_Error)(nil),
 	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[11].OneofWrappers = []any{
 		(*sessionTreeEntry_User)(nil),
 		(*sessionTreeEntry_Model)(nil),
 		(*sessionTreeEntry_ToolResult)(nil),
 		(*sessionTreeEntry_BranchSummary)(nil),
 		(*sessionTreeEntry_Extension)(nil),
 	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[15].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[13].OneofWrappers = []any{
 		(*sessionTreeUserContent_Text)(nil),
 		(*sessionTreeUserContent_Image)(nil),
 	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[22].OneofWrappers = []any{
 		(*branchSummarySource_ExtensionId)(nil),
 		(*branchSummarySource_Model)(nil),
 	}
@@ -5235,8 +4937,8 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_tree_proto_rawDesc), len(file_api_plugins_extension_v1_session_tree_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   29,
+			NumEnums:      4,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

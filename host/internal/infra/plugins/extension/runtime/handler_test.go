@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
@@ -62,6 +63,13 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 
 	// Act by mapping the typed Host invocation to protobuf.
 	mapped, err := mapHandleRequest("handler", sessiontree.HandlerRequest{
+		Context: extension.Context{
+			ID:                "binding",
+			ExtensionID:       "extension",
+			RuntimeInstanceID: "runtime",
+			SessionID:         "session",
+			WorkingDirectory:  "/project",
+		},
 		Request:  mo.Some(invocation),
 		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
 		Observer: mo.None[sessiontree.TreeObserverInvocation](),
@@ -70,6 +78,11 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 	// Assert identity, configured model, Host preparation, handler order payload, and opaque extension projection.
 	require.NoError(t, err)
 	assert.Equal(t, "handler", mapped.GetHandlerId())
+	assert.Equal(t, "binding", mapped.GetContext().GetContextId())
+	assert.Equal(t, "extension", mapped.GetContext().GetExtensionId())
+	assert.Equal(t, "runtime", mapped.GetContext().GetRuntimeInstanceId())
+	assert.Equal(t, "session", mapped.GetContext().GetSessionId())
+	assert.Equal(t, "/project", mapped.GetContext().GetCwd())
 	payload := mapped.GetSessionBeforeTreeRequest()
 	require.NotNil(t, payload)
 	assert.Equal(t, "target", payload.GetOriginalRequest().GetTargetEntryId())
@@ -100,6 +113,8 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 
 	// Act by mapping the typed ordinary failure.
 	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
+		Context: extension.Context{},
+
 		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
 		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
 		Observer: mo.Some(request),
@@ -155,6 +170,8 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 
 	// Act by validating the response against the invoked kind.
 	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
+		Context: extension.Context{},
+
 		Request:  mo.Some(request),
 		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
 		Observer: mo.None[sessiontree.TreeObserverInvocation](),

@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -288,6 +289,8 @@ func TestServerClosureJoinsActiveWork(t *testing.T) {
 		"requested close": {
 			receiveClosure: func() (*extensionpb.OpenRequest, error) {
 				return extensionpb.OpenRequest_builder{
+					Event: nil,
+
 					OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
 				}.Build(), nil
 			},
@@ -380,6 +383,8 @@ func TestServerRejectsRequestAfterClose(t *testing.T) {
 	stream.EXPECT().Context().AnyTimes().Return(t.Context())
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(extensionpb.OpenRequest_builder{
+			Event: nil,
+
 			OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
 		}.Build(), nil),
 		stream.EXPECT().Recv().Return(openExecuteRequest("late"), nil),
@@ -580,6 +585,108 @@ func TestMapExtensionEventRejectsInvalidCodesAndCancelStates(t *testing.T) {
 	}
 }
 
+// TestMapExtensionEventBoundsExternalErrorText verifies byte-bounded ingress preserves valid UTF-8 and short causes.
+func TestMapExtensionEventBoundsExternalErrorText(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: include exact byte boundaries and a multibyte sequence across the retained prefix.
+	for _, text := range []string{
+		strings.Repeat("a", 65535),
+		strings.Repeat("a", 65536),
+		strings.Repeat("a", 65537),
+		strings.Repeat("界", 22000),
+	} {
+		t.Run(fmt.Sprintf("bytes_%d", len(text)), func(t *testing.T) {
+			t.Parallel()
+			event := failedEvent(failureCodeInternal, text)
+
+			// Act: map a received failure through the Extension Contract ingress.
+			mapped, terminal, err := mapExtensionEvent("execute", requestExecute, event)
+
+			// Assert: only oversized external text changes, with a complete truncation marker.
+			require.NoError(t, err)
+			require.True(t, terminal)
+			if len(text) <= 65536 {
+				assert.Equal(t, text, mapped.Message)
+				return
+			}
+			assert.LessOrEqual(t, len(mapped.Message), 65536)
+			assert.True(t, utf8.ValidString(mapped.Message))
+			assert.True(t, strings.HasSuffix(mapped.Message, "\n[external error text truncated]"))
+			prefix := strings.TrimSuffix(mapped.Message, "\n[external error text truncated]")
+			assert.True(t, strings.HasPrefix(text, prefix))
+			assert.Equal(t, failureCodeInternal, mapped.Code)
+		})
+	}
+}
+
+// TestPeerStreamErrorsBoundExternalStatusText verifies received gRPC failures retain code and bounded UTF-8 text.
+func TestPeerStreamErrorsBoundExternalStatusText(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: include unchanged status messages and oversized external UTF-8 status text.
+	for _, text := range []string{strings.Repeat("a", 65535), strings.Repeat("a", 65536), strings.Repeat("界", 22000)} {
+		original := status.Error(codes.FailedPrecondition, text)
+
+		// Act: map the received peer status before adding local operation context.
+		mapped := mapPeerStreamError(original)
+		message := status.Convert(mapped).Message()
+
+		// Assert: the gRPC code is unchanged and only oversized external text is truncated.
+		assert.Equal(t, codes.FailedPrecondition, status.Code(mapped))
+		if len(text) <= 65536 {
+			assert.ErrorIs(t, mapped, original)
+			continue
+		}
+		assert.LessOrEqual(t, len(message), 65536)
+		assert.True(t, utf8.ValidString(message))
+		assert.True(t, strings.HasSuffix(message, "\n[external error text truncated]"))
+	}
+}
+
+// TestExternalErrorIngressBoundsEveryOutcome verifies rejection, handler, and protocol causes share the ingress limit.
+func TestExternalErrorIngressBoundsEveryOutcome(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: supply oversized peer text through each non-failure ingress path.
+	text := strings.Repeat("界", 22000)
+	completed := new(extensionpb.ExtensionCompleted)
+	completed.SetHandle(extensionpb.HandleResponse_builder{
+		Error: extensionpb.HandlerError_builder{Message: new(text)}.Build(),
+	}.Build())
+	handlerEvent := new(extensionpb.ExtensionEvent)
+	handlerEvent.SetCompleted(completed)
+	for name, event := range map[string]*extensionpb.ExtensionEvent{
+		"rejected":         rejectedEvent(rejectionCodeInvalidArgument, text),
+		"handler":          handlerEvent,
+		"invalid_category": failedEvent("UNKNOWN", text),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act: receive the event and retain peer text on local validation failure.
+			mapped, _, err := mapExtensionEvent("handle", requestHandle, event)
+			message := mapped.Message
+			if name == "handler" {
+				require.NoError(t, err)
+				message = mapped.Result.GetHandle().GetError().GetMessage()
+			} else if name == "invalid_category" {
+				require.Error(t, err)
+				cause := peerErrorPayloadContext(err, event, false)
+				require.ErrorContains(t, cause, err.Error())
+				message = strings.TrimPrefix(cause.Error(), err.Error()+": peer failure text: ")
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Assert: preserve the UTF-8 prefix and exact marker within the byte bound.
+			assert.LessOrEqual(t, len(message), 65536)
+			assert.True(t, utf8.ValidString(message))
+			assert.True(t, strings.HasSuffix(message, "\n[external error text truncated]"))
+		})
+	}
+}
+
 // TestServerRejectsUnsupportedLocalCodes verifies SDK misuse fails the stream with Internal.
 func TestServerRejectsUnsupportedLocalCodes(t *testing.T) {
 	t.Parallel()
@@ -719,6 +826,8 @@ func TestConnectionStopsOnWriterSendFailure(t *testing.T) {
 	<-receiveEntered
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new("tool"), ArgumentsJson: []byte(`{}`),
 	}.Build())
 
@@ -771,6 +880,8 @@ func TestConnectionCloseJoinsTransportCleanup(t *testing.T) {
 	requireSignal(t, receiveEntered, "Host receive did not start")
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new("tool"), ArgumentsJson: []byte(`{}`),
 	}.Build())
 	started, err := connection.Start(t.Context(), "execute", request)
@@ -935,11 +1046,25 @@ func requireServerResult(t *testing.T, result <-chan error, failure string) erro
 	}
 }
 
+// testInvocationIdentity supplies complete identity for isolated protocol invocation tests.
+func testInvocationIdentity() *extensionpb.ExtensionContext {
+	return extensionpb.ExtensionContext_builder{
+		ContextId:         new("binding"),
+		ExtensionId:       new("extension"),
+		RuntimeInstanceId: new("runtime"),
+		SessionId:         new("session"),
+		Cwd:               new("/project"),
+	}.Build()
+}
+
 // openRegisterRequest constructs one Register stream message.
 func openRegisterRequest(id string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetRegister(new(extensionpb.RegisterRequest))
-	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+	return extensionpb.OpenRequest_builder{
+		Event:       nil,
+		OperationId: new(id), Request: request, Close: nil,
+	}.Build()
 }
 
 // openExecuteRequest constructs one Execute stream message.
@@ -951,29 +1076,42 @@ func openExecuteRequest(id string) *extensionpb.OpenRequest {
 func openExecuteRequestWith(id string, toolName string, arguments []byte) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new(toolName), ArgumentsJson: arguments,
 	}.Build())
-	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+	return extensionpb.OpenRequest_builder{
+		Event:       nil,
+		OperationId: new(id), Request: request, Close: nil,
+	}.Build()
 }
 
 // openHandleRequest constructs one session-tree Handle stream message.
 func openHandleRequest(id string, handlerID string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetHandle(extensionpb.HandleRequest_builder{
+		Context: testInvocationIdentity(),
+
 		HandlerId: new(handlerID), SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
 		SessionTree: extensionpb.SessionTreeInvocation_builder{
 			SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 			NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 		}.Build(),
 	}.Build())
-	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+	return extensionpb.OpenRequest_builder{
+		Event:       nil,
+		OperationId: new(id), Request: request, Close: nil,
+	}.Build()
 }
 
 // openCancelRequest constructs one targeted cancellation stream message.
 func openCancelRequest(id string, targetID string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetCancel(operationpb.CancelOperation_builder{TargetOperationId: new(targetID)}.Build())
-	return extensionpb.OpenRequest_builder{OperationId: new(id), Request: request, Close: nil}.Build()
+	return extensionpb.OpenRequest_builder{
+		Event:       nil,
+		OperationId: new(id), Request: request, Close: nil,
+	}.Build()
 }
 
 // validTextContents constructs one nonempty tool result content list.

@@ -59,6 +59,10 @@ type Connection struct {
 	writer *operation.Writer[*extensionpb.OpenRequest]
 	// tracker validates extension lifecycle events.
 	tracker *operation.Tracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted]
+	// hostOwner owns extension-initiated work in a separate identifier namespace.
+	hostOwner *operation.Owner[struct{}, *extensionpb.HostCompleted]
+	// hostService admits catalog requests for the connected runtime.
+	hostService HostService
 	// mutex protects request kinds and terminal connection state.
 	mutex sync.Mutex
 	// kinds maps initiated identifiers to expected completed payloads.
@@ -103,11 +107,12 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		return nil, fmt.Errorf("open extension stream: %w", err)
 	}
 	connection := &Connection{
-		ctx:         streamContext,
-		cancel:      cancel,
-		stream:      stream,
-		writer:      nil,
-		tracker:     operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
+		ctx:       streamContext,
+		cancel:    cancel,
+		stream:    stream,
+		writer:    nil,
+		tracker:   operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
+		hostOwner: nil, hostService: nil,
 		mutex:       sync.Mutex{},
 		kinds:       make(map[string]requestKind),
 		err:         nil,
@@ -123,6 +128,10 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		}
 		return nil
 	})
+	connection.hostOwner = operation.NewOwner[struct{}, *extensionpb.HostCompleted](
+		streamContext,
+		&hostDelivery{connection: connection},
+	)
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- connection.writer.Run(streamContext) }()
 	go func() {
@@ -160,6 +169,8 @@ func (c *Connection) Start(
 	c.kinds[id] = kind
 	c.mutex.Unlock()
 	message := extensionpb.OpenRequest_builder{
+		Event: nil,
+
 		OperationId: new(id), Request: request, Close: nil,
 	}.Build()
 	if err = c.writer.Enqueue(message); err != nil {
@@ -188,12 +199,16 @@ func (c *Connection) Cancel(
 // Close requests orderly extension shutdown and joins stream work.
 func (c *Connection) Close() error {
 	c.closeOnce.Do(func() {
+		// Notify the peer before canceling owned work so its cancellation waiters observe orderly closure.
 		if err := c.writer.Enqueue(extensionpb.OpenRequest_builder{
+			Event: nil,
+
 			OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
 		}.Build()); err != nil {
 			mapped := mapDeliveryError(err)
 			c.fail(mapped)
 		}
+		c.hostOwner.Close()
 		c.join()
 	})
 	return c.connectionError()
@@ -297,8 +312,9 @@ func (c *Cancellation) Wait(ctx context.Context) (*operationpb.CancelCompleted, 
 	return completed.GetCancel(), nil
 }
 
-// receive validates stream events without running user callbacks.
+// receive routes both operation directions without running admitted work.
 func (c *Connection) receive() error {
+	defer c.hostOwner.Close()
 	for {
 		response, err := c.stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -306,7 +322,7 @@ func (c *Connection) receive() error {
 			return nil
 		}
 		if err != nil {
-			mapped := mapStreamError(err)
+			mapped := mapPeerStreamError(err)
 			c.fail(mapped)
 			return mapped
 		}
@@ -321,8 +337,11 @@ func (c *Connection) receive() error {
 	}
 }
 
-// handleResponse validates one lifecycle envelope and sends it to the tracker.
+// handleResponse admits a Host request or validates a Host-initiated lifecycle envelope.
 func (c *Connection) handleResponse(response *extensionpb.OpenResponse) error {
+	if response != nil && response.GetRequest() != nil {
+		return c.handleHostRequest(response.GetOperationId(), response.GetRequest())
+	}
 	if response == nil || response.GetEvent() == nil {
 		return errors.New("extension response requires an event")
 	}
@@ -363,10 +382,10 @@ func peerErrorPayloadContext(cause error, event *extensionpb.ExtensionEvent, inc
 				"%w: peer rejection category %q: peer rejection text: %s",
 				cause,
 				rejected.GetCode(),
-				rejected.GetMessage(),
+				boundExternalError(rejected.GetMessage()),
 			)
 		}
-		return fmt.Errorf("%w: peer rejection text: %s", cause, rejected.GetMessage())
+		return fmt.Errorf("%w: peer rejection text: %s", cause, boundExternalError(rejected.GetMessage()))
 	case extensionpb.ExtensionEvent_Failed_case:
 		failed := event.GetFailed()
 		if includeCategory {
@@ -374,10 +393,10 @@ func peerErrorPayloadContext(cause error, event *extensionpb.ExtensionEvent, inc
 				"%w: peer failure category %q: peer failure text: %s",
 				cause,
 				failed.GetCode(),
-				failed.GetMessage(),
+				boundExternalError(failed.GetMessage()),
 			)
 		}
-		return fmt.Errorf("%w: peer failure text: %s", cause, failed.GetMessage())
+		return fmt.Errorf("%w: peer failure text: %s", cause, boundExternalError(failed.GetMessage()))
 	case extensionpb.ExtensionEvent_Event_not_set_case,
 		extensionpb.ExtensionEvent_Accepted_case,
 		extensionpb.ExtensionEvent_Running_case,
@@ -487,6 +506,9 @@ func mapTerminalExtensionEvent(
 		if !completedMatches(kind, mapped.Result) {
 			return mapped, false, errors.New("extension completion does not match request kind")
 		}
+		if handlerError := mapped.Result.GetHandle().GetError(); handlerError != nil {
+			handlerError.SetMessage(boundExternalError(handlerError.GetMessage()))
+		}
 		if kind == requestCancel {
 			if err := validateCancelCompleted(mapped.Result.GetCancel()); err != nil {
 				return mapped, false, err
@@ -497,14 +519,14 @@ func mapTerminalExtensionEvent(
 	case extensionpb.ExtensionEvent_Failed_case:
 		mapped.Kind = operation.EventFailed
 		mapped.Code = event.GetFailed().GetCode()
-		mapped.Message = event.GetFailed().GetMessage()
+		mapped.Message = boundExternalError(event.GetFailed().GetMessage())
 		if err := validateFailureCode(mapped.Code); err != nil {
 			return mapped, false, err
 		}
 	case extensionpb.ExtensionEvent_Rejected_case:
 		mapped.Kind = operation.EventRejected
 		mapped.Code = event.GetRejected().GetCode()
-		mapped.Message = event.GetRejected().GetMessage()
+		mapped.Message = boundExternalError(event.GetRejected().GetMessage())
 		if err := validateRejectionCode(kind, mapped.Code); err != nil {
 			return mapped, false, err
 		}
@@ -542,6 +564,7 @@ func completedMatches(kind requestKind, completed *extensionpb.ExtensionComplete
 func (c *Connection) fail(err error) {
 	c.recordError(err)
 	c.tracker.Close()
+	c.hostOwner.Fail(err)
 	c.cancel(err)
 }
 

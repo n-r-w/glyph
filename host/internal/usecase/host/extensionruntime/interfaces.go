@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -28,6 +29,8 @@ type Candidate struct {
 	ID string
 	// Path is the extension executable path.
 	Path string
+	// InstanceID is assigned by the runtime owner before this process starts.
+	InstanceID string
 }
 
 // Issue reports one isolated catalog or runtime failure.
@@ -70,6 +73,7 @@ type ExtensionRuntime interface {
 		name string,
 		argumentsJSON []byte,
 		handleProgress tool.ProgressHandler,
+		binding extension.Context,
 	) (tool.Result, error)
 	// Done closes when the extension process exits.
 	Done() <-chan struct{}

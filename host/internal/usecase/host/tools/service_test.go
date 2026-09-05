@@ -3,6 +3,7 @@
 package tools
 
 import (
+	"context"
 	"testing"
 
 	"github.com/samber/mo"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -232,6 +234,16 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntime(controller)
 	service := New(runtime)
+	contexts := NewMockContextIssuer(controller)
+	binding := extension.Context{
+		ID:                "binding",
+		ExtensionID:       "extension",
+		RuntimeInstanceID: "runtime",
+		SessionID:         "session",
+		WorkingDirectory:  "/project",
+	}
+	contexts.EXPECT().IssueContext("extension").Return(binding, nil)
+	service.BindContextIssuer(contexts)
 	registration := startup.PendingRegistration{
 		ID:       "extension",
 		Path:     "/extension",
@@ -244,8 +256,11 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	service.Commit(accepted)
 	runtime.EXPECT().ToolRuntimeAvailable("extension").Return(true).Times(3)
 	runtime.EXPECT().
-		ExecuteTool(t.Context(), "extension", "read", []byte(`{"path":"file"}`), gomock.Any()).
-		Return(tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil)
+		ExecuteTool(t.Context(), "extension", "read", []byte(`{"path":"file"}`), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, _ string, _ []byte, _ tool.ProgressHandler, supplied extension.Context) (tool.Result, error) {
+			assert.Equal(t, binding, supplied)
+			return tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil
+		})
 	// Act list tools, reject invalid arguments, and execute valid deterministic arguments.
 	listed := service.Tools()
 	invalid, invalidErr := service.Execute(

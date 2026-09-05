@@ -28,7 +28,7 @@ const (
 //
 // ExtensionService exposes one bidirectional extension operation stream.
 type ExtensionServiceClient interface {
-	// Open exchanges Host requests with extension lifecycle events.
+	// Open exchanges operation requests and lifecycle events for both initiators.
 	Open(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[OpenRequest, OpenResponse], error)
 }
 
@@ -59,7 +59,7 @@ type ExtensionService_OpenClient = grpc.BidiStreamingClient[OpenRequest, OpenRes
 //
 // ExtensionService exposes one bidirectional extension operation stream.
 type ExtensionServiceServer interface {
-	// Open exchanges Host requests with extension lifecycle events.
+	// Open exchanges operation requests and lifecycle events for both initiators.
 	Open(grpc.BidiStreamingServer[OpenRequest, OpenResponse]) error
 	mustEmbedUnimplementedExtensionServiceServer()
 }

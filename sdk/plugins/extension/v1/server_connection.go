@@ -48,7 +48,8 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 	failConnection = fail
 	delivery := &extensionDelivery{
 		ctx: ctx, writer: writer, fail: fail,
-		mutex: sync.Mutex{}, kinds: make(map[string]requestKind),
+		mutex: sync.Mutex{}, invocations: make(map[string]invocationLog),
+		initiator: newContextInitiator(ctx, writer, fail),
 	}
 	owner = operation.NewOwner[*extensionpb.ToolProgress, extensionResult](ctx, delivery)
 
@@ -62,6 +63,7 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 	startOwnerClose := func() {
 		closeOnce.Do(func() {
 			go func() {
+				delivery.initiator.close(context.Canceled)
 				owner.Close()
 				close(ownerClosed)
 			}()
@@ -145,39 +147,9 @@ func (loop *serverConnectionLoop) run() error {
 					loop.writerResult,
 				)
 			}
-			if closing {
-				cause := errors.New("extension request received after close")
-				protocolErr := newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
-				return finishServerFailure(
-					protocolErr,
-					loop.owner,
-					loop.cancel,
-					loop.startOwnerClose,
-					loop.ownerClosed,
-					loop.writer,
-					loop.writerResult,
-				)
-			}
-			request := received.request
-			if request.GetClose() != nil {
-				if request.GetOperationId() != "" || request.GetRequest() != nil {
-					cause := errors.New("extension close message is invalid")
-					protocolErr := newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
-					return finishServerFailure(
-						protocolErr,
-						loop.owner,
-						loop.cancel,
-						loop.startOwnerClose,
-						loop.ownerClosed,
-						loop.writer,
-						loop.writerResult,
-					)
-				}
-				closing = true
-				loop.startOwnerClose()
-				continue
-			}
-			if err := loop.server.handleRequest(loop.ctx, loop.owner, loop.delivery, request); err != nil {
+			var err error
+			closing, err = loop.routeEnvelope(received.request, closing)
+			if err != nil {
 				return finishServerFailure(
 					err,
 					loop.owner,
@@ -190,6 +162,37 @@ func (loop *serverConnectionLoop) run() error {
 			}
 		}
 	}
+}
+
+// routeEnvelope validates one envelope while keeping operation execution off stream receipt.
+func (loop *serverConnectionLoop) routeEnvelope(request *extensionpb.OpenRequest, closing bool) (bool, error) {
+	if request.GetEvent() != nil {
+		// Close settles pending waits; already-queued Host events cannot reactivate them.
+		if closing {
+			return true, nil
+		}
+		err := loop.delivery.initiator.handle(request.GetOperationId(), request.GetEvent())
+		if err == nil {
+			return false, nil
+		}
+		if errors.Is(err, operation.ErrQueueFull) {
+			return false, mapDeliveryError(err)
+		}
+		return false, newProtocolStatusError(codes.FailedPrecondition, err.Error(), err)
+	}
+	if closing {
+		cause := errors.New("extension request received after close")
+		return true, newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
+	}
+	if request.GetClose() != nil {
+		if request.GetOperationId() != "" || request.GetRequest() != nil {
+			cause := errors.New("extension close message is invalid")
+			return false, newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
+		}
+		loop.startOwnerClose()
+		return true, nil
+	}
+	return false, loop.server.handleRequest(loop.ctx, loop.owner, loop.delivery, request)
 }
 
 // finishServerFailure stops transport work and joins all SDK-owned operations.

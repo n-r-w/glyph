@@ -50,7 +50,8 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("load Glyph settings: %w", err)
 	}
 
-	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), func(
+	extensionFactory := extensionruntime.NewFactory()
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, func(
 		reportContext context.Context,
 		failure extension.RuntimeFailure,
 	) error {
@@ -77,6 +78,7 @@ func runProgrammaticWithPaths(
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}
 	defer closeExtensions()
+	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	startupService := startup.New(extensions, tools, sessionServices.tree)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
@@ -89,6 +91,7 @@ func runProgrammaticWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
 	delivery := hostprogrammatic.NewDelivery()

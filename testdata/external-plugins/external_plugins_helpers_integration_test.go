@@ -234,7 +234,15 @@ func requireRaceInstrumented(t *testing.T, binary string) {
 func externalExecuteRequest(tool, mode string) *extensionv1.HostRequest {
 	request := new(extensionv1.HostRequest)
 	request.SetExecute(extensionv1.ExecuteRequest_builder{
-		ToolName: new(tool), ArgumentsJson: []byte(`{"mode":"` + mode + `"}`),
+		ToolName:      new(tool),
+		ArgumentsJson: []byte(`{"mode":"` + mode + `"}`),
+		Context: extensionv1.ExtensionContext_builder{
+			ContextId:         new("binding"),
+			ExtensionId:       new("external"),
+			RuntimeInstanceId: new("runtime"),
+			SessionId:         new("session"),
+			Cwd:               new("/project"),
+		}.Build(),
 	}.Build())
 	return request
 }

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	gomock "go.uber.org/mock/gomock"
@@ -84,6 +85,45 @@ func (m *MockActiveSession) Tree() session.Tree {
 func (mr *MockActiveSessionMockRecorder) Tree() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockActiveSession)(nil).Tree))
+}
+
+// MockContextIssuer is a mock of ContextIssuer interface.
+type MockContextIssuer struct {
+	ctrl     *gomock.Controller
+	recorder *MockContextIssuerMockRecorder
+	isgomock struct{}
+}
+
+// MockContextIssuerMockRecorder is the mock recorder for MockContextIssuer.
+type MockContextIssuerMockRecorder struct {
+	mock *MockContextIssuer
+}
+
+// NewMockContextIssuer creates a new mock instance.
+func NewMockContextIssuer(ctrl *gomock.Controller) *MockContextIssuer {
+	mock := &MockContextIssuer{ctrl: ctrl}
+	mock.recorder = &MockContextIssuerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContextIssuer) EXPECT() *MockContextIssuerMockRecorder {
+	return m.recorder
+}
+
+// IssueContext mocks base method.
+func (m *MockContextIssuer) IssueContext(extensionID string) (extension.Context, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IssueContext", extensionID)
+	ret0, _ := ret[0].(extension.Context)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IssueContext indicates an expected call of IssueContext.
+func (mr *MockContextIssuerMockRecorder) IssueContext(extensionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), extensionID)
 }
 
 // MockRuntime is a mock of Runtime interface.

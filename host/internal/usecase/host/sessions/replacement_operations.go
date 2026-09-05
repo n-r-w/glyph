@@ -108,6 +108,7 @@ func (s *Service) createReplacement(ctx context.Context, tree session.Tree) (ses
 		Information: s.active.Information, InformationUpdatedAt: s.active.InformationUpdatedAt,
 	}
 	s.active = loaded
+	s.publishContextIdentityLocked()
 	s.history = sessiontree.HistoryFromEntries(tree.ActiveBranch())
 	s.writeUnavailable = false
 	return loaded.Replacement(), nil

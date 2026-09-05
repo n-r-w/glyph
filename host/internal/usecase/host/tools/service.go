@@ -17,6 +17,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -33,13 +34,22 @@ type Runtime interface {
 		extensionID, name string,
 		argumentsJSON []byte,
 		handleProgress tool.ProgressHandler,
+		binding extension.Context,
 	) (tool.Result, error)
+}
+
+// ContextIssuer supplies the binding carried by each accepted tool invocation.
+type ContextIssuer interface {
+	// IssueContext returns the current runtime-to-session binding for an extension.
+	IssueContext(extensionID string) (extension.Context, error)
 }
 
 // Service owns accepted tools, schemas, ownership, and model-visible results.
 type Service struct {
 	// runtime invokes one tool through its owning extension process.
 	runtime Runtime
+	// contexts supplies session-bound invocation identities.
+	contexts ContextIssuer
 	// mutex protects prepared and accepted registration state.
 	mutex sync.RWMutex
 	// prepared contains locally validated schemas before startup commits registrations.
@@ -67,11 +77,15 @@ var (
 func New(runtime Runtime) *Service {
 	return &Service{
 		runtime:  runtime,
+		contexts: nil,
 		mutex:    sync.RWMutex{},
 		prepared: make(map[string]map[string]*jsonschema.Schema),
 		owners:   make(map[string]*owner),
 	}
 }
+
+// BindContextIssuer completes context composition before tool registration and execution.
+func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = contexts }
 
 // ValidateLocal validates one extension-local tool registration and retains compiled schemas for commit.
 func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]tool.Descriptor, error) {
@@ -209,7 +223,21 @@ func (s *Service) Execute(
 			IsError:  true,
 		}, nil
 	}
-	result, executeErr := s.runtime.ExecuteTool(ctx, accepted.extensionID, call.Name, argumentsJSON, handleProgress)
+	if s.contexts == nil {
+		return agent.ToolResult{}, errors.New("tool context issuer is not bound")
+	}
+	binding, err := s.contexts.IssueContext(accepted.extensionID)
+	if err != nil {
+		return agent.ToolResult{}, fmt.Errorf("bind tool %q context: %w", call.Name, err)
+	}
+	result, executeErr := s.runtime.ExecuteTool(
+		ctx,
+		accepted.extensionID,
+		call.Name,
+		argumentsJSON,
+		handleProgress,
+		binding,
+	)
 	return agent.ToolResult{
 		CallID:   call.ID,
 		ToolName: call.Name,

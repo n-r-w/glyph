@@ -181,6 +181,8 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		return context.Cause(stream.Context())
 	case "empty-event":
 		return stream.Send(extensionpb.OpenResponse_builder{
+			Request: nil,
+
 			OperationId: new(id), Event: new(extensionpb.ExtensionEvent),
 		}.Build())
 	case "empty-result":
@@ -257,7 +259,10 @@ func sendAdversarialLifecycle(
 
 // extensionResponse wraps one operation event.
 func extensionResponse(id string, event *extensionpb.ExtensionEvent) *extensionpb.OpenResponse {
-	return extensionpb.OpenResponse_builder{OperationId: new(id), Event: event}.Build()
+	return extensionpb.OpenResponse_builder{
+		Request:     nil,
+		OperationId: new(id), Event: event,
+	}.Build()
 }
 
 // acceptedExtensionEvent constructs Accepted.

@@ -22,6 +22,8 @@ type Service struct {
 	modelRequester ModelRequester
 	// runtime supplies availability and low-level handler invocation.
 	runtime Runtime
+	// contexts supplies runtime-to-active-session bindings for each invocation.
+	contexts ContextIssuer
 	// mutex protects accepted handler registrations.
 	mutex sync.RWMutex
 	// handlers contains accepted handlers in startup registration order.
@@ -44,10 +46,13 @@ type registeredHandler struct {
 // New creates an internal session-tree navigation service.
 func New(active ActiveSession, modelRequester ModelRequester, runtime Runtime) *Service {
 	return &Service{
-		active: active, modelRequester: modelRequester, runtime: runtime,
+		active: active, modelRequester: modelRequester, runtime: runtime, contexts: nil,
 		mutex: sync.RWMutex{}, handlers: nil,
 	}
 }
+
+// BindContextIssuer completes invocation composition before handler registration.
+func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = contexts }
 
 // NavigateTree composes extension handlers around one atomic navigation commit.
 func (s *Service) NavigateTree(

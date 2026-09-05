@@ -122,6 +122,8 @@ func (prepared *registerPrepared) Release() { prepared.operation.Release() }
 type handlePrepared struct {
 	// operation owns the plugin handler work.
 	operation HandleOperation
+	// binding exposes nested Host operations during handler execution.
+	binding *ExtensionContext
 }
 
 var _ operation.Prepared[*extensionpb.ToolProgress, extensionResult] = (*handlePrepared)(nil)
@@ -131,7 +133,7 @@ func (prepared *handlePrepared) Run(
 	ctx context.Context,
 	_ operation.Reporter[*extensionpb.ToolProgress],
 ) operation.Outcome[extensionResult] {
-	response, err := prepared.operation.Run(ctx)
+	response, err := prepared.operation.Run(context.WithValue(ctx, invocationContextKey{}, prepared.binding))
 	if err != nil {
 		return operationOutcome[extensionResult](err)
 	}
@@ -150,6 +152,8 @@ func (prepared *handlePrepared) Release() { prepared.operation.Release() }
 type executePrepared struct {
 	// operation owns the plugin tool work.
 	operation ExecuteOperation
+	// binding exposes nested Host operations during tool execution.
+	binding *ExtensionContext
 }
 
 var _ operation.Prepared[*extensionpb.ToolProgress, extensionResult] = (*executePrepared)(nil)
@@ -159,7 +163,10 @@ func (prepared *executePrepared) Run(
 	ctx context.Context,
 	reporter operation.Reporter[*extensionpb.ToolProgress],
 ) operation.Outcome[extensionResult] {
-	response, err := prepared.operation.Run(ctx, &ProgressReporter{reporter: reporter})
+	response, err := prepared.operation.Run(
+		context.WithValue(ctx, invocationContextKey{}, prepared.binding),
+		&ProgressReporter{reporter: reporter},
+	)
 	if err != nil {
 		return operationOutcome[extensionResult](err)
 	}
@@ -215,6 +222,9 @@ func (prepared *cancellationPrepared) Release() {}
 
 // operationOutcome maps public operation errors to shared terminal outcomes.
 func operationOutcome[R any](err error) operation.Outcome[R] {
+	if _, received := errors.AsType[*contextOperationError](err); received {
+		return operation.Failed[R](failureCodeInternal, err)
+	}
 	if failure, ok := errors.AsType[*FailureError](err); ok {
 		return operation.Failed[R](failure.Code(), failure)
 	}

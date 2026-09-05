@@ -2,7 +2,7 @@ package extensionv1
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +16,7 @@ import (
 )
 
 //go:generate go tool mockgen -build_constraint=!integration -destination=stream_mock_test.go -package=extensionv1 github.com/n-r-w/glyph/pkg/plugins/extension/v1 ExtensionServiceClient,ExtensionService_OpenServer,ExtensionService_OpenClient
+//go:generate go tool mockgen -build_constraint=integration -destination=stream_integration_mock_test.go -package=extensionv1 github.com/n-r-w/glyph/pkg/plugins/extension/v1 ExtensionServiceClient,ExtensionService_OpenServer,ExtensionService_OpenClient
 
 // server implements the generated extension operation stream.
 type server struct {
@@ -57,8 +58,10 @@ type extensionDelivery struct {
 	fail func(error)
 	// mutex protects accepted operation kinds.
 	mutex sync.Mutex
-	// kinds maps accepted identifiers to their request kinds.
-	kinds map[string]requestKind
+	// invocations stores request kind and identity for accepted-operation diagnostics.
+	invocations map[string]invocationLog
+	// initiator owns nested Host requests on this same stream.
+	initiator *contextInitiator
 }
 
 var _ operation.Delivery[*extensionpb.ToolProgress, extensionResult] = (*extensionDelivery)(nil)
@@ -105,10 +108,14 @@ func (delivery *extensionDelivery) Terminal(
 	case operation.TerminalStateCanceled:
 		event.SetCanceled(new(operationv1.Canceled))
 	case operation.TerminalStateFailed:
-		kind := delivery.takeKind(id)
-		slog.ErrorContext(delivery.ctx, "Extension operation failed",
+		invocation := delivery.takeInvocation(id)
+		slog.ErrorContext(
+			delivery.ctx, "Extension operation failed",
 			slog.String("operation_id", id),
-			slog.String("operation_kind", kind.String()),
+			slog.String("operation_kind", invocation.kind.String()),
+			slog.String("extension_id", invocation.extensionID),
+			slog.String("runtime_instance_id", invocation.runtimeID),
+			slog.String("session_id", invocation.sessionID),
 			slog.String("peer_kind", "host"),
 			slog.String("category", outcome.Code()),
 			slog.Any("error", outcome.Err()),
@@ -128,25 +135,51 @@ func (delivery *extensionDelivery) Terminal(
 		return nil, err
 	}
 	if outcome.State() != operation.TerminalStateFailed {
-		delivery.takeKind(id)
+		delivery.takeInvocation(id)
 	}
 	return acknowledgement, nil
 }
 
-// setKind records one accepted operation kind.
-func (delivery *extensionDelivery) setKind(id string, kind requestKind) {
-	delivery.mutex.Lock()
-	defer delivery.mutex.Unlock()
-	delivery.kinds[id] = kind
+// invocationLog retains the identity associated with one accepted invocation.
+type invocationLog struct {
+	// kind identifies the operation payload for diagnostics.
+	kind requestKind
+	// extensionID identifies the bound extension when this is a contextual invocation.
+	extensionID string
+	// runtimeID identifies the process incarnation of a contextual invocation.
+	runtimeID string
+	// sessionID identifies the active session of a contextual invocation.
+	sessionID string
 }
 
-// takeKind removes and returns one accepted operation kind.
-func (delivery *extensionDelivery) takeKind(id string) requestKind {
+// recordInvocation records request kind and immutable identity before operation execution.
+func (delivery *extensionDelivery) recordInvocation(id string, kind requestKind, request *extensionpb.HostRequest) {
+	identity := request.GetHandle().GetContext()
+	if identity == nil {
+		identity = request.GetExecute().GetContext()
+	}
+	metadata := invocationLog{
+		kind:        kind,
+		extensionID: identity.GetExtensionId(),
+		runtimeID:   identity.GetRuntimeInstanceId(),
+		sessionID:   identity.GetSessionId(),
+	}
 	delivery.mutex.Lock()
 	defer delivery.mutex.Unlock()
-	kind := delivery.kinds[id]
-	delete(delivery.kinds, id)
-	return kind
+	if cancellation := request.GetCancel(); cancellation != nil {
+		metadata = delivery.invocations[cancellation.GetTargetOperationId()]
+		metadata.kind = kind
+	}
+	delivery.invocations[id] = metadata
+}
+
+// takeInvocation removes completed invocation metadata from the delivery owner.
+func (delivery *extensionDelivery) takeInvocation(id string) invocationLog {
+	delivery.mutex.Lock()
+	defer delivery.mutex.Unlock()
+	metadata := delivery.invocations[id]
+	delete(delivery.invocations, id)
+	return metadata
 }
 
 // terminalError closes the connection for a local terminal mapping invariant failure.
@@ -182,7 +215,10 @@ func (delivery *extensionDelivery) enqueueAcknowledged(
 
 // extensionEventResponse constructs one lifecycle response envelope.
 func extensionEventResponse(id string, event *extensionpb.ExtensionEvent) *extensionpb.OpenResponse {
-	return extensionpb.OpenResponse_builder{OperationId: new(id), Event: event}.Build()
+	return extensionpb.OpenResponse_builder{
+		Request:     nil,
+		OperationId: new(id), Event: event,
+	}.Build()
 }
 
 // handleRequest validates and admits one Host request.
@@ -222,10 +258,10 @@ func (s *server) handleRequest(
 			}
 			prepared = &cancellationPrepared{cancel: cancelTarget}
 		} else {
-			prepared, err = s.prepare(ctx, request)
+			prepared, err = s.prepare(ctx, request, delivery.initiator)
 		}
 		if err == nil {
-			delivery.setKind(id, kind)
+			delivery.recordInvocation(id, kind, request)
 		}
 		return prepared, err
 	}
@@ -233,7 +269,7 @@ func (s *server) handleRequest(
 		if errors.Is(err, operation.ErrIdentifierInUse) {
 			return s.reject(delivery, id, rejectionCodeOperationIDInUse, err)
 		}
-		delivery.takeKind(id)
+		delivery.takeInvocation(id)
 		if rejection, ok := errors.AsType[*RejectionError](err); ok {
 			if codeErr := validateRejectionCode(kind, rejection.Code()); codeErr != nil {
 				cause := errors.Join(codeErr, rejection)
@@ -250,6 +286,7 @@ func (s *server) handleRequest(
 func (s *server) prepare(
 	ctx context.Context,
 	request *extensionpb.HostRequest,
+	initiator *contextInitiator,
 ) (operation.Prepared[*extensionpb.ToolProgress, extensionResult], error) {
 	switch request.WhichRequest() {
 	case extensionpb.HostRequest_Register_case:
@@ -266,30 +303,8 @@ func (s *server) prepare(
 			return nil, errors.New("prepare registration: operation is required")
 		}
 		return &registerPrepared{operation: admitted}, nil
-	case extensionpb.HostRequest_Handle_case:
-		if err := s.validateHandle(request.GetHandle()); err != nil {
-			return nil, err
-		}
-		admitted, err := s.service.PrepareHandle(ctx, request.GetHandle())
-		if err != nil {
-			return nil, err
-		}
-		if admitted == nil {
-			return nil, errors.New("prepare handler: operation is required")
-		}
-		return &handlePrepared{operation: admitted}, nil
-	case extensionpb.HostRequest_Execute_case:
-		if err := s.validateExecute(request.GetExecute()); err != nil {
-			return nil, err
-		}
-		admitted, err := s.service.PrepareExecute(ctx, request.GetExecute())
-		if err != nil {
-			return nil, err
-		}
-		if admitted == nil {
-			return nil, errors.New("prepare tool: operation is required")
-		}
-		return &executePrepared{operation: admitted}, nil
+	case extensionpb.HostRequest_Handle_case, extensionpb.HostRequest_Execute_case:
+		return s.prepareInvocation(ctx, request, initiator)
 	case extensionpb.HostRequest_Cancel_case:
 		return nil, errors.New("cancellation is prepared by the operation owner")
 	case extensionpb.HostRequest_Request_not_set_case:
@@ -297,6 +312,48 @@ func (s *server) prepare(
 	default:
 		return nil, Reject(rejectionCodeInvalidArgument, errors.New("extension request payload is unknown"))
 	}
+}
+
+// prepareInvocation binds context once before admitting the selected tool or handler operation.
+func (s *server) prepareInvocation(
+	ctx context.Context,
+	request *extensionpb.HostRequest,
+	initiator *contextInitiator,
+) (operation.Prepared[*extensionpb.ToolProgress, extensionResult], error) {
+	identity := request.GetHandle().GetContext()
+	if request.GetHandle() != nil {
+		if err := s.validateHandle(request.GetHandle()); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.validateExecute(request.GetExecute()); err != nil {
+			return nil, err
+		}
+		identity = request.GetExecute().GetContext()
+	}
+	binding, err := invocationContext(identity, initiator)
+	if err != nil {
+		return nil, err
+	}
+	boundContext := context.WithValue(ctx, invocationContextKey{}, binding)
+	if request.GetHandle() != nil {
+		admitted, prepareErr := s.service.PrepareHandle(boundContext, request.GetHandle())
+		if prepareErr != nil {
+			return nil, prepareErr
+		}
+		if admitted == nil {
+			return nil, errors.New("prepare handler: operation is required")
+		}
+		return &handlePrepared{operation: admitted, binding: binding}, nil
+	}
+	admitted, err := s.service.PrepareExecute(boundContext, request.GetExecute())
+	if err != nil {
+		return nil, err
+	}
+	if admitted == nil {
+		return nil, errors.New("prepare tool: operation is required")
+	}
+	return &executePrepared{operation: admitted, binding: binding}, nil
 }
 
 // reject sends one nonterminal request rejection without closing the stream.
@@ -382,7 +439,7 @@ func (s *server) validateExecute(request *extensionpb.ExecuteRequest) error {
 	if request == nil || request.GetToolName() == "" {
 		return Reject(rejectionCodeInvalidArgument, errors.New("tool name is required"))
 	}
-	if !json.Valid(request.GetArgumentsJson()) {
+	if !jsontext.Value(request.GetArgumentsJson()).IsValid() {
 		return Reject(rejectionCodeInvalidArgument, errors.New("tool arguments must contain valid JSON"))
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/samber/mo"
 
@@ -34,6 +35,18 @@ func (r *Runtime) Handle(
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(mapped)
 	operationID := r.operationID()
+	slog.DebugContext(
+		ctx,
+		"invoke extension handler",
+		"operation_id",
+		operationID,
+		"extension_id",
+		request.Context.ExtensionID,
+		"runtime_instance_id",
+		request.Context.RuntimeInstanceID,
+		"session_id",
+		request.Context.SessionID,
+	)
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
 		return sessiontree.HandlerResponse{}, r.handlerOperationError(ctx, handlerID, err)
@@ -82,7 +95,7 @@ func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, e
 // mapHandleRequest maps the closed internal request variants to protobuf payloads.
 func mapHandleRequest(handlerID string, request sessiontree.HandlerRequest) (*extensionpb.HandleRequest, error) {
 	//nolint:exhaustruct_v5 // The request builder sets only the active handler payload.
-	builder := extensionpb.HandleRequest_builder{HandlerId: new(handlerID)}
+	builder := extensionpb.HandleRequest_builder{HandlerId: new(handlerID), Context: mapContext(request.Context)}
 	kind, valid := request.Kind()
 	if !valid {
 		return nil, fmt.Errorf("handler %q request has no single payload", handlerID)

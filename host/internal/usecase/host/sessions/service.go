@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/samber/mo"
@@ -18,6 +19,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
@@ -42,6 +44,8 @@ type Service struct {
 	workingDirectory string
 	// active contains durable session records and public metadata.
 	active LoadedSession
+	// contextIdentity publishes immutable incarnation state without waiting for storage I/O locks.
+	contextIdentity atomic.Pointer[extensioncontext.SessionIdentity]
 	// history is the complete provider-neutral in-process history owned by this store.
 	history []agent.HistoryEntry
 	// writeUnavailable blocks mutations after this process observes a persistence failure.
@@ -70,6 +74,7 @@ func New(
 		pricing:          pricing,
 		workingDirectory: workingDirectory,
 		active:           LoadedSession{},
+		contextIdentity:  atomic.Pointer[extensioncontext.SessionIdentity]{},
 		history:          nil,
 		writeUnavailable: false,
 	}
@@ -109,6 +114,7 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 	}
 	s.mutex.Lock()
 	s.active = loaded
+	s.publishContextIdentityLocked()
 	s.history = nil
 	// Active replacement creates a new process-local write state independent from the replaced session.
 	s.writeUnavailable = false
@@ -136,6 +142,7 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 	loaded = loaded.Clone()
 	history := sessiontree.HistoryFromEntries(loaded.Tree.ActiveBranch())
 	s.active = loaded
+	s.publishContextIdentityLocked()
 	s.history = history
 	// Successful validation and replacement are the only resume path that restores mutation access.
 	s.writeUnavailable = false

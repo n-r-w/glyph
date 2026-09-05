@@ -39,7 +39,8 @@ func runHeadlessWithPaths(
 	}
 
 	renderer := headless.NewRenderer(stdout, stderr)
-	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), renderer.ReportRuntimeFailure)
+	extensionFactory := extensionruntime.NewFactory()
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, renderer.ReportRuntimeFailure)
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
@@ -50,6 +51,7 @@ func runHeadlessWithPaths(
 		extensions.Close()
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
+	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	startupService := startup.New(extensions, tools, sessionServices.tree)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
@@ -63,6 +65,7 @@ func runHeadlessWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)

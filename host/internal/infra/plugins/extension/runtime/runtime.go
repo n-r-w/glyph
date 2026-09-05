@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -84,6 +85,7 @@ func (r *Runtime) Execute(
 	toolName string,
 	argumentsJSON []byte,
 	handleProgress tool.ProgressHandler,
+	binding extension.Context,
 ) (tool.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return tool.Result{}, fmt.Errorf("execute extension tool %q: %w", toolName, err)
@@ -91,9 +93,11 @@ func (r *Runtime) Execute(
 
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{
-		ToolName: new(toolName), ArgumentsJson: argumentsJSON,
+		ToolName: new(toolName), ArgumentsJson: argumentsJSON, Context: mapContext(binding),
 	}.Build())
 	operationID := r.operationID()
+	slog.DebugContext(ctx, "invoke extension tool", "operation_id", operationID, "extension_id", binding.ExtensionID,
+		"runtime_instance_id", binding.RuntimeInstanceID, "session_id", binding.SessionID)
 	started, err := r.connection.Start(ctx, operationID, request)
 	if err != nil {
 		return tool.Result{}, r.executionError(ctx, toolName, err)

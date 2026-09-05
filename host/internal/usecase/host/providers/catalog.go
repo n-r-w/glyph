@@ -12,6 +12,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -94,6 +95,7 @@ type Catalog struct {
 }
 
 var (
+	_ extensioncontext.Catalog          = (*Catalog)(nil)
 	_ hostprogrammatic.ModelCatalog     = (*Catalog)(nil)
 	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
 )

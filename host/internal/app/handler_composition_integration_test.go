@@ -15,12 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -73,7 +75,8 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	writeHandlerFixtureScript(t, extensionDirectory, "01-supply", handlerFixtureSupplyMode, "")
 	observerPath := filepath.Join(t.TempDir(), "observed")
 	writeHandlerFixtureScript(t, extensionDirectory, "02-refine", handlerFixtureRefineMode, observerPath)
-	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), func(
+	factory := extensionruntime.NewFactory()
+	extensions := extensionmanager.New(catalog.New(), factory, func(
 		context.Context,
 		extension.RuntimeFailure,
 	) error {
@@ -85,6 +88,39 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	models := sessiontree.NewMockModelRequester(controller)
 	service := sessiontree.New(active, models, extensions)
 	tools := toolservice.New(extensions)
+	contextSession := extensioncontext.NewMockSessionState(controller)
+	contextSession.EXPECT().
+		ContextSession().
+		Return(extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
+		AnyTimes()
+	contexts := extensioncontext.New(extensions, contextSession)
+	contextCatalog := extensioncontext.NewMockCatalog(controller)
+	contextCatalog.EXPECT().Models().Return([]model.Descriptor{
+		{
+			Provider:      "provider",
+			Model:         "model",
+			Input:         []model.InputModality{model.InputModalityText},
+			ContextWindow: 1000,
+			MaxTokens:     100,
+			ReasoningCapabilities: model.ReasoningCapabilities{
+				Supported: false,
+				Choices:   []model.ReasoningChoice{model.ReasoningChoiceOff},
+				Default:   model.ReasoningChoiceOff,
+			},
+			ToolCapabilities: model.ToolCapabilities{},
+			Pricing:          mo.None[model.Pricing](),
+		},
+	}).AnyTimes()
+	contextCatalog.EXPECT().
+		ActiveSelection().
+		Return(model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}).
+		AnyTimes()
+	contexts.BindCatalog(contextCatalog)
+	service.BindContextIssuer(contexts)
+	tools.BindContextIssuer(contexts)
+	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
+		return extensioncontroller.New(contexts, extensions, extensionID, runtimeID)
+	})
 	startupService := startup.New(extensions, tools, service)
 	report, err := startupService.Load(
 		t.Context(),
@@ -124,7 +160,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	assert.Empty(t, result.Issues)
 	observed, err := os.ReadFile(observerPath)
 	require.NoError(t, err)
-	assert.Equal(t, "session:refined", string(observed))
+	assert.Equal(t, "session:refined:provider:model", string(observed))
 }
 
 // TestGRPCHandlerFixture runs one extension server only inside a child process.
@@ -210,7 +246,7 @@ func (operation *handlerFixtureRegisterOperation) Release() {}
 
 // Run returns the action owned by this fixture handler.
 func (operation *handlerFixtureHandleOperation) Run(
-	_ context.Context,
+	ctx context.Context,
 ) (*extensionpb.HandleResponse, error) {
 	request := operation.request
 	s := operation.fixture
@@ -252,7 +288,11 @@ func (operation *handlerFixtureHandleOperation) Run(
 		if invocation == nil || invocation.GetCreatedSummary() == nil {
 			return nil, fmt.Errorf("observer received no committed summary")
 		}
-		value := invocation.GetSessionId() + ":" + invocation.GetCreatedSummary().GetSummary()
+		catalog, err := readFixtureCatalogues(ctx)
+		if err != nil {
+			return nil, err
+		}
+		value := invocation.GetSessionId() + ":" + invocation.GetCreatedSummary().GetSummary() + ":" + catalog
 		if err := os.WriteFile(s.observerPath, []byte(value), 0o600); err != nil {
 			return nil, err
 		}

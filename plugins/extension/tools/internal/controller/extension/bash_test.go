@@ -88,6 +88,8 @@ func TestServiceExecuteBashTimeout(t *testing.T) {
 
 	// Act: prepare and run bash with a short positive timeout.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"sleep 30","timeout":0.01}`),
 	}.Build())
 
@@ -131,6 +133,8 @@ func TestServiceExecuteBashBoundsRetainedOutputAndRunnerError(t *testing.T) {
 
 	// Act: execute bash through the extension controller.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"partial"}`),
 	}.Build())
 
@@ -163,6 +167,8 @@ func TestServiceExecuteBashRetainedOutputCancellationPreservesCancellation(t *te
 
 	// Act: execute bash through the extension controller.
 	_, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"cancel"}`),
 	}.Build())
 
@@ -189,6 +195,8 @@ func TestServiceExecuteBashReturnsBoundedText(t *testing.T) {
 
 	// Act: prepare and run the public bash operation.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"printf ok"}`),
 	}.Build())
 

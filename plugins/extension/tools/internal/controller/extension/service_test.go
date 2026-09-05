@@ -68,6 +68,8 @@ func TestServiceExecuteRead(t *testing.T) {
 
 	// Act: prepare and run read through the public ExecuteOperation interface.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName:      new("read"),
 		ArgumentsJson: []byte(`{"path":"notes.txt","offset":2,"limit":3}`),
 	}.Build())
@@ -101,6 +103,8 @@ func TestServiceExecuteGrepDispatchesValidatedArguments(t *testing.T) {
 
 	// Act: prepare and run the public grep operation.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new("grep"), ArgumentsJson: []byte(`{"pattern":"needle","path":"src","limit":2}`),
 	}.Build())
 
@@ -123,6 +127,8 @@ func TestServiceExecuteReadImage(t *testing.T) {
 
 	// Act: prepare and run the public read operation.
 	result, err := runExecution(t, newTestClient(t, readTool), extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new("read"), ArgumentsJson: []byte(`{"path":"image.unknown"}`),
 	}.Build())
 
@@ -149,6 +155,8 @@ func TestServiceExecuteWrite(t *testing.T) {
 
 	// Act: prepare and run the public write operation.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName: new("write"), ArgumentsJson: []byte(`{"path":"nested/notes.txt","content":"content"}`),
 	}.Build())
 
@@ -170,6 +178,8 @@ func TestServiceExecuteReadError(t *testing.T) {
 
 	// Act: execute read for the missing file.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName:      new("read"),
 		ArgumentsJson: []byte(`{"path":"missing.txt"}`),
 	}.Build())
@@ -201,6 +211,8 @@ func TestServiceExecuteRejectsInvalidArguments(t *testing.T) {
 
 			// Act: submit arguments outside the read schema.
 			result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+				Context: nil,
+
 				ToolName:      new("read"),
 				ArgumentsJson: argumentsJSON,
 			}.Build())
@@ -235,6 +247,8 @@ func TestEditSchemaRejectsEmptySource(t *testing.T) {
 
 	// Act: prepare and run the invalid edit operation.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName:      new("edit"),
 		ArgumentsJson: arguments,
 	}.Build())
@@ -254,6 +268,8 @@ func TestServiceExecuteRejectsUnknownTool(t *testing.T) {
 
 	// Act: request an unregistered tool.
 	result, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+		Context: nil,
+
 		ToolName:      new("unknown"),
 		ArgumentsJson: []byte(`{"path":"notes.txt"}`),
 	}.Build())

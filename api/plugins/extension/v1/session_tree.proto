@@ -2,34 +2,18 @@ edition = "2023";
 
 package glyph.plugins.extension.v1;
 
+import "api/plugins/extension/v1/context.proto";
+import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/tool.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
-
-// HandlerDescriptor registers one session-tree handler.
-message HandlerDescriptor {
-  // The extension-local handler identifier.
-  string id = 1;
-  // The closed handler kind.
-  HandlerKind kind = 2;
-}
-
-// HandlerKind identifies one session-tree extension point.
-enum HandlerKind {
-  // No handler kind was provided.
-  HANDLER_KIND_UNSPECIFIED = 0;
-  // The handler transforms a navigation request and optional summary result.
-  HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST = 1;
-  // The handler transforms a completed branch-summary result.
-  HANDLER_KIND_SESSION_BEFORE_TREE_RESULT = 2;
-  // The handler observes committed tree navigation.
-  HANDLER_KIND_SESSION_TREE = 3;
-}
 
 // HandleRequest invokes one registered handler with its typed payload.
 message HandleRequest {
   // The registered extension-local handler identifier.
   string handler_id = 1;
+  // The issued session-bound context for this invocation.
+  ExtensionContext context = 5;
   // The payload allowed for the registered handler kind.
   oneof payload {
     SessionBeforeTreeRequestInvocation session_before_tree_request = 2;
@@ -172,16 +156,6 @@ enum SummaryMode {
   SUMMARY_MODE_SUMMARIZE = 2;
   // Summarize the abandoned branch with custom focus.
   SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT = 3;
-}
-
-// ModelSelection identifies a provider, model, and reasoning choice for a request or result source.
-message ModelSelection {
-  // The provider identifier.
-  string provider_id = 1;
-  // The model identifier.
-  string model_id = 2;
-  // The reasoning choice.
-  string reasoning_choice = 3;
 }
 
 // SessionTreePreparation contains Host-computed context for one navigation request.

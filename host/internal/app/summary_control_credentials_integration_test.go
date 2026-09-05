@@ -75,6 +75,18 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			}}, selection)
 			require.NoError(t, err)
 			service := sessiontree.New(active, models, extensions)
+			contexts := sessiontree.NewMockContextIssuer(controller)
+			contexts.EXPECT().IssueContext("control").DoAndReturn(func(extensionID string) (extension.Context, error) {
+				instance, _ := extensions.ContextRuntime(extensionID)
+				return extension.Context{
+					ID:                "binding",
+					ExtensionID:       extensionID,
+					RuntimeInstanceID: instance,
+					SessionID:         "session",
+					WorkingDirectory:  "/project",
+				}, nil
+			}).AnyTimes()
+			service.BindContextIssuer(contexts)
 			startupService := startup.New(extensions, toolservice.New(extensions), service)
 			report, err := startupService.Load(
 				t.Context(),

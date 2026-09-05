@@ -27,7 +27,7 @@ func TestRuntimeConnectionFailureStartsNoCancellationOperation(t *testing.T) {
 
 	// Act: receive the connection failure for the second runtime operation.
 	_, err = runtime.Execute(
-		t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+		t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 	)
 
 	// Assert: return the failure without allocating a third identifier for cancellation.
@@ -65,10 +65,10 @@ func TestRuntimeKeepsExecuteRejectionAndFailureAvailable(t *testing.T) {
 
 			// Act: receive the selected terminal error, then execute later work.
 			_, terminalErr := runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 			later, laterErr := runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 
 			// Assert: preserve the wrapper, category, full Host context, source text, and runtime availability.
@@ -186,6 +186,8 @@ func assertRuntimeTerminalError(
 // validSessionTreeHandlerRequest returns one valid observer invocation.
 func validSessionTreeHandlerRequest() sessiontree.HandlerRequest {
 	return sessiontree.HandlerRequest{
+		Context: runtimeTestContext(),
+
 		Request: mo.None[sessiontree.RequestHandlerInvocation](),
 		Result:  mo.None[sessiontree.ResultHandlerInvocation](),
 		Observer: mo.Some(sessiontree.TreeObserverInvocation{

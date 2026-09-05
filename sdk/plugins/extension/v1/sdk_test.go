@@ -105,6 +105,8 @@ func TestConnectAndServe(t *testing.T) {
 	handleRequest := new(extensionpb.HostRequest)
 	//nolint:exhaustruct_v5 // The request builder sets only the active observer payload.
 	handleRequest.SetHandle(extensionpb.HandleRequest_builder{
+		Context: testInvocationIdentity(),
+
 		HandlerId: new("observer"),
 		SessionTree: extensionpb.SessionTreeInvocation_builder{
 			SessionId: new("session"), TargetEntryId: new("target"),
@@ -123,6 +125,8 @@ func TestConnectAndServe(t *testing.T) {
 	// Act: request an unknown tool through the public operation API.
 	rejectedRequest := new(extensionpb.HostRequest)
 	rejectedRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new("unknown"), ArgumentsJson: []byte(`{}`),
 	}.Build())
 	rejectedOperation, err := connection.Start(t.Context(), "rejected", rejectedRequest)
@@ -138,6 +142,8 @@ func TestConnectAndServe(t *testing.T) {
 	// Act: execute accepted work that fails through the public operation API.
 	failedRequest := new(extensionpb.HostRequest)
 	failedRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new("contract"), ArgumentsJson: []byte(`{}`),
 	}.Build())
 	failedOperation, err := connection.Start(t.Context(), "failed", failedRequest)
@@ -153,6 +159,8 @@ func TestConnectAndServe(t *testing.T) {
 	// Act: execute another tool operation and collect ordered progress.
 	executeRequest := new(extensionpb.HostRequest)
 	executeRequest.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName: new("contract"), ArgumentsJson: []byte(`{}`),
 	}.Build())
 	executeOperation, err := connection.Start(t.Context(), "execute", executeRequest)
@@ -243,6 +251,17 @@ func newContractService(t *testing.T) Service {
 	).AnyTimes()
 	execution.EXPECT().Release().AnyTimes()
 	return service
+}
+
+// testInvocationIdentity supplies complete identity for public SDK process invocation tests.
+func testInvocationIdentity() *extensionpb.ExtensionContext {
+	return extensionpb.ExtensionContext_builder{
+		ContextId:         new("binding"),
+		ExtensionId:       new("extension"),
+		RuntimeInstanceId: new("runtime"),
+		SessionId:         new("session"),
+		Cwd:               new("/project"),
+	}.Build()
 }
 
 // contractRegistration returns the valid public SDK fixture catalog.

@@ -28,7 +28,10 @@ func TestServiceDiscoverNormalizesAndIsolatesInvalidIDs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		[]extensionruntime.Candidate{{ID: "other-tool", Path: filepath.Join(directory, "Other__Tool")}},
+		[]extensionruntime.Candidate{{
+			InstanceID: "",
+			ID:         "other-tool", Path: filepath.Join(directory, "Other__Tool"),
+		}},
 		discovery.Candidates,
 	)
 	require.Len(t, discovery.Issues, 3)

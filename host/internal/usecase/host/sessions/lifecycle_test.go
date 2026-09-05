@@ -330,7 +330,7 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(nil),
 		Information:          mo.Some(session.Information{Name: "stored name"}),
 		InformationUpdatedAt: mo.Some(createdAt.Add(time.Minute)),
-	}, nil)
+	}, nil).Times(2)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming and mutating source and returned replacement values.
@@ -343,6 +343,20 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	s.Equal(session.ID("stored-id"), active.ID)
 	s.Equal(mo.Some("stored name"), active.Name)
 	s.Equal(mo.Some("/sessions/stored.jsonl"), active.StoragePath)
+	first := service.ContextSession()
+	s.Equal("stored-id", first.ID)
+	s.Equal("/project", first.WorkingDirectory)
+	s.NotZero(first.Incarnation)
+	// Identity reads must not wait for the lock held during repository resume work.
+	service.mutex.Lock()
+	published := service.ContextSession()
+	service.mutex.Unlock()
+	s.Equal(first, published)
+	_, err = service.ResumeActive(s.T().Context(), "stored-id")
+	s.Require().NoError(err)
+	resumed := service.ContextSession()
+	s.Equal(first.ID, resumed.ID)
+	s.Greater(resumed.Incarnation, first.Incarnation)
 }
 
 // TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots verifies every active-session boundary owns extension bytes.

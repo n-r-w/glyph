@@ -34,6 +34,8 @@ func TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen(t *testing.T) {
 		},
 		"unset request kind": {
 			request: extensionpb.OpenRequest_builder{
+				Event: nil,
+
 				OperationId: new("rejected"), Request: new(extensionpb.HostRequest), Close: nil,
 			}.Build(),
 			id: "rejected", code: rejectionCodeInvalidArgument,
@@ -50,6 +52,16 @@ func TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen(t *testing.T) {
 		},
 		"non-JSON Execute arguments": {
 			request: openExecuteRequestWith("rejected", "tool", []byte(`{"invalid"`)),
+			id:      "rejected", code: rejectionCodeInvalidArgument,
+			message: "tool arguments must contain valid JSON", configure: nil,
+		},
+		"duplicate Execute argument names": {
+			request: openExecuteRequestWith("rejected", "tool", []byte(`{"key":1,"key":2}`)),
+			id:      "rejected", code: rejectionCodeInvalidArgument,
+			message: "tool arguments must contain valid JSON", configure: nil,
+		},
+		"invalid UTF-8 Execute arguments": {
+			request: openExecuteRequestWith("rejected", "tool", []byte{'"', 0xff, '"'}),
 			id:      "rejected", code: rejectionCodeInvalidArgument,
 			message: "tool arguments must contain valid JSON", configure: nil,
 		},
@@ -103,6 +115,8 @@ func TestServerRejectsRequestWithoutContent(t *testing.T) {
 	stream.EXPECT().Context().AnyTimes().Return(t.Context())
 	gomock.InOrder(
 		stream.EXPECT().Recv().Return(extensionpb.OpenRequest_builder{
+			Event: nil,
+
 			OperationId: new("invalid"), Request: nil, Close: nil,
 		}.Build(), nil),
 		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {

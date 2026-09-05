@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,18 +43,18 @@ func (m *MockRuntime) EXPECT() *MockRuntimeMockRecorder {
 }
 
 // ExecuteTool mocks base method.
-func (m *MockRuntime) ExecuteTool(ctx context.Context, extensionID, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler) (tool.Result, error) {
+func (m *MockRuntime) ExecuteTool(ctx context.Context, extensionID, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler, binding extension.Context) (tool.Result, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteTool", ctx, extensionID, name, argumentsJSON, handleProgress)
+	ret := m.ctrl.Call(m, "ExecuteTool", ctx, extensionID, name, argumentsJSON, handleProgress, binding)
 	ret0, _ := ret[0].(tool.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExecuteTool indicates an expected call of ExecuteTool.
-func (mr *MockRuntimeMockRecorder) ExecuteTool(ctx, extensionID, name, argumentsJSON, handleProgress any) *gomock.Call {
+func (mr *MockRuntimeMockRecorder) ExecuteTool(ctx, extensionID, name, argumentsJSON, handleProgress, binding any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTool", reflect.TypeOf((*MockRuntime)(nil).ExecuteTool), ctx, extensionID, name, argumentsJSON, handleProgress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTool", reflect.TypeOf((*MockRuntime)(nil).ExecuteTool), ctx, extensionID, name, argumentsJSON, handleProgress, binding)
 }
 
 // ToolRuntimeAvailable mocks base method.
@@ -68,4 +69,43 @@ func (m *MockRuntime) ToolRuntimeAvailable(extensionID string) bool {
 func (mr *MockRuntimeMockRecorder) ToolRuntimeAvailable(extensionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolRuntimeAvailable", reflect.TypeOf((*MockRuntime)(nil).ToolRuntimeAvailable), extensionID)
+}
+
+// MockContextIssuer is a mock of ContextIssuer interface.
+type MockContextIssuer struct {
+	ctrl     *gomock.Controller
+	recorder *MockContextIssuerMockRecorder
+	isgomock struct{}
+}
+
+// MockContextIssuerMockRecorder is the mock recorder for MockContextIssuer.
+type MockContextIssuerMockRecorder struct {
+	mock *MockContextIssuer
+}
+
+// NewMockContextIssuer creates a new mock instance.
+func NewMockContextIssuer(ctrl *gomock.Controller) *MockContextIssuer {
+	mock := &MockContextIssuer{ctrl: ctrl}
+	mock.recorder = &MockContextIssuerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContextIssuer) EXPECT() *MockContextIssuerMockRecorder {
+	return m.recorder
+}
+
+// IssueContext mocks base method.
+func (m *MockContextIssuer) IssueContext(extensionID string) (extension.Context, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IssueContext", extensionID)
+	ret0, _ := ret[0].(extension.Context)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IssueContext indicates an expected call of IssueContext.
+func (mr *MockContextIssuerMockRecorder) IssueContext(extensionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), extensionID)
 }

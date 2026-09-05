@@ -99,7 +99,7 @@ func TestHostClientDisconnectWaitsForActiveExecuteRelease(t *testing.T) {
 			serveResult,
 			"gRPC server shutdown",
 		); serveErr != nil {
-			assert.ErrorIs(t, serveErr, grpc.ErrServerStopped)
+			require.ErrorIs(t, serveErr, grpc.ErrServerStopped)
 		}
 	})
 
@@ -197,6 +197,8 @@ func integrationRegisterRequest(operationID string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetRegister(new(extensionpb.RegisterRequest))
 	return extensionpb.OpenRequest_builder{
+		Event: nil,
+
 		OperationId: new(operationID),
 		Request:     request,
 		Close:       nil,
@@ -207,10 +209,14 @@ func integrationRegisterRequest(operationID string) *extensionpb.OpenRequest {
 func integrationExecuteRequest(operationID string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetExecute(extensionpb.ExecuteRequest_builder{
+		Context: testInvocationIdentity(),
+
 		ToolName:      new("contract"),
 		ArgumentsJson: []byte(`{}`),
 	}.Build())
 	return extensionpb.OpenRequest_builder{
+		Event: nil,
+
 		OperationId: new(operationID),
 		Request:     request,
 		Close:       nil,

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	sessiontree "github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	startup "github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -109,18 +110,18 @@ func (mr *MockExtensionRuntimeMockRecorder) Done() *gomock.Call {
 }
 
 // Execute mocks base method.
-func (m *MockExtensionRuntime) Execute(ctx context.Context, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler) (tool.Result, error) {
+func (m *MockExtensionRuntime) Execute(ctx context.Context, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler, binding extension.Context) (tool.Result, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", ctx, name, argumentsJSON, handleProgress)
+	ret := m.ctrl.Call(m, "Execute", ctx, name, argumentsJSON, handleProgress, binding)
 	ret0, _ := ret[0].(tool.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockExtensionRuntimeMockRecorder) Execute(ctx, name, argumentsJSON, handleProgress any) *gomock.Call {
+func (mr *MockExtensionRuntimeMockRecorder) Execute(ctx, name, argumentsJSON, handleProgress, binding any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockExtensionRuntime)(nil).Execute), ctx, name, argumentsJSON, handleProgress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockExtensionRuntime)(nil).Execute), ctx, name, argumentsJSON, handleProgress, binding)
 }
 
 // Handle mocks base method.

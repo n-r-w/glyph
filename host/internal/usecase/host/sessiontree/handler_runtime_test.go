@@ -8,11 +8,25 @@ import (
 	"github.com/samber/mo"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
 // registerTestHandlers publishes handlers and makes their runtimes available to one navigation test.
 func registerTestHandlers(service *Service, runtime *MockRuntime, kind HandlerKind, handlers []Handler) {
+	if service.contexts == nil {
+		contexts := NewMockContextIssuer(runtime.ctrl)
+		contexts.EXPECT().IssueContext(gomock.Any()).DoAndReturn(func(extensionID string) (extension.Context, error) {
+			return extension.Context{
+				ID:                "binding",
+				ExtensionID:       extensionID,
+				RuntimeInstanceID: "runtime",
+				SessionID:         "session",
+				WorkingDirectory:  "/project",
+			}, nil
+		}).AnyTimes()
+		service.BindContextIssuer(contexts)
+	}
 	registrations := make([]startup.AcceptedRegistration, 0, len(handlers))
 	for _, handler := range handlers {
 		registrations = append(registrations, startup.AcceptedRegistration{

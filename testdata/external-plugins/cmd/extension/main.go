@@ -3,10 +3,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -24,6 +25,10 @@ const (
 	internalFailureCode = "INTERNAL"
 	// ordinaryMode selects immediate successful execution.
 	ordinaryMode = "ordinary"
+	// cataloguesMode reads model and provider catalogs through the invocation context.
+	cataloguesMode = "catalogs"
+	// staleCataloguesMode exercises a retained binding instead of the current invocation binding.
+	staleCataloguesMode = "stale-catalogs"
 	// failureMode selects classified execution failure.
 	failureMode = "fail"
 	// cancellationMode selects execution blocked until targeted cancellation.
@@ -38,6 +43,10 @@ const (
 
 // service implements the public Extension SDK contract.
 type service struct {
+	// contextMutex protects the retained binding across concurrent invocations.
+	contextMutex sync.Mutex
+	// savedContext retains the first observed binding for stale-context scenarios.
+	savedContext *extensionsdk.ExtensionContext
 	// signals stores the process synchronization directory.
 	signals string
 }
@@ -50,6 +59,8 @@ type handleOperation struct{}
 
 // executeOperation owns one mode-specific tool invocation.
 type executeOperation struct {
+	// savedContext is the binding retained by the extension rather than refreshed by Host.
+	savedContext *extensionsdk.ExtensionContext
 	// signals stores the process synchronization directory.
 	signals string
 	// mode selects ordinary, failure, cancellation, or shutdown behavior.
@@ -72,7 +83,7 @@ var (
 
 // main serves the external Extension fixture through the public SDK.
 func main() {
-	extensionsdk.Serve(&service{signals: os.Getenv(signalsEnvironment)})
+	extensionsdk.Serve(&service{signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil})
 }
 
 // PrepareRegister admits the fixture registration operation.
@@ -93,7 +104,7 @@ func (*service) PrepareHandle(
 
 // PrepareExecute validates and admits one fixture tool operation.
 func (s *service) PrepareExecute(
-	_ context.Context,
+	ctx context.Context,
 	request *extensionv1.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
 	if request.GetToolName() != toolName {
@@ -104,8 +115,18 @@ func (s *service) PrepareExecute(
 		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
 	switch arguments.Mode {
-	case ordinaryMode, failureMode, cancellationMode, shutdownMode:
-		return &executeOperation{signals: s.signals, mode: arguments.Mode}, nil
+	case ordinaryMode, cataloguesMode, staleCataloguesMode, failureMode, cancellationMode, shutdownMode:
+		binding, err := extensionsdk.ContextFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
+		s.contextMutex.Lock()
+		if s.savedContext == nil && arguments.Mode == cataloguesMode {
+			s.savedContext = binding
+		}
+		saved := s.savedContext
+		s.contextMutex.Unlock()
+		return &executeOperation{signals: s.signals, mode: arguments.Mode, savedContext: saved}, nil
 	default:
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture mode is invalid"))
 	}
@@ -147,6 +168,10 @@ func (operation *executeOperation) Run(
 			},
 			IsError: new(false),
 		}.Build(), nil
+	case cataloguesMode:
+		return readCatalogues(ctx)
+	case staleCataloguesMode:
+		return operation.readRetainedCatalogues(ctx)
 	case failureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("complete external Extension failure"))
 	default:

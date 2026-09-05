@@ -21,7 +21,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// OpenRequest carries one Host operation request or close request.
+// HandlerKind identifies an implemented extension point.
+type HandlerKind int32
+
+const (
+	// No handler kind was provided.
+	HandlerKind_HANDLER_KIND_UNSPECIFIED HandlerKind = 0
+	// The handler transforms navigation requests and optional summary results.
+	HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST HandlerKind = 1
+	// The handler transforms completed branch-summary results.
+	HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT HandlerKind = 2
+	// The handler observes committed tree navigation.
+	HandlerKind_HANDLER_KIND_SESSION_TREE HandlerKind = 3
+)
+
+// Enum value maps for HandlerKind.
+var (
+	HandlerKind_name = map[int32]string{
+		0: "HANDLER_KIND_UNSPECIFIED",
+		1: "HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST",
+		2: "HANDLER_KIND_SESSION_BEFORE_TREE_RESULT",
+		3: "HANDLER_KIND_SESSION_TREE",
+	}
+	HandlerKind_value = map[string]int32{
+		"HANDLER_KIND_UNSPECIFIED":                 0,
+		"HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST": 1,
+		"HANDLER_KIND_SESSION_BEFORE_TREE_RESULT":  2,
+		"HANDLER_KIND_SESSION_TREE":                3,
+	}
+)
+
+func (x HandlerKind) Enum() *HandlerKind {
+	p := new(HandlerKind)
+	*p = x
+	return p
+}
+
+func (x HandlerKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HandlerKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_extension_proto_enumTypes[0].Descriptor()
+}
+
+func (HandlerKind) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_extension_proto_enumTypes[0]
+}
+
+func (x HandlerKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// OpenRequest carries Host output for either initiator namespace or connection close.
 type OpenRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_OperationId *string                `protobuf:"bytes,1,opt,name=operation_id,json=operationId"`
@@ -85,6 +137,15 @@ func (x *OpenRequest) GetClose() *v1.CloseConnection {
 	return nil
 }
 
+func (x *OpenRequest) GetEvent() *HostEvent {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*openRequest_Event); ok {
+			return x.Event
+		}
+	}
+	return nil
+}
+
 func (x *OpenRequest) SetOperationId(v string) {
 	x.xxx_hidden_OperationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
@@ -104,6 +165,14 @@ func (x *OpenRequest) SetClose(v *v1.CloseConnection) {
 		return
 	}
 	x.xxx_hidden_Content = &openRequest_Close{v}
+}
+
+func (x *OpenRequest) SetEvent(v *HostEvent) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &openRequest_Event{v}
 }
 
 func (x *OpenRequest) HasOperationId() bool {
@@ -136,6 +205,14 @@ func (x *OpenRequest) HasClose() bool {
 	return ok
 }
 
+func (x *OpenRequest) HasEvent() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*openRequest_Event)
+	return ok
+}
+
 func (x *OpenRequest) ClearOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_OperationId = nil
@@ -157,9 +234,16 @@ func (x *OpenRequest) ClearClose() {
 	}
 }
 
+func (x *OpenRequest) ClearEvent() {
+	if _, ok := x.xxx_hidden_Content.(*openRequest_Event); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
 const OpenRequest_Content_not_set_case case_OpenRequest_Content = 0
 const OpenRequest_Request_case case_OpenRequest_Content = 2
 const OpenRequest_Close_case case_OpenRequest_Content = 3
+const OpenRequest_Event_case case_OpenRequest_Content = 4
 
 func (x *OpenRequest) WhichContent() case_OpenRequest_Content {
 	if x == nil {
@@ -170,6 +254,8 @@ func (x *OpenRequest) WhichContent() case_OpenRequest_Content {
 		return OpenRequest_Request_case
 	case *openRequest_Close:
 		return OpenRequest_Close_case
+	case *openRequest_Event:
+		return OpenRequest_Event_case
 	default:
 		return OpenRequest_Content_not_set_case
 	}
@@ -178,13 +264,14 @@ func (x *OpenRequest) WhichContent() case_OpenRequest_Content {
 type OpenRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The operation identifier for operation requests.
+	// The Host request identifier, or extension request identifier for a HostEvent.
 	OperationId *string
 	// The stream content.
 
 	// Fields of oneof xxx_hidden_Content:
 	Request *HostRequest
 	Close   *v1.CloseConnection
+	Event   *HostEvent
 	// -- end of xxx_hidden_Content
 }
 
@@ -201,6 +288,9 @@ func (b0 OpenRequest_builder) Build() *OpenRequest {
 	}
 	if b.Close != nil {
 		x.xxx_hidden_Content = &openRequest_Close{b.Close}
+	}
+	if b.Event != nil {
+		x.xxx_hidden_Content = &openRequest_Event{b.Event}
 	}
 	return m0
 }
@@ -227,11 +317,17 @@ type openRequest_Close struct {
 	Close *v1.CloseConnection `protobuf:"bytes,3,opt,name=close,oneof"`
 }
 
+type openRequest_Event struct {
+	Event *HostEvent `protobuf:"bytes,4,opt,name=event,oneof"`
+}
+
 func (*openRequest_Request) isOpenRequest_Content() {}
 
 func (*openRequest_Close) isOpenRequest_Content() {}
 
-// OpenResponse carries one extension operation lifecycle event.
+func (*openRequest_Event) isOpenRequest_Content() {}
+
+// OpenResponse carries extension output for either initiator namespace.
 type OpenResponse struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_OperationId *string                `protobuf:"bytes,1,opt,name=operation_id,json=operationId"`
@@ -286,6 +382,15 @@ func (x *OpenResponse) GetEvent() *ExtensionEvent {
 	return nil
 }
 
+func (x *OpenResponse) GetRequest() *ExtensionRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*openResponse_Request); ok {
+			return x.Request
+		}
+	}
+	return nil
+}
+
 func (x *OpenResponse) SetOperationId(v string) {
 	x.xxx_hidden_OperationId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
@@ -297,6 +402,14 @@ func (x *OpenResponse) SetEvent(v *ExtensionEvent) {
 		return
 	}
 	x.xxx_hidden_Content = &openResponse_Event{v}
+}
+
+func (x *OpenResponse) SetRequest(v *ExtensionRequest) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &openResponse_Request{v}
 }
 
 func (x *OpenResponse) HasOperationId() bool {
@@ -321,6 +434,14 @@ func (x *OpenResponse) HasEvent() bool {
 	return ok
 }
 
+func (x *OpenResponse) HasRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*openResponse_Request)
+	return ok
+}
+
 func (x *OpenResponse) ClearOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_OperationId = nil
@@ -336,8 +457,15 @@ func (x *OpenResponse) ClearEvent() {
 	}
 }
 
+func (x *OpenResponse) ClearRequest() {
+	if _, ok := x.xxx_hidden_Content.(*openResponse_Request); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
 const OpenResponse_Content_not_set_case case_OpenResponse_Content = 0
 const OpenResponse_Event_case case_OpenResponse_Content = 2
+const OpenResponse_Request_case case_OpenResponse_Content = 3
 
 func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 	if x == nil {
@@ -346,6 +474,8 @@ func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 	switch x.xxx_hidden_Content.(type) {
 	case *openResponse_Event:
 		return OpenResponse_Event_case
+	case *openResponse_Request:
+		return OpenResponse_Request_case
 	default:
 		return OpenResponse_Content_not_set_case
 	}
@@ -354,12 +484,13 @@ func (x *OpenResponse) WhichContent() case_OpenResponse_Content {
 type OpenResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The operation identifier for lifecycle events.
+	// The extension request identifier, or Host request identifier for an ExtensionEvent.
 	OperationId *string
 	// The stream content.
 
 	// Fields of oneof xxx_hidden_Content:
-	Event *ExtensionEvent
+	Event   *ExtensionEvent
+	Request *ExtensionRequest
 	// -- end of xxx_hidden_Content
 }
 
@@ -373,6 +504,9 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 	}
 	if b.Event != nil {
 		x.xxx_hidden_Content = &openResponse_Event{b.Event}
+	}
+	if b.Request != nil {
+		x.xxx_hidden_Content = &openResponse_Request{b.Request}
 	}
 	return m0
 }
@@ -395,7 +529,13 @@ type openResponse_Event struct {
 	Event *ExtensionEvent `protobuf:"bytes,2,opt,name=event,oneof"`
 }
 
+type openResponse_Request struct {
+	Request *ExtensionRequest `protobuf:"bytes,3,opt,name=request,oneof"`
+}
+
 func (*openResponse_Event) isOpenResponse_Content() {}
+
+func (*openResponse_Request) isOpenResponse_Content() {}
 
 // HostRequest carries exactly one Host-initiated operation kind.
 type HostRequest struct {
@@ -1445,6 +1585,905 @@ func (*extensionCompleted_Tool) isExtensionCompleted_Completed() {}
 
 func (*extensionCompleted_Cancel) isExtensionCompleted_Completed() {}
 
+// ExtensionRequest carries one extension-initiated operation owned by Host.
+type ExtensionRequest struct {
+	state              protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Request isExtensionRequest_Request `protobuf_oneof:"request"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ExtensionRequest) Reset() {
+	*x = ExtensionRequest{}
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtensionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtensionRequest) ProtoMessage() {}
+
+func (x *ExtensionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ExtensionRequest) GetGetModels() *GetModelsRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_GetModels); ok {
+			return x.GetModels
+		}
+	}
+	return nil
+}
+
+func (x *ExtensionRequest) GetGetProviders() *GetProvidersRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_GetProviders); ok {
+			return x.GetProviders
+		}
+	}
+	return nil
+}
+
+func (x *ExtensionRequest) GetCancel() *v1.CancelOperation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_Cancel); ok {
+			return x.Cancel
+		}
+	}
+	return nil
+}
+
+func (x *ExtensionRequest) SetGetModels(v *GetModelsRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_GetModels{v}
+}
+
+func (x *ExtensionRequest) SetGetProviders(v *GetProvidersRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_GetProviders{v}
+}
+
+func (x *ExtensionRequest) SetCancel(v *v1.CancelOperation) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_Cancel{v}
+}
+
+func (x *ExtensionRequest) HasRequest() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Request != nil
+}
+
+func (x *ExtensionRequest) HasGetModels() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_GetModels)
+	return ok
+}
+
+func (x *ExtensionRequest) HasGetProviders() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_GetProviders)
+	return ok
+}
+
+func (x *ExtensionRequest) HasCancel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_Cancel)
+	return ok
+}
+
+func (x *ExtensionRequest) ClearRequest() {
+	x.xxx_hidden_Request = nil
+}
+
+func (x *ExtensionRequest) ClearGetModels() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_GetModels); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ExtensionRequest) ClearGetProviders() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_GetProviders); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ExtensionRequest) ClearCancel() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_Cancel); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+const ExtensionRequest_Request_not_set_case case_ExtensionRequest_Request = 0
+const ExtensionRequest_GetModels_case case_ExtensionRequest_Request = 1
+const ExtensionRequest_GetProviders_case case_ExtensionRequest_Request = 2
+const ExtensionRequest_Cancel_case case_ExtensionRequest_Request = 3
+
+func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
+	if x == nil {
+		return ExtensionRequest_Request_not_set_case
+	}
+	switch x.xxx_hidden_Request.(type) {
+	case *extensionRequest_GetModels:
+		return ExtensionRequest_GetModels_case
+	case *extensionRequest_GetProviders:
+		return ExtensionRequest_GetProviders_case
+	case *extensionRequest_Cancel:
+		return ExtensionRequest_Cancel_case
+	default:
+		return ExtensionRequest_Request_not_set_case
+	}
+}
+
+type ExtensionRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The request payload.
+
+	// Fields of oneof xxx_hidden_Request:
+	GetModels    *GetModelsRequest
+	GetProviders *GetProvidersRequest
+	Cancel       *v1.CancelOperation
+	// -- end of xxx_hidden_Request
+}
+
+func (b0 ExtensionRequest_builder) Build() *ExtensionRequest {
+	m0 := &ExtensionRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.GetModels != nil {
+		x.xxx_hidden_Request = &extensionRequest_GetModels{b.GetModels}
+	}
+	if b.GetProviders != nil {
+		x.xxx_hidden_Request = &extensionRequest_GetProviders{b.GetProviders}
+	}
+	if b.Cancel != nil {
+		x.xxx_hidden_Request = &extensionRequest_Cancel{b.Cancel}
+	}
+	return m0
+}
+
+type case_ExtensionRequest_Request protoreflect.FieldNumber
+
+func (x case_ExtensionRequest_Request) String() string {
+	md := file_api_plugins_extension_v1_extension_proto_msgTypes[6].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isExtensionRequest_Request interface {
+	isExtensionRequest_Request()
+}
+
+type extensionRequest_GetModels struct {
+	GetModels *GetModelsRequest `protobuf:"bytes,1,opt,name=get_models,json=getModels,oneof"`
+}
+
+type extensionRequest_GetProviders struct {
+	GetProviders *GetProvidersRequest `protobuf:"bytes,2,opt,name=get_providers,json=getProviders,oneof"`
+}
+
+type extensionRequest_Cancel struct {
+	Cancel *v1.CancelOperation `protobuf:"bytes,3,opt,name=cancel,oneof"`
+}
+
+func (*extensionRequest_GetModels) isExtensionRequest_Request() {}
+
+func (*extensionRequest_GetProviders) isExtensionRequest_Request() {}
+
+func (*extensionRequest_Cancel) isExtensionRequest_Request() {}
+
+// HostEvent carries the lifecycle of one extension-initiated operation.
+type HostEvent struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Event isHostEvent_Event      `protobuf_oneof:"event"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *HostEvent) Reset() {
+	*x = HostEvent{}
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostEvent) ProtoMessage() {}
+
+func (x *HostEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostEvent) GetAccepted() *v1.Accepted {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Accepted); ok {
+			return x.Accepted
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetRunning() *v1.Running {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Running); ok {
+			return x.Running
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetCompleted() *HostCompleted {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Completed); ok {
+			return x.Completed
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetCanceled() *v1.Canceled {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Canceled); ok {
+			return x.Canceled
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetFailed() *v1.Failed {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Failed); ok {
+			return x.Failed
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) GetRejected() *v1.Rejected {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostEvent_Rejected); ok {
+			return x.Rejected
+		}
+	}
+	return nil
+}
+
+func (x *HostEvent) SetAccepted(v *v1.Accepted) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Accepted{v}
+}
+
+func (x *HostEvent) SetRunning(v *v1.Running) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Running{v}
+}
+
+func (x *HostEvent) SetCompleted(v *HostCompleted) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Completed{v}
+}
+
+func (x *HostEvent) SetCanceled(v *v1.Canceled) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Canceled{v}
+}
+
+func (x *HostEvent) SetFailed(v *v1.Failed) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Failed{v}
+}
+
+func (x *HostEvent) SetRejected(v *v1.Rejected) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostEvent_Rejected{v}
+}
+
+func (x *HostEvent) HasEvent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Event != nil
+}
+
+func (x *HostEvent) HasAccepted() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Accepted)
+	return ok
+}
+
+func (x *HostEvent) HasRunning() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Running)
+	return ok
+}
+
+func (x *HostEvent) HasCompleted() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Completed)
+	return ok
+}
+
+func (x *HostEvent) HasCanceled() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Canceled)
+	return ok
+}
+
+func (x *HostEvent) HasFailed() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Failed)
+	return ok
+}
+
+func (x *HostEvent) HasRejected() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostEvent_Rejected)
+	return ok
+}
+
+func (x *HostEvent) ClearEvent() {
+	x.xxx_hidden_Event = nil
+}
+
+func (x *HostEvent) ClearAccepted() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Accepted); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearRunning() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Running); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearCompleted() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Completed); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearCanceled() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Canceled); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearFailed() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Failed); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *HostEvent) ClearRejected() {
+	if _, ok := x.xxx_hidden_Event.(*hostEvent_Rejected); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+const HostEvent_Event_not_set_case case_HostEvent_Event = 0
+const HostEvent_Accepted_case case_HostEvent_Event = 1
+const HostEvent_Running_case case_HostEvent_Event = 2
+const HostEvent_Completed_case case_HostEvent_Event = 3
+const HostEvent_Canceled_case case_HostEvent_Event = 4
+const HostEvent_Failed_case case_HostEvent_Event = 5
+const HostEvent_Rejected_case case_HostEvent_Event = 6
+
+func (x *HostEvent) WhichEvent() case_HostEvent_Event {
+	if x == nil {
+		return HostEvent_Event_not_set_case
+	}
+	switch x.xxx_hidden_Event.(type) {
+	case *hostEvent_Accepted:
+		return HostEvent_Accepted_case
+	case *hostEvent_Running:
+		return HostEvent_Running_case
+	case *hostEvent_Completed:
+		return HostEvent_Completed_case
+	case *hostEvent_Canceled:
+		return HostEvent_Canceled_case
+	case *hostEvent_Failed:
+		return HostEvent_Failed_case
+	case *hostEvent_Rejected:
+		return HostEvent_Rejected_case
+	default:
+		return HostEvent_Event_not_set_case
+	}
+}
+
+type HostEvent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The lifecycle payload.
+
+	// Fields of oneof xxx_hidden_Event:
+	Accepted  *v1.Accepted
+	Running   *v1.Running
+	Completed *HostCompleted
+	Canceled  *v1.Canceled
+	Failed    *v1.Failed
+	Rejected  *v1.Rejected
+	// -- end of xxx_hidden_Event
+}
+
+func (b0 HostEvent_builder) Build() *HostEvent {
+	m0 := &HostEvent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Accepted != nil {
+		x.xxx_hidden_Event = &hostEvent_Accepted{b.Accepted}
+	}
+	if b.Running != nil {
+		x.xxx_hidden_Event = &hostEvent_Running{b.Running}
+	}
+	if b.Completed != nil {
+		x.xxx_hidden_Event = &hostEvent_Completed{b.Completed}
+	}
+	if b.Canceled != nil {
+		x.xxx_hidden_Event = &hostEvent_Canceled{b.Canceled}
+	}
+	if b.Failed != nil {
+		x.xxx_hidden_Event = &hostEvent_Failed{b.Failed}
+	}
+	if b.Rejected != nil {
+		x.xxx_hidden_Event = &hostEvent_Rejected{b.Rejected}
+	}
+	return m0
+}
+
+type case_HostEvent_Event protoreflect.FieldNumber
+
+func (x case_HostEvent_Event) String() string {
+	md := file_api_plugins_extension_v1_extension_proto_msgTypes[7].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isHostEvent_Event interface {
+	isHostEvent_Event()
+}
+
+type hostEvent_Accepted struct {
+	Accepted *v1.Accepted `protobuf:"bytes,1,opt,name=accepted,oneof"`
+}
+
+type hostEvent_Running struct {
+	Running *v1.Running `protobuf:"bytes,2,opt,name=running,oneof"`
+}
+
+type hostEvent_Completed struct {
+	Completed *HostCompleted `protobuf:"bytes,3,opt,name=completed,oneof"`
+}
+
+type hostEvent_Canceled struct {
+	Canceled *v1.Canceled `protobuf:"bytes,4,opt,name=canceled,oneof"`
+}
+
+type hostEvent_Failed struct {
+	Failed *v1.Failed `protobuf:"bytes,5,opt,name=failed,oneof"`
+}
+
+type hostEvent_Rejected struct {
+	Rejected *v1.Rejected `protobuf:"bytes,6,opt,name=rejected,oneof"`
+}
+
+func (*hostEvent_Accepted) isHostEvent_Event() {}
+
+func (*hostEvent_Running) isHostEvent_Event() {}
+
+func (*hostEvent_Completed) isHostEvent_Event() {}
+
+func (*hostEvent_Canceled) isHostEvent_Event() {}
+
+func (*hostEvent_Failed) isHostEvent_Event() {}
+
+func (*hostEvent_Rejected) isHostEvent_Event() {}
+
+// HostCompleted carries one catalogue or cancellation result.
+type HostCompleted struct {
+	state                protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Completed isHostCompleted_Completed `protobuf_oneof:"completed"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *HostCompleted) Reset() {
+	*x = HostCompleted{}
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostCompleted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostCompleted) ProtoMessage() {}
+
+func (x *HostCompleted) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostCompleted) GetGetModels() *GetModelsResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_GetModels); ok {
+			return x.GetModels
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetGetProviders() *GetProvidersResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_GetProviders); ok {
+			return x.GetProviders
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetCancel() *v1.CancelCompleted {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel); ok {
+			return x.Cancel
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) SetGetModels(v *GetModelsResult) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_GetModels{v}
+}
+
+func (x *HostCompleted) SetGetProviders(v *GetProvidersResult) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_GetProviders{v}
+}
+
+func (x *HostCompleted) SetCancel(v *v1.CancelCompleted) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_Cancel{v}
+}
+
+func (x *HostCompleted) HasCompleted() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Completed != nil
+}
+
+func (x *HostCompleted) HasGetModels() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_GetModels)
+	return ok
+}
+
+func (x *HostCompleted) HasGetProviders() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_GetProviders)
+	return ok
+}
+
+func (x *HostCompleted) HasCancel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel)
+	return ok
+}
+
+func (x *HostCompleted) ClearCompleted() {
+	x.xxx_hidden_Completed = nil
+}
+
+func (x *HostCompleted) ClearGetModels() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_GetModels); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearGetProviders() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_GetProviders); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearCancel() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_Cancel); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+const HostCompleted_Completed_not_set_case case_HostCompleted_Completed = 0
+const HostCompleted_GetModels_case case_HostCompleted_Completed = 1
+const HostCompleted_GetProviders_case case_HostCompleted_Completed = 2
+const HostCompleted_Cancel_case case_HostCompleted_Completed = 3
+
+func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
+	if x == nil {
+		return HostCompleted_Completed_not_set_case
+	}
+	switch x.xxx_hidden_Completed.(type) {
+	case *hostCompleted_GetModels:
+		return HostCompleted_GetModels_case
+	case *hostCompleted_GetProviders:
+		return HostCompleted_GetProviders_case
+	case *hostCompleted_Cancel:
+		return HostCompleted_Cancel_case
+	default:
+		return HostCompleted_Completed_not_set_case
+	}
+}
+
+type HostCompleted_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The completed result.
+
+	// Fields of oneof xxx_hidden_Completed:
+	GetModels    *GetModelsResult
+	GetProviders *GetProvidersResult
+	Cancel       *v1.CancelCompleted
+	// -- end of xxx_hidden_Completed
+}
+
+func (b0 HostCompleted_builder) Build() *HostCompleted {
+	m0 := &HostCompleted{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.GetModels != nil {
+		x.xxx_hidden_Completed = &hostCompleted_GetModels{b.GetModels}
+	}
+	if b.GetProviders != nil {
+		x.xxx_hidden_Completed = &hostCompleted_GetProviders{b.GetProviders}
+	}
+	if b.Cancel != nil {
+		x.xxx_hidden_Completed = &hostCompleted_Cancel{b.Cancel}
+	}
+	return m0
+}
+
+type case_HostCompleted_Completed protoreflect.FieldNumber
+
+func (x case_HostCompleted_Completed) String() string {
+	md := file_api_plugins_extension_v1_extension_proto_msgTypes[8].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isHostCompleted_Completed interface {
+	isHostCompleted_Completed()
+}
+
+type hostCompleted_GetModels struct {
+	GetModels *GetModelsResult `protobuf:"bytes,1,opt,name=get_models,json=getModels,oneof"`
+}
+
+type hostCompleted_GetProviders struct {
+	GetProviders *GetProvidersResult `protobuf:"bytes,2,opt,name=get_providers,json=getProviders,oneof"`
+}
+
+type hostCompleted_Cancel struct {
+	Cancel *v1.CancelCompleted `protobuf:"bytes,3,opt,name=cancel,oneof"`
+}
+
+func (*hostCompleted_GetModels) isHostCompleted_Completed() {}
+
+func (*hostCompleted_GetProviders) isHostCompleted_Completed() {}
+
+func (*hostCompleted_Cancel) isHostCompleted_Completed() {}
+
+// HandlerDescriptor registers one implemented extension handler.
+type HandlerDescriptor struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id          *string                `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_Kind        HandlerKind            `protobuf:"varint,2,opt,name=kind,enum=glyph.plugins.extension.v1.HandlerKind"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HandlerDescriptor) Reset() {
+	*x = HandlerDescriptor{}
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandlerDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandlerDescriptor) ProtoMessage() {}
+
+func (x *HandlerDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HandlerDescriptor) GetId() string {
+	if x != nil {
+		if x.xxx_hidden_Id != nil {
+			return *x.xxx_hidden_Id
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HandlerDescriptor) GetKind() HandlerKind {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			return x.xxx_hidden_Kind
+		}
+	}
+	return HandlerKind_HANDLER_KIND_UNSPECIFIED
+}
+
+func (x *HandlerDescriptor) SetId(v string) {
+	x.xxx_hidden_Id = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *HandlerDescriptor) SetKind(v HandlerKind) {
+	x.xxx_hidden_Kind = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *HandlerDescriptor) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HandlerDescriptor) HasKind() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *HandlerDescriptor) ClearId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Id = nil
+}
+
+func (x *HandlerDescriptor) ClearKind() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Kind = HandlerKind_HANDLER_KIND_UNSPECIFIED
+}
+
+type HandlerDescriptor_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The extension-local handler identifier.
+	Id *string
+	// The closed handler kind.
+	Kind *HandlerKind
+}
+
+func (b0 HandlerDescriptor_builder) Build() *HandlerDescriptor {
+	m0 := &HandlerDescriptor{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Id != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Id = b.Id
+	}
+	if b.Kind != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Kind = *b.Kind
+	}
+	return m0
+}
+
 // RegisterRequest has no fields because registration is fixed at startup.
 type RegisterRequest struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
@@ -1454,7 +2493,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1466,7 +2505,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1500,7 +2539,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1512,7 +2551,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_extension_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1571,15 +2610,17 @@ var File_api_plugins_extension_v1_extension_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\n" +
-	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xbd\x01\n" +
+	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a$api/plugins/extension/v1/model.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xfc\x01\n" +
 	"\vOpenRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12C\n" +
 	"\arequest\x18\x02 \x01(\v2'.glyph.plugins.extension.v1.HostRequestH\x00R\arequest\x12;\n" +
-	"\x05close\x18\x03 \x01(\v2#.glyph.operation.v1.CloseConnectionH\x00R\x05closeB\t\n" +
-	"\acontent\"\x80\x01\n" +
+	"\x05close\x18\x03 \x01(\v2#.glyph.operation.v1.CloseConnectionH\x00R\x05close\x12=\n" +
+	"\x05event\x18\x04 \x01(\v2%.glyph.plugins.extension.v1.HostEventH\x00R\x05eventB\t\n" +
+	"\acontent\"\xca\x01\n" +
 	"\fOpenResponse\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12B\n" +
-	"\x05event\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ExtensionEventH\x00R\x05eventB\t\n" +
+	"\x05event\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ExtensionEventH\x00R\x05event\x12H\n" +
+	"\arequest\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.ExtensionRequestH\x00R\arequestB\t\n" +
 	"\acontent\"\xaf\x02\n" +
 	"\vHostRequest\x12I\n" +
 	"\bregister\x18\x01 \x01(\v2+.glyph.plugins.extension.v1.RegisterRequestH\x00R\bregister\x12C\n" +
@@ -1605,69 +2646,121 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x06handle\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.HandleResponseH\x00R\x06handle\x12<\n" +
 	"\x04tool\x18\x03 \x01(\v2&.glyph.plugins.extension.v1.ToolResultH\x00R\x04tool\x12=\n" +
 	"\x06cancel\x18\x04 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
-	"\tcompleted\"\x11\n" +
+	"\tcompleted\"\x83\x02\n" +
+	"\x10ExtensionRequest\x12M\n" +
+	"\n" +
+	"get_models\x18\x01 \x01(\v2,.glyph.plugins.extension.v1.GetModelsRequestH\x00R\tgetModels\x12V\n" +
+	"\rget_providers\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.GetProvidersRequestH\x00R\fgetProviders\x12=\n" +
+	"\x06cancel\x18\x03 \x01(\v2#.glyph.operation.v1.CancelOperationH\x00R\x06cancelB\t\n" +
+	"\arequest\"\x82\x03\n" +
+	"\tHostEvent\x12:\n" +
+	"\baccepted\x18\x01 \x01(\v2\x1c.glyph.operation.v1.AcceptedH\x00R\baccepted\x127\n" +
+	"\arunning\x18\x02 \x01(\v2\x1b.glyph.operation.v1.RunningH\x00R\arunning\x12I\n" +
+	"\tcompleted\x18\x03 \x01(\v2).glyph.plugins.extension.v1.HostCompletedH\x00R\tcompleted\x12:\n" +
+	"\bcanceled\x18\x04 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
+	"\x06failed\x18\x05 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
+	"\brejected\x18\x06 \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
+	"\x05event\"\x80\x02\n" +
+	"\rHostCompleted\x12L\n" +
+	"\n" +
+	"get_models\x18\x01 \x01(\v2+.glyph.plugins.extension.v1.GetModelsResultH\x00R\tgetModels\x12U\n" +
+	"\rget_providers\x18\x02 \x01(\v2..glyph.plugins.extension.v1.GetProvidersResultH\x00R\fgetProviders\x12=\n" +
+	"\x06cancel\x18\x03 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
+	"\tcompleted\"`\n" +
+	"\x11HandlerDescriptor\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
+	"\x04kind\x18\x02 \x01(\x0e2'.glyph.plugins.extension.v1.HandlerKindR\x04kind\"\x11\n" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers2q\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xa5\x01\n" +
+	"\vHandlerKind\x12\x1c\n" +
+	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
+	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
+	"'HANDLER_KIND_SESSION_BEFORE_TREE_RESULT\x10\x02\x12\x1d\n" +
+	"\x19HANDLER_KIND_SESSION_TREE\x10\x032q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_extension_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_api_plugins_extension_v1_extension_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_plugins_extension_v1_extension_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_api_plugins_extension_v1_extension_proto_goTypes = []any{
-	(*OpenRequest)(nil),        // 0: glyph.plugins.extension.v1.OpenRequest
-	(*OpenResponse)(nil),       // 1: glyph.plugins.extension.v1.OpenResponse
-	(*HostRequest)(nil),        // 2: glyph.plugins.extension.v1.HostRequest
-	(*ExtensionEvent)(nil),     // 3: glyph.plugins.extension.v1.ExtensionEvent
-	(*ExtensionProgress)(nil),  // 4: glyph.plugins.extension.v1.ExtensionProgress
-	(*ExtensionCompleted)(nil), // 5: glyph.plugins.extension.v1.ExtensionCompleted
-	(*RegisterRequest)(nil),    // 6: glyph.plugins.extension.v1.RegisterRequest
-	(*RegisterResponse)(nil),   // 7: glyph.plugins.extension.v1.RegisterResponse
-	(*v1.CloseConnection)(nil), // 8: glyph.operation.v1.CloseConnection
-	(*HandleRequest)(nil),      // 9: glyph.plugins.extension.v1.HandleRequest
-	(*ExecuteRequest)(nil),     // 10: glyph.plugins.extension.v1.ExecuteRequest
-	(*v1.CancelOperation)(nil), // 11: glyph.operation.v1.CancelOperation
-	(*v1.Accepted)(nil),        // 12: glyph.operation.v1.Accepted
-	(*v1.Running)(nil),         // 13: glyph.operation.v1.Running
-	(*v1.Canceled)(nil),        // 14: glyph.operation.v1.Canceled
-	(*v1.Failed)(nil),          // 15: glyph.operation.v1.Failed
-	(*v1.Rejected)(nil),        // 16: glyph.operation.v1.Rejected
-	(*ToolProgress)(nil),       // 17: glyph.plugins.extension.v1.ToolProgress
-	(*HandleResponse)(nil),     // 18: glyph.plugins.extension.v1.HandleResponse
-	(*ToolResult)(nil),         // 19: glyph.plugins.extension.v1.ToolResult
-	(*v1.CancelCompleted)(nil), // 20: glyph.operation.v1.CancelCompleted
-	(*ToolDescriptor)(nil),     // 21: glyph.plugins.extension.v1.ToolDescriptor
-	(*HandlerDescriptor)(nil),  // 22: glyph.plugins.extension.v1.HandlerDescriptor
+	(HandlerKind)(0),            // 0: glyph.plugins.extension.v1.HandlerKind
+	(*OpenRequest)(nil),         // 1: glyph.plugins.extension.v1.OpenRequest
+	(*OpenResponse)(nil),        // 2: glyph.plugins.extension.v1.OpenResponse
+	(*HostRequest)(nil),         // 3: glyph.plugins.extension.v1.HostRequest
+	(*ExtensionEvent)(nil),      // 4: glyph.plugins.extension.v1.ExtensionEvent
+	(*ExtensionProgress)(nil),   // 5: glyph.plugins.extension.v1.ExtensionProgress
+	(*ExtensionCompleted)(nil),  // 6: glyph.plugins.extension.v1.ExtensionCompleted
+	(*ExtensionRequest)(nil),    // 7: glyph.plugins.extension.v1.ExtensionRequest
+	(*HostEvent)(nil),           // 8: glyph.plugins.extension.v1.HostEvent
+	(*HostCompleted)(nil),       // 9: glyph.plugins.extension.v1.HostCompleted
+	(*HandlerDescriptor)(nil),   // 10: glyph.plugins.extension.v1.HandlerDescriptor
+	(*RegisterRequest)(nil),     // 11: glyph.plugins.extension.v1.RegisterRequest
+	(*RegisterResponse)(nil),    // 12: glyph.plugins.extension.v1.RegisterResponse
+	(*v1.CloseConnection)(nil),  // 13: glyph.operation.v1.CloseConnection
+	(*HandleRequest)(nil),       // 14: glyph.plugins.extension.v1.HandleRequest
+	(*ExecuteRequest)(nil),      // 15: glyph.plugins.extension.v1.ExecuteRequest
+	(*v1.CancelOperation)(nil),  // 16: glyph.operation.v1.CancelOperation
+	(*v1.Accepted)(nil),         // 17: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),          // 18: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),         // 19: glyph.operation.v1.Canceled
+	(*v1.Failed)(nil),           // 20: glyph.operation.v1.Failed
+	(*v1.Rejected)(nil),         // 21: glyph.operation.v1.Rejected
+	(*ToolProgress)(nil),        // 22: glyph.plugins.extension.v1.ToolProgress
+	(*HandleResponse)(nil),      // 23: glyph.plugins.extension.v1.HandleResponse
+	(*ToolResult)(nil),          // 24: glyph.plugins.extension.v1.ToolResult
+	(*v1.CancelCompleted)(nil),  // 25: glyph.operation.v1.CancelCompleted
+	(*GetModelsRequest)(nil),    // 26: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetProvidersRequest)(nil), // 27: glyph.plugins.extension.v1.GetProvidersRequest
+	(*GetModelsResult)(nil),     // 28: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersResult)(nil),  // 29: glyph.plugins.extension.v1.GetProvidersResult
+	(*ToolDescriptor)(nil),      // 30: glyph.plugins.extension.v1.ToolDescriptor
 }
 var file_api_plugins_extension_v1_extension_proto_depIdxs = []int32{
-	2,  // 0: glyph.plugins.extension.v1.OpenRequest.request:type_name -> glyph.plugins.extension.v1.HostRequest
-	8,  // 1: glyph.plugins.extension.v1.OpenRequest.close:type_name -> glyph.operation.v1.CloseConnection
-	3,  // 2: glyph.plugins.extension.v1.OpenResponse.event:type_name -> glyph.plugins.extension.v1.ExtensionEvent
-	6,  // 3: glyph.plugins.extension.v1.HostRequest.register:type_name -> glyph.plugins.extension.v1.RegisterRequest
-	9,  // 4: glyph.plugins.extension.v1.HostRequest.handle:type_name -> glyph.plugins.extension.v1.HandleRequest
-	10, // 5: glyph.plugins.extension.v1.HostRequest.execute:type_name -> glyph.plugins.extension.v1.ExecuteRequest
-	11, // 6: glyph.plugins.extension.v1.HostRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
-	12, // 7: glyph.plugins.extension.v1.ExtensionEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	13, // 8: glyph.plugins.extension.v1.ExtensionEvent.running:type_name -> glyph.operation.v1.Running
-	4,  // 9: glyph.plugins.extension.v1.ExtensionEvent.progress:type_name -> glyph.plugins.extension.v1.ExtensionProgress
-	5,  // 10: glyph.plugins.extension.v1.ExtensionEvent.completed:type_name -> glyph.plugins.extension.v1.ExtensionCompleted
-	14, // 11: glyph.plugins.extension.v1.ExtensionEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	15, // 12: glyph.plugins.extension.v1.ExtensionEvent.failed:type_name -> glyph.operation.v1.Failed
-	16, // 13: glyph.plugins.extension.v1.ExtensionEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	17, // 14: glyph.plugins.extension.v1.ExtensionProgress.tool:type_name -> glyph.plugins.extension.v1.ToolProgress
-	7,  // 15: glyph.plugins.extension.v1.ExtensionCompleted.register:type_name -> glyph.plugins.extension.v1.RegisterResponse
-	18, // 16: glyph.plugins.extension.v1.ExtensionCompleted.handle:type_name -> glyph.plugins.extension.v1.HandleResponse
-	19, // 17: glyph.plugins.extension.v1.ExtensionCompleted.tool:type_name -> glyph.plugins.extension.v1.ToolResult
-	20, // 18: glyph.plugins.extension.v1.ExtensionCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	21, // 19: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
-	22, // 20: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
-	0,  // 21: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
-	1,  // 22: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
-	22, // [22:23] is the sub-list for method output_type
-	21, // [21:22] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	3,  // 0: glyph.plugins.extension.v1.OpenRequest.request:type_name -> glyph.plugins.extension.v1.HostRequest
+	13, // 1: glyph.plugins.extension.v1.OpenRequest.close:type_name -> glyph.operation.v1.CloseConnection
+	8,  // 2: glyph.plugins.extension.v1.OpenRequest.event:type_name -> glyph.plugins.extension.v1.HostEvent
+	4,  // 3: glyph.plugins.extension.v1.OpenResponse.event:type_name -> glyph.plugins.extension.v1.ExtensionEvent
+	7,  // 4: glyph.plugins.extension.v1.OpenResponse.request:type_name -> glyph.plugins.extension.v1.ExtensionRequest
+	11, // 5: glyph.plugins.extension.v1.HostRequest.register:type_name -> glyph.plugins.extension.v1.RegisterRequest
+	14, // 6: glyph.plugins.extension.v1.HostRequest.handle:type_name -> glyph.plugins.extension.v1.HandleRequest
+	15, // 7: glyph.plugins.extension.v1.HostRequest.execute:type_name -> glyph.plugins.extension.v1.ExecuteRequest
+	16, // 8: glyph.plugins.extension.v1.HostRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	17, // 9: glyph.plugins.extension.v1.ExtensionEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	18, // 10: glyph.plugins.extension.v1.ExtensionEvent.running:type_name -> glyph.operation.v1.Running
+	5,  // 11: glyph.plugins.extension.v1.ExtensionEvent.progress:type_name -> glyph.plugins.extension.v1.ExtensionProgress
+	6,  // 12: glyph.plugins.extension.v1.ExtensionEvent.completed:type_name -> glyph.plugins.extension.v1.ExtensionCompleted
+	19, // 13: glyph.plugins.extension.v1.ExtensionEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	20, // 14: glyph.plugins.extension.v1.ExtensionEvent.failed:type_name -> glyph.operation.v1.Failed
+	21, // 15: glyph.plugins.extension.v1.ExtensionEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	22, // 16: glyph.plugins.extension.v1.ExtensionProgress.tool:type_name -> glyph.plugins.extension.v1.ToolProgress
+	12, // 17: glyph.plugins.extension.v1.ExtensionCompleted.register:type_name -> glyph.plugins.extension.v1.RegisterResponse
+	23, // 18: glyph.plugins.extension.v1.ExtensionCompleted.handle:type_name -> glyph.plugins.extension.v1.HandleResponse
+	24, // 19: glyph.plugins.extension.v1.ExtensionCompleted.tool:type_name -> glyph.plugins.extension.v1.ToolResult
+	25, // 20: glyph.plugins.extension.v1.ExtensionCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	26, // 21: glyph.plugins.extension.v1.ExtensionRequest.get_models:type_name -> glyph.plugins.extension.v1.GetModelsRequest
+	27, // 22: glyph.plugins.extension.v1.ExtensionRequest.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersRequest
+	16, // 23: glyph.plugins.extension.v1.ExtensionRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	17, // 24: glyph.plugins.extension.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	18, // 25: glyph.plugins.extension.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	9,  // 26: glyph.plugins.extension.v1.HostEvent.completed:type_name -> glyph.plugins.extension.v1.HostCompleted
+	19, // 27: glyph.plugins.extension.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	20, // 28: glyph.plugins.extension.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	21, // 29: glyph.plugins.extension.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	28, // 30: glyph.plugins.extension.v1.HostCompleted.get_models:type_name -> glyph.plugins.extension.v1.GetModelsResult
+	29, // 31: glyph.plugins.extension.v1.HostCompleted.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersResult
+	25, // 32: glyph.plugins.extension.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	0,  // 33: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
+	30, // 34: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
+	10, // 35: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
+	1,  // 36: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
+	2,  // 37: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
+	37, // [37:38] is the sub-list for method output_type
+	36, // [36:37] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_extension_proto_init() }
@@ -1675,14 +2768,17 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 	if File_api_plugins_extension_v1_extension_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_model_proto_init()
 	file_api_plugins_extension_v1_session_tree_proto_init()
 	file_api_plugins_extension_v1_tool_proto_init()
 	file_api_plugins_extension_v1_extension_proto_msgTypes[0].OneofWrappers = []any{
 		(*openRequest_Request)(nil),
 		(*openRequest_Close)(nil),
+		(*openRequest_Event)(nil),
 	}
 	file_api_plugins_extension_v1_extension_proto_msgTypes[1].OneofWrappers = []any{
 		(*openResponse_Event)(nil),
+		(*openResponse_Request)(nil),
 	}
 	file_api_plugins_extension_v1_extension_proto_msgTypes[2].OneofWrappers = []any{
 		(*hostRequest_Register)(nil),
@@ -1708,18 +2804,37 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		(*extensionCompleted_Tool)(nil),
 		(*extensionCompleted_Cancel)(nil),
 	}
+	file_api_plugins_extension_v1_extension_proto_msgTypes[6].OneofWrappers = []any{
+		(*extensionRequest_GetModels)(nil),
+		(*extensionRequest_GetProviders)(nil),
+		(*extensionRequest_Cancel)(nil),
+	}
+	file_api_plugins_extension_v1_extension_proto_msgTypes[7].OneofWrappers = []any{
+		(*hostEvent_Accepted)(nil),
+		(*hostEvent_Running)(nil),
+		(*hostEvent_Completed)(nil),
+		(*hostEvent_Canceled)(nil),
+		(*hostEvent_Failed)(nil),
+		(*hostEvent_Rejected)(nil),
+	}
+	file_api_plugins_extension_v1_extension_proto_msgTypes[8].OneofWrappers = []any{
+		(*hostCompleted_GetModels)(nil),
+		(*hostCompleted_GetProviders)(nil),
+		(*hostCompleted_Cancel)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_extension_proto_rawDesc), len(file_api_plugins_extension_v1_extension_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   8,
+			NumEnums:      1,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_api_plugins_extension_v1_extension_proto_goTypes,
 		DependencyIndexes: file_api_plugins_extension_v1_extension_proto_depIdxs,
+		EnumInfos:         file_api_plugins_extension_v1_extension_proto_enumTypes,
 		MessageInfos:      file_api_plugins_extension_v1_extension_proto_msgTypes,
 	}.Build()
 	File_api_plugins_extension_v1_extension_proto = out.File

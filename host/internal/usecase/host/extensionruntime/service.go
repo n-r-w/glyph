@@ -3,6 +3,7 @@ package extensionruntime
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -30,6 +31,8 @@ type Service struct {
 	runtimes map[string]*runtimeState
 	// monitoring reports whether runtime exit monitors are active.
 	monitoring bool
+	// monitorContext retains mode-specific diagnostics after runtime monitoring is activated.
+	monitorContext context.Context
 	// closing reports whether service shutdown has started.
 	closing bool
 }
@@ -44,12 +47,22 @@ var (
 type runtimeState struct {
 	// runtime owns the extension process connection.
 	runtime ExtensionRuntime
+	// instanceID distinguishes process replacements under the same extension identifier.
+	instanceID string
 	// available reports whether the runtime accepts operations.
 	available bool
 	// activeExecutions counts in-flight tool and handler operations.
 	activeExecutions int
 	// exitPending reports a runtime exit awaiting active operations.
 	exitPending bool
+	// work joins every operation reservation in both stream directions.
+	work sync.WaitGroup
+	// closeOnce closes process transport once across failure, replacement, and shutdown.
+	closeOnce sync.Once
+	// observed records whether a process-exit monitor has been started for this instance.
+	observed bool
+	// monitorDone closes after the process-exit monitor joins its owned work.
+	monitorDone chan struct{}
 }
 
 // operationOwner identifies one runtime involved in an active operation.
@@ -67,17 +80,18 @@ func New(
 	reportFailure func(context.Context, extension.RuntimeFailure) error,
 ) *Service {
 	return &Service{
-		catalog:       catalog,
-		factory:       factory,
-		reportFailure: reportFailure,
-		mutex:         sync.RWMutex{},
-		runtimes:      make(map[string]*runtimeState),
-		monitoring:    false,
-		closing:       false,
+		catalog:        catalog,
+		factory:        factory,
+		reportFailure:  reportFailure,
+		mutex:          sync.RWMutex{},
+		runtimes:       make(map[string]*runtimeState),
+		monitoring:     false,
+		monitorContext: nil,
+		closing:        false,
 	}
 }
 
-// Activate starts post-start runtime observation after the user surface is ready.
+// Activate starts runtime observation after the selected client is ready.
 func (s *Service) Activate(ctx context.Context) {
 	monitorContext := context.WithoutCancel(ctx)
 	s.mutex.Lock()
@@ -86,9 +100,11 @@ func (s *Service) Activate(ctx context.Context) {
 		return
 	}
 	s.monitoring = true
+	s.monitorContext = monitorContext
 	observed := make(map[string]*runtimeState, len(s.runtimes))
 	for pluginID, state := range s.runtimes {
-		if state.available {
+		if state.available && !state.observed {
+			state.observed = true
 			observed[pluginID] = state
 		}
 	}
@@ -113,6 +129,7 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 	}
 	registrations := make([]startup.PendingRegistration, 0, len(discovery.Candidates))
 	for _, candidate := range discovery.Candidates {
+		candidate.InstanceID = s.replaceInstance(candidate.ID)
 		runtime, startErr := s.factory.Start(ctx, candidate)
 		if startErr != nil {
 			issues = append(
@@ -135,14 +152,37 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 		s.mutex.Lock()
 		s.runtimes[candidate.ID] = &runtimeState{
 			runtime:          runtime,
+			instanceID:       candidate.InstanceID,
 			available:        false,
 			activeExecutions: 0,
 			exitPending:      false,
+			work:             sync.WaitGroup{},
+			closeOnce:        sync.Once{},
+			observed:         false,
+			monitorDone:      make(chan struct{}),
 		}
 		s.mutex.Unlock()
 		registrations = append(registrations, registration)
 	}
 	return startup.PendingLoad{Issues: issues, Registrations: registrations}, nil
+}
+
+// replaceInstance invalidates and joins preceding work before its replacement process can start.
+func (s *Service) replaceInstance(extensionID string) string {
+	s.mutex.Lock()
+	previous := s.runtimes[extensionID]
+	if previous != nil {
+		previous.available = false
+		previous.exitPending = false
+		delete(s.runtimes, extensionID)
+	}
+	instance := rand.Text()
+	s.mutex.Unlock()
+	if previous != nil {
+		previous.closeTransport()
+		previous.join()
+	}
+	return instance
 }
 
 // RejectPending closes rejected runtimes without reporting a post-start failure.
@@ -157,18 +197,32 @@ func (s *Service) RejectPending(pluginIDs []string) {
 	}
 	s.mutex.Unlock()
 	for _, state := range states {
-		state.runtime.Close()
+		state.closeTransport()
+		state.join()
 	}
 }
 
 // Accept marks fully validated pending runtimes available.
 func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	if s.closing {
+		s.mutex.Unlock()
+		return
+	}
+	observed := make(map[string]*runtimeState)
 	for _, registration := range registrations {
 		if state, exists := s.runtimes[registration.ID]; exists {
 			state.available = true
+			if s.monitoring && !state.observed {
+				state.observed = true
+				observed[registration.ID] = state
+			}
 		}
+	}
+	ctx := s.monitorContext
+	s.mutex.Unlock()
+	for extensionID, state := range observed {
+		go s.monitor(ctx, extensionID, state, state.runtime.Done())
 	}
 }
 
@@ -186,12 +240,20 @@ func (s *Service) ExecuteTool(
 	extensionID, name string,
 	argumentsJSON []byte,
 	handleProgress tool.ProgressHandler,
+	binding extension.Context,
 ) (tool.Result, error) {
-	owner, available := s.beginOperation(extensionID)
+	owner, available := s.beginOperation(extensionID, binding.RuntimeInstanceID)
 	if !available {
-		return tool.Result{}, fmt.Errorf("%w: extension tool %q is unavailable", ErrExtensionUnavailable, name)
+		return tool.Result{}, &runtimeContextError{
+			cause: fmt.Errorf(
+				"%w: extension tool %q runtime instance %q is unavailable",
+				ErrExtensionUnavailable,
+				name,
+				binding.RuntimeInstanceID,
+			),
+		}
 	}
-	result, executeErr := owner.state.runtime.Execute(ctx, name, argumentsJSON, handleProgress)
+	result, executeErr := owner.state.runtime.Execute(ctx, name, argumentsJSON, handleProgress, binding)
 	s.finishAndReport(ctx, owner, executeErr)
 	return result, executeErr
 }
@@ -211,7 +273,7 @@ func (s *Service) HandleHandler(
 	handlerID string,
 	request sessiontree.HandlerRequest,
 ) (sessiontree.HandlerResponse, error) {
-	owner, available := s.beginOperation(extensionID)
+	owner, available := s.beginOperation(extensionID, request.Context.RuntimeInstanceID)
 	if !available {
 		return sessiontree.HandlerResponse{}, fmt.Errorf(
 			"%w: extension handler %q is unavailable",
@@ -225,14 +287,15 @@ func (s *Service) HandleHandler(
 }
 
 // beginOperation accounts for one invocation when its runtime is available.
-func (s *Service) beginOperation(pluginID string) (operationOwner, bool) {
+func (s *Service) beginOperation(pluginID, runtimeID string) (operationOwner, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	state, exists := s.runtimes[pluginID]
-	if !exists || !state.available {
+	if !exists || !state.available || state.instanceID != runtimeID || s.closing {
 		return operationOwner{pluginID: pluginID, state: state}, false
 	}
 	state.activeExecutions++
+	state.work.Add(1)
 	return operationOwner{pluginID: pluginID, state: state}, true
 }
 
@@ -243,18 +306,30 @@ func (s *Service) Close() {
 	states := make([]*runtimeState, 0, len(s.runtimes))
 	for _, state := range s.runtimes {
 		state.exitPending = false
-		if s.disableLocked(state) {
-			states = append(states, state)
-		}
+		s.disableLocked(state)
+		states = append(states, state)
 	}
 	s.mutex.Unlock()
 	for _, state := range states {
-		state.runtime.Close()
+		state.closeTransport()
+		state.join()
 	}
 }
 
-// monitor marks an idle process exit unavailable and reports it once.
+// closeTransport joins the process connection once without waiting on its calling operation reservation.
+func (state *runtimeState) closeTransport() { state.closeOnce.Do(state.runtime.Close) }
+
+// join waits for operation accounting and the instance's optional process-exit monitor.
+func (state *runtimeState) join() {
+	state.work.Wait()
+	if state.observed {
+		<-state.monitorDone
+	}
+}
+
+// monitor invalidates an exited runtime and joins active work before observation ends.
 func (s *Service) monitor(ctx context.Context, pluginID string, state *runtimeState, done <-chan struct{}) {
+	defer close(state.monitorDone)
 	<-done
 	s.mutex.Lock()
 	if s.closing || !s.disableLocked(state) {
@@ -270,14 +345,16 @@ func (s *Service) monitor(ctx context.Context, pluginID string, state *runtimeSt
 			extension.RuntimeFailure{PluginID: pluginID, Condition: extension.RuntimeUnavailableProcessExited},
 		)
 	}
-	state.runtime.Close()
+	state.closeTransport()
+	state.work.Wait()
 }
 
 // finishAndReport settles active-operation accounting and runtime failure delivery.
 func (s *Service) finishAndReport(ctx context.Context, owner operationOwner, executeErr error) {
+	defer owner.state.work.Done()
 	closeRuntime, failure, reportFailure := s.finishExecution(owner, executeErr)
 	if closeRuntime {
-		owner.state.runtime.Close()
+		owner.state.closeTransport()
 	}
 	if reportFailure {
 		s.report(ctx, failure)
@@ -291,8 +368,9 @@ func (s *Service) finishExecution(owner operationOwner, executeErr error) (bool,
 	owner.state.activeExecutions--
 	if errors.Is(executeErr, ErrExtensionUnavailable) {
 		availabilityChanged := s.disableLocked(owner.state)
-		reportFailure := !s.closing && (owner.state.exitPending || availabilityChanged)
-		owner.state.exitPending = false
+		pending := !s.closing && (owner.state.exitPending || availabilityChanged)
+		reportFailure := pending && owner.state.activeExecutions == 0
+		owner.state.exitPending = pending && !reportFailure
 		if reportFailure {
 			return availabilityChanged, extension.RuntimeFailure{
 				PluginID:  owner.pluginID,
@@ -301,7 +379,7 @@ func (s *Service) finishExecution(owner operationOwner, executeErr error) (bool,
 		}
 		return availabilityChanged, extension.RuntimeFailure{}, false
 	}
-	if owner.state.exitPending && !s.closing {
+	if owner.state.exitPending && !s.closing && owner.state.activeExecutions == 0 {
 		owner.state.exitPending = false
 		return false, extension.RuntimeFailure{
 			PluginID:  owner.pluginID,

@@ -87,7 +87,8 @@ func runUIWithPaths(
 	}
 
 	delivery := hostui.NewDelivery(channel)
-	extensions := extensionmanager.New(catalog.New(), extensionruntime.NewFactory(), delivery.ReportRuntimeFailure)
+	extensionFactory := extensionruntime.NewFactory()
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, delivery.ReportRuntimeFailure)
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
@@ -95,6 +96,7 @@ func runUIWithPaths(
 		extensions.Close()
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
+	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	startupService := startup.New(extensions, tools, sessionServices.tree)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
@@ -112,6 +114,7 @@ func runUIWithPaths(
 		extensions.Close()
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)

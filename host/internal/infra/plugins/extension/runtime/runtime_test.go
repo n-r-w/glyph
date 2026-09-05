@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -105,6 +106,8 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 
 	// Act: start the runtime and cancel only its startup context.
 	runtime, err := NewFactory().Start(startupContext, extensionruntime.Candidate{
+		InstanceID: "",
+
 		ID:   "test",
 		Path: scriptPath,
 	})
@@ -246,7 +249,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 		t.Context(),
 		"read",
 		[]byte(`{"path":"notes.txt"}`),
-		discardProgress,
+		discardProgress, runtimeTestContext(),
 	)
 
 	// Assert: preserve complete text in exactly one terminal successful result.
@@ -261,7 +264,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 		t.Context(),
 		"edit",
 		[]byte(`{"path":"notes.txt","edits":[{"oldText":"first","newText":"updated"}]}`),
-		discardProgress,
+		discardProgress, runtimeTestContext(),
 	)
 	require.NoError(t, err)
 	assert.False(t, editResult.IsError)
@@ -282,7 +285,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 				bashFragments = append(bashFragments, progress.Content)
 			}
 			return nil
-		},
+		}, runtimeTestContext(),
 	)
 	require.NoError(t, err)
 	assert.True(t, bashResult.IsError)
@@ -292,7 +295,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	assert.Contains(t, bashProgress, tool.ProgressChannelStderr)
 
 	// Act: submit invalid arguments that the bundled tool rejects.
-	invalidResult, err := runtime.Execute(t.Context(), "read", []byte(`{}`), discardProgress)
+	invalidResult, err := runtime.Execute(t.Context(), "read", []byte(`{}`), discardProgress, runtimeTestContext())
 
 	// Assert: reject them as a terminal tool error without making the process unavailable.
 	require.NoError(t, err)
@@ -314,7 +317,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 					close(started)
 				}
 				return nil
-			},
+			}, runtimeTestContext(),
 		)
 		executionChannel <- executionOutcome{result: executionResult, err: executionErr}
 	}()
@@ -447,7 +450,7 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 		result, executeErr := runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 			close(started)
 			return nil
-		})
+		}, runtimeTestContext())
 		outcome <- executionOutcome{
 			result: result,
 			err:    executeErr,
@@ -485,7 +488,7 @@ func TestRuntimeExecuteCancellationWaitsForRelease(t *testing.T) {
 		result, executeErr := runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 			close(started)
 			return nil
-		})
+		}, runtimeTestContext())
 		outcome <- executionOutcome{result: result, err: executeErr}
 	}()
 	<-started
@@ -528,6 +531,8 @@ func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
 	outcome := make(chan error, 1)
 	go func() {
 		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Context: runtimeTestContext(),
+
 			Request: mo.None[sessiontree.RequestHandlerInvocation](),
 			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
 			Observer: mo.Some(sessiontree.TreeObserverInvocation{
@@ -571,7 +576,7 @@ func TestRuntimeCancellationPreservesPrimaryAndTransportErrors(t *testing.T) {
 	_, err = runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 		cancel()
 		return nil
-	})
+	}, runtimeTestContext())
 
 	// Assert: preserve both causes and finish failed-process cleanup before Execute returns.
 	require.ErrorIs(t, err, context.Canceled)
@@ -598,7 +603,7 @@ func TestRuntimeExecuteCancellationPreservesUnknownTransportFailure(t *testing.T
 	_, err = runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 		cancel()
 		return nil
-	})
+	}, runtimeTestContext())
 
 	// Assert: preserve caller and gRPC causes and finish process cleanup before return.
 	require.ErrorIs(t, err, context.Canceled)
@@ -626,6 +631,8 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 	outcome := make(chan error, 1)
 	go func() {
 		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Context: runtimeTestContext(),
+
 			Request: mo.None[sessiontree.RequestHandlerInvocation](),
 			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
 			Observer: mo.Some(sessiontree.TreeObserverInvocation{
@@ -680,6 +687,8 @@ func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T)
 	outcome := make(chan error, 1)
 	go func() {
 		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+			Context: runtimeTestContext(),
+
 			Request: mo.None[sessiontree.RequestHandlerInvocation](),
 			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
 			Observer: mo.Some(sessiontree.TreeObserverInvocation{
@@ -739,7 +748,7 @@ func TestRuntimeCloseWaitsForActiveRelease(t *testing.T) {
 			func(tool.Progress) error {
 				close(started)
 				return nil
-			},
+			}, runtimeTestContext(),
 		)
 		executeOutcome <- executeErr
 	}()
@@ -784,7 +793,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 
 			// Act: consume the malformed lifecycle sequence.
 			result, err := runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 			if (mode == "duplicate-result" || mode == "event-after-result") && err == nil {
 				// A valid terminal event can reach its caller before the later connection violation is observed.
@@ -793,7 +802,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 				assert.True(t, present)
 				assert.Equal(t, "done", text)
 				result, err = runtime.Execute(
-					t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+					t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 				)
 			}
 
@@ -821,12 +830,14 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 	testCases := map[string]func(*testing.T, *Runtime) error{
 		"empty Execute result": func(t *testing.T, runtime *Runtime) error {
 			_, err := runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 			return err
 		},
 		"mismatched Handle action": func(t *testing.T, runtime *Runtime) error {
 			request := sessiontree.HandlerRequest{
+				Context: runtimeTestContext(),
+
 				Request: mo.None[sessiontree.RequestHandlerInvocation](),
 				Result:  mo.None[sessiontree.ResultHandlerInvocation](),
 				Observer: mo.Some(sessiontree.TreeObserverInvocation{
@@ -926,7 +937,7 @@ func TestRuntimeRejectsPeerErrorLifecycleViolations(t *testing.T) {
 
 			// Act: execute work against the peer lifecycle violation.
 			_, err = runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 
 			// Assert: retain all local and peer context once, classify unavailability, and stop the runtime.
@@ -980,7 +991,7 @@ func TestRuntimeRejectsUnsupportedPeerCategories(t *testing.T) {
 
 			// Act: execute work against the malformed direct peer.
 			_, err = runtime.Execute(
-				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress,
+				t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext(),
 			)
 
 			// Assert: preserve every context layer once, then stop the unavailable runtime.
@@ -1011,13 +1022,19 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	// Act: fail the Host progress callback.
 	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
 		return deliveryErr
-	})
+	}, runtimeTestContext())
 	// Assert: preserve the callback cause and keep later execution available.
 	require.ErrorIs(t, err, deliveryErr)
 	require.NotErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 	assertRuntimeRunning(t, runtime)
 
-	result, err := runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
+	result, err := runtime.Execute(
+		t.Context(),
+		"read",
+		[]byte(`{"path":"notes.txt"}`),
+		discardProgress,
+		runtimeTestContext(),
+	)
 	require.NoError(t, err)
 	assert.Equal(t, tool.Result{
 		Contents: tool.TextContents("done"),
@@ -1035,7 +1052,7 @@ func TestRuntimeClassifiesTransportFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Act: execute work across the failing transport.
-	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress)
+	_, err = runtime.Execute(t.Context(), "read", []byte(`{"path":"notes.txt"}`), discardProgress, runtimeTestContext())
 
 	// Assert: classify unavailability and stop the failed runtime.
 	require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
@@ -1060,7 +1077,7 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 		func(event tool.Progress) error {
 			progress = append(progress, event)
 			return nil
-		},
+		}, runtimeTestContext(),
 	)
 
 	// Assert: deliver progress before returning the one terminal result.
@@ -1092,6 +1109,8 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 		CreatedSummary: mo.None[session.Entry](),
 	}
 	request := sessiontree.HandlerRequest{
+		Context: runtimeTestContext(),
+
 		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
 		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
 		Observer: mo.Some(invocation),
@@ -1365,6 +1384,17 @@ func requireRuntimeStopped(t *testing.T, runtime *Runtime) {
 	case <-runtime.Done():
 	default:
 		require.FailNow(t, "extension runtime did not stop")
+	}
+}
+
+// runtimeTestContext supplies the issued identity used by transport-level process fixtures.
+func runtimeTestContext() extension.Context {
+	return extension.Context{
+		ID:                "binding",
+		ExtensionID:       "extension",
+		RuntimeInstanceID: "runtime",
+		SessionID:         "session",
+		WorkingDirectory:  "/project",
 	}
 }
 

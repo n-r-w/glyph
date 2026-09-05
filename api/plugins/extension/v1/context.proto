@@ -1,0 +1,29 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// ExtensionContext identifies one issued runtime-to-active-session binding.
+message ExtensionContext {
+  // The opaque binding identifier.
+  string context_id = 1;
+  // The owning extension identifier.
+  string extension_id = 2;
+  // The process incarnation that received this binding.
+  string runtime_instance_id = 3;
+  // The bound durable session identifier.
+  string session_id = 4;
+  // The canonical project working directory.
+  string cwd = 5;
+}
+
+// ExtensionContextRef identifies an issued binding without caller-controlled extension identity.
+message ExtensionContextRef {
+  // The opaque binding identifier.
+  string context_id = 1;
+  // The bound process incarnation.
+  string runtime_instance_id = 2;
+  // The bound durable session identifier.
+  string session_id = 3;
+}

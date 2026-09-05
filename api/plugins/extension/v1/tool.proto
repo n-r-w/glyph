@@ -2,6 +2,8 @@ edition = "2023";
 
 package glyph.plugins.extension.v1;
 
+import "api/plugins/extension/v1/context.proto";
+
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
 // ToolDescriptor describes one extension-owned tool.
@@ -55,6 +57,8 @@ message ExecuteRequest {
   string tool_name = 1;
   // The JSON-encoded arguments validated against the tool schema.
   bytes arguments_json = 2;
+  // The issued session-bound context for this execution.
+  ExtensionContext context = 3;
 }
 
 // ToolProgress carries one ordered progress fragment.

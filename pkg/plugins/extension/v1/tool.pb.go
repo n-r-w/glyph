@@ -666,6 +666,7 @@ type ExecuteRequest struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_ToolName      *string                `protobuf:"bytes,1,opt,name=tool_name,json=toolName"`
 	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,2,opt,name=arguments_json,json=argumentsJson"`
+	xxx_hidden_Context       *ExtensionContext      `protobuf:"bytes,3,opt,name=context"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -714,9 +715,16 @@ func (x *ExecuteRequest) GetArgumentsJson() []byte {
 	return nil
 }
 
+func (x *ExecuteRequest) GetContext() *ExtensionContext {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
 func (x *ExecuteRequest) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *ExecuteRequest) SetArgumentsJson(v []byte) {
@@ -724,7 +732,11 @@ func (x *ExecuteRequest) SetArgumentsJson(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_ArgumentsJson = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *ExecuteRequest) SetContext(v *ExtensionContext) {
+	x.xxx_hidden_Context = v
 }
 
 func (x *ExecuteRequest) HasToolName() bool {
@@ -741,6 +753,13 @@ func (x *ExecuteRequest) HasArgumentsJson() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *ExecuteRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
 func (x *ExecuteRequest) ClearToolName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ToolName = nil
@@ -751,6 +770,10 @@ func (x *ExecuteRequest) ClearArgumentsJson() {
 	x.xxx_hidden_ArgumentsJson = nil
 }
 
+func (x *ExecuteRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
 type ExecuteRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -758,6 +781,8 @@ type ExecuteRequest_builder struct {
 	ToolName *string
 	// The JSON-encoded arguments validated against the tool schema.
 	ArgumentsJson []byte
+	// The issued session-bound context for this execution.
+	Context *ExtensionContext
 }
 
 func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
@@ -765,13 +790,14 @@ func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	if b.ArgumentsJson != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
 	}
+	x.xxx_hidden_Context = b.Context
 	return m0
 }
 
@@ -1274,7 +1300,7 @@ var File_api_plugins_extension_v1_tool_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\"\xd6\x01\n" +
+	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\"\xd6\x01\n" +
 	"\x0eToolDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12*\n" +
@@ -1291,10 +1317,11 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"strictness\"F\n" +
 	"\x1aGrammarConstrainedSampling\x12\x12\n" +
 	"\x04lark\x18\x01 \x01(\tR\x04lark\x12\x14\n" +
-	"\x05regex\x18\x02 \x01(\tR\x05regex\"T\n" +
+	"\x05regex\x18\x02 \x01(\tR\x05regex\"\x9c\x01\n" +
 	"\x0eExecuteRequest\x12\x1b\n" +
 	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12%\n" +
-	"\x0earguments_json\x18\x02 \x01(\fR\rargumentsJson\"o\n" +
+	"\x0earguments_json\x18\x02 \x01(\fR\rargumentsJson\x12F\n" +
+	"\acontext\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.ExtensionContextR\acontext\"o\n" +
 	"\fToolProgress\x12E\n" +
 	"\achannel\x18\x01 \x01(\x0e2+.glyph.plugins.extension.v1.ProgressChannelR\achannel\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\"y\n" +
@@ -1334,20 +1361,22 @@ var file_api_plugins_extension_v1_tool_proto_goTypes = []any{
 	(*ToolResultContent)(nil),             // 8: glyph.plugins.extension.v1.ToolResultContent
 	(*ToolResultImage)(nil),               // 9: glyph.plugins.extension.v1.ToolResultImage
 	(*ToolResult)(nil),                    // 10: glyph.plugins.extension.v1.ToolResult
+	(*ExtensionContext)(nil),              // 11: glyph.plugins.extension.v1.ExtensionContext
 }
 var file_api_plugins_extension_v1_tool_proto_depIdxs = []int32{
-	3, // 0: glyph.plugins.extension.v1.ToolDescriptor.constrained_sampling:type_name -> glyph.plugins.extension.v1.ConstrainedSampling
-	4, // 1: glyph.plugins.extension.v1.ConstrainedSampling.json_schema:type_name -> glyph.plugins.extension.v1.JsonSchemaConstrainedSampling
-	5, // 2: glyph.plugins.extension.v1.ConstrainedSampling.grammar:type_name -> glyph.plugins.extension.v1.GrammarConstrainedSampling
-	0, // 3: glyph.plugins.extension.v1.JsonSchemaConstrainedSampling.strictness:type_name -> glyph.plugins.extension.v1.JsonSchemaStrictness
-	1, // 4: glyph.plugins.extension.v1.ToolProgress.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
-	9, // 5: glyph.plugins.extension.v1.ToolResultContent.image:type_name -> glyph.plugins.extension.v1.ToolResultImage
-	8, // 6: glyph.plugins.extension.v1.ToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	3,  // 0: glyph.plugins.extension.v1.ToolDescriptor.constrained_sampling:type_name -> glyph.plugins.extension.v1.ConstrainedSampling
+	4,  // 1: glyph.plugins.extension.v1.ConstrainedSampling.json_schema:type_name -> glyph.plugins.extension.v1.JsonSchemaConstrainedSampling
+	5,  // 2: glyph.plugins.extension.v1.ConstrainedSampling.grammar:type_name -> glyph.plugins.extension.v1.GrammarConstrainedSampling
+	0,  // 3: glyph.plugins.extension.v1.JsonSchemaConstrainedSampling.strictness:type_name -> glyph.plugins.extension.v1.JsonSchemaStrictness
+	11, // 4: glyph.plugins.extension.v1.ExecuteRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
+	1,  // 5: glyph.plugins.extension.v1.ToolProgress.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
+	9,  // 6: glyph.plugins.extension.v1.ToolResultContent.image:type_name -> glyph.plugins.extension.v1.ToolResultImage
+	8,  // 7: glyph.plugins.extension.v1.ToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_tool_proto_init() }
@@ -1355,6 +1384,7 @@ func file_api_plugins_extension_v1_tool_proto_init() {
 	if File_api_plugins_extension_v1_tool_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_context_proto_init()
 	file_api_plugins_extension_v1_tool_proto_msgTypes[1].OneofWrappers = []any{
 		(*constrainedSampling_JsonSchema)(nil),
 		(*constrainedSampling_Grammar)(nil),

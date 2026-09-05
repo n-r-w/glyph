@@ -75,6 +75,8 @@ func TestForkActivePersistsOnlyTheSelectedUserParentPath(t *testing.T) {
 	require.Equal(t, source.Tree.Entries(), tree.Entries())
 	require.Equal(t, source.Tree.Labels(), tree.Labels())
 	require.Equal(t, "/sessions/forked.jsonl", service.active.StoragePath)
+	require.NotZero(t, service.ContextSession().Incarnation)
+	require.Equal(t, "forked", service.ContextSession().ID)
 }
 
 // TestForkActiveRootUserCreatesEmptyReplacement verifies a root user target returns text with no retained leaf.
