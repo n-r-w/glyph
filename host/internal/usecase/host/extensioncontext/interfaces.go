@@ -4,6 +4,8 @@ package extensioncontext
 import (
 	"context"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -15,6 +17,8 @@ import (
 type RuntimeState interface {
 	// ContextRuntime returns the runtime instance and its availability.
 	ContextRuntime(extensionID string) (instanceID string, available bool)
+	// BeginContextCommit protects one final state-owner commit from runtime invalidation.
+	BeginContextCommit(extensionID, runtimeID string) (release func(), err error)
 }
 
 // SessionState supplies one atomic active-session identity snapshot.
@@ -22,9 +26,27 @@ type SessionState interface {
 	// ContextSession returns durable identity, project directory, and process-local incarnation.
 	ContextSession() SessionIdentity
 	// AppendExtension appends one entry only while the expected session incarnation remains active.
-	AppendExtension(context.Context, SessionIdentity, session.ExtensionEnvelope) (session.Entry, error)
+	AppendExtension(
+		context.Context,
+		SessionIdentity,
+		session.ExtensionEnvelope,
+		ContextCommitGuard,
+	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
-	ExtensionState(context.Context, SessionIdentity, string) (session.ExtensionStateSnapshot, error)
+	ExtensionState(context.Context, SessionIdentity, string) (SessionSnapshot, error)
+}
+
+// ContextCommitGuard acquires runtime validity across one owning session commit.
+type ContextCommitGuard func() (release func(), err error)
+
+// SessionSnapshot contains one coherent active-branch view from the session consumer boundary.
+type SessionSnapshot struct {
+	// SessionID identifies the active durable session read with the entries.
+	SessionID session.ID
+	// ActiveLeafID identifies the active leaf read with the entries.
+	ActiveLeafID mo.Option[string]
+	// Entries contains matching extension entries in root-first branch order.
+	Entries []session.Entry
 }
 
 // SessionIdentity distinguishes active incarnations of the same durable session.

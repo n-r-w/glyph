@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,9 +77,20 @@ func TestPublicExtensionRecoversHiddenStateAfterProcessRestart(t *testing.T) {
 	assert.NotEmpty(t, firstReport.EntryID)
 	assert.NotEqual(t, firstReport.EntryID, activeReport.EntryID)
 	assert.Equal(t, activeReport.EntryID, recovered.EntryID)
+	assert.Equal(t, activeReport.ParentID, recovered.ParentID)
+	assert.Equal(t, activeReport.ExtensionID, recovered.ExtensionID)
+	assert.Equal(t, activeReport.EntryType, recovered.EntryType)
+	assert.Equal(t, activeReport.CreatedTime, recovered.CreatedTime)
+	assert.NotEmpty(t, recovered.ParentID)
+	assert.Equal(t, "external", recovered.ExtensionID)
+	assert.Equal(t, "restart-checkpoint", recovered.EntryType)
+	_, timestampErr := time.Parse(time.RFC3339Nano, recovered.CreatedTime)
+	require.NoError(t, timestampErr)
 	assert.True(t, firstReport.PayloadExact)
 	assert.True(t, activeReport.PayloadExact)
 	assert.True(t, recovered.PayloadExact)
+	assert.True(t, activeReport.Appended)
+	assert.False(t, recovered.Appended)
 	assert.Equal(t, 1, recovered.EntryCount)
 	assert.Equal(t, int32(8), count.Load(), "unexpected provider call count")
 }
@@ -89,10 +101,18 @@ type sessionStateReportValue struct {
 	EntryID string `json:"entry_id"`
 	// ParentID preserves the stored parent identifier.
 	ParentID string `json:"parent_id"`
+	// ExtensionID identifies the stored extension owner.
+	ExtensionID string `json:"extension_id"`
+	// EntryType identifies the stored extension-defined kind.
+	EntryType string `json:"entry_type"`
+	// CreatedTime contains the stored timestamp at nanosecond precision.
+	CreatedTime string `json:"created_time"`
 	// PayloadExact reports byte equality checked in the external process.
 	PayloadExact bool `json:"payload_exact"`
 	// EntryCount reports caller-filtered entries.
 	EntryCount int `json:"entry_count"`
+	// Appended reports whether the invocation created the recovered entry.
+	Appended bool `json:"appended"`
 }
 
 // decodeSessionStateReport decodes the external tool result captured by the provider fixture.

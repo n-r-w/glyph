@@ -90,10 +90,10 @@ func (mr *MockContextOperationsMockRecorder) ReadProviders(ctx, extensionID, run
 }
 
 // ReadSessionState mocks base method.
-func (m *MockContextOperations) ReadSessionState(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (session.ExtensionStateSnapshot, error) {
+func (m *MockContextOperations) ReadSessionState(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (SessionState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadSessionState", ctx, extensionID, runtimeID, reference)
-	ret0, _ := ret[0].(session.ExtensionStateSnapshot)
+	ret0, _ := ret[0].(SessionState)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

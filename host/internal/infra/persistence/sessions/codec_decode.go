@@ -137,8 +137,15 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
 	payload, err := decodeBytes(record.Data)
-	if err != nil || !jsontext.Value(payload).IsValid() {
-		return session.Entry{}, errors.New("invalid extension entry")
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("decode extension data: %w", err)
+	}
+	validated := jsontext.Value(bytes.Clone(payload))
+	if validationErr := validated.Compact(
+		jsontext.AllowDuplicateNames(false),
+		jsontext.AllowInvalidUTF8(false),
+	); validationErr != nil {
+		return session.Entry{}, fmt.Errorf("validate decoded extension JSON: %w", validationErr)
 	}
 	return session.Entry{
 		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,

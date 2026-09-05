@@ -4,19 +4,260 @@ package extensionruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
+
+// TestRuntimeUnavailableShutdownReleasesCommitLockBeforeTransportClose verifies shutdown cannot block stale commit attempts.
+func TestRuntimeUnavailableShutdownReleasesCommitLockBeforeTransportClose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one failing admitted operation whose transport close waits for another Host operation.
+	controller := gomock.NewController(t)
+	process := NewMockExtensionRuntime(controller)
+	closeStarted := make(chan struct{})
+	allowClose := make(chan struct{})
+	process.EXPECT().Close().Do(func() {
+		close(closeStarted)
+		<-allowClose
+	})
+	state := &runtimeState{
+		runtime: process, instanceID: "runtime", available: true, activeExecutions: 1,
+		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	state.work.Add(1)
+	service := &Service{
+		catalog: nil, factory: nil,
+		reportFailure: func(context.Context, extension.RuntimeFailure) error { return nil },
+		mutex:         sync.RWMutex{}, runtimes: map[string]*runtimeState{"extension": state},
+		monitoring: false, monitorContext: nil, closing: false,
+	}
+	finishDone := make(chan struct{})
+	go func() {
+		service.finishAndReport(
+			t.Context(), operationOwner{pluginID: "extension", state: state}, ErrExtensionUnavailable,
+		)
+		close(finishDone)
+	}()
+	<-closeStarted
+
+	// Act by checking the commit boundary while transport closure remains blocked.
+	commitLockAvailable := state.commit.TryRLock()
+	if !commitLockAvailable {
+		close(allowClose)
+		<-finishDone
+		t.Fatal("runtime shutdown held the commit lock during transport closure")
+	}
+	state.commit.RUnlock()
+	_, err := service.BeginContextCommit("extension", "runtime")
+
+	// Assert invalidated work fails immediately and shutdown can finish after transport closure.
+	failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
+	require.True(t, found)
+	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+	close(allowClose)
+	<-finishDone
+}
+
+// TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit verifies invalidation waits for the owning mutation.
+func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one accepted runtime, issued context, and an admitted append blocked before persistence.
+	controller := gomock.NewController(t)
+	process := NewMockExtensionRuntime(controller)
+	transportClosed := make(chan struct{})
+	process.EXPECT().Close().Do(func() { close(transportClosed) })
+	state := &runtimeState{
+		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
+		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	runtimes := &Service{
+		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
+		monitorContext: nil, closing: false,
+	}
+	sessions := extensioncontext.NewMockSessionState(controller)
+	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	commitStarted := make(chan struct{})
+	allowPersistence := make(chan struct{})
+	var persisted atomic.Bool
+	stored := session.Entry{
+		ID:            "entry",
+		ParentID:      mo.None[string](),
+		CreatedAt:     time.Unix(1, 0).UTC(),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension: mo.Some(
+			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)},
+		),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	sessions.EXPECT().AppendExtension(gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ extensioncontext.SessionIdentity,
+			_ session.ExtensionEnvelope,
+			guard extensioncontext.ContextCommitGuard,
+		) (session.Entry, error) {
+			release, err := guard()
+			if err != nil {
+				return session.Entry{}, err
+			}
+			defer release()
+			close(commitStarted)
+			<-allowPersistence
+			persisted.Store(true)
+			return stored, nil
+		},
+	)
+	contexts := extensioncontext.New(runtimes, sessions)
+	issued, err := contexts.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{
+		ID: issued.ID, RuntimeInstanceID: issued.RuntimeInstanceID, SessionID: issued.SessionID,
+	}
+	releaseOperation, err := runtimes.BeginContextOperation(t.Context(), "extension", "runtime")
+	require.NoError(t, err)
+	appendDone := make(chan error, 1)
+	go func() {
+		_, appendErr := contexts.AppendExtension(
+			t.Context(), "extension", "runtime", reference, "state", []byte(`{}`),
+		)
+		appendDone <- appendErr
+	}()
+	<-commitStarted
+	replacementDone := make(chan struct{})
+	go func() {
+		runtimes.replaceInstance("extension")
+		close(replacementDone)
+	}()
+	<-state.invalidated
+
+	// Act while persistence remains blocked after final runtime validation.
+	assert.Never(t, func() bool {
+		select {
+		case <-transportClosed:
+			return true
+		default:
+			return false
+		}
+	}, 50*time.Millisecond, time.Millisecond)
+	close(allowPersistence)
+
+	// Assert persistence finishes before replacement closes transport and joins admitted work.
+	require.NoError(t, <-appendDone)
+	require.True(t, persisted.Load())
+	releaseOperation()
+	<-replacementDone
+	select {
+	case <-transportClosed:
+	default:
+		t.Fatal("runtime replacement did not close transport")
+	}
+}
+
+// TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit verifies admitted stale work cannot persist.
+func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one admitted append that pauses before it acquires the final runtime commit guard.
+	controller := gomock.NewController(t)
+	process := NewMockExtensionRuntime(controller)
+	process.EXPECT().Close()
+	state := &runtimeState{
+		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
+		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	runtimes := &Service{
+		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
+		monitorContext: nil, closing: false,
+	}
+	sessions := extensioncontext.NewMockSessionState(controller)
+	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	appendAdmitted := make(chan struct{})
+	var persisted atomic.Bool
+	sessions.EXPECT().AppendExtension(gomock.Any(), identity, gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ extensioncontext.SessionIdentity,
+			_ session.ExtensionEnvelope,
+			guard extensioncontext.ContextCommitGuard,
+		) (session.Entry, error) {
+			close(appendAdmitted)
+			<-state.invalidated
+			release, err := guard()
+			if err != nil {
+				return session.Entry{}, err
+			}
+			defer release()
+			persisted.Store(true)
+			return session.Entry{}, nil
+		},
+	)
+	contexts := extensioncontext.New(runtimes, sessions)
+	issued, err := contexts.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{
+		ID: issued.ID, RuntimeInstanceID: issued.RuntimeInstanceID, SessionID: issued.SessionID,
+	}
+	releaseOperation, err := runtimes.BeginContextOperation(t.Context(), "extension", "runtime")
+	require.NoError(t, err)
+	appendDone := make(chan error, 1)
+	go func() {
+		_, appendErr := contexts.AppendExtension(
+			t.Context(), "extension", "runtime", reference, "state", []byte(`{}`),
+		)
+		appendDone <- appendErr
+	}()
+	<-appendAdmitted
+	replacementDone := make(chan struct{})
+	go func() {
+		runtimes.replaceInstance("extension")
+		close(replacementDone)
+	}()
+
+	// Act after the concrete runtime starts invalidating the admitted operation's instance.
+	err = <-appendDone
+	releaseOperation()
+	<-replacementDone
+
+	// Assert final validation returns STALE_CONTEXT and the owning mutation does not persist.
+	failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
+	require.True(t, found)
+	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+	assert.Contains(t, err.Error(), "stale or unavailable")
+	assert.False(t, persisted.Load())
+}
 
 // TestServiceLoadsPendingAndActivatesAcceptedRuntime verifies pending runtimes remain unavailable until acceptance.
 func TestServiceLoadsPendingAndActivatesAcceptedRuntime(t *testing.T) {

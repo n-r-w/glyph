@@ -44,14 +44,42 @@ func (s *Service) ContextRuntime(extensionID string) (string, bool) {
 	if !found {
 		return "", false
 	}
-	return state.instanceID, state.available && !s.closing
+	return state.instanceID, state.available && !state.isInvalidated() && !s.closing
+}
+
+// BeginContextCommit protects one final state-owner commit from runtime invalidation.
+func (s *Service) BeginContextCommit(extensionID, runtimeID string) (func(), error) {
+	s.mutex.RLock()
+	state, found := s.runtimes[extensionID]
+	s.mutex.RUnlock()
+	if !found || state.isInvalidated() || !state.commit.TryRLock() {
+		return nil, staleRuntimeCommit(extensionID, runtimeID)
+	}
+	s.mutex.RLock()
+	current, currentFound := s.runtimes[extensionID]
+	valid := currentFound && current == state && state.available && !state.isInvalidated() &&
+		!s.closing && state.instanceID == runtimeID
+	s.mutex.RUnlock()
+	if !valid {
+		state.commit.RUnlock()
+		return nil, staleRuntimeCommit(extensionID, runtimeID)
+	}
+	var once sync.Once
+	return func() { once.Do(state.commit.RUnlock) }, nil
+}
+
+// staleRuntimeCommit returns the closed failure used when final commit validation loses its runtime.
+func staleRuntimeCommit(extensionID, runtimeID string) error {
+	return &runtimeContextError{
+		cause: fmt.Errorf("extension %q runtime instance %q is stale or unavailable", extensionID, runtimeID),
+	}
 }
 
 // BeginContextOperation accounts for one extension-initiated operation on the exact process instance.
 func (s *Service) BeginContextOperation(ctx context.Context, extensionID, runtimeID string) (func(), error) {
 	s.mutex.Lock()
 	state, found := s.runtimes[extensionID]
-	if !found || !state.available || s.closing || state.instanceID != runtimeID {
+	if !found || !state.available || state.isInvalidated() || s.closing || state.instanceID != runtimeID {
 		s.mutex.Unlock()
 		return nil, &runtimeContextError{
 			cause: fmt.Errorf("extension %q runtime instance %q is stale or unavailable", extensionID, runtimeID),

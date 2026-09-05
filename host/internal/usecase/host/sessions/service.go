@@ -311,6 +311,7 @@ func (s *Service) AppendExtension(
 	ctx context.Context,
 	expected extensioncontext.SessionIdentity,
 	extension session.ExtensionEnvelope,
+	commitGuard extensioncontext.ContextCommitGuard,
 ) (session.Entry, error) {
 	owned := extension.Clone()
 	if owned.ExtensionID == "" || owned.EntryType == "" || !jsontext.Value(owned.Data).IsValid() {
@@ -321,6 +322,14 @@ func (s *Service) AppendExtension(
 	if err := s.validateExpectedSessionLocked(ctx, expected); err != nil {
 		return session.Entry{}, err
 	}
+	if commitGuard == nil {
+		return session.Entry{}, errors.New("runtime commit validation is required")
+	}
+	releaseCommit, err := commitGuard()
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("validate extension runtime before session commit: %w", err)
+	}
+	defer releaseCommit()
 	entry := session.Entry{
 		ID: "", ParentID: mo.None[string](), CreatedAt: time.Time{},
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -343,11 +352,11 @@ func (s *Service) ExtensionState(
 	ctx context.Context,
 	expected extensioncontext.SessionIdentity,
 	extensionID string,
-) (session.ExtensionStateSnapshot, error) {
+) (extensioncontext.SessionSnapshot, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	if err := s.validateExpectedSessionLocked(ctx, expected); err != nil {
-		return session.ExtensionStateSnapshot{}, err
+		return extensioncontext.SessionSnapshot{}, err
 	}
 	entries := make([]session.Entry, 0)
 	activeBranch := s.active.Tree.ActiveBranch()
@@ -358,7 +367,7 @@ func (s *Service) ExtensionState(
 			entries = append(entries, entry.Clone())
 		}
 	}
-	return session.ExtensionStateSnapshot{
+	return extensioncontext.SessionSnapshot{
 		SessionID: s.active.Header.ID, ActiveLeafID: s.active.Tree.ActiveLeafID(), Entries: entries,
 	}, nil
 }

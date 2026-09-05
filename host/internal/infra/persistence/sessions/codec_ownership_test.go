@@ -89,6 +89,35 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMalformedEncodedExtensionPayloadPreservesDecodeCause verifies storage errors retain their source.
+func TestMalformedEncodedExtensionPayloadPreservesDecodeCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a strict extension record whose byte encoding is malformed.
+	encoded := []byte(`{"type":"extension","id":"entry","parentId":null,` +
+		`"createdAt":"2026-09-06T01:00:00Z","extensionId":"owner",` +
+		`"entryType":"state","data":"%%%"}`)
+
+	// Act by decoding through the persisted entry codec.
+	_, err := decodeEntry(encoded)
+
+	// Assert the contextual error retains the base64 decoder cause.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode extension data")
+	assert.Contains(t, err.Error(), "illegal base64 data")
+
+	// Act with valid byte encoding that contains invalid JSON syntax.
+	encoded = []byte(`{"type":"extension","id":"entry","parentId":null,` +
+		`"createdAt":"2026-09-06T01:00:00Z","extensionId":"owner",` +
+		`"entryType":"state","data":"ew=="}`)
+	_, err = decodeEntry(encoded)
+
+	// Assert JSON syntax context supplements the parser's original cause.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "validate decoded extension JSON")
+	assert.Contains(t, err.Error(), "unexpected EOF")
+}
+
 // TestExtensionPayloadBytesRoundTrip verifies JSON formatting and escapes remain byte exact.
 func TestExtensionPayloadBytesRoundTrip(t *testing.T) {
 	t.Parallel()

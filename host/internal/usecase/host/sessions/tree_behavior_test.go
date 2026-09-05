@@ -93,6 +93,7 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 		t.Context(),
 		extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
 		session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{"value":true}`)},
+		treeBehaviorCommitGuard,
 	)
 	require.NoError(t, err)
 
@@ -183,7 +184,7 @@ func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
 	// Act by appending exact extension data whose persistence fails.
 	_, err = service.AppendExtension(t.Context(), expected, session.ExtensionEnvelope{
 		ExtensionID: "extension", EntryType: "checkpoint", Data: []byte(`{ "step": 2 }`),
-	})
+	}, treeBehaviorCommitGuard)
 
 	// Assert failure classification retains the durable cause and publishes no candidate.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
@@ -231,7 +232,7 @@ func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
 			// Act before identifier allocation or persistence.
 			_, err = service.AppendExtension(ctx, test.expected, session.ExtensionEnvelope{
 				ExtensionID: "extension", EntryType: "state", Data: []byte(`{ "step": 2 }`),
-			})
+			}, treeBehaviorCommitGuard)
 
 			// Assert no session entry is published for stale or canceled work.
 			require.Error(t, err)
@@ -335,6 +336,9 @@ func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
 	assert.Equal(t, "active", snapshot.Entries[0].ID)
 	assert.Equal(t, mo.Some("other"), snapshot.Entries[0].ParentID)
 }
+
+// treeBehaviorCommitGuard supplies a valid runtime guard for isolated session tests.
+func treeBehaviorCommitGuard() (func(), error) { return func() {}, nil }
 
 // treeBehaviorExtensionEntry creates one model-hidden extension entry.
 func treeBehaviorExtensionEntry(

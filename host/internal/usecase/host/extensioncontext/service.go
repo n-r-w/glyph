@@ -249,12 +249,17 @@ func (s *Service) AppendExtension(
 	if err != nil {
 		return session.Entry{}, err
 	}
-	entry, err := s.session.AppendExtension(ctx, expected, session.ExtensionEnvelope{
-		ExtensionID: extensionID, EntryType: entryType, Data: data,
-	})
+	entry, err := s.session.AppendExtension(
+		ctx,
+		expected,
+		session.ExtensionEnvelope{ExtensionID: extensionID, EntryType: entryType, Data: data},
+		func() (func(), error) { return s.runtime.BeginContextCommit(extensionID, runtimeID) },
+	)
 	if err != nil {
 		code := internalCode
-		if errors.Is(err, session.ErrUnavailable) {
+		if failure, found := errors.AsType[extensioncontroller.ContextFailure](err); found {
+			code = failure.ContextCode()
+		} else if errors.Is(err, session.ErrUnavailable) {
 			code = staleContextCode
 		} else if errors.Is(err, session.ErrPersistenceUnavailable) {
 			code = persistenceUnavailableCode
@@ -269,10 +274,10 @@ func (s *Service) ReadSessionState(
 	ctx context.Context,
 	extensionID, runtimeID string,
 	reference extension.ContextRef,
-) (session.ExtensionStateSnapshot, error) {
+) (extensioncontroller.SessionState, error) {
 	expected, err := s.boundSession(ctx, extensionID, runtimeID, reference)
 	if err != nil {
-		return session.ExtensionStateSnapshot{}, err
+		return extensioncontroller.SessionState{}, err
 	}
 	snapshot, err := s.session.ExtensionState(ctx, expected, extensionID)
 	if err != nil {
@@ -280,14 +285,16 @@ func (s *Service) ReadSessionState(
 		if errors.Is(err, session.ErrUnavailable) {
 			code = staleContextCode
 		}
-		return session.ExtensionStateSnapshot{}, &ContextError{
+		return extensioncontroller.SessionState{}, &ContextError{
 			code: code, cause: fmt.Errorf("read extension session state: %w", err),
 		}
 	}
 	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
-		return session.ExtensionStateSnapshot{}, validationErr
+		return extensioncontroller.SessionState{}, validationErr
 	}
-	return snapshot, nil
+	return extensioncontroller.SessionState{
+		SessionID: snapshot.SessionID, ActiveLeafID: snapshot.ActiveLeafID, Entries: snapshot.Entries,
+	}, nil
 }
 
 // boundSession validates admission and returns the incarnation stored with the issued binding.

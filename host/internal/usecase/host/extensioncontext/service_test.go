@@ -163,6 +163,7 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 	sessions := NewMockSessionState(controller)
 	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	runtime.EXPECT().BeginContextCommit("extension", "runtime").Return(func() {}, nil)
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	service := New(runtime, sessions)
 	issued, err := service.IssueContext("extension")
@@ -183,8 +184,22 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 		),
 		BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
-	sessions.EXPECT().AppendExtension(gomock.Any(), identity, stored.Extension.MustGet()).Return(stored, nil)
-	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").Return(session.ExtensionStateSnapshot{
+	sessions.EXPECT().AppendExtension(
+		gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ SessionIdentity,
+		_ session.ExtensionEnvelope,
+		guard ContextCommitGuard,
+	) (session.Entry, error) {
+		release, guardErr := guard()
+		if guardErr != nil {
+			return session.Entry{}, guardErr
+		}
+		defer release()
+		return stored, nil
+	})
+	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").Return(SessionSnapshot{
 		SessionID: "session", ActiveLeafID: mo.Some("entry"), Entries: []session.Entry{stored},
 	}, nil)
 
@@ -223,10 +238,10 @@ func TestSessionRecoveryRejectsReplacementDuringRead(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").DoAndReturn(
-		func(context.Context, SessionIdentity, string) (session.ExtensionStateSnapshot, error) {
+		func(context.Context, SessionIdentity, string) (SessionSnapshot, error) {
 			close(entered)
 			<-release
-			return session.ExtensionStateSnapshot{
+			return SessionSnapshot{
 				SessionID:    "session",
 				ActiveLeafID: mo.None[string](),
 				Entries:      nil,

@@ -4,6 +4,8 @@ package extension
 import (
 	"context"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -50,7 +52,17 @@ type ContextOperations interface {
 		ctx context.Context,
 		extensionID, runtimeID string,
 		reference extensiondomain.ContextRef,
-	) (session.ExtensionStateSnapshot, error)
+	) (SessionState, error)
+}
+
+// SessionState contains one coherent recovery result at the controller consumer boundary.
+type SessionState struct {
+	// SessionID identifies the bound durable session.
+	SessionID session.ID
+	// ActiveLeafID identifies the snapshot leaf when present.
+	ActiveLeafID mo.Option[string]
+	// Entries contains the caller extension's root-first active-branch entries.
+	Entries []session.Entry
 }
 
 // ModelCatalog contains descriptors and active selection for one completed read.

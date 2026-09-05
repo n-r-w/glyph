@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
@@ -118,6 +119,69 @@ func TestCommitNavigationCancellationWritesNothing(t *testing.T) {
 	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
 }
 
+// TestExtensionStateIsCoherentDuringNavigation verifies the leaf and filtered entries share one read lock.
+func TestExtensionStateIsCoherentDuringNavigation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a navigation that abandons the caller extension's checkpoint while persistence is blocked.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	root := treeBehaviorUserEntry("root", mo.None[string](), createdAt)
+	destination := treeBehaviorUserEntry("destination", mo.Some("root"), createdAt.Add(time.Second))
+	checkpoint := treeBehaviorExtensionEntry(
+		"checkpoint", mo.Some("destination"), createdAt.Add(2*time.Second), "caller",
+	)
+	tree, err := session.NewTree([]session.Entry{root, destination, checkpoint}, mo.Some("checkpoint"), nil)
+	require.NoError(t, err)
+	service := New(repository, nil, nil, nil, "/project")
+	service.active = commitNavigationLoadedSession(tree, createdAt)
+	expected := extensioncontext.SessionIdentity{
+		ID: "session", WorkingDirectory: "/project", Incarnation: 1,
+	}
+	service.contextIdentity.Store(&expected)
+	persistenceStarted := make(chan struct{})
+	allowPersistence := make(chan struct{})
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, ApplyCommand) (ApplyResult, error) {
+			close(persistenceStarted)
+			<-allowPersistence
+			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
+		},
+	)
+	navigationDone := make(chan error, 1)
+	go func() {
+		_, navigationErr := service.CommitNavigation(
+			t.Context(), navigationCommit("checkpoint", "destination"),
+		)
+		navigationDone <- navigationErr
+	}()
+	<-persistenceStarted
+	recoveryStarted := make(chan struct{})
+	recoveryDone := make(chan navigationRecoveryResult, 1)
+	go func() {
+		close(recoveryStarted)
+		snapshot, recoveryErr := service.ExtensionState(t.Context(), expected, "caller")
+		recoveryDone <- navigationRecoveryResult{snapshot: snapshot, err: recoveryErr}
+	}()
+	<-recoveryStarted
+	if service.mutex.TryRLock() {
+		service.mutex.RUnlock()
+		t.Fatal("recovery overlap did not encounter the navigation write boundary")
+	}
+
+	// Act by completing the overlapping navigation commit.
+	close(allowPersistence)
+	result := <-recoveryDone
+
+	// Assert recovery contains the committed leaf and no entry from the abandoned branch.
+	require.NoError(t, <-navigationDone)
+	require.NoError(t, result.err)
+	assert.Equal(t, session.ID("session"), result.snapshot.SessionID)
+	assert.Equal(t, mo.Some("destination"), result.snapshot.ActiveLeafID)
+	assert.Empty(t, result.snapshot.Entries)
+}
+
 // TestCommitNavigationPersistenceFailurePreservesPublishedTree verifies failed storage never publishes its candidate.
 func TestCommitNavigationPersistenceFailurePreservesPublishedTree(t *testing.T) {
 	t.Parallel()
@@ -140,6 +204,14 @@ func TestCommitNavigationPersistenceFailurePreservesPublishedTree(t *testing.T) 
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
 	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
 	assert.Equal(t, []string{"root", "destination", "abandoned"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+}
+
+// navigationRecoveryResult contains one asynchronous snapshot read outcome.
+type navigationRecoveryResult struct {
+	// snapshot contains the coherent session read when successful.
+	snapshot extensioncontext.SessionSnapshot
+	// err contains the recovery failure when present.
+	err error
 }
 
 // navigationCommit creates one no-summary optimistic commit command.

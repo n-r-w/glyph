@@ -177,7 +177,7 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 		gomock.Any(), "extension", "runtime", reference, "checkpoint", payload,
 	).Return(stored, nil)
 	contexts.EXPECT().ReadSessionState(gomock.Any(), "extension", "runtime", reference).Return(
-		session.ExtensionStateSnapshot{
+		SessionState{
 			SessionID: "session", ActiveLeafID: mo.Some("entry"), Entries: []session.Entry{stored},
 		}, nil,
 	)

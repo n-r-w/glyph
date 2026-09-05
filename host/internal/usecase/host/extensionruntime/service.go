@@ -63,6 +63,12 @@ type runtimeState struct {
 	observed bool
 	// monitorDone closes after the process-exit monitor joins its owned work.
 	monitorDone chan struct{}
+	// commit protects final state-owner commits from runtime invalidation.
+	commit sync.RWMutex
+	// invalidated closes when runtime invalidation begins.
+	invalidated chan struct{}
+	// invalidateOnce closes invalidated at most once across failure paths.
+	invalidateOnce sync.Once
 }
 
 // operationOwner identifies one runtime involved in an active operation.
@@ -160,6 +166,9 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 			closeOnce:        sync.Once{},
 			observed:         false,
 			monitorDone:      make(chan struct{}),
+			commit:           sync.RWMutex{},
+			invalidated:      make(chan struct{}),
+			invalidateOnce:   sync.Once{},
 		}
 		s.mutex.Unlock()
 		registrations = append(registrations, registration)
@@ -172,17 +181,23 @@ func (s *Service) replaceInstance(extensionID string) string {
 	s.mutex.Lock()
 	previous := s.runtimes[extensionID]
 	if previous != nil {
-		previous.available = false
-		previous.exitPending = false
-		delete(s.runtimes, extensionID)
+		previous.invalidate()
 	}
-	instance := rand.Text()
 	s.mutex.Unlock()
 	if previous != nil {
+		previous.commit.Lock()
+		s.mutex.Lock()
+		if s.runtimes[extensionID] == previous {
+			previous.available = false
+			previous.exitPending = false
+			delete(s.runtimes, extensionID)
+		}
+		s.mutex.Unlock()
+		previous.commit.Unlock()
 		previous.closeTransport()
 		previous.join()
 	}
-	return instance
+	return rand.Text()
 }
 
 // RejectPending closes rejected runtimes without reporting a post-start failure.
@@ -211,7 +226,7 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 	}
 	observed := make(map[string]*runtimeState)
 	for _, registration := range registrations {
-		if state, exists := s.runtimes[registration.ID]; exists {
+		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
 			state.available = true
 			if s.monitoring && !state.observed {
 				state.observed = true
@@ -231,7 +246,7 @@ func (s *Service) ToolRuntimeAvailable(extensionID string) bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	state, exists := s.runtimes[extensionID]
-	return exists && state.available
+	return exists && state.available && !state.isInvalidated()
 }
 
 // ExecuteTool invokes one tool while retaining runtime active-operation accounting.
@@ -263,7 +278,7 @@ func (s *Service) HandlerRuntimeAvailable(extensionID string) bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	state, exists := s.runtimes[extensionID]
-	return exists && state.available
+	return exists && state.available && !state.isInvalidated()
 }
 
 // HandleHandler invokes one handler while retaining runtime active-operation accounting.
@@ -291,7 +306,7 @@ func (s *Service) beginOperation(pluginID, runtimeID string) (operationOwner, bo
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	state, exists := s.runtimes[pluginID]
-	if !exists || !state.available || state.instanceID != runtimeID || s.closing {
+	if !exists || !state.available || state.isInvalidated() || state.instanceID != runtimeID || s.closing {
 		return operationOwner{pluginID: pluginID, state: state}, false
 	}
 	state.activeExecutions++
@@ -305,14 +320,32 @@ func (s *Service) Close() {
 	s.closing = true
 	states := make([]*runtimeState, 0, len(s.runtimes))
 	for _, state := range s.runtimes {
-		state.exitPending = false
-		s.disableLocked(state)
+		state.invalidate()
 		states = append(states, state)
 	}
 	s.mutex.Unlock()
 	for _, state := range states {
+		state.commit.Lock()
+		s.mutex.Lock()
+		state.exitPending = false
+		s.disableLocked(state)
+		s.mutex.Unlock()
+		state.commit.Unlock()
 		state.closeTransport()
 		state.join()
+	}
+}
+
+// invalidate announces that no later context commit can start.
+func (state *runtimeState) invalidate() { state.invalidateOnce.Do(func() { close(state.invalidated) }) }
+
+// isInvalidated reports whether commit invalidation has started without blocking.
+func (state *runtimeState) isInvalidated() bool {
+	select {
+	case <-state.invalidated:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -331,14 +364,18 @@ func (state *runtimeState) join() {
 func (s *Service) monitor(ctx context.Context, pluginID string, state *runtimeState, done <-chan struct{}) {
 	defer close(state.monitorDone)
 	<-done
+	state.invalidate()
+	state.commit.Lock()
 	s.mutex.Lock()
 	if s.closing || !s.disableLocked(state) {
 		s.mutex.Unlock()
+		state.commit.Unlock()
 		return
 	}
 	reportFailure := state.activeExecutions == 0
 	state.exitPending = !reportFailure
 	s.mutex.Unlock()
+	state.commit.Unlock()
 	if reportFailure {
 		s.report(
 			ctx,
@@ -352,7 +389,15 @@ func (s *Service) monitor(ctx context.Context, pluginID string, state *runtimeSt
 // finishAndReport settles active-operation accounting and runtime failure delivery.
 func (s *Service) finishAndReport(ctx context.Context, owner operationOwner, executeErr error) {
 	defer owner.state.work.Done()
+	guardInvalidation := errors.Is(executeErr, ErrExtensionUnavailable)
+	if guardInvalidation {
+		owner.state.invalidate()
+		owner.state.commit.Lock()
+	}
 	closeRuntime, failure, reportFailure := s.finishExecution(owner, executeErr)
+	if guardInvalidation {
+		owner.state.commit.Unlock()
+	}
 	if closeRuntime {
 		owner.state.closeTransport()
 	}
@@ -391,6 +436,7 @@ func (s *Service) finishExecution(owner operationOwner, executeErr error) (bool,
 
 // disableLocked removes one runtime from availability.
 func (s *Service) disableLocked(state *runtimeState) bool {
+	state.invalidate()
 	if !state.available {
 		return false
 	}

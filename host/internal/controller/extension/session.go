@@ -54,7 +54,7 @@ func mapSessionEntry(entry session.Entry) (*extensionpb.SessionStateEntry, error
 }
 
 // mapSessionState maps one coherent state-owner snapshot without changing order or ancestry.
-func mapSessionState(snapshot session.ExtensionStateSnapshot) (*extensionpb.GetSessionStateResult, error) {
+func mapSessionState(snapshot SessionState) (*extensionpb.GetSessionStateResult, error) {
 	entries := make([]*extensionpb.SessionStateEntry, 0, len(snapshot.Entries))
 	for entryIndex := range snapshot.Entries {
 		mapped, err := mapSessionEntry(snapshot.Entries[entryIndex])
