@@ -47,6 +47,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 1. NO PARANOID SAFETY: don't hide errors from user, etc. User is ONLY owner of this tool.
 2. Errors MUST preserve and expose complete error text, including original cause, across every layer and public contract. Machine-readable codes MUST supplement, never replace, that text. Only secrets MAY be redacted.
 3. All operations that may take a noticeable amount of time must be asynchronous. Always prefer async over sync APIs.
+4. Keep UI responsive at all times.
 
 ## Coding rules
 1. MUST run before completing changes in code:
