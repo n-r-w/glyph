@@ -241,8 +241,8 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 ### Model-selection flow
 
 - STP-21: A Glyph client or extension requests a model or reasoning change. Host creates an immutable original target selection and an equal current selection.
-- STP-22: Ordered selection handlers preserve, replace, or reject the current selection. Rejection stops later selection handlers. Host validates model existence, reasoning capability, and authentication only after the handler chain completes without rejection.
-- STP-23: Host commits the complete selection atomically and emits the matching event. A rejected request, invalid handler action, or failed validation preserves the preceding active selection.
+- STP-22: Ordered selection handlers preserve, replace, or reject the current selection. Rejection stops later selection handlers. An ordinary handler error or invalid action is reported, preserves the current selection received by that handler, and does not stop later handlers or deactivate the extension. Host validates model existence, reasoning capability, and authentication only after the handler chain completes without rejection.
+- STP-23: Host commits the complete selection atomically and emits the matching event. A rejected request or failed final validation preserves the preceding active selection and emits no selection event.
 
 ## Configuration
 

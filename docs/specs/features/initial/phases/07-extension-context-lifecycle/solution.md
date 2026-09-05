@@ -34,6 +34,7 @@ Requirement coverage:
 - Emit model-selection and reasoning-selection events only for values changed by a successful commit. Emit reasoning selection before model selection when both change.
 - Publish a committed extension message through a client-neutral `SessionEntryAdded` connection event. A post-commit delivery error does not roll back persistence.
 - Preserve the PHS-05 branch-summarization commit. A selected extension message uses its parent as the navigation destination, while a created `BranchSummaryEntry` becomes the active leaf.
+- Publish the navigation snapshot as operation progress before post-commit observers. Deliver later appends after that snapshot; terminal navigation completion does not replace client session state.
 
 ### Rejected alternatives
 
@@ -64,12 +65,12 @@ Every protobuf enum has an `UNSPECIFIED` zero sentinel. Host rejects that sentin
 
 ### Extension context and runtime binding
 
-- `ExtensionContext` contains extension ID, runtime instance ID, active session ID, and cwd.
-- `ExtensionContextRef` contains runtime instance ID and active session ID. Host derives extension ID from the connected runtime and does not trust an extension-supplied extension ID.
-- Add `host/internal/usecase/host/extensioncontext`. It creates context snapshots, validates bindings, and coordinates context operations through consumer-owned interfaces.
+- `ExtensionContext` contains an opaque `context_id`, extension ID, runtime instance ID, active session ID, and cwd.
+- `ExtensionContextRef` contains `context_id`, runtime instance ID, and active session ID. Host derives extension ID from the connected runtime and checks the complete reference against the binding it issued to that runtime.
+- Add `host/internal/usecase/host/extensioncontext`. It creates context snapshots, validates bindings, and coordinates context operations through consumer-owned interfaces. Each new runtime-to-active-session binding receives a new `context_id`; invocations within that binding reuse it.
 - Extend `extensionruntime.Service` with an opaque runtime instance ID assigned before each extension process start. The service accounts for Host-initiated and extension-initiated operations against that runtime instance.
 - Host validates the context binding before operation acceptance. It validates the binding again before returning a model result, committing a selection, or committing a session mutation.
-- Runtime or active-session replacement makes the preceding context stale. A stale operation commits no selection or session change.
+- Runtime or active-session replacement permanently invalidates the preceding context binding before operations can use the replacement state. Resuming the same durable session creates a new `context_id`, including after switching from session A to B and back to A. Durable session ID equality does not reactivate a preceding context. A stale operation commits no selection or session change.
 - The Extension SDK exposes cancellation through Go `context.Context`. It sends `CancelOperation` when the caller cancels. Cancellation is not serialized as an `ExtensionContext` field.
 
 The Extension SDK context provides typed methods for catalogue queries, configured-model requests, selection requests, and entry appends. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed.
@@ -102,7 +103,7 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 
 - Add `host/internal/usecase/host/modelselection`. UI, Programmatic Control, and extension selection requests call this service through interfaces declared by their consuming packages.
 - `providers.Catalog` retains catalogue, credential, and active-selection ownership. It adds non-mutating target resolution and one full-selection validation-and-commit operation.
-- For a model request, Host forms the original target from the requested provider and model. It preserves the active reasoning choice when the target model supports that choice and otherwise uses the target model default. For a reasoning request, Host combines the active provider and model with the requested reasoning choice.
+- For a model-selection request, Host forms the original target from the requested provider and model and preserves the reasoning compatibility behavior of `providers.fallbackReasoningChoice`. An exact supported choice is retained. An unsupported `off` or `on` uses the target default. An unsupported effort maps to `on` when supported; otherwise it maps to the nearest supported effort, with ties resolved toward lower effort, or to the target default when no effort is available. For a reasoning-selection request, Host combines the active provider and model with the requested reasoning choice.
 - Model-selection and reasoning-selection handlers are separate registered kinds. Both receive the immutable original target selection and the current target selection in registration order.
 - A handler returns exactly one action. `preserve` keeps the current target, `replace` supplies one complete target, and `reject` stops later handlers.
 - An ordinary handler error or invalid action records an issue, preserves the current target received by that handler, continues later handlers, and leaves the runtime available.
@@ -124,11 +125,13 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 - Active history excludes model-hidden extension entries. It maps every model-visible extension message to provider-neutral user text regardless of client visibility.
 - After persistence commit, Host emits `SessionEntryAdded` with the complete extension message and client visibility. Delivery precedes completion of the extension-initiated append operation.
 - Client delivery failure leaves persistence and in-memory state committed. The extension receives the committed result and a `DELIVERY_FAILED` issue.
+- Appends are permitted from session-tree request handlers, result handlers, and post-commit observers. Each append is a separate operation. A later navigation failure or cancellation does not roll back a committed append.
+- Host serializes each affected session commit with enqueue of its client update on the connection's ordered writer. Navigation snapshot publication and append publication use this same boundary. Host releases the boundary before invoking extension handlers or waiting for transport writes; it does not hold the boundary for the complete navigation operation.
 
 ### Glyph client contracts and client visibility
 
 - Add `ExtensionMessage` and `ClientVisibility` to `api/plugins/ui/v1/session.proto` and `api/programmatic/v1/session.proto`.
-- UI Plugin Contract and Programmatic Control carry the extension message in session-tree entries, detailed session entries, active-branch replacements, navigation results, and `SessionEntryAdded` connection events.
+- UI Plugin Contract and Programmatic Control carry the extension message in session-tree entries, detailed session entries, active-branch replacements, navigation progress snapshots, and `SessionEntryAdded` connection events.
 - Both client contracts carry exact message text for `visible` and `hidden`. Client visibility is presentation data and is not a security boundary.
 - Standard TUI includes `visible` messages in its ordinary transcript and excludes `hidden` messages. It retains both values in session-tree state without adding extension-defined rendering.
 - Programmatic Control exposes both values through connection events, the session tree, and detailed entries. Its ordinary `GetMessages` projection excludes `hidden` messages.
@@ -139,7 +142,11 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 - Extend `session.Tree.NavigationPreparation` so a model-visible extension message uses its parent as the navigation destination and its exact text as next input.
 - The rule applies to `visible` and `hidden` client visibility because both messages remain in the complete session tree.
 - Without a branch summary, the navigation destination becomes the active leaf. With a branch summary, `sessions.Service.CommitNavigation` attaches the new `BranchSummaryEntry` to that destination and makes the summary the active leaf.
-- Session-tree orchestration keeps its implemented handler chain, final validation, persistence commit, and post-commit observer order. UI and Programmatic controllers return the Host result and never start Agent Core for returned next input.
+- Session-tree orchestration retains request handlers, result handlers, final validation, and persistence commit. Immediately after commit, Host publishes the committed session tree and active branch as typed navigation operation progress through UI Plugin Contract and Programmatic Control, before invoking post-commit observers.
+- Post-commit observers can append and await their append operations. The client receives each later `SessionEntryAdded` after the navigation snapshot. This order also applies to appends from other extension operations, not only the observers of that navigation.
+- Terminal navigation completion contains status, navigation destination, the navigation commit's active leaf, created branch-summary metadata, exact next input, and ordered issues. It contains no replacement tree or active-branch snapshot. The navigation commit's active leaf describes that commit, not a later observer append.
+- Glyph clients apply the progress snapshot, then apply later session events in stream order. Terminal completion updates operation status, next input, and issues without replacing the transcript or resetting the active leaf. UI and Programmatic controllers never start Agent Core for returned next input.
+- Cancellation before navigation commit preserves the preceding navigation state. After commit, cancellation or observer and delivery errors cannot undo navigation or its published snapshot; the terminal result retains committed navigation information and reports post-commit issues to the reachable initiator through the shared operation lifecycle.
 
 ### Package ownership and composition
 
@@ -205,13 +212,13 @@ The Extension Contract transport limits extension-originated external error text
 ### Verification
 
 - Add Extension SDK and runtime tests for operations in both directions, nested operations, cancellation, duplicate IDs, connection close, and runtime replacement.
-- Add context tests for stale runtime, stale session, cwd, model catalogue, provider catalogue, and credential exclusion.
+- Add context tests for stale runtime, stale session, cwd, model catalogue, provider catalogue, and credential exclusion. After switching from session A to B and back to A, assert that the old A context returns `STALE_CONTEXT` while the new A context works. Also cover resuming the active durable session without changing its ID.
 - Add configured-model tests for ordered history, visible reasoning content, provider-context omission, no tools, cancellation, failure categories, and unchanged active selection.
 - Add lifecycle tests for every event kind, client-first delivery, observer registration order, ordinary observer errors, runtime failure, and issue-delivery failure.
-- Add selection tests for original and current composition, preserve, replace, rejection, invalid action, atomic commit, concurrent selection, event order, no-op, and post-commit delivery failure.
+- Add selection tests for original and current composition, preserve, replace, rejection, invalid action, atomic commit, concurrent selection, event order, no-op, and post-commit delivery failure. Retain the reasoning compatibility cases from `providers.fallbackReasoningChoice`, including nearest-effort selection and lower-effort tie resolution.
 - Add session domain and persistence tests for both extension record types, exact parent, restart, snapshot replacement, history projection, and failed writes.
 - Add UI Plugin Contract and Programmatic Control tests for extension messages, client visibility, `SessionEntryAdded`, hidden transcript filtering, selection events, issues, and equivalent error text and categories.
-- Add navigation tests for both client visibility values, exact next input, no-summary and branch-summary active leaves, and zero Agent Core calls.
+- Add navigation tests for both client visibility values, exact next input, no-summary and branch-summary active leaves, and zero Agent Core calls. A post-commit observer appends a message and awaits completion; assert snapshot progress before `SessionEntryAdded`, then terminal navigation completion without another transcript replacement. The client retains the appended entry while the completion identifies the earlier navigation commit's active leaf. Also cover an overlapping append from another extension, pre-commit handler appends followed by navigation failure, and post-commit cancellation or delivery failure.
 - Add an external extension fixture that receives `agent_start`, makes a configured-model request, appends its result, transforms one selection, and receives `STALE_CONTEXT` after session replacement.
 - Run `task generate` twice and require no diff from the second run. Then run `task fmt`, `task fix_dry_run`, accepted fixes, `task lint`, `task test`, `task itest`, and `task test-coverage`.
 
