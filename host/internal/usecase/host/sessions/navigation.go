@@ -78,7 +78,7 @@ func (s *Service) CommitNavigation(ctx context.Context, command sessiontree.Comm
 	return candidateTree.Clone(), nil
 }
 
-// buildBranchSummaryEntry assigns Host-owned identity, time, accounting, and configured selection.
+// buildBranchSummaryEntry assigns identity, time, and cost for the actual summary source.
 func (s *Service) buildBranchSummaryEntry(
 	draft sessiontree.BranchSummaryDraft,
 	destinationID mo.Option[string],
@@ -87,7 +87,11 @@ func (s *Service) buildBranchSummaryEntry(
 	if err != nil {
 		return session.Entry{}, fmt.Errorf("create branch summary entry ID: %w", err)
 	}
-	cost := s.estimatedUsageCost(draft.Selection.Provider, draft.Selection.Model, draft.Usage)
+	// Non-model work has no estimated cost; model work uses only its own reported usage.
+	cost := mo.None[session.EstimatedCost]()
+	if modelSource, present := draft.Source.Model.Get(); present {
+		cost = s.estimatedUsageCost(modelSource.Selection.Provider, modelSource.Selection.Model, modelSource.Usage)
+	}
 	entry := session.Entry{
 		ID: id, ParentID: destinationID, CreatedAt: s.clock.Now(),
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -95,13 +99,12 @@ func (s *Service) buildBranchSummaryEntry(
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: draft.Summary, FirstEntryID: draft.FirstEntryID, LastEntryID: draft.LastEntryID,
-			Provider: draft.Selection.Provider, Model: draft.Selection.Model,
-			ReasoningChoice: draft.Selection.ReasoningChoice, Usage: draft.Usage, EstimatedCost: cost,
+			Source: draft.Source, EstimatedCost: cost,
 		}),
 	}
 	summary := entry.BranchSummary.OrEmpty()
-	if summary.EstimatedCost.IsSome() && !summary.EstimatedCost.OrEmpty().Valid() {
-		return session.Entry{}, errors.New("branch summary estimated cost is invalid")
+	if validationErr := summary.ValidateAccounting(); validationErr != nil {
+		return session.Entry{}, validationErr
 	}
 	return entry, nil
 }
@@ -112,12 +115,11 @@ func validateBranchSummaryDraft(
 	expectedActiveLeafID mo.Option[string],
 	draft sessiontree.BranchSummaryDraft,
 ) error {
-	if strings.TrimSpace(draft.Summary) == "" || draft.Selection.Provider == "" || draft.Selection.Model == "" ||
-		!draft.Selection.ReasoningChoice.Valid() {
-		return errors.New("branch summary fields are invalid")
+	if strings.TrimSpace(draft.Summary) == "" {
+		return errors.New("branch summary text is empty")
 	}
-	if usage, present := draft.Usage.Get(); present && !usage.Valid() {
-		return errors.New("branch summary usage is invalid")
+	if err := draft.Source.Validate(); err != nil {
+		return err
 	}
 	last, hasLast := expectedActiveLeafID.Get()
 	if !hasLast || draft.LastEntryID != last {
@@ -142,8 +144,7 @@ func validateBranchSummaryDraft(
 	}
 	boundary := session.BranchSummaryEntry{
 		Summary: draft.Summary, FirstEntryID: draft.FirstEntryID, LastEntryID: draft.LastEntryID,
-		Provider: draft.Selection.Provider, Model: draft.Selection.Model,
-		ReasoningChoice: draft.Selection.ReasoningChoice, Usage: draft.Usage,
+		Source:        draft.Source,
 		EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 	return tree.ValidateSummaryBoundary(boundary)

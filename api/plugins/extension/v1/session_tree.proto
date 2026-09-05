@@ -51,7 +51,7 @@ message HandleResponse {
 
 // HandlerError reports one ordinary handler failure without invalidating the extension runtime.
 message HandlerError {
-  // The safe handler failure message.
+  // The complete handler failure text, including its original cause.
   string message = 1;
 }
 
@@ -174,13 +174,13 @@ enum SummaryMode {
   SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT = 3;
 }
 
-// ModelSelection identifies one configured provider, model, and reasoning choice.
+// ModelSelection identifies a provider, model, and reasoning choice for a request or result source.
 message ModelSelection {
-  // The configured provider identifier.
+  // The provider identifier.
   string provider_id = 1;
-  // The configured model identifier.
+  // The model identifier.
   string model_id = 2;
-  // The configured reasoning choice.
+  // The reasoning choice.
   string reasoning_choice = 3;
 }
 
@@ -301,10 +301,29 @@ message SessionTreeExtensionEntry {
   string entry_type = 2;
 }
 
-// BranchSummaryResult contains extension-produced summary output.
+// BranchSummaryResult contains summary output and its explicit producer.
 message BranchSummaryResult {
   // The nonempty summary text.
   string summary = 1;
+  // The required actual source, independent of the built-in selection.
+  BranchSummarySource source = 2;
+}
+
+// BranchSummarySource identifies exactly one producer of the result.
+message BranchSummarySource {
+  // The producer and its model accounting, when applicable.
+  oneof source {
+    // The extension that produced the result without a model.
+    string extension_id = 1;
+    // The actual model execution and its reported usage.
+    BranchSummaryModelSource model = 2;
+  }
+}
+
+// BranchSummaryModelSource keeps model identity and reported usage together.
+message BranchSummaryModelSource {
+  // The required provider, model, and reasoning choice that produced the result.
+  ModelSelection selection = 1;
   // Normalized provider usage, when reported.
   TokenUsage usage = 2;
 }
@@ -313,7 +332,7 @@ message BranchSummaryResult {
 message TokenUsage {
   // Input tokens excluding cache buckets.
   int64 input_tokens = 1;
-  // Output tokens excluding reasoning tokens.
+  // Output tokens including the reasoning subset.
   int64 output_tokens = 2;
   // Cache-read input tokens.
   int64 cache_read_tokens = 3;
@@ -321,7 +340,7 @@ message TokenUsage {
   int64 cache_write_tokens = 4;
   // Reasoning output tokens.
   int64 reasoning_tokens = 5;
-  // Total tokens across all buckets.
+  // Total input, output, cache-read, and cache-write tokens without recounting reasoning.
   int64 total_tokens = 6;
 }
 
@@ -335,12 +354,10 @@ message CommittedBranchSummary {
   string first_entry_id = 3;
   // The last abandoned entry identifier.
   string last_entry_id = 4;
-  // The configured model used to produce the summary.
-  ModelSelection summary_model = 5;
-  // Normalized provider usage, when reported.
-  TokenUsage usage = 6;
-  // Persisted estimated cost, when calculable.
-  EstimatedCost estimated_cost = 7;
+  // The actual producer and its model usage.
+  BranchSummarySource source = 5;
+  // Persisted estimated cost, when calculable for a model source.
+  EstimatedCost estimated_cost = 6;
 }
 
 // EstimatedCost contains persisted USD cost buckets.

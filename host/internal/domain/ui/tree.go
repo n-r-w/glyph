@@ -144,14 +144,8 @@ type BranchSummary struct {
 	FirstEntryID string
 	// LastEntryID identifies the last summarized entry.
 	LastEntryID string
-	// Provider identifies the configured summary provider.
-	Provider model.ProviderID
-	// Model identifies the configured summary model.
-	Model model.ID
-	// ReasoningChoice identifies summary reasoning behavior.
-	ReasoningChoice model.ReasoningChoice
-	// Usage contains normalized usage when available.
-	Usage mo.Option[session.TokenUsage]
+	// Source identifies the actual producer and its model usage.
+	Source session.BranchSummarySource
 	// EstimatedCost contains persisted cost when available.
 	EstimatedCost mo.Option[session.EstimatedCost]
 }

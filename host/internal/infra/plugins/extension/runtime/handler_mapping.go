@@ -265,13 +265,11 @@ func mapOptionalSummaryResult(
 	return mapSummaryResult(value)
 }
 
-// mapSummaryResult maps extension-produced summary text and optional usage.
+// mapSummaryResult maps summary text and its explicit source.
 func mapSummaryResult(result sessiontree.HandlerBranchSummaryResult) *extensionpb.BranchSummaryResult {
-	builder := extensionpb.BranchSummaryResult_builder{Summary: new(result.Summary), Usage: nil}
-	if usage, ok := result.Usage.Get(); ok {
-		builder.Usage = mapTokenUsage(usage)
-	}
-	return builder.Build()
+	return extensionpb.BranchSummaryResult_builder{
+		Summary: new(result.Summary), Source: mapSummarySource(result.Source),
+	}.Build()
 }
 
 // mapOptionalSummaryResultFromProto maps summary-result presence from protobuf.
@@ -281,11 +279,9 @@ func mapOptionalSummaryResultFromProto(
 	if result == nil {
 		return mo.None[sessiontree.HandlerBranchSummaryResult]()
 	}
-	usage := mo.None[session.TokenUsage]()
-	if result.GetUsage() != nil {
-		usage = mo.Some(mapTokenUsageFromProto(result.GetUsage()))
-	}
-	return mo.Some(sessiontree.HandlerBranchSummaryResult{Summary: result.GetSummary(), Usage: usage})
+	return mo.Some(sessiontree.HandlerBranchSummaryResult{
+		Summary: result.GetSummary(), Source: mapSummarySourceFromProto(result.GetSource()),
+	})
 }
 
 // mapTokenUsage maps all normalized usage buckets.
@@ -336,13 +332,7 @@ func mapCommittedSummary(entry session.Entry) *extensionpb.CommittedBranchSummar
 	}
 	builder := extensionpb.CommittedBranchSummary_builder{
 		EntryId: new(entry.ID), Summary: new(summary.Summary), FirstEntryId: new(summary.FirstEntryID),
-		LastEntryId: new(summary.LastEntryID), SummaryModel: mapModelSelection(model.Selection{
-			Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
-		}),
-		Usage: nil, EstimatedCost: nil,
-	}
-	if usage, present := summary.Usage.Get(); present {
-		builder.Usage = mapTokenUsage(usage)
+		LastEntryId: new(summary.LastEntryID), Source: mapSummarySource(summary.Source), EstimatedCost: nil,
 	}
 	if cost, present := summary.EstimatedCost.Get(); present {
 		builder.EstimatedCost = extensionpb.EstimatedCost_builder{

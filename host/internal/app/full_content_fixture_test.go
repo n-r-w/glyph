@@ -182,9 +182,16 @@ func appendFullContentFixtureWithUsage(
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.Some(session.BranchSummaryEntry{
 				Summary: "## Goal\n\nFull branch summary", FirstEntryID: "full-user-entry",
-				LastEntryID: "full-tool-entry", Provider: model.ProviderID("openai-codex"),
-				Model: model.ID("selected-model"), ReasoningChoice: model.ReasoningChoiceHigh,
-				Usage: summaryUsage, EstimatedCost: summaryEstimatedCost,
+				LastEntryID: "full-tool-entry", Source: session.BranchSummarySource{
+					ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+						Selection: model.Selection{
+							Provider:        "openai-codex",
+							Model:           "selected-model",
+							ReasoningChoice: model.ReasoningChoiceHigh,
+						},
+						Usage: summaryUsage,
+					}),
+				}, EstimatedCost: summaryEstimatedCost,
 			}),
 		},
 		{

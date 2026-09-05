@@ -221,39 +221,27 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 	if err != nil {
 		return session.Entry{}, fmt.Errorf("parse branch summary timestamp: %w", err)
 	}
-	if record.ID == "" || record.Summary == "" || record.FirstEntryID == "" || record.LastEntryID == "" ||
-		record.Provider == "" || record.Model == "" || !record.ReasoningChoice.Valid() {
+	if record.ID == "" || record.Summary == "" || record.FirstEntryID == "" || record.LastEntryID == "" {
 		return session.Entry{}, errors.New("invalid branch summary entry")
 	}
-	usage := mo.None[session.TokenUsage]()
-	if record.Usage != nil {
-		value := session.TokenUsage{
-			InputTokens: record.Usage.InputTokens, OutputTokens: record.Usage.OutputTokens,
-			CacheReadTokens: record.Usage.CacheReadTokens, CacheWriteTokens: record.Usage.CacheWriteTokens,
-			ReasoningTokens: record.Usage.ReasoningTokens, TotalTokens: record.Usage.TotalTokens,
-		}
-		if !value.Valid() {
-			return session.Entry{}, errors.New("invalid branch summary usage")
-		}
-		usage = mo.Some(value)
-	}
+	source := decodeBranchSummarySource(record.Source)
 	cost, err := decodeEstimatedCost(record.EstimatedCost)
 	if err != nil {
 		return session.Entry{}, err
 	}
-	if value, present := cost.Get(); present && !value.Valid() {
-		return session.Entry{}, errors.New("invalid branch summary cost")
+	summary := session.BranchSummaryEntry{
+		Summary: record.Summary, FirstEntryID: record.FirstEntryID, LastEntryID: record.LastEntryID,
+		Source: source, EstimatedCost: cost,
+	}
+	if validationErr := summary.ValidateAccounting(); validationErr != nil {
+		return session.Entry{}, validationErr
 	}
 	return session.Entry{
 		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.Some(session.BranchSummaryEntry{
-			Summary: record.Summary, FirstEntryID: record.FirstEntryID, LastEntryID: record.LastEntryID,
-			Provider: model.ProviderID(record.Provider), Model: model.ID(record.Model),
-			ReasoningChoice: record.ReasoningChoice, Usage: usage, EstimatedCost: cost,
-		}),
+		BranchSummary: mo.Some(summary),
 	}, nil
 }
 

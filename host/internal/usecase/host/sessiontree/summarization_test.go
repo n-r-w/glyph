@@ -96,12 +96,15 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 				InputTokens: 5, OutputTokens: 5, CacheReadTokens: 3,
 				CacheWriteTokens: 2, ReasoningTokens: 2, TotalTokens: 15,
 			}
-			models.EXPECT().CheckAvailability(gomock.Any(), selection).Return(nil)
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 				BranchSummary: mo.Some(BranchSummaryDraft{
 					Summary: "generated summary", FirstEntryID: "user", LastEntryID: "active",
-					CommonAncestorID: mo.Some("root"), Selection: selection, Usage: mo.Some(expectedUsage),
+					CommonAncestorID: mo.Some("root"), Source: session.BranchSummarySource{
+						ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+							Selection: selection, Usage: mo.Some(expectedUsage),
+						}),
+					},
 				}),
 			}).Return(tree, nil)
 

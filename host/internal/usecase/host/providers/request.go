@@ -13,12 +13,6 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-// CheckAvailability resolves one exact selection and its credentials without changing active selection.
-func (c *Catalog) CheckAvailability(ctx context.Context, selection model.Selection) error {
-	_, err := c.resolveRequestEntry(ctx, selection)
-	return err
-}
-
 // Request executes one model request and returns its terminal response without changing active selection.
 func (c *Catalog) Request(
 	ctx context.Context,

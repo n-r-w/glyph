@@ -99,15 +99,16 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
 	models.EXPECT().ActiveSelection().Return(selection)
-	models.EXPECT().CheckAvailability(gomock.Any(), selection).Return(nil)
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
-	require.NoError(t, committed.Add(grpcSummaryEntry(selection)))
+	require.NoError(t, committed.Add(grpcSummaryEntry()))
 	active.EXPECT().CommitNavigation(gomock.Any(), sessiontree.CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
 			Summary: "refined", FirstEntryID: "user", LastEntryID: "active",
-			CommonAncestorID: mo.Some("root"), Selection: selection, Usage: mo.None[session.TokenUsage](),
+			CommonAncestorID: mo.Some("root"), Source: session.BranchSummarySource{
+				ExtensionID: mo.Some("02-refine"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
 		}),
 	}).Return(committed, nil)
 
@@ -180,6 +181,9 @@ func (operation *handlerFixtureRegisterOperation) Run(
 	fixture := operation.fixture
 	var handlers []*extensionpb.HandlerDescriptor
 	switch fixture.mode {
+	case summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode, summaryControlClearMode,
+		summaryControlInvalidMode, summaryControlCancelMode:
+		return summaryControlRegistration(fixture.mode), nil
 	case handlerFixtureSupplyMode:
 		handlers = []*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
@@ -210,13 +214,23 @@ func (operation *handlerFixtureHandleOperation) Run(
 ) (*extensionpb.HandleResponse, error) {
 	request := operation.request
 	s := operation.fixture
+	switch s.mode {
+	case summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode, summaryControlClearMode,
+		summaryControlInvalidMode, summaryControlCancelMode:
+		return operation.runSummaryControlHandler()
+	}
 	switch request.GetHandlerId() {
 	case "supply":
 		return extensionpb.HandleResponse_builder{
 			SessionBeforeTreeRequest: extensionpb.SessionBeforeTreeRequestAction_builder{
-				Cancel: new(false), RequestAction: new(extensionpb.RequestAction_REQUEST_ACTION_PRESERVE),
-				Request: nil, ResultAction: new(extensionpb.ResultAction_RESULT_ACTION_REPLACE),
-				Result: extensionpb.BranchSummaryResult_builder{Summary: new("ready"), Usage: nil}.Build(),
+				Cancel:        new(false),
+				RequestAction: new(extensionpb.RequestAction_REQUEST_ACTION_PRESERVE),
+				Request:       nil,
+				ResultAction:  new(extensionpb.ResultAction_RESULT_ACTION_REPLACE),
+				Result: extensionpb.BranchSummaryResult_builder{
+					Summary: new("ready"),
+					Source:  extensionpb.BranchSummarySource_builder{ExtensionId: new("01-supply"), Model: nil}.Build(),
+				}.Build(),
 			}.Build(),
 			SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
 		}.Build(), nil
@@ -224,8 +238,12 @@ func (operation *handlerFixtureHandleOperation) Run(
 		return extensionpb.HandleResponse_builder{
 			SessionBeforeTreeRequest: nil,
 			SessionBeforeTreeResult: extensionpb.SessionBeforeTreeResultAction_builder{
-				Cancel: new(false), ResultAction: new(extensionpb.ResultAction_RESULT_ACTION_REPLACE),
-				Result: extensionpb.BranchSummaryResult_builder{Summary: new("refined"), Usage: nil}.Build(),
+				Cancel:       new(false),
+				ResultAction: new(extensionpb.ResultAction_RESULT_ACTION_REPLACE),
+				Result: extensionpb.BranchSummaryResult_builder{
+					Summary: new("refined"),
+					Source:  extensionpb.BranchSummarySource_builder{ExtensionId: new("02-refine"), Model: nil}.Build(),
+				}.Build(),
 			}.Build(),
 			SessionTree: nil, Error: nil,
 		}.Build(), nil
@@ -290,16 +308,21 @@ func grpcUserEntry(id string, parentID mo.Option[string], text string, createdAt
 }
 
 // grpcSummaryEntry creates the committed summary returned by the active-session mock.
-func grpcSummaryEntry(selection model.Selection) session.Entry {
+func grpcSummaryEntry() session.Entry {
 	return session.Entry{
 		ID: "summary", ParentID: mo.Some("root"), CreatedAt: time.Unix(4, 0).UTC(),
 		Information: mo.None[session.Information](), User: mo.None[model.Message](),
 		Model: mo.None[model.Response](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
-			Summary: "refined", FirstEntryID: "user", LastEntryID: "active",
-			Provider: selection.Provider, Model: selection.Model, ReasoningChoice: selection.ReasoningChoice,
-			Usage: mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Summary:      "refined",
+			FirstEntryID: "user",
+			LastEntryID:  "active",
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.Some("02-refine"),
+				Model:       mo.None[session.BranchSummaryModelSource](),
+			},
+			EstimatedCost: mo.None[session.EstimatedCost](),
 		}),
 	}
 }

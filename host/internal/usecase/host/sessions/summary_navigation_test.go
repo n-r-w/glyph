@@ -61,10 +61,8 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 			assert.Equal(t, "generated", summary.Summary)
 			assert.Equal(t, "abandoned", summary.FirstEntryID)
 			assert.Equal(t, "abandoned", summary.LastEntryID)
-			assert.Equal(t, selection.Provider, summary.Provider)
-			assert.Equal(t, selection.Model, summary.Model)
-			assert.Equal(t, selection.ReasoningChoice, summary.ReasoningChoice)
-			assert.Equal(t, mo.Some(usage), summary.Usage)
+			assert.Equal(t, selection, summary.Source.Model.OrEmpty().Selection)
+			assert.Equal(t, mo.Some(usage), summary.Source.Model.OrEmpty().Usage)
 			cost := summary.EstimatedCost.MustGet()
 			assert.InDelta(t, 0.000005, cost.Input, 1e-12)
 			assert.InDelta(t, 0.000008, cost.Output, 1e-12)
@@ -80,7 +78,11 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 		ExpectedActiveLeafID: mo.Some("abandoned"), DestinationID: mo.Some("destination"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
 			Summary: "generated", FirstEntryID: "abandoned", LastEntryID: "abandoned",
-			CommonAncestorID: mo.Some("destination"), Selection: selection, Usage: mo.Some(usage),
+			CommonAncestorID: mo.Some("destination"), Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: selection, Usage: mo.Some(usage),
+				}),
+			},
 		}),
 	})
 
@@ -110,7 +112,7 @@ func TestCommitNavigationKeepsUsageAndCostAbsentWhenProviderUsageIsAbsent(t *tes
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
 			summary := command.Mutation.Navigation.OrEmpty().BranchSummary.OrEmpty().BranchSummary.OrEmpty()
-			assert.True(t, summary.Usage.IsNone())
+			assert.True(t, summary.Source.Model.OrEmpty().Usage.IsNone())
 			assert.True(t, summary.EstimatedCost.IsNone())
 			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
 		},
@@ -124,12 +126,16 @@ func TestCommitNavigationKeepsUsageAndCostAbsentWhenProviderUsageIsAbsent(t *tes
 			FirstEntryID:     "abandoned",
 			LastEntryID:      "abandoned",
 			CommonAncestorID: mo.Some("destination"),
-			Selection: model.Selection{
-				Provider:        "provider",
-				Model:           "model",
-				ReasoningChoice: model.ReasoningChoiceOff,
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: model.Selection{
+						Provider:        "provider",
+						Model:           "model",
+						ReasoningChoice: model.ReasoningChoiceOff,
+					},
+					Usage: mo.None[session.TokenUsage](),
+				}),
 			},
-			Usage: mo.None[session.TokenUsage](),
 		}),
 	})
 

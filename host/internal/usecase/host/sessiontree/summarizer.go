@@ -65,7 +65,11 @@ func (s *Service) summarize(
 	return BranchSummaryDraft{
 		Summary: summary, FirstEntryID: preparation.AbandonedPath[0].ID,
 		LastEntryID:      preparation.AbandonedPath[len(preparation.AbandonedPath)-1].ID,
-		CommonAncestorID: preparation.CommonAncestorID, Selection: selection, Usage: usage,
+		CommonAncestorID: preparation.CommonAncestorID,
+		Source: session.BranchSummarySource{
+			ExtensionID: mo.None[string](),
+			Model:       mo.Some(session.BranchSummaryModelSource{Selection: selection, Usage: usage}),
+		},
 	}, nil
 }
 

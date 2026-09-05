@@ -199,27 +199,40 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 
 // mapBranchSummary maps one persisted summary and optional accounting.
 func mapBranchSummary(summary domainui.BranchSummary) (*uiv1.BranchSummary, error) {
-	reasoning, err := mapModelReasoningChoice(summary.ReasoningChoice)
-	if err != nil {
+	if err := summary.Source.Validate(); err != nil {
 		return nil, err
 	}
 	wire := new(uiv1.BranchSummary)
 	wire.SetSummary(summary.Summary)
 	wire.SetFirstEntryId(summary.FirstEntryID)
 	wire.SetLastEntryId(summary.LastEntryID)
-	wire.SetProviderId(string(summary.Provider))
-	wire.SetModelId(string(summary.Model))
-	wire.SetReasoningChoice(reasoning)
-	if usage, present := summary.Usage.Get(); present {
-		mapped := new(uiv1.TokenUsage)
-		mapped.SetInputTokens(usage.InputTokens)
-		mapped.SetOutputTokens(usage.OutputTokens)
-		mapped.SetCacheReadTokens(usage.CacheReadTokens)
-		mapped.SetCacheWriteTokens(usage.CacheWriteTokens)
-		mapped.SetReasoningTokens(usage.ReasoningTokens)
-		mapped.SetTotalTokens(usage.TotalTokens)
-		wire.SetUsage(mapped)
+	// Only a model source enters reasoning and token conversion.
+	source := new(uiv1.BranchSummarySource)
+	if extensionID, present := summary.Source.ExtensionID.Get(); present {
+		source.SetExtensionId(extensionID)
+	} else if modelSource, modelPresent := summary.Source.Model.Get(); modelPresent {
+		reasoning, err := mapModelReasoningChoice(modelSource.Selection.ReasoningChoice)
+		if err != nil {
+			return nil, err
+		}
+		// Keep actual model identity and its usage in the same wire alternative.
+		mappedModel := new(uiv1.BranchSummaryModelSource)
+		mappedModel.SetProviderId(string(modelSource.Selection.Provider))
+		mappedModel.SetModelId(string(modelSource.Selection.Model))
+		mappedModel.SetReasoningChoice(reasoning)
+		if usage, reported := modelSource.Usage.Get(); reported {
+			mapped := new(uiv1.TokenUsage)
+			mapped.SetInputTokens(usage.InputTokens)
+			mapped.SetOutputTokens(usage.OutputTokens)
+			mapped.SetCacheReadTokens(usage.CacheReadTokens)
+			mapped.SetCacheWriteTokens(usage.CacheWriteTokens)
+			mapped.SetReasoningTokens(usage.ReasoningTokens)
+			mapped.SetTotalTokens(usage.TotalTokens)
+			mappedModel.SetUsage(mapped)
+		}
+		source.SetModel(mappedModel)
 	}
+	wire.SetSource(source)
 	if cost, present := summary.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
 	}

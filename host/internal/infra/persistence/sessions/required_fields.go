@@ -83,22 +83,14 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 		}
 		return entry.requireNonNullFields("extensionId", "entryType")
 	case recordTypeBranchSummary:
-		fields := []string{"summary", "firstEntryId", "lastEntryId", "provider", fieldModel, "reasoningChoice"}
+		fields := []string{"summary", "firstEntryId", "lastEntryId", fieldSummarySource}
 		if validationErr := entry.requireFields(fields...); validationErr != nil {
 			return validationErr
 		}
 		if validationErr := entry.requireNonNullFields(fields...); validationErr != nil {
 			return validationErr
 		}
-		usageFields := []string{
-			fieldInputTokens, fieldOutputTokens, "cacheReadTokens",
-			fieldCacheWriteTokens, fieldReasoningTokens, fieldTotalTokens,
-		}
-		if validationErr := entry.validateOptionalRequiredObject(
-			"usage",
-			usageFields,
-			usageFields,
-		); validationErr != nil {
+		if validationErr := entry.validateSummarySourceRequiredFields(); validationErr != nil {
 			return validationErr
 		}
 		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}

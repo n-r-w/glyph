@@ -92,22 +92,16 @@ type Entry struct {
 	BranchSummary mo.Option[BranchSummaryEntry]
 }
 
-// BranchSummaryEntry stores summary text and its unresolved source provenance.
+// BranchSummaryEntry stores summary text, its branch boundary, and the actual result source.
 type BranchSummaryEntry struct {
-	// Summary contains model-generated abandoned-branch context.
+	// Summary contains abandoned-branch context supplied by its source.
 	Summary string
 	// FirstEntryID identifies the first abandoned entry.
 	FirstEntryID string
 	// LastEntryID identifies the last abandoned entry.
 	LastEntryID string
-	// Provider identifies the configured summary provider.
-	Provider model.ProviderID
-	// Model identifies the configured summary model.
-	Model model.ID
-	// ReasoningChoice identifies the configured summary reasoning behavior.
-	ReasoningChoice model.ReasoningChoice
-	// Usage contains normalized provider usage when reported.
-	Usage mo.Option[TokenUsage]
+	// Source identifies the actual producer and its model usage.
+	Source BranchSummarySource
 	// EstimatedCost contains persisted summary cost when calculable.
 	EstimatedCost mo.Option[EstimatedCost]
 }

@@ -6,11 +6,20 @@ version: "3"
 dotenv: [".env"]
 silent: true
 
+env:
+  GOTOOLCHAIN:
+    sh: awk '$1 == "go" { print "go" $2; exit }' go.mod
+
 tasks:
   default:
     desc: "List available tasks"
     cmds:
       - task --list
+
+  tidy:
+    desc: "Run go mod tidy"
+    cmds:
+      - go mod tidy
 
   lint:
     desc: "Run code linters and vulnerability checks"

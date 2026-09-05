@@ -7,7 +7,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// OperationIssueCode identifies one safe nonterminal extension issue.
+// OperationIssueCode classifies a nonterminal extension issue without replacing its text.
 type OperationIssueCode uint8
 
 const (
@@ -19,7 +19,7 @@ const (
 	OperationIssueObserverError
 )
 
-// OperationIssue reports one safe ordered handler or observer issue.
+// OperationIssue reports handler identity and the complete received failure text.
 type OperationIssue struct {
 	// Code identifies the issue class.
 	Code OperationIssueCode
@@ -27,7 +27,7 @@ type OperationIssue struct {
 	ExtensionID string
 	// HandlerID identifies the registered handler.
 	HandlerID string
-	// Message contains a safe Host-owned description.
+	// Message preserves the received failure and all context already added to it.
 	Message string
 }
 
@@ -43,6 +43,6 @@ type Result struct {
 	ActiveBranch []session.Entry
 	// NextInput contains exact selected user text when the navigation target is a user message.
 	NextInput mo.Option[string]
-	// Issues contains safe nonterminal extension issues in occurrence order.
+	// Issues contains nonterminal extension failures in occurrence order.
 	Issues []OperationIssue
 }

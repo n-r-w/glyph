@@ -2,7 +2,7 @@
 
 ## Problem statement
 
-[The PHS-05 ticket](ticket.md) defines the implemented phase's behavior. The planned [PHS-05.2 ticket](../05.2-branch-summary-extension-control/ticket.md) owns changes to summary-model validation, result-source metadata, and handler error text before PHS-07. The implementation described below does not yet include those changes.
+[The PHS-05 ticket](ticket.md) defines this phase's baseline behavior. The implemented [PHS-05.2 solution](../05.2-branch-summary-extension-control/solution.md) supersedes the summary-model validation, model-only attribution, and generic handler errors described below.
 
 ## Proposed solution
 

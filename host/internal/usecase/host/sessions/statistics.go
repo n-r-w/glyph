@@ -99,14 +99,19 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 			)
 		}
 		if summary, present := entry.BranchSummary.Get(); present {
-			summaryUsage, usagePresent := summary.Usage.Get()
+			// Extension-only summaries do not make otherwise complete model totals unavailable.
+			modelSource, modelPresent := summary.Source.Model.Get()
+			if !modelPresent {
+				continue
+			}
+			summaryUsage, usagePresent := modelSource.Usage.Get()
 			if !usagePresent {
 				statistics.TokenUsage = mo.None[session.TokenUsage]()
 			} else {
 				usage = usage.Add(summaryUsage)
 			}
 			accumulateCost(
-				mo.Some(summary.Provider), mo.Some(summary.Model), summary.EstimatedCost,
+				mo.Some(modelSource.Selection.Provider), mo.Some(modelSource.Selection.Model), summary.EstimatedCost,
 				&aggregateCost, groupCosts,
 			)
 		}

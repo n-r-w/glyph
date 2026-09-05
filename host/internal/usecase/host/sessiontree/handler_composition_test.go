@@ -75,7 +75,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	}
 	expectRequestHandler(handlers, second, RequestHandlerInvocation{
 		Original: original, Current: current, CurrentResult: mo.None[HandlerBranchSummaryResult](),
-	}, RequestHandlerAction{}, errors.New("opaque extension payload must not escape"))
+	}, RequestHandlerAction{}, errors.New("load summary rules: open rules.json: permission denied"))
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
 	registerTestHandlers(service, handlers, HandlerKindObserver, []Handler{observer})
@@ -88,24 +88,24 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 			SessionID: "session", TargetEntryID: "extension", PrecedingActiveLeafID: mo.Some("active"),
 			NavigationDestinationID: mo.Some("extension"), CommittedActiveLeafID: mo.Some("extension"),
 			CreatedSummary: mo.None[session.Entry](),
-		}, errors.New("provider credential secret must not escape")),
+		}, errors.New("save navigation receipt: write receipt.json: disk full")),
 	)
 
 	// Act by navigating through the complete request and observer chain.
 	result, err := service.NavigateTree(t.Context(), original.Request.Navigation)
 
-	// Assert the replacement target commits and safe issues preserve occurrence order.
+	// Assert the replacement target commits and complete causes preserve occurrence order.
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
 	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
 	assert.Equal(t, []sessionnavigation.OperationIssue{
 		{
 			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "second-extension",
-			HandlerID: "ordinary-error", Message: "extension handler failed",
+			HandlerID: "ordinary-error", Message: "load summary rules: open rules.json: permission denied",
 		},
 		{
 			Code: sessionnavigation.OperationIssueObserverError, ExtensionID: "observer-extension",
-			HandlerID: "after-commit", Message: "extension observer failed",
+			HandlerID: "after-commit", Message: "save navigation receipt: write receipt.json: disk full",
 		},
 	}, result.Issues)
 }
@@ -203,7 +203,7 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	assert.True(t, result.Canceled)
 	assert.Equal(t, []sessionnavigation.OperationIssue{{
 		Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
-		HandlerID: "failed", Message: "extension handler failed",
+		HandlerID: "failed", Message: "ordinary failure",
 	}}, result.Issues)
 }
 
@@ -227,10 +227,17 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	state := handlerState("session", selection, request, preparation)
 	setHandler := Handler{ExtensionID: "first", HandlerID: "set"}
 	clearHandler := Handler{ExtensionID: "second", HandlerID: "clear"}
-	resultHandler := Handler{ExtensionID: "third", HandlerID: "replace"}
-	ready := HandlerBranchSummaryResult{Summary: "ready", Usage: mo.None[session.TokenUsage]()}
-	generated := HandlerBranchSummaryResult{Summary: "generated", Usage: mo.None[session.TokenUsage]()}
-	final := HandlerBranchSummaryResult{Summary: "refined", Usage: mo.None[session.TokenUsage]()}
+	failedResultHandler := Handler{ExtensionID: "third", HandlerID: "failed-result"}
+	resultHandler := Handler{ExtensionID: "fourth", HandlerID: "replace"}
+	source := session.BranchSummarySource{
+		ExtensionID: mo.None[string](),
+		Model: mo.Some(session.BranchSummaryModelSource{
+			Selection: selection, Usage: mo.None[session.TokenUsage](),
+		}),
+	}
+	ready := HandlerBranchSummaryResult{Summary: "ready", Source: source}
+	generated := HandlerBranchSummaryResult{Summary: "generated", Source: source}
+	final := HandlerBranchSummaryResult{Summary: "refined", Source: source}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
 	models.EXPECT().ActiveSelection().Return(selection)
@@ -243,13 +250,15 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 		Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[HandlerNavigationRequest](),
 		ResultAction: ResultActionClear, Result: mo.None[HandlerBranchSummaryResult](),
 	}, nil)
-	models.EXPECT().CheckAvailability(gomock.Any(), selection).Return(nil)
 	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ model.Selection, _ string, _ []agent.HistoryEntry) (model.Response, error) {
 			return summaryResponse(generated.Summary, mo.None[model.Usage]()), nil
 		},
 	)
-	registerTestHandlers(service, handlers, HandlerKindResult, []Handler{resultHandler})
+	registerTestHandlers(service, handlers, HandlerKindResult, []Handler{failedResultHandler, resultHandler})
+	expectResultHandler(handlers, failedResultHandler, ResultHandlerInvocation{
+		Original: state, Current: state, OriginalResult: generated, CurrentResult: generated,
+	}, ResultHandlerAction{}, errors.New("refine summary: load glossary: invalid JSON"))
 	expectResultHandler(handlers, resultHandler, ResultHandlerInvocation{
 		Original: state, Current: state, OriginalResult: generated, CurrentResult: generated,
 	}, ResultHandlerAction{
@@ -259,17 +268,20 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 		BranchSummary: mo.Some(BranchSummaryDraft{
 			Summary: "refined", FirstEntryID: "user", LastEntryID: "active", CommonAncestorID: mo.Some("root"),
-			Selection: selection, Usage: mo.None[session.TokenUsage](),
+			Source: source,
 		}),
 	}).Return(tree, nil)
 
 	// Act after the ready result is cleared.
 	result, err := service.NavigateTree(t.Context(), request)
 
-	// Assert the built-in model request and ordered result replacement reach one commit.
+	// Assert failure preserves the generated result for the later handler and reports its complete cause.
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
-	assert.Empty(t, result.Issues)
+	assert.Equal(t, []sessionnavigation.OperationIssue{{
+		Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "third", HandlerID: "failed-result",
+		Message: "refine summary: load glossary: invalid JSON",
+	}}, result.Issues)
 }
 
 // TestNavigateResultHandlerCancellationStopsBeforeValidation verifies result-chain cancellation writes nothing.
@@ -293,7 +305,9 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 	expectRequestHandler(handlers, requestHandler, gomock.Any(), RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve,
 		Request: mo.None[HandlerNavigationRequest](), ResultAction: ResultActionReplace,
-		Result: mo.Some(HandlerBranchSummaryResult{Summary: "ready", Usage: mo.None[session.TokenUsage]()}),
+		Result: mo.Some(HandlerBranchSummaryResult{Summary: "ready", Source: session.BranchSummarySource{
+			ExtensionID: mo.Some("first"), Model: mo.None[session.BranchSummaryModelSource](),
+		}}),
 	}, nil)
 	registerTestHandlers(service, handlers, HandlerKindResult, []Handler{resultHandler})
 	expectResultHandler(handlers, resultHandler, gomock.Any(), ResultHandlerAction{
@@ -382,7 +396,9 @@ func TestNavigateRejectsInconsistentHandlerResultWithoutCommit(t *testing.T) {
 	expectRequestHandler(handlers, handler, gomock.Any(), RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve,
 		Request: mo.None[HandlerNavigationRequest](), ResultAction: ResultActionReplace,
-		Result: mo.Some(HandlerBranchSummaryResult{Summary: "unexpected", Usage: mo.None[session.TokenUsage]()}),
+		Result: mo.Some(HandlerBranchSummaryResult{Summary: "unexpected", Source: session.BranchSummarySource{
+			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+		}}),
 	}, nil)
 
 	// Act with no-summary mode and an extension-provided result.

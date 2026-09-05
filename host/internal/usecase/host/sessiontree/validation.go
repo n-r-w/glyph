@@ -1,7 +1,6 @@
 package sessiontree
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,8 +12,7 @@ import (
 )
 
 // validateFinalState recomputes preparation and validates the exact state before commit.
-func (s *Service) validateFinalState(
-	ctx context.Context,
+func validateFinalState(
 	tree session.Tree,
 	current HandlerNavigationState,
 	result mo.Option[HandlerBranchSummaryResult],
@@ -48,16 +46,8 @@ func (s *Service) validateFinalState(
 			errors.New("summary text is empty"),
 		)
 	}
-	if usage, usagePresent := summary.Usage.Get(); usagePresent && !usage.Valid() {
-		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), invalidExtensionState(
-			errors.New("summary usage is invalid"),
-		)
-	}
-	if selectionErr := s.modelRequester.CheckAvailability(ctx, current.Request.SummaryModel); selectionErr != nil {
-		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), classifyModelRequestError(
-			ctx,
-			selectionErr,
-		)
+	if sourceErr := summary.Source.Validate(); sourceErr != nil {
+		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), invalidExtensionState(sourceErr)
 	}
 
 	draft := BranchSummaryDraft{
@@ -65,13 +55,11 @@ func (s *Service) validateFinalState(
 		FirstEntryID:     preparation.AbandonedPath[0].ID,
 		LastEntryID:      preparation.AbandonedPath[len(preparation.AbandonedPath)-1].ID,
 		CommonAncestorID: preparation.CommonAncestorID,
-		Selection:        current.Request.SummaryModel,
-		Usage:            summary.Usage,
+		Source:           summary.Source,
 	}
 	boundary := session.BranchSummaryEntry{
 		Summary: draft.Summary, FirstEntryID: draft.FirstEntryID, LastEntryID: draft.LastEntryID,
-		Provider: draft.Selection.Provider, Model: draft.Selection.Model,
-		ReasoningChoice: draft.Selection.ReasoningChoice, Usage: draft.Usage,
+		Source:        draft.Source,
 		EstimatedCost: mo.None[session.EstimatedCost](),
 	}
 	if boundaryErr := tree.ValidateSummaryBoundary(boundary); boundaryErr != nil {
@@ -87,5 +75,5 @@ func invalidExtensionState(err error) error {
 
 // summaryResultFromDraft converts built-in output into result-handler state.
 func summaryResultFromDraft(draft BranchSummaryDraft) HandlerBranchSummaryResult {
-	return HandlerBranchSummaryResult{Summary: draft.Summary, Usage: draft.Usage}
+	return HandlerBranchSummaryResult{Summary: draft.Summary, Source: draft.Source}
 }

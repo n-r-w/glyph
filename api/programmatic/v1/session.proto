@@ -235,18 +235,35 @@ message BranchSummary {
   string first_entry_id = 2;
   // The last summarized abandoned-path entry identifier.
   string last_entry_id = 3;
-  // The configured provider identifier.
-  string provider_id = 4;
-  // The configured model identifier.
-  string model_id = 5;
-  // The reasoning choice used for the summary.
-  ReasoningChoice reasoning_choice = 6;
-  // Normalized usage when reported by the provider.
-  TokenUsage usage = 7;
-  // Persisted estimated cost when available.
-  EstimatedCost estimated_cost = 8;
+  // The actual producer and its model usage.
+  BranchSummarySource source = 4;
+  // Persisted estimated cost when available for a model source.
+  EstimatedCost estimated_cost = 5;
 }
-// OperationIssue reports one safe nonterminal handler or observer issue.
+// BranchSummarySource identifies exactly one producer of a summary.
+message BranchSummarySource {
+  // The producer and its model accounting, when applicable.
+  oneof source {
+    // The extension that produced the result without a model.
+    string extension_id = 1;
+    // The actual model execution and its reported usage.
+    BranchSummaryModelSource model = 2;
+  }
+}
+
+// BranchSummaryModelSource keeps model identity and reported usage together.
+message BranchSummaryModelSource {
+  // The actual provider identifier.
+  string provider_id = 1;
+  // The actual model identifier.
+  string model_id = 2;
+  // The reasoning choice used by that model execution.
+  ReasoningChoice reasoning_choice = 3;
+  // Normalized usage when reported by the producer.
+  TokenUsage usage = 4;
+}
+
+// OperationIssue reports a nonterminal issue with its complete cause.
 message OperationIssue {
   // The stable issue code.
   OperationIssueCode code = 1;
@@ -254,7 +271,7 @@ message OperationIssue {
   string extension_id = 2;
   // The registered handler identifier when applicable.
   string handler_id = 3;
-  // The safe issue message.
+  // The complete issue text, including its original cause.
   string message = 4;
 }
 // SessionEntriesResult contains ordered detailed active-session entries.

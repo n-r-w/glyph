@@ -974,7 +974,7 @@ func (x *HandlerError) ClearMessage() {
 type HandlerError_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The safe handler failure message.
+	// The complete handler failure text, including its original cause.
 	Message *string
 }
 
@@ -2153,7 +2153,7 @@ func (b0 SessionTreeNavigationRequest_builder) Build() *SessionTreeNavigationReq
 	return m0
 }
 
-// ModelSelection identifies one configured provider, model, and reasoning choice.
+// ModelSelection identifies a provider, model, and reasoning choice for a request or result source.
 type ModelSelection struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
@@ -2274,11 +2274,11 @@ func (x *ModelSelection) ClearReasoningChoice() {
 type ModelSelection_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The configured provider identifier.
+	// The provider identifier.
 	ProviderId *string
-	// The configured model identifier.
+	// The model identifier.
 	ModelId *string
-	// The configured reasoning choice.
+	// The reasoning choice.
 	ReasoningChoice *string
 }
 
@@ -3891,11 +3891,11 @@ func (b0 SessionTreeExtensionEntry_builder) Build() *SessionTreeExtensionEntry {
 	return m0
 }
 
-// BranchSummaryResult contains extension-produced summary output.
+// BranchSummaryResult contains summary output and its explicit producer.
 type BranchSummaryResult struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Summary     *string                `protobuf:"bytes,1,opt,name=summary"`
-	xxx_hidden_Usage       *TokenUsage            `protobuf:"bytes,2,opt,name=usage"`
+	xxx_hidden_Source      *BranchSummarySource   `protobuf:"bytes,2,opt,name=source"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -3937,9 +3937,9 @@ func (x *BranchSummaryResult) GetSummary() string {
 	return ""
 }
 
-func (x *BranchSummaryResult) GetUsage() *TokenUsage {
+func (x *BranchSummaryResult) GetSource() *BranchSummarySource {
 	if x != nil {
-		return x.xxx_hidden_Usage
+		return x.xxx_hidden_Source
 	}
 	return nil
 }
@@ -3949,8 +3949,8 @@ func (x *BranchSummaryResult) SetSummary(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *BranchSummaryResult) SetUsage(v *TokenUsage) {
-	x.xxx_hidden_Usage = v
+func (x *BranchSummaryResult) SetSource(v *BranchSummarySource) {
+	x.xxx_hidden_Source = v
 }
 
 func (x *BranchSummaryResult) HasSummary() bool {
@@ -3960,11 +3960,11 @@ func (x *BranchSummaryResult) HasSummary() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *BranchSummaryResult) HasUsage() bool {
+func (x *BranchSummaryResult) HasSource() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Usage != nil
+	return x.xxx_hidden_Source != nil
 }
 
 func (x *BranchSummaryResult) ClearSummary() {
@@ -3972,8 +3972,8 @@ func (x *BranchSummaryResult) ClearSummary() {
 	x.xxx_hidden_Summary = nil
 }
 
-func (x *BranchSummaryResult) ClearUsage() {
-	x.xxx_hidden_Usage = nil
+func (x *BranchSummaryResult) ClearSource() {
+	x.xxx_hidden_Source = nil
 }
 
 type BranchSummaryResult_builder struct {
@@ -3981,8 +3981,8 @@ type BranchSummaryResult_builder struct {
 
 	// The nonempty summary text.
 	Summary *string
-	// Normalized provider usage, when reported.
-	Usage *TokenUsage
+	// The required actual source, independent of the built-in selection.
+	Source *BranchSummarySource
 }
 
 func (b0 BranchSummaryResult_builder) Build() *BranchSummaryResult {
@@ -3993,6 +3993,276 @@ func (b0 BranchSummaryResult_builder) Build() *BranchSummaryResult {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_Summary = b.Summary
 	}
+	x.xxx_hidden_Source = b.Source
+	return m0
+}
+
+// BranchSummarySource identifies exactly one producer of the result.
+type BranchSummarySource struct {
+	state             protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Source isBranchSummarySource_Source `protobuf_oneof:"source"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BranchSummarySource) Reset() {
+	*x = BranchSummarySource{}
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BranchSummarySource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BranchSummarySource) ProtoMessage() {}
+
+func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *BranchSummarySource) GetExtensionId() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId); ok {
+			return x.ExtensionId
+		}
+	}
+	return ""
+}
+
+func (x *BranchSummarySource) GetModel() *BranchSummaryModelSource {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*branchSummarySource_Model); ok {
+			return x.Model
+		}
+	}
+	return nil
+}
+
+func (x *BranchSummarySource) SetExtensionId(v string) {
+	x.xxx_hidden_Source = &branchSummarySource_ExtensionId{v}
+}
+
+func (x *BranchSummarySource) SetModel(v *BranchSummaryModelSource) {
+	if v == nil {
+		x.xxx_hidden_Source = nil
+		return
+	}
+	x.xxx_hidden_Source = &branchSummarySource_Model{v}
+}
+
+func (x *BranchSummarySource) HasSource() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Source != nil
+}
+
+func (x *BranchSummarySource) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId)
+	return ok
+}
+
+func (x *BranchSummarySource) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*branchSummarySource_Model)
+	return ok
+}
+
+func (x *BranchSummarySource) ClearSource() {
+	x.xxx_hidden_Source = nil
+}
+
+func (x *BranchSummarySource) ClearExtensionId() {
+	if _, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+func (x *BranchSummarySource) ClearModel() {
+	if _, ok := x.xxx_hidden_Source.(*branchSummarySource_Model); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+const BranchSummarySource_Source_not_set_case case_BranchSummarySource_Source = 0
+const BranchSummarySource_ExtensionId_case case_BranchSummarySource_Source = 1
+const BranchSummarySource_Model_case case_BranchSummarySource_Source = 2
+
+func (x *BranchSummarySource) WhichSource() case_BranchSummarySource_Source {
+	if x == nil {
+		return BranchSummarySource_Source_not_set_case
+	}
+	switch x.xxx_hidden_Source.(type) {
+	case *branchSummarySource_ExtensionId:
+		return BranchSummarySource_ExtensionId_case
+	case *branchSummarySource_Model:
+		return BranchSummarySource_Model_case
+	default:
+		return BranchSummarySource_Source_not_set_case
+	}
+}
+
+type BranchSummarySource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The producer and its model accounting, when applicable.
+
+	// Fields of oneof xxx_hidden_Source:
+	// The extension that produced the result without a model.
+	ExtensionId *string
+	// The actual model execution and its reported usage.
+	Model *BranchSummaryModelSource
+	// -- end of xxx_hidden_Source
+}
+
+func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
+	m0 := &BranchSummarySource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ExtensionId != nil {
+		x.xxx_hidden_Source = &branchSummarySource_ExtensionId{*b.ExtensionId}
+	}
+	if b.Model != nil {
+		x.xxx_hidden_Source = &branchSummarySource_Model{b.Model}
+	}
+	return m0
+}
+
+type case_BranchSummarySource_Source protoreflect.FieldNumber
+
+func (x case_BranchSummarySource_Source) String() string {
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isBranchSummarySource_Source interface {
+	isBranchSummarySource_Source()
+}
+
+type branchSummarySource_ExtensionId struct {
+	// The extension that produced the result without a model.
+	ExtensionId string `protobuf:"bytes,1,opt,name=extension_id,json=extensionId,oneof"`
+}
+
+type branchSummarySource_Model struct {
+	// The actual model execution and its reported usage.
+	Model *BranchSummaryModelSource `protobuf:"bytes,2,opt,name=model,oneof"`
+}
+
+func (*branchSummarySource_ExtensionId) isBranchSummarySource_Source() {}
+
+func (*branchSummarySource_Model) isBranchSummarySource_Source() {}
+
+// BranchSummaryModelSource keeps model identity and reported usage together.
+type BranchSummaryModelSource struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	xxx_hidden_Usage     *TokenUsage            `protobuf:"bytes,2,opt,name=usage"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *BranchSummaryModelSource) Reset() {
+	*x = BranchSummaryModelSource{}
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BranchSummaryModelSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BranchSummaryModelSource) ProtoMessage() {}
+
+func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *BranchSummaryModelSource) GetSelection() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Selection
+	}
+	return nil
+}
+
+func (x *BranchSummaryModelSource) GetUsage() *TokenUsage {
+	if x != nil {
+		return x.xxx_hidden_Usage
+	}
+	return nil
+}
+
+func (x *BranchSummaryModelSource) SetSelection(v *ModelSelection) {
+	x.xxx_hidden_Selection = v
+}
+
+func (x *BranchSummaryModelSource) SetUsage(v *TokenUsage) {
+	x.xxx_hidden_Usage = v
+}
+
+func (x *BranchSummaryModelSource) HasSelection() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Selection != nil
+}
+
+func (x *BranchSummaryModelSource) HasUsage() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Usage != nil
+}
+
+func (x *BranchSummaryModelSource) ClearSelection() {
+	x.xxx_hidden_Selection = nil
+}
+
+func (x *BranchSummaryModelSource) ClearUsage() {
+	x.xxx_hidden_Usage = nil
+}
+
+type BranchSummaryModelSource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The required provider, model, and reasoning choice that produced the result.
+	Selection *ModelSelection
+	// Normalized provider usage, when reported.
+	Usage *TokenUsage
+}
+
+func (b0 BranchSummaryModelSource_builder) Build() *BranchSummaryModelSource {
+	m0 := &BranchSummaryModelSource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Selection = b.Selection
 	x.xxx_hidden_Usage = b.Usage
 	return m0
 }
@@ -4014,7 +4284,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4026,7 +4296,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4186,7 +4456,7 @@ type TokenUsage_builder struct {
 
 	// Input tokens excluding cache buckets.
 	InputTokens *int64
-	// Output tokens excluding reasoning tokens.
+	// Output tokens including the reasoning subset.
 	OutputTokens *int64
 	// Cache-read input tokens.
 	CacheReadTokens *int64
@@ -4194,7 +4464,7 @@ type TokenUsage_builder struct {
 	CacheWriteTokens *int64
 	// Reasoning output tokens.
 	ReasoningTokens *int64
-	// Total tokens across all buckets.
+	// Total input, output, cache-read, and cache-write tokens without recounting reasoning.
 	TotalTokens *int64
 }
 
@@ -4236,9 +4506,8 @@ type CommittedBranchSummary struct {
 	xxx_hidden_Summary       *string                `protobuf:"bytes,2,opt,name=summary"`
 	xxx_hidden_FirstEntryId  *string                `protobuf:"bytes,3,opt,name=first_entry_id,json=firstEntryId"`
 	xxx_hidden_LastEntryId   *string                `protobuf:"bytes,4,opt,name=last_entry_id,json=lastEntryId"`
-	xxx_hidden_SummaryModel  *ModelSelection        `protobuf:"bytes,5,opt,name=summary_model,json=summaryModel"`
-	xxx_hidden_Usage         *TokenUsage            `protobuf:"bytes,6,opt,name=usage"`
-	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,7,opt,name=estimated_cost,json=estimatedCost"`
+	xxx_hidden_Source        *BranchSummarySource   `protobuf:"bytes,5,opt,name=source"`
+	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,6,opt,name=estimated_cost,json=estimatedCost"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -4247,7 +4516,7 @@ type CommittedBranchSummary struct {
 
 func (x *CommittedBranchSummary) Reset() {
 	*x = CommittedBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4259,7 +4528,7 @@ func (x *CommittedBranchSummary) String() string {
 func (*CommittedBranchSummary) ProtoMessage() {}
 
 func (x *CommittedBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4310,16 +4579,9 @@ func (x *CommittedBranchSummary) GetLastEntryId() string {
 	return ""
 }
 
-func (x *CommittedBranchSummary) GetSummaryModel() *ModelSelection {
+func (x *CommittedBranchSummary) GetSource() *BranchSummarySource {
 	if x != nil {
-		return x.xxx_hidden_SummaryModel
-	}
-	return nil
-}
-
-func (x *CommittedBranchSummary) GetUsage() *TokenUsage {
-	if x != nil {
-		return x.xxx_hidden_Usage
+		return x.xxx_hidden_Source
 	}
 	return nil
 }
@@ -4333,30 +4595,26 @@ func (x *CommittedBranchSummary) GetEstimatedCost() *EstimatedCost {
 
 func (x *CommittedBranchSummary) SetEntryId(v string) {
 	x.xxx_hidden_EntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *CommittedBranchSummary) SetSummary(v string) {
 	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *CommittedBranchSummary) SetFirstEntryId(v string) {
 	x.xxx_hidden_FirstEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *CommittedBranchSummary) SetLastEntryId(v string) {
 	x.xxx_hidden_LastEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
-func (x *CommittedBranchSummary) SetSummaryModel(v *ModelSelection) {
-	x.xxx_hidden_SummaryModel = v
-}
-
-func (x *CommittedBranchSummary) SetUsage(v *TokenUsage) {
-	x.xxx_hidden_Usage = v
+func (x *CommittedBranchSummary) SetSource(v *BranchSummarySource) {
+	x.xxx_hidden_Source = v
 }
 
 func (x *CommittedBranchSummary) SetEstimatedCost(v *EstimatedCost) {
@@ -4391,18 +4649,11 @@ func (x *CommittedBranchSummary) HasLastEntryId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *CommittedBranchSummary) HasSummaryModel() bool {
+func (x *CommittedBranchSummary) HasSource() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_SummaryModel != nil
-}
-
-func (x *CommittedBranchSummary) HasUsage() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Usage != nil
+	return x.xxx_hidden_Source != nil
 }
 
 func (x *CommittedBranchSummary) HasEstimatedCost() bool {
@@ -4432,12 +4683,8 @@ func (x *CommittedBranchSummary) ClearLastEntryId() {
 	x.xxx_hidden_LastEntryId = nil
 }
 
-func (x *CommittedBranchSummary) ClearSummaryModel() {
-	x.xxx_hidden_SummaryModel = nil
-}
-
-func (x *CommittedBranchSummary) ClearUsage() {
-	x.xxx_hidden_Usage = nil
+func (x *CommittedBranchSummary) ClearSource() {
+	x.xxx_hidden_Source = nil
 }
 
 func (x *CommittedBranchSummary) ClearEstimatedCost() {
@@ -4455,11 +4702,9 @@ type CommittedBranchSummary_builder struct {
 	FirstEntryId *string
 	// The last abandoned entry identifier.
 	LastEntryId *string
-	// The configured model used to produce the summary.
-	SummaryModel *ModelSelection
-	// Normalized provider usage, when reported.
-	Usage *TokenUsage
-	// Persisted estimated cost, when calculable.
+	// The actual producer and its model usage.
+	Source *BranchSummarySource
+	// Persisted estimated cost, when calculable for a model source.
 	EstimatedCost *EstimatedCost
 }
 
@@ -4468,23 +4713,22 @@ func (b0 CommittedBranchSummary_builder) Build() *CommittedBranchSummary {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.EntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_EntryId = b.EntryId
 	}
 	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_Summary = b.Summary
 	}
 	if b.FirstEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_FirstEntryId = b.FirstEntryId
 	}
 	if b.LastEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_LastEntryId = b.LastEntryId
 	}
-	x.xxx_hidden_SummaryModel = b.SummaryModel
-	x.xxx_hidden_Usage = b.Usage
+	x.xxx_hidden_Source = b.Source
 	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	return m0
 }
@@ -4505,7 +4749,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4517,7 +4761,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4801,9 +5045,16 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x19SessionTreeExtensionEntry\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
-	"entry_type\x18\x02 \x01(\tR\tentryType\"m\n" +
+	"entry_type\x18\x02 \x01(\tR\tentryType\"x\n" +
 	"\x13BranchSummaryResult\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\x12<\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12G\n" +
+	"\x06source\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\"\x92\x01\n" +
+	"\x13BranchSummarySource\x12#\n" +
+	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x12L\n" +
+	"\x05model\x18\x02 \x01(\v24.glyph.plugins.extension.v1.BranchSummaryModelSourceH\x00R\x05modelB\b\n" +
+	"\x06source\"\xa2\x01\n" +
+	"\x18BranchSummaryModelSource\x12H\n" +
+	"\tselection\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12<\n" +
 	"\x05usage\x18\x02 \x01(\v2&.glyph.plugins.extension.v1.TokenUsageR\x05usage\"\xfc\x01\n" +
 	"\n" +
 	"TokenUsage\x12!\n" +
@@ -4812,15 +5063,14 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x11cache_read_tokens\x18\x03 \x01(\x03R\x0fcacheReadTokens\x12,\n" +
 	"\x12cache_write_tokens\x18\x04 \x01(\x03R\x10cacheWriteTokens\x12)\n" +
 	"\x10reasoning_tokens\x18\x05 \x01(\x03R\x0freasoningTokens\x12!\n" +
-	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"\xf8\x02\n" +
+	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"\xb2\x02\n" +
 	"\x16CommittedBranchSummary\x12\x19\n" +
 	"\bentry_id\x18\x01 \x01(\tR\aentryId\x12\x18\n" +
 	"\asummary\x18\x02 \x01(\tR\asummary\x12$\n" +
 	"\x0efirst_entry_id\x18\x03 \x01(\tR\ffirstEntryId\x12\"\n" +
-	"\rlast_entry_id\x18\x04 \x01(\tR\vlastEntryId\x12O\n" +
-	"\rsummary_model\x18\x05 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\fsummaryModel\x12<\n" +
-	"\x05usage\x18\x06 \x01(\v2&.glyph.plugins.extension.v1.TokenUsageR\x05usage\x12P\n" +
-	"\x0eestimated_cost\x18\a \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\"\x93\x01\n" +
+	"\rlast_entry_id\x18\x04 \x01(\tR\vlastEntryId\x12G\n" +
+	"\x06source\x18\x05 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12P\n" +
+	"\x0eestimated_cost\x18\x06 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\"\x93\x01\n" +
 	"\rEstimatedCost\x12\x14\n" +
 	"\x05input\x18\x01 \x01(\x01R\x05input\x12\x16\n" +
 	"\x06output\x18\x02 \x01(\x01R\x06output\x12\x1d\n" +
@@ -4856,7 +5106,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(HandlerKind)(0),                           // 0: glyph.plugins.extension.v1.HandlerKind
 	(RequestAction)(0),                         // 1: glyph.plugins.extension.v1.RequestAction
@@ -4887,10 +5137,12 @@ var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(*SessionTreeBranchSummary)(nil),           // 26: glyph.plugins.extension.v1.SessionTreeBranchSummary
 	(*SessionTreeExtensionEntry)(nil),          // 27: glyph.plugins.extension.v1.SessionTreeExtensionEntry
 	(*BranchSummaryResult)(nil),                // 28: glyph.plugins.extension.v1.BranchSummaryResult
-	(*TokenUsage)(nil),                         // 29: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),             // 30: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),                      // 31: glyph.plugins.extension.v1.EstimatedCost
-	(*ToolResultContent)(nil),                  // 32: glyph.plugins.extension.v1.ToolResultContent
+	(*BranchSummarySource)(nil),                // 29: glyph.plugins.extension.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),           // 30: glyph.plugins.extension.v1.BranchSummaryModelSource
+	(*TokenUsage)(nil),                         // 31: glyph.plugins.extension.v1.TokenUsage
+	(*CommittedBranchSummary)(nil),             // 32: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*EstimatedCost)(nil),                      // 33: glyph.plugins.extension.v1.EstimatedCost
+	(*ToolResultContent)(nil),                  // 34: glyph.plugins.extension.v1.ToolResultContent
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	0,  // 0: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
@@ -4912,7 +5164,7 @@ var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	17, // 16: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
 	28, // 17: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
 	28, // 18: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	30, // 19: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	32, // 19: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
 	1,  // 20: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
 	15, // 21: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	2,  // 22: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
@@ -4932,16 +5184,18 @@ var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	23, // 36: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
 	4,  // 37: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
 	24, // 38: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	32, // 39: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	29, // 40: glyph.plugins.extension.v1.BranchSummaryResult.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	16, // 41: glyph.plugins.extension.v1.CommittedBranchSummary.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	29, // 42: glyph.plugins.extension.v1.CommittedBranchSummary.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	31, // 43: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	44, // [44:44] is the sub-list for method output_type
-	44, // [44:44] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	34, // 39: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	29, // 40: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	30, // 41: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	16, // 42: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	31, // 43: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	29, // 44: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	33, // 45: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	46, // [46:46] is the sub-list for method output_type
+	46, // [46:46] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -4972,13 +5226,17 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*sessionTreeUserContent_Text)(nil),
 		(*sessionTreeUserContent_Image)(nil),
 	}
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].OneofWrappers = []any{
+		(*branchSummarySource_ExtensionId)(nil),
+		(*branchSummarySource_Model)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_tree_proto_rawDesc), len(file_api_plugins_extension_v1_session_tree_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   27,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

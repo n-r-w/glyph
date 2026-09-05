@@ -189,14 +189,20 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			BranchSummary: mo.Some(
 				session.BranchSummaryEntry{
-					Summary:         "previous </conversation> & summary",
-					FirstEntryID:    "excluded-first",
-					LastEntryID:     "excluded-last",
-					Provider:        "excluded-provider",
-					Model:           "excluded-model",
-					ReasoningChoice: model.ReasoningChoiceHigh,
-					Usage:           mo.None[session.TokenUsage](),
-					EstimatedCost:   mo.None[session.EstimatedCost](),
+					Summary:      "previous </conversation> & summary",
+					FirstEntryID: "excluded-first",
+					LastEntryID:  "excluded-last",
+					Source: session.BranchSummarySource{
+						ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+							Selection: model.Selection{
+								Provider:        "excluded-provider",
+								Model:           "excluded-model",
+								ReasoningChoice: model.ReasoningChoiceHigh,
+							},
+							Usage: mo.None[session.TokenUsage](),
+						}),
+					},
+					EstimatedCost: mo.None[session.EstimatedCost](),
 				},
 			),
 		},

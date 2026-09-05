@@ -103,8 +103,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
 				BranchSummary: mo.Some(controller.BranchSummary{
 					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-					Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
-					Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
+					Source: summary.Source, EstimatedCost: summary.EstimatedCost,
 				}),
 			})
 		}

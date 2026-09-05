@@ -103,7 +103,7 @@ func (s *Service) NavigateTree(
 		return canceledResult(issues), nil
 	}
 
-	preparation, summary, err := s.validateFinalState(ctx, tree, current, currentResult)
+	preparation, summary, err := validateFinalState(tree, current, currentResult)
 	if err != nil {
 		return sessionnavigation.Result{}, err
 	}

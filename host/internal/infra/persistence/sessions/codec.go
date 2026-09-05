@@ -71,26 +71,14 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 
 // encodeBranchSummaryEntry validates and encodes one complete summary payload.
 func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummaryEntry) ([]byte, error) {
-	if summary.Summary == "" || summary.FirstEntryID == "" || summary.LastEntryID == "" ||
-		summary.Provider == "" || summary.Model == "" || !summary.ReasoningChoice.Valid() {
+	if summary.Summary == "" || summary.FirstEntryID == "" || summary.LastEntryID == "" {
 		return nil, errors.New("invalid branch summary entry")
 	}
-	var usage *sessionUsageRecord
-	if value, present := summary.Usage.Get(); present {
-		if !value.Valid() {
-			return nil, errors.New("invalid branch summary usage")
-		}
-		usage = &sessionUsageRecord{
-			InputTokens: value.InputTokens, OutputTokens: value.OutputTokens,
-			CacheReadTokens: value.CacheReadTokens, CacheWriteTokens: value.CacheWriteTokens,
-			ReasoningTokens: value.ReasoningTokens, TotalTokens: value.TotalTokens,
-		}
+	if err := summary.ValidateAccounting(); err != nil {
+		return nil, err
 	}
 	var estimatedCost *estimatedCostRecord
 	if cost, present := summary.EstimatedCost.Get(); present {
-		if !cost.Valid() {
-			return nil, errors.New("invalid branch summary cost")
-		}
 		estimatedCost = &estimatedCostRecord{
 			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
 			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
@@ -100,8 +88,7 @@ func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummary
 		Type: recordTypeBranchSummary, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: summary.Summary,
 		FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-		Provider: string(summary.Provider), Model: string(summary.Model), ReasoningChoice: summary.ReasoningChoice,
-		Usage: usage, EstimatedCost: estimatedCost,
+		Source: encodeBranchSummarySource(summary.Source), EstimatedCost: estimatedCost,
 	})
 }
 

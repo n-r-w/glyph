@@ -238,8 +238,16 @@ func branchAccountingSummaryEntry(
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: "summary", FirstEntryID: "first", LastEntryID: "last",
-			Provider: "summary-provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceOff,
-			Usage: usage, EstimatedCost: cost,
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: model.Selection{
+						Provider:        "summary-provider",
+						Model:           "summary-model",
+						ReasoningChoice: model.ReasoningChoiceOff,
+					},
+					Usage: usage,
+				}),
+			}, EstimatedCost: cost,
 		}),
 	}
 }

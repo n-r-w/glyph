@@ -65,6 +65,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runAuthenticationFixture(ctx, host)
 		case "semantic":
 			return runSemanticFixture(ctx, host)
+		case "summary-control", "summary-read":
+			return runSummaryControlUIFixture(t, ctx, host)
 		default:
 			return host.Close(ctx)
 		}

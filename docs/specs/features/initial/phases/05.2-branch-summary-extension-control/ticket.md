@@ -99,7 +99,7 @@ None.
 
 ## Open questions
 
-None at the requirements level. A phase technical solution is required before implementation.
+None. The [technical solution](solution.md) records the implemented contracts and verification evidence.
 
 ## Technical supplement
 
@@ -107,6 +107,7 @@ The affected implementation includes `Service.validateFinalState` in `host/inter
 
 ## References
 
+- [Technical solution and verification evidence](solution.md) records the implementation and acceptance checks.
 - [Target PRD](../../prd.md) defines extension replacement and complete error semantics.
 - [Target architecture](../../architecture.md) defines Host ownership and Agent Core independence.
 - [PHS-05](../05-session-tree/ticket.md) defines branch-preserving navigation and the implemented summary behavior.

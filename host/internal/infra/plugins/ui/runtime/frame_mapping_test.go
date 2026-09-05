@@ -176,12 +176,19 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 	// Arrange one complete branch-summary transcript entry.
 	summary := domainui.BranchSummary{
 		Summary: "branch context", FirstEntryID: "first", LastEntryID: "last",
-		Provider: model.ProviderID("provider"), Model: model.ID("model"),
-		ReasoningChoice: model.ReasoningChoiceMedium,
-		Usage: mo.Some(session.TokenUsage{
-			InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3,
-			CacheWriteTokens: 4, ReasoningTokens: 5, TotalTokens: 15,
-		}),
+		Source: session.BranchSummarySource{
+			ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+				Selection: model.Selection{
+					Provider:        "provider",
+					Model:           "model",
+					ReasoningChoice: model.ReasoningChoiceMedium,
+				},
+				Usage: mo.Some(session.TokenUsage{
+					InputTokens: 1, OutputTokens: 7, CacheReadTokens: 3,
+					CacheWriteTokens: 4, ReasoningTokens: 5, TotalTokens: 15,
+				}),
+			}),
+		},
 		EstimatedCost: mo.Some(session.EstimatedCost{
 			Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
 		}),
@@ -202,8 +209,8 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 	require.Equal(t, summary.Summary, mapped[0].GetBranchSummary().GetSummary())
 	require.Equal(t, summary.FirstEntryID, mapped[0].GetBranchSummary().GetFirstEntryId())
 	require.Equal(t, summary.LastEntryID, mapped[0].GetBranchSummary().GetLastEntryId())
-	require.Equal(t, string(summary.Provider), mapped[0].GetBranchSummary().GetProviderId())
-	require.Equal(t, string(summary.Model), mapped[0].GetBranchSummary().GetModelId())
-	require.NotNil(t, mapped[0].GetBranchSummary().GetUsage())
+	require.Equal(t, "provider", mapped[0].GetBranchSummary().GetSource().GetModel().GetProviderId())
+	require.Equal(t, "model", mapped[0].GetBranchSummary().GetSource().GetModel().GetModelId())
+	require.NotNil(t, mapped[0].GetBranchSummary().GetSource().GetModel().GetUsage())
 	require.NotNil(t, mapped[0].GetBranchSummary().GetEstimatedCost())
 }

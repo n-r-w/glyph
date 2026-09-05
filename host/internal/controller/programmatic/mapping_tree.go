@@ -166,26 +166,37 @@ func mapSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTreeEnt
 
 // mapBranchSummary maps one persisted summary and its optional accounting.
 func mapBranchSummary(summary BranchSummary) (*programmaticv1.BranchSummary, error) {
-	reasoning, err := mapReasoningChoice(summary.ReasoningChoice)
-	if err != nil {
+	if err := summary.Source.Validate(); err != nil {
 		return nil, err
 	}
 	wire := new(programmaticv1.BranchSummary)
 	wire.SetSummary(summary.Summary)
 	wire.SetFirstEntryId(summary.FirstEntryID)
 	wire.SetLastEntryId(summary.LastEntryID)
-	wire.SetProviderId(string(summary.Provider))
-	wire.SetModelId(string(summary.Model))
-	wire.SetReasoningChoice(reasoning)
-	if usage, present := summary.Usage.Get(); present {
-		mapped := new(programmaticv1.TokenUsage)
-		setCommonUsage(
-			mapped, usage.InputTokens, usage.OutputTokens, usage.CacheWriteTokens,
-			usage.ReasoningTokens, usage.TotalTokens,
-		)
-		mapped.SetCacheReadTokens(usage.CacheReadTokens)
-		wire.SetUsage(mapped)
+	// Only a model source enters reasoning and token conversion.
+	source := new(programmaticv1.BranchSummarySource)
+	if extensionID, present := summary.Source.ExtensionID.Get(); present {
+		source.SetExtensionId(extensionID)
+	} else if modelSource, modelPresent := summary.Source.Model.Get(); modelPresent {
+		reasoning, err := mapReasoningChoice(modelSource.Selection.ReasoningChoice)
+		if err != nil {
+			return nil, err
+		}
+		// Keep actual model identity and its usage in the same wire alternative.
+		mappedModel := new(programmaticv1.BranchSummaryModelSource)
+		mappedModel.SetProviderId(string(modelSource.Selection.Provider))
+		mappedModel.SetModelId(string(modelSource.Selection.Model))
+		mappedModel.SetReasoningChoice(reasoning)
+		if usage, reported := modelSource.Usage.Get(); reported {
+			mapped := new(programmaticv1.TokenUsage)
+			setCommonUsage(mapped, usage.InputTokens, usage.OutputTokens, usage.CacheWriteTokens,
+				usage.ReasoningTokens, usage.TotalTokens)
+			mapped.SetCacheReadTokens(usage.CacheReadTokens)
+			mappedModel.SetUsage(mapped)
+		}
+		source.SetModel(mappedModel)
 	}
+	wire.SetSource(source)
 	if cost, present := summary.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
 	}

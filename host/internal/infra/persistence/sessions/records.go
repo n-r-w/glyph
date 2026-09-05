@@ -256,22 +256,36 @@ type branchSummaryRecord struct {
 	ParentID mo.Option[string] `json:"parentId"`
 	// CreatedAt uses RFC3339 nanosecond precision.
 	CreatedAt string `json:"createdAt"`
-	// Summary contains the persisted model-generated text.
+	// Summary contains the persisted summary text.
 	Summary string `json:"summary"`
 	// FirstEntryID identifies the first abandoned entry.
 	FirstEntryID string `json:"firstEntryId"`
 	// LastEntryID identifies the last abandoned entry.
 	LastEntryID string `json:"lastEntryId"`
-	// Provider identifies the configured summary provider.
+	// Source contains the actual producer and its nested model usage.
+	Source branchSummarySourceRecord `json:"source"`
+	// EstimatedCost contains persisted summary cost when calculable.
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
+}
+
+// branchSummarySourceRecord stores exactly one summary producer.
+type branchSummarySourceRecord struct {
+	// ExtensionID identifies a producer that did not execute a model.
+	ExtensionID mo.Option[string] `json:"extension_id"`
+	// Model contains the actual model identity and reported usage.
+	Model mo.Option[branchSummaryModelSourceRecord] `json:"model"`
+}
+
+// branchSummaryModelSourceRecord stores model attribution together with usage.
+type branchSummaryModelSourceRecord struct {
+	// Provider identifies the actual summary provider.
 	Provider string `json:"provider"`
-	// Model identifies the configured summary model.
+	// Model identifies the actual summary model.
 	Model string `json:"model"`
-	// ReasoningChoice identifies the configured reasoning behavior.
+	// ReasoningChoice identifies the reasoning choice used for that execution.
 	ReasoningChoice model.ReasoningChoice `json:"reasoningChoice"`
 	// Usage contains normalized usage when reported.
 	Usage *sessionUsageRecord `json:"usage,omitzero"`
-	// EstimatedCost contains persisted summary cost when calculable.
-	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
 }
 
 // sessionUsageRecord stores normalized usage field names used by session accounting.

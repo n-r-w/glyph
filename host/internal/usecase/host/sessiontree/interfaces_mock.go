@@ -177,20 +177,6 @@ func (mr *MockModelRequesterMockRecorder) ActiveSelection() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockModelRequester)(nil).ActiveSelection))
 }
 
-// CheckAvailability mocks base method.
-func (m *MockModelRequester) CheckAvailability(ctx context.Context, selection model.Selection) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAvailability", ctx, selection)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckAvailability indicates an expected call of CheckAvailability.
-func (mr *MockModelRequesterMockRecorder) CheckAvailability(ctx, selection any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAvailability", reflect.TypeOf((*MockModelRequester)(nil).CheckAvailability), ctx, selection)
-}
-
 // Request mocks base method.
 func (m *MockModelRequester) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
 	m.ctrl.T.Helper()

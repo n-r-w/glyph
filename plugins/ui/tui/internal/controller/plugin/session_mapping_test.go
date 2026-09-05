@@ -289,14 +289,17 @@ func TestRestoredTranscriptMapsDisplayableEntries(t *testing.T) {
 	branchSummaryEntry.SetId("branch-summary-entry")
 	branchSummaryEntry.SetCreatedTime(createdAt)
 	branchSummaryEntry.SetBranchSummary(uiv1.BranchSummary_builder{
-		Summary:         &summary,
-		FirstEntryId:    new("first-entry"),
-		LastEntryId:     new("last-entry"),
-		ProviderId:      new("provider"),
-		ModelId:         new("model"),
-		ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM),
-		Usage:           nil,
-		EstimatedCost:   nil,
+		Summary:      &summary,
+		FirstEntryId: new("first-entry"),
+		LastEntryId:  new("last-entry"),
+		Source: uiv1.BranchSummarySource_builder{
+			ExtensionId: nil,
+			Model: uiv1.BranchSummaryModelSource_builder{
+				ProviderId: new("provider"), ModelId: new("model"),
+				ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM), Usage: nil,
+			}.Build(),
+		}.Build(),
+		EstimatedCost: nil,
 	}.Build())
 	toolContent := new(uiv1.ToolResultContent)
 	toolContent.SetImage(uiv1.ToolResultImage_builder{MediaType: new("image/webp"), Data: []byte{4, 5, 6}}.Build())

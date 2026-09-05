@@ -81,8 +81,7 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 				ToolResult: mo.None[agent.ToolResult](),
 				BranchSummary: mo.Some(domainui.BranchSummary{
 					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-					Provider: summary.Provider, Model: summary.Model, ReasoningChoice: summary.ReasoningChoice,
-					Usage: summary.Usage, EstimatedCost: summary.EstimatedCost,
+					Source: summary.Source, EstimatedCost: summary.EstimatedCost,
 				}),
 			})
 		}

@@ -110,12 +110,13 @@ Documents:
 
 ## PHS-05.2: Branch-summary extension control
 
-Status: Planned
+Status: Completed
 
-Complete extension summary replacement without an unused model dependency and preserve session-tree handler error causes. Every acceptance criterion must pass before PHS-07 implementation starts.
+Extension-produced branch summaries no longer depend on an unused model. Persisted sources own model usage, cost uses the actual model, and both client contracts retain complete handler error causes. All phase acceptance criteria passed.
 
 Documents:
 - [Ticket](specs/features/initial/phases/05.2-branch-summary-extension-control/ticket.md)
+- [Technical solution and verification evidence](specs/features/initial/phases/05.2-branch-summary-extension-control/solution.md)
 
 ## PHS-07: Extension context and lifecycle
 

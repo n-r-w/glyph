@@ -14,8 +14,10 @@ import (
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=sessiontree
 
-// BranchSummaryDraft contains validated model output for the atomic session commit.
+// BranchSummaryDraft contains validated summary output for the atomic session commit.
 type BranchSummaryDraft struct {
+	// Source identifies the actual producer and its model usage.
+	Source session.BranchSummarySource
 	// Summary contains the nonempty generated context.
 	Summary string
 	// FirstEntryID identifies the first abandoned entry.
@@ -24,10 +26,6 @@ type BranchSummaryDraft struct {
 	LastEntryID string
 	// CommonAncestorID identifies the last entry shared with the destination branch.
 	CommonAncestorID mo.Option[string]
-	// Selection identifies the exact configured model used.
-	Selection model.Selection
-	// Usage contains normalized provider usage when reported.
-	Usage mo.Option[session.TokenUsage]
 }
 
 // CommitCommand contains one optimistic navigation mutation and optional summary.
@@ -114,10 +112,10 @@ type HandlerNavigationState struct {
 
 // HandlerBranchSummaryResult contains extension-visible summary output.
 type HandlerBranchSummaryResult struct {
+	// Source identifies the actual producer and its model usage.
+	Source session.BranchSummarySource
 	// Summary contains generated branch context.
 	Summary string
-	// Usage contains normalized provider usage when reported.
-	Usage mo.Option[session.TokenUsage]
 }
 
 // RequestHandlerInvocation contains immutable original state and mutable current state.
@@ -250,12 +248,10 @@ type Runtime interface {
 	) (HandlerResponse, error)
 }
 
-// ModelRequester supplies active selection, checks availability, and executes model requests.
+// ModelRequester supplies active selection and validates models only when executing requests.
 type ModelRequester interface {
 	// ActiveSelection returns the active provider, model, and reasoning choice.
 	ActiveSelection() model.Selection
-	// CheckAvailability checks whether one exact selection is available for a model request.
-	CheckAvailability(ctx context.Context, selection model.Selection) error
 	// Request executes one model request without changing the active selection.
 	Request(
 		ctx context.Context,

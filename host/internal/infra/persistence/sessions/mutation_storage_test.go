@@ -98,8 +98,16 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: "copied provenance", FirstEntryID: "source-first", LastEntryID: "source-last",
-			Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
-			Usage: mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](),
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: model.Selection{
+						Provider:        "provider",
+						Model:           "model",
+						ReasoningChoice: model.ReasoningChoiceLow,
+					},
+					Usage: mo.None[session.TokenUsage](),
+				}),
+			}, EstimatedCost: mo.None[session.EstimatedCost](),
 		}),
 	}
 	tree, err := session.NewTree(

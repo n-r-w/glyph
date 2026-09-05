@@ -59,14 +59,6 @@ func (b *modelRequesterBinding) ActiveSelection() model.Selection {
 	return b.catalog.ActiveSelection()
 }
 
-// CheckAvailability checks one exact selection without model execution.
-func (b *modelRequesterBinding) CheckAvailability(ctx context.Context, selection model.Selection) error {
-	if b.catalog == nil {
-		panic("model availability check before application assembly")
-	}
-	return b.catalog.CheckAvailability(ctx, selection)
-}
-
 // Request executes one model request without changing the active selection.
 func (b *modelRequesterBinding) Request(
 	ctx context.Context,

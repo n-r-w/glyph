@@ -9,11 +9,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
-const (
-	handlerErrorMessage         = "extension handler failed"
-	invalidHandlerActionMessage = "extension handler returned an invalid action"
-	observerErrorMessage        = "extension observer failed"
-)
+// invalidHandlerActionMessage describes an action that cannot be applied to handler state.
+const invalidHandlerActionMessage = "extension handler returned an invalid action"
 
 // runRequestHandlers applies one immutable handler snapshot in registration order.
 func (s *Service) runRequestHandlers(
@@ -40,7 +37,7 @@ func (s *Service) runRequestHandlers(
 			}
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage),
+				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, err.Error()),
 			)
 			continue
 		}
@@ -153,7 +150,7 @@ func (s *Service) runResultHandlers(
 			}
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, handlerErrorMessage),
+				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, err.Error()),
 			)
 			continue
 		}
@@ -196,7 +193,7 @@ func applyResultHandlerAction(
 	}
 }
 
-// runObservers invokes every snapshotted observer after commit and appends safe failures.
+// runObservers invokes every snapshotted observer after commit and preserves received failures.
 func (s *Service) runObservers(
 	ctx context.Context,
 	current HandlerNavigationState,
@@ -217,7 +214,7 @@ func (s *Service) runObservers(
 		if err := s.invokeObserver(observerContext, handler, invocation); err != nil {
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueObserverError, handler, observerErrorMessage),
+				operationIssue(sessionnavigation.OperationIssueObserverError, handler, err.Error()),
 			)
 		}
 	}
@@ -236,7 +233,7 @@ func committedSummary(tree session.Tree, expected bool) mo.Option[session.Entry]
 	return mo.Some(branch[len(branch)-1].Clone())
 }
 
-// operationIssue creates one Host-owned diagnostic without extension error content.
+// operationIssue attaches handler identity and a category without changing the received message.
 func operationIssue(
 	code sessionnavigation.OperationIssueCode,
 	handler Handler,

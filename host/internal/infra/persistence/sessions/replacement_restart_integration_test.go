@@ -172,8 +172,16 @@ func restartSourceTree(t *testing.T) session.Tree {
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			BranchSummary: mo.Some(session.BranchSummaryEntry{
 				Summary: "summary", FirstEntryID: "outside-first", LastEntryID: "outside-last",
-				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
-				Usage: mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](),
+				Source: session.BranchSummarySource{
+					ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+						Selection: model.Selection{
+							Provider:        "provider",
+							Model:           "model",
+							ReasoningChoice: model.ReasoningChoiceLow,
+						},
+						Usage: mo.None[session.TokenUsage](),
+					}),
+				}, EstimatedCost: mo.None[session.EstimatedCost](),
 			}),
 		},
 		restartUserEntry("target", mo.Some("summary"), "exact target", createdAt.Add(3*time.Second)),

@@ -43,9 +43,9 @@ func TestReplayVersion2Tree(t *testing.T) {
 			`{"type":"navigation","navigation":{"destinationId":"root",`+
 			`"branchSummary":{"type":"branch_summary","id":"summary","parentId":"root",`+
 			`"createdAt":"%s","summary":"completed work","firstEntryId":"old","lastEntryId":"old",`+
-			`"provider":"provider","model":"model","reasoningChoice":"low",`+
+			`"source":{"extension_id":null,"model":{"provider":"provider","model":"model","reasoningChoice":"low",`+
 			`"usage":{"inputTokens":1,"outputTokens":2,"cacheReadTokens":3,"cacheWriteTokens":4,`+
-			`"reasoningTokens":1,"totalTokens":10},`+
+			`"reasoningTokens":1,"totalTokens":10}}},`+
 			`"estimatedCost":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"total":10}}}}`+"\n",
 		createdAt.Format(time.RFC3339Nano),
 		project,
@@ -78,7 +78,7 @@ func TestReplayVersion2Tree(t *testing.T) {
 	)
 	require.Equal(t, mo.Some(session.Information{Name: "branched session"}), loaded.Information)
 	summary := loaded.Tree.Entries()[3].BranchSummary.MustGet()
-	require.Equal(t, model.ReasoningChoiceLow, summary.ReasoningChoice)
+	require.Equal(t, model.ReasoningChoiceLow, summary.Source.Model.OrEmpty().Selection.ReasoningChoice)
 	require.Equal(
 		t,
 		mo.Some(
@@ -91,7 +91,7 @@ func TestReplayVersion2Tree(t *testing.T) {
 				TotalTokens:      10,
 			},
 		),
-		summary.Usage,
+		summary.Source.Model.OrEmpty().Usage,
 	)
 	require.Equal(
 		t,

@@ -54,7 +54,9 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 	invocation := sessiontree.RequestHandlerInvocation{
 		Original: state, Current: state,
 		CurrentResult: mo.Some(sessiontree.HandlerBranchSummaryResult{
-			Summary: "ready", Usage: mo.None[session.TokenUsage](),
+			Summary: "ready", Source: session.BranchSummarySource{
+				ExtensionID: mo.Some("producer"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
 		}),
 	}
 
