@@ -18,6 +18,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
 // TestAppendUsesCurrentActiveLeafForEverySupportedEntry verifies continuation entries follow the selected branch.
@@ -85,9 +86,15 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 			CallID: "call", ToolName: "tool", Contents: tool.TextContents("result"), IsError: false,
 		}),
 	}))
-	require.NoError(t, service.AppendExtension(t.Context(), session.ExtensionEnvelope{
-		ExtensionID: "extension", EntryType: "state", Data: []byte(`{"value":true}`),
-	}))
+	service.contextIdentity.Store(&extensioncontext.SessionIdentity{
+		ID: "session", WorkingDirectory: "/project", Incarnation: 1,
+	})
+	_, err = service.AppendExtension(
+		t.Context(),
+		extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+		session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{"value":true}`)},
+	)
+	require.NoError(t, err)
 
 	// Assert every persisted parent is the preceding committed active leaf and all branches remain stored.
 	assert.Equal(t, []mo.Option[string]{
@@ -138,6 +145,100 @@ func TestAppendFailureKeepsCurrentActiveLeaf(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, mo.Some("root"), service.Tree().ActiveLeafID())
 	assert.Equal(t, []string{"root"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+}
+
+// TestExtensionAppendFailurePreservesPublishedState verifies hidden append is atomic with persistence.
+func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one active root and a durable write failure for a valid opaque payload.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	ids := NewMockIDGenerator(controller)
+	clock := NewMockClock(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	tree, err := session.NewTree(
+		[]session.Entry{treeBehaviorUserEntry("root", mo.None[string](), createdAt)}, mo.Some("root"), nil,
+	)
+	require.NoError(t, err)
+	service := New(repository, ids, clock, nil, "/project")
+	service.active = LoadedSession{
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/session.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
+	}
+	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	service.contextIdentity.Store(&expected)
+	ids.EXPECT().NewID().Return("candidate", nil)
+	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("sync failed"))
+
+	// Act by appending exact extension data whose persistence fails.
+	_, err = service.AppendExtension(t.Context(), expected, session.ExtensionEnvelope{
+		ExtensionID: "extension", EntryType: "checkpoint", Data: []byte(`{ "step": 2 }`),
+	})
+
+	// Assert failure classification retains the durable cause and publishes no candidate.
+	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
+	assert.Contains(t, err.Error(), "sync failed")
+	assert.Equal(t, mo.Some("root"), service.Tree().ActiveLeafID())
+	assert.Len(t, service.Tree().Entries(), 1)
+}
+
+// TestExtensionAppendRejectsStaleOrCanceledWork verifies pre-commit validation performs no mutation.
+func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		// name identifies the rejected append condition.
+		name string
+		// expected supplies the binding identity presented at commit.
+		expected extensioncontext.SessionIdentity
+		// canceled selects a canceled operation context.
+		canceled bool
+	}{
+		{name: "stale incarnation", expected: extensioncontext.SessionIdentity{ID: "session", Incarnation: 1}, canceled: false},
+		{name: "canceled", expected: extensioncontext.SessionIdentity{ID: "session", Incarnation: 2}, canceled: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange an empty active session whose current incarnation is newer than one test input.
+			tree, err := session.NewTree(nil, mo.None[string](), nil)
+			require.NoError(t, err)
+			service := New(nil, nil, nil, nil, "/project")
+			service.active = LoadedSession{
+				Header:      session.Header{Version: formatVersion, ID: "session", WorkingDirectory: "/project"},
+				StoragePath: "", Tree: tree, Information: mo.None[session.Information](),
+				InformationUpdatedAt: mo.None[time.Time](),
+			}
+			current := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 2}
+			service.contextIdentity.Store(&current)
+			ctx := t.Context()
+			if test.canceled {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			}
+
+			// Act before identifier allocation or persistence.
+			_, err = service.AppendExtension(ctx, test.expected, session.ExtensionEnvelope{
+				ExtensionID: "extension", EntryType: "state", Data: []byte(`{ "step": 2 }`),
+			})
+
+			// Assert no session entry is published for stale or canceled work.
+			require.Error(t, err)
+			assert.Empty(t, service.Tree().Entries())
+			assert.Equal(t, mo.None[string](), service.Tree().ActiveLeafID())
+		})
+	}
 }
 
 // TestTreeReturnsDefensiveSnapshot verifies callers cannot mutate active entries, labels, or extension bytes.
@@ -193,6 +294,65 @@ func TestTreeReturnsDefensiveSnapshot(t *testing.T) {
 	assert.Equal(t, []byte{4, 5, 6}, later.Entries()[1].Extension.MustGet().Data)
 	assert.Equal(t, map[string]string{"user": "checkpoint"}, later.Labels())
 	assert.Equal(t, []string{"user", "extension"}, treeBehaviorEntryIDs(later.Entries()))
+}
+
+// TestExtensionStateFiltersOneActiveBranch verifies coherent recovery without parent rewriting.
+func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange entries from two extensions and one abandoned checkpoint.
+	createdAt := time.Unix(1, 0).UTC()
+	root := treeBehaviorUserEntry("root", mo.None[string](), createdAt)
+	other := treeBehaviorExtensionEntry("other", mo.Some("root"), createdAt.Add(time.Second), "other")
+	active := treeBehaviorExtensionEntry("active", mo.Some("other"), createdAt.Add(2*time.Second), "caller")
+	abandoned := treeBehaviorExtensionEntry("abandoned", mo.Some("root"), createdAt.Add(3*time.Second), "caller")
+	tree, err := session.NewTree([]session.Entry{root, other, active, abandoned}, mo.Some("active"), nil)
+	require.NoError(t, err)
+	service := New(nil, nil, nil, nil, "/project")
+	service.active = LoadedSession{
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
+	}
+	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 7}
+	service.contextIdentity.Store(&expected)
+
+	// Act through the state-owner snapshot operation.
+	snapshot, err := service.ExtensionState(t.Context(), expected, "caller")
+
+	// Assert only the caller's active checkpoint remains and its omitted parent is unchanged.
+	require.NoError(t, err)
+	assert.Equal(t, session.ID("session"), snapshot.SessionID)
+	assert.Equal(t, mo.Some("active"), snapshot.ActiveLeafID)
+	require.Len(t, snapshot.Entries, 1)
+	assert.Equal(t, "active", snapshot.Entries[0].ID)
+	assert.Equal(t, mo.Some("other"), snapshot.Entries[0].ParentID)
+}
+
+// treeBehaviorExtensionEntry creates one model-hidden extension entry.
+func treeBehaviorExtensionEntry(
+	id string,
+	parentID mo.Option[string],
+	createdAt time.Time,
+	extensionID string,
+) session.Entry {
+	return session.Entry{
+		ID: id, ParentID: parentID, CreatedAt: createdAt,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.Some(session.ExtensionEnvelope{
+			ExtensionID: extensionID, EntryType: "state", Data: []byte(`{ "step": 2 }`),
+		}),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
 }
 
 // treeBehaviorUserEntry creates one valid text user entry for tree behavior tests.

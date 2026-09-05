@@ -3,6 +3,7 @@
 package sessions_test
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -115,7 +116,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 			require.Equal(t, test.expectedLabels, loaded.Tree.Labels())
 			entries := loaded.Tree.Entries()
 			if len(entries) > 1 {
-				require.Equal(t, []byte(`{"opaque":true}`), entries[1].Extension.MustGet().Data)
+				require.True(t, bytes.Equal(
+					[]byte(`{ "escaped": "\u0061", "opaque": true }`),
+					entries[1].Extension.MustGet().Data,
+				))
 				require.Equal(t, "outside-first", entries[2].BranchSummary.MustGet().FirstEntryID)
 				require.Equal(t, "outside-last", entries[2].BranchSummary.MustGet().LastEntryID)
 			}
@@ -155,7 +159,7 @@ func restartSourceTree(t *testing.T) session.Tree {
 				session.ExtensionEnvelope{
 					ExtensionID: "extension",
 					EntryType:   "checkpoint",
-					Data:        []byte(`{"opaque":true}`),
+					Data:        []byte(`{ "escaped": "\u0061", "opaque": true }`),
 				},
 			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),

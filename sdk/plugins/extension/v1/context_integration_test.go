@@ -3,6 +3,7 @@
 package extensionv1
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -36,6 +37,10 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	models := NewMockHostOperation(controller)
 	providers := NewMockHostOperation(controller)
 	configured := NewMockHostOperation(controller)
+	recovery := NewMockHostOperation(controller)
+	recoveryEntered := make(chan struct{})
+	recoveryRelease := make(chan struct{})
+	largePayload := bytes.Repeat([]byte(`{"state":"exact"}`), 300000)
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil)
 	registration.EXPECT().Run(gomock.Any()).Return(contractRegistration(), nil)
 	registration.EXPECT().Release()
@@ -92,6 +97,23 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				return nil, err
 			}
 			assert.Equal(t, "answer", configuredResult.GetContent()[0].GetText().GetText())
+			stateRead, err := bound.StartGetSessionState(ctx)
+			if err != nil {
+				return nil, err
+			}
+			<-recoveryEntered
+			localWait, cancelWait := context.WithCancel(ctx)
+			cancelWait()
+			_, err = stateRead.Wait(localWait)
+			if !errors.Is(err, context.Canceled) {
+				return nil, fmt.Errorf("local wait cancellation: %w", err)
+			}
+			close(recoveryRelease)
+			state, err := stateRead.Wait(ctx)
+			if err != nil {
+				return nil, err
+			}
+			assert.Equal(t, largePayload, state.GetEntries()[0].GetData())
 			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
 		})
 	host.EXPECT().
@@ -101,9 +123,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return models, nil
 		})
 	models.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel:          nil,
-		GetProviders:    nil,
-		ConfiguredModel: nil,
+		Cancel: nil, GetProviders: nil, ConfiguredModel: nil,
+		AppendExtension: nil, GetSessionState: nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
@@ -117,9 +138,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return providers, nil
 		})
 	providers.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel:          nil,
-		GetModels:       nil,
-		ConfiguredModel: nil,
+		Cancel: nil, GetModels: nil, ConfiguredModel: nil,
+		AppendExtension: nil, GetSessionState: nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
@@ -134,7 +154,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return configured, nil
 		})
 	configured.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel: nil, GetModels: nil, GetProviders: nil,
+		Cancel: nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
 		ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
 			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
@@ -146,6 +166,27 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		}.Build(),
 	}.Build(), nil)
 	configured.EXPECT().Release()
+	host.EXPECT().
+		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
+			assert.Equal(t, "binding", request.GetGetSessionState().GetContext().GetContextId())
+			return recovery, nil
+		})
+	recovery.EXPECT().Run(gomock.Any()).DoAndReturn(func(context.Context) (*extensionpb.HostCompleted, error) {
+		close(recoveryEntered)
+		<-recoveryRelease
+		entry := extensionpb.SessionStateEntry_builder{
+			Id: new("entry"), ParentId: new("parent"), CreatedTime: nil,
+			ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload,
+		}.Build()
+		return extensionpb.HostCompleted_builder{
+			Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
+			GetSessionState: extensionpb.GetSessionStateResult_builder{
+				SessionId: new("session"), ActiveLeafId: new("entry"), Entries: []*extensionpb.SessionStateEntry{entry},
+			}.Build(),
+		}.Build(), nil
+	})
+	recovery.EXPECT().Release()
 	connection := openContextTestConnection(t, service, host)
 	register, err := connection.Start(t.Context(), "register", extensionpb.HostRequest_builder{
 		Cancel:   nil,
@@ -271,7 +312,7 @@ func newContextTestClient(t *testing.T, service Service) *Client {
 	t.Helper()
 	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	server := grpc.NewServer()
+	server := extensionGRPCServer(nil)
 	extensionpb.RegisterExtensionServiceServer(server, newServer(service))
 	stopped := make(chan error, 1)
 	go func() { stopped <- server.Serve(listener) }()

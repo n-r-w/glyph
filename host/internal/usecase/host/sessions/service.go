@@ -2,8 +2,8 @@
 package sessions
 
 import (
-	"bytes"
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"regexp"
@@ -56,6 +56,7 @@ var (
 	_ sessioncontrol.ActiveSessions = (*Service)(nil)
 	_ sessiontree.ActiveSession     = (*Service)(nil)
 	_ agentrun.HistoryStore         = (*Service)(nil)
+	_ extensioncontext.SessionState = (*Service)(nil)
 )
 
 // New creates an active-session service without performing storage I/O.
@@ -297,7 +298,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	if response, modelPresent := projection.Model.Get(); modelPresent {
 		projection.EstimatedCost = s.estimatedCost(response)
 	}
-	appendErr := s.appendEntryLocked(ctx, projection)
+	_, appendErr := s.appendEntryLocked(ctx, projection)
 	if appendErr != nil {
 		return appendErr
 	}
@@ -305,36 +306,90 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	return nil
 }
 
-// AppendExtension persists one model-hidden extension entry on the current active branch.
-func (s *Service) AppendExtension(ctx context.Context, extension session.ExtensionEnvelope) error {
-	owned := extension
-	owned.Data = bytes.Clone(extension.Data)
+// AppendExtension persists one model-hidden entry only for the expected active-session incarnation.
+func (s *Service) AppendExtension(
+	ctx context.Context,
+	expected extensioncontext.SessionIdentity,
+	extension session.ExtensionEnvelope,
+) (session.Entry, error) {
+	owned := extension.Clone()
+	if owned.ExtensionID == "" || owned.EntryType == "" || !jsontext.Value(owned.Data).IsValid() {
+		return session.Entry{}, errors.New("invalid extension entry")
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.appendEntryLocked(ctx, session.Entry{
+	if err := s.validateExpectedSessionLocked(ctx, expected); err != nil {
+		return session.Entry{}, err
+	}
+	entry := session.Entry{
 		ID: "", ParentID: mo.None[string](), CreatedAt: time.Time{},
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(owned),
 		BranchSummary: mo.None[session.BranchSummaryEntry](),
-	})
+	}
+	committed, err := s.appendEntryLocked(ctx, entry)
+	if err != nil {
+		if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+			return session.Entry{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, err)
+		}
+		return session.Entry{}, err
+	}
+	return committed, nil
+}
+
+// ExtensionState returns the caller extension's entries from one locked active-branch snapshot.
+func (s *Service) ExtensionState(
+	ctx context.Context,
+	expected extensioncontext.SessionIdentity,
+	extensionID string,
+) (session.ExtensionStateSnapshot, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if err := s.validateExpectedSessionLocked(ctx, expected); err != nil {
+		return session.ExtensionStateSnapshot{}, err
+	}
+	entries := make([]session.Entry, 0)
+	activeBranch := s.active.Tree.ActiveBranch()
+	for entryIndex := range activeBranch {
+		entry := &activeBranch[entryIndex]
+		extension, present := entry.Extension.Get()
+		if present && extension.ExtensionID == extensionID {
+			entries = append(entries, entry.Clone())
+		}
+	}
+	return session.ExtensionStateSnapshot{
+		SessionID: s.active.Header.ID, ActiveLeafID: s.active.Tree.ActiveLeafID(), Entries: entries,
+	}, nil
+}
+
+// validateExpectedSessionLocked rejects cancellation and every replaced active-session incarnation.
+func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected extensioncontext.SessionIdentity) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("access extension session state: %w", err)
+	}
+	current := s.ContextSession()
+	if current.ID != expected.ID || current.Incarnation != expected.Incarnation {
+		return fmt.Errorf("%w: active-session incarnation was replaced", session.ErrUnavailable)
+	}
+	return nil
 }
 
 // appendEntryLocked persists one candidate child and publishes it only after synchronization.
-func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) error {
+func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) (session.Entry, error) {
 	if s.writeUnavailable {
-		return agentrun.ErrPersistenceUnavailable
+		return session.Entry{}, agentrun.ErrPersistenceUnavailable
 	}
 	entryID, err := s.ids.NewID()
 	if err != nil {
-		return fmt.Errorf("create session entry ID: %w", err)
+		return session.Entry{}, fmt.Errorf("create session entry ID: %w", err)
 	}
 	entry.ID = entryID
 	entry.ParentID = s.active.Tree.ActiveLeafID()
 	entry.CreatedAt = s.clock.Now()
 	candidateTree := s.active.Tree.Clone()
 	if err = candidateTree.Add(entry); err != nil {
-		return fmt.Errorf("validate session tree entry: %w", err)
+		return session.Entry{}, fmt.Errorf("validate session tree entry: %w", err)
 	}
 	result, err := s.repository.Apply(ctx, ApplyCommand{
 		Header: s.active.Header, StoragePath: s.active.StoragePath,
@@ -347,12 +402,12 @@ func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) er
 		logPersistenceFailure(ctx, persistenceOperationHistory, s.active.Header.ID, err)
 		// Keep the last durable snapshot readable while blocking later process-local mutations.
 		s.writeUnavailable = true
-		return fmt.Errorf("%w: append session entry: %w", agentrun.ErrPersistenceUnavailable, err)
+		return session.Entry{}, fmt.Errorf("%w: append session entry: %w", agentrun.ErrPersistenceUnavailable, err)
 	}
 	// Publish active ownership only after the repository append is synchronized.
 	s.active.StoragePath = result.StoragePath
 	s.active.Tree = candidateTree
-	return nil
+	return entry.Clone(), nil
 }
 
 // estimatedCost calculates one persisted request cost from disjoint normalized token buckets.

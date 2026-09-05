@@ -16,6 +16,7 @@ import (
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,6 +42,21 @@ func NewMockContextOperations(ctrl *gomock.Controller) *MockContextOperations {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContextOperations) EXPECT() *MockContextOperationsMockRecorder {
 	return m.recorder
+}
+
+// AppendExtension mocks base method.
+func (m *MockContextOperations) AppendExtension(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, entryType string, data []byte) (session.Entry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppendExtension", ctx, extensionID, runtimeID, reference, entryType, data)
+	ret0, _ := ret[0].(session.Entry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppendExtension indicates an expected call of AppendExtension.
+func (mr *MockContextOperationsMockRecorder) AppendExtension(ctx, extensionID, runtimeID, reference, entryType, data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtension", reflect.TypeOf((*MockContextOperations)(nil).AppendExtension), ctx, extensionID, runtimeID, reference, entryType, data)
 }
 
 // ReadModels mocks base method.
@@ -71,6 +87,21 @@ func (m *MockContextOperations) ReadProviders(ctx context.Context, extensionID, 
 func (mr *MockContextOperationsMockRecorder) ReadProviders(ctx, extensionID, runtimeID, reference any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadProviders", reflect.TypeOf((*MockContextOperations)(nil).ReadProviders), ctx, extensionID, runtimeID, reference)
+}
+
+// ReadSessionState mocks base method.
+func (m *MockContextOperations) ReadSessionState(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (session.ExtensionStateSnapshot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadSessionState", ctx, extensionID, runtimeID, reference)
+	ret0, _ := ret[0].(session.ExtensionStateSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadSessionState indicates an expected call of ReadSessionState.
+func (mr *MockContextOperationsMockRecorder) ReadSessionState(ctx, extensionID, runtimeID, reference any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSessionState", reflect.TypeOf((*MockContextOperations)(nil).ReadSessionState), ctx, extensionID, runtimeID, reference)
 }
 
 // Request mocks base method.

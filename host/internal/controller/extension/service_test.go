@@ -6,6 +6,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -143,6 +145,74 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	assert.Equal(t, "complete diagnostic", result.GetDiagnostics()[0].GetMessage())
 	assert.NotContains(t, result.String(), "private-api")
 	assert.NotContains(t, result.String(), "private-reasoning-context")
+}
+
+// TestHiddenAppendAndRecoveryMapExactStoredEntry verifies public session operations preserve metadata and bytes.
+func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one valid context and a stored entry whose parent is omitted from recovery.
+	controller := gomock.NewController(t)
+	contexts := NewMockContextOperations(controller)
+	runtime := NewMockRuntimeOperations(controller)
+	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil).Times(2)
+	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil).Times(2)
+	payload := []byte(`{ "escaped": "\u0061" }`)
+	stored := session.Entry{
+		ID:            "entry",
+		ParentID:      mo.Some("foreign-parent"),
+		CreatedAt:     time.Unix(7, 8).UTC(),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension: mo.Some(
+			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: payload},
+		),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	contexts.EXPECT().AppendExtension(
+		gomock.Any(), "extension", "runtime", reference, "checkpoint", payload,
+	).Return(stored, nil)
+	contexts.EXPECT().ReadSessionState(gomock.Any(), "extension", "runtime", reference).Return(
+		session.ExtensionStateSnapshot{
+			SessionID: "session", ActiveLeafID: mo.Some("entry"), Entries: []session.Entry{stored},
+		}, nil,
+	)
+	service := New(contexts, runtime, "extension", "runtime")
+	contextRef := extensionpb.ExtensionContextRef_builder{
+		ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+	}.Build()
+	appendEnvelope := new(extensionpb.ExtensionRequest)
+	appendEnvelope.SetAppendExtension(extensionpb.AppendExtensionRequest_builder{
+		Context: contextRef, EntryType: new("checkpoint"), Data: payload,
+	}.Build())
+	stateEnvelope := new(extensionpb.ExtensionRequest)
+	stateEnvelope.SetGetSessionState(extensionpb.GetSessionStateRequest_builder{Context: contextRef}.Build())
+
+	// Act through both admitted controller operations.
+	appendOperation, err := service.Prepare(t.Context(), "append", appendEnvelope)
+	require.NoError(t, err)
+	appendResult, err := appendOperation.Run(t.Context())
+	require.NoError(t, err)
+	appendOperation.Release()
+	stateOperation, err := service.Prepare(t.Context(), "state", stateEnvelope)
+	require.NoError(t, err)
+	stateResult, err := stateOperation.Run(t.Context())
+	require.NoError(t, err)
+	stateOperation.Release()
+
+	// Assert exact identity, ancestry, timestamp, type, and payload cross the contract.
+	appended := appendResult.GetAppendExtension().GetEntry()
+	recovered := stateResult.GetGetSessionState().GetEntries()[0]
+	assert.Equal(t, "entry", appended.GetId())
+	assert.Equal(t, "foreign-parent", recovered.GetParentId())
+	assert.Equal(t, stored.CreatedAt, recovered.GetCreatedTime().AsTime())
+	assert.Equal(t, "extension", recovered.GetExtensionId())
+	assert.Equal(t, "checkpoint", recovered.GetEntryType())
+	assert.Equal(t, payload, recovered.GetData())
 }
 
 // TestConfiguredModelRequestPreservesClosedFailures verifies every owner category and complete cause reach the SDK.

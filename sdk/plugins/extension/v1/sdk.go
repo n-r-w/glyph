@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os/exec"
 	"sync"
 	"time"
@@ -24,6 +25,8 @@ const (
 	magicCookieKey   = "GLYPH_EXTENSION_PLUGIN"
 	magicCookieValue = "glyph-extension-v1"
 	startTimeout     = 10 * time.Second
+	// maxReceiveMessageSize matches the Host client's configured transport capacity.
+	maxReceiveMessageSize = math.MaxInt32
 )
 
 // Client owns one connected extension process.
@@ -165,10 +168,15 @@ func Serve(service Service) {
 		TLSProvider:      nil,
 		Plugins:          nil,
 		VersionedPlugins: pluginSets(server),
-		GRPCServer:       plugin.DefaultGRPCServer,
+		GRPCServer:       extensionGRPCServer,
 		Logger:           nil,
 		Test:             nil,
 	})
+}
+
+// extensionGRPCServer preserves go-plugin options and accepts complete recovery snapshots.
+func extensionGRPCServer(options []grpc.ServerOption) *grpc.Server {
+	return grpc.NewServer(append(options, grpc.MaxRecvMsgSize(maxReceiveMessageSize))...)
 }
 
 // GRPCServer registers the extension implementation in the plugin process.

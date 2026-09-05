@@ -92,6 +92,16 @@ type Entry struct {
 	BranchSummary mo.Option[BranchSummaryEntry]
 }
 
+// ExtensionStateSnapshot contains one coherent active-branch view for an extension.
+type ExtensionStateSnapshot struct {
+	// SessionID identifies the active durable session read with the entries.
+	SessionID ID
+	// ActiveLeafID identifies the active leaf read with the entries.
+	ActiveLeafID mo.Option[string]
+	// Entries contains matching extension entries in root-first branch order.
+	Entries []Entry
+}
+
 // BranchSummaryEntry stores summary text, its branch boundary, and the actual result source.
 type BranchSummaryEntry struct {
 	// Summary contains abandoned-branch context supplied by its source.

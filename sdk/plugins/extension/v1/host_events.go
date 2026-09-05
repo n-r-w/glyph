@@ -20,6 +20,10 @@ const (
 	hostRequestProviders
 	// hostRequestConfiguredModel identifies explicit configured-model requests.
 	hostRequestConfiguredModel
+	// hostRequestAppendExtension identifies model-hidden session appends.
+	hostRequestAppendExtension
+	// hostRequestSessionState identifies active-branch recovery requests.
+	hostRequestSessionState
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -30,6 +34,10 @@ const (
 	hostFailureCodeCredentialUnavailable = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a protocol error code.
 	// hostFailureCodeModelFailed identifies provider request failure.
 	hostFailureCodeModelFailed = "MODEL_FAILED"
+	// hostFailureCodeSessionUnavailable identifies unavailable active session state.
+	hostFailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
+	// hostFailureCodePersistenceUnavailable identifies a durable append failure.
+	hostFailureCodePersistenceUnavailable = "PERSISTENCE_UNAVAILABLE"
 )
 
 // classifyHostRequest identifies an implemented extension-initiated request.
@@ -44,6 +52,10 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 		return hostRequestProviders
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
 		return hostRequestConfiguredModel
+	case extensionpb.ExtensionRequest_AppendExtension_case:
+		return hostRequestAppendExtension
+	case extensionpb.ExtensionRequest_GetSessionState_case:
+		return hostRequestSessionState
 	case extensionpb.ExtensionRequest_Cancel_case:
 		return hostRequestCancel
 	case extensionpb.ExtensionRequest_Request_not_set_case:
@@ -65,6 +77,10 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 		return result.GetGetProviders() != nil
 	case hostRequestConfiguredModel:
 		return result.GetConfiguredModel() != nil
+	case hostRequestAppendExtension:
+		return result.GetAppendExtension() != nil
+	case hostRequestSessionState:
+		return result.GetGetSessionState() != nil
 	case hostRequestCancel:
 		return result.GetCancel() != nil
 	case hostRequestInvalid:
@@ -85,12 +101,21 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 			return nil
 		}
 	}
+	if kind == hostRequestAppendExtension &&
+		(code == hostFailureCodePersistenceUnavailable || code == hostFailureCodeSessionUnavailable) {
+		return nil
+	}
+	if kind == hostRequestSessionState && code == hostFailureCodeSessionUnavailable {
+		return nil
+	}
 	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
 }
 
 // validateHostOutputFailureCode accepts the union that the Host peer can publish before request-local validation.
 func validateHostOutputFailureCode(code string) error {
-	for _, kind := range []hostRequestKind{hostRequestModels, hostRequestConfiguredModel} {
+	for _, kind := range []hostRequestKind{
+		hostRequestModels, hostRequestConfiguredModel, hostRequestAppendExtension, hostRequestSessionState,
+	} {
 		if validateHostFailureCode(kind, code) == nil {
 			return nil
 		}

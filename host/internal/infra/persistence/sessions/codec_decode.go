@@ -133,8 +133,11 @@ func decodeExtension(data []byte) (session.Entry, error) {
 	if err != nil {
 		return session.Entry{}, fmt.Errorf("parse extension entry timestamp: %w", err)
 	}
-	if record.ID == "" || record.ExtensionID == "" || record.EntryType == "" ||
-		len(record.Data) == 0 || !record.Data.IsValid() {
+	if record.ID == "" || record.ExtensionID == "" || record.EntryType == "" || len(record.Data) == 0 {
+		return session.Entry{}, errors.New("invalid extension entry")
+	}
+	payload, err := decodeBytes(record.Data)
+	if err != nil || !jsontext.Value(payload).IsValid() {
 		return session.Entry{}, errors.New("invalid extension entry")
 	}
 	return session.Entry{
@@ -142,7 +145,7 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.Some(session.ExtensionEnvelope{
-			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(record.Data),
+			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(payload),
 		}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}, nil
 }

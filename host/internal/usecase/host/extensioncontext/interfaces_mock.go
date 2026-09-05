@@ -15,6 +15,7 @@ import (
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -81,6 +82,21 @@ func (m *MockSessionState) EXPECT() *MockSessionStateMockRecorder {
 	return m.recorder
 }
 
+// AppendExtension mocks base method.
+func (m *MockSessionState) AppendExtension(arg0 context.Context, arg1 SessionIdentity, arg2 session.ExtensionEnvelope) (session.Entry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppendExtension", arg0, arg1, arg2)
+	ret0, _ := ret[0].(session.Entry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppendExtension indicates an expected call of AppendExtension.
+func (mr *MockSessionStateMockRecorder) AppendExtension(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtension", reflect.TypeOf((*MockSessionState)(nil).AppendExtension), arg0, arg1, arg2)
+}
+
 // ContextSession mocks base method.
 func (m *MockSessionState) ContextSession() SessionIdentity {
 	m.ctrl.T.Helper()
@@ -93,6 +109,21 @@ func (m *MockSessionState) ContextSession() SessionIdentity {
 func (mr *MockSessionStateMockRecorder) ContextSession() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContextSession", reflect.TypeOf((*MockSessionState)(nil).ContextSession))
+}
+
+// ExtensionState mocks base method.
+func (m *MockSessionState) ExtensionState(arg0 context.Context, arg1 SessionIdentity, arg2 string) (session.ExtensionStateSnapshot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtensionState", arg0, arg1, arg2)
+	ret0, _ := ret[0].(session.ExtensionStateSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExtensionState indicates an expected call of ExtensionState.
+func (mr *MockSessionStateMockRecorder) ExtensionState(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionState", reflect.TypeOf((*MockSessionState)(nil).ExtensionState), arg0, arg1, arg2)
 }
 
 // MockCatalog is a mock of Catalog interface.

@@ -228,7 +228,7 @@ type toolResultContentRecord struct {
 	Data jsontext.Value `json:"data,omitzero"`
 }
 
-// extensionRecord stores compact extension-owned JSON without interpreting it.
+// extensionRecord stores lossless extension-owned JSON bytes without interpreting them.
 type extensionRecord struct {
 	// Type must be "extension".
 	Type string `json:"type"`
@@ -242,7 +242,7 @@ type extensionRecord struct {
 	ExtensionID string `json:"extensionId"`
 	// EntryType identifies the extension-defined entry kind.
 	EntryType string `json:"entryType"`
-	// Data contains extension-owned JSON.
+	// Data contains encoded extension-owned JSON bytes.
 	Data jsontext.Value `json:"data"`
 }
 

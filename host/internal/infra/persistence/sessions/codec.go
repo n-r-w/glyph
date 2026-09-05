@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -56,16 +57,23 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	if result, ok := entry.ToolResult.Get(); ok {
 		return encodeToolResultEntry(entry, result)
 	}
-	extension := entry.Extension.MustGet()
+	return encodeExtensionEntry(entry, entry.Extension.MustGet())
+}
+
+// encodeExtensionEntry validates opaque JSON and frames its exact bytes.
+func encodeExtensionEntry(entry session.Entry, extension session.ExtensionEnvelope) ([]byte, error) {
 	if extension.ExtensionID == "" || extension.EntryType == "" || !jsontext.Value(extension.Data).IsValid() {
 		return nil, errors.New("invalid extension entry")
 	}
-	// Clone opaque extension bytes before framing them as compact JSON.
+	encodedData, err := encodeBytes(extension.Data)
+	if err != nil {
+		return nil, fmt.Errorf("encode extension data: %w", err)
+	}
 	return encodeLine(extensionRecord{
 		Type: recordTypeExtension, ID: entry.ID, ParentID: entry.ParentID,
 		CreatedAt:   entry.CreatedAt.Format(time.RFC3339Nano),
 		ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
-		Data: jsontext.Value(bytes.Clone(extension.Data)),
+		Data: encodedData,
 	})
 }
 

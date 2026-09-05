@@ -3,6 +3,7 @@
 package sessions_test
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -411,9 +412,9 @@ func TestExtensionDataAcceptsEveryJSONValue(t *testing.T) {
 		entry := fmt.Sprintf(
 			`{"type":"entry","entry":{"type":"extension","id":"entry-%d",`+
 				`"createdAt":"2026-08-27T10:00:01Z","extensionId":"ext",`+
-				`"entryType":"item","data":%s}}`+"\n",
+				`"entryType":"item","data":"%s"}}`+"\n",
 			index,
-			value,
+			base64.StdEncoding.EncodeToString([]byte(value)),
 		)
 		repository, projectDirectory, cwd := newValidationRepository(t)
 		require.NoError(

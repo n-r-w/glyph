@@ -45,31 +45,11 @@ func (s *Service) Prepare(
 	operationID string,
 	request *extensionpb.ExtensionRequest,
 ) (extensionsdk.HostOperation, error) {
-	var reference *extensionpb.ExtensionContextRef
-	models := false
-	configured := mo.None[configuredRequest]()
-	if request != nil {
-		switch request.WhichRequest() {
-		case extensionpb.ExtensionRequest_GetModels_case:
-			reference, models = request.GetGetModels().GetContext(), true
-		case extensionpb.ExtensionRequest_GetProviders_case:
-			reference = request.GetGetProviders().GetContext()
-		case extensionpb.ExtensionRequest_ConfiguredModel_case:
-			mapped, mapErr := mapConfiguredRequest(request.GetConfiguredModel())
-			if mapErr != nil {
-				return nil, extensionsdk.Reject(invalidArgumentCode, mapErr)
-			}
-			configured = mo.Some(mapped)
-			reference = request.GetConfiguredModel().GetContext()
-		case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
-			return nil, extensionsdk.Reject(
-				invalidArgumentCode,
-				errors.New("catalog or configured model request is required"),
-			)
-		default:
-			return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("unsupported extension context request"))
-		}
+	mappedRequest, err := mapContextRequest(request)
+	if err != nil {
+		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
+	reference := mappedRequest.reference
 	if reference == nil || reference.GetContextId() == "" || reference.GetRuntimeInstanceId() == "" ||
 		reference.GetSessionId() == "" {
 		return nil, extensionsdk.Reject(
@@ -82,17 +62,68 @@ func (s *Service) Prepare(
 		RuntimeInstanceID: reference.GetRuntimeInstanceId(),
 		SessionID:         reference.GetSessionId(),
 	}
-	if err := s.contexts.ValidateContext(s.extensionID, s.runtimeID, bound); err != nil {
-		return nil, extensionsdk.Reject(contextFailureCode(err), err)
+	if validationErr := s.contexts.ValidateContext(s.extensionID, s.runtimeID, bound); validationErr != nil {
+		return nil, extensionsdk.Reject(contextFailureCode(validationErr), validationErr)
 	}
 	release, err := s.runtime.BeginContextOperation(ctx, s.extensionID, s.runtimeID)
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
 	return &contextOperation{
-		service: s, reference: bound, models: models, configured: configured,
+		service: s, reference: bound, models: mappedRequest.models, sessionState: mappedRequest.sessionState,
+		configured: mappedRequest.configured, appendValue: mappedRequest.appendValue,
 		release: release, id: operationID,
 	}, nil
+}
+
+// contextRequest contains one validated operation selector and its public reference.
+type contextRequest struct {
+	// reference identifies the issued binding.
+	reference *extensionpb.ExtensionContextRef
+	// models selects a model catalog instead of a provider catalog.
+	models bool
+	// sessionState selects active-branch recovery.
+	sessionState bool
+	// configured contains a configured-model request when selected.
+	configured mo.Option[configuredRequest]
+	// appendValue contains a hidden append when selected.
+	appendValue mo.Option[appendRequest]
+}
+
+// mapContextRequest validates the selected request payload before admission.
+func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
+	mapped := contextRequest{
+		reference: nil, models: false, sessionState: false,
+		configured: mo.None[configuredRequest](), appendValue: mo.None[appendRequest](),
+	}
+	if request == nil {
+		return mapped, errors.New("extension context request is required")
+	}
+	switch request.WhichRequest() {
+	case extensionpb.ExtensionRequest_GetModels_case:
+		mapped.reference, mapped.models = request.GetGetModels().GetContext(), true
+	case extensionpb.ExtensionRequest_GetProviders_case:
+		mapped.reference = request.GetGetProviders().GetContext()
+	case extensionpb.ExtensionRequest_ConfiguredModel_case:
+		configured, err := mapConfiguredRequest(request.GetConfiguredModel())
+		if err != nil {
+			return contextRequest{}, err
+		}
+		mapped.configured, mapped.reference = mo.Some(configured), request.GetConfiguredModel().GetContext()
+	case extensionpb.ExtensionRequest_AppendExtension_case:
+		appendValue, err := mapAppendRequest(request.GetAppendExtension())
+		if err != nil {
+			return contextRequest{}, err
+		}
+		mapped.appendValue, mapped.reference = mo.Some(appendValue), request.GetAppendExtension().GetContext()
+	case extensionpb.ExtensionRequest_GetSessionState_case:
+		mapped.sessionState, mapped.reference = true, request.GetGetSessionState().GetContext()
+	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
+		return contextRequest{}, errors.New("extension context operation request is required")
+	default:
+		return contextRequest{}, errors.New("unsupported extension context request")
+	}
+	return mapped, nil
 }
 
 // contextOperation maps one admitted context request and owns its accounting release.
@@ -107,6 +138,10 @@ type contextOperation struct {
 	models bool
 	// configured contains an explicit model request when this is not a catalog read.
 	configured mo.Option[configuredRequest]
+	// appendValue contains a hidden append when selected.
+	appendValue mo.Option[appendRequest]
+	// sessionState selects active-branch recovery.
+	sessionState bool
 	// release returns the runtime operation reservation.
 	release func()
 }
@@ -129,7 +164,33 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 	)
 	result := new(extensionpb.HostCompleted)
 	configured, hasConfigured := o.configured.Get()
+	appendValue, hasAppend := o.appendValue.Get()
 	switch {
+	case hasAppend:
+		entry, err := o.service.contexts.AppendExtension(
+			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
+			appendValue.entryType, appendValue.data,
+		)
+		if err != nil {
+			return nil, mapContextFailure("append extension entry", err)
+		}
+		mapped, err := mapSessionEntry(entry)
+		if err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, err)
+		}
+		result.SetAppendExtension(extensionpb.AppendExtensionResult_builder{Entry: mapped}.Build())
+	case o.sessionState:
+		snapshot, err := o.service.contexts.ReadSessionState(
+			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
+		)
+		if err != nil {
+			return nil, mapContextFailure("read extension session state", err)
+		}
+		mapped, err := mapSessionState(snapshot)
+		if err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, err)
+		}
+		result.SetGetSessionState(mapped)
 	case hasConfigured:
 		response, err := o.service.contexts.Request(
 			ctx, o.service.extensionID, o.service.runtimeID, o.reference,

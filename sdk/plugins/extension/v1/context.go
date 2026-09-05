@@ -38,6 +38,18 @@ type ConfiguredModelOperation struct {
 	operation *contextOperation
 }
 
+// AppendExtensionOperation owns one asynchronous model-hidden append.
+type AppendExtensionOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
+// SessionStateOperation owns one asynchronous active-branch recovery request.
+type SessionStateOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ContextFrom returns the session-bound context supplied to a tool or handler invocation.
 func ContextFrom(ctx context.Context) (*ExtensionContext, error) {
 	binding, present := ctx.Value(invocationContextKey{}).(*ExtensionContext)
@@ -91,6 +103,54 @@ func (c *ExtensionContext) StartConfiguredModel(
 		return nil, err
 	}
 	return &ConfiguredModelOperation{operation: started}, nil
+}
+
+// StartAppendExtension starts one model-hidden append without waiting for Host acceptance.
+func (c *ExtensionContext) StartAppendExtension(
+	ctx context.Context,
+	input *extensionpb.AppendExtensionRequest,
+) (*AppendExtensionOperation, error) {
+	if input == nil {
+		return nil, errors.New("append extension request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetAppendExtension(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &AppendExtensionOperation{operation: started}, nil
+}
+
+// StartGetSessionState starts active-branch recovery without waiting for Host acceptance.
+func (c *ExtensionContext) StartGetSessionState(ctx context.Context) (*SessionStateOperation, error) {
+	request := new(extensionpb.ExtensionRequest)
+	request.SetGetSessionState(extensionpb.GetSessionStateRequest_builder{Context: c.reference()}.Build())
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &SessionStateOperation{operation: started}, nil
+}
+
+// Wait waits locally for the committed hidden entry without canceling remote work.
+func (o *AppendExtensionOperation) Wait(ctx context.Context) (*extensionpb.AppendExtensionResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetAppendExtension(), nil
+}
+
+// Wait waits locally for the typed active-branch snapshot without canceling remote work.
+func (o *SessionStateOperation) Wait(ctx context.Context) (*extensionpb.GetSessionStateResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetGetSessionState(), nil
 }
 
 // Wait waits locally for the typed configured-model result without canceling remote work.

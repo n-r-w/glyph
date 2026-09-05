@@ -7,6 +7,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock_test.go -package=extension
@@ -36,6 +37,20 @@ type ContextOperations interface {
 		instructions string,
 		history []agent.HistoryEntry,
 	) (model.Response, error)
+	// AppendExtension persists one hidden entry under the bound session incarnation.
+	AppendExtension(
+		ctx context.Context,
+		extensionID, runtimeID string,
+		reference extensiondomain.ContextRef,
+		entryType string,
+		data []byte,
+	) (session.Entry, error)
+	// ReadSessionState returns one coherent caller-filtered active-branch snapshot.
+	ReadSessionState(
+		ctx context.Context,
+		extensionID, runtimeID string,
+		reference extensiondomain.ContextRef,
+	) (session.ExtensionStateSnapshot, error)
 }
 
 // ModelCatalog contains descriptors and active selection for one completed read.

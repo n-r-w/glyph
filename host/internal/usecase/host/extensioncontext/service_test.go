@@ -7,6 +7,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 // TestBindingsNeverReactivate verifies runtime replacement, same-ID resume, and A-to-B-to-A invalidation.
@@ -149,6 +151,103 @@ func TestCataloguesRevalidateBlockedReads(t *testing.T) {
 			require.ErrorIs(t, err, context.Canceled)
 		})
 	}
+}
+
+// TestHiddenAppendAndRecoveryUseIssuedIncarnation verifies session work uses one bound identity.
+func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one valid binding and state-owner results with exact opaque bytes.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	sessions := NewMockSessionState(controller)
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	service := New(runtime, sessions)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	payload := []byte(`{ "escaped": "\u0061" }`)
+	stored := session.Entry{
+		ID:            "entry",
+		ParentID:      mo.Some("foreign-parent"),
+		CreatedAt:     time.Unix(9, 0).UTC(),
+		Information:   mo.None[session.Information](),
+		User:          mo.None[session.UserMessage](),
+		Model:         mo.None[session.ModelResponse](),
+		EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult:    mo.None[session.ToolResult](),
+		Extension: mo.Some(
+			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: payload},
+		),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	sessions.EXPECT().AppendExtension(gomock.Any(), identity, stored.Extension.MustGet()).Return(stored, nil)
+	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").Return(session.ExtensionStateSnapshot{
+		SessionID: "session", ActiveLeafID: mo.Some("entry"), Entries: []session.Entry{stored},
+	}, nil)
+
+	// Act through both context-owned session capabilities.
+	appended, err := service.AppendExtension(t.Context(), "extension", "runtime", reference, "checkpoint", payload)
+	require.NoError(t, err)
+	snapshot, err := service.ReadSessionState(t.Context(), "extension", "runtime", reference)
+
+	// Assert exact entry metadata and bytes pass through without interpretation.
+	require.NoError(t, err)
+	assert.Equal(t, stored, appended)
+	assert.Equal(t, payload, snapshot.Entries[0].Extension.MustGet().Data)
+	assert.Equal(t, mo.Some("foreign-parent"), snapshot.Entries[0].ParentID)
+}
+
+// TestSessionRecoveryRejectsReplacementDuringRead verifies a stale snapshot cannot complete.
+func TestSessionRecoveryRejectsReplacementDuringRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a valid binding and block its state-owner read before final validation.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	sessions := NewMockSessionState(controller)
+	var mutex sync.Mutex
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	sessions.EXPECT().ContextSession().DoAndReturn(func() SessionIdentity {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return identity
+	}).AnyTimes()
+	service := New(runtime, sessions)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").DoAndReturn(
+		func(context.Context, SessionIdentity, string) (session.ExtensionStateSnapshot, error) {
+			close(entered)
+			<-release
+			return session.ExtensionStateSnapshot{
+				SessionID:    "session",
+				ActiveLeafID: mo.None[string](),
+				Entries:      nil,
+			}, nil
+		},
+	)
+	result := make(chan error, 1)
+
+	// Act by replacing the active-session incarnation while recovery executes.
+	go func() {
+		_, readErr := service.ReadSessionState(t.Context(), "extension", "runtime", reference)
+		result <- readErr
+	}()
+	<-entered
+	mutex.Lock()
+	identity.Incarnation++
+	mutex.Unlock()
+	close(release)
+
+	// Assert the accepted operation cannot publish the stale snapshot.
+	assertStaleContext(t, <-result)
 }
 
 // TestConfiguredRequestPassesExactInput verifies context ownership forwards one explicit request unchanged.

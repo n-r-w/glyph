@@ -6,6 +6,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensioncontext
@@ -20,6 +21,10 @@ type RuntimeState interface {
 type SessionState interface {
 	// ContextSession returns durable identity, project directory, and process-local incarnation.
 	ContextSession() SessionIdentity
+	// AppendExtension appends one entry only while the expected session incarnation remains active.
+	AppendExtension(context.Context, SessionIdentity, session.ExtensionEnvelope) (session.Entry, error)
+	// ExtensionState returns one coherent filtered active-branch snapshot.
+	ExtensionState(context.Context, SessionIdentity, string) (session.ExtensionStateSnapshot, error)
 }
 
 // SessionIdentity distinguishes active incarnations of the same durable session.

@@ -11,6 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
@@ -26,6 +27,8 @@ const (
 	credentialUnavailableCode = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a public error category.
 	// modelFailedCode identifies provider execution failure after selection validation.
 	modelFailedCode = "MODEL_FAILED"
+	// persistenceUnavailableCode identifies a durable append failure.
+	persistenceUnavailableCode = "PERSISTENCE_UNAVAILABLE"
 	// selectionCodeNotFound identifies a provider selection that is not configured.
 	selectionCodeNotFound = "not_found"
 	// selectionCodeReasoningUnsupported identifies a reasoning choice unsupported by the selected model.
@@ -84,9 +87,9 @@ var (
 )
 
 // New constructs context ownership over the runtime and session state owners.
-func New(runtime RuntimeState, session SessionState) *Service {
+func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
-		runtime: runtime, session: session, mutex: sync.Mutex{}, catalog: nil,
+		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil,
 		bindings: make(map[string]binding),
 	}
 }
@@ -124,18 +127,27 @@ func (s *Service) IssueContext(extensionID string) (extension.Context, error) {
 func (s *Service) ValidateContext(extensionID, runtimeID string, reference extension.ContextRef) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	_, err := s.validateContextLocked(extensionID, runtimeID, reference)
+	return err
+}
+
+// validateContextLocked checks one reference and returns its exact issued binding.
+func (s *Service) validateContextLocked(
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+) (binding, error) {
 	issued, found := s.bindings[extensionID]
 	if !found || reference.ID != issued.context.ID || reference.RuntimeInstanceID != runtimeID ||
 		runtimeID != issued.context.RuntimeInstanceID || reference.SessionID != issued.context.SessionID {
-		return staleBinding(extensionID, "reference does not match the context issued to this runtime")
+		return binding{}, staleBinding(extensionID, "reference does not match the context issued to this runtime")
 	}
 	instance, available := s.runtime.ContextRuntime(extensionID)
 	identity := s.session.ContextSession()
 	if !available || instance != runtimeID || identity.ID != reference.SessionID ||
 		identity.Incarnation != issued.incarnation {
-		return staleBinding(extensionID, "runtime or active-session incarnation was replaced")
+		return binding{}, staleBinding(extensionID, "runtime or active-session incarnation was replaced")
 	}
-	return nil
+	return issued, nil
 }
 
 // ReadModels returns complete defensive model descriptors and active selection.
@@ -223,6 +235,80 @@ func (s *Service) Request(
 		return model.Response{}, validationErr
 	}
 	return response, nil
+}
+
+// AppendExtension persists one caller-owned hidden entry under the issued session incarnation.
+func (s *Service) AppendExtension(
+	ctx context.Context,
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+	entryType string,
+	data []byte,
+) (session.Entry, error) {
+	expected, err := s.boundSession(ctx, extensionID, runtimeID, reference)
+	if err != nil {
+		return session.Entry{}, err
+	}
+	entry, err := s.session.AppendExtension(ctx, expected, session.ExtensionEnvelope{
+		ExtensionID: extensionID, EntryType: entryType, Data: data,
+	})
+	if err != nil {
+		code := internalCode
+		if errors.Is(err, session.ErrUnavailable) {
+			code = staleContextCode
+		} else if errors.Is(err, session.ErrPersistenceUnavailable) {
+			code = persistenceUnavailableCode
+		}
+		return session.Entry{}, &ContextError{code: code, cause: fmt.Errorf("append extension entry: %w", err)}
+	}
+	return entry, nil
+}
+
+// ReadSessionState returns one caller-filtered active-branch snapshot.
+func (s *Service) ReadSessionState(
+	ctx context.Context,
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+) (session.ExtensionStateSnapshot, error) {
+	expected, err := s.boundSession(ctx, extensionID, runtimeID, reference)
+	if err != nil {
+		return session.ExtensionStateSnapshot{}, err
+	}
+	snapshot, err := s.session.ExtensionState(ctx, expected, extensionID)
+	if err != nil {
+		code := internalCode
+		if errors.Is(err, session.ErrUnavailable) {
+			code = staleContextCode
+		}
+		return session.ExtensionStateSnapshot{}, &ContextError{
+			code: code, cause: fmt.Errorf("read extension session state: %w", err),
+		}
+	}
+	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
+		return session.ExtensionStateSnapshot{}, validationErr
+	}
+	return snapshot, nil
+}
+
+// boundSession validates admission and returns the incarnation stored with the issued binding.
+func (s *Service) boundSession(
+	ctx context.Context,
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+) (SessionIdentity, error) {
+	if err := ctx.Err(); err != nil {
+		return SessionIdentity{}, fmt.Errorf("complete extension context operation: %w", err)
+	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	issued, err := s.validateContextLocked(extensionID, runtimeID, reference)
+	if err != nil {
+		return SessionIdentity{}, err
+	}
+	return SessionIdentity{
+		ID: issued.context.SessionID, WorkingDirectory: issued.context.WorkingDirectory,
+		Incarnation: issued.incarnation,
+	}, nil
 }
 
 // readCatalog validates admission and snapshots the late-bound catalog dependency.

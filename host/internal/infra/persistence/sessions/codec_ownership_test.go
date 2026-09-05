@@ -8,6 +8,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -86,6 +87,33 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 			require.Equal(t, test.data == nil, toolData == nil)
 		})
 	}
+}
+
+// TestExtensionPayloadBytesRoundTrip verifies JSON formatting and escapes remain byte exact.
+func TestExtensionPayloadBytesRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an opaque JSON value whose whitespace and escape spelling are significant to its owner.
+	payload := []byte("{ \"escaped\": \"\\u0061\", \"items\": [1,  2] }")
+	entry := session.Entry{
+		ParentID: mo.Some("parent"), ID: "extension", CreatedAt: time.Date(2026, 9, 6, 1, 0, 0, 0, time.UTC),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "owner", EntryType: "state", Data: payload}),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+
+	// Act by round-tripping through the persisted record codec.
+	encoded, err := encodeEntry(entry)
+	require.NoError(t, err)
+	decoded, err := decodeEntry(encoded)
+
+	// Assert metadata and bytes are unchanged.
+	require.NoError(t, err)
+	assert.Equal(t, entry.ID, decoded.ID)
+	assert.Equal(t, entry.ParentID, decoded.ParentID)
+	assert.Equal(t, entry.CreatedAt, decoded.CreatedAt)
+	assert.Equal(t, payload, decoded.Extension.MustGet().Data)
 }
 
 // TestToolResultContentsSliceStateRoundTrip verifies JSONL preserves nil, empty, and ordered result content.

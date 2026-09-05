@@ -4,6 +4,7 @@ package glyph.plugins.extension.v1;
 
 import "api/operation/v1/operation.proto";
 import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/session.proto";
 import "api/plugins/extension/v1/session_tree.proto";
 import "api/plugins/extension/v1/tool.proto";
 
@@ -90,6 +91,8 @@ message ExtensionRequest {
     GetProvidersRequest get_providers = 2;
     glyph.operation.v1.CancelOperation cancel = 3;
     ConfiguredModelRequest configured_model = 4;
+    AppendExtensionRequest append_extension = 5;
+    GetSessionStateRequest get_session_state = 6;
   }
 }
 
@@ -106,7 +109,7 @@ message HostEvent {
   }
 }
 
-// HostCompleted carries one catalogue or cancellation result.
+// HostCompleted carries one extension-initiated Host result.
 message HostCompleted {
   // The completed result.
   oneof completed {
@@ -114,6 +117,8 @@ message HostCompleted {
     GetProvidersResult get_providers = 2;
     glyph.operation.v1.CancelCompleted cancel = 3;
     ConfiguredModelResult configured_model = 4;
+    AppendExtensionResult append_extension = 5;
+    GetSessionStateResult get_session_state = 6;
   }
 }
 

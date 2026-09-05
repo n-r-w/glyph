@@ -31,6 +31,8 @@ const (
 	staleCataloguesMode = "stale-catalogs"
 	// configuredRequestMode executes one explicit configured-model request.
 	configuredRequestMode = "configured-request"
+	// sessionStateMode appends or recovers one durable hidden checkpoint.
+	sessionStateMode = "session-state"
 	// failureMode selects classified execution failure.
 	failureMode = "fail"
 	// cancellationMode selects execution blocked until targeted cancellation.
@@ -121,6 +123,7 @@ func (s *service) PrepareExecute(
 		cataloguesMode,
 		staleCataloguesMode,
 		configuredRequestMode,
+		sessionStateMode,
 		failureMode,
 		cancellationMode,
 		shutdownMode:
@@ -182,6 +185,8 @@ func (operation *executeOperation) Run(
 		return operation.readRetainedCatalogues(ctx)
 	case configuredRequestMode:
 		return requestConfiguredModel(ctx)
+	case sessionStateMode:
+		return exerciseSessionState(ctx)
 	case failureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("complete external Extension failure"))
 	default:

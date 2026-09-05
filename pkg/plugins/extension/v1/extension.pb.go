@@ -1654,6 +1654,24 @@ func (x *ExtensionRequest) GetConfiguredModel() *ConfiguredModelRequest {
 	return nil
 }
 
+func (x *ExtensionRequest) GetAppendExtension() *AppendExtensionRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_AppendExtension); ok {
+			return x.AppendExtension
+		}
+	}
+	return nil
+}
+
+func (x *ExtensionRequest) GetGetSessionState() *GetSessionStateRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_GetSessionState); ok {
+			return x.GetSessionState
+		}
+	}
+	return nil
+}
+
 func (x *ExtensionRequest) SetGetModels(v *GetModelsRequest) {
 	if v == nil {
 		x.xxx_hidden_Request = nil
@@ -1684,6 +1702,22 @@ func (x *ExtensionRequest) SetConfiguredModel(v *ConfiguredModelRequest) {
 		return
 	}
 	x.xxx_hidden_Request = &extensionRequest_ConfiguredModel{v}
+}
+
+func (x *ExtensionRequest) SetAppendExtension(v *AppendExtensionRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_AppendExtension{v}
+}
+
+func (x *ExtensionRequest) SetGetSessionState(v *GetSessionStateRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_GetSessionState{v}
 }
 
 func (x *ExtensionRequest) HasRequest() bool {
@@ -1725,6 +1759,22 @@ func (x *ExtensionRequest) HasConfiguredModel() bool {
 	return ok
 }
 
+func (x *ExtensionRequest) HasAppendExtension() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_AppendExtension)
+	return ok
+}
+
+func (x *ExtensionRequest) HasGetSessionState() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_GetSessionState)
+	return ok
+}
+
 func (x *ExtensionRequest) ClearRequest() {
 	x.xxx_hidden_Request = nil
 }
@@ -1753,11 +1803,25 @@ func (x *ExtensionRequest) ClearConfiguredModel() {
 	}
 }
 
+func (x *ExtensionRequest) ClearAppendExtension() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_AppendExtension); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
+func (x *ExtensionRequest) ClearGetSessionState() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_GetSessionState); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
 const ExtensionRequest_Request_not_set_case case_ExtensionRequest_Request = 0
 const ExtensionRequest_GetModels_case case_ExtensionRequest_Request = 1
 const ExtensionRequest_GetProviders_case case_ExtensionRequest_Request = 2
 const ExtensionRequest_Cancel_case case_ExtensionRequest_Request = 3
 const ExtensionRequest_ConfiguredModel_case case_ExtensionRequest_Request = 4
+const ExtensionRequest_AppendExtension_case case_ExtensionRequest_Request = 5
+const ExtensionRequest_GetSessionState_case case_ExtensionRequest_Request = 6
 
 func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
 	if x == nil {
@@ -1772,6 +1836,10 @@ func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
 		return ExtensionRequest_Cancel_case
 	case *extensionRequest_ConfiguredModel:
 		return ExtensionRequest_ConfiguredModel_case
+	case *extensionRequest_AppendExtension:
+		return ExtensionRequest_AppendExtension_case
+	case *extensionRequest_GetSessionState:
+		return ExtensionRequest_GetSessionState_case
 	default:
 		return ExtensionRequest_Request_not_set_case
 	}
@@ -1787,6 +1855,8 @@ type ExtensionRequest_builder struct {
 	GetProviders    *GetProvidersRequest
 	Cancel          *v1.CancelOperation
 	ConfiguredModel *ConfiguredModelRequest
+	AppendExtension *AppendExtensionRequest
+	GetSessionState *GetSessionStateRequest
 	// -- end of xxx_hidden_Request
 }
 
@@ -1805,6 +1875,12 @@ func (b0 ExtensionRequest_builder) Build() *ExtensionRequest {
 	}
 	if b.ConfiguredModel != nil {
 		x.xxx_hidden_Request = &extensionRequest_ConfiguredModel{b.ConfiguredModel}
+	}
+	if b.AppendExtension != nil {
+		x.xxx_hidden_Request = &extensionRequest_AppendExtension{b.AppendExtension}
+	}
+	if b.GetSessionState != nil {
+		x.xxx_hidden_Request = &extensionRequest_GetSessionState{b.GetSessionState}
 	}
 	return m0
 }
@@ -1839,6 +1915,14 @@ type extensionRequest_ConfiguredModel struct {
 	ConfiguredModel *ConfiguredModelRequest `protobuf:"bytes,4,opt,name=configured_model,json=configuredModel,oneof"`
 }
 
+type extensionRequest_AppendExtension struct {
+	AppendExtension *AppendExtensionRequest `protobuf:"bytes,5,opt,name=append_extension,json=appendExtension,oneof"`
+}
+
+type extensionRequest_GetSessionState struct {
+	GetSessionState *GetSessionStateRequest `protobuf:"bytes,6,opt,name=get_session_state,json=getSessionState,oneof"`
+}
+
 func (*extensionRequest_GetModels) isExtensionRequest_Request() {}
 
 func (*extensionRequest_GetProviders) isExtensionRequest_Request() {}
@@ -1846,6 +1930,10 @@ func (*extensionRequest_GetProviders) isExtensionRequest_Request() {}
 func (*extensionRequest_Cancel) isExtensionRequest_Request() {}
 
 func (*extensionRequest_ConfiguredModel) isExtensionRequest_Request() {}
+
+func (*extensionRequest_AppendExtension) isExtensionRequest_Request() {}
+
+func (*extensionRequest_GetSessionState) isExtensionRequest_Request() {}
 
 // HostEvent carries the lifecycle of one extension-initiated operation.
 type HostEvent struct {
@@ -2197,7 +2285,7 @@ func (*hostEvent_Failed) isHostEvent_Event() {}
 
 func (*hostEvent_Rejected) isHostEvent_Event() {}
 
-// HostCompleted carries one catalogue or cancellation result.
+// HostCompleted carries one extension-initiated Host result.
 type HostCompleted struct {
 	state                protoimpl.MessageState    `protogen:"opaque.v1"`
 	xxx_hidden_Completed isHostCompleted_Completed `protobuf_oneof:"completed"`
@@ -2266,6 +2354,24 @@ func (x *HostCompleted) GetConfiguredModel() *ConfiguredModelResult {
 	return nil
 }
 
+func (x *HostCompleted) GetAppendExtension() *AppendExtensionResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_AppendExtension); ok {
+			return x.AppendExtension
+		}
+	}
+	return nil
+}
+
+func (x *HostCompleted) GetGetSessionState() *GetSessionStateResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_GetSessionState); ok {
+			return x.GetSessionState
+		}
+	}
+	return nil
+}
+
 func (x *HostCompleted) SetGetModels(v *GetModelsResult) {
 	if v == nil {
 		x.xxx_hidden_Completed = nil
@@ -2296,6 +2402,22 @@ func (x *HostCompleted) SetConfiguredModel(v *ConfiguredModelResult) {
 		return
 	}
 	x.xxx_hidden_Completed = &hostCompleted_ConfiguredModel{v}
+}
+
+func (x *HostCompleted) SetAppendExtension(v *AppendExtensionResult) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_AppendExtension{v}
+}
+
+func (x *HostCompleted) SetGetSessionState(v *GetSessionStateResult) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_GetSessionState{v}
 }
 
 func (x *HostCompleted) HasCompleted() bool {
@@ -2337,6 +2459,22 @@ func (x *HostCompleted) HasConfiguredModel() bool {
 	return ok
 }
 
+func (x *HostCompleted) HasAppendExtension() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_AppendExtension)
+	return ok
+}
+
+func (x *HostCompleted) HasGetSessionState() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_GetSessionState)
+	return ok
+}
+
 func (x *HostCompleted) ClearCompleted() {
 	x.xxx_hidden_Completed = nil
 }
@@ -2365,11 +2503,25 @@ func (x *HostCompleted) ClearConfiguredModel() {
 	}
 }
 
+func (x *HostCompleted) ClearAppendExtension() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_AppendExtension); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
+func (x *HostCompleted) ClearGetSessionState() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_GetSessionState); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
 const HostCompleted_Completed_not_set_case case_HostCompleted_Completed = 0
 const HostCompleted_GetModels_case case_HostCompleted_Completed = 1
 const HostCompleted_GetProviders_case case_HostCompleted_Completed = 2
 const HostCompleted_Cancel_case case_HostCompleted_Completed = 3
 const HostCompleted_ConfiguredModel_case case_HostCompleted_Completed = 4
+const HostCompleted_AppendExtension_case case_HostCompleted_Completed = 5
+const HostCompleted_GetSessionState_case case_HostCompleted_Completed = 6
 
 func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 	if x == nil {
@@ -2384,6 +2536,10 @@ func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 		return HostCompleted_Cancel_case
 	case *hostCompleted_ConfiguredModel:
 		return HostCompleted_ConfiguredModel_case
+	case *hostCompleted_AppendExtension:
+		return HostCompleted_AppendExtension_case
+	case *hostCompleted_GetSessionState:
+		return HostCompleted_GetSessionState_case
 	default:
 		return HostCompleted_Completed_not_set_case
 	}
@@ -2399,6 +2555,8 @@ type HostCompleted_builder struct {
 	GetProviders    *GetProvidersResult
 	Cancel          *v1.CancelCompleted
 	ConfiguredModel *ConfiguredModelResult
+	AppendExtension *AppendExtensionResult
+	GetSessionState *GetSessionStateResult
 	// -- end of xxx_hidden_Completed
 }
 
@@ -2417,6 +2575,12 @@ func (b0 HostCompleted_builder) Build() *HostCompleted {
 	}
 	if b.ConfiguredModel != nil {
 		x.xxx_hidden_Completed = &hostCompleted_ConfiguredModel{b.ConfiguredModel}
+	}
+	if b.AppendExtension != nil {
+		x.xxx_hidden_Completed = &hostCompleted_AppendExtension{b.AppendExtension}
+	}
+	if b.GetSessionState != nil {
+		x.xxx_hidden_Completed = &hostCompleted_GetSessionState{b.GetSessionState}
 	}
 	return m0
 }
@@ -2451,6 +2615,14 @@ type hostCompleted_ConfiguredModel struct {
 	ConfiguredModel *ConfiguredModelResult `protobuf:"bytes,4,opt,name=configured_model,json=configuredModel,oneof"`
 }
 
+type hostCompleted_AppendExtension struct {
+	AppendExtension *AppendExtensionResult `protobuf:"bytes,5,opt,name=append_extension,json=appendExtension,oneof"`
+}
+
+type hostCompleted_GetSessionState struct {
+	GetSessionState *GetSessionStateResult `protobuf:"bytes,6,opt,name=get_session_state,json=getSessionState,oneof"`
+}
+
 func (*hostCompleted_GetModels) isHostCompleted_Completed() {}
 
 func (*hostCompleted_GetProviders) isHostCompleted_Completed() {}
@@ -2458,6 +2630,10 @@ func (*hostCompleted_GetProviders) isHostCompleted_Completed() {}
 func (*hostCompleted_Cancel) isHostCompleted_Completed() {}
 
 func (*hostCompleted_ConfiguredModel) isHostCompleted_Completed() {}
+
+func (*hostCompleted_AppendExtension) isHostCompleted_Completed() {}
+
+func (*hostCompleted_GetSessionState) isHostCompleted_Completed() {}
 
 // HandlerDescriptor registers one implemented extension handler.
 type HandlerDescriptor struct {
@@ -2698,7 +2874,7 @@ var File_api_plugins_extension_v1_extension_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\n" +
-	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a$api/plugins/extension/v1/model.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xfc\x01\n" +
+	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a$api/plugins/extension/v1/model.proto\x1a&api/plugins/extension/v1/session.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xfc\x01\n" +
 	"\vOpenRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12C\n" +
 	"\arequest\x18\x02 \x01(\v2'.glyph.plugins.extension.v1.HostRequestH\x00R\arequest\x12;\n" +
@@ -2734,13 +2910,15 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x06handle\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.HandleResponseH\x00R\x06handle\x12<\n" +
 	"\x04tool\x18\x03 \x01(\v2&.glyph.plugins.extension.v1.ToolResultH\x00R\x04tool\x12=\n" +
 	"\x06cancel\x18\x04 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
-	"\tcompleted\"\xe4\x02\n" +
+	"\tcompleted\"\xa7\x04\n" +
 	"\x10ExtensionRequest\x12M\n" +
 	"\n" +
 	"get_models\x18\x01 \x01(\v2,.glyph.plugins.extension.v1.GetModelsRequestH\x00R\tgetModels\x12V\n" +
 	"\rget_providers\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.GetProvidersRequestH\x00R\fgetProviders\x12=\n" +
 	"\x06cancel\x18\x03 \x01(\v2#.glyph.operation.v1.CancelOperationH\x00R\x06cancel\x12_\n" +
-	"\x10configured_model\x18\x04 \x01(\v22.glyph.plugins.extension.v1.ConfiguredModelRequestH\x00R\x0fconfiguredModelB\t\n" +
+	"\x10configured_model\x18\x04 \x01(\v22.glyph.plugins.extension.v1.ConfiguredModelRequestH\x00R\x0fconfiguredModel\x12_\n" +
+	"\x10append_extension\x18\x05 \x01(\v22.glyph.plugins.extension.v1.AppendExtensionRequestH\x00R\x0fappendExtension\x12`\n" +
+	"\x11get_session_state\x18\x06 \x01(\v22.glyph.plugins.extension.v1.GetSessionStateRequestH\x00R\x0fgetSessionStateB\t\n" +
 	"\arequest\"\x82\x03\n" +
 	"\tHostEvent\x12:\n" +
 	"\baccepted\x18\x01 \x01(\v2\x1c.glyph.operation.v1.AcceptedH\x00R\baccepted\x127\n" +
@@ -2749,13 +2927,15 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\bcanceled\x18\x04 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
 	"\x06failed\x18\x05 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
 	"\brejected\x18\x06 \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
-	"\x05event\"\xe0\x02\n" +
+	"\x05event\"\xa1\x04\n" +
 	"\rHostCompleted\x12L\n" +
 	"\n" +
 	"get_models\x18\x01 \x01(\v2+.glyph.plugins.extension.v1.GetModelsResultH\x00R\tgetModels\x12U\n" +
 	"\rget_providers\x18\x02 \x01(\v2..glyph.plugins.extension.v1.GetProvidersResultH\x00R\fgetProviders\x12=\n" +
 	"\x06cancel\x18\x03 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancel\x12^\n" +
-	"\x10configured_model\x18\x04 \x01(\v21.glyph.plugins.extension.v1.ConfiguredModelResultH\x00R\x0fconfiguredModelB\v\n" +
+	"\x10configured_model\x18\x04 \x01(\v21.glyph.plugins.extension.v1.ConfiguredModelResultH\x00R\x0fconfiguredModel\x12^\n" +
+	"\x10append_extension\x18\x05 \x01(\v21.glyph.plugins.extension.v1.AppendExtensionResultH\x00R\x0fappendExtension\x12_\n" +
+	"\x11get_session_state\x18\x06 \x01(\v21.glyph.plugins.extension.v1.GetSessionStateResultH\x00R\x0fgetSessionStateB\v\n" +
 	"\tcompleted\"`\n" +
 	"\x11HandlerDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
@@ -2804,10 +2984,14 @@ var file_api_plugins_extension_v1_extension_proto_goTypes = []any{
 	(*GetModelsRequest)(nil),       // 26: glyph.plugins.extension.v1.GetModelsRequest
 	(*GetProvidersRequest)(nil),    // 27: glyph.plugins.extension.v1.GetProvidersRequest
 	(*ConfiguredModelRequest)(nil), // 28: glyph.plugins.extension.v1.ConfiguredModelRequest
-	(*GetModelsResult)(nil),        // 29: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersResult)(nil),     // 30: glyph.plugins.extension.v1.GetProvidersResult
-	(*ConfiguredModelResult)(nil),  // 31: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*ToolDescriptor)(nil),         // 32: glyph.plugins.extension.v1.ToolDescriptor
+	(*AppendExtensionRequest)(nil), // 29: glyph.plugins.extension.v1.AppendExtensionRequest
+	(*GetSessionStateRequest)(nil), // 30: glyph.plugins.extension.v1.GetSessionStateRequest
+	(*GetModelsResult)(nil),        // 31: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersResult)(nil),     // 32: glyph.plugins.extension.v1.GetProvidersResult
+	(*ConfiguredModelResult)(nil),  // 33: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*AppendExtensionResult)(nil),  // 34: glyph.plugins.extension.v1.AppendExtensionResult
+	(*GetSessionStateResult)(nil),  // 35: glyph.plugins.extension.v1.GetSessionStateResult
+	(*ToolDescriptor)(nil),         // 36: glyph.plugins.extension.v1.ToolDescriptor
 }
 var file_api_plugins_extension_v1_extension_proto_depIdxs = []int32{
 	3,  // 0: glyph.plugins.extension.v1.OpenRequest.request:type_name -> glyph.plugins.extension.v1.HostRequest
@@ -2835,26 +3019,30 @@ var file_api_plugins_extension_v1_extension_proto_depIdxs = []int32{
 	27, // 22: glyph.plugins.extension.v1.ExtensionRequest.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersRequest
 	16, // 23: glyph.plugins.extension.v1.ExtensionRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
 	28, // 24: glyph.plugins.extension.v1.ExtensionRequest.configured_model:type_name -> glyph.plugins.extension.v1.ConfiguredModelRequest
-	17, // 25: glyph.plugins.extension.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	18, // 26: glyph.plugins.extension.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
-	9,  // 27: glyph.plugins.extension.v1.HostEvent.completed:type_name -> glyph.plugins.extension.v1.HostCompleted
-	19, // 28: glyph.plugins.extension.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	20, // 29: glyph.plugins.extension.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
-	21, // 30: glyph.plugins.extension.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	29, // 31: glyph.plugins.extension.v1.HostCompleted.get_models:type_name -> glyph.plugins.extension.v1.GetModelsResult
-	30, // 32: glyph.plugins.extension.v1.HostCompleted.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersResult
-	25, // 33: glyph.plugins.extension.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	31, // 34: glyph.plugins.extension.v1.HostCompleted.configured_model:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
-	0,  // 35: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
-	32, // 36: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
-	10, // 37: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
-	1,  // 38: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
-	2,  // 39: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
-	39, // [39:40] is the sub-list for method output_type
-	38, // [38:39] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	29, // 25: glyph.plugins.extension.v1.ExtensionRequest.append_extension:type_name -> glyph.plugins.extension.v1.AppendExtensionRequest
+	30, // 26: glyph.plugins.extension.v1.ExtensionRequest.get_session_state:type_name -> glyph.plugins.extension.v1.GetSessionStateRequest
+	17, // 27: glyph.plugins.extension.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	18, // 28: glyph.plugins.extension.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	9,  // 29: glyph.plugins.extension.v1.HostEvent.completed:type_name -> glyph.plugins.extension.v1.HostCompleted
+	19, // 30: glyph.plugins.extension.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	20, // 31: glyph.plugins.extension.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	21, // 32: glyph.plugins.extension.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	31, // 33: glyph.plugins.extension.v1.HostCompleted.get_models:type_name -> glyph.plugins.extension.v1.GetModelsResult
+	32, // 34: glyph.plugins.extension.v1.HostCompleted.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersResult
+	25, // 35: glyph.plugins.extension.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	33, // 36: glyph.plugins.extension.v1.HostCompleted.configured_model:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
+	34, // 37: glyph.plugins.extension.v1.HostCompleted.append_extension:type_name -> glyph.plugins.extension.v1.AppendExtensionResult
+	35, // 38: glyph.plugins.extension.v1.HostCompleted.get_session_state:type_name -> glyph.plugins.extension.v1.GetSessionStateResult
+	0,  // 39: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
+	36, // 40: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
+	10, // 41: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
+	1,  // 42: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
+	2,  // 43: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
+	43, // [43:44] is the sub-list for method output_type
+	42, // [42:43] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_extension_proto_init() }
@@ -2863,6 +3051,7 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_model_proto_init()
+	file_api_plugins_extension_v1_session_proto_init()
 	file_api_plugins_extension_v1_session_tree_proto_init()
 	file_api_plugins_extension_v1_tool_proto_init()
 	file_api_plugins_extension_v1_extension_proto_msgTypes[0].OneofWrappers = []any{
@@ -2903,6 +3092,8 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		(*extensionRequest_GetProviders)(nil),
 		(*extensionRequest_Cancel)(nil),
 		(*extensionRequest_ConfiguredModel)(nil),
+		(*extensionRequest_AppendExtension)(nil),
+		(*extensionRequest_GetSessionState)(nil),
 	}
 	file_api_plugins_extension_v1_extension_proto_msgTypes[7].OneofWrappers = []any{
 		(*hostEvent_Accepted)(nil),
@@ -2917,6 +3108,8 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		(*hostCompleted_GetProviders)(nil),
 		(*hostCompleted_Cancel)(nil),
 		(*hostCompleted_ConfiguredModel)(nil),
+		(*hostCompleted_AppendExtension)(nil),
+		(*hostCompleted_GetSessionState)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
