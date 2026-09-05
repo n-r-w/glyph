@@ -1,8 +1,5 @@
 # Project Rules
 
-1. NO BACKWARDS COMPATIBILITY AT ALL (code, proto, etc.). This is new project
-2. NO OVERENGINEERING: REMEMBER, we're not building a "spaceship", just a local developer tool. ALWAYS CRITICALLY EVALUATE need to address edge cases based on their REALISM.
-
 ## Goal
 
 Glyph is a local, extensible coding agent with a thin provider-neutral Agent Core and Host-managed plugins.
@@ -44,10 +41,12 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 7. `github.com/samber/mo` and `mo.Option` for optional fields instead of pointers or empty values.
 
 ## Architecture Decisions
-1. NO PARANOID SAFETY: don't hide errors from user, etc. User is ONLY owner of this tool.
-2. Errors MUST preserve and expose complete error text, including original cause, across every layer and public contract. Machine-readable codes MUST supplement, never replace, that text. Only secrets MAY be redacted.
-3. All operations that may take a noticeable amount of time must be asynchronous. Always prefer async over sync APIs.
-4. Keep UI responsive at all times.
+1. NO BACKWARDS COMPATIBILITY AT ALL (code, proto, etc.). This is new project
+2. NO OVERENGINEERING: REMEMBER, we're not building a "spaceship", just a local developer tool. ALWAYS CRITICALLY EVALUATE need to address edge cases based on their REALISM.
+3. NO PARANOID SAFETY: don't hide errors from user, etc. User is ONLY owner of this tool.
+4. Errors MUST preserve and expose complete error text, including original cause, across every layer and public contract. Machine-readable codes MUST supplement, never replace, that text. Only secrets MAY be redacted.
+5. All operations that may take a noticeable amount of time must be asynchronous. Always prefer async over sync APIs.
+6. Keep UI responsive at all times.
 
 ## Coding rules
 1. MUST run before completing changes in code:
