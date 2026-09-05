@@ -42,11 +42,12 @@ Requirement coverage:
 - Reject a generic extension capability bus. Context operations, lifecycle observation, and model selection have different state, validation, ordering, and failure owners.
 - Reject asynchronous lifecycle buffering. It would require queue capacity, overflow, stale-context, ordering, and shutdown behavior without an approved requirement.
 - Reject storage of model-visible messages inside opaque extension data. Host must validate, persist, project, and navigate message text and client visibility without decoding extension-owned payloads.
+- Reject automatic replay for extension-state recovery. An explicit asynchronous snapshot request needs no replay subscription, replay event order, or separate recovery lifecycle.
 
 ### Extension Contract stream
 
-- `OpenRequest` continues to carry Host-initiated requests and extension operation events. `OpenResponse` continues to carry extension operation events and gains extension-initiated requests.
-- Extension-initiated requests cover model and provider catalogue queries, configured-model requests, model and reasoning selection, hidden-entry append, visible-message append, and cancellation. Public session-state recovery is also required; its query or replay form remains the design decision recorded under Open Questions.
+- `OpenRequest` retains Host-initiated requests and gains Host operation events for extension-initiated requests. `OpenResponse` retains extension operation events and gains extension-initiated requests.
+- Extension-initiated requests cover model and provider catalogue queries, configured-model requests, model and reasoning selection, hidden-entry append, visible-message append, `GetSessionState`, and cancellation.
 - Host returns accepted, running, completed, canceled, failed, or rejected states through the shared operation lifecycle from `api/operation/v1`.
 - Cancellation targets an operation owned by the receiving peer. Stream close cancels and joins owned operations and pending initiated operations in both directions.
 - SDK receive loops validate and route envelopes without running handlers on the receive goroutine. A Host-initiated handler can start and await an extension-initiated Host operation on the same stream without deadlock.
@@ -57,7 +58,7 @@ Add these Extension Contract sources:
 - `api/plugins/extension/v1/context.proto` owns extension context identity and context references.
 - `api/plugins/extension/v1/model.proto` owns model descriptors, provider projections, configured-model requests and results, complete model selections, selection-handler payloads, and selection events.
 - `api/plugins/extension/v1/lifecycle.proto` owns Agent Core and Host lifecycle observer payloads.
-- `api/plugins/extension/v1/session.proto` owns extension-entry append requests, extension messages, and client visibility.
+- `api/plugins/extension/v1/session.proto` owns extension-entry append requests, extension messages, client visibility, and the `GetSessionStateRequest` and `GetSessionStateResult` payloads defined under [Session-state recovery boundary](#session-state-recovery-boundary).
 
 `api/plugins/extension/v1/extension.proto` retains the service, stream envelopes, operation lifecycle envelopes, registration, and common handler descriptors. `session_tree.proto` imports model types from `model.proto`. `tool.proto` retains tool registration and execution. No compatibility aliases, reserved fields, or old translation paths are added.
 
@@ -69,11 +70,11 @@ Every protobuf enum has an `UNSPECIFIED` zero sentinel. Host rejects that sentin
 - `ExtensionContextRef` contains `context_id`, runtime instance ID, and active session ID. Host derives extension ID from the connected runtime and checks the complete reference against the binding it issued to that runtime.
 - Add `host/internal/usecase/host/extensioncontext`. It creates context snapshots, validates bindings, and coordinates context operations through consumer-owned interfaces. Each new runtime-to-active-session binding receives a new `context_id`; invocations within that binding reuse it.
 - Extend `extensionruntime.Service` with an opaque runtime instance ID assigned before each extension process start. The service accounts for Host-initiated and extension-initiated operations against that runtime instance.
-- Host validates the context binding before operation acceptance. It validates the binding again before returning a model result, committing a selection, or committing a session mutation.
+- Host validates the context binding before operation acceptance. It validates the binding again before returning a model or session-state result, committing a selection, or committing a session mutation.
 - Runtime or active-session replacement permanently invalidates the preceding context binding before operations can use the replacement state. Resuming the same durable session creates a new `context_id`, including after switching from session A to B and back to A. Durable session ID equality does not reactivate a preceding context. A stale operation commits no selection or session change.
-- The Extension SDK exposes cancellation through Go `context.Context`. It sends `CancelOperation` when the caller cancels. Cancellation is not serialized as an `ExtensionContext` field.
+- The Extension SDK exposes operation cancellation through the Go `context.Context` supplied at operation start. Canceling that context sends `CancelOperation`. A separate `Wait` context controls only local waiting; canceling it does not cancel the operation or report a remote terminal state. Cancellation is not serialized as an `ExtensionContext` field.
 
-The Extension SDK context provides typed methods for catalogue queries, configured-model requests, selection requests, and entry appends, plus public access to session-state recovery under the boundary below. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed. Command-initiated creation, resumption, forking, cloning, and navigation belong to PHS-10, not PHS-07.
+The Extension SDK context provides typed asynchronous start methods for catalogue queries, configured-model requests, selection requests, entry appends, and session-state recovery. Start methods return an SDK-owned operation handle after local validation, tracking, and enqueue, without waiting for Host acceptance or execution. The caller waits for the result separately. This follows `Connection.Start` and `Operation.Wait` in `sdk/plugins/extension/v1/host.go`, which currently support Host-initiated operations. Public SDK types expose no `internal/operation` types. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed. Command-initiated creation, resumption, forking, cloning, and navigation belong to PHS-10, not PHS-07.
 
 ### Configured models and providers
 
@@ -116,7 +117,7 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 
 ### Extension entries and persistence
 
-- Keep `session.ExtensionEnvelope` as model-hidden opaque JSON data.
+- Keep `session.ExtensionEnvelope` as model-hidden opaque JSON data. Preserve its bytes through append, reload, and session snapshot replacement. Replace compact raw-JSON framing with the lossless byte encoding used by `encodeBytes` in `host/internal/infra/persistence/sessions/codec.go`, while retaining JSON-value validation.
 - Add `session.ExtensionMessage` with extension ID, entry type, exact text, and `session.ClientVisibility`.
 - `session.ClientVisibility` has only `visible` and `hidden`.
 - `sessions.Service` exposes separate append operations for a model-hidden extension entry and a model-visible extension message. Both operations accept the expected active session ID.
@@ -130,9 +131,30 @@ PHS-06 can replace provider dispatch behind the consumer-owned interface without
 
 ### Session-state recovery boundary
 
-[PRD](prd.md) FRQ-08.1 and FRQ-08.2 define the recovery behavior. Host supplies the persisted active-branch data through the public Extension Contract. The extension interprets its payloads and reconstructs its own state. Recovery reuses Host session ownership and extension-context validation; it adds no second store or state-reconstruction logic to Agent Core.
+To meet [PRD](prd.md) FRQ-08.1 and FRQ-08.2, Host exposes one asynchronous `GetSessionState` operation on `ExtensionService.Open`. Host supplies a snapshot; the extension interprets its stored payloads and reconstructs its own state.
 
-The query or replay contract, its SDK entry point, and its error mapping must be resolved before PHS-07 implementation. PHS-16 reuses this public capability after replacing extension runtimes. This boundary does not select the transport shape.
+#### Request and result
+
+- `GetSessionStateRequest` contains the issued `ExtensionContextRef`. It accepts no independent extension ID, session ID, or branch selector. Host derives the requesting extension from the connected runtime.
+- `GetSessionStateResult` contains the bound session ID, the snapshot's active leaf ID, and that extension's model-hidden entries and model-visible messages on the active branch in root-first order. An empty tree has no active leaf; a branch with no matching entries returns an empty list successfully.
+- Each returned entry contains its stored entry ID, parent ID, timestamp, extension ID, entry type, and exactly one typed content variant. A model-hidden entry carries its opaque JSON bytes. A model-visible message carries its exact text and client visibility. Recovery does not parse or re-encode the stored JSON bytes.
+- Parent IDs retain their stored values even when the parent belongs to another entry kind or extension and is not included in the result. Recovery filters the active branch without changing its ancestry or including abandoned branches.
+
+#### SDK and execution
+
+- `ExtensionContext.StartGetSessionState` starts the request and returns a concrete SDK-owned `SessionStateOperation`. Its `Wait` method returns `GetSessionStateResult` or the operation error. Start, wait, and cancellation follow [Extension context and runtime binding](#extension-context-and-runtime-binding).
+- Host performs context-reference validation and in-memory admission before acceptance. After `accepted` and `running`, Host executes the snapshot read outside the stream receive loop and returns one completed result, `canceled`, or `failed`. Recovery emits no progress events.
+- Recovery results arrive at the extension's gRPC server. Configure its receive limit to match the `math.MaxInt32` message limit used by the go-plugin Host client, rather than gRPC's default 4 MiB server receive limit. Reuse this transport capacity without truncating snapshots or adding pagination.
+- `extensioncontext` invokes a consumer-owned session-read interface. `sessions.Service` checks the expected active session ID and copies the session ID, active leaf ID, and matching active-branch entries under one session read lock. It releases that lock before transport delivery. Separate calls to `SessionID` and `ActiveEntries` do not provide this atomic snapshot.
+- Host revalidates the context binding before completing recovery. The result describes the branch at snapshot time, not changes committed after that read. Later navigation requires another request; it does not retroactively change the returned snapshot.
+- Recovery reads the loaded session state. It performs no repository mutation, session reload, entry append, lifecycle callback, or state reconstruction in Agent Core.
+- Start returns local validation, tracking, or enqueue errors directly. Host rejection and execution errors arrive through the operation handle under [Error semantics](#error-semantics). A failed, rejected, or canceled request returns no usable snapshot.
+
+#### Recovery use
+
+- After restart or active-session replacement, an extension uses the newly issued context on its first state-dependent invocation to start recovery and await the snapshot before using its persisted state. Registration remains context-free.
+- After branch navigation, an extension reads the active branch again before using branch-dependent state. A `session_tree` observer can start and await this request through its invocation context without blocking stream receipt.
+- PHS-16 uses this operation through the replacement runtime's new context. It adds no separate recovery path, store, or automatic replay.
 
 ### Glyph client contracts and client visibility
 
@@ -208,8 +230,11 @@ All errors follow the shared [Error Semantics](../../prd.md#error-semantics). A 
 | Configured-model request | `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `MODEL_FAILED`, `STALE_CONTEXT`, `INTERNAL` |
 | Model selection | `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `EXTENSION_REJECTED`, `EXTENSION_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
 | Extension entry append | `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
+| Session-state recovery | `SESSION_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
 
-Request rejection uses the closed set `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `NOT_READY`, `BUSY`, `STALE_CONTEXT`, and `INTERNAL`. Cancellation uses the canceled terminal state.
+For recovery, an invalidated binding before acceptance produces a `STALE_CONTEXT` rejection; invalidation after acceptance produces a `STALE_CONTEXT` failure. Failure to read the bound active session produces `SESSION_UNAVAILABLE`. Other execution errors produce `INTERNAL`. Each error retains its complete cause text. Recovery does not retry automatically; the extension must obtain a new context before retrying an invalidated binding.
+
+Context-operation rejection uses the closed set `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `NOT_READY`, `BUSY`, `STALE_CONTEXT`, and `INTERNAL`. `CancelOperation` retains `CANCEL-R` from the [shared operation contract](../../../../issues/blocking-contract-operation-processing/solution.md#operation-inventory), including `TARGET_NOT_ACTIVE` when the target has already terminated. Cancellation of an accepted target uses its canceled terminal state.
 
 Nonterminal issue codes are `HANDLER_ERROR`, `INVALID_HANDLER_ACTION`, `OBSERVER_ERROR`, and `DELIVERY_FAILED`. An issue contains extension ID, handler ID when applicable, and complete error text.
 
@@ -224,6 +249,9 @@ The Extension Contract transport limits extension-originated external error text
 - Add selection tests for original and current composition, preserve, replace, rejection, invalid action, atomic commit, concurrent selection, event order, no-op, and post-commit delivery failure. Retain the reasoning compatibility cases from `providers.fallbackReasoningChoice`, including nearest-effort selection and lower-effort tie resolution.
 - Add session domain and persistence tests for both extension record types, exact parent, restart, snapshot replacement, history projection, and failed writes.
 - Add public recovery tests for a restarted external extension, session replacement, branch navigation, exact stored payloads and entry identity, active-branch order, stale-context errors, and zero recovery-side session mutations. The fixture must reconstruct state without reading Host files.
+- For recovery SDK behavior, withhold Host acceptance and assert that `StartGetSessionState` returns an operation handle; then deliver lifecycle events and assert that `Wait` returns the typed result. Verify that a nested observer can await recovery while the stream continues to receive messages. Cancel only the wait context and assert that the operation can still complete; cancel the operation context and verify `CancelOperation` and the target terminal state.
+- For recovery snapshots, mix both extension entry types with another extension's entries and an abandoned branch. Assert only the caller's active-branch entries, unchanged parent IDs, exact payloads, and successful empty results. Overlap reads with navigation and assert that the active leaf and entries describe one snapshot, never a mixture. Invalidate the binding before acceptance and during execution to cover both `STALE_CONTEXT` paths.
+- Extend the persistence round-trip and replacement-restart tests with JSON whitespace and escapes; compare payload bytes, not only JSON values. Through the external extension process, recover an aggregate result larger than 4 MiB. Verify that a completion-before-cancel race retains `TARGET_NOT_ACTIVE` without failing the connection.
 - Add UI Plugin Contract and Programmatic Control tests for extension messages, client visibility, `SessionEntryAdded`, hidden transcript filtering, selection events, issues, and equivalent error text and categories.
 - Add navigation tests for both client visibility values, exact next input, no-summary and branch-summary active leaves, and zero Agent Core calls. A post-commit observer appends a message and awaits completion; assert snapshot progress before `SessionEntryAdded`, then terminal navigation completion without another transcript replacement. The client retains the appended entry while the completion identifies the earlier navigation commit's active leaf. Also cover an overlapping append from another extension, pre-commit handler appends followed by navigation failure, and post-commit cancellation or delivery failure.
 - Add an external extension fixture that receives `agent_start`, makes a configured-model request, appends its result, recovers its saved state after restart, transforms one selection, and receives `STALE_CONTEXT` after session replacement.
@@ -239,12 +267,7 @@ The Rejected alternatives section excludes the additional service, generic capab
 
 ## Open Questions
 
-### QST-01: Which public query or replay contract provides session-state recovery?
-
-- Required behavior is fixed by PRD FRQ-08.1 and FRQ-08.2. The contract must supply exact stored active-branch data through a valid extension context without Host-file access.
-- The selected query or replay shape must define its SDK entry point, completion and error semantics, and binding to the active session and branch.
-- Host session persistence and the planned extension operation stream provide the existing ownership boundaries. No additional store is required.
-- Resolve this technical design before PHS-07 implementation. PHS-16 must reuse the selected contract.
+None.
 
 ## References
 
