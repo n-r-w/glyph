@@ -35,6 +35,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	host := NewMockHostService(controller)
 	models := NewMockHostOperation(controller)
 	providers := NewMockHostOperation(controller)
+	configured := NewMockHostOperation(controller)
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil)
 	registration.EXPECT().Run(gomock.Any()).Return(contractRegistration(), nil)
 	registration.EXPECT().Release()
@@ -70,6 +71,27 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				return nil, err
 			}
 			assert.Equal(t, []string{"model"}, providerResult.GetProviders()[0].GetModelIds())
+			request := extensionpb.ConfiguredModelRequest_builder{
+				Context: nil,
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
+				}.Build(),
+				Instructions: new(""),
+				Messages: []*extensionpb.ConfiguredModelMessage{
+					extensionpb.ConfiguredModelMessage_builder{
+						Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+					}.Build(),
+				},
+			}.Build()
+			modelRequest, err := bound.StartConfiguredModel(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			configuredResult, err := modelRequest.Wait(ctx)
+			if err != nil {
+				return nil, err
+			}
+			assert.Equal(t, "answer", configuredResult.GetContent()[0].GetText().GetText())
 			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
 		})
 	host.EXPECT().
@@ -79,8 +101,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return models, nil
 		})
 	models.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel:       nil,
-		GetProviders: nil,
+		Cancel:          nil,
+		GetProviders:    nil,
+		ConfiguredModel: nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
@@ -94,14 +117,35 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return providers, nil
 		})
 	providers.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel:    nil,
-		GetModels: nil,
+		Cancel:          nil,
+		GetModels:       nil,
+		ConfiguredModel: nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
 		}}.Build(),
 	}.Build(), nil)
 	providers.EXPECT().Release()
+	host.EXPECT().
+		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
+			assert.Equal(t, "binding", request.GetConfiguredModel().GetContext().GetContextId())
+			assert.Equal(t, "question", request.GetConfiguredModel().GetMessages()[0].GetText())
+			return configured, nil
+		})
+	configured.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		Cancel: nil, GetModels: nil, GetProviders: nil,
+		ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
+			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
+			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
+			Content: []*extensionpb.ConfiguredModelContent{func() *extensionpb.ConfiguredModelContent {
+				content := new(extensionpb.ConfiguredModelContent)
+				content.SetText(extensionpb.ConfiguredModelText_builder{Text: new("answer")}.Build())
+				return content
+			}()},
+		}.Build(),
+	}.Build(), nil)
+	configured.EXPECT().Release()
 	connection := openContextTestConnection(t, service, host)
 	register, err := connection.Start(t.Context(), "register", extensionpb.HostRequest_builder{
 		Cancel:   nil,

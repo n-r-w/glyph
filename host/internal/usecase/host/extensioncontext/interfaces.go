@@ -1,7 +1,12 @@
-// Package extensioncontext owns issued extension bindings and session-bound catalog reads.
+// Package extensioncontext owns issued extension bindings and session-bound Host capabilities.
 package extensioncontext
 
-import "github.com/n-r-w/glyph/host/internal/domain/model"
+import (
+	"context"
+
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensioncontext
 
@@ -27,10 +32,24 @@ type SessionIdentity struct {
 	Incarnation uint64
 }
 
-// Catalog supplies only provider-neutral descriptors and active selection.
+// Catalog supplies provider-neutral descriptors, active selection, and explicit configured requests.
 type Catalog interface {
 	// Models returns defensive descriptors in configured order.
 	Models() []model.Descriptor
 	// ActiveSelection returns the complete active selection.
 	ActiveSelection() model.Selection
+	// Request executes one explicit configured selection without changing active selection.
+	Request(
+		ctx context.Context,
+		selection model.Selection,
+		instructions string,
+		history []agent.HistoryEntry,
+	) (model.Response, error)
+}
+
+// RequestFailure exposes a provider-owned configured-request failure category.
+type RequestFailure interface {
+	error
+	// SelectionCode returns the provider catalog failure code.
+	SelectionCode() string
 }

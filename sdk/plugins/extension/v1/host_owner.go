@@ -38,9 +38,9 @@ func (d *hostDelivery) Running(id string) error {
 	return err
 }
 
-// Progress rejects progress because catalog operations have no progress contract.
+// Progress rejects progress because context operations have no progress contract.
 func (d *hostDelivery) Progress(_ string, _ struct{}) error {
-	return errors.New("catalog operations cannot emit progress")
+	return errors.New("extension context operations cannot emit progress")
 }
 
 // Terminal publishes the result or complete closed-category failure.
@@ -56,7 +56,7 @@ func (d *hostDelivery) Terminal(
 	case operation.TerminalStateCanceled:
 		event.SetCanceled(new(operationpb.Canceled))
 	case operation.TerminalStateFailed:
-		if err := validateHostFailureCode(outcome.Code()); err != nil {
+		if err := validateHostOutputFailureCode(outcome.Code()); err != nil {
 			return d.terminalFailure(errors.Join(err, outcome.Err()))
 		}
 		event.SetFailed(

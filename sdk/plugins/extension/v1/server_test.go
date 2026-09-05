@@ -25,6 +25,45 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// TestConfiguredModelFailureCategoriesRemainClosed verifies request-specific Host failure validation.
+func TestConfiguredModelFailureCategoriesRemainClosed(t *testing.T) {
+	t.Parallel()
+
+	for _, code := range []string{
+		hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed,
+		contextCodeStale, failureCodeInternal,
+	} {
+		// Arrange one terminal configured-model failure with complete Host text.
+		event := new(extensionpb.HostEvent)
+		event.SetFailed(operationpb.Failed_builder{
+			Code: new(code), Message: new("complete configured request failure"),
+		}.Build())
+
+		// Act through request-specific lifecycle validation.
+		mapped, terminal, err := mapHostEvent("operation", hostRequestConfiguredModel, event)
+
+		// Assert every defined category remains terminal and retains complete text.
+		require.NoError(t, err)
+		assert.True(t, terminal)
+		assert.Equal(t, code, mapped.Code)
+		assert.Equal(t, "complete configured request failure", mapped.Message)
+	}
+
+	// Arrange a configured-only category on a catalogue operation.
+	invalid := new(extensionpb.HostEvent)
+	invalid.SetFailed(operationpb.Failed_builder{
+		Code: new(hostFailureCodeModelFailed), Message: new("complete configured request failure"),
+	}.Build())
+
+	// Act through catalogue lifecycle validation.
+	_, _, err := mapHostEvent("operation", hostRequestModels, invalid)
+
+	// Assert cross-operation category leakage is rejected with the complete peer cause.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), hostFailureCodeModelFailed)
+	assert.Contains(t, err.Error(), "complete configured request failure")
+}
+
 const (
 	// serverTestTimeout bounds controlled stream and operation coordination.
 	serverTestTimeout = 5 * time.Second

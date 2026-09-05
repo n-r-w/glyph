@@ -16,6 +16,125 @@ message ModelSelection {
   string reasoning_choice = 3;
 }
 
+// ConfiguredModelRequest executes one explicit provider-neutral text request.
+message ConfiguredModelRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+  // The explicit provider, model, and reasoning choice.
+  ModelSelection selection = 2;
+  // The request instructions. Empty instructions are valid.
+  string instructions = 3;
+  // The ordered nonempty user and assistant text history.
+  repeated ConfiguredModelMessage messages = 4;
+}
+
+// ConfiguredModelMessage is one ordered text history item.
+message ConfiguredModelMessage {
+  // The author role.
+  ConfiguredModelRole role = 1;
+  // The nonempty text.
+  string text = 2;
+}
+
+// ConfiguredModelRole identifies a supported text history author.
+enum ConfiguredModelRole {
+  // No role was supplied.
+  CONFIGURED_MODEL_ROLE_UNSPECIFIED = 0;
+  // The user supplied the text.
+  CONFIGURED_MODEL_ROLE_USER = 1;
+  // The model assistant supplied the text.
+  CONFIGURED_MODEL_ROLE_ASSISTANT = 2;
+}
+
+// ConfiguredModelResult contains one provider-neutral terminal response.
+message ConfiguredModelResult {
+  // The ordered public terminal content.
+  repeated ConfiguredModelContent content = 1;
+  // The terminal outcome when supplied by the provider.
+  ConfiguredModelOutcome outcome = 2;
+  // The provider or runtime terminal error message when present.
+  string error_message = 3;
+  // The provider used for the request when reported.
+  string provider_id = 4;
+  // The configured model used for the request when reported.
+  string model_id = 5;
+  // The model reported by the provider when present.
+  string response_model_id = 6;
+  // The provider response identifier when present.
+  string response_id = 7;
+  // The provider token accounting when present.
+  ConfiguredModelUsage usage = 8;
+  // The ordered provider diagnostics.
+  repeated ConfiguredModelDiagnostic diagnostics = 9;
+}
+
+// ConfiguredModelContent is one ordered public terminal content block.
+message ConfiguredModelContent {
+  // The content payload.
+  oneof content {
+    ConfiguredModelText text = 1;
+    ConfiguredModelText refusal = 2;
+    ConfiguredModelText reasoning = 3;
+    ConfiguredModelToolCall tool_call = 4;
+  }
+}
+
+// ConfiguredModelText contains finalized public text.
+message ConfiguredModelText {
+  // The exact text.
+  string text = 1;
+}
+
+// ConfiguredModelToolCall contains one returned tool request that Host does not execute.
+message ConfiguredModelToolCall {
+  // The provider call identifier.
+  string id = 1;
+  // The requested tool name.
+  string name = 2;
+  // The finalized JSON arguments.
+  bytes arguments_json = 3;
+}
+
+// ConfiguredModelOutcome identifies why the response ended.
+enum ConfiguredModelOutcome {
+  // No terminal outcome was supplied.
+  CONFIGURED_MODEL_OUTCOME_UNSPECIFIED = 0;
+  // The provider completed without automatic work.
+  CONFIGURED_MODEL_OUTCOME_STOP = 1;
+  // The provider returned one or more tool calls.
+  CONFIGURED_MODEL_OUTCOME_TOOL_USE = 2;
+  // The provider reached its response limit.
+  CONFIGURED_MODEL_OUTCOME_LENGTH = 3;
+  // The request was aborted.
+  CONFIGURED_MODEL_OUTCOME_ABORTED = 4;
+  // The request failed.
+  CONFIGURED_MODEL_OUTCOME_FAILED = 5;
+}
+
+// ConfiguredModelUsage contains provider-reported token accounting.
+message ConfiguredModelUsage {
+  // The uncached input token count.
+  int64 input_tokens = 1;
+  // The output token count including reasoning tokens.
+  int64 output_tokens = 2;
+  // The cached input token count.
+  int64 cached_input_tokens = 3;
+  // The cache creation input token count.
+  int64 cache_write_tokens = 4;
+  // The reasoning token subset of output tokens.
+  int64 reasoning_tokens = 5;
+  // The total token count.
+  int64 total_tokens = 6;
+}
+
+// ConfiguredModelDiagnostic contains one provider or runtime diagnostic.
+message ConfiguredModelDiagnostic {
+  // The diagnostic code.
+  string code = 1;
+  // The diagnostic message.
+  string message = 2;
+}
+
 // GetModelsRequest reads configured provider-neutral descriptors and active selection.
 message GetModelsRequest {
   // The issued runtime-to-session binding.

@@ -59,7 +59,7 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			close(firstCanceled)
 			return nil, ctx.Err()
 		case <-firstGate:
-			return emptyModelCatalogue(), nil
+			return emptyConfiguredModelResult(), nil
 		}
 	})
 	first.EXPECT().Release()
@@ -77,30 +77,40 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			read, err := binding.StartGetModels(ctx)
+			input := extensionpb.ConfiguredModelRequest_builder{
+				Context: nil,
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
+				}.Build(),
+				Instructions: new(""),
+				Messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
+					Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+				}.Build()},
+			}.Build()
+			configured, err := binding.StartConfiguredModel(ctx, input)
 			if err != nil {
 				return nil, err
 			}
 			close(startedLocally)
 			waitContext, cancelWait := context.WithCancel(ctx)
 			cancelWait()
-			_, err = read.Wait(waitContext)
+			_, err = configured.Wait(waitContext)
 			if !errors.Is(err, context.Canceled) {
 				return nil, errors.New("local wait did not observe its own cancellation")
 			}
 			close(waitStopped)
-			if _, err = read.Wait(ctx); err != nil {
+			if _, err = configured.Wait(ctx); err != nil {
 				return nil, err
 			}
 			startContext, cancelStart := context.WithCancel(ctx)
 			defer cancelStart()
-			read, err = binding.StartGetModels(startContext)
+			configured, err = binding.StartConfiguredModel(startContext, input)
 			if err != nil {
 				return nil, err
 			}
 			<-secondRunning
 			cancelStart()
-			_, err = read.Wait(ctx)
+			_, err = configured.Wait(ctx)
 			if !errors.Is(err, context.Canceled) {
 				return nil, errors.New("operation-start cancellation did not cancel the Host target")
 			}
@@ -152,5 +162,15 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 func emptyModelCatalogue() *extensionpb.HostCompleted {
 	result := new(extensionpb.HostCompleted)
 	result.SetGetModels(extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: nil}.Build())
+	return result
+}
+
+// emptyConfiguredModelResult supplies a typed result for lifecycle tests that inspect only cancellation.
+func emptyConfiguredModelResult() *extensionpb.HostCompleted {
+	result := new(extensionpb.HostCompleted)
+	result.SetConfiguredModel(extensionpb.ConfiguredModelResult_builder{
+		Content: nil, Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
+		ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
+	}.Build())
 	return result
 }

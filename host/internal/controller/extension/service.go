@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/samber/mo"
+
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -20,7 +22,7 @@ const (
 
 // Service maps requests from one connected runtime to Host context operations.
 type Service struct {
-	// contexts owns issued binding validation and catalog reads.
+	// contexts owns issued binding validation and context capabilities.
 	contexts ContextOperations
 	// runtime owns active-operation accounting for the connected process.
 	runtime RuntimeOperations
@@ -45,16 +47,24 @@ func (s *Service) Prepare(
 ) (extensionsdk.HostOperation, error) {
 	var reference *extensionpb.ExtensionContextRef
 	models := false
+	configured := mo.None[configuredRequest]()
 	if request != nil {
 		switch request.WhichRequest() {
 		case extensionpb.ExtensionRequest_GetModels_case:
 			reference, models = request.GetGetModels().GetContext(), true
 		case extensionpb.ExtensionRequest_GetProviders_case:
 			reference = request.GetGetProviders().GetContext()
+		case extensionpb.ExtensionRequest_ConfiguredModel_case:
+			mapped, mapErr := mapConfiguredRequest(request.GetConfiguredModel())
+			if mapErr != nil {
+				return nil, extensionsdk.Reject(invalidArgumentCode, mapErr)
+			}
+			configured = mo.Some(mapped)
+			reference = request.GetConfiguredModel().GetContext()
 		case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 			return nil, extensionsdk.Reject(
 				invalidArgumentCode,
-				errors.New("model or provider catalog request is required"),
+				errors.New("catalog or configured model request is required"),
 			)
 		default:
 			return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("unsupported extension context request"))
@@ -79,17 +89,14 @@ func (s *Service) Prepare(
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
-	return &catalogueOperation{
-		service:   s,
-		reference: bound,
-		models:    models,
-		release:   release,
-		id:        operationID,
+	return &contextOperation{
+		service: s, reference: bound, models: models, configured: configured,
+		release: release, id: operationID,
 	}, nil
 }
 
-// catalogueOperation maps one admitted catalog read and owns its accounting release.
-type catalogueOperation struct {
+// contextOperation maps one admitted context request and owns its accounting release.
+type contextOperation struct {
 	// id identifies the extension-initiated operation in diagnostics.
 	id string
 	// service supplies the connected runtime identity and capability interface.
@@ -98,27 +105,54 @@ type catalogueOperation struct {
 	reference extensiondomain.ContextRef
 	// models selects the model rather than provider catalog result.
 	models bool
+	// configured contains an explicit model request when this is not a catalog read.
+	configured mo.Option[configuredRequest]
 	// release returns the runtime operation reservation.
 	release func()
 }
 
-var _ extensionsdk.HostOperation = (*catalogueOperation)(nil)
+var _ extensionsdk.HostOperation = (*contextOperation)(nil)
 
 // Run executes the typed read and preserves every added error cause.
-func (o *catalogueOperation) Run(ctx context.Context) (*extensionpb.HostCompleted, error) {
-	slog.DebugContext(ctx, "read extension catalog", "operation_id", o.id, "extension_id", o.service.extensionID,
-		"runtime_instance_id", o.service.runtimeID, "session_id", o.reference.SessionID)
+func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted, error) {
+	slog.DebugContext(
+		ctx,
+		"execute extension context operation",
+		"operation_id",
+		o.id,
+		"extension_id",
+		o.service.extensionID,
+		"runtime_instance_id",
+		o.service.runtimeID,
+		"session_id",
+		o.reference.SessionID,
+	)
 	result := new(extensionpb.HostCompleted)
-	if o.models {
+	configured, hasConfigured := o.configured.Get()
+	switch {
+	case hasConfigured:
+		response, err := o.service.contexts.Request(
+			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
+			configured.selection, configured.instructions, configured.history,
+		)
+		if err != nil {
+			return nil, mapContextFailure("request configured model", err)
+		}
+		mapped, err := mapConfiguredResponse(response)
+		if err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, err)
+		}
+		result.SetConfiguredModel(mapped)
+	case o.models:
 		catalog, err := o.service.contexts.ReadModels(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 		if err != nil {
-			return nil, mapContextFailure(err)
+			return nil, mapContextFailure("read model catalog", err)
 		}
 		result.SetGetModels(mapModelCatalog(catalog))
-	} else {
+	default:
 		providers, err := o.service.contexts.ReadProviders(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 		if err != nil {
-			return nil, mapContextFailure(err)
+			return nil, mapContextFailure("read provider catalog", err)
 		}
 		result.SetGetProviders(mapProviderCatalog(providers))
 	}
@@ -126,7 +160,7 @@ func (o *catalogueOperation) Run(ctx context.Context) (*extensionpb.HostComplete
 }
 
 // Release returns the reservation to the runtime accounting owner.
-func (o *catalogueOperation) Release() { o.release() }
+func (o *contextOperation) Release() { o.release() }
 
 // contextFailureCode extracts the closed owner category without replacing the error text.
 func contextFailureCode(err error) string {
@@ -137,9 +171,9 @@ func contextFailureCode(err error) string {
 }
 
 // mapContextFailure preserves cancellation as cancellation and classified failures as complete causes.
-func mapContextFailure(err error) error {
+func mapContextFailure(action string, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("read extension catalog: %w", err)
+		return fmt.Errorf("%s: %w", action, err)
 	}
-	return extensionsdk.Fail(contextFailureCode(err), fmt.Errorf("read extension catalog: %w", err))
+	return extensionsdk.Fail(contextFailureCode(err), fmt.Errorf("%s: %w", action, err))
 }

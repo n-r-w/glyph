@@ -26,7 +26,7 @@ func TestPublicRetainedContextNeverReactivates(t *testing.T) {
 	// Arrange: keep the same public-only extension process alive across session replacement commands.
 	paths := testPaths(t, codexSettings(""))
 	writeProgrammaticCredentials(t, paths)
-	directory := buildPublicCatalogueExtension(t)
+	directory := buildPublicExtensionFixture(t)
 	var count atomic.Int32
 	var body atomic.Value
 	var mode atomic.Value
@@ -41,7 +41,7 @@ func TestPublicRetainedContextNeverReactivates(t *testing.T) {
 		sequence++
 		mode.Store(requested)
 		completeProgrammaticRequest(t, fixture, userRequest(fmt.Sprintf("catalog-%d", sequence), "inspect catalog"))
-		return catalogueToolOutput(t, body.Load().([]byte))
+		return externalToolOutput(t, body.Load().([]byte))
 	}
 	initial := catalogueReportIdentity(t, read("catalogs"))
 

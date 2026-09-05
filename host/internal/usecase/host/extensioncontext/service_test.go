@@ -4,6 +4,7 @@ package extensioncontext
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
@@ -149,6 +151,167 @@ func TestCataloguesRevalidateBlockedReads(t *testing.T) {
 	}
 }
 
+// TestConfiguredRequestPassesExactInput verifies context ownership forwards one explicit request unchanged.
+func TestConfiguredRequestPassesExactInput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a valid binding, an empty instruction string, and ordered text history.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	session := NewMockSessionState(controller)
+	catalog := NewMockCatalog(controller)
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	session.EXPECT().ContextSession().Return(
+		SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+	).AnyTimes()
+	service := New(runtime, session)
+	service.BindCatalog(catalog)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	history := []agent.HistoryEntry{{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("question")),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	}}
+	expected := model.Response{
+		Content: []model.Content{{
+			Kind: model.ContentText, Text: mo.Some("answer"), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+		}},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+		Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+		ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+		Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+	catalog.EXPECT().Request(gomock.Any(), selection, "", history).Return(expected, nil)
+
+	// Act through the session-bound context owner.
+	actual, err := service.Request(t.Context(), "extension", "runtime", reference, selection, "", history)
+
+	// Assert the provider response and request values are unchanged.
+	require.NoError(t, err)
+	assert.Equal(t, expected, actual)
+}
+
+// TestConfiguredRequestRejectsStaleCompletion verifies a replaced binding cannot publish a provider result.
+func TestConfiguredRequestRejectsStaleCompletion(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a valid binding and block provider execution before changing the session incarnation.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	session := NewMockSessionState(controller)
+	catalog := NewMockCatalog(controller)
+	var mutex sync.Mutex
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	session.EXPECT().ContextSession().DoAndReturn(func() SessionIdentity {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return identity
+	}).AnyTimes()
+	service := New(runtime, session)
+	service.BindCatalog(catalog)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	catalog.EXPECT().Request(gomock.Any(), gomock.Any(), "instructions", gomock.Any()).DoAndReturn(
+		func(context.Context, model.Selection, string, []agent.HistoryEntry) (model.Response, error) {
+			close(entered)
+			<-release
+			return model.Response{}, nil
+		},
+	)
+	result := make(chan error, 1)
+
+	// Act by replacing the binding while the provider request is running.
+	go func() {
+		_, requestErr := service.Request(
+			t.Context(), "extension", "runtime", reference, model.Selection{}, "instructions",
+			[]agent.HistoryEntry{{
+				Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("question")),
+				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+			}},
+		)
+		result <- requestErr
+	}()
+	<-entered
+	mutex.Lock()
+	identity.Incarnation++
+	mutex.Unlock()
+	close(release)
+
+	// Assert the stale operation cannot return a usable result.
+	assertStaleContext(t, <-result)
+}
+
+// TestConfiguredRequestClassifiesProviderFailures verifies every provider-owned failure keeps its complete cause.
+func TestConfiguredRequestClassifiesProviderFailures(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		// name identifies the provider failure.
+		name string
+		// selectionCode contains a provider catalogue category when present.
+		selectionCode string
+		// expected contains the public configured-request category.
+		expected string
+	}{
+		{name: "missing model", selectionCode: selectionCodeNotFound, expected: modelUnavailableCode},
+		{
+			name: "unsupported reasoning", selectionCode: selectionCodeReasoningUnsupported,
+			expected: modelUnavailableCode,
+		},
+		{
+			name: "credentials", selectionCode: selectionCodeCredentialUnavailable,
+			expected: credentialUnavailableCode,
+		},
+		{name: "provider execution", selectionCode: "", expected: modelFailedCode},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a valid binding and one provider failure with a complete diagnostic cause.
+			controller := gomock.NewController(t)
+			runtime := NewMockRuntimeState(controller)
+			session := NewMockSessionState(controller)
+			catalog := NewMockCatalog(controller)
+			runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+			session.EXPECT().ContextSession().Return(
+				SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+			).AnyTimes()
+			service := New(runtime, session)
+			service.BindCatalog(catalog)
+			issued, err := service.IssueContext("extension")
+			require.NoError(t, err)
+			reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+			requestErr := errors.New("complete provider cause")
+			if test.selectionCode != "" {
+				classified := NewMockRequestFailure(controller)
+				classified.EXPECT().SelectionCode().Return(test.selectionCode)
+				classified.EXPECT().Error().Return(requestErr.Error()).AnyTimes()
+				requestErr = classified
+			}
+			catalog.EXPECT().Request(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(model.Response{}, requestErr)
+
+			// Act through context-owned failure classification.
+			_, err = service.Request(
+				t.Context(), "extension", "runtime", reference, model.Selection{}, "", nil,
+			)
+
+			// Assert category and complete provider cause remain available together.
+			var failure extensioncontroller.ContextFailure
+			require.ErrorAs(t, err, &failure)
+			assert.Equal(t, test.expected, failure.ContextCode())
+			assert.Contains(t, err.Error(), "complete provider cause")
+		})
+	}
+}
+
 // TestFreshContextOwnersNeverReuseBindingIDs verifies recreated Host ownership cannot reactivate an encoded preceding
 // reference.
 func TestFreshContextOwnersNeverReuseBindingIDs(t *testing.T) {
@@ -197,6 +360,6 @@ func assertStaleContext(t *testing.T, err error) {
 	t.Helper()
 	var failure extensioncontroller.ContextFailure
 	require.ErrorAs(t, err, &failure)
-	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+	assert.Equal(t, staleContextCode, failure.ContextCode())
 	assert.NotEmpty(t, err.Error())
 }

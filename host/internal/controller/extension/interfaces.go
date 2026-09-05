@@ -4,6 +4,7 @@ package extension
 import (
 	"context"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
@@ -26,6 +27,15 @@ type ContextOperations interface {
 		extensionID, runtimeID string,
 		reference extensiondomain.ContextRef,
 	) ([]Provider, error)
+	// Request executes one explicit configured selection after binding revalidation.
+	Request(
+		ctx context.Context,
+		extensionID, runtimeID string,
+		reference extensiondomain.ContextRef,
+		selection model.Selection,
+		instructions string,
+		history []agent.HistoryEntry,
+	) (model.Response, error)
 }
 
 // ModelCatalog contains descriptors and active selection for one completed read.

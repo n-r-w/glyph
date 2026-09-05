@@ -8,7 +8,9 @@ import (
 	"sync"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
@@ -18,6 +20,18 @@ const (
 	staleContextCode = "STALE_CONTEXT"
 	// internalCode identifies unavailable catalog composition.
 	internalCode = "INTERNAL"
+	// modelUnavailableCode identifies an unknown selection or unsupported reasoning choice.
+	modelUnavailableCode = "MODEL_UNAVAILABLE"
+	// credentialUnavailableCode identifies provider credentials that cannot authorize a request.
+	credentialUnavailableCode = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a public error category.
+	// modelFailedCode identifies provider execution failure after selection validation.
+	modelFailedCode = "MODEL_FAILED"
+	// selectionCodeNotFound identifies a provider selection that is not configured.
+	selectionCodeNotFound = "not_found"
+	// selectionCodeReasoningUnsupported identifies a reasoning choice unsupported by the selected model.
+	selectionCodeReasoningUnsupported = "reasoning_unsupported"
+	// selectionCodeCredentialUnavailable identifies unavailable provider credentials.
+	selectionCodeCredentialUnavailable = "credential_unavailable" //nolint:gosec // This is a provider error code.
 )
 
 // ContextError preserves the context-operation category and its complete cause.
@@ -49,7 +63,7 @@ type binding struct {
 	incarnation uint64
 }
 
-// Service owns issued bindings and catalog operation coordination.
+// Service owns issued bindings and session-bound context operation coordination.
 type Service struct {
 	// runtime supplies accepted process identity without transferring runtime ownership.
 	runtime RuntimeState
@@ -174,6 +188,43 @@ func (s *Service) ReadProviders(
 	return providers, nil
 }
 
+// Request executes one explicit configured model request and revalidates its binding before completion.
+func (s *Service) Request(
+	ctx context.Context,
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+	selection model.Selection,
+	instructions string,
+	history []agent.HistoryEntry,
+) (model.Response, error) {
+	catalog, err := s.readCatalog(ctx, extensionID, runtimeID, reference)
+	if err != nil {
+		return model.Response{}, err
+	}
+	response, err := catalog.Request(ctx, selection, instructions, history)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return model.Response{}, fmt.Errorf("request configured model: %w", err)
+		}
+		code := modelFailedCode
+		if failure, found := errors.AsType[RequestFailure](err); found {
+			switch failure.SelectionCode() {
+			case selectionCodeNotFound, selectionCodeReasoningUnsupported:
+				code = modelUnavailableCode
+			case selectionCodeCredentialUnavailable:
+				code = credentialUnavailableCode
+			default:
+				code = internalCode
+			}
+		}
+		return model.Response{}, &ContextError{code: code, cause: fmt.Errorf("request configured model: %w", err)}
+	}
+	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
+		return model.Response{}, validationErr
+	}
+	return response, nil
+}
+
 // readCatalog validates admission and snapshots the late-bound catalog dependency.
 func (s *Service) readCatalog(
 	ctx context.Context,
@@ -198,7 +249,7 @@ func (s *Service) validateResult(
 	reference extension.ContextRef,
 ) error {
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("read extension catalog: %w", err)
+		return fmt.Errorf("complete extension context operation: %w", err)
 	}
 	return s.ValidateContext(extensionID, runtimeID, reference)
 }

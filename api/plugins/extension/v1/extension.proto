@@ -89,6 +89,7 @@ message ExtensionRequest {
     GetModelsRequest get_models = 1;
     GetProvidersRequest get_providers = 2;
     glyph.operation.v1.CancelOperation cancel = 3;
+    ConfiguredModelRequest configured_model = 4;
   }
 }
 
@@ -112,6 +113,7 @@ message HostCompleted {
     GetModelsResult get_models = 1;
     GetProvidersResult get_providers = 2;
     glyph.operation.v1.CancelCompleted cancel = 3;
+    ConfiguredModelResult configured_model = 4;
   }
 }
 

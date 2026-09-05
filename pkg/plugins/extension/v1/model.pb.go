@@ -20,6 +20,114 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ConfiguredModelRole identifies a supported text history author.
+type ConfiguredModelRole int32
+
+const (
+	// No role was supplied.
+	ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED ConfiguredModelRole = 0
+	// The user supplied the text.
+	ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER ConfiguredModelRole = 1
+	// The model assistant supplied the text.
+	ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT ConfiguredModelRole = 2
+)
+
+// Enum value maps for ConfiguredModelRole.
+var (
+	ConfiguredModelRole_name = map[int32]string{
+		0: "CONFIGURED_MODEL_ROLE_UNSPECIFIED",
+		1: "CONFIGURED_MODEL_ROLE_USER",
+		2: "CONFIGURED_MODEL_ROLE_ASSISTANT",
+	}
+	ConfiguredModelRole_value = map[string]int32{
+		"CONFIGURED_MODEL_ROLE_UNSPECIFIED": 0,
+		"CONFIGURED_MODEL_ROLE_USER":        1,
+		"CONFIGURED_MODEL_ROLE_ASSISTANT":   2,
+	}
+)
+
+func (x ConfiguredModelRole) Enum() *ConfiguredModelRole {
+	p := new(ConfiguredModelRole)
+	*p = x
+	return p
+}
+
+func (x ConfiguredModelRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConfiguredModelRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_model_proto_enumTypes[0].Descriptor()
+}
+
+func (ConfiguredModelRole) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[0]
+}
+
+func (x ConfiguredModelRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// ConfiguredModelOutcome identifies why the response ended.
+type ConfiguredModelOutcome int32
+
+const (
+	// No terminal outcome was supplied.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_UNSPECIFIED ConfiguredModelOutcome = 0
+	// The provider completed without automatic work.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_STOP ConfiguredModelOutcome = 1
+	// The provider returned one or more tool calls.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_TOOL_USE ConfiguredModelOutcome = 2
+	// The provider reached its response limit.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_LENGTH ConfiguredModelOutcome = 3
+	// The request was aborted.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_ABORTED ConfiguredModelOutcome = 4
+	// The request failed.
+	ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_FAILED ConfiguredModelOutcome = 5
+)
+
+// Enum value maps for ConfiguredModelOutcome.
+var (
+	ConfiguredModelOutcome_name = map[int32]string{
+		0: "CONFIGURED_MODEL_OUTCOME_UNSPECIFIED",
+		1: "CONFIGURED_MODEL_OUTCOME_STOP",
+		2: "CONFIGURED_MODEL_OUTCOME_TOOL_USE",
+		3: "CONFIGURED_MODEL_OUTCOME_LENGTH",
+		4: "CONFIGURED_MODEL_OUTCOME_ABORTED",
+		5: "CONFIGURED_MODEL_OUTCOME_FAILED",
+	}
+	ConfiguredModelOutcome_value = map[string]int32{
+		"CONFIGURED_MODEL_OUTCOME_UNSPECIFIED": 0,
+		"CONFIGURED_MODEL_OUTCOME_STOP":        1,
+		"CONFIGURED_MODEL_OUTCOME_TOOL_USE":    2,
+		"CONFIGURED_MODEL_OUTCOME_LENGTH":      3,
+		"CONFIGURED_MODEL_OUTCOME_ABORTED":     4,
+		"CONFIGURED_MODEL_OUTCOME_FAILED":      5,
+	}
+)
+
+func (x ConfiguredModelOutcome) Enum() *ConfiguredModelOutcome {
+	p := new(ConfiguredModelOutcome)
+	*p = x
+	return p
+}
+
+func (x ConfiguredModelOutcome) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConfiguredModelOutcome) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_model_proto_enumTypes[1].Descriptor()
+}
+
+func (ConfiguredModelOutcome) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[1]
+}
+
+func (x ConfiguredModelOutcome) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // InputModality identifies an accepted provider-neutral input kind.
 type InputModality int32
 
@@ -57,11 +165,11 @@ func (x InputModality) String() string {
 }
 
 func (InputModality) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_model_proto_enumTypes[0].Descriptor()
+	return file_api_plugins_extension_v1_model_proto_enumTypes[2].Descriptor()
 }
 
 func (InputModality) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_model_proto_enumTypes[0]
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[2]
 }
 
 func (x InputModality) Number() protoreflect.EnumNumber {
@@ -216,6 +324,1413 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 	return m0
 }
 
+// ConfiguredModelRequest executes one explicit provider-neutral text request.
+type ConfiguredModelRequest struct {
+	state                   protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Context      *ExtensionContextRef       `protobuf:"bytes,1,opt,name=context"`
+	xxx_hidden_Selection    *ModelSelection            `protobuf:"bytes,2,opt,name=selection"`
+	xxx_hidden_Instructions *string                    `protobuf:"bytes,3,opt,name=instructions"`
+	xxx_hidden_Messages     *[]*ConfiguredModelMessage `protobuf:"bytes,4,rep,name=messages"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelRequest) Reset() {
+	*x = ConfiguredModelRequest{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelRequest) ProtoMessage() {}
+
+func (x *ConfiguredModelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelRequest) GetContext() *ExtensionContextRef {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
+func (x *ConfiguredModelRequest) GetSelection() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Selection
+	}
+	return nil
+}
+
+func (x *ConfiguredModelRequest) GetInstructions() string {
+	if x != nil {
+		if x.xxx_hidden_Instructions != nil {
+			return *x.xxx_hidden_Instructions
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelRequest) GetMessages() []*ConfiguredModelMessage {
+	if x != nil {
+		if x.xxx_hidden_Messages != nil {
+			return *x.xxx_hidden_Messages
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelRequest) SetContext(v *ExtensionContextRef) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *ConfiguredModelRequest) SetSelection(v *ModelSelection) {
+	x.xxx_hidden_Selection = v
+}
+
+func (x *ConfiguredModelRequest) SetInstructions(v string) {
+	x.xxx_hidden_Instructions = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *ConfiguredModelRequest) SetMessages(v []*ConfiguredModelMessage) {
+	x.xxx_hidden_Messages = &v
+}
+
+func (x *ConfiguredModelRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
+func (x *ConfiguredModelRequest) HasSelection() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Selection != nil
+}
+
+func (x *ConfiguredModelRequest) HasInstructions() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ConfiguredModelRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
+func (x *ConfiguredModelRequest) ClearSelection() {
+	x.xxx_hidden_Selection = nil
+}
+
+func (x *ConfiguredModelRequest) ClearInstructions() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Instructions = nil
+}
+
+type ConfiguredModelRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The issued runtime-to-session binding.
+	Context *ExtensionContextRef
+	// The explicit provider, model, and reasoning choice.
+	Selection *ModelSelection
+	// The request instructions. Empty instructions are valid.
+	Instructions *string
+	// The ordered nonempty user and assistant text history.
+	Messages []*ConfiguredModelMessage
+}
+
+func (b0 ConfiguredModelRequest_builder) Build() *ConfiguredModelRequest {
+	m0 := &ConfiguredModelRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Context = b.Context
+	x.xxx_hidden_Selection = b.Selection
+	if b.Instructions != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_Instructions = b.Instructions
+	}
+	x.xxx_hidden_Messages = &b.Messages
+	return m0
+}
+
+// ConfiguredModelMessage is one ordered text history item.
+type ConfiguredModelMessage struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Role        ConfiguredModelRole    `protobuf:"varint,1,opt,name=role,enum=glyph.plugins.extension.v1.ConfiguredModelRole"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,2,opt,name=text"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelMessage) Reset() {
+	*x = ConfiguredModelMessage{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelMessage) ProtoMessage() {}
+
+func (x *ConfiguredModelMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelMessage) GetRole() ConfiguredModelRole {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Role
+		}
+	}
+	return ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED
+}
+
+func (x *ConfiguredModelMessage) GetText() string {
+	if x != nil {
+		if x.xxx_hidden_Text != nil {
+			return *x.xxx_hidden_Text
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelMessage) SetRole(v ConfiguredModelRole) {
+	x.xxx_hidden_Role = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ConfiguredModelMessage) SetText(v string) {
+	x.xxx_hidden_Text = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ConfiguredModelMessage) HasRole() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelMessage) HasText() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelMessage) ClearRole() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Role = ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED
+}
+
+func (x *ConfiguredModelMessage) ClearText() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Text = nil
+}
+
+type ConfiguredModelMessage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The author role.
+	Role *ConfiguredModelRole
+	// The nonempty text.
+	Text *string
+}
+
+func (b0 ConfiguredModelMessage_builder) Build() *ConfiguredModelMessage {
+	m0 := &ConfiguredModelMessage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Role != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Role = *b.Role
+	}
+	if b.Text != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Text = b.Text
+	}
+	return m0
+}
+
+// ConfiguredModelResult contains one provider-neutral terminal response.
+type ConfiguredModelResult struct {
+	state                      protoimpl.MessageState        `protogen:"opaque.v1"`
+	xxx_hidden_Content         *[]*ConfiguredModelContent    `protobuf:"bytes,1,rep,name=content"`
+	xxx_hidden_Outcome         ConfiguredModelOutcome        `protobuf:"varint,2,opt,name=outcome,enum=glyph.plugins.extension.v1.ConfiguredModelOutcome"`
+	xxx_hidden_ErrorMessage    *string                       `protobuf:"bytes,3,opt,name=error_message,json=errorMessage"`
+	xxx_hidden_ProviderId      *string                       `protobuf:"bytes,4,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                       `protobuf:"bytes,5,opt,name=model_id,json=modelId"`
+	xxx_hidden_ResponseModelId *string                       `protobuf:"bytes,6,opt,name=response_model_id,json=responseModelId"`
+	xxx_hidden_ResponseId      *string                       `protobuf:"bytes,7,opt,name=response_id,json=responseId"`
+	xxx_hidden_Usage           *ConfiguredModelUsage         `protobuf:"bytes,8,opt,name=usage"`
+	xxx_hidden_Diagnostics     *[]*ConfiguredModelDiagnostic `protobuf:"bytes,9,rep,name=diagnostics"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelResult) Reset() {
+	*x = ConfiguredModelResult{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelResult) ProtoMessage() {}
+
+func (x *ConfiguredModelResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelResult) GetContent() []*ConfiguredModelContent {
+	if x != nil {
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelResult) GetOutcome() ConfiguredModelOutcome {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			return x.xxx_hidden_Outcome
+		}
+	}
+	return ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_UNSPECIFIED
+}
+
+func (x *ConfiguredModelResult) GetErrorMessage() string {
+	if x != nil {
+		if x.xxx_hidden_ErrorMessage != nil {
+			return *x.xxx_hidden_ErrorMessage
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelResult) GetProviderId() string {
+	if x != nil {
+		if x.xxx_hidden_ProviderId != nil {
+			return *x.xxx_hidden_ProviderId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelResult) GetModelId() string {
+	if x != nil {
+		if x.xxx_hidden_ModelId != nil {
+			return *x.xxx_hidden_ModelId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelResult) GetResponseModelId() string {
+	if x != nil {
+		if x.xxx_hidden_ResponseModelId != nil {
+			return *x.xxx_hidden_ResponseModelId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelResult) GetResponseId() string {
+	if x != nil {
+		if x.xxx_hidden_ResponseId != nil {
+			return *x.xxx_hidden_ResponseId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelResult) GetUsage() *ConfiguredModelUsage {
+	if x != nil {
+		return x.xxx_hidden_Usage
+	}
+	return nil
+}
+
+func (x *ConfiguredModelResult) GetDiagnostics() []*ConfiguredModelDiagnostic {
+	if x != nil {
+		if x.xxx_hidden_Diagnostics != nil {
+			return *x.xxx_hidden_Diagnostics
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelResult) SetContent(v []*ConfiguredModelContent) {
+	x.xxx_hidden_Content = &v
+}
+
+func (x *ConfiguredModelResult) SetOutcome(v ConfiguredModelOutcome) {
+	x.xxx_hidden_Outcome = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 9)
+}
+
+func (x *ConfiguredModelResult) SetErrorMessage(v string) {
+	x.xxx_hidden_ErrorMessage = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 9)
+}
+
+func (x *ConfiguredModelResult) SetProviderId(v string) {
+	x.xxx_hidden_ProviderId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 9)
+}
+
+func (x *ConfiguredModelResult) SetModelId(v string) {
+	x.xxx_hidden_ModelId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 9)
+}
+
+func (x *ConfiguredModelResult) SetResponseModelId(v string) {
+	x.xxx_hidden_ResponseModelId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 9)
+}
+
+func (x *ConfiguredModelResult) SetResponseId(v string) {
+	x.xxx_hidden_ResponseId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 9)
+}
+
+func (x *ConfiguredModelResult) SetUsage(v *ConfiguredModelUsage) {
+	x.xxx_hidden_Usage = v
+}
+
+func (x *ConfiguredModelResult) SetDiagnostics(v []*ConfiguredModelDiagnostic) {
+	x.xxx_hidden_Diagnostics = &v
+}
+
+func (x *ConfiguredModelResult) HasOutcome() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelResult) HasErrorMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ConfiguredModelResult) HasProviderId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *ConfiguredModelResult) HasModelId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *ConfiguredModelResult) HasResponseModelId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *ConfiguredModelResult) HasResponseId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *ConfiguredModelResult) HasUsage() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Usage != nil
+}
+
+func (x *ConfiguredModelResult) ClearOutcome() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Outcome = ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_UNSPECIFIED
+}
+
+func (x *ConfiguredModelResult) ClearErrorMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ErrorMessage = nil
+}
+
+func (x *ConfiguredModelResult) ClearProviderId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ProviderId = nil
+}
+
+func (x *ConfiguredModelResult) ClearModelId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ModelId = nil
+}
+
+func (x *ConfiguredModelResult) ClearResponseModelId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_ResponseModelId = nil
+}
+
+func (x *ConfiguredModelResult) ClearResponseId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_ResponseId = nil
+}
+
+func (x *ConfiguredModelResult) ClearUsage() {
+	x.xxx_hidden_Usage = nil
+}
+
+type ConfiguredModelResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ordered public terminal content.
+	Content []*ConfiguredModelContent
+	// The terminal outcome when supplied by the provider.
+	Outcome *ConfiguredModelOutcome
+	// The provider or runtime terminal error message when present.
+	ErrorMessage *string
+	// The provider used for the request when reported.
+	ProviderId *string
+	// The configured model used for the request when reported.
+	ModelId *string
+	// The model reported by the provider when present.
+	ResponseModelId *string
+	// The provider response identifier when present.
+	ResponseId *string
+	// The provider token accounting when present.
+	Usage *ConfiguredModelUsage
+	// The ordered provider diagnostics.
+	Diagnostics []*ConfiguredModelDiagnostic
+}
+
+func (b0 ConfiguredModelResult_builder) Build() *ConfiguredModelResult {
+	m0 := &ConfiguredModelResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Content = &b.Content
+	if b.Outcome != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 9)
+		x.xxx_hidden_Outcome = *b.Outcome
+	}
+	if b.ErrorMessage != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 9)
+		x.xxx_hidden_ErrorMessage = b.ErrorMessage
+	}
+	if b.ProviderId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 9)
+		x.xxx_hidden_ProviderId = b.ProviderId
+	}
+	if b.ModelId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 9)
+		x.xxx_hidden_ModelId = b.ModelId
+	}
+	if b.ResponseModelId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 9)
+		x.xxx_hidden_ResponseModelId = b.ResponseModelId
+	}
+	if b.ResponseId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 9)
+		x.xxx_hidden_ResponseId = b.ResponseId
+	}
+	x.xxx_hidden_Usage = b.Usage
+	x.xxx_hidden_Diagnostics = &b.Diagnostics
+	return m0
+}
+
+// ConfiguredModelContent is one ordered public terminal content block.
+type ConfiguredModelContent struct {
+	state              protoimpl.MessageState           `protogen:"opaque.v1"`
+	xxx_hidden_Content isConfiguredModelContent_Content `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelContent) Reset() {
+	*x = ConfiguredModelContent{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelContent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelContent) ProtoMessage() {}
+
+func (x *ConfiguredModelContent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelContent) GetText() *ConfiguredModelText {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*configuredModelContent_Text); ok {
+			return x.Text
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelContent) GetRefusal() *ConfiguredModelText {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*configuredModelContent_Refusal); ok {
+			return x.Refusal
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelContent) GetReasoning() *ConfiguredModelText {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*configuredModelContent_Reasoning); ok {
+			return x.Reasoning
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelContent) GetToolCall() *ConfiguredModelToolCall {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*configuredModelContent_ToolCall); ok {
+			return x.ToolCall
+		}
+	}
+	return nil
+}
+
+func (x *ConfiguredModelContent) SetText(v *ConfiguredModelText) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &configuredModelContent_Text{v}
+}
+
+func (x *ConfiguredModelContent) SetRefusal(v *ConfiguredModelText) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &configuredModelContent_Refusal{v}
+}
+
+func (x *ConfiguredModelContent) SetReasoning(v *ConfiguredModelText) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &configuredModelContent_Reasoning{v}
+}
+
+func (x *ConfiguredModelContent) SetToolCall(v *ConfiguredModelToolCall) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &configuredModelContent_ToolCall{v}
+}
+
+func (x *ConfiguredModelContent) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ConfiguredModelContent) HasText() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*configuredModelContent_Text)
+	return ok
+}
+
+func (x *ConfiguredModelContent) HasRefusal() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*configuredModelContent_Refusal)
+	return ok
+}
+
+func (x *ConfiguredModelContent) HasReasoning() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*configuredModelContent_Reasoning)
+	return ok
+}
+
+func (x *ConfiguredModelContent) HasToolCall() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*configuredModelContent_ToolCall)
+	return ok
+}
+
+func (x *ConfiguredModelContent) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ConfiguredModelContent) ClearText() {
+	if _, ok := x.xxx_hidden_Content.(*configuredModelContent_Text); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ConfiguredModelContent) ClearRefusal() {
+	if _, ok := x.xxx_hidden_Content.(*configuredModelContent_Refusal); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ConfiguredModelContent) ClearReasoning() {
+	if _, ok := x.xxx_hidden_Content.(*configuredModelContent_Reasoning); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ConfiguredModelContent) ClearToolCall() {
+	if _, ok := x.xxx_hidden_Content.(*configuredModelContent_ToolCall); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const ConfiguredModelContent_Content_not_set_case case_ConfiguredModelContent_Content = 0
+const ConfiguredModelContent_Text_case case_ConfiguredModelContent_Content = 1
+const ConfiguredModelContent_Refusal_case case_ConfiguredModelContent_Content = 2
+const ConfiguredModelContent_Reasoning_case case_ConfiguredModelContent_Content = 3
+const ConfiguredModelContent_ToolCall_case case_ConfiguredModelContent_Content = 4
+
+func (x *ConfiguredModelContent) WhichContent() case_ConfiguredModelContent_Content {
+	if x == nil {
+		return ConfiguredModelContent_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *configuredModelContent_Text:
+		return ConfiguredModelContent_Text_case
+	case *configuredModelContent_Refusal:
+		return ConfiguredModelContent_Refusal_case
+	case *configuredModelContent_Reasoning:
+		return ConfiguredModelContent_Reasoning_case
+	case *configuredModelContent_ToolCall:
+		return ConfiguredModelContent_ToolCall_case
+	default:
+		return ConfiguredModelContent_Content_not_set_case
+	}
+}
+
+type ConfiguredModelContent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The content payload.
+
+	// Fields of oneof xxx_hidden_Content:
+	Text      *ConfiguredModelText
+	Refusal   *ConfiguredModelText
+	Reasoning *ConfiguredModelText
+	ToolCall  *ConfiguredModelToolCall
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 ConfiguredModelContent_builder) Build() *ConfiguredModelContent {
+	m0 := &ConfiguredModelContent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Text != nil {
+		x.xxx_hidden_Content = &configuredModelContent_Text{b.Text}
+	}
+	if b.Refusal != nil {
+		x.xxx_hidden_Content = &configuredModelContent_Refusal{b.Refusal}
+	}
+	if b.Reasoning != nil {
+		x.xxx_hidden_Content = &configuredModelContent_Reasoning{b.Reasoning}
+	}
+	if b.ToolCall != nil {
+		x.xxx_hidden_Content = &configuredModelContent_ToolCall{b.ToolCall}
+	}
+	return m0
+}
+
+type case_ConfiguredModelContent_Content protoreflect.FieldNumber
+
+func (x case_ConfiguredModelContent_Content) String() string {
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[4].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isConfiguredModelContent_Content interface {
+	isConfiguredModelContent_Content()
+}
+
+type configuredModelContent_Text struct {
+	Text *ConfiguredModelText `protobuf:"bytes,1,opt,name=text,oneof"`
+}
+
+type configuredModelContent_Refusal struct {
+	Refusal *ConfiguredModelText `protobuf:"bytes,2,opt,name=refusal,oneof"`
+}
+
+type configuredModelContent_Reasoning struct {
+	Reasoning *ConfiguredModelText `protobuf:"bytes,3,opt,name=reasoning,oneof"`
+}
+
+type configuredModelContent_ToolCall struct {
+	ToolCall *ConfiguredModelToolCall `protobuf:"bytes,4,opt,name=tool_call,json=toolCall,oneof"`
+}
+
+func (*configuredModelContent_Text) isConfiguredModelContent_Content() {}
+
+func (*configuredModelContent_Refusal) isConfiguredModelContent_Content() {}
+
+func (*configuredModelContent_Reasoning) isConfiguredModelContent_Content() {}
+
+func (*configuredModelContent_ToolCall) isConfiguredModelContent_Content() {}
+
+// ConfiguredModelText contains finalized public text.
+type ConfiguredModelText struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelText) Reset() {
+	*x = ConfiguredModelText{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelText) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelText) ProtoMessage() {}
+
+func (x *ConfiguredModelText) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelText) GetText() string {
+	if x != nil {
+		if x.xxx_hidden_Text != nil {
+			return *x.xxx_hidden_Text
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelText) SetText(v string) {
+	x.xxx_hidden_Text = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ConfiguredModelText) HasText() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelText) ClearText() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Text = nil
+}
+
+type ConfiguredModelText_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The exact text.
+	Text *string
+}
+
+func (b0 ConfiguredModelText_builder) Build() *ConfiguredModelText {
+	m0 := &ConfiguredModelText{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Text != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Text = b.Text
+	}
+	return m0
+}
+
+// ConfiguredModelToolCall contains one returned tool request that Host does not execute.
+type ConfiguredModelToolCall struct {
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id            *string                `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_Name          *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,3,opt,name=arguments_json,json=argumentsJson"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelToolCall) Reset() {
+	*x = ConfiguredModelToolCall{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelToolCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelToolCall) ProtoMessage() {}
+
+func (x *ConfiguredModelToolCall) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelToolCall) GetId() string {
+	if x != nil {
+		if x.xxx_hidden_Id != nil {
+			return *x.xxx_hidden_Id
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelToolCall) GetName() string {
+	if x != nil {
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelToolCall) GetArgumentsJson() []byte {
+	if x != nil {
+		return x.xxx_hidden_ArgumentsJson
+	}
+	return nil
+}
+
+func (x *ConfiguredModelToolCall) SetId(v string) {
+	x.xxx_hidden_Id = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ConfiguredModelToolCall) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *ConfiguredModelToolCall) SetArgumentsJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_ArgumentsJson = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *ConfiguredModelToolCall) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelToolCall) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelToolCall) HasArgumentsJson() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ConfiguredModelToolCall) ClearId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Id = nil
+}
+
+func (x *ConfiguredModelToolCall) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *ConfiguredModelToolCall) ClearArgumentsJson() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ArgumentsJson = nil
+}
+
+type ConfiguredModelToolCall_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The provider call identifier.
+	Id *string
+	// The requested tool name.
+	Name *string
+	// The finalized JSON arguments.
+	ArgumentsJson []byte
+}
+
+func (b0 ConfiguredModelToolCall_builder) Build() *ConfiguredModelToolCall {
+	m0 := &ConfiguredModelToolCall{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Id != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Id = b.Id
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.ArgumentsJson != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
+	}
+	return m0
+}
+
+// ConfiguredModelUsage contains provider-reported token accounting.
+type ConfiguredModelUsage struct {
+	state                        protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_InputTokens       int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens"`
+	xxx_hidden_OutputTokens      int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens"`
+	xxx_hidden_CachedInputTokens int64                  `protobuf:"varint,3,opt,name=cached_input_tokens,json=cachedInputTokens"`
+	xxx_hidden_CacheWriteTokens  int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens"`
+	xxx_hidden_ReasoningTokens   int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens"`
+	xxx_hidden_TotalTokens       int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens"`
+	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
+	XXX_presence                 [1]uint32
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelUsage) Reset() {
+	*x = ConfiguredModelUsage{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelUsage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelUsage) ProtoMessage() {}
+
+func (x *ConfiguredModelUsage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelUsage) GetInputTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_InputTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) GetOutputTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_OutputTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) GetCachedInputTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_CachedInputTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) GetCacheWriteTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_CacheWriteTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) GetReasoningTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_ReasoningTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) GetTotalTokens() int64 {
+	if x != nil {
+		return x.xxx_hidden_TotalTokens
+	}
+	return 0
+}
+
+func (x *ConfiguredModelUsage) SetInputTokens(v int64) {
+	x.xxx_hidden_InputTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
+}
+
+func (x *ConfiguredModelUsage) SetOutputTokens(v int64) {
+	x.xxx_hidden_OutputTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+}
+
+func (x *ConfiguredModelUsage) SetCachedInputTokens(v int64) {
+	x.xxx_hidden_CachedInputTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+}
+
+func (x *ConfiguredModelUsage) SetCacheWriteTokens(v int64) {
+	x.xxx_hidden_CacheWriteTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+}
+
+func (x *ConfiguredModelUsage) SetReasoningTokens(v int64) {
+	x.xxx_hidden_ReasoningTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *ConfiguredModelUsage) SetTotalTokens(v int64) {
+	x.xxx_hidden_TotalTokens = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+}
+
+func (x *ConfiguredModelUsage) HasInputTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelUsage) HasOutputTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelUsage) HasCachedInputTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ConfiguredModelUsage) HasCacheWriteTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *ConfiguredModelUsage) HasReasoningTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *ConfiguredModelUsage) HasTotalTokens() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *ConfiguredModelUsage) ClearInputTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_InputTokens = 0
+}
+
+func (x *ConfiguredModelUsage) ClearOutputTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_OutputTokens = 0
+}
+
+func (x *ConfiguredModelUsage) ClearCachedInputTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_CachedInputTokens = 0
+}
+
+func (x *ConfiguredModelUsage) ClearCacheWriteTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_CacheWriteTokens = 0
+}
+
+func (x *ConfiguredModelUsage) ClearReasoningTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ReasoningTokens = 0
+}
+
+func (x *ConfiguredModelUsage) ClearTotalTokens() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_TotalTokens = 0
+}
+
+type ConfiguredModelUsage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The uncached input token count.
+	InputTokens *int64
+	// The output token count including reasoning tokens.
+	OutputTokens *int64
+	// The cached input token count.
+	CachedInputTokens *int64
+	// The cache creation input token count.
+	CacheWriteTokens *int64
+	// The reasoning token subset of output tokens.
+	ReasoningTokens *int64
+	// The total token count.
+	TotalTokens *int64
+}
+
+func (b0 ConfiguredModelUsage_builder) Build() *ConfiguredModelUsage {
+	m0 := &ConfiguredModelUsage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.InputTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		x.xxx_hidden_InputTokens = *b.InputTokens
+	}
+	if b.OutputTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		x.xxx_hidden_OutputTokens = *b.OutputTokens
+	}
+	if b.CachedInputTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		x.xxx_hidden_CachedInputTokens = *b.CachedInputTokens
+	}
+	if b.CacheWriteTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		x.xxx_hidden_CacheWriteTokens = *b.CacheWriteTokens
+	}
+	if b.ReasoningTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_ReasoningTokens = *b.ReasoningTokens
+	}
+	if b.TotalTokens != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_TotalTokens = *b.TotalTokens
+	}
+	return m0
+}
+
+// ConfiguredModelDiagnostic contains one provider or runtime diagnostic.
+type ConfiguredModelDiagnostic struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Code        *string                `protobuf:"bytes,1,opt,name=code"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelDiagnostic) Reset() {
+	*x = ConfiguredModelDiagnostic{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelDiagnostic) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelDiagnostic) ProtoMessage() {}
+
+func (x *ConfiguredModelDiagnostic) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelDiagnostic) GetCode() string {
+	if x != nil {
+		if x.xxx_hidden_Code != nil {
+			return *x.xxx_hidden_Code
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelDiagnostic) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelDiagnostic) SetCode(v string) {
+	x.xxx_hidden_Code = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ConfiguredModelDiagnostic) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ConfiguredModelDiagnostic) HasCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelDiagnostic) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelDiagnostic) ClearCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Code = nil
+}
+
+func (x *ConfiguredModelDiagnostic) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+type ConfiguredModelDiagnostic_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The diagnostic code.
+	Code *string
+	// The diagnostic message.
+	Message *string
+}
+
+func (b0 ConfiguredModelDiagnostic_builder) Build() *ConfiguredModelDiagnostic {
+	m0 := &ConfiguredModelDiagnostic{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Code != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Code = b.Code
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
 // GetModelsRequest reads configured provider-neutral descriptors and active selection.
 type GetModelsRequest struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
@@ -226,7 +1741,7 @@ type GetModelsRequest struct {
 
 func (x *GetModelsRequest) Reset() {
 	*x = GetModelsRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +1753,7 @@ func (x *GetModelsRequest) String() string {
 func (*GetModelsRequest) ProtoMessage() {}
 
 func (x *GetModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +1812,7 @@ type GetModelsResult struct {
 
 func (x *GetModelsResult) Reset() {
 	*x = GetModelsResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +1824,7 @@ func (x *GetModelsResult) String() string {
 func (*GetModelsResult) ProtoMessage() {}
 
 func (x *GetModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +1898,7 @@ type GetProvidersRequest struct {
 
 func (x *GetProvidersRequest) Reset() {
 	*x = GetProvidersRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +1910,7 @@ func (x *GetProvidersRequest) String() string {
 func (*GetProvidersRequest) ProtoMessage() {}
 
 func (x *GetProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -453,7 +1968,7 @@ type GetProvidersResult struct {
 
 func (x *GetProvidersResult) Reset() {
 	*x = GetProvidersResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +1980,7 @@ func (x *GetProvidersResult) String() string {
 func (*GetProvidersResult) ProtoMessage() {}
 
 func (x *GetProvidersResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -517,7 +2032,7 @@ type ProviderDescriptor struct {
 
 func (x *ProviderDescriptor) Reset() {
 	*x = ProviderDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -529,7 +2044,7 @@ func (x *ProviderDescriptor) String() string {
 func (*ProviderDescriptor) ProtoMessage() {}
 
 func (x *ProviderDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -618,7 +2133,7 @@ type ModelDescriptor struct {
 
 func (x *ModelDescriptor) Reset() {
 	*x = ModelDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +2145,7 @@ func (x *ModelDescriptor) String() string {
 func (*ModelDescriptor) ProtoMessage() {}
 
 func (x *ModelDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -882,7 +2397,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -894,7 +2409,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1008,7 +2523,7 @@ type ToolCapabilities struct {
 
 func (x *ToolCapabilities) Reset() {
 	*x = ToolCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1020,7 +2535,7 @@ func (x *ToolCapabilities) String() string {
 func (*ToolCapabilities) ProtoMessage() {}
 
 func (x *ToolCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1149,7 +2664,7 @@ type ModelPricing struct {
 
 func (x *ModelPricing) Reset() {
 	*x = ModelPricing{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1161,7 +2676,7 @@ func (x *ModelPricing) String() string {
 func (*ModelPricing) ProtoMessage() {}
 
 func (x *ModelPricing) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +2851,7 @@ type PricingTier struct {
 
 func (x *PricingTier) Reset() {
 	*x = PricingTier{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1348,7 +2863,7 @@ func (x *PricingTier) String() string {
 func (*PricingTier) ProtoMessage() {}
 
 func (x *PricingTier) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1530,7 +3045,49 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12)\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"]\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\xa1\x02\n" +
+	"\x16ConfiguredModelRequest\x12I\n" +
+	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12H\n" +
+	"\tselection\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12\"\n" +
+	"\finstructions\x18\x03 \x01(\tR\finstructions\x12N\n" +
+	"\bmessages\x18\x04 \x03(\v22.glyph.plugins.extension.v1.ConfiguredModelMessageR\bmessages\"q\n" +
+	"\x16ConfiguredModelMessage\x12C\n" +
+	"\x04role\x18\x01 \x01(\x0e2/.glyph.plugins.extension.v1.ConfiguredModelRoleR\x04role\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\"\x82\x04\n" +
+	"\x15ConfiguredModelResult\x12L\n" +
+	"\acontent\x18\x01 \x03(\v22.glyph.plugins.extension.v1.ConfiguredModelContentR\acontent\x12L\n" +
+	"\aoutcome\x18\x02 \x01(\x0e22.glyph.plugins.extension.v1.ConfiguredModelOutcomeR\aoutcome\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x1f\n" +
+	"\vprovider_id\x18\x04 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x05 \x01(\tR\amodelId\x12*\n" +
+	"\x11response_model_id\x18\x06 \x01(\tR\x0fresponseModelId\x12\x1f\n" +
+	"\vresponse_id\x18\a \x01(\tR\n" +
+	"responseId\x12F\n" +
+	"\x05usage\x18\b \x01(\v20.glyph.plugins.extension.v1.ConfiguredModelUsageR\x05usage\x12W\n" +
+	"\vdiagnostics\x18\t \x03(\v25.glyph.plugins.extension.v1.ConfiguredModelDiagnosticR\vdiagnostics\"\xdc\x02\n" +
+	"\x16ConfiguredModelContent\x12E\n" +
+	"\x04text\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ConfiguredModelTextH\x00R\x04text\x12K\n" +
+	"\arefusal\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.ConfiguredModelTextH\x00R\arefusal\x12O\n" +
+	"\treasoning\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.ConfiguredModelTextH\x00R\treasoning\x12R\n" +
+	"\ttool_call\x18\x04 \x01(\v23.glyph.plugins.extension.v1.ConfiguredModelToolCallH\x00R\btoolCallB\t\n" +
+	"\acontent\")\n" +
+	"\x13ConfiguredModelText\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"d\n" +
+	"\x17ConfiguredModelToolCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
+	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\x8a\x02\n" +
+	"\x14ConfiguredModelUsage\x12!\n" +
+	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
+	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12.\n" +
+	"\x13cached_input_tokens\x18\x03 \x01(\x03R\x11cachedInputTokens\x12,\n" +
+	"\x12cache_write_tokens\x18\x04 \x01(\x03R\x10cacheWriteTokens\x12)\n" +
+	"\x10reasoning_tokens\x18\x05 \x01(\x03R\x0freasoningTokens\x12!\n" +
+	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"I\n" +
+	"\x19ConfiguredModelDiagnostic\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"]\n" +
 	"\x10GetModelsRequest\x12I\n" +
 	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\"\xad\x01\n" +
 	"\x0fGetModelsResult\x12C\n" +
@@ -1578,45 +3135,78 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\n" +
 	"cache_read\x18\x04 \x01(\x01R\tcacheRead\x12\x1f\n" +
 	"\vcache_write\x18\x05 \x01(\x01R\n" +
-	"cacheWrite*b\n" +
+	"cacheWrite*\x81\x01\n" +
+	"\x13ConfiguredModelRole\x12%\n" +
+	"!CONFIGURED_MODEL_ROLE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aCONFIGURED_MODEL_ROLE_USER\x10\x01\x12#\n" +
+	"\x1fCONFIGURED_MODEL_ROLE_ASSISTANT\x10\x02*\xfc\x01\n" +
+	"\x16ConfiguredModelOutcome\x12(\n" +
+	"$CONFIGURED_MODEL_OUTCOME_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dCONFIGURED_MODEL_OUTCOME_STOP\x10\x01\x12%\n" +
+	"!CONFIGURED_MODEL_OUTCOME_TOOL_USE\x10\x02\x12#\n" +
+	"\x1fCONFIGURED_MODEL_OUTCOME_LENGTH\x10\x03\x12$\n" +
+	" CONFIGURED_MODEL_OUTCOME_ABORTED\x10\x04\x12#\n" +
+	"\x1fCONFIGURED_MODEL_OUTCOME_FAILED\x10\x05*b\n" +
 	"\rInputModality\x12\x1e\n" +
 	"\x1aINPUT_MODALITY_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13INPUT_MODALITY_TEXT\x10\x01\x12\x18\n" +
 	"\x14INPUT_MODALITY_IMAGE\x10\x02B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_api_plugins_extension_v1_model_proto_goTypes = []any{
-	(InputModality)(0),            // 0: glyph.plugins.extension.v1.InputModality
-	(*ModelSelection)(nil),        // 1: glyph.plugins.extension.v1.ModelSelection
-	(*GetModelsRequest)(nil),      // 2: glyph.plugins.extension.v1.GetModelsRequest
-	(*GetModelsResult)(nil),       // 3: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersRequest)(nil),   // 4: glyph.plugins.extension.v1.GetProvidersRequest
-	(*GetProvidersResult)(nil),    // 5: glyph.plugins.extension.v1.GetProvidersResult
-	(*ProviderDescriptor)(nil),    // 6: glyph.plugins.extension.v1.ProviderDescriptor
-	(*ModelDescriptor)(nil),       // 7: glyph.plugins.extension.v1.ModelDescriptor
-	(*ReasoningCapabilities)(nil), // 8: glyph.plugins.extension.v1.ReasoningCapabilities
-	(*ToolCapabilities)(nil),      // 9: glyph.plugins.extension.v1.ToolCapabilities
-	(*ModelPricing)(nil),          // 10: glyph.plugins.extension.v1.ModelPricing
-	(*PricingTier)(nil),           // 11: glyph.plugins.extension.v1.PricingTier
-	(*ExtensionContextRef)(nil),   // 12: glyph.plugins.extension.v1.ExtensionContextRef
+	(ConfiguredModelRole)(0),          // 0: glyph.plugins.extension.v1.ConfiguredModelRole
+	(ConfiguredModelOutcome)(0),       // 1: glyph.plugins.extension.v1.ConfiguredModelOutcome
+	(InputModality)(0),                // 2: glyph.plugins.extension.v1.InputModality
+	(*ModelSelection)(nil),            // 3: glyph.plugins.extension.v1.ModelSelection
+	(*ConfiguredModelRequest)(nil),    // 4: glyph.plugins.extension.v1.ConfiguredModelRequest
+	(*ConfiguredModelMessage)(nil),    // 5: glyph.plugins.extension.v1.ConfiguredModelMessage
+	(*ConfiguredModelResult)(nil),     // 6: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*ConfiguredModelContent)(nil),    // 7: glyph.plugins.extension.v1.ConfiguredModelContent
+	(*ConfiguredModelText)(nil),       // 8: glyph.plugins.extension.v1.ConfiguredModelText
+	(*ConfiguredModelToolCall)(nil),   // 9: glyph.plugins.extension.v1.ConfiguredModelToolCall
+	(*ConfiguredModelUsage)(nil),      // 10: glyph.plugins.extension.v1.ConfiguredModelUsage
+	(*ConfiguredModelDiagnostic)(nil), // 11: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	(*GetModelsRequest)(nil),          // 12: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetModelsResult)(nil),           // 13: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersRequest)(nil),       // 14: glyph.plugins.extension.v1.GetProvidersRequest
+	(*GetProvidersResult)(nil),        // 15: glyph.plugins.extension.v1.GetProvidersResult
+	(*ProviderDescriptor)(nil),        // 16: glyph.plugins.extension.v1.ProviderDescriptor
+	(*ModelDescriptor)(nil),           // 17: glyph.plugins.extension.v1.ModelDescriptor
+	(*ReasoningCapabilities)(nil),     // 18: glyph.plugins.extension.v1.ReasoningCapabilities
+	(*ToolCapabilities)(nil),          // 19: glyph.plugins.extension.v1.ToolCapabilities
+	(*ModelPricing)(nil),              // 20: glyph.plugins.extension.v1.ModelPricing
+	(*PricingTier)(nil),               // 21: glyph.plugins.extension.v1.PricingTier
+	(*ExtensionContextRef)(nil),       // 22: glyph.plugins.extension.v1.ExtensionContextRef
 }
 var file_api_plugins_extension_v1_model_proto_depIdxs = []int32{
-	12, // 0: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	7,  // 1: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
-	1,  // 2: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	12, // 3: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	6,  // 4: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
-	0,  // 5: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
-	8,  // 6: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
-	9,  // 7: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
-	10, // 8: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
-	11, // 9: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	22, // 0: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	3,  // 1: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	5,  // 2: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
+	0,  // 3: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
+	7,  // 4: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
+	1,  // 5: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
+	10, // 6: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
+	11, // 7: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	8,  // 8: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	8,  // 9: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	8,  // 10: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	9,  // 11: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
+	22, // 12: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	17, // 13: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	3,  // 14: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	22, // 15: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	16, // 16: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
+	2,  // 17: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
+	18, // 18: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
+	19, // 19: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
+	20, // 20: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
+	21, // 21: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_model_proto_init() }
@@ -1625,13 +3215,19 @@ func file_api_plugins_extension_v1_model_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_context_proto_init()
+	file_api_plugins_extension_v1_model_proto_msgTypes[4].OneofWrappers = []any{
+		(*configuredModelContent_Text)(nil),
+		(*configuredModelContent_Refusal)(nil),
+		(*configuredModelContent_Reasoning)(nil),
+		(*configuredModelContent_ToolCall)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_model_proto_rawDesc), len(file_api_plugins_extension_v1_model_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   11,
+			NumEnums:      3,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

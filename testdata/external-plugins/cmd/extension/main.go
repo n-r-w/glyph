@@ -29,6 +29,8 @@ const (
 	cataloguesMode = "catalogs"
 	// staleCataloguesMode exercises a retained binding instead of the current invocation binding.
 	staleCataloguesMode = "stale-catalogs"
+	// configuredRequestMode executes one explicit configured-model request.
+	configuredRequestMode = "configured-request"
 	// failureMode selects classified execution failure.
 	failureMode = "fail"
 	// cancellationMode selects execution blocked until targeted cancellation.
@@ -115,7 +117,13 @@ func (s *service) PrepareExecute(
 		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
 	switch arguments.Mode {
-	case ordinaryMode, cataloguesMode, staleCataloguesMode, failureMode, cancellationMode, shutdownMode:
+	case ordinaryMode,
+		cataloguesMode,
+		staleCataloguesMode,
+		configuredRequestMode,
+		failureMode,
+		cancellationMode,
+		shutdownMode:
 		binding, err := extensionsdk.ContextFrom(ctx)
 		if err != nil {
 			return nil, err
@@ -172,6 +180,8 @@ func (operation *executeOperation) Run(
 		return readCatalogues(ctx)
 	case staleCataloguesMode:
 		return operation.readRetainedCatalogues(ctx)
+	case configuredRequestMode:
+		return requestConfiguredModel(ctx)
 	case failureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("complete external Extension failure"))
 	default:

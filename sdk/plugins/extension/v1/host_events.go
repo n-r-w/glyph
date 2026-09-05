@@ -18,10 +18,18 @@ const (
 	hostRequestModels
 	// hostRequestProviders identifies provider-identifier catalog reads.
 	hostRequestProviders
+	// hostRequestConfiguredModel identifies explicit configured-model requests.
+	hostRequestConfiguredModel
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
 	contextCodeStale = "STALE_CONTEXT"
+	// hostFailureCodeModelUnavailable identifies an unavailable configured selection.
+	hostFailureCodeModelUnavailable = "MODEL_UNAVAILABLE"
+	// hostFailureCodeCredentialUnavailable identifies unavailable provider credentials.
+	hostFailureCodeCredentialUnavailable = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a protocol error code.
+	// hostFailureCodeModelFailed identifies provider request failure.
+	hostFailureCodeModelFailed = "MODEL_FAILED"
 )
 
 // classifyHostRequest identifies an implemented extension-initiated request.
@@ -34,6 +42,8 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 		return hostRequestModels
 	case extensionpb.ExtensionRequest_GetProviders_case:
 		return hostRequestProviders
+	case extensionpb.ExtensionRequest_ConfiguredModel_case:
+		return hostRequestConfiguredModel
 	case extensionpb.ExtensionRequest_Cancel_case:
 		return hostRequestCancel
 	case extensionpb.ExtensionRequest_Request_not_set_case:
@@ -53,6 +63,8 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 		return result.GetGetModels() != nil
 	case hostRequestProviders:
 		return result.GetGetProviders() != nil
+	case hostRequestConfiguredModel:
+		return result.GetConfiguredModel() != nil
 	case hostRequestCancel:
 		return result.GetCancel() != nil
 	case hostRequestInvalid:
@@ -62,12 +74,28 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 	}
 }
 
-// validateHostFailureCode enforces the closed catalog execution categories.
-func validateHostFailureCode(code string) error {
+// validateHostFailureCode enforces the closed execution categories for one request kind.
+func validateHostFailureCode(kind hostRequestKind, code string) error {
 	if code == failureCodeInternal || code == contextCodeStale {
 		return nil
 	}
-	return fmt.Errorf("unsupported Host catalog failure category %q", code)
+	if kind == hostRequestConfiguredModel {
+		switch code {
+		case hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed:
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
+}
+
+// validateHostOutputFailureCode accepts the union that the Host peer can publish before request-local validation.
+func validateHostOutputFailureCode(code string) error {
+	for _, kind := range []hostRequestKind{hostRequestModels, hostRequestConfiguredModel} {
+		if validateHostFailureCode(kind, code) == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported Host failure category %q", code)
 }
 
 // validateHostRejectionCode enforces operation-specific admission categories.
@@ -150,7 +178,7 @@ func mapHostEvent(
 			GetCode(),
 			payload.GetFailed().
 				GetMessage()
-		if err := validateHostFailureCode(event.Code); err != nil {
+		if err := validateHostFailureCode(kind, event.Code); err != nil {
 			return event, false, fmt.Errorf("%w: peer failure text: %s", err, event.Message)
 		}
 		return event, true, nil

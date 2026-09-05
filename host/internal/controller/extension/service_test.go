@@ -3,6 +3,8 @@
 package extension
 
 import (
+	"encoding/json/v2"
+	"errors"
 	"testing"
 
 	"github.com/samber/mo"
@@ -10,10 +12,270 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
+
+// TestConfiguredModelRequestMapsPublicTerminalResponse verifies request validation and provider-private omission.
+func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one explicit request and a terminal response with every public content kind and private reasoning context.
+	controller := gomock.NewController(t)
+	contexts := NewMockContextOperations(controller)
+	runtime := NewMockRuntimeOperations(controller)
+	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	history := []agent.HistoryEntry{
+		{
+			Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("question")),
+			Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+		},
+		{
+			Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
+			Model: mo.Some(model.Response{
+				Content: []model.Content{{
+					Kind: model.ContentText, Text: mo.Some("prior answer"), Final: true,
+					ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+				}},
+				Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+				Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+				Usage: mo.None[model.Usage](), Diagnostics: nil,
+			}), ToolResult: mo.None[agent.ToolResult](),
+		},
+	}
+	privateContext := model.ProviderContext{
+		Source: model.ProviderContextSource{
+			ProviderID: "provider", API: "private-api", Model: "model", CompatibilityKey: mo.None[string](),
+		},
+		Payload: []byte("private-reasoning-context"),
+	}
+	response := model.Response{
+		Content: []model.Content{
+			{
+				Kind: model.ContentText, Text: mo.Some("answer"), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentRefusal, Text: mo.Some("refusal"), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
+				ProviderContext: mo.Some(privateContext), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentReasoning, Text: mo.None[string](), Final: true,
+				ProviderContext: mo.Some(privateContext), ToolCall: mo.None[model.ToolCall](),
+			},
+			{
+				Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(model.ToolCall{
+					ID: "call", Name: "do-not-run", Arguments: map[string]any{"value": "exact"},
+				}),
+			},
+		},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.Some("terminal detail"),
+		Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+		ResponseModel: mo.Some(model.ID("reported-model")), ResponseID: mo.Some("response"),
+		Usage: mo.Some(model.Usage{
+			InputTokens: 3, OutputTokens: 5, CachedInputTokens: 2,
+			CacheWriteTokens: 1, ReasoningTokens: 2, TotalTokens: 8,
+		}),
+		Diagnostics: []model.Diagnostic{{Code: "notice", Message: "complete diagnostic"}},
+	}
+	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
+	released := false
+	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() { released = true }, nil)
+	contexts.EXPECT().Request(gomock.Any(), "extension", "runtime", reference, selection, "", history).
+		Return(response, nil)
+	service := New(contexts, runtime, "extension", "runtime")
+	request := new(extensionpb.ExtensionRequest)
+	request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
+		Context: extensionpb.ExtensionContextRef_builder{
+			ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+		}.Build(),
+		Selection: extensionpb.ModelSelection_builder{
+			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("high"),
+		}.Build(),
+		Instructions: new(""),
+		Messages: []*extensionpb.ConfiguredModelMessage{
+			extensionpb.ConfiguredModelMessage_builder{
+				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+			}.Build(),
+			extensionpb.ConfiguredModelMessage_builder{
+				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT), Text: new("prior answer"),
+			}.Build(),
+		},
+	}.Build())
+
+	// Act through the production extension request controller.
+	prepared, err := service.Prepare(t.Context(), "operation", request)
+	require.NoError(t, err)
+	completed, err := prepared.Run(t.Context())
+	require.NoError(t, err)
+	prepared.Release()
+
+	// Assert ordered public content, metadata, and accounting omit private reasoning context.
+	require.True(t, released)
+	result := completed.GetConfiguredModel()
+	require.Len(t, result.GetContent(), 4)
+	assert.Equal(t, "answer", result.GetContent()[0].GetText().GetText())
+	assert.Equal(t, "refusal", result.GetContent()[1].GetRefusal().GetText())
+	assert.Equal(t, "visible reasoning", result.GetContent()[2].GetReasoning().GetText())
+	assert.Equal(t, "call", result.GetContent()[3].GetToolCall().GetId())
+	assert.Equal(t, "do-not-run", result.GetContent()[3].GetToolCall().GetName())
+	var arguments map[string]any
+	require.NoError(t, json.Unmarshal(result.GetContent()[3].GetToolCall().GetArgumentsJson(), &arguments))
+	assert.Equal(t, map[string]any{"value": "exact"}, arguments)
+	assert.Equal(t, extensionpb.ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_TOOL_USE, result.GetOutcome())
+	assert.Equal(t, "terminal detail", result.GetErrorMessage())
+	assert.Equal(t, "provider", result.GetProviderId())
+	assert.Equal(t, "model", result.GetModelId())
+	assert.Equal(t, "reported-model", result.GetResponseModelId())
+	assert.Equal(t, "response", result.GetResponseId())
+	assert.Equal(t, int64(8), result.GetUsage().GetTotalTokens())
+	require.Len(t, result.GetDiagnostics(), 1)
+	assert.Equal(t, "complete diagnostic", result.GetDiagnostics()[0].GetMessage())
+	assert.NotContains(t, result.String(), "private-api")
+	assert.NotContains(t, result.String(), "private-reasoning-context")
+}
+
+// TestConfiguredModelRequestPreservesClosedFailures verifies every owner category and complete cause reach the SDK.
+func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
+	t.Parallel()
+
+	for _, code := range []string{
+		"MODEL_UNAVAILABLE", "CREDENTIAL_UNAVAILABLE", "MODEL_FAILED", "STALE_CONTEXT", "INTERNAL",
+	} {
+		t.Run(code, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange one admitted request and a generated classified failure from its context owner.
+			controller := gomock.NewController(t)
+			contexts := NewMockContextOperations(controller)
+			runtime := NewMockRuntimeOperations(controller)
+			failure := NewMockContextFailure(controller)
+			failure.EXPECT().ContextCode().Return(code)
+			failure.EXPECT().Error().Return("complete configured request cause").AnyTimes()
+			reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+			contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
+			runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
+			contexts.EXPECT().Request(
+				gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(),
+			).Return(model.Response{}, failure)
+			service := New(contexts, runtime, "extension", "runtime")
+			request := new(extensionpb.ExtensionRequest)
+			request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
+				Context: extensionpb.ExtensionContextRef_builder{
+					ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+				}.Build(),
+				Selection: validConfiguredSelection(), Instructions: new(""), Messages: validConfiguredMessages(),
+			}.Build())
+			prepared, err := service.Prepare(t.Context(), "operation", request)
+			require.NoError(t, err)
+			defer prepared.Release()
+
+			// Act through the admitted controller operation.
+			_, err = prepared.Run(t.Context())
+
+			// Assert the public code supplements rather than replaces the complete owner error text.
+			publicFailure, present := errors.AsType[*extensionsdk.FailureError](err)
+			require.True(t, present)
+			assert.Equal(t, code, publicFailure.Code())
+			assert.Contains(t, err.Error(), "complete configured request cause")
+		})
+	}
+}
+
+// TestConfiguredModelRequestRejectsInvalidTextHistory verifies every required public input boundary.
+func TestConfiguredModelRequestRejectsInvalidTextHistory(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		// name identifies the invalid field.
+		name string
+		// selection supplies the request selection.
+		selection *extensionpb.ModelSelection
+		// messages supplies the request history.
+		messages []*extensionpb.ConfiguredModelMessage
+		// text identifies the expected complete rejection cause.
+		text string
+	}{
+		{
+			name: "missing model", selection: extensionpb.ModelSelection_builder{
+				ProviderId: new("provider"), ModelId: new(""), ReasoningChoice: new("off"),
+			}.Build(),
+			messages: validConfiguredMessages(), text: "complete configured model selection is required",
+		},
+		{
+			name: "empty messages", selection: validConfiguredSelection(), messages: nil,
+			text: "requires at least one message",
+		},
+		{
+			name: "unspecified role", selection: validConfiguredSelection(),
+			messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
+				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED), Text: new("text"),
+			}.Build()},
+			text: "role is unspecified",
+		},
+		{
+			name: "empty text", selection: validConfiguredSelection(),
+			messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
+				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new(""),
+			}.Build()},
+			text: "requires nonempty text",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange one malformed request without admitting runtime work.
+			controller := gomock.NewController(t)
+			service := New(
+				NewMockContextOperations(controller),
+				NewMockRuntimeOperations(controller),
+				"extension",
+				"runtime",
+			)
+			request := new(extensionpb.ExtensionRequest)
+			request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
+				Context: extensionpb.ExtensionContextRef_builder{
+					ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+				}.Build(),
+				Selection: test.selection, Instructions: new(""), Messages: test.messages,
+			}.Build())
+
+			// Act before Host operation acceptance.
+			_, err := service.Prepare(t.Context(), "operation", request)
+
+			// Assert the closed rejection category supplements the exact validation cause.
+			var rejection *extensionsdk.RejectionError
+			require.ErrorAs(t, err, &rejection)
+			assert.Equal(t, "INVALID_ARGUMENT", rejection.Code())
+			assert.Contains(t, err.Error(), test.text)
+		})
+	}
+}
+
+// validConfiguredSelection supplies one complete explicit selection.
+func validConfiguredSelection() *extensionpb.ModelSelection {
+	return extensionpb.ModelSelection_builder{
+		ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
+	}.Build()
+}
+
+// validConfiguredMessages supplies one valid nonempty user message.
+func validConfiguredMessages() []*extensionpb.ConfiguredModelMessage {
+	return []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
+		Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("text"),
+	}.Build()}
+}
 
 // TestModelCatalogueMapsCompleteDescriptor verifies full neutral capability and active-selection projection.
 func TestModelCatalogueMapsCompleteDescriptor(t *testing.T) {

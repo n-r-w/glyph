@@ -13,7 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -69,6 +71,21 @@ func (m *MockContextOperations) ReadProviders(ctx context.Context, extensionID, 
 func (mr *MockContextOperationsMockRecorder) ReadProviders(ctx, extensionID, runtimeID, reference any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadProviders", reflect.TypeOf((*MockContextOperations)(nil).ReadProviders), ctx, extensionID, runtimeID, reference)
+}
+
+// Request mocks base method.
+func (m *MockContextOperations) Request(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Request", ctx, extensionID, runtimeID, reference, selection, instructions, history)
+	ret0, _ := ret[0].(model.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Request indicates an expected call of Request.
+func (mr *MockContextOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockContextOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history)
 }
 
 // ValidateContext mocks base method.

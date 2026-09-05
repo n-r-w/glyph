@@ -22,13 +22,16 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // TestPublicContextCataloguesAcrossApplicationModes runs the same public-only extension through all Host assemblies.
+//
+//nolint:paralleltest // The scenarios replace process-global provider HTTP transport.
 func TestPublicContextCataloguesAcrossApplicationModes(t *testing.T) {
 	// Arrange: build the public-only extension once and replace only the provider HTTP adapter.
-	directory := buildPublicCatalogueExtension(t)
+	directory := buildPublicExtensionFixture(t)
 	for _, scenario := range []struct {
 		// name identifies the application assembly under test.
 		name string
@@ -49,33 +52,11 @@ func TestPublicContextCataloguesAcrossApplicationModes(t *testing.T) {
 			t.Cleanup(func() { http.DefaultTransport = previous })
 
 			// Act: let Agent Core invoke the external tool, which reads both catalogs through its context.
-			switch scenario.mode {
-			case cli.ModeHeadless:
-				err := runWithPaths(t.Context(), paths, cli.Command{
-					Mode:               cli.ModeHeadless,
-					Headless:           headless.Command{UserText: "inspect catalog", ExtensionDirectory: directory},
-					ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: "",
-				}, &bytes.Buffer{}, &bytes.Buffer{})
-				require.NoError(t, err)
-			case cli.ModeUI:
-				uiDirectory := t.TempDir()
-				t.Setenv(appUIBehaviorEnvironment, "semantic")
-				t.Setenv(appUITraceEnvironment, filepath.Join(t.TempDir(), "ui.jsonl"))
-				writeUIExecutable(t, uiDirectory, "Semantic_UI")
-				err := runWithPaths(t.Context(), paths, cli.Command{
-					Mode: cli.ModeUI, Headless: headless.Command{},
-					ExtensionDirectory: directory, UIDirectory: uiDirectory, UIID: "semantic-ui", SocketPath: "",
-				}, &bytes.Buffer{}, &bytes.Buffer{})
-				require.NoError(t, err)
-			case cli.ModeRPC:
-				fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
-				completeProgrammaticRequest(t, fixture, userRequest("catalogs", "inspect catalog"))
-				fixture.closeOwner(t)
-			}
+			runPublicExtensionMode(t, scenario.mode, paths, directory, "catalogs", "inspect catalog")
 
 			// Assert: the external process received neutral descriptors, provider order, selection, and identity.
 			require.Equal(t, int32(2), count.Load())
-			encoded := catalogueToolOutput(t, body.Load().([]byte))
+			encoded := externalToolOutput(t, body.Load().([]byte))
 			var report struct {
 				// Identity contains the SDK invocation identity.
 				Identity jsontext.Value `json:"identity"`
@@ -119,8 +100,41 @@ func TestPublicContextCataloguesAcrossApplicationModes(t *testing.T) {
 	}
 }
 
-// buildPublicCatalogueExtension builds the external module without Host-internal source imports.
-func buildPublicCatalogueExtension(t *testing.T) string {
+// runPublicExtensionMode invokes one external fixture tool through the selected application assembly.
+func runPublicExtensionMode(
+	t *testing.T,
+	mode cli.Mode,
+	paths persistence.Paths,
+	directory, requestID, userText string,
+) {
+	t.Helper()
+	switch mode {
+	case cli.ModeHeadless:
+		err := runWithPaths(t.Context(), paths, cli.Command{
+			Mode:               cli.ModeHeadless,
+			Headless:           headless.Command{UserText: userText, ExtensionDirectory: directory},
+			ExtensionDirectory: "", UIDirectory: "", UIID: "", SocketPath: "",
+		}, &bytes.Buffer{}, &bytes.Buffer{})
+		require.NoError(t, err)
+	case cli.ModeUI:
+		uiDirectory := t.TempDir()
+		t.Setenv(appUIBehaviorEnvironment, "semantic")
+		t.Setenv(appUITraceEnvironment, filepath.Join(t.TempDir(), "ui.jsonl"))
+		writeUIExecutable(t, uiDirectory, "Semantic_UI")
+		err := runWithPaths(t.Context(), paths, cli.Command{
+			Mode: cli.ModeUI, Headless: headless.Command{}, ExtensionDirectory: directory,
+			UIDirectory: uiDirectory, UIID: "semantic-ui", SocketPath: "",
+		}, &bytes.Buffer{}, &bytes.Buffer{})
+		require.NoError(t, err)
+	case cli.ModeRPC:
+		fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+		completeProgrammaticRequest(t, fixture, userRequest(requestID, userText))
+		fixture.closeOwner(t)
+	}
+}
+
+// buildPublicExtensionFixture builds the external module without Host-internal source imports.
+func buildPublicExtensionFixture(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
 	command := exec.CommandContext(
@@ -167,9 +181,9 @@ func catalogueProviderTransport(
 	return transport
 }
 
-// catalogueToolOutput extracts only the external tool result, not provider-owned reasoning from the surrounding
+// externalToolOutput extracts only the external tool result, not provider-owned reasoning from the surrounding
 // request.
-func catalogueToolOutput(t *testing.T, body []byte) string {
+func externalToolOutput(t *testing.T, body []byte) string {
 	t.Helper()
 	var request struct {
 		// Input contains the provider request's ordered history items.

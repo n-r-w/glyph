@@ -32,6 +32,12 @@ type ProvidersOperation struct {
 	operation *contextOperation
 }
 
+// ConfiguredModelOperation owns one asynchronous configured-model request.
+type ConfiguredModelOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ContextFrom returns the session-bound context supplied to a tool or handler invocation.
 func ContextFrom(ctx context.Context) (*ExtensionContext, error) {
 	binding, present := ctx.Value(invocationContextKey{}).(*ExtensionContext)
@@ -66,6 +72,34 @@ func (c *ExtensionContext) StartGetProviders(ctx context.Context) (*ProvidersOpe
 		return nil, err
 	}
 	return &ProvidersOperation{operation: started}, nil
+}
+
+// StartConfiguredModel starts an explicit configured-model request without waiting for Host acceptance.
+func (c *ExtensionContext) StartConfiguredModel(
+	ctx context.Context,
+	input *extensionpb.ConfiguredModelRequest,
+) (*ConfiguredModelOperation, error) {
+	if input == nil {
+		return nil, errors.New("configured model request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetConfiguredModel(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfiguredModelOperation{operation: started}, nil
+}
+
+// Wait waits locally for the typed configured-model result without canceling remote work.
+func (o *ConfiguredModelOperation) Wait(ctx context.Context) (*extensionpb.ConfiguredModelResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetConfiguredModel(), nil
 }
 
 // Wait waits locally for the typed model-catalog result without canceling remote work.
