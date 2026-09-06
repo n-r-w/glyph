@@ -74,6 +74,29 @@ func TestMapSessionEntryAddedUsesConnectionEvent(t *testing.T) {
 	assert.Equal(t, uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, entry.GetExtensionMessage().GetVisibility())
 }
 
+// TestMapExtensionIssueUsesTypedConnectionEvent verifies observer identity and complete text.
+func TestMapExtensionIssueUsesTypedConnectionEvent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one nonterminal observer issue frame.
+	frame := domainui.NewFrame(domainui.FrameExtensionIssue)
+	frame.ExtensionIssue = mo.Some(domainui.ExtensionIssue{
+		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Text: "complete cause",
+	})
+
+	// Act through the UI transport mapper.
+	mapped, err := mapFrame(frame)
+
+	// Assert the public connection event retains every diagnostic field.
+	require.NoError(t, err)
+	issue := mapped.GetConnectionEvent().GetExtensionIssue()
+	assert.Empty(t, mapped.GetOperationId())
+	assert.Equal(t, "example", issue.GetExtensionId())
+	assert.Equal(t, "observer", issue.GetHandlerId())
+	assert.Equal(t, "OBSERVER_ERROR", issue.GetCode())
+	assert.Equal(t, "complete cause", issue.GetText())
+}
+
 // TestMapExtensionRuntimeFailureUsesConnectionCategory verifies idle extension failure semantics.
 func TestMapExtensionRuntimeFailureUsesConnectionCategory(t *testing.T) {
 	t.Parallel()

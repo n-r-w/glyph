@@ -145,53 +145,104 @@ func (mr *MockToolRegistrarMockRecorder) ValidateLocal(registration any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateLocal", reflect.TypeOf((*MockToolRegistrar)(nil).ValidateLocal), registration)
 }
 
-// MockHandlerRegistrar is a mock of HandlerRegistrar interface.
-type MockHandlerRegistrar struct {
+// MockSessionTreeRegistrar is a mock of SessionTreeRegistrar interface.
+type MockSessionTreeRegistrar struct {
 	ctrl     *gomock.Controller
-	recorder *MockHandlerRegistrarMockRecorder
+	recorder *MockSessionTreeRegistrarMockRecorder
 	isgomock struct{}
 }
 
-// MockHandlerRegistrarMockRecorder is the mock recorder for MockHandlerRegistrar.
-type MockHandlerRegistrarMockRecorder struct {
-	mock *MockHandlerRegistrar
+// MockSessionTreeRegistrarMockRecorder is the mock recorder for MockSessionTreeRegistrar.
+type MockSessionTreeRegistrarMockRecorder struct {
+	mock *MockSessionTreeRegistrar
 }
 
-// NewMockHandlerRegistrar creates a new mock instance.
-func NewMockHandlerRegistrar(ctrl *gomock.Controller) *MockHandlerRegistrar {
-	mock := &MockHandlerRegistrar{ctrl: ctrl}
-	mock.recorder = &MockHandlerRegistrarMockRecorder{mock}
+// NewMockSessionTreeRegistrar creates a new mock instance.
+func NewMockSessionTreeRegistrar(ctrl *gomock.Controller) *MockSessionTreeRegistrar {
+	mock := &MockSessionTreeRegistrar{ctrl: ctrl}
+	mock.recorder = &MockSessionTreeRegistrarMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockHandlerRegistrar) EXPECT() *MockHandlerRegistrarMockRecorder {
+func (m *MockSessionTreeRegistrar) EXPECT() *MockSessionTreeRegistrarMockRecorder {
 	return m.recorder
 }
 
-// CommitHandlers mocks base method.
-func (m *MockHandlerRegistrar) CommitHandlers(registrations []AcceptedRegistration) {
+// CommitSessionTreeHandlers mocks base method.
+func (m *MockSessionTreeRegistrar) CommitSessionTreeHandlers(registrations []AcceptedRegistration) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CommitHandlers", registrations)
+	m.ctrl.Call(m, "CommitSessionTreeHandlers", registrations)
 }
 
-// CommitHandlers indicates an expected call of CommitHandlers.
-func (mr *MockHandlerRegistrarMockRecorder) CommitHandlers(registrations any) *gomock.Call {
+// CommitSessionTreeHandlers indicates an expected call of CommitSessionTreeHandlers.
+func (mr *MockSessionTreeRegistrarMockRecorder) CommitSessionTreeHandlers(registrations any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHandlers", reflect.TypeOf((*MockHandlerRegistrar)(nil).CommitHandlers), registrations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSessionTreeHandlers", reflect.TypeOf((*MockSessionTreeRegistrar)(nil).CommitSessionTreeHandlers), registrations)
 }
 
-// ValidateHandlers mocks base method.
-func (m *MockHandlerRegistrar) ValidateHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+// ValidateSessionTreeHandlers mocks base method.
+func (m *MockSessionTreeRegistrar) ValidateSessionTreeHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateHandlers", registration)
+	ret := m.ctrl.Call(m, "ValidateSessionTreeHandlers", registration)
 	ret0, _ := ret[0].([]AcceptedHandler)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ValidateHandlers indicates an expected call of ValidateHandlers.
-func (mr *MockHandlerRegistrarMockRecorder) ValidateHandlers(registration any) *gomock.Call {
+// ValidateSessionTreeHandlers indicates an expected call of ValidateSessionTreeHandlers.
+func (mr *MockSessionTreeRegistrarMockRecorder) ValidateSessionTreeHandlers(registration any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateHandlers", reflect.TypeOf((*MockHandlerRegistrar)(nil).ValidateHandlers), registration)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSessionTreeHandlers", reflect.TypeOf((*MockSessionTreeRegistrar)(nil).ValidateSessionTreeHandlers), registration)
+}
+
+// MockLifecycleRegistrar is a mock of LifecycleRegistrar interface.
+type MockLifecycleRegistrar struct {
+	ctrl     *gomock.Controller
+	recorder *MockLifecycleRegistrarMockRecorder
+	isgomock struct{}
+}
+
+// MockLifecycleRegistrarMockRecorder is the mock recorder for MockLifecycleRegistrar.
+type MockLifecycleRegistrarMockRecorder struct {
+	mock *MockLifecycleRegistrar
+}
+
+// NewMockLifecycleRegistrar creates a new mock instance.
+func NewMockLifecycleRegistrar(ctrl *gomock.Controller) *MockLifecycleRegistrar {
+	mock := &MockLifecycleRegistrar{ctrl: ctrl}
+	mock.recorder = &MockLifecycleRegistrarMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLifecycleRegistrar) EXPECT() *MockLifecycleRegistrarMockRecorder {
+	return m.recorder
+}
+
+// CommitLifecycleHandlers mocks base method.
+func (m *MockLifecycleRegistrar) CommitLifecycleHandlers(registrations []AcceptedRegistration) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CommitLifecycleHandlers", registrations)
+}
+
+// CommitLifecycleHandlers indicates an expected call of CommitLifecycleHandlers.
+func (mr *MockLifecycleRegistrarMockRecorder) CommitLifecycleHandlers(registrations any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitLifecycleHandlers", reflect.TypeOf((*MockLifecycleRegistrar)(nil).CommitLifecycleHandlers), registrations)
+}
+
+// ValidateLifecycleHandlers mocks base method.
+func (m *MockLifecycleRegistrar) ValidateLifecycleHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateLifecycleHandlers", registration)
+	ret0, _ := ret[0].([]AcceptedHandler)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateLifecycleHandlers indicates an expected call of ValidateLifecycleHandlers.
+func (mr *MockLifecycleRegistrarMockRecorder) ValidateLifecycleHandlers(registration any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateLifecycleHandlers", reflect.TypeOf((*MockLifecycleRegistrar)(nil).ValidateLifecycleHandlers), registration)
 }

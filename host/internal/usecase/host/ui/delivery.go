@@ -47,6 +47,27 @@ func (d *Delivery) ReportRuntimeFailure(_ context.Context, failure extension.Run
 	return nil
 }
 
+// DeliverExtensionIssue sends one typed nonterminal observer issue.
+func (d *Delivery) DeliverExtensionIssue(
+	ctx context.Context,
+	extensionID string,
+	handlerID string,
+	code string,
+	issueErr error,
+) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("deliver UI extension issue: %w", err)
+	}
+	frame := domainui.NewFrame(domainui.FrameExtensionIssue)
+	frame.ExtensionIssue = mo.Some(domainui.ExtensionIssue{
+		ExtensionID: extensionID, HandlerID: handlerID, Code: code, Text: issueErr.Error(),
+	})
+	if err := d.channel.Send(frame); err != nil {
+		return fmt.Errorf("deliver UI extension issue: %w", err)
+	}
+	return nil
+}
+
 // DeliverAgent filters one Agent Core event into an explicit UI-safe lifecycle frame.
 func (d *Delivery) DeliverAgent(ctx context.Context, event run.Event) error {
 	if err := ctx.Err(); err != nil {

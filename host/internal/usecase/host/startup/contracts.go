@@ -100,6 +100,28 @@ const (
 	RawHandlerKindSessionBeforeTreeResult RawHandlerKind = 2
 	// RawHandlerKindSessionTree identifies a committed navigation observer.
 	RawHandlerKindSessionTree RawHandlerKind = 3
+	// RawHandlerKindAgentStart identifies an agent-start observer.
+	RawHandlerKindAgentStart RawHandlerKind = 4
+	// RawHandlerKindAgentEnd identifies an agent-end observer.
+	RawHandlerKindAgentEnd RawHandlerKind = 5
+	// RawHandlerKindAgentSettled identifies a Host-settlement observer.
+	RawHandlerKindAgentSettled RawHandlerKind = 6
+	// RawHandlerKindTurnStart identifies a turn-start observer.
+	RawHandlerKindTurnStart RawHandlerKind = 7
+	// RawHandlerKindTurnEnd identifies a turn-end observer.
+	RawHandlerKindTurnEnd RawHandlerKind = 8
+	// RawHandlerKindMessageStart identifies a message-start observer.
+	RawHandlerKindMessageStart RawHandlerKind = 9
+	// RawHandlerKindMessageUpdate identifies a message-update observer.
+	RawHandlerKindMessageUpdate RawHandlerKind = 10
+	// RawHandlerKindMessageEnd identifies a message-end observer.
+	RawHandlerKindMessageEnd RawHandlerKind = 11
+	// RawHandlerKindToolExecutionStart identifies a tool-execution-start observer.
+	RawHandlerKindToolExecutionStart RawHandlerKind = 12
+	// RawHandlerKindToolExecutionUpdate identifies a tool-execution-update observer.
+	RawHandlerKindToolExecutionUpdate RawHandlerKind = 13
+	// RawHandlerKindToolExecutionEnd identifies a tool-execution-end observer.
+	RawHandlerKindToolExecutionEnd RawHandlerKind = 14
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.
@@ -176,8 +198,18 @@ type ToolRegistrar interface {
 	Commit(registrations []AcceptedRegistration)
 }
 
-// HandlerRegistrar owns handler registration validation and publication.
-type HandlerRegistrar interface {
-	ValidateHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
-	CommitHandlers(registrations []AcceptedRegistration)
+// SessionTreeRegistrar owns session-tree handler validation and publication.
+type SessionTreeRegistrar interface {
+	// ValidateSessionTreeHandlers validates one extension's session-tree registrations.
+	ValidateSessionTreeHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
+	// CommitSessionTreeHandlers publishes accepted session-tree registrations.
+	CommitSessionTreeHandlers(registrations []AcceptedRegistration)
+}
+
+// LifecycleRegistrar owns lifecycle observer validation and publication.
+type LifecycleRegistrar interface {
+	// ValidateLifecycleHandlers validates one extension's lifecycle registrations.
+	ValidateLifecycleHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
+	// CommitLifecycleHandlers publishes accepted lifecycle registrations.
+	CommitLifecycleHandlers(registrations []AcceptedRegistration)
 }

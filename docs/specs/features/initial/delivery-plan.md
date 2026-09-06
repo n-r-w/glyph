@@ -44,9 +44,15 @@
 - Ticket: [Ticket](phases/05.2-branch-summary-extension-control/ticket.md)
 - Completion gate: PHS-07 implementation cannot start until every PHS-05.2 acceptance criterion passes.
 
-### PHS-07. Extension context and lifecycle
+### PHS-07.1. Architecture audit and correction
 - Dependencies: PHS-05.2, PHS-04.1
+- Ticket: [Ticket](phases/07.1-architecture-audit-and-correction/ticket.md)
+- Execution point: Audit the implemented product, including partial PHS-07 work, before PHS-07 resumes. This phase does not depend on PHS-07 completion.
+
+### PHS-07. Extension context and lifecycle
+- Dependencies: PHS-05.2, PHS-04.1, PHS-07.1
 - Ticket: [Ticket](phases/07-extension-context-lifecycle/ticket.md)
+- Completion gate: Implementation is paused. Remaining work can resume only after every PHS-07.1 acceptance criterion passes.
 
 ### PHS-06. Context compaction and retry control
 - Dependencies: PHS-07, PHS-04.1

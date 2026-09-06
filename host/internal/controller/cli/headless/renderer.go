@@ -27,6 +27,11 @@ type Renderer struct {
 	modelLineOpen bool
 }
 
+const (
+	// extensionIssueFormat keeps headless observer diagnostics stable and identifiable.
+	extensionIssueFormat = "[extension:issue] extension=%s handler=%s code=%s %s"
+)
+
 var _ startup.Reporter = (*Renderer)(nil)
 
 // NewRenderer creates the headless output recipient.
@@ -54,6 +59,13 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure extension.Run
 		return fmt.Errorf("format extension runtime failure: %w", err)
 	}
 	return writePrefixed(r.stderr, "[extension:error] ", message)
+}
+
+// DeliverExtensionIssue renders one typed nonterminal observer issue.
+func (r *Renderer) DeliverExtensionIssue(extensionID, handlerID, code string, issueErr error) error {
+	return writeText(r.stderr, fmt.Sprintf(
+		extensionIssueFormat, extensionID, handlerID, code, issueErr.Error(),
+	)+"\n")
 }
 
 // DeliverAgent renders one Agent Core lifecycle event synchronously.

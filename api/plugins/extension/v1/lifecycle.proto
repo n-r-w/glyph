@@ -1,0 +1,178 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/tool.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// LifecycleInvocation carries one provider-neutral Agent Core lifecycle event.
+message LifecycleInvocation {
+  // The lifecycle payload.
+  oneof event {
+    AgentStart agent_start = 1;
+    AgentEnd agent_end = 2;
+    AgentSettled agent_settled = 3;
+    TurnStart turn_start = 4;
+    TurnEnd turn_end = 5;
+    MessageStart message_start = 6;
+    MessageUpdate message_update = 7;
+    MessageEnd message_end = 8;
+    ToolExecutionStart tool_execution_start = 9;
+    ToolExecutionUpdate tool_execution_update = 10;
+    ToolExecutionEnd tool_execution_end = 11;
+  }
+}
+
+// LifecycleAction acknowledges one observed lifecycle event.
+message LifecycleAction {}
+
+// AgentStart reports that one agent run started.
+message AgentStart {
+  // The Host run identifier.
+  string run_id = 1;
+}
+
+// AgentEnd reports one terminal agent outcome.
+message AgentEnd {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-neutral outcome.
+  string outcome = 2;
+  // The safe terminal error message.
+  string error_message = 3;
+}
+
+// AgentSettled reports that Host settlement completed for one run.
+message AgentSettled {
+  // The Host run identifier.
+  string run_id = 1;
+}
+
+// TurnStart reports that one agent turn started.
+message TurnStart {
+  // The Host run identifier.
+  string run_id = 1;
+}
+
+// TurnEnd reports the terminal model response for one turn.
+message TurnEnd {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-neutral terminal response.
+  ConfiguredModelResult response = 2;
+  // The ordered terminal tool results from this turn.
+  repeated ToolExecutionEnd tool_results = 3;
+}
+
+// MessageStart reports that one model response started.
+message MessageStart {
+  // The Host run identifier.
+  string run_id = 1;
+}
+
+// MessageUpdate carries one model content transition in source order.
+message MessageUpdate {
+  // The Host run identifier.
+  string run_id = 1;
+  // The transition kind.
+  MessageUpdateKind kind = 2;
+  // The zero-based content position.
+  int64 position = 3;
+  // The provider-neutral content when present.
+  ConfiguredModelContent content = 4;
+  // The current or finalized tool call when present.
+  LifecycleToolCall tool_call = 5;
+}
+
+// LifecycleToolCall carries current provider-neutral function-call state.
+message LifecycleToolCall {
+  // The provider-assigned call identifier.
+  string id = 1;
+  // The current tool name.
+  string name = 2;
+  // The zero-based response position.
+  int64 position = 3;
+  // Whether this state can still change.
+  bool provisional = 4;
+  // The ordered currently decoded fields.
+  repeated LifecycleToolCallField fields = 5;
+  // The finalized JSON arguments when available.
+  bytes arguments_json = 6;
+}
+
+// LifecycleToolCallField carries one complete value or exact scalar prefix.
+message LifecycleToolCallField {
+  // The argument field name.
+  string name = 1;
+  // The current field content.
+  oneof content {
+    bytes value_json = 2;
+    string prefix = 3;
+  }
+}
+
+// MessageUpdateKind identifies one model content transition.
+enum MessageUpdateKind {
+  // No transition was supplied.
+  MESSAGE_UPDATE_KIND_UNSPECIFIED = 0;
+  // One content block started.
+  MESSAGE_UPDATE_KIND_CONTENT_START = 1;
+  // Text was appended to one content block.
+  MESSAGE_UPDATE_KIND_TEXT_DELTA = 2;
+  // One content block ended.
+  MESSAGE_UPDATE_KIND_CONTENT_END = 3;
+  // One tool call started.
+  MESSAGE_UPDATE_KIND_TOOL_CALL_START = 4;
+  // One tool call changed.
+  MESSAGE_UPDATE_KIND_TOOL_CALL_UPDATE = 5;
+  // One tool call ended.
+  MESSAGE_UPDATE_KIND_TOOL_CALL_END = 6;
+}
+
+// MessageEnd reports one finalized model response.
+message MessageEnd {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-neutral terminal response.
+  ConfiguredModelResult response = 2;
+}
+
+// ToolExecutionStart reports that one tool execution started.
+message ToolExecutionStart {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-assigned tool call identifier.
+  string call_id = 2;
+  // The tool name.
+  string tool_name = 3;
+}
+
+// ToolExecutionUpdate reports one tool progress fragment.
+message ToolExecutionUpdate {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-assigned tool call identifier.
+  string call_id = 2;
+  // The tool name.
+  string tool_name = 3;
+  // The progress channel.
+  ProgressChannel channel = 4;
+  // The exact progress content.
+  string content = 5;
+}
+
+// ToolExecutionEnd reports one terminal tool result.
+message ToolExecutionEnd {
+  // The Host run identifier.
+  string run_id = 1;
+  // The provider-assigned tool call identifier.
+  string call_id = 2;
+  // The tool name.
+  string tool_name = 3;
+  // The ordered terminal content.
+  repeated ToolResultContent contents = 4;
+  // Whether tool execution failed.
+  bool is_error = 5;
+}

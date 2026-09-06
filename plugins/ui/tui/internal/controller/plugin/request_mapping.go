@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/samber/mo"
 
@@ -78,6 +79,11 @@ func mapCompleted(completed *uiv1.HostCompleted) (presentationdomain.Event, bool
 	}
 }
 
+const (
+	// extensionIssueFormat identifies the source of one nonterminal observer issue.
+	extensionIssueFormat = "extension %s handler %s [%s]: %s"
+)
+
 // mapConnectionEvent projects one host connection event.
 func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomain.Event, error) {
 	if connection == nil {
@@ -85,20 +91,13 @@ func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomai
 	}
 	switch connection.WhichEvent() {
 	case uiv1.HostConnectionEvent_Information_case:
-		information := connection.GetInformation()
-		if information == nil || !information.HasText() {
-			return presentationdomain.Event{}, errors.New("information text is required")
-		}
-		return textEvent(presentationdomain.EventInformation, information.GetText()), nil
+		return mapInformation(connection.GetInformation())
 	case uiv1.HostConnectionEvent_Error_case:
-		failure := connection.GetError()
-		if failure == nil || !failure.HasCode() || failure.GetCode() == "" ||
-			!failure.HasText() || failure.GetText() == "" {
-			return presentationdomain.Event{}, errors.New("connection error category and text are required")
-		}
-		return textEvent(presentationdomain.EventError, failure.GetText()), nil
+		return mapConnectionError(connection.GetError())
 	case uiv1.HostConnectionEvent_SessionEntryAdded_case:
 		return mapSessionEntryAdded(connection.GetSessionEntryAdded())
+	case uiv1.HostConnectionEvent_ExtensionIssue_case:
+		return mapExtensionIssue(connection.GetExtensionIssue())
 	case uiv1.HostConnectionEvent_AvailabilityChanged_case:
 		availability, err := mapAvailability(connection.GetAvailabilityChanged().GetAvailability())
 		if err != nil {
@@ -112,6 +111,34 @@ func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomai
 	default:
 		return presentationdomain.Event{}, errors.New("host connection event payload is unknown")
 	}
+}
+
+// mapInformation maps one informational connection event.
+func mapInformation(information *uiv1.Information) (presentationdomain.Event, error) {
+	if information == nil || !information.HasText() {
+		return presentationdomain.Event{}, errors.New("information text is required")
+	}
+	return textEvent(presentationdomain.EventInformation, information.GetText()), nil
+}
+
+// mapConnectionError maps one classified connection failure.
+func mapConnectionError(failure *uiv1.Error) (presentationdomain.Event, error) {
+	if failure == nil || !failure.HasCode() || failure.GetCode() == "" ||
+		!failure.HasText() || failure.GetText() == "" {
+		return presentationdomain.Event{}, errors.New("connection error category and text are required")
+	}
+	return textEvent(presentationdomain.EventError, failure.GetText()), nil
+}
+
+// mapExtensionIssue maps one typed nonterminal observer issue.
+func mapExtensionIssue(issue *uiv1.ExtensionIssue) (presentationdomain.Event, error) {
+	if issue == nil || issue.GetExtensionId() == "" || issue.GetHandlerId() == "" ||
+		issue.GetCode() == "" || issue.GetText() == "" {
+		return presentationdomain.Event{}, errors.New("extension issue identity, code, and text are required")
+	}
+	return textEvent(presentationdomain.EventError, fmt.Sprintf(
+		extensionIssueFormat, issue.GetExtensionId(), issue.GetHandlerId(), issue.GetCode(), issue.GetText(),
+	)), nil
 }
 
 // mapSessionEntryAdded maps one complete extension-message state change.

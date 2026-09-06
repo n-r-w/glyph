@@ -12,6 +12,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -41,6 +42,7 @@ var (
 	_ startup.RuntimeLoader = (*Service)(nil)
 	_ toolservice.Runtime   = (*Service)(nil)
 	_ sessiontree.Runtime   = (*Service)(nil)
+	_ lifecycle.Runtime     = (*Service)(nil)
 )
 
 // runtimeState contains one extension process and its availability state.
@@ -299,6 +301,23 @@ func (s *Service) HandleHandler(
 	response, handleErr := owner.state.runtime.Handle(ctx, handlerID, request)
 	s.finishAndReport(ctx, owner, handleErr)
 	return response, handleErr
+}
+
+// ObserveLifecycle invokes one observer while retaining runtime availability and operation accounting.
+func (s *Service) ObserveLifecycle(
+	ctx context.Context,
+	extensionID string,
+	handlerID string,
+	binding extension.Context,
+	event lifecycle.Event,
+) (bool, error) {
+	owner, available := s.beginOperation(extensionID, binding.RuntimeInstanceID)
+	if !available {
+		return true, fmt.Errorf("%w: lifecycle observer %q is unavailable", ErrExtensionUnavailable, handlerID)
+	}
+	observeErr := owner.state.runtime.ObserveLifecycle(ctx, handlerID, binding, event)
+	s.finishAndReport(ctx, owner, observeErr)
+	return errors.Is(observeErr, ErrExtensionUnavailable), observeErr
 }
 
 // beginOperation accounts for one invocation when its runtime is available.

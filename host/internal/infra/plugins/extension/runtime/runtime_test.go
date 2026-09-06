@@ -1225,12 +1225,14 @@ func (operation *protocolHandleOperation) Run(
 	}
 	if operation.service.mode == "handler-error" {
 		return extensionpb.HandleResponse_builder{
+			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
 			Error: extensionpb.HandlerError_builder{Message: new("complete handler error text")}.Build(),
 		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
+		Lifecycle:   nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build(), nil
 }

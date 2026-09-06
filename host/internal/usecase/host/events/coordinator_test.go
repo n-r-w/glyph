@@ -52,8 +52,7 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 			order = append(order, "agent_settled")
 			seenRunIDs = append(seenRunIDs, runID)
 			return nil
-		},
-	)
+		}, nil)
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		require.Equal(t, "run-fixed", request.RunID)
 		require.Equal(t, "request", request.UserText)
@@ -126,7 +125,7 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 			settled++
 			sequence = append(sequence, "settled")
 			return nil
-		}),
+		}, nil),
 		func() (string, error) { return "failed-run", nil },
 		tryAcquire,
 	)
@@ -160,8 +159,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 			}
 			return nil
 		},
-		func(context.Context, string) error { return settledErr },
-	)
+		func(context.Context, string) error { return settledErr }, nil)
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		updateErr := dispatcher.Deliver(
 			ctx,
@@ -228,8 +226,7 @@ func TestCoordinatorSkipsSettlementWhenRunNeverBegins(t *testing.T) {
 		func(context.Context, string) error {
 			settledCalls++
 			return nil
-		},
-	)
+		}, nil)
 	coordinator := newCoordinator(
 		func(context.Context, run.Request) (run.Result, error) { return run.Result{}, run.ErrRunActive },
 		func(string) error {
@@ -255,8 +252,7 @@ func TestCoordinatorRunsPreparedIdentifier(t *testing.T) {
 	allocated := 0
 	dispatcher := NewDispatcher(
 		func(context.Context, run.Event) error { return nil },
-		func(context.Context, string) error { return nil },
-	)
+		func(context.Context, string) error { return nil }, nil)
 	coordinator := newCoordinator(
 		func(_ context.Context, request run.Request) (run.Result, error) {
 			assert.Equal(t, "prepared-run", request.RunID)

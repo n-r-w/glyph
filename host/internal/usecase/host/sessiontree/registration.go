@@ -9,8 +9,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
-// ValidateHandlers validates one extension-local handler registration.
-func (s *Service) ValidateHandlers(registration startup.PendingRegistration) ([]startup.AcceptedHandler, error) {
+// ValidateSessionTreeHandlers validates one extension-local handler registration.
+func (s *Service) ValidateSessionTreeHandlers(
+	registration startup.PendingRegistration,
+) ([]startup.AcceptedHandler, error) {
 	ids := make(map[string]struct{}, len(registration.Handlers))
 	accepted := make([]startup.AcceptedHandler, 0, len(registration.Handlers))
 	for _, handler := range registration.Handlers {
@@ -21,7 +23,13 @@ func (s *Service) ValidateHandlers(registration startup.PendingRegistration) ([]
 		case startup.RawHandlerKindSessionBeforeTreeRequest,
 			startup.RawHandlerKindSessionBeforeTreeResult,
 			startup.RawHandlerKindSessionTree:
-		case startup.RawHandlerKindUnspecified:
+		case startup.RawHandlerKindUnspecified,
+			startup.RawHandlerKindAgentStart, startup.RawHandlerKindAgentEnd,
+			startup.RawHandlerKindAgentSettled, startup.RawHandlerKindTurnStart,
+			startup.RawHandlerKindTurnEnd, startup.RawHandlerKindMessageStart,
+			startup.RawHandlerKindMessageUpdate, startup.RawHandlerKindMessageEnd,
+			startup.RawHandlerKindToolExecutionStart, startup.RawHandlerKindToolExecutionUpdate,
+			startup.RawHandlerKindToolExecutionEnd:
 			return nil, fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		default:
 			return nil, fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
@@ -35,15 +43,18 @@ func (s *Service) ValidateHandlers(registration startup.PendingRegistration) ([]
 	return accepted, nil
 }
 
-// CommitHandlers publishes handlers from registrations accepted by every startup validator.
-func (s *Service) CommitHandlers(registrations []startup.AcceptedRegistration) {
+// CommitSessionTreeHandlers publishes handlers from registrations accepted by every startup validator.
+func (s *Service) CommitSessionTreeHandlers(registrations []startup.AcceptedRegistration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	for _, registration := range registrations {
 		for _, handler := range registration.Handlers {
+			kind := acceptedHandlerKind(handler.Kind)
+			if kind == 0 {
+				continue
+			}
 			s.handlers = append(s.handlers, registeredHandler{
-				Handler: Handler{ExtensionID: registration.ID, HandlerID: handler.ID},
-				Kind:    acceptedHandlerKind(handler.Kind),
+				Handler: Handler{ExtensionID: registration.ID, HandlerID: handler.ID}, Kind: kind,
 			})
 		}
 	}
@@ -58,7 +69,13 @@ func acceptedHandlerKind(kind startup.RawHandlerKind) HandlerKind {
 		return HandlerKindResult
 	case startup.RawHandlerKindSessionTree:
 		return HandlerKindObserver
-	case startup.RawHandlerKindUnspecified:
+	case startup.RawHandlerKindUnspecified,
+		startup.RawHandlerKindAgentStart, startup.RawHandlerKindAgentEnd,
+		startup.RawHandlerKindAgentSettled, startup.RawHandlerKindTurnStart,
+		startup.RawHandlerKindTurnEnd, startup.RawHandlerKindMessageStart,
+		startup.RawHandlerKindMessageUpdate, startup.RawHandlerKindMessageEnd,
+		startup.RawHandlerKindToolExecutionStart, startup.RawHandlerKindToolExecutionUpdate,
+		startup.RawHandlerKindToolExecutionEnd:
 		return 0
 	default:
 		return 0

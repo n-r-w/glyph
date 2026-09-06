@@ -6,6 +6,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -67,6 +68,8 @@ type ExtensionRuntime interface {
 		handlerID string,
 		request sessiontree.HandlerRequest,
 	) (sessiontree.HandlerResponse, error)
+	// ObserveLifecycle invokes one Agent Core lifecycle observer.
+	ObserveLifecycle(context.Context, string, extension.Context, lifecycle.Event) error
 	// Execute invokes one tool operation.
 	Execute(
 		ctx context.Context,

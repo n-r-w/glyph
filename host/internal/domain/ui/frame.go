@@ -15,5 +15,6 @@ func NewFrame(kind FrameKind) Frame {
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
 		TreeNavigationProgress: mo.None[TreeNavigationProgress](),
 		TreeNavigation:         mo.None[TreeNavigationResult](), SessionEntryAdded: mo.None[SessionTreeEntry](),
+		ExtensionIssue: mo.None[ExtensionIssue](),
 	}
 }

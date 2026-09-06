@@ -418,7 +418,8 @@ func (s *server) validateHandle(request *extensionpb.HandleRequest) error {
 		request.GetSessionBeforeTreeRequest() != nil ||
 		kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT &&
 			request.GetSessionBeforeTreeResult() != nil ||
-		kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE && request.GetSessionTree() != nil
+		kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE && request.GetSessionTree() != nil ||
+		lifecycleKindMatches(kind, request.GetLifecycle())
 	if !valid {
 		return Reject(
 			rejectionCodeInvalidArgument,
@@ -426,6 +427,44 @@ func (s *server) validateHandle(request *extensionpb.HandleRequest) error {
 		)
 	}
 	return nil
+}
+
+// lifecycleKindMatches reports whether one observer kind matches its typed lifecycle payload.
+func lifecycleKindMatches(kind extensionpb.HandlerKind, invocation *extensionpb.LifecycleInvocation) bool {
+	if invocation == nil {
+		return false
+	}
+	switch kind {
+	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START:
+		return invocation.GetAgentStart() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_END:
+		return invocation.GetAgentEnd() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED:
+		return invocation.GetAgentSettled() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_TURN_START:
+		return invocation.GetTurnStart() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_TURN_END:
+		return invocation.GetTurnEnd() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START:
+		return invocation.GetMessageStart() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_UPDATE:
+		return invocation.GetMessageUpdate() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_END:
+		return invocation.GetMessageEnd() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START:
+		return invocation.GetToolExecutionStart() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE:
+		return invocation.GetToolExecutionUpdate() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END:
+		return invocation.GetToolExecutionEnd() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
+		return false
+	default:
+		return false
+	}
 }
 
 // validateExecute checks readiness and bounded request syntax.

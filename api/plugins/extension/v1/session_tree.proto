@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.plugins.extension.v1;
 
 import "api/plugins/extension/v1/context.proto";
+import "api/plugins/extension/v1/lifecycle.proto";
 import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/session.proto";
 import "api/plugins/extension/v1/tool.proto";
@@ -20,6 +21,7 @@ message HandleRequest {
     SessionBeforeTreeRequestInvocation session_before_tree_request = 2;
     SessionBeforeTreeResultInvocation session_before_tree_result = 3;
     SessionTreeInvocation session_tree = 4;
+    LifecycleInvocation lifecycle = 6;
   }
 }
 
@@ -31,6 +33,7 @@ message HandleResponse {
     SessionBeforeTreeResultAction session_before_tree_result = 2;
     SessionTreeAction session_tree = 3;
     HandlerError error = 4;
+    LifecycleAction lifecycle = 5;
   }
 }
 

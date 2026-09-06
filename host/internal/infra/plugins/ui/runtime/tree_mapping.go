@@ -60,7 +60,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
 		domainui.FrameSessionTreeNavigationProgress,
 		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameSubmitCompleted,
-		domainui.FrameAuthenticationCompleted, domainui.FrameSessionEntryAdded:
+		domainui.FrameAuthenticationCompleted, domainui.FrameSessionEntryAdded, domainui.FrameExtensionIssue:
 		return nil, false, nil
 	default:
 		return nil, false, nil

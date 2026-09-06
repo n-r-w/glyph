@@ -19,6 +19,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -53,7 +54,13 @@ func runHeadlessWithPaths(
 	}()
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	contexts.BindMessagePublisher(renderer.AcknowledgeSessionEntry)
-	startupService := startup.New(extensions, tools, sessionServices.tree)
+	lifecycleObservers := lifecycle.New(extensions, contexts)
+	lifecycleObservers.BindIssueDelivery(
+		lifecycleIssueDeliveryFunc(func(_ context.Context, issue lifecycle.Issue) error {
+			return renderer.DeliverExtensionIssue(issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err)
+		}),
+	)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, renderer)
@@ -69,7 +76,7 @@ func runHeadlessWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled)
+	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)

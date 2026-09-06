@@ -135,7 +135,20 @@ message HostConnectionEvent {
     Error error = 2;
     AvailabilityChanged availability_changed = 3;
     SessionEntryAdded session_entry_added = 4;
+    ExtensionIssue extension_issue = 5;
   }
+}
+
+// ExtensionIssue reports one nonterminal extension handler failure.
+message ExtensionIssue {
+  // The extension that owns the handler.
+  string extension_id = 1;
+  // The extension-local handler identifier.
+  string handler_id = 2;
+  // The stable nonterminal issue code.
+  string code = 3;
+  // The complete user-visible cause text.
+  string text = 4;
 }
 
 // Error carries one classified Host connection failure.

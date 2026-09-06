@@ -35,7 +35,7 @@ func registerTestHandlers(service *Service, runtime *MockRuntime, kind HandlerKi
 		})
 		runtime.EXPECT().HandlerRuntimeAvailable(handler.ExtensionID).Return(true).AnyTimes()
 	}
-	service.CommitHandlers(registrations)
+	service.CommitSessionTreeHandlers(registrations)
 }
 
 // testRawHandlerKind maps one test handler kind to the startup contract.

@@ -15,6 +15,7 @@ import (
 
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
+	lifecycle "github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	sessiontree "github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	startup "github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	gomock "go.uber.org/mock/gomock"
@@ -137,6 +138,20 @@ func (m *MockExtensionRuntime) Handle(ctx context.Context, handlerID string, req
 func (mr *MockExtensionRuntimeMockRecorder) Handle(ctx, handlerID, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockExtensionRuntime)(nil).Handle), ctx, handlerID, request)
+}
+
+// ObserveLifecycle mocks base method.
+func (m *MockExtensionRuntime) ObserveLifecycle(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 lifecycle.Event) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveLifecycle", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveLifecycle indicates an expected call of ObserveLifecycle.
+func (mr *MockExtensionRuntimeMockRecorder) ObserveLifecycle(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveLifecycle", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveLifecycle), arg0, arg1, arg2, arg3)
 }
 
 // Register mocks base method.

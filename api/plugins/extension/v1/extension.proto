@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.plugins.extension.v1;
 
 import "api/operation/v1/operation.proto";
+import "api/plugins/extension/v1/lifecycle.proto";
 import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/session.proto";
 import "api/plugins/extension/v1/session_tree.proto";
@@ -142,6 +143,28 @@ enum HandlerKind {
   HANDLER_KIND_SESSION_BEFORE_TREE_RESULT = 2;
   // The handler observes committed tree navigation.
   HANDLER_KIND_SESSION_TREE = 3;
+  // The handler observes agent start.
+  HANDLER_KIND_AGENT_START = 4;
+  // The handler observes agent end.
+  HANDLER_KIND_AGENT_END = 5;
+  // The handler observes Host settlement.
+  HANDLER_KIND_AGENT_SETTLED = 6;
+  // The handler observes turn start.
+  HANDLER_KIND_TURN_START = 7;
+  // The handler observes turn end.
+  HANDLER_KIND_TURN_END = 8;
+  // The handler observes message start.
+  HANDLER_KIND_MESSAGE_START = 9;
+  // The handler observes message updates.
+  HANDLER_KIND_MESSAGE_UPDATE = 10;
+  // The handler observes message end.
+  HANDLER_KIND_MESSAGE_END = 11;
+  // The handler observes tool execution start.
+  HANDLER_KIND_TOOL_EXECUTION_START = 12;
+  // The handler observes tool execution updates.
+  HANDLER_KIND_TOOL_EXECUTION_UPDATE = 13;
+  // The handler observes tool execution end.
+  HANDLER_KIND_TOOL_EXECUTION_END = 14;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

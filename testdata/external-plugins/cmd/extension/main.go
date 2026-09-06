@@ -17,6 +17,8 @@ import (
 const (
 	// signalsEnvironment names the directory used for process synchronization.
 	signalsEnvironment = "GLYPH_EXTERNAL_SIGNALS"
+	// lifecycleEnvironment enables the agent-start observer scenario.
+	lifecycleEnvironment = "GLYPH_EXTERNAL_LIFECYCLE"
 	// toolName identifies the fixture's only registered tool.
 	toolName = "external"
 	// invalidArgumentCode classifies invalid fixture requests.
@@ -43,6 +45,8 @@ const (
 	navigationRequestHandlerID = "append-before-navigation"
 	// navigationObserverID identifies the fixture's committed-navigation observer.
 	navigationObserverID = "append-after-navigation"
+	// agentStartObserverID identifies the fixture's model-assisted lifecycle observer.
+	agentStartObserverID = "observe-agent-start"
 	// observerMessageEntryType identifies messages appended by the navigation observer.
 	observerMessageEntryType = "navigation-observer"
 	// observerMessageText is the exact observer-appended text.
@@ -67,10 +71,15 @@ type service struct {
 	savedMessageID string
 	// savedCheckpointID identifies the target that activates and cancels from the request handler.
 	savedCheckpointID string
+	// lifecycleEnabled reports whether this process registers the agent-start observer scenario.
+	lifecycleEnabled bool
 }
 
 // registerOperation returns the fixture catalog.
-type registerOperation struct{}
+type registerOperation struct {
+	// lifecycleEnabled adds the model-assisted agent-start observer when requested.
+	lifecycleEnabled bool
+}
 
 // handleOperation optionally appends one message after a selected navigation commit.
 type handleOperation struct {
@@ -82,6 +91,8 @@ type handleOperation struct {
 	expectedMessageID string
 	// expectedCheckpointID selects whether the pre-commit handler appends and cancels.
 	expectedCheckpointID string
+	// lifecycle reports that this operation observes agent start.
+	lifecycle bool
 }
 
 // executeOperation owns one mode-specific tool invocation.
@@ -114,16 +125,16 @@ var (
 func main() {
 	extensionsdk.Serve(&service{
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
-		savedMessageID: "", savedCheckpointID: "",
+		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
 	})
 }
 
 // PrepareRegister admits the fixture registration operation.
-func (*service) PrepareRegister(
+func (s *service) PrepareRegister(
 	context.Context,
 	*extensionv1.RegisterRequest,
 ) (extensionsdk.RegisterOperation, error) {
-	return &registerOperation{}, nil
+	return &registerOperation{lifecycleEnabled: s.lifecycleEnabled}, nil
 }
 
 // PrepareHandle admits the fixture's committed-navigation observer.
@@ -132,7 +143,7 @@ func (s *service) PrepareHandle(
 	request *extensionv1.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
-		request.GetHandlerId() != navigationRequestHandlerID {
+		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
 	binding, err := extensionsdk.ContextFrom(ctx)
@@ -145,7 +156,7 @@ func (s *service) PrepareHandle(
 	s.contextMutex.Unlock()
 	return &handleOperation{
 		context: binding, request: request, expectedMessageID: expectedMessageID,
-		expectedCheckpointID: expectedCheckpointID,
+		expectedCheckpointID: expectedCheckpointID, lifecycle: request.GetHandlerId() == agentStartObserverID,
 	}, nil
 }
 
@@ -187,21 +198,27 @@ func (s *service) PrepareExecute(
 }
 
 // Run returns the public catalog for the external tool.
-func (*registerOperation) Run(context.Context) (*extensionv1.RegisterResponse, error) {
+func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterResponse, error) {
+	handlers := []*extensionv1.HandlerDescriptor{
+		extensionv1.HandlerDescriptor_builder{
+			Id:   new(navigationRequestHandlerID),
+			Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST),
+		}.Build(),
+		extensionv1.HandlerDescriptor_builder{
+			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
+		}.Build(),
+	}
+	if operation.lifecycleEnabled {
+		handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
+			Id: new(agentStartObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_AGENT_START),
+		}.Build())
+	}
 	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{extensionv1.ToolDescriptor_builder{
 			Name: new(toolName), Description: new("Exercise the public Extension SDK."),
 			InputSchemaJson: []byte(`{"type":"object"}`), ConstrainedSampling: nil,
 		}.Build()},
-		Handlers: []*extensionv1.HandlerDescriptor{
-			extensionv1.HandlerDescriptor_builder{
-				Id:   new(navigationRequestHandlerID),
-				Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST),
-			}.Build(),
-			extensionv1.HandlerDescriptor_builder{
-				Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
-			}.Build(),
-		},
+		Handlers: handlers,
 	}.Build(), nil
 }
 
@@ -210,6 +227,14 @@ func (*registerOperation) Release() {}
 
 // Run appends and awaits one independent message only for the retained selected message.
 func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	if operation.lifecycle {
+		if err := observeAgentStart(ctx, operation.context, operation.request.GetLifecycle()); err != nil {
+			return nil, err
+		}
+		response := new(extensionv1.HandleResponse)
+		response.SetLifecycle(new(extensionv1.LifecycleAction))
+		return response, nil
+	}
 	if request := operation.request.GetSessionBeforeTreeRequest(); request != nil {
 		if operation.expectedCheckpointID != "" &&
 			request.GetCurrentRequest().GetTargetEntryId() == operation.expectedCheckpointID {

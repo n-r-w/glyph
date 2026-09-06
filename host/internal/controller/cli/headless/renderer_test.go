@@ -101,6 +101,28 @@ func TestRendererReportsRuntimeFailure(t *testing.T) {
 	)
 }
 
+// TestRendererReportsExtensionIssue writes complete nonterminal observer diagnostics to stderr.
+func TestRendererReportsExtensionIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one headless renderer and one complete observer cause.
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	renderer := NewRenderer(&stdout, &stderr)
+
+	// Act by delivering the nonterminal issue.
+	err := renderer.DeliverExtensionIssue("example", "observer", "OBSERVER_ERROR", errors.New("complete cause"))
+
+	// Assert stable identity, code, and complete text are visible without affecting stdout.
+	require.NoError(t, err)
+	assert.Empty(t, stdout.String())
+	assert.Equal(
+		t,
+		"[extension:issue] extension=example handler=observer code=OBSERVER_ERROR complete cause\n",
+		stderr.String(),
+	)
+}
+
 // TestRendererPrintsRefusalDeltasOnce verifies message finalization does not repeat streamed refusal text.
 func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 	t.Parallel()

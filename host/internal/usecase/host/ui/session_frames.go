@@ -29,6 +29,7 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 
@@ -146,5 +147,6 @@ func sessionInfoFrame(
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }

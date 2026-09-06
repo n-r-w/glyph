@@ -234,10 +234,21 @@ func validateConnectionEvent(event *uiv1.HostConnectionEvent) error {
 		return validateConnectionAvailability(event.GetAvailabilityChanged())
 	case uiv1.HostConnectionEvent_SessionEntryAdded_case:
 		return validateSessionEntryAdded(event.GetSessionEntryAdded())
+	case uiv1.HostConnectionEvent_ExtensionIssue_case:
+		return validateExtensionIssue(event.GetExtensionIssue())
 	case uiv1.HostConnectionEvent_Event_not_set_case:
 		return errors.New("Host connection event is required")
 	default:
 		return errors.New("Host connection event is unknown")
+	}
+	return nil
+}
+
+// validateExtensionIssue validates complete observer identity and cause text.
+func validateExtensionIssue(issue *uiv1.ExtensionIssue) error {
+	if issue == nil || issue.GetExtensionId() == "" || issue.GetHandlerId() == "" ||
+		issue.GetCode() == "" || issue.GetText() == "" {
+		return errors.New("Host extension issue identity, code, and text are required")
 	}
 	return nil
 }

@@ -4,10 +4,12 @@ package startup
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 
@@ -28,13 +30,20 @@ type Service struct {
 	runtimes RuntimeLoader
 	// tools owns tool descriptor validation, conflicts, and publication.
 	tools ToolRegistrar
-	// handlers owns handler validation and publication.
-	handlers HandlerRegistrar
+	// sessionTree owns session-tree handler validation and publication.
+	sessionTree SessionTreeRegistrar
+	// lifecycle owns lifecycle observer validation and publication.
+	lifecycle LifecycleRegistrar
 }
 
 // New creates the Host extension startup service.
-func New(runtimes RuntimeLoader, tools ToolRegistrar, handlers HandlerRegistrar) *Service {
-	return &Service{runtimes: runtimes, tools: tools, handlers: handlers}
+func New(
+	runtimes RuntimeLoader,
+	tools ToolRegistrar,
+	sessionTree SessionTreeRegistrar,
+	lifecycle LifecycleRegistrar,
+) *Service {
+	return &Service{runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle}
 }
 
 // Start loads extensions and reports the complete headless startup state.
@@ -102,7 +111,17 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	handlerAccepted := accepted[:0]
 	for _, registration := range accepted {
 		raw := findPending(pending.Registrations, registration.ID)
-		handlers, validationErr := s.handlers.ValidateHandlers(raw)
+		if validationErr := validateHandlerIdentities(raw.Handlers); validationErr != nil {
+			issues = append(
+				issues,
+				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
+			)
+			rejected[registration.ID] = struct{}{}
+			continue
+		}
+		sessionHandlers, validationErr := s.sessionTree.ValidateSessionTreeHandlers(
+			partitionHandlers(raw, isSessionTreeKind),
+		)
 		if validationErr != nil {
 			issues = append(
 				issues,
@@ -111,7 +130,18 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 			rejected[registration.ID] = struct{}{}
 			continue
 		}
-		registration.Handlers = handlers
+		lifecycleHandlers, validationErr := s.lifecycle.ValidateLifecycleHandlers(
+			partitionHandlers(raw, isLifecycleKind),
+		)
+		if validationErr != nil {
+			issues = append(
+				issues,
+				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
+			)
+			rejected[registration.ID] = struct{}{}
+			continue
+		}
+		registration.Handlers = mergeHandlers(raw.Handlers, sessionHandlers, lifecycleHandlers)
 		handlerAccepted = append(handlerAccepted, registration)
 	}
 	accepted = handlerAccepted
@@ -135,7 +165,8 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	slices.Sort(rejectedIDs)
 	s.runtimes.RejectPending(rejectedIDs)
 	s.tools.Commit(accepted)
-	s.handlers.CommitHandlers(accepted)
+	s.sessionTree.CommitSessionTreeHandlers(accepted)
+	s.lifecycle.CommitLifecycleHandlers(accepted)
 	s.runtimes.Accept(accepted)
 
 	slices.SortFunc(accepted, func(left, right AcceptedRegistration) int { return cmp.Compare(left.ID, right.ID) })
@@ -143,6 +174,60 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	report := LoadReport{Issues: issues, Extensions: accepted}
 	logReport(ctx, directory, report)
 	return report, nil
+}
+
+// validateHandlerIdentities preserves common validation precedence before capability partitioning.
+func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
+	ids := make(map[string]struct{}, len(handlers))
+	for _, handler := range handlers {
+		if !handler.Present || strings.TrimSpace(handler.ID) == "" {
+			return errors.New("handler ID is empty")
+		}
+		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) {
+			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
+		}
+		if _, exists := ids[handler.ID]; exists {
+			return fmt.Errorf("handler ID %q is duplicated", handler.ID)
+		}
+		ids[handler.ID] = struct{}{}
+	}
+	return nil
+}
+
+// partitionHandlers copies one registration with only kinds owned by one capability.
+func partitionHandlers(registration PendingRegistration, accepts func(RawHandlerKind) bool) PendingRegistration {
+	partition := slices.DeleteFunc(slices.Clone(registration.Handlers), func(handler RawHandlerDescriptor) bool {
+		return !accepts(handler.Kind)
+	})
+	return PendingRegistration{
+		ID: registration.ID, Path: registration.Path, Tools: registration.Tools, Handlers: partition,
+	}
+}
+
+// mergeHandlers restores the extension's common registration order after owner validation.
+func mergeHandlers(raw []RawHandlerDescriptor, groups ...[]AcceptedHandler) []AcceptedHandler {
+	accepted := make(map[string]AcceptedHandler, len(raw))
+	for _, group := range groups {
+		for _, handler := range group {
+			accepted[handler.ID] = handler
+		}
+	}
+	ordered := make([]AcceptedHandler, 0, len(raw))
+	for _, handler := range raw {
+		ordered = append(ordered, accepted[handler.ID])
+	}
+	return ordered
+}
+
+// isSessionTreeKind reports whether session-tree policy owns one kind.
+func isSessionTreeKind(kind RawHandlerKind) bool {
+	return kind == RawHandlerKindSessionBeforeTreeRequest ||
+		kind == RawHandlerKindSessionBeforeTreeResult || kind == RawHandlerKindSessionTree
+}
+
+// isLifecycleKind reports whether lifecycle policy owns one kind.
+func isLifecycleKind(kind RawHandlerKind) bool {
+	return kind >= RawHandlerKindAgentStart && kind <= RawHandlerKindToolExecutionEnd
 }
 
 // findPending returns the raw registration retained for one locally accepted extension.

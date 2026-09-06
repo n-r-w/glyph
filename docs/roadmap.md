@@ -118,11 +118,22 @@ Documents:
 - [Ticket](specs/features/initial/phases/05.2-branch-summary-extension-control/ticket.md)
 - [Technical solution and verification evidence](specs/features/initial/phases/05.2-branch-summary-extension-control/solution.md)
 
+## PHS-07.1: Architecture audit and correction
+
+Status: Planned
+
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes.
+
+Documents:
+- [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)
+
 ## PHS-07: Extension context and lifecycle
 
 Status: Planned
 
 Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
+
+Implementation is partially complete and paused for [PHS-07.1](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md). Architectural acceptance and completion of PHS-07 remain open.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)

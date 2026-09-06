@@ -28,6 +28,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -79,7 +80,8 @@ func runProgrammaticWithPaths(
 	}
 	defer closeExtensions()
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
-	startupService := startup.New(extensions, tools, sessionServices.tree)
+	lifecycleObservers := lifecycle.New(extensions, contexts)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}); err != nil {
@@ -95,7 +97,7 @@ func runProgrammaticWithPaths(
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
 	delivery := hostprogrammatic.NewDelivery()
-	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
+	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
@@ -110,6 +112,13 @@ func runProgrammaticWithPaths(
 	)
 	controller := controllerprogrammatic.New(ctx, session)
 	session.BindConnectionPublisher(controller.PublishSessionEntry)
+	lifecycleObservers.BindIssueDelivery(
+		lifecycleIssueDeliveryFunc(func(ctx context.Context, issue lifecycle.Issue) error {
+			return controller.PublishExtensionIssue(ctx, controllerprogrammatic.ExtensionIssue{
+				ExtensionID: issue.ExtensionID, HandlerID: issue.HandlerID, Code: issue.Code, Text: issue.Err.Error(),
+			})
+		}),
+	)
 	contexts.BindMessagePublisher(session.PublishSessionEntry)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)

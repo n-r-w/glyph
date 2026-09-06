@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -57,6 +58,32 @@ func TestFrameConstructorsSetOnlySelectedPayload(t *testing.T) {
 	assert.Equal(t, mo.Some(""), frames[2].AuthorizationURL)
 	assert.Equal(t, mo.Some(""), frames[3].Text)
 	assert.Equal(t, mo.Some(failureCodeInternal), frames[3].ErrorCode)
+}
+
+// TestDeliverySendsTypedExtensionIssue verifies complete observer diagnostics reach UI transport.
+func TestDeliverySendsTypedExtensionIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one UI channel expecting a typed nonterminal issue frame.
+	channel := NewMockChannel(gomock.NewController(t))
+	channel.EXPECT().Send(gomock.Any()).DoAndReturn(func(frame domainui.Frame) error {
+		assert.Equal(t, domainui.FrameExtensionIssue, frame.Kind)
+		issue, present := frame.ExtensionIssue.Get()
+		require.True(t, present)
+		assert.Equal(t, "example", issue.ExtensionID)
+		assert.Equal(t, "observer", issue.HandlerID)
+		assert.Equal(t, "OBSERVER_ERROR", issue.Code)
+		assert.Equal(t, "complete cause", issue.Text)
+		return nil
+	})
+
+	// Act by delivering one lifecycle observer issue.
+	err := NewDelivery(channel).DeliverExtensionIssue(
+		t.Context(), "example", "observer", "OBSERVER_ERROR", errors.New("complete cause"),
+	)
+
+	// Assert delivery succeeds.
+	require.NoError(t, err)
 }
 
 // TestDeliveryReportsRuntimeFailure sends one safe identity-bearing error frame.

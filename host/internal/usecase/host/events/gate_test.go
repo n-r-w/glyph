@@ -48,8 +48,7 @@ func TestCancelPreparedReleasesReservationWithoutStartingAgentCore(t *testing.T)
 		func(string) error { return nil },
 		NewDispatcher(
 			func(context.Context, run.Event) error { return nil },
-			func(context.Context, string) error { return nil },
-		),
+			func(context.Context, string) error { return nil }, nil),
 		func() (string, error) { return "prepared", nil },
 		tryAcquire,
 	)

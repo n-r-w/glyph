@@ -74,7 +74,19 @@ message HostConnectionEvent {
   // The connection event.
   oneof event {
     SessionEntryAdded session_entry_added = 1;
+    ExtensionIssue extension_issue = 2;
   }
+}
+// ExtensionIssue reports one nonterminal extension handler failure.
+message ExtensionIssue {
+  // The extension that owns the handler.
+  string extension_id = 1;
+  // The extension-local handler identifier.
+  string handler_id = 2;
+  // The stable nonterminal issue code.
+  string code = 3;
+  // The complete cause text.
+  string text = 4;
 }
 
 // HostEvent carries one lifecycle event for a controller operation.

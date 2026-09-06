@@ -220,6 +220,7 @@ func newContractService(t *testing.T) Service {
 		},
 	).AnyTimes()
 	handler.EXPECT().Run(gomock.Any()).Return(extensionpb.HandleResponse_builder{
+		Lifecycle:                nil,
 		SessionBeforeTreeRequest: nil,
 		SessionBeforeTreeResult:  nil,
 		SessionTree:              extensionpb.SessionTreeAction_builder{}.Build(),

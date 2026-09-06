@@ -19,6 +19,7 @@ import (
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -86,7 +87,12 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				}, nil
 			}).AnyTimes()
 			service.BindContextIssuer(contexts)
-			startupService := startup.New(extensions, toolservice.New(extensions), service)
+			startupService := startup.New(
+				extensions,
+				toolservice.New(extensions),
+				service,
+				lifecycle.New(extensions, nil),
+			)
 			report, err := startupService.Load(
 				t.Context(),
 				startup.Request{DataDirectory: "", ExtensionDirectory: directory},

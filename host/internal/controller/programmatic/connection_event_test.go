@@ -16,8 +16,8 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// TestPublishSessionEntryUsesOrderedConnectionWriter verifies exact committed messages have no operation identifier.
-func TestPublishSessionEntryUsesOrderedConnectionWriter(t *testing.T) {
+// TestPublishConnectionEventsUsesOrderedWriter verifies committed messages and issues have no operation identifier.
+func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one active writer and exact hidden-client extension message.
@@ -55,6 +55,20 @@ func TestPublishSessionEntryUsesOrderedConnectionWriter(t *testing.T) {
 	message := response.GetConnectionEvent().GetSessionEntryAdded().GetEntry().GetExtensionMessage()
 	require.Equal(t, "exact text", message.GetText())
 	require.Equal(t, programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, message.GetVisibility())
+
+	// Act by publishing one typed nonterminal extension issue on the same writer.
+	require.NoError(t, service.PublishExtensionIssue(t.Context(), ExtensionIssue{
+		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Text: "complete cause",
+	}))
+	issueResponse := <-delivered
+
+	// Assert issue identity, code, and complete text cross the public contract.
+	require.Empty(t, issueResponse.GetOperationId())
+	issue := issueResponse.GetConnectionEvent().GetExtensionIssue()
+	require.Equal(t, "example", issue.GetExtensionId())
+	require.Equal(t, "observer", issue.GetHandlerId())
+	require.Equal(t, "OBSERVER_ERROR", issue.GetCode())
+	require.Equal(t, "complete cause", issue.GetText())
 
 	// Assert writer cleanup completes.
 	writer.Close()

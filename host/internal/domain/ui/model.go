@@ -406,6 +406,8 @@ const (
 	FrameAuthenticationCompleted
 	// FrameSessionEntryAdded publishes one committed entry outside an operation lifecycle.
 	FrameSessionEntryAdded
+	// FrameExtensionIssue reports one nonterminal extension observer failure.
+	FrameExtensionIssue
 )
 
 // Frame carries exactly one Host-to-UI payload.
@@ -440,6 +442,20 @@ type Frame struct {
 	TreeNavigation mo.Option[TreeNavigationResult]
 	// SessionEntryAdded contains one committed entry for a connection event.
 	SessionEntryAdded mo.Option[SessionTreeEntry]
+	// ExtensionIssue contains one nonterminal extension observer failure.
+	ExtensionIssue mo.Option[ExtensionIssue]
+}
+
+// ExtensionIssue contains the public identity and complete cause of one extension observer failure.
+type ExtensionIssue struct {
+	// ExtensionID identifies the owning extension.
+	ExtensionID string
+	// HandlerID identifies the failed observer.
+	HandlerID string
+	// Code is the stable issue code.
+	Code string
+	// Text is the complete observer cause.
+	Text string
 }
 
 // SessionEntry carries one restored public terminal item.

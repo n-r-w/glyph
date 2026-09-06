@@ -198,6 +198,7 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 	case "mismatched-handler":
 		completedEvent := new(extensionpb.ExtensionCompleted)
 		completedEvent.SetHandle(extensionpb.HandleResponse_builder{
+			Lifecycle:                nil,
 			SessionBeforeTreeRequest: extensionpb.SessionBeforeTreeRequestAction_builder{}.Build(),
 			SessionBeforeTreeResult:  nil, SessionTree: nil, Error: nil,
 		}.Build())

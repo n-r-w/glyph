@@ -96,6 +96,7 @@ func emptyTreeFrame(kind domainui.FrameKind) domainui.Frame {
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
 		SessionEntryAdded:      mo.None[domainui.SessionTreeEntry](),
+		ExtensionIssue:         mo.None[domainui.ExtensionIssue](),
 	}
 }
 

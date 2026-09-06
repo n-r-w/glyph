@@ -26,6 +26,7 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 
@@ -47,6 +48,7 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 
@@ -68,6 +70,7 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 
@@ -89,6 +92,7 @@ func classifiedErrorFrame(code, text string) domainui.Frame {
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 
@@ -110,6 +114,7 @@ func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Fram
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
 					SessionTreeEntry](),
+		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
 	}
 }
 

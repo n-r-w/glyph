@@ -28,6 +28,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -97,7 +98,13 @@ func runUIWithPaths(
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
-	startupService := startup.New(extensions, tools, sessionServices.tree)
+	lifecycleObservers := lifecycle.New(extensions, contexts)
+	lifecycleObservers.BindIssueDelivery(
+		lifecycleIssueDeliveryFunc(func(ctx context.Context, issue lifecycle.Issue) error {
+			return delivery.DeliverExtensionIssue(ctx, issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err)
+		}),
+	)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	})
@@ -117,7 +124,7 @@ func runUIWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled)
+	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)

@@ -31,8 +31,8 @@ type Service struct {
 }
 
 var (
-	_ sessioncontrol.Navigator = (*Service)(nil)
-	_ startup.HandlerRegistrar = (*Service)(nil)
+	_ sessioncontrol.Navigator     = (*Service)(nil)
+	_ startup.SessionTreeRegistrar = (*Service)(nil)
 )
 
 // registeredHandler identifies one accepted handler and its extension point.

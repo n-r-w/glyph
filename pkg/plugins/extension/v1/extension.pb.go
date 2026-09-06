@@ -33,21 +33,65 @@ const (
 	HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT HandlerKind = 2
 	// The handler observes committed tree navigation.
 	HandlerKind_HANDLER_KIND_SESSION_TREE HandlerKind = 3
+	// The handler observes agent start.
+	HandlerKind_HANDLER_KIND_AGENT_START HandlerKind = 4
+	// The handler observes agent end.
+	HandlerKind_HANDLER_KIND_AGENT_END HandlerKind = 5
+	// The handler observes Host settlement.
+	HandlerKind_HANDLER_KIND_AGENT_SETTLED HandlerKind = 6
+	// The handler observes turn start.
+	HandlerKind_HANDLER_KIND_TURN_START HandlerKind = 7
+	// The handler observes turn end.
+	HandlerKind_HANDLER_KIND_TURN_END HandlerKind = 8
+	// The handler observes message start.
+	HandlerKind_HANDLER_KIND_MESSAGE_START HandlerKind = 9
+	// The handler observes message updates.
+	HandlerKind_HANDLER_KIND_MESSAGE_UPDATE HandlerKind = 10
+	// The handler observes message end.
+	HandlerKind_HANDLER_KIND_MESSAGE_END HandlerKind = 11
+	// The handler observes tool execution start.
+	HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START HandlerKind = 12
+	// The handler observes tool execution updates.
+	HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE HandlerKind = 13
+	// The handler observes tool execution end.
+	HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END HandlerKind = 14
 )
 
 // Enum value maps for HandlerKind.
 var (
 	HandlerKind_name = map[int32]string{
-		0: "HANDLER_KIND_UNSPECIFIED",
-		1: "HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST",
-		2: "HANDLER_KIND_SESSION_BEFORE_TREE_RESULT",
-		3: "HANDLER_KIND_SESSION_TREE",
+		0:  "HANDLER_KIND_UNSPECIFIED",
+		1:  "HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST",
+		2:  "HANDLER_KIND_SESSION_BEFORE_TREE_RESULT",
+		3:  "HANDLER_KIND_SESSION_TREE",
+		4:  "HANDLER_KIND_AGENT_START",
+		5:  "HANDLER_KIND_AGENT_END",
+		6:  "HANDLER_KIND_AGENT_SETTLED",
+		7:  "HANDLER_KIND_TURN_START",
+		8:  "HANDLER_KIND_TURN_END",
+		9:  "HANDLER_KIND_MESSAGE_START",
+		10: "HANDLER_KIND_MESSAGE_UPDATE",
+		11: "HANDLER_KIND_MESSAGE_END",
+		12: "HANDLER_KIND_TOOL_EXECUTION_START",
+		13: "HANDLER_KIND_TOOL_EXECUTION_UPDATE",
+		14: "HANDLER_KIND_TOOL_EXECUTION_END",
 	}
 	HandlerKind_value = map[string]int32{
 		"HANDLER_KIND_UNSPECIFIED":                 0,
 		"HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST": 1,
 		"HANDLER_KIND_SESSION_BEFORE_TREE_RESULT":  2,
 		"HANDLER_KIND_SESSION_TREE":                3,
+		"HANDLER_KIND_AGENT_START":                 4,
+		"HANDLER_KIND_AGENT_END":                   5,
+		"HANDLER_KIND_AGENT_SETTLED":               6,
+		"HANDLER_KIND_TURN_START":                  7,
+		"HANDLER_KIND_TURN_END":                    8,
+		"HANDLER_KIND_MESSAGE_START":               9,
+		"HANDLER_KIND_MESSAGE_UPDATE":              10,
+		"HANDLER_KIND_MESSAGE_END":                 11,
+		"HANDLER_KIND_TOOL_EXECUTION_START":        12,
+		"HANDLER_KIND_TOOL_EXECUTION_UPDATE":       13,
+		"HANDLER_KIND_TOOL_EXECUTION_END":          14,
 	}
 )
 
@@ -2962,7 +3006,7 @@ var File_api_plugins_extension_v1_extension_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\n" +
-	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a$api/plugins/extension/v1/model.proto\x1a&api/plugins/extension/v1/session.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xfc\x01\n" +
+	"(api/plugins/extension/v1/extension.proto\x12\x1aglyph.plugins.extension.v1\x1a api/operation/v1/operation.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a&api/plugins/extension/v1/session.proto\x1a+api/plugins/extension/v1/session_tree.proto\x1a#api/plugins/extension/v1/tool.proto\"\xfc\x01\n" +
 	"\vOpenRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12C\n" +
 	"\arequest\x18\x02 \x01(\v2'.glyph.plugins.extension.v1.HostRequestH\x00R\arequest\x12;\n" +
@@ -3033,12 +3077,24 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xa5\x01\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\x8a\x04\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
 	"'HANDLER_KIND_SESSION_BEFORE_TREE_RESULT\x10\x02\x12\x1d\n" +
-	"\x19HANDLER_KIND_SESSION_TREE\x10\x032q\n" +
+	"\x19HANDLER_KIND_SESSION_TREE\x10\x03\x12\x1c\n" +
+	"\x18HANDLER_KIND_AGENT_START\x10\x04\x12\x1a\n" +
+	"\x16HANDLER_KIND_AGENT_END\x10\x05\x12\x1e\n" +
+	"\x1aHANDLER_KIND_AGENT_SETTLED\x10\x06\x12\x1b\n" +
+	"\x17HANDLER_KIND_TURN_START\x10\a\x12\x19\n" +
+	"\x15HANDLER_KIND_TURN_END\x10\b\x12\x1e\n" +
+	"\x1aHANDLER_KIND_MESSAGE_START\x10\t\x12\x1f\n" +
+	"\x1bHANDLER_KIND_MESSAGE_UPDATE\x10\n" +
+	"\x12\x1c\n" +
+	"\x18HANDLER_KIND_MESSAGE_END\x10\v\x12%\n" +
+	"!HANDLER_KIND_TOOL_EXECUTION_START\x10\f\x12&\n" +
+	"\"HANDLER_KIND_TOOL_EXECUTION_UPDATE\x10\r\x12#\n" +
+	"\x1fHANDLER_KIND_TOOL_EXECUTION_END\x10\x0e2q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
@@ -3144,6 +3200,7 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 	if File_api_plugins_extension_v1_extension_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_lifecycle_proto_init()
 	file_api_plugins_extension_v1_model_proto_init()
 	file_api_plugins_extension_v1_session_proto_init()
 	file_api_plugins_extension_v1_session_tree_proto_init()

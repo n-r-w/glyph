@@ -72,6 +72,40 @@ func New(applicationContext context.Context, session HostSession) *Service {
 	}
 }
 
+// ExtensionIssue contains one nonterminal extension observer failure.
+type ExtensionIssue struct {
+	// ExtensionID identifies the owning extension.
+	ExtensionID string
+	// HandlerID identifies the failed observer.
+	HandlerID string
+	// Code is the stable issue code.
+	Code string
+	// Text is the complete observer cause.
+	Text string
+}
+
+// PublishExtensionIssue enqueues one typed nonterminal issue without an operation ID.
+func (s *Service) PublishExtensionIssue(ctx context.Context, issue ExtensionIssue) error {
+	connection := new(programmaticv1.HostConnectionEvent)
+	connection.SetExtensionIssue(programmaticv1.ExtensionIssue_builder{
+		ExtensionId: new(issue.ExtensionID), HandlerId: new(issue.HandlerID),
+		Code: new(issue.Code), Text: new(issue.Text),
+	}.Build())
+	response := new(programmaticv1.OpenResponse)
+	response.SetConnectionEvent(connection)
+	s.writerMutex.RLock()
+	writer := s.writer
+	s.writerMutex.RUnlock()
+	if writer == nil {
+		return errors.New("programmatic connection writer is not active")
+	}
+	acknowledgement, err := writer.EnqueueAcknowledged(response)
+	if err != nil {
+		return err
+	}
+	return acknowledgement.Wait(ctx)
+}
+
 // PublishSessionEntry enqueues one committed entry as a connection event without an operation ID.
 func (s *Service) PublishSessionEntry(
 	entry SessionTreeEntry,

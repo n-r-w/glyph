@@ -289,18 +289,20 @@ func mapRegistration(response *extensionpb.RegisterResponse) (startup.PendingReg
 
 // mapRawHandlerKind maps supported public kinds and maps other values to the invalid zero kind.
 func mapRawHandlerKind(kind extensionpb.HandlerKind) startup.RawHandlerKind {
-	switch kind {
-	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST:
+	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST {
 		return startup.RawHandlerKindSessionBeforeTreeRequest
-	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT:
-		return startup.RawHandlerKindSessionBeforeTreeResult
-	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
-		return startup.RawHandlerKindSessionTree
-	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED:
-		return startup.RawHandlerKindUnspecified
-	default:
-		return startup.RawHandlerKindUnspecified
 	}
+	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT {
+		return startup.RawHandlerKindSessionBeforeTreeResult
+	}
+	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE {
+		return startup.RawHandlerKindSessionTree
+	}
+	if kind >= extensionpb.HandlerKind_HANDLER_KIND_AGENT_START &&
+		kind <= extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END {
+		return startup.RawHandlerKind(kind)
+	}
+	return startup.RawHandlerKindUnspecified
 }
 
 // mapToolDescriptor maps one optional public descriptor without validating tool policy.

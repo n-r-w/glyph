@@ -68,6 +68,8 @@ func mapFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
 		progress := new(uiv1.HostProgress)
 		progress.SetAuthorization(uiv1.AuthorizationRequest_builder{Url: new(authorizationURL)}.Build())
 		return progressRequest(progress), nil
+	case domainui.FrameExtensionIssue:
+		return mapExtensionIssueFrame(frame)
 	case domainui.FrameSessionEntryAdded:
 		entry, present := frame.SessionEntryAdded.Get()
 		if !present {
@@ -181,7 +183,7 @@ func mapSessionFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigationProgress,
 		domainui.FrameSessionTreeNavigation,
 		domainui.FrameEntryLabelSet, domainui.FrameSubmitCompleted, domainui.FrameAuthenticationCompleted,
-		domainui.FrameSessionEntryAdded:
+		domainui.FrameSessionEntryAdded, domainui.FrameExtensionIssue:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -300,6 +302,20 @@ func mapRestoredUserContent(item model.InputContent, index int) (*uiv1.UserConte
 		return nil, fmt.Errorf("map restored user content %d: unknown kind %d", index, item.Kind)
 	}
 	return wire, nil
+}
+
+// mapExtensionIssueFrame maps one typed nonterminal observer issue.
+func mapExtensionIssueFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
+	issue, present := frame.ExtensionIssue.Get()
+	if !present {
+		return nil, errors.New("map UI frame: extension issue is required")
+	}
+	connection := new(uiv1.HostConnectionEvent)
+	connection.SetExtensionIssue(uiv1.ExtensionIssue_builder{
+		ExtensionId: new(issue.ExtensionID), HandlerId: new(issue.HandlerID),
+		Code: new(issue.Code), Text: new(issue.Text),
+	}.Build())
+	return connectionRequest(connection), nil
 }
 
 // mapInitializationFrame validates and maps the selected initialization payload.

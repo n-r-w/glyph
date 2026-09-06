@@ -49,7 +49,7 @@ func TestServiceValidatesHandlers(t *testing.T) {
 			// Arrange one raw handler registration.
 			service := New(nil, nil, nil)
 			// Act by validating the handler registration.
-			_, err := service.ValidateHandlers(startup.PendingRegistration{
+			_, err := service.ValidateSessionTreeHandlers(startup.PendingRegistration{
 				ID: "extension", Path: "/extension", Tools: nil, Handlers: test.handlers,
 			})
 			// Assert the existing policy error remains exact.
@@ -66,7 +66,7 @@ func TestServiceKeepsAcceptedHandlerOrder(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntime(controller)
 	service := New(nil, nil, runtime)
-	service.CommitHandlers([]startup.AcceptedRegistration{
+	service.CommitSessionTreeHandlers([]startup.AcceptedRegistration{
 		{
 			ID: "first", Path: "/first", Tools: nil,
 			Handlers: []startup.AcceptedHandler{
@@ -102,7 +102,7 @@ func TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntime(controller)
 	service := New(nil, nil, runtime)
-	service.CommitHandlers([]startup.AcceptedRegistration{{
+	service.CommitSessionTreeHandlers([]startup.AcceptedRegistration{{
 		ID:    "extension",
 		Path:  "/extension",
 		Tools: nil,
