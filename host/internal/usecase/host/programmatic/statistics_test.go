@@ -20,6 +20,7 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 
 	// Arrange an active-run query and a consumer-owned session control expectation.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	statistics := session.Statistics{
 		UserMessages: 1, ModelResponses: 1, ToolCalls: 0, ToolResults: 0, TotalMessages: 2,
 		TokenUsage: mo.Some(session.TokenUsage{}),
@@ -33,7 +34,7 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 		}},
 	}
 	control.EXPECT().Statistics().Return(statistics)
-	service := New(nil, nil, nil, nil, control, nil)
+	service := New(nil, nil, nil, nil, control, gate, nil)
 	command := testProgrammaticCommand("stats", controller.CommandGetSessionStats)
 
 	// Act by handling the query while an active run marker is present.

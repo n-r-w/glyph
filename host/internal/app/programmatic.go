@@ -29,6 +29,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -86,17 +87,17 @@ func runProgrammaticWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled, lifecycleObservers)
+	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
+	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(
 		coordinator,
 		providerCatalog,
 		agentCore,
 		sessionServices.active.ClientSnapshot,
-		sessionServices.control,
+		sessionServices.control, sessionServices.gate,
 		delivery,
 	)
 	controller := controllerprogrammatic.New(ctx, session, delivery)

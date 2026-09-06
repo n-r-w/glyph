@@ -14,6 +14,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
 
 const (
@@ -48,6 +49,8 @@ type Service struct {
 	state State
 }
 
+var _ runcontrol.Executor = (*Service)(nil)
+
 // New creates an Agent Core run service.
 func New(
 	instructions string,
@@ -73,10 +76,10 @@ func New(
 }
 
 // Run executes one user request through the model/tool loop.
-func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
+func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontrol.Result, error) {
 	startIndex, beginErr := s.begin(request)
 	if beginErr != nil {
-		return Result{}, beginErr
+		return runcontrol.Result{}, beginErr
 	}
 	deliveryErr := s.deliver(ctx, newEvent(agent.EventAgentStart, request.RunID))
 	if deliveryErr != nil {
@@ -146,7 +149,7 @@ func (s *Service) ProjectHistory() []agent.HistoryEntry {
 }
 
 // begin reserves the only run slot before the user entry ownership transfer.
-func (s *Service) begin(request Request) (int, error) {
+func (s *Service) begin(request runcontrol.Request) (int, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusIdle {
@@ -165,18 +168,16 @@ func (s *Service) begin(request Request) (int, error) {
 // runTurn performs one provider request and applies its terminal outcome.
 //
 //nolint:gocyclo // The branches preserve explicit stream, delivery, and terminal failure paths.
-func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, error) {
+func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, error) {
 	if err := s.deliver(ctx, newEvent(agent.EventTurnStart, runID)); err != nil {
-		return Result{
+		return turnResult{
 			Outcome:      agent.RunOutcomeFailed,
-			AddedHistory: nil,
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
 	if err := s.deliver(ctx, newEvent(agent.EventMessageStart, runID)); err != nil {
-		return Result{
+		return turnResult{
 			Outcome:      agent.RunOutcomeFailed,
-			AddedHistory: nil,
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
@@ -252,8 +253,8 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	if deliveryErr != nil {
 		s.clearPartial()
 		combinedErr := composeErrorWithCause(providerErr, deliveryErr)
-		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+		return turnResult{
+			Outcome:      agent.RunOutcomeFailed,
 			ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 		}, false, combinedErr
 	}
@@ -268,17 +269,16 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 	s.clearPartial()
 	// The terminal model response must transfer to history ownership before completion is exposed.
 	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
-		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+		return turnResult{
+			Outcome:      agent.RunOutcomeFailed,
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
 	messageEnd := newEvent(agent.EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	if err := s.deliver(context.WithoutCancel(ctx), messageEnd); err != nil {
-		return Result{
+		return turnResult{
 			Outcome:      agent.RunOutcomeFailed,
-			AddedHistory: nil,
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
@@ -326,7 +326,7 @@ func (s *Service) finalizeProviderError(
 	runID string,
 	response model.Response,
 	providerErr error,
-) (Result, bool, error) {
+) (turnResult, bool, error) {
 	response = response.Clone()
 	if partial, present := s.State().PartialResponse.Get(); len(response.Content) == 0 && present {
 		response.Content = partial.Content
@@ -351,8 +351,8 @@ func (s *Service) finalizeProviderError(
 	if validationErr != nil {
 		combinedErr := errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
 		resultMessage := visibleErrorMessage(combinedErr)
-		return Result{
-			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+		return turnResult{
+			Outcome:      outcomeToRunOutcome(outcome),
 			ErrorMessage: mo.EmptyableToOption(resultMessage),
 		}, false, combinedErr
 	}
@@ -360,8 +360,8 @@ func (s *Service) finalizeProviderError(
 	if err := s.appendModel(terminalContext, response); err != nil {
 		combinedErr := errors.Join(err, providerErr)
 		resultMessage := visibleErrorMessage(combinedErr)
-		return Result{
-			Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+		return turnResult{
+			Outcome:      outcomeToRunOutcome(outcome),
 			ErrorMessage: mo.Some(resultMessage),
 		}, false, combinedErr
 	}
@@ -377,8 +377,8 @@ func (s *Service) finalizeProviderError(
 	if deliveryErr != nil {
 		resultMessage = visibleErrorMessage(combinedErr)
 	}
-	return Result{
-		Outcome: outcomeToRunOutcome(outcome), AddedHistory: nil,
+	return turnResult{
+		Outcome:      outcomeToRunOutcome(outcome),
 		ErrorMessage: mo.EmptyableToOption(resultMessage),
 	}, false, combinedErr
 }
@@ -448,7 +448,7 @@ func (s *Service) applyOutcome(
 	ctx context.Context,
 	runID string,
 	response model.Response,
-) (Result, bool, error) {
+) (turnResult, bool, error) {
 	outcome, present := response.Outcome.Get()
 	if !present {
 		err := errors.New("model response has no outcome")
@@ -470,8 +470,8 @@ func (s *Service) applyOutcome(
 				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
 			}
 			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-				return Result{
-					Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+				return turnResult{
+					Outcome:      agent.RunOutcomeFailed,
 					ErrorMessage: mo.Some(err.Error()),
 				}, false, err
 			}
@@ -479,15 +479,14 @@ func (s *Service) applyOutcome(
 			toolResult := newEvent(agent.EventToolResult, runID)
 			toolResult.ToolResult = mo.Some(result)
 			if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-				return Result{
+				return turnResult{
 					Outcome:      agent.RunOutcomeFailed,
-					AddedHistory: nil,
 					ErrorMessage: mo.Some(err.Error()),
 				}, false, err
 			}
 		}
 		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
-		return Result{}, err == nil, err
+		return turnResult{}, err == nil, err
 	case model.OutcomeAborted:
 		errorMessage, hasErrorMessage := response.ErrorMessage.Get()
 		if !hasErrorMessage || errorMessage == "" {
@@ -517,7 +516,7 @@ func (s *Service) executeCalls(
 	ctx context.Context,
 	runID string,
 	response model.Response,
-) (Result, bool, error) {
+) (turnResult, bool, error) {
 	results := make([]agent.ToolResult, 0)
 	for _, call := range modelToolCalls(response) {
 		if err := ctx.Err(); err != nil {
@@ -526,9 +525,8 @@ func (s *Service) executeCalls(
 		toolStart := newEvent(agent.EventToolExecutionStart, runID)
 		toolStart.ToolCall = mo.Some(call)
 		if err := s.deliver(ctx, toolStart); err != nil {
-			return Result{
+			return turnResult{
 				Outcome:      agent.RunOutcomeFailed,
-				AddedHistory: nil,
 				ErrorMessage: mo.Some(err.Error()),
 			}, false, err
 		}
@@ -553,8 +551,8 @@ func (s *Service) executeCalls(
 		priorErr := composeErrorWithCause(executeErr, progressDeliveryErr)
 		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
 			combinedErr := errors.Join(err, priorErr)
-			return Result{
-				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+			return turnResult{
+				Outcome:      agent.RunOutcomeFailed,
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 			}, false, combinedErr
 		}
@@ -564,8 +562,8 @@ func (s *Service) executeCalls(
 		toolEnd.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolEnd); err != nil {
 			combinedErr := errors.Join(priorErr, err)
-			return Result{
-				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+			return turnResult{
+				Outcome:      agent.RunOutcomeFailed,
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 			}, false, combinedErr
 		}
@@ -573,8 +571,8 @@ func (s *Service) executeCalls(
 		toolResult.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
 			combinedErr := errors.Join(priorErr, err)
-			return Result{
-				Outcome: agent.RunOutcomeFailed, AddedHistory: nil,
+			return turnResult{
+				Outcome:      agent.RunOutcomeFailed,
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 			}, false, combinedErr
 		}
@@ -604,7 +602,7 @@ func (s *Service) executeCalls(
 		}
 	}
 	_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
-	return Result{}, err == nil, err
+	return turnResult{}, err == nil, err
 }
 
 // composeErrorWithCause adds a cause only when the primary error does not already contain it.
@@ -624,22 +622,22 @@ func (s *Service) endTurn(
 	outcome agent.RunOutcome,
 	errorMessage string,
 	runErr error,
-) (Result, bool, error) {
+) (turnResult, bool, error) {
 	turn := agent.TurnSummary{Response: response.Clone(), ToolResults: slices.Clone(results)}
 	turnEnd := newEvent(agent.EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {
 		combinedErr := errors.Join(runErr, err)
 		resultMessage := visibleErrorMessage(combinedErr)
-		return Result{
-			Outcome: agent.RunOutcomeFailed, AddedHistory: nil, ErrorMessage: mo.Some(resultMessage),
+		return turnResult{
+			Outcome: agent.RunOutcomeFailed, ErrorMessage: mo.Some(resultMessage),
 		}, false, combinedErr
 	}
 	if outcome == 0 {
-		return Result{}, true, runErr
+		return turnResult{}, true, runErr
 	}
-	return Result{
-		Outcome: outcome, AddedHistory: nil, ErrorMessage: mo.EmptyableToOption(errorMessage),
+	return turnResult{
+		Outcome: outcome, ErrorMessage: mo.EmptyableToOption(errorMessage),
 	}, false, runErr
 }
 
@@ -651,7 +649,7 @@ func (s *Service) finish(
 	outcome agent.RunOutcome,
 	errorMessage mo.Option[string],
 	runErr error,
-) (Result, error) {
+) (runcontrol.Result, error) {
 	history := s.historyStore.Snapshot()
 	added := cloneHistory(history[startIndex:])
 	s.mutex.Lock()
@@ -662,7 +660,7 @@ func (s *Service) finish(
 		ToolPreviews:    nil,
 	}
 	s.mutex.Unlock()
-	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
+	result := runcontrol.Result{Outcome: outcome, SettlementRequired: true}
 	agentEnd := newEvent(agent.EventAgentEnd, runID)
 	agentEnd.Agent = mo.Some(agent.RunSummary{
 		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage,

@@ -1,4 +1,5 @@
-package events
+// Package runcontrol owns prepared run admission and settlement ordering.
+package runcontrol
 
 import (
 	"context"
@@ -11,25 +12,23 @@ import (
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
+// runIDBytes is the entropy size of a Host run identifier.
 const runIDBytes = 16
 
 // Coordinator owns run IDs, operation-gate reservations, and Agent Core settlement for one Host process.
 type Coordinator struct {
-	// execute runs one prepared Agent Core request.
-	execute func(context.Context, run.Request) (run.Result, error)
-	// settle completes Host recipient delivery for one run.
-	settle func(string) error
-	// events dispatches Agent Core and settlement events.
-	events *Dispatcher
+	// executor runs requests and completes the Core settlement transition.
+	executor Executor
+	// events completes client settlement delivery and subsequent observation.
+	events SettledDelivery
 	// newRunID creates one opaque run identifier.
 	newRunID func() (string, error)
-	// tryAcquire reserves agent execution against session mutation.
-	tryAcquire func() (release func(), acquired bool)
+	// gate reserves agent execution against session mutation.
+	gate Gate
 	// mutex protects transfer of prepared reservation ownership to execution or cancellation.
 	mutex sync.Mutex
 	// prepared stores each release function until exactly one terminal owner takes it.
@@ -44,36 +43,33 @@ var (
 
 // NewCoordinator creates the production Host run coordinator.
 func NewCoordinator(
-	execute func(context.Context, run.Request) (run.Result, error),
-	settle func(string) error,
-	events *Dispatcher,
-	tryAcquire func() (release func(), acquired bool),
+	executor Executor,
+	events SettledDelivery,
+	gate Gate,
 ) *Coordinator {
-	return newCoordinator(execute, settle, events, generateRunID, tryAcquire)
+	return newCoordinator(executor, events, generateRunID, gate)
 }
 
 // newCoordinator creates a coordinator with deterministic package-test seams.
 func newCoordinator(
-	execute func(context.Context, run.Request) (run.Result, error),
-	settle func(string) error,
-	events *Dispatcher,
+	executor Executor,
+	events SettledDelivery,
 	newRunID func() (string, error),
-	tryAcquire func() (release func(), acquired bool),
+	gate Gate,
 ) *Coordinator {
 	return &Coordinator{
-		execute:    execute,
-		settle:     settle,
-		events:     events,
-		newRunID:   newRunID,
-		tryAcquire: tryAcquire,
-		mutex:      sync.Mutex{},
-		prepared:   make(map[string]func()),
+		executor: executor,
+		events:   events,
+		newRunID: newRunID,
+		gate:     gate,
+		mutex:    sync.Mutex{},
+		prepared: make(map[string]func()),
 	}
 }
 
 // PrepareRun allocates one Host-owned run ID before a controller accepts the run.
 func (c *Coordinator) PrepareRun() (string, error) {
-	release, acquired := c.tryAcquire()
+	release, acquired := c.gate.TryAcquire()
 	if !acquired {
 		return "", session.ErrBusy
 	}
@@ -103,13 +99,13 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (
 		return 0, errors.New("run is not prepared")
 	}
 	defer release()
-	result, runErr := c.execute(ctx, run.Request{RunID: runID, UserText: userText})
-	if len(result.AddedHistory) == 0 && !errors.Is(runErr, run.ErrPersistenceUnavailable) {
+	result, runErr := c.executor.Run(ctx, Request{RunID: runID, UserText: userText})
+	if !result.SettlementRequired {
 		return result.Outcome, runErr
 	}
-	// A classified persistence failure settles before gate release even when its first append added no history.
+	// Core reports its own transition, including cancellation before the first append.
 	terminalContext := context.WithoutCancel(ctx)
-	settleErr := c.settle(runID)
+	settleErr := c.executor.Settle(runID)
 	settledErr := c.events.DeliverSettled(terminalContext, runID)
 	return result.Outcome, errors.Join(runErr, settleErr, settledErr)
 }

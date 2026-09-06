@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
@@ -14,6 +17,11 @@ import (
 	host "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
+)
+
+var (
+	_ events.ClientDelivery      = (*Service)(nil)
+	_ runcontrol.SettledDelivery = (*Service)(nil)
 )
 
 // activeOutput correlates one prepared run with its operation-owned reporter.

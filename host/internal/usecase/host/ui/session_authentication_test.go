@@ -33,7 +33,7 @@ func TestAuthenticationCheckRequiresExplicitRetry(t *testing.T) {
 	)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -62,7 +62,7 @@ func TestAuthenticationCheckUsesInternalCategoryForOtherFailures(t *testing.T) {
 	)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -105,7 +105,7 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(nil)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -138,7 +138,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(source)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -163,7 +163,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 func authenticationService(controller *gomock.Controller) *Session {
 	return NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, func(context.Context) {},
+		NewMockModelCatalog(controller), nil, nil, func(context.Context) {},
 
 		Initialization{},
 	)

@@ -15,8 +15,6 @@ type Service struct {
 	active ActiveSessions
 	// navigator commits internal tree navigation and optional built-in summaries.
 	navigator Navigator
-	// tryAcquire reserves session mutation against agent execution.
-	tryAcquire func() (release func(), acquired bool)
 }
 
 var (
@@ -28,14 +26,8 @@ var (
 func New(
 	active ActiveSessions,
 	navigator Navigator,
-	tryAcquire func() (release func(), acquired bool),
 ) *Service {
-	return &Service{active: active, navigator: navigator, tryAcquire: tryAcquire}
-}
-
-// TryAcquire reserves session mutation ownership for any internal transport caller.
-func (s *Service) TryAcquire() (func(), bool) {
-	return s.tryAcquire()
+	return &Service{active: active, navigator: navigator}
 }
 
 // Create replaces the active session under the caller-owned reservation.

@@ -12,7 +12,7 @@ The user approved this correction plan and its implementation. Production eviden
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
-All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions), not implemented corrections. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
+All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions). Cancellation settlement recovery is implemented under U2. Error-text and persistence-category corrections remain open. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
 
 ### Responsibility changes
 
@@ -310,7 +310,7 @@ The audit's cached baseline tests are not implementation evidence. Record exact 
 
 #### U1: Host client input and output
 
-Correction 1 is implemented. The [architecture components](../../architecture.md#components) describe the resulting input and output owners. The old domain UI package and Host delivery implementations are removed. Core supplies the Programmatic activity predicate through its consumer interface. Corrections 2 through 8 and independent whole-product review remain open.
+Correction 1 is implemented. The [architecture components](../../architecture.md#components) describe the resulting input and output owners. The old domain UI package and Host delivery implementations are removed. Core supplies the Programmatic activity predicate through its consumer interface. The following evidence sections track subsequent corrections. Independent whole-product review remains open.
 
 All commands below exited 0 on the U1 implementation:
 
@@ -320,6 +320,30 @@ All commands below exited 0 on the U1 implementation:
 - Two `go generate ./...` runs produced identical SHA-256 snapshots for all 66 generated Go files.
 
 After comment refinement, the project checks passed again. The last coverage result was 83.5%, above the 80.0% threshold. Main-agent uncached tests passed for UI and Programmatic controllers, Programmatic output, both client Host usecases, and `internal/operation`. The dependency-closure check found no Host usecase or infrastructure dependency in those input controllers and no Core or concrete output dependency in either client Host usecase. The changed handwritten source contains no workflow labels or temporary-work markers. Main-agent source verification covered prepared cleanup, output correlation, initialization/activation, selected-process reuse, and requested/failed connection closure.
+
+#### U2: Run control, events and admission
+
+Correction 2 is implemented and passed main-agent source verification. `host/internal/usecase/host/runcontrol` owns prepared reservations and Core invocation. Core directly implements its execution and settlement contract. The result contains only `Outcome` and `SettlementRequired`. Core sets settlement required when `finish` enters awaiting-settlement state; a failed `begin` returns no settlement requirement. Terminal diagnostics and added history remain in the shared `AgentEnd` event. No Core forwarding implementation or compatibility declaration was added.
+
+The dispatcher consumes `ClientDelivery` and retains client-first delivery followed by observers. UI and Programmatic consume their own `Gate` interfaces. The real operation gate implements those interfaces and run control's gate interface. Sessioncontrol no longer forwards gate acquisition. Its session/navigation forwarding remains for correction 3.
+
+The executable RED command was `go test -race -tags=integration -count=1 ./host/internal/app -run '^TestProgrammaticObserverCancellationReleasesRun$'`. It exited 1 before recovery implementation. The test failed on an assertion, not compilation or timeout: the active operation identifier was `blocked-observer` after cancellation instead of empty. The same command exited 0 after implementation.
+
+The [Programmatic regression](../../../../../../host/internal/app/observer_cancellation_integration_test.go) and [UI regression](../../../../../../host/internal/app/observer_cancellation_ui_integration_test.go) use the production app, client input/output, Core, dispatcher, lifecycle, and a public extension process. They block the AgentStart observer's nested configured-model request before its history append. After targeted cancellation, each retained connection reports empty history and admits a later run. They check one terminal result for the canceled run. Programmatic also reports idle Core state and no active output association. The first provider call belongs to the canceled observer; the next two belong to the later observer and later Core run.
+
+[Core settlement tests](../../../../../../host/internal/usecase/agent/run/settlement_test.go) and [persistence tests](../../../../../../host/internal/usecase/agent/run/persistence_test.go) cover zero-history cancellation, failed begin, and first-append persistence failure. [Run-control tests](../../../../../../host/internal/usecase/host/runcontrol/coordinator_test.go), [prepared reservation tests](../../../../../../host/internal/usecase/host/runcontrol/gate_test.go), and [gate integration](../../../../../../host/internal/usecase/host/operationgate/lifecycle_test.go) cover exactly-once preparation release and Core/client/observer settlement before admission release. Dispatcher tests retain both error identities and text after failed client delivery.
+
+All final commands exited 0:
+
+- `task fmt`; `task fix_dry_run`; `task lint`; `task test`; `task itest`; `task test-coverage`; `task build`; `git diff --check`.
+- `go test -race -count=1 ./host/... ./internal/operation`.
+- `go test -race -tags=integration -p 1 -parallel 1 -count=1 ./host/... ./internal/operation`.
+- `go test -race -tags=integration -count=5 ./host/internal/app -run '^Test(Programmatic|UI)ObserverCancellationReleasesRun$'`.
+- Two `go generate ./...` runs. SHA-256 snapshots of all 65 generated Go files outside the separate experiment modules matched before, between, and after both runs.
+
+`task fix_dry_run` produced no proposals. Local compile/lint failures were corrected by updating constructor calls, removing stale result fields, removing unused test directives, and adding the required structural settlement assertions in real output implementations. No suppression, dependency change, or cache clearing was used. The changed restarted-history test combines sessions with Core and now runs under the integration tag. Final coverage is 83.7%, above the 80.0% threshold. Dependency-closure checks cover all new implementation-to-consumer imports. Run control and both client Host usecases have no Core, dispatcher, or infrastructure dependency.
+
+Main-agent tests passed with `go test -race -count=1 ./host/internal/usecase/host/runcontrol ./host/internal/usecase/host/events ./host/internal/usecase/agent/run`. Both public cancellation regressions also passed twice with `-race -tags=integration -count=2`. Source verification covered owner-reported settlement, failed-begin isolation, prepared reservation transfer, client/observer errors, and release ordering. Corrections 3 through 8 and independent whole-product review remain open.
 
 ### Execution control
 
@@ -352,7 +376,7 @@ Each instance owns one atomic unit. Continuation of an instance is limited to co
 
 ## Approved behavior decisions
 
-The user approved QST-01 through QST-03 under ticket NFQ-01. All three remain unimplemented and require the specified failing regressions. The user also approved the complete correction plan and execution policy.
+The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 and QST-02 remain unimplemented and require the specified failing regressions. QST-03 has executable RED/GREEN evidence under U2. The user also approved the complete correction plan and execution policy.
 
 ### QST-01: Complete error-text corrections
 

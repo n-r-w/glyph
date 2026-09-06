@@ -21,6 +21,8 @@ type Session struct {
 	modelCatalog ModelCatalog
 	// sessionControl owns active-session lifecycle operations.
 	sessionControl SessionControl
+	// gate owns admission against agent execution.
+	gate Gate
 	// afterInitialization starts work that requires a connected UI.
 	afterInitialization func(context.Context)
 	// operationMutex protects readiness and operation-specific reservations.
@@ -40,6 +42,7 @@ func NewSession(
 	authenticator Authenticator,
 	modelCatalog ModelCatalog,
 	sessionControl SessionControl,
+	gate Gate,
 	afterInitialization func(context.Context),
 	initialization Initialization,
 ) *Session {
@@ -49,6 +52,7 @@ func NewSession(
 		runner:                runner,
 		authenticator:         authenticator,
 		modelCatalog:          modelCatalog,
+		gate:                  gate,
 		sessionControl:        sessionControl,
 		afterInitialization:   afterInitialization,
 		operationMutex:        sync.Mutex{},

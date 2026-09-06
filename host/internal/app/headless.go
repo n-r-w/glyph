@@ -21,6 +21,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -73,11 +74,11 @@ func runHeadlessWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(renderer.DeliverAgent, renderer.DeliverSettled, lifecycleObservers)
+	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
+	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {

@@ -39,14 +39,15 @@ func TestUISessionMutationOwnsGate(t *testing.T) {
 			// Arrange one label mutation and observable gate ownership.
 			controller := gomock.NewController(t)
 			control := NewMockSessionControl(controller)
+			gate := NewMockGate(controller)
 			released := false
-			control.EXPECT().TryAcquire().Return(func() { released = true }, test.acquired)
+			gate.EXPECT().TryAcquire().Return(func() { released = true }, test.acquired)
 			if test.acquired {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, test.mutationErr)
 			}
-			service := replacementService(controller, control)
+			service := replacementService(controller, control, gate)
 			command := uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"))
 
 			// Act through bounded preparation and terminal execution.
@@ -114,11 +115,12 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 			// Arrange SessionControl for the case-specific replacement or label command.
 			controller := gomock.NewController(t)
 			control := NewMockSessionControl(controller)
-			expectSessionMutationGate(control, 1)
+			gate := NewMockGate(controller)
+			expectSessionMutationGate(gate, 1)
 			test.expect(control)
 
 			// Act by running the prepared replacement or label command.
-			frame, err := runPreparedCommand(t, replacementService(controller, control), test.command)
+			frame, err := runPreparedCommand(t, replacementService(controller, control, gate), test.command)
 
 			// Assert the completed frame has the expected durable result kind and payload.
 			require.NoError(t, err)
@@ -134,11 +136,12 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 	// Arrange SessionControl to reject one fork with ErrInvalidForkTarget.
 	controller := gomock.NewController(t)
 	control := NewMockSessionControl(controller)
-	expectSessionMutationGate(control, 1)
+	gate := NewMockGate(controller)
+	expectSessionMutationGate(gate, 1)
 	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
 
 	// Act by running the prepared fork command against the rejected target.
-	_, err := runPreparedCommand(t, replacementService(controller, control), uiReplacementCommand(
+	_, err := runPreparedCommand(t, replacementService(controller, control, gate), uiReplacementCommand(
 		controllerui.CommandForkSession, mo.Some("model"), mo.None[string](),
 	))
 
@@ -147,10 +150,10 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 }
 
 // replacementService creates one session service for prepared replacement operations.
-func replacementService(controller *gomock.Controller, control *MockSessionControl) *Session {
+func replacementService(controller *gomock.Controller, control *MockSessionControl, gate *MockGate) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, func(context.Context) {},
+		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
 
 		Initialization{},
 	)

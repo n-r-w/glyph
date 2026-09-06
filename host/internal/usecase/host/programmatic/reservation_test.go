@@ -46,13 +46,22 @@ func (s *ServiceSuite) TestSessionMutationOwnsGate() {
 			// Arrange one Programmatic mutation and an observable caller-owned reservation.
 			controllerMock := gomock.NewController(s.T())
 			control := NewMockSessionControl(controllerMock)
+			gate := NewMockGate(controllerMock)
 			released := false
 			release := func() { released = true }
-			control.EXPECT().TryAcquire().Return(release, test.acquired)
+			gate.EXPECT().TryAcquire().Return(release, test.acquired)
 			if test.acquired {
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.mutationErr)
 			}
-			service := New(nil, nil, testStateQuery(s.T(), false), emptyHistorySnapshot, control, testRunOutput(s.T()))
+			service := New(
+				nil,
+				nil,
+				testStateQuery(s.T(), false),
+				emptyHistorySnapshot,
+				control,
+				gate,
+				testRunOutput(s.T()),
+			)
 
 			// Act through Programmatic preparation and operation execution.
 			prepared, err := service.Prepare(
@@ -84,7 +93,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	service := New(coordinator, nil, testStateQuery(s.T(), false), emptyHistorySnapshot, nil, testRunOutput(s.T()))
+	service := New(coordinator, nil, testStateQuery(s.T(), false), emptyHistorySnapshot, nil, nil, testRunOutput(s.T()))
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -180,7 +189,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		testStateQuery(s.T(), true),
 		func() []agent.HistoryEntry { return history },
 		nil,
-		delivery,
+		nil, delivery,
 	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 

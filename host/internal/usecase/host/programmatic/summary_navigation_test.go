@@ -54,6 +54,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
+			gate := NewMockGate(mockController)
 			control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
@@ -82,7 +83,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 				testStateQuery(t, false),
 				emptyHistorySnapshot,
 				control,
-				testRunOutput(t),
+				gate, testRunOutput(t),
 			)
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")

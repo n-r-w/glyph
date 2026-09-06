@@ -74,6 +74,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			// Arrange strict dependencies for one public session operation.
 			controllerMock := gomock.NewController(t)
 			control := NewMockSessionControl(controllerMock)
+			gate := NewMockGate(controllerMock)
 			test.expect(control)
 			service := New(
 				NewMockCoordinator(controllerMock),
@@ -81,7 +82,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 				testStateQuery(t, false),
 				emptyHistorySnapshot,
 				control,
-				testRunOutput(t),
+				gate, testRunOutput(t),
 			)
 
 			// Act through Programmatic Control.
@@ -102,6 +103,7 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 	// Arrange a fork target rejected by the Host domain.
 	controllerMock := gomock.NewController(t)
 	control := NewMockSessionControl(controllerMock)
+	gate := NewMockGate(controllerMock)
 	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
 	service := New(
 		NewMockCoordinator(controllerMock),
@@ -109,7 +111,7 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 		testStateQuery(t, false),
 		emptyHistorySnapshot,
 		control,
-		testRunOutput(t),
+		gate, testRunOutput(t),
 	)
 
 	// Act by forking a non-user entry.

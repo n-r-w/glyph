@@ -37,7 +37,7 @@ func (s *Service) Prepare(
 	}
 	release := func() {}
 	if isSessionMutation(command.Kind) {
-		reservation, acquired := s.sessionControl.TryAcquire()
+		reservation, acquired := s.gate.TryAcquire()
 		if !acquired {
 			return nil, controller.Reject(
 				controller.RejectionCodeBusy,

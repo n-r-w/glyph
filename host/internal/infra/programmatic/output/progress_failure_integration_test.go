@@ -7,6 +7,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	host "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 
 	"github.com/samber/mo"
@@ -72,11 +74,11 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		coordinator.EXPECT().PrepareRun().Return("run-progress-failure", nil)
 		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-progress-failure", "request").DoAndReturn(
 			func(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
-				result, err := agentCore.Run(ctx, agentrun.Request{RunID: runID, UserText: userText})
+				result, err := agentCore.Run(ctx, runcontrol.Request{RunID: runID, UserText: userText})
 				return result.Outcome, err
 			},
 		)
-		service := host.New(coordinator, nil, agentCore, func() []agent.HistoryEntry { return nil }, nil, delivery)
+		service := host.New(coordinator, nil, agentCore, func() []agent.HistoryEntry { return nil }, nil, nil, delivery)
 		command := controller.Command{
 			OperationID:     "progress-failure",
 			Kind:            controller.CommandUserRequest,

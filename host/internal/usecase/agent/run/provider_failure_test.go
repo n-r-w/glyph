@@ -10,6 +10,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -67,7 +69,7 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 		events,
 	)
 
-	_, err := service.Run(t.Context(), Request{RunID: "run-failed-partial", UserText: "hi"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-failed-partial", UserText: "hi"})
 
 	require.Error(t, err)
 	history := service.History()
@@ -111,7 +113,7 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 		events,
 	)
 
-	_, err := service.Run(t.Context(), Request{RunID: "run-malformed-partial", UserText: "hi"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-malformed-partial", UserText: "hi"})
 
 	require.ErrorContains(t, err, "provider transport failed")
 	require.ErrorContains(t, err, "unknown kind")
@@ -180,10 +182,9 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 		events,
 	)
 
-	result, err := service.Run(t.Context(), Request{RunID: "run-safe-error", UserText: "go"})
-
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-safe-error", UserText: "go"})
 	require.Error(t, err)
-	assert.Equal(t, safeMessage, result.ErrorMessage.OrEmpty())
+	require.True(t, result.SettlementRequired)
 	history := service.History()
 	require.Len(t, history, 2)
 	assert.Equal(t, safeMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
@@ -272,12 +273,16 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 	)
 
 	// Act by running through the joined provider and recorded delivery failure.
-	result, err := service.Run(t.Context(), Request{RunID: "provider-content-end-failure", UserText: "hello"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "provider-content-end-failure", UserText: "hello"},
+	)
 
 	// Assert both causes occur once at each surviving local boundary.
+	require.True(t, result.SettlementRequired)
 	require.ErrorIs(t, err, providerErr)
 	require.ErrorIs(t, err, deliveryErr)
-	for _, text := range []string{err.Error(), result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+	for _, text := range []string{err.Error(), agentEnd.ErrorMessage.OrEmpty()} {
 		assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
 		assert.Equal(t, 1, strings.Count(text, deliveryErr.Error()), text)
 	}
@@ -327,17 +332,18 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running the combined provider and persistence failure.
-	result, err := service.Run(t.Context(), Request{RunID: "combined-failure", UserText: "hello"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "combined-failure", UserText: "hello"})
+	require.True(t, result.SettlementRequired)
 
-	// Assert the returned error, result, and terminal Agent event retain both causes.
+	// Assert the returned error and terminal Agent event retain both causes.
 	require.Error(t, err)
 	require.ErrorIs(t, err, providerErr)
 	require.ErrorIs(t, err, persistenceErr)
-	for _, text := range []string{result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
-		assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
-		assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
-		assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
-	}
+	// text is the diagnostic delivered in the terminal event, separate from the returned error.
+	text := agentEnd.ErrorMessage.OrEmpty()
+	assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
+	assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
+	assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
 }
 
 // TestServiceRunProviderFailure exposes partial state, stores the provider cause, and excludes it from projection.
@@ -384,7 +390,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		)
 		outcome := make(chan error, 1)
 		go func() {
-			_, err := service.Run(t.Context(), Request{RunID: "run-failed", UserText: "hi"})
+			_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-failed", UserText: "hi"})
 			outcome <- err
 		}()
 		select {
@@ -396,7 +402,7 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			require.Len(t, state.PartialResponse.OrEmpty().Content, 1)
 			assert.Equal(t, "partial", state.PartialResponse.OrEmpty().Content[0].Text.OrEmpty())
 			historyBefore := service.History()
-			_, secondErr := service.Run(t.Context(), Request{RunID: "blocked", UserText: "no"})
+			_, secondErr := service.Run(t.Context(), runcontrol.Request{RunID: "blocked", UserText: "no"})
 			require.ErrorIs(t, secondErr, ErrRunActive)
 			assert.Equal(t, historyBefore, service.History())
 			close(release)
@@ -435,7 +441,7 @@ func TestServiceRunRejectsUnknownTerminalOutcome(t *testing.T) {
 		provider, tools, events,
 	)
 
-	_, err := service.Run(t.Context(), Request{RunID: "run-unknown-outcome", UserText: "hi"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-unknown-outcome", UserText: "hi"})
 
 	require.ErrorContains(t, err, "unsupported terminal model outcome 99")
 	assert.True(t, service.State().PartialResponse.IsNone())

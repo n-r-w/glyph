@@ -128,7 +128,7 @@ func newSessionComposition(
 	tree := sessiontree.New(active, modelRequester, handlerRuntime)
 	return sessionComposition{
 		active:         active,
-		control:        sessioncontrol.New(active, tree, gate.TryAcquire),
+		control:        sessioncontrol.New(active, tree),
 		gate:           gate,
 		pricing:        pricing,
 		modelRequester: modelRequester,

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -70,20 +72,22 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 			)
 
 			// Act by finalizing the provider cancellation.
-			result, err := service.Run(t.Context(), Request{RunID: "mixed-provider-cancel", UserText: "cancel"})
+			result, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "mixed-provider-cancel", UserText: "cancel"},
+			)
 
 			// Assert outcome and error classifications stay stable while terminal text filters cancellation leaves.
 			require.ErrorIs(t, err, context.Canceled)
 			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
 			if !test.mixed {
-				assert.Equal(t, abortedModelMessage, result.ErrorMessage.OrEmpty())
 				assert.Equal(t, abortedModelMessage, messageEnd.ErrorMessage.OrEmpty())
 				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
 				return
 			}
 			require.ErrorIs(t, err, independentErr)
 			for _, text := range []string{
-				result.ErrorMessage.OrEmpty(), messageEnd.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty(),
+				messageEnd.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty(),
 			} {
 				assert.Equal(t, 1, strings.Count(text, independentErr.Error()), text)
 				assert.NotContains(t, text, abortedModelMessage)
@@ -175,26 +179,26 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by running the canceled provider through terminal finalization.
-			result, err := service.Run(t.Context(), Request{RunID: "cancellation-terminal-failure", UserText: "cancel"})
+			result, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "cancellation-terminal-failure", UserText: "cancel"},
+			)
 
 			// Assert pure cancellation is canonical and combined failures expose only non-cancellation detail.
 			require.ErrorIs(t, err, context.Canceled)
 			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
 			if test.failure == "" {
-				assert.Equal(t, abortedModelMessage, result.ErrorMessage.OrEmpty())
 				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
 				assert.Equal(t, 1, modelAppendCalls)
 				return
 			}
 			if test.failure == "validation" {
 				assert.Contains(t, err.Error(), "unknown kind")
-				assert.Contains(t, result.ErrorMessage.OrEmpty(), "unknown kind")
 				assert.Contains(t, agentEnd.ErrorMessage.OrEmpty(), "unknown kind")
 				assert.Zero(t, modelAppendCalls)
 				return
 			}
 			require.ErrorIs(t, err, siblingErr)
-			assert.Contains(t, result.ErrorMessage.OrEmpty(), siblingErr.Error())
 			assert.Contains(t, agentEnd.ErrorMessage.OrEmpty(), siblingErr.Error())
 			assert.Equal(t, 1, modelAppendCalls)
 		})
@@ -250,7 +254,7 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 			events,
 		)
 
-		_, err := service.Run(ctx, Request{RunID: "run-provider-cancel", UserText: "hi"})
+		_, err := service.Run(ctx, runcontrol.Request{RunID: "run-provider-cancel", UserText: "hi"})
 
 		require.ErrorIs(t, err, context.Canceled)
 		require.NotErrorIs(t, err, terminalContextErr)
@@ -311,7 +315,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		defer cancel()
 		outcome := make(chan error, 1)
 		go func() {
-			_, err := service.Run(ctx, Request{RunID: "run-cancel", UserText: "go"})
+			_, err := service.Run(ctx, runcontrol.Request{RunID: "run-cancel", UserText: "go"})
 			outcome <- err
 		}()
 		select {
@@ -399,7 +403,17 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 				},
 				nil,
 			))
-			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+			// agentEnd retains the terminal diagnostic for each provider outcome.
+			var agentEnd agent.RunSummary
+			events.EXPECT().
+				Deliver(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, event agent.Event) error {
+					if event.Type == agent.EventAgentEnd {
+						agentEnd = event.Agent.MustGet()
+					}
+					return nil
+				}).
+				AnyTimes()
 			service := newTestService(
 				t,
 				testInstructions,
@@ -410,11 +424,11 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 				events,
 			)
 
-			result, err := service.Run(t.Context(), Request{RunID: "run-" + name, UserText: "hi"})
+			result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-" + name, UserText: "hi"})
 
 			require.Error(t, err)
 			assert.Equal(t, testCase.runOutcome, result.Outcome)
-			assert.Equal(t, testCase.errorMessage, result.ErrorMessage.OrEmpty())
+			assert.Equal(t, testCase.errorMessage, agentEnd.ErrorMessage.OrEmpty())
 			history := service.History()
 			require.Len(t, history, 2)
 			assert.Equal(t, testCase.errorMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())

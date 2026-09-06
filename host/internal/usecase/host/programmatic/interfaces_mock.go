@@ -405,21 +405,6 @@ func (mr *MockSessionControlMockRecorder) Tree() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockSessionControl)(nil).Tree))
 }
 
-// TryAcquire mocks base method.
-func (m *MockSessionControl) TryAcquire() (func(), bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TryAcquire")
-	ret0, _ := ret[0].(func())
-	ret1, _ := ret[1].(bool)
-	return ret0, ret1
-}
-
-// TryAcquire indicates an expected call of TryAcquire.
-func (mr *MockSessionControlMockRecorder) TryAcquire() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryAcquire", reflect.TypeOf((*MockSessionControl)(nil).TryAcquire))
-}
-
 // MockSelectionFailure is a mock of SelectionFailure interface.
 type MockSelectionFailure struct {
 	ctrl     *gomock.Controller
@@ -552,4 +537,43 @@ func (m *MockModelCatalog) SelectReasoningChoice(choice model.ReasoningChoice) (
 func (mr *MockModelCatalogMockRecorder) SelectReasoningChoice(choice any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningChoice", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningChoice), choice)
+}
+
+// MockGate is a mock of Gate interface.
+type MockGate struct {
+	ctrl     *gomock.Controller
+	recorder *MockGateMockRecorder
+	isgomock struct{}
+}
+
+// MockGateMockRecorder is the mock recorder for MockGate.
+type MockGateMockRecorder struct {
+	mock *MockGate
+}
+
+// NewMockGate creates a new mock instance.
+func NewMockGate(ctrl *gomock.Controller) *MockGate {
+	mock := &MockGate{ctrl: ctrl}
+	mock.recorder = &MockGateMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockGate) EXPECT() *MockGateMockRecorder {
+	return m.recorder
+}
+
+// TryAcquire mocks base method.
+func (m *MockGate) TryAcquire() (func(), bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryAcquire")
+	ret0, _ := ret[0].(func())
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// TryAcquire indicates an expected call of TryAcquire.
+func (mr *MockGateMockRecorder) TryAcquire() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryAcquire", reflect.TypeOf((*MockGate)(nil).TryAcquire))
 }

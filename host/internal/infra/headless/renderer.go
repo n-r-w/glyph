@@ -8,6 +8,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
 	"github.com/samber/lo"
@@ -18,6 +21,11 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+)
+
+var (
+	_ events.ClientDelivery      = (*Renderer)(nil)
+	_ runcontrol.SettledDelivery = (*Renderer)(nil)
 )
 
 // Renderer writes headless model, tool, startup, and terminal output.

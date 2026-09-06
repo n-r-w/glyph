@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -146,7 +148,7 @@ func TestServiceRunToolUse(t *testing.T) {
 		events,
 	)
 
-	_, err := service.Run(t.Context(), Request{RunID: "run-tools", UserText: "go"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-tools", UserText: "go"})
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"provider", "call-1", "call-2", "provider"}, order)
@@ -295,7 +297,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 
 	// Act by switching the runtime while the first provider request is active.
 	go func() {
-		_, err := service.Run(t.Context(), Request{RunID: "runtime-switch", UserText: "go"})
+		_, err := service.Run(t.Context(), runcontrol.Request{RunID: "runtime-switch", UserText: "go"})
 		result <- err
 	}()
 
@@ -383,7 +385,7 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 		events,
 	)
 
-	result, err := service.Run(t.Context(), Request{RunID: "run-tool-error", UserText: "go"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-tool-error", UserText: "go"})
 
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
@@ -440,7 +442,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 		events,
 	)
 
-	result, err := service.Run(t.Context(), Request{RunID: "run-progress-error", UserText: "go"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-progress-error", UserText: "go"})
 
 	require.ErrorIs(t, err, deliveryErr)
 	assert.Equal(t, agent.RunOutcomeFailed, result.Outcome)

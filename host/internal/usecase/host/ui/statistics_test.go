@@ -21,11 +21,12 @@ func TestSessionInformationOperationReturnsCoherentStatistics(t *testing.T) {
 	// Arrange SessionControl to return one coherent information and statistics snapshot.
 	controller := gomock.NewController(t)
 	control := NewMockSessionControl(controller)
+	gate := NewMockGate(controller)
 	snapshot := session.InformationSnapshot{Info: session.Info{}, Statistics: session.Statistics{}}
 	control.EXPECT().Information().Return(snapshot)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, func(context.Context) {},
+		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
 
 		Initialization{},
 	)

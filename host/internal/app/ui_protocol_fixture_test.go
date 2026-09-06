@@ -65,6 +65,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runAuthenticationFixture(ctx, host)
 		case "semantic":
 			return runSemanticFixture(ctx, host)
+		case observerCancellationBehavior:
+			return runObserverCancellationUIFixture(t, ctx, host)
 		case "summary-control", "summary-read", "summary-blocked":
 			return runSummaryControlUIFixture(t, ctx, host)
 		case "extension-message-navigation":

@@ -36,7 +36,7 @@ func TestInitializeFailurePreservesCause(t *testing.T) {
 	activated := false
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, func(context.Context) { activated = true },
+		NewMockModelCatalog(controller), nil, nil, func(context.Context) { activated = true },
 
 		Initialization{},
 	)
@@ -69,7 +69,7 @@ func TestActivationCleanupCancelsAndJoinsAuthenticationCheck(t *testing.T) {
 	authenticator.EXPECT().IsSignInRequired(gomock.Any()).AnyTimes().Return(false)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -97,7 +97,7 @@ func TestPrepareRejectsOrdinaryOperationBeforeAuthenticationReadiness(t *testing
 	controller := gomock.NewController(t)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), NewMockSessionControl(controller), func(context.Context) {},
+		NewMockModelCatalog(controller), NewMockSessionControl(controller), nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -121,15 +121,16 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 	// Arrange one ready session and an observable mutation reservation.
 	controller := gomock.NewController(t)
 	control := NewMockSessionControl(controller)
+	gate := NewMockGate(controller)
 	released := false
-	control.EXPECT().TryAcquire().Return(func() { released = true }, true)
+	gate.EXPECT().TryAcquire().Return(func() { released = true }, true)
 	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: session.Info{
 		ID: "session", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.None[string](), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
 	}, Entries: nil}, nil)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, func(context.Context) {},
+		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -200,12 +201,13 @@ func TestPreparedFailurePreservesCategoryTextAndCause(t *testing.T) {
 	// Arrange one admitted mutation whose durable operation fails with a classified cause.
 	controller := gomock.NewController(t)
 	control := NewMockSessionControl(controller)
+	gate := NewMockGate(controller)
 	source := fmt.Errorf("create session file: %w", session.ErrPersistenceUnavailable)
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, source)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, func(context.Context) {},
+		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -252,8 +254,8 @@ func (e selectionCodeTestError) Error() string { return string(e) }
 func (e selectionCodeTestError) SelectionCode() string { return string(e) }
 
 // expectSessionMutationGate configures successful gate ownership for prepared mutation tests.
-func expectSessionMutationGate(control *MockSessionControl, times int) {
-	control.EXPECT().TryAcquire().Times(times).DoAndReturn(func() (func(), bool) { return func() {}, true })
+func expectSessionMutationGate(gate *MockGate, times int) {
+	gate.EXPECT().TryAcquire().Times(times).DoAndReturn(func() (func(), bool) { return func() {}, true })
 }
 
 // runPreparedCommand executes one admitted command and returns its completed frame.

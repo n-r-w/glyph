@@ -41,8 +41,6 @@ type Coordinator interface {
 
 // SessionControl provides client session lifecycle operations.
 type SessionControl interface {
-	// TryAcquire reserves the shared session-mutation gate for bounded preparation.
-	TryAcquire() (func(), bool)
 	// Create replaces active state while the caller owns the mutation gate.
 	Create(context.Context) (session.Replacement, error)
 	// Resume validates and replaces active state while the caller owns the mutation gate.
@@ -97,4 +95,10 @@ type ModelCatalog interface {
 	ActiveSelection() model.Selection
 	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
 	SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error)
+}
+
+// Gate reserves session mutations before operation acceptance.
+type Gate interface {
+	// TryAcquire returns a release function when the shared reservation is available.
+	TryAcquire() (func(), bool)
 }

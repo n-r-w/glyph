@@ -35,6 +35,8 @@ type Service struct {
 	historySnapshot func() []agent.HistoryEntry
 	// sessionControl owns active-session lifecycle operations.
 	sessionControl SessionControl
+	// gate owns admission against agent execution.
+	gate Gate
 	// output owns active run correlation and operation reporter binding.
 	output RunOutput
 }
@@ -48,11 +50,13 @@ func New(
 	stateQuery StateQuery,
 	historySnapshot func() []agent.HistoryEntry,
 	sessionControl SessionControl,
+	gate Gate,
 	output RunOutput,
 ) *Service {
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, stateQuery: stateQuery,
 		historySnapshot: historySnapshot,
+		gate:            gate,
 		sessionControl:  sessionControl, output: output,
 	}
 }

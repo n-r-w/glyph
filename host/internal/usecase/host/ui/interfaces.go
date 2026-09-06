@@ -57,8 +57,6 @@ type ModelCatalog interface {
 
 // SessionControl provides UI session lifecycle operations.
 type SessionControl interface {
-	// TryAcquire reserves the shared session-mutation gate for one UI mutation.
-	TryAcquire() (func(), bool)
 	// Create replaces active state with a new empty session.
 	Create(context.Context) (session.Replacement, error)
 	// Resume validates and replaces active state by opaque ID.
@@ -90,4 +88,10 @@ type Authenticator interface {
 	CheckAuthentication(ctx context.Context) error
 	SignIn(ctx context.Context) error
 	IsSignInRequired(err error) bool
+}
+
+// Gate reserves session mutations before operation acceptance.
+type Gate interface {
+	// TryAcquire returns a release function when the shared reservation is available.
+	TryAcquire() (func(), bool)
 }

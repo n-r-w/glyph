@@ -126,6 +126,7 @@ Audit responsibilities, dependency direction, interface ownership, and command a
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)
+- [Completed correction evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#implementation-evidence)
 
 ## PHS-07: Extension context and lifecycle
 

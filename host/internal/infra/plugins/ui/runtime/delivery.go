@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/samber/lo"
@@ -15,6 +18,11 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+)
+
+var (
+	_ events.ClientDelivery      = (*Service)(nil)
+	_ runcontrol.SettledDelivery = (*Service)(nil)
 )
 
 // ReportRuntimeFailure sends one classified post-start extension failure.

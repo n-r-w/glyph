@@ -17,6 +17,58 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockClientDelivery is a mock of ClientDelivery interface.
+type MockClientDelivery struct {
+	ctrl     *gomock.Controller
+	recorder *MockClientDeliveryMockRecorder
+	isgomock struct{}
+}
+
+// MockClientDeliveryMockRecorder is the mock recorder for MockClientDelivery.
+type MockClientDeliveryMockRecorder struct {
+	mock *MockClientDelivery
+}
+
+// NewMockClientDelivery creates a new mock instance.
+func NewMockClientDelivery(ctrl *gomock.Controller) *MockClientDelivery {
+	mock := &MockClientDelivery{ctrl: ctrl}
+	mock.recorder = &MockClientDeliveryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockClientDelivery) EXPECT() *MockClientDeliveryMockRecorder {
+	return m.recorder
+}
+
+// DeliverAgent mocks base method.
+func (m *MockClientDelivery) DeliverAgent(arg0 context.Context, arg1 agent.Event) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeliverAgent", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeliverAgent indicates an expected call of DeliverAgent.
+func (mr *MockClientDeliveryMockRecorder) DeliverAgent(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeliverAgent", reflect.TypeOf((*MockClientDelivery)(nil).DeliverAgent), arg0, arg1)
+}
+
+// DeliverSettled mocks base method.
+func (m *MockClientDelivery) DeliverSettled(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeliverSettled", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeliverSettled indicates an expected call of DeliverSettled.
+func (mr *MockClientDeliveryMockRecorder) DeliverSettled(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeliverSettled", reflect.TypeOf((*MockClientDelivery)(nil).DeliverSettled), arg0, arg1)
+}
+
 // MockObserver is a mock of Observer interface.
 type MockObserver struct {
 	ctrl     *gomock.Controller

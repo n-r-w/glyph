@@ -31,20 +31,10 @@ type State struct {
 	ToolPreviews map[string]model.ToolCallPreview
 }
 
-// Request starts one Host-identified user run.
-type Request struct {
-	// RunID identifies the Host-prepared run.
-	RunID string
-	// UserText contains the submitted user request.
-	UserText string
-}
-
-// Result is the terminal Agent Core run result.
-type Result struct {
+// turnResult carries the private model/tool loop outcome into the run's terminal transition.
+type turnResult struct {
 	// Outcome identifies the terminal run state.
 	Outcome agent.RunOutcome
-	// AddedHistory contains entries appended by the run.
-	AddedHistory []agent.HistoryEntry
 	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
 }

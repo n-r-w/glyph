@@ -98,7 +98,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 				testStateQuery(s.T(), false),
 				emptyHistorySnapshot,
 				nil,
-				testRunOutput(s.T()),
+				nil, testRunOutput(s.T()),
 			)
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -143,7 +143,15 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 	catalog := NewMockModelCatalog(ctrl)
-	service := New(coordinator, catalog, testStateQuery(s.T(), false), emptyHistorySnapshot, nil, testRunOutput(s.T()))
+	service := New(
+		coordinator,
+		catalog,
+		testStateQuery(s.T(), false),
+		emptyHistorySnapshot,
+		nil,
+		nil,
+		testRunOutput(s.T()),
+	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, activeOperation, err := service.handle(s.T().Context(), controller.Command{
 		OperationID:     "active",
@@ -294,7 +302,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	ctrl := gomock.NewController(s.T())
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
-		testStateQuery(s.T(), false), emptyHistorySnapshot, nil, testRunOutput(s.T()),
+		testStateQuery(s.T(), false), emptyHistorySnapshot, nil, nil, testRunOutput(s.T()),
 	)
 
 	commands := []controller.Command{
@@ -381,7 +389,7 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 			catalog := NewMockModelCatalog(ctrl)
 			service := New(
 				NewMockCoordinator(ctrl), catalog,
-				testStateQuery(s.T(), false), emptyHistorySnapshot, nil, testRunOutput(s.T()),
+				testStateQuery(s.T(), false), emptyHistorySnapshot, nil, nil, testRunOutput(s.T()),
 			)
 			catalog.EXPECT().
 				SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).

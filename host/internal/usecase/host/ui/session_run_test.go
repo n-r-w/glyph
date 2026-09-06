@@ -34,7 +34,7 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, func(context.Context) {},
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -73,7 +73,7 @@ func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
 		channel, runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -102,7 +102,7 @@ func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
 	runner.EXPECT().PrepareRun().Return("", session.ErrBusy)
 	service := NewSession(
 		NewMockOutput(controller), runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil,
-		func(context.Context) {},
+		nil, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -137,7 +137,7 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	runner.EXPECT().CancelPrepared("run")
 	authenticator.EXPECT().IsSignInRequired(source).Return(true)
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, func(context.Context) {},
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, func(context.Context) {},
 
 		Initialization{},
 	)

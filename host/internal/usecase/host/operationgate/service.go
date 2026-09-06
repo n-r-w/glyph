@@ -1,7 +1,19 @@
 // Package operationgate serializes agent runs with active-session replacement.
 package operationgate
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+)
+
+var (
+	_ runcontrol.Gate   = (*Service)(nil)
+	_ ui.Gate           = (*Service)(nil)
+	_ programmatic.Gate = (*Service)(nil)
+)
 
 // Service is one process-local nonblocking operation gate.
 type Service struct {

@@ -404,7 +404,7 @@ func (s *Session) prepareSessionOperation(
 	release := func() {}
 	if isUISessionMutation(command.Kind) {
 		var acquired bool
-		release, acquired = s.sessionControl.TryAcquire()
+		release, acquired = s.gate.TryAcquire()
 		if !acquired {
 			return nil, rejectOperation(
 				controllerui.RejectionCodeBusy,

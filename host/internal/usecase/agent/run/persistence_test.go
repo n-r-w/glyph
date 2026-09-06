@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -66,19 +68,25 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	persistErr := fmt.Errorf("%w: /secret/path user-content provider-context", ErrPersistenceUnavailable)
 	store.EXPECT().Snapshot().Return(nil).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
+	// agentEnd retains the terminal diagnostic emitted to the Host.
+	var agentEnd agent.RunSummary
 	observed := make([]agent.EventType, 0, 2)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
+		if event.Type == agent.EventAgentEnd {
+			agentEnd = event.Agent.MustGet()
+		}
 		return nil
 	}).Times(2)
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by starting a run whose first durable user entry fails.
-	result, err := service.Run(t.Context(), Request{RunID: "persist-user", UserText: "hello"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-user", UserText: "hello"})
 
-	// Assert the persistence cause reaches the terminal result before settlement.
+	// Assert the first-append failure still reports its actual settlement transition and complete cause.
+	require.True(t, result.SettlementRequired)
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	assert.Equal(t, []agent.EventType{agent.EventAgentStart, agent.EventAgentEnd}, observed)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
@@ -154,22 +162,24 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by running until persistence blocks the ToolResult boundary.
-			result, err := service.Run(t.Context(), Request{RunID: "combined-tool-failure", UserText: "write"})
+			result, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "combined-tool-failure", UserText: "write"},
+			)
 
 			// Assert every independent cause reaches the run and no dependent work follows persistence failure.
+			require.True(t, result.SettlementRequired)
 			require.ErrorIs(t, err, persistenceErr)
 			expectedPriorErr := toolErr
 			if test.progressFailure {
 				expectedPriorErr = progressErr
 			}
 			require.ErrorIs(t, err, expectedPriorErr)
-			for _, text := range []string{err.Error(), result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
+			for _, text := range []string{err.Error(), agentEnd.ErrorMessage.OrEmpty()} {
 				assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
 				assert.Equal(t, 1, strings.Count(text, expectedPriorErr.Error()), text)
 			}
-			for _, text := range []string{result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
-				assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
-			}
+			assert.True(t, strings.HasPrefix(agentEnd.ErrorMessage.OrEmpty(), ErrPersistenceUnavailable.Error()))
 			assert.NotContains(t, observed, agent.EventToolExecutionEnd)
 			assert.NotContains(t, observed, agent.EventToolResult)
 			require.Len(t, history, 2)
@@ -220,19 +230,25 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 			}, nil
 		},
 	)
+	// agentEnd retains the terminal diagnostic emitted to the Host.
+	var agentEnd agent.RunSummary
 	observed := make([]agent.EventType, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
+		if event.Type == agent.EventAgentEnd {
+			agentEnd = event.Agent.MustGet()
+		}
 		return nil
 	}).AnyTimes()
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running through one completed tool invocation whose result cannot become durable.
-	result, err := service.Run(t.Context(), Request{RunID: "persist-tool", UserText: "write"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-tool", UserText: "write"})
+	require.True(t, result.SettlementRequired)
 
 	// Assert the external effect remains complete and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
 	assert.NotContains(t, observed, agent.EventToolExecutionEnd)
 	assert.NotContains(t, observed, agent.EventToolResult)
@@ -282,19 +298,25 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 			})
 		},
 	)
+	// agentEnd retains the terminal diagnostic emitted to the Host.
+	var agentEnd agent.RunSummary
 	observed := make([]agent.EventType, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
+		if event.Type == agent.EventAgentEnd {
+			agentEnd = event.Agent.MustGet()
+		}
 		return nil
 	}).AnyTimes()
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by completing a provider response that cannot become durable.
-	result, err := service.Run(t.Context(), Request{RunID: "persist-model", UserText: "hello"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-model", UserText: "hello"})
+	require.True(t, result.SettlementRequired)
 
 	// Assert no terminal model event escapes and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
+	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	assert.NotContains(t, observed, agent.EventMessageEnd)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }

@@ -57,7 +57,7 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		output := New()
 		coordinator := host.NewMockCoordinator(ctrl)
-		service := host.New(coordinator, nil, nil, nil, nil, output)
+		service := host.New(coordinator, nil, nil, nil, nil, nil, output)
 		started := make(chan struct{})
 		delivered := make(chan struct{})
 		accept := make(chan struct{})
@@ -153,7 +153,7 @@ func TestSequentialRunsKeepPreparedRunIDs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	output := New()
 	coordinator := host.NewMockCoordinator(ctrl)
-	service := host.New(coordinator, nil, nil, nil, nil, output)
+	service := host.New(coordinator, nil, nil, nil, nil, nil, output)
 	for _, id := range []string{"first", "second"} {
 		coordinator.EXPECT().PrepareRun().Return(id, nil)
 		coordinator.EXPECT().

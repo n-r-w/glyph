@@ -28,7 +28,7 @@ func TestRunPreparationBusyPreservesRejectionClassification(t *testing.T) {
 	controllerMock := gomock.NewController(t)
 	coordinator := NewMockCoordinator(controllerMock)
 	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
-	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, testRunOutput(t))
+	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, nil, testRunOutput(t))
 
 	// Act by handling a user request while the run gate is reserved.
 	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("busy", "request"))
@@ -47,7 +47,7 @@ func TestRunPreparationInternalFailurePropagates(t *testing.T) {
 	coordinator := NewMockCoordinator(controllerMock)
 	prepareErr := errors.New("allocate unique run ID")
 	coordinator.EXPECT().PrepareRun().Return("", prepareErr)
-	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, testRunOutput(t))
+	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, nil, testRunOutput(t))
 
 	// Act by handling a valid user request.
 	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("internal", "request"))
@@ -103,7 +103,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 				testStateQuery(t, false),
 				emptyHistorySnapshot,
 				sessions,
-				testRunOutput(t),
+				nil, testRunOutput(t),
 			)
 
 			// Act by reading selection before and after replacing the active session.
@@ -206,6 +206,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			control := NewMockSessionControl(gomock.NewController(t))
+			gate := NewMockGate(gomock.NewController(t))
 			switch test.kind {
 			case controller.CommandCreateSession:
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.operationErr)
@@ -226,7 +227,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				controller.CommandForkSession, controller.CommandCloneSession, controller.CommandSetEntryLabel:
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
-			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 			response, operation, err := service.handle(t.Context(), controller.Command{
 				OperationID:     test.name,
 				Kind:            test.kind,
@@ -257,6 +258,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 
 	// Arrange session control to return an invalid stored model response.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	control.EXPECT().
 		Entries().
 		Return([]session.Entry{
@@ -273,7 +275,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 		})
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 
 	// Act by requesting the active session entries.
 	response, operation, err := service.handle(
@@ -359,8 +361,9 @@ func TestSessionLifecycleCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			control := NewMockSessionControl(gomock.NewController(t))
+			gate := NewMockGate(gomock.NewController(t))
 			test.expect(control)
-			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 
 			// Act by handling the lifecycle command through Programmatic Control.
 			response, operation, err := service.handle(t.Context(), controller.Command{

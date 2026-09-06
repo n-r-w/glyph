@@ -18,10 +18,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -35,13 +35,13 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	active := sessioncontrol.NewMockActiveSessions(controller)
 	navigator := sessioncontrol.NewMockNavigator(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, navigator, gate.TryAcquire)
+	control := sessioncontrol.New(active, navigator)
 	idleInfo := session.Info{
 		ID: "idle", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
 	active.EXPECT().CreateActive(gomock.Any()).Return(session.Replacement{Info: idleInfo, Entries: nil}, nil)
-	release, acquired := control.TryAcquire()
+	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
 	created, err := control.Create(t.Context())
 	release()
@@ -50,18 +50,41 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 
 	started := make(chan struct{})
 	settle := make(chan struct{})
-	coordinator := events.NewCoordinator(func(context.Context, agentrun.Request) (agentrun.Result, error) {
-		close(started)
-		<-settle
-		return agentrun.Result{
-			Outcome:      agent.RunOutcomeCompleted,
-			AddedHistory: nil,
-			ErrorMessage: mo.None[string](),
-		}, nil
-	}, nil, nil, gate.TryAcquire)
+
+	executor := runcontrol.NewMockExecutor(controller)
+	client := events.NewMockClientDelivery(controller)
+	observer := events.NewMockObserver(controller)
+	executor.EXPECT().
+		Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, runcontrol.Request) (runcontrol.Result, error) {
+			close(started)
+			<-settle
+			return runcontrol.Result{
+				Outcome:            agent.RunOutcomeCompleted,
+				SettlementRequired: true,
+			}, nil
+		})
+	gomock.InOrder(
+		executor.EXPECT().Settle(gomock.Any()).DoAndReturn(func(string) error {
+			_, acquired := gate.TryAcquire()
+			require.False(t, acquired, "Core settlement must retain admission")
+			return nil
+		}),
+		client.EXPECT().DeliverSettled(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, string) error {
+			_, acquired := gate.TryAcquire()
+			require.False(t, acquired, "client settlement must retain admission")
+			return nil
+		}),
+		observer.EXPECT().ObserveSettled(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, string) error {
+			_, acquired := gate.TryAcquire()
+			require.False(t, acquired, "settlement observers must retain admission")
+			return nil
+		}),
+	)
+	coordinator := runcontrol.NewCoordinator(executor, events.NewDispatcher(client, observer), gate)
 	runID, err := coordinator.PrepareRun()
 	require.NoError(t, err)
-	_, acquired = control.TryAcquire()
+	_, acquired = gate.TryAcquire()
 	require.False(t, acquired)
 	runResult := make(chan error, 1)
 	go func() {
@@ -69,7 +92,7 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		runResult <- runErr
 	}()
 	<-started
-	_, acquired = control.TryAcquire()
+	_, acquired = gate.TryAcquire()
 	require.False(t, acquired)
 	close(settle)
 	require.NoError(t, <-runResult)
@@ -81,7 +104,7 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
 		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
 	)
-	release, acquired = control.TryAcquire()
+	release, acquired = gate.TryAcquire()
 	require.True(t, acquired)
 	resumed, err := control.Resume(t.Context(), "stored")
 	release()
@@ -97,10 +120,10 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	controller := gomock.NewController(t)
 	active := sessioncontrol.NewMockActiveSessions(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, sessioncontrol.NewMockNavigator(controller), gate.TryAcquire)
+	control := sessioncontrol.New(active, sessioncontrol.NewMockNavigator(controller))
 	service := programmatic.New(
 		nil, nil, programmatic.NewMockStateQuery(controller),
-		func() []agent.HistoryEntry { return nil }, control, programmaticoutput.New(),
+		func() []agent.HistoryEntry { return nil }, control, gate, programmaticoutput.New(),
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)

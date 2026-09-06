@@ -27,6 +27,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -119,11 +120,11 @@ func runUIWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(transport.DeliverAgent, transport.DeliverSettled, lifecycleObservers)
+	dispatcher := events.NewDispatcher(transport, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
-	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
+	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
 	initialization := hostui.BuildInitialization(
 		selection.ID,
 		mapUIExtensionLoadReport(report),
@@ -136,7 +137,7 @@ func runUIWithPaths(
 		coordinator,
 		providerCatalog,
 		providerCatalog,
-		sessionServices.control,
+		sessionServices.control, sessionServices.gate,
 		func(activationContext context.Context) {
 			selectionWarningsDelivered = true
 			extensions.Activate(activationContext)

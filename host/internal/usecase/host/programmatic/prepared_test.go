@@ -27,9 +27,10 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 
 	// Arrange an admitted navigation whose production dependency blocks until its owner context is canceled.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	started := make(chan struct{})
 	var committed atomic.Bool
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			ctx context.Context,
@@ -41,7 +42,7 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 			return sessionnavigation.Result{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 	command := treeCommand("summary-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	command.SummaryMode = controller.SummaryModeSummarize
@@ -70,9 +71,10 @@ func TestPreparedOwnerCancellationStopsStoredSessionMutation(t *testing.T) {
 
 	// Arrange an admitted name mutation whose storage-backed dependency blocks until cancellation.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	started := make(chan struct{})
 	var committed atomic.Bool
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().SetName(gomock.Any(), "new name").DoAndReturn(
 		func(ctx context.Context, _ string) (session.Info, error) {
 			close(started)
@@ -80,7 +82,7 @@ func TestPreparedOwnerCancellationStopsStoredSessionMutation(t *testing.T) {
 			return session.Info{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 	command := testProgrammaticCommand("name-cancel", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("new name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -108,12 +110,13 @@ func TestPreparedDomainCanceledNavigationCompletes(t *testing.T) {
 
 	// Arrange admitted navigation that completes with a domain-canceled result.
 	control := NewMockSessionControl(gomock.NewController(t))
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate := NewMockGate(gomock.NewController(t))
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
 		Canceled: true, DestinationID: mo.None[string](), ActiveLeafID: mo.None[string](),
 		CreatedSummary: mo.None[session.Entry](), NextInput: mo.None[string](), Issues: nil,
 	}, nil)
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 	command := treeCommand("domain-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -136,9 +139,10 @@ func TestPreparedCommittedMutationWinsCancellation(t *testing.T) {
 
 	// Arrange a mutation that commits while owner cancellation races with its return.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	started := make(chan struct{})
 	var committed atomic.Bool
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().SetName(gomock.Any(), "committed name").DoAndReturn(
 		func(ctx context.Context, _ string) (session.Info, error) {
 			close(started)
@@ -147,7 +151,7 @@ func TestPreparedCommittedMutationWinsCancellation(t *testing.T) {
 			return session.Info{}, nil
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 	command := testProgrammaticCommand("name-commit", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("committed name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -175,9 +179,10 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 
 	// Arrange a mutation that returns an independent classified failure after owner cancellation.
 	control := NewMockSessionControl(gomock.NewController(t))
+	gate := NewMockGate(gomock.NewController(t))
 	started := make(chan struct{})
 	domainCause := errors.New("disk sync failed")
-	control.EXPECT().TryAcquire().Return(func() {}, true)
+	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	control.EXPECT().SetName(gomock.Any(), "failed name").DoAndReturn(
 		func(ctx context.Context, _ string) (session.Info, error) {
 			close(started)
@@ -188,7 +193,7 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 			)
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
 	command := testProgrammaticCommand("name-failure", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("failed name")
 	prepared, err := service.Prepare(t.Context(), command)

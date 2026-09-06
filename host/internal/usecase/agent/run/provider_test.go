@@ -6,6 +6,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -103,11 +105,11 @@ func TestServiceRunStop(t *testing.T) {
 		events,
 	)
 
-	result, err := service.Run(t.Context(), Request{RunID: "run-1", UserText: "hi"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-1", UserText: "hi"})
 
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
-	assert.True(t, result.ErrorMessage.IsNone())
+	assert.True(t, delivered[len(delivered)-1].Agent.MustGet().ErrorMessage.IsNone())
 	require.Len(t, service.History(), 2)
 	assert.Equal(t, mo.Some(response), service.History()[1].Model)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
@@ -135,7 +137,7 @@ func TestServiceRunStop(t *testing.T) {
 		},
 	)
 	assert.Equal(t, expectedUpdate, update)
-	_, err = service.Run(t.Context(), Request{RunID: "run-2", UserText: "blocked"})
+	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "run-2", UserText: "blocked"})
 	require.ErrorIs(t, err, ErrRunActive)
 	require.NoError(t, service.Settle("run-1"))
 	assert.Equal(t, StatusIdle, service.State().Status)
